@@ -19,6 +19,11 @@ const navItems: NavItem[] = [
     icon: <ListIcon />,
   },
   {
+    path: '/plans',
+    label: 'Plans',
+    icon: <ClipboardIcon />,
+  },
+  {
     path: '/exercises',
     label: 'Exercises',
     icon: <DumbbellIcon />,
@@ -112,6 +117,24 @@ function ListIcon(): JSX.Element {
       <line x1="3" y1="6" x2="3.01" y2="6" />
       <line x1="3" y1="12" x2="3.01" y2="12" />
       <line x1="3" y1="18" x2="3.01" y2="18" />
+    </svg>
+  );
+}
+
+function ClipboardIcon(): JSX.Element {
+  return (
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+      <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
     </svg>
   );
 }

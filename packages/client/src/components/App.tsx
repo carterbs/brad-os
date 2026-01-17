@@ -2,7 +2,12 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Box, Container, Heading, Text, Flex } from '@radix-ui/themes';
 import { BottomNav } from './Navigation';
-import { ExerciseLibraryPage } from '../pages';
+import {
+  ExerciseLibraryPage,
+  PlansPage,
+  CreatePlanPage,
+  PlanDetailPage,
+} from '../pages';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,6 +63,9 @@ function AppContent(): JSX.Element {
         <Routes>
           <Route path="/" element={<TodayPage />} />
           <Route path="/meso" element={<MesoPage />} />
+          <Route path="/plans" element={<PlansPage />} />
+          <Route path="/plans/new" element={<CreatePlanPage />} />
+          <Route path="/plans/:id" element={<PlanDetailPage />} />
           <Route path="/exercises" element={<ExerciseLibraryPage />} />
         </Routes>
       </Box>
