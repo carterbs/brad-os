@@ -1,9 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import { Box, Button, Flex, Heading, Text, Badge, Card } from '@radix-ui/themes';
 import type { LogWorkoutSetInput } from '@lifting/shared';
 import type { WorkoutWithExercises } from '../../api/workoutApi';
 import { ExerciseCard } from './ExerciseCard';
+import { RestTimer } from '../RestTimer';
+import {
+  saveTimerState,
+  loadTimerState,
+  clearTimerState,
+  calculateElapsedSeconds,
+  type TimerState,
+} from '../../utils/timerStorage';
 
 interface WorkoutViewProps {
   workout: WorkoutWithExercises;
@@ -75,6 +83,14 @@ export function WorkoutView({
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
   const [showSkipConfirm, setShowSkipConfirm] = useState(false);
 
+  // Rest timer state
+  const [activeTimer, setActiveTimer] = useState<{
+    exerciseId: number;
+    setIndex: number;
+    targetSeconds: number;
+    initialElapsed: number;
+  } | null>(null);
+
   const isDisabled =
     workout.status === 'completed' || workout.status === 'skipped';
   const canStart = workout.status === 'pending';
@@ -84,6 +100,73 @@ export function WorkoutView({
   const pendingSetsCount = workout.exercises.reduce(
     (count, ex) => count + ex.sets.filter((s) => s.status === 'pending').length,
     0
+  );
+
+  // Restore timer state from localStorage on mount
+  useEffect(() => {
+    const savedState = loadTimerState();
+    if (savedState) {
+      const elapsed = calculateElapsedSeconds(savedState.startedAt);
+      if (elapsed < savedState.targetSeconds) {
+        setActiveTimer({
+          exerciseId: savedState.exerciseId,
+          setIndex: savedState.setIndex,
+          targetSeconds: savedState.targetSeconds,
+          initialElapsed: elapsed,
+        });
+      } else {
+        // Timer has expired, clear it
+        clearTimerState();
+      }
+    }
+  }, []);
+
+  // Clear timer when workout is completed or skipped
+  useEffect(() => {
+    if (isDisabled) {
+      clearTimerState();
+      setActiveTimer(null);
+    }
+  }, [isDisabled]);
+
+  // Handler for timer dismiss
+  const handleTimerDismiss = useCallback((): void => {
+    clearTimerState();
+    setActiveTimer(null);
+  }, []);
+
+  // Wrapper for onSetLogged that starts the timer
+  const handleSetLogged = useCallback(
+    (setId: number, data: LogWorkoutSetInput): void => {
+      // Find the exercise that contains this set
+      const exercise = workout.exercises.find((ex) =>
+        ex.sets.some((s) => s.id === setId)
+      );
+
+      if (exercise) {
+        const setIndex = exercise.sets.findIndex((s) => s.id === setId);
+        const targetSeconds = exercise.rest_seconds || 60; // Default to 60s if not set
+
+        const timerState: TimerState = {
+          startedAt: Date.now(),
+          targetSeconds,
+          exerciseId: exercise.exercise_id,
+          setIndex,
+        };
+
+        saveTimerState(timerState);
+        setActiveTimer({
+          exerciseId: exercise.exercise_id,
+          setIndex,
+          targetSeconds,
+          initialElapsed: 0,
+        });
+      }
+
+      // Call the original handler
+      onSetLogged(setId, data);
+    },
+    [workout.exercises, onSetLogged]
   );
 
   const handleCompleteClick = (): void => {
@@ -154,6 +237,17 @@ export function WorkoutView({
         </Flex>
       )}
 
+      {/* Rest Timer */}
+      {activeTimer && (
+        <RestTimer
+          targetSeconds={activeTimer.targetSeconds}
+          isActive={true}
+          initialElapsed={activeTimer.initialElapsed}
+          showReset={true}
+          onDismiss={handleTimerDismiss}
+        />
+      )}
+
       {/* Exercises */}
       <Flex direction="column" gap="4">
         {workout.exercises.map((exercise) => (
@@ -161,7 +255,7 @@ export function WorkoutView({
             key={exercise.exercise_id}
             exercise={exercise}
             workoutStatus={workout.status}
-            onSetLogged={onSetLogged}
+            onSetLogged={handleSetLogged}
             onSetSkipped={onSetSkipped}
           />
         ))}

@@ -1,9 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, within, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Theme } from '@radix-ui/themes';
 import { WorkoutView } from '../WorkoutView';
 import type { WorkoutWithExercises } from '../../../api/workoutApi';
+
+// Mock the audio module
+vi.mock('../../../utils/audio', () => ({
+  playRestCompleteBeep: vi.fn(),
+}));
 
 const createMockWorkout = (
   status: 'pending' | 'in_progress' | 'completed' | 'skipped'
@@ -65,6 +70,11 @@ describe('WorkoutView', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    window.localStorage.clear();
   });
 
   it('should display workout date', () => {
@@ -401,5 +411,261 @@ describe('WorkoutView', () => {
     );
 
     expect(screen.getByTestId('skip-workout')).toHaveTextContent('Skipping...');
+  });
+
+  describe('RestTimer integration', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should not show rest timer initially', () => {
+      renderWithTheme(
+        <WorkoutView
+          workout={createMockWorkout('in_progress')}
+          onSetLogged={mockOnSetLogged}
+          onSetSkipped={mockOnSetSkipped}
+          onWorkoutStarted={mockOnWorkoutStarted}
+          onWorkoutCompleted={mockOnWorkoutCompleted}
+          onWorkoutSkipped={mockOnWorkoutSkipped}
+        />
+      );
+
+      expect(screen.queryByRole('timer')).not.toBeInTheDocument();
+    });
+
+    it('should restore timer from localStorage on mount', () => {
+      const savedState = {
+        startedAt: Date.now() - 10000, // 10 seconds ago
+        targetSeconds: 90,
+        exerciseId: 1,
+        setIndex: 0,
+      };
+
+      window.localStorage.setItem('rest-timer-state', JSON.stringify(savedState));
+
+      renderWithTheme(
+        <WorkoutView
+          workout={createMockWorkout('in_progress')}
+          onSetLogged={mockOnSetLogged}
+          onSetSkipped={mockOnSetSkipped}
+          onWorkoutStarted={mockOnWorkoutStarted}
+          onWorkoutCompleted={mockOnWorkoutCompleted}
+          onWorkoutSkipped={mockOnWorkoutSkipped}
+        />
+      );
+
+      // Timer should be visible
+      expect(screen.getByRole('timer')).toBeInTheDocument();
+    });
+
+    it('should display correct target time from restored state', () => {
+      const savedState = {
+        startedAt: Date.now(),
+        targetSeconds: 120, // 2 minutes
+        exerciseId: 1,
+        setIndex: 0,
+      };
+
+      window.localStorage.setItem('rest-timer-state', JSON.stringify(savedState));
+
+      renderWithTheme(
+        <WorkoutView
+          workout={createMockWorkout('in_progress')}
+          onSetLogged={mockOnSetLogged}
+          onSetSkipped={mockOnSetSkipped}
+          onWorkoutStarted={mockOnWorkoutStarted}
+          onWorkoutCompleted={mockOnWorkoutCompleted}
+          onWorkoutSkipped={mockOnWorkoutSkipped}
+        />
+      );
+
+      // Verify timer shows correct target time (2:00)
+      expect(screen.getByText(/2:00/)).toBeInTheDocument();
+    });
+
+    it('should dismiss timer when dismiss button is clicked', () => {
+      const savedState = {
+        startedAt: Date.now(),
+        targetSeconds: 90,
+        exerciseId: 1,
+        setIndex: 0,
+      };
+
+      window.localStorage.setItem('rest-timer-state', JSON.stringify(savedState));
+
+      renderWithTheme(
+        <WorkoutView
+          workout={createMockWorkout('in_progress')}
+          onSetLogged={mockOnSetLogged}
+          onSetSkipped={mockOnSetSkipped}
+          onWorkoutStarted={mockOnWorkoutStarted}
+          onWorkoutCompleted={mockOnWorkoutCompleted}
+          onWorkoutSkipped={mockOnWorkoutSkipped}
+        />
+      );
+
+      expect(screen.getByRole('timer')).toBeInTheDocument();
+
+      // Use fireEvent instead of userEvent with fake timers
+      const dismissButton = screen.getByRole('button', { name: /dismiss timer/i });
+      act(() => {
+        dismissButton.click();
+      });
+
+      expect(screen.queryByRole('timer')).not.toBeInTheDocument();
+      expect(window.localStorage.getItem('rest-timer-state')).toBeNull();
+    });
+
+    it('should clear timer when workout is completed', () => {
+      const savedState = {
+        startedAt: Date.now(),
+        targetSeconds: 90,
+        exerciseId: 1,
+        setIndex: 0,
+      };
+
+      window.localStorage.setItem('rest-timer-state', JSON.stringify(savedState));
+
+      const { rerender } = renderWithTheme(
+        <WorkoutView
+          workout={createMockWorkout('in_progress')}
+          onSetLogged={mockOnSetLogged}
+          onSetSkipped={mockOnSetSkipped}
+          onWorkoutStarted={mockOnWorkoutStarted}
+          onWorkoutCompleted={mockOnWorkoutCompleted}
+          onWorkoutSkipped={mockOnWorkoutSkipped}
+        />
+      );
+
+      expect(screen.getByRole('timer')).toBeInTheDocument();
+
+      // Simulate workout completion by re-rendering with completed status
+      rerender(
+        <Theme>
+          <WorkoutView
+            workout={createMockWorkout('completed')}
+            onSetLogged={mockOnSetLogged}
+            onSetSkipped={mockOnSetSkipped}
+            onWorkoutStarted={mockOnWorkoutStarted}
+            onWorkoutCompleted={mockOnWorkoutCompleted}
+            onWorkoutSkipped={mockOnWorkoutSkipped}
+          />
+        </Theme>
+      );
+
+      expect(screen.queryByRole('timer')).not.toBeInTheDocument();
+    });
+
+    it('should not restore expired timer from localStorage', () => {
+      const expiredState = {
+        startedAt: Date.now() - 120000, // 2 minutes ago
+        targetSeconds: 90, // 1.5 minute timer (should be expired)
+        exerciseId: 1,
+        setIndex: 0,
+      };
+
+      window.localStorage.setItem('rest-timer-state', JSON.stringify(expiredState));
+
+      renderWithTheme(
+        <WorkoutView
+          workout={createMockWorkout('in_progress')}
+          onSetLogged={mockOnSetLogged}
+          onSetSkipped={mockOnSetSkipped}
+          onWorkoutStarted={mockOnWorkoutStarted}
+          onWorkoutCompleted={mockOnWorkoutCompleted}
+          onWorkoutSkipped={mockOnWorkoutSkipped}
+        />
+      );
+
+      // Timer should NOT be visible because it's expired
+      expect(screen.queryByRole('timer')).not.toBeInTheDocument();
+      // localStorage should be cleared
+      expect(window.localStorage.getItem('rest-timer-state')).toBeNull();
+    });
+
+    it('should show reset button on timer', () => {
+      const savedState = {
+        startedAt: Date.now(),
+        targetSeconds: 90,
+        exerciseId: 1,
+        setIndex: 0,
+      };
+
+      window.localStorage.setItem('rest-timer-state', JSON.stringify(savedState));
+
+      renderWithTheme(
+        <WorkoutView
+          workout={createMockWorkout('in_progress')}
+          onSetLogged={mockOnSetLogged}
+          onSetSkipped={mockOnSetSkipped}
+          onWorkoutStarted={mockOnWorkoutStarted}
+          onWorkoutCompleted={mockOnWorkoutCompleted}
+          onWorkoutSkipped={mockOnWorkoutSkipped}
+        />
+      );
+
+      expect(screen.getByRole('button', { name: /reset timer/i })).toBeInTheDocument();
+    });
+
+    it('should show progress bar updating over time', () => {
+      const savedState = {
+        startedAt: Date.now(),
+        targetSeconds: 100,
+        exerciseId: 1,
+        setIndex: 0,
+      };
+
+      window.localStorage.setItem('rest-timer-state', JSON.stringify(savedState));
+
+      renderWithTheme(
+        <WorkoutView
+          workout={createMockWorkout('in_progress')}
+          onSetLogged={mockOnSetLogged}
+          onSetSkipped={mockOnSetSkipped}
+          onWorkoutStarted={mockOnWorkoutStarted}
+          onWorkoutCompleted={mockOnWorkoutCompleted}
+          onWorkoutSkipped={mockOnWorkoutSkipped}
+        />
+      );
+
+      const progressBar = screen.getByRole('progressbar');
+      expect(progressBar).toHaveAttribute('aria-valuenow', '0');
+
+      act(() => {
+        vi.advanceTimersByTime(50000);
+      });
+
+      expect(progressBar).toHaveAttribute('aria-valuenow', '50');
+    });
+
+    it('should restore timer with correct initial elapsed time', () => {
+      const now = Date.now();
+      const savedState = {
+        startedAt: now - 30000, // 30 seconds ago
+        targetSeconds: 90,
+        exerciseId: 1,
+        setIndex: 0,
+      };
+
+      window.localStorage.setItem('rest-timer-state', JSON.stringify(savedState));
+
+      renderWithTheme(
+        <WorkoutView
+          workout={createMockWorkout('in_progress')}
+          onSetLogged={mockOnSetLogged}
+          onSetSkipped={mockOnSetSkipped}
+          onWorkoutStarted={mockOnWorkoutStarted}
+          onWorkoutCompleted={mockOnWorkoutCompleted}
+          onWorkoutSkipped={mockOnWorkoutSkipped}
+        />
+      );
+
+      // Timer should show ~30 seconds elapsed
+      expect(screen.getByText('00:30')).toBeInTheDocument();
+    });
   });
 });
