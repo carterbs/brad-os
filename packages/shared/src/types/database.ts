@@ -168,3 +168,72 @@ export interface UpdateWorkoutSetDTO {
   actual_weight?: number | null;
   status?: WorkoutSetStatus;
 }
+
+// ============ Extended Types for Mesocycle Management ============
+
+// Workout with related data for display
+export interface WorkoutWithSets extends Workout {
+  sets: WorkoutSet[];
+  plan_day_name: string;
+}
+
+// Exercise info with target values for a workout
+export interface WorkoutExercise {
+  exercise_id: number;
+  exercise_name: string;
+  sets: WorkoutSet[];
+  total_sets: number;
+  completed_sets: number;
+}
+
+// Workout summary for week display
+export interface WorkoutSummary {
+  id: number;
+  plan_day_id: number;
+  plan_day_name: string;
+  day_of_week: DayOfWeek;
+  week_number: number;
+  scheduled_date: string;
+  status: WorkoutStatus;
+  exercise_count: number;
+  set_count: number;
+  completed_set_count: number;
+}
+
+// Week summary for mesocycle view
+export interface WeekSummary {
+  week_number: number;
+  is_deload: boolean;
+  workouts: WorkoutSummary[];
+  total_workouts: number;
+  completed_workouts: number;
+  skipped_workouts: number;
+}
+
+// Mesocycle with all related data
+export interface MesocycleWithDetails extends Mesocycle {
+  plan_name: string;
+  weeks: WeekSummary[];
+  total_workouts: number;
+  completed_workouts: number;
+}
+
+// Request types for mesocycle creation
+export interface CreateMesocycleRequest {
+  plan_id: number;
+  start_date: string;
+}
+
+// Plan with days and exercises for mesocycle creation
+export interface PlanWithDays extends Plan {
+  days: PlanDayWithExercises[];
+}
+
+export interface PlanDayWithExercises extends PlanDay {
+  exercises: PlanDayExerciseWithDetails[];
+}
+
+export interface PlanDayExerciseWithDetails extends PlanDayExercise {
+  exercise_name: string;
+  weight_increment: number;
+}

@@ -43,7 +43,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
     }
   }
 
-  return (result as ApiResponse<T>).data;
+  return (result).data;
 }
 
 async function handleDeleteResponse(response: Response): Promise<void> {

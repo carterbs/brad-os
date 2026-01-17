@@ -1,13 +1,22 @@
-import { Router, type Request, type Response, type NextFunction } from 'express';
+import {
+  Router,
+  type Request,
+  type Response,
+  type NextFunction,
+} from 'express';
 import {
   createMesocycleSchema,
-  updateMesocycleSchema,
   type ApiResponse,
   type Mesocycle,
+  type MesocycleWithDetails,
 } from '@lifting/shared';
 import { validate } from '../middleware/validate.js';
-import { NotFoundError } from '../middleware/error-handler.js';
-import { getMesocycleRepository } from '../repositories/index.js';
+import {
+  NotFoundError,
+  ValidationError,
+  ConflictError,
+} from '../middleware/error-handler.js';
+import { getMesocycleService } from '../services/index.js';
 
 export const mesocycleRouter = Router();
 
@@ -16,8 +25,8 @@ mesocycleRouter.get(
   '/',
   (_req: Request, res: Response, next: NextFunction): void => {
     try {
-      const repository = getMesocycleRepository();
-      const mesocycles = repository.findAll();
+      const service = getMesocycleService();
+      const mesocycles = service.list();
 
       const response: ApiResponse<Mesocycle[]> = {
         success: true,
@@ -35,12 +44,12 @@ mesocycleRouter.get(
   '/active',
   (_req: Request, res: Response, next: NextFunction): void => {
     try {
-      const repository = getMesocycleRepository();
-      const mesocycles = repository.findActive();
+      const service = getMesocycleService();
+      const mesocycle = service.getActive();
 
-      const response: ApiResponse<Mesocycle[]> = {
+      const response: ApiResponse<MesocycleWithDetails | null> = {
         success: true,
-        data: mesocycles,
+        data: mesocycle,
       };
       res.json(response);
     } catch (error) {
@@ -54,20 +63,20 @@ mesocycleRouter.get(
   '/:id',
   (req: Request, res: Response, next: NextFunction): void => {
     try {
-      const repository = getMesocycleRepository();
+      const service = getMesocycleService();
       const id = parseInt(req.params['id'] ?? '', 10);
 
       if (isNaN(id)) {
         throw new NotFoundError('Mesocycle', req.params['id'] ?? 'unknown');
       }
 
-      const mesocycle = repository.findById(id);
+      const mesocycle = service.getById(id);
 
       if (!mesocycle) {
         throw new NotFoundError('Mesocycle', id);
       }
 
-      const response: ApiResponse<Mesocycle> = {
+      const response: ApiResponse<MesocycleWithDetails> = {
         success: true,
         data: mesocycle,
       };
@@ -84,8 +93,8 @@ mesocycleRouter.post(
   validate(createMesocycleSchema),
   (req: Request, res: Response, next: NextFunction): void => {
     try {
-      const repository = getMesocycleRepository();
-      const mesocycle = repository.create(req.body);
+      const service = getMesocycleService();
+      const mesocycle = service.create(req.body);
 
       const response: ApiResponse<Mesocycle> = {
         success: true,
@@ -93,29 +102,39 @@ mesocycleRouter.post(
       };
       res.status(201).json(response);
     } catch (error) {
+      // Convert service errors to HTTP errors
+      if (error instanceof Error) {
+        if (error.message.includes('not found')) {
+          next(new NotFoundError('Plan', req.body.plan_id));
+          return;
+        }
+        if (error.message.includes('already exists')) {
+          next(new ConflictError(error.message));
+          return;
+        }
+        if (error.message.includes('no workout days')) {
+          next(new ValidationError(error.message));
+          return;
+        }
+      }
       next(error);
     }
   }
 );
 
-// PUT /api/mesocycles/:id
+// PUT /api/mesocycles/:id/complete
 mesocycleRouter.put(
-  '/:id',
-  validate(updateMesocycleSchema),
+  '/:id/complete',
   (req: Request, res: Response, next: NextFunction): void => {
     try {
-      const repository = getMesocycleRepository();
+      const service = getMesocycleService();
       const id = parseInt(req.params['id'] ?? '', 10);
 
       if (isNaN(id)) {
         throw new NotFoundError('Mesocycle', req.params['id'] ?? 'unknown');
       }
 
-      const mesocycle = repository.update(id, req.body);
-
-      if (!mesocycle) {
-        throw new NotFoundError('Mesocycle', id);
-      }
+      const mesocycle = service.complete(id);
 
       const response: ApiResponse<Mesocycle> = {
         success: true,
@@ -123,31 +142,63 @@ mesocycleRouter.put(
       };
       res.json(response);
     } catch (error) {
+      // Convert service errors to HTTP errors
+      if (error instanceof Error) {
+        if (error.message.includes('not found')) {
+          next(
+            new NotFoundError(
+              'Mesocycle',
+              req.params['id'] ?? 'unknown'
+            )
+          );
+          return;
+        }
+        if (error.message.includes('not active')) {
+          next(new ValidationError(error.message));
+          return;
+        }
+      }
       next(error);
     }
   }
 );
 
-// DELETE /api/mesocycles/:id
-mesocycleRouter.delete(
-  '/:id',
+// PUT /api/mesocycles/:id/cancel
+mesocycleRouter.put(
+  '/:id/cancel',
   (req: Request, res: Response, next: NextFunction): void => {
     try {
-      const repository = getMesocycleRepository();
+      const service = getMesocycleService();
       const id = parseInt(req.params['id'] ?? '', 10);
 
       if (isNaN(id)) {
         throw new NotFoundError('Mesocycle', req.params['id'] ?? 'unknown');
       }
 
-      const deleted = repository.delete(id);
+      const mesocycle = service.cancel(id);
 
-      if (!deleted) {
-        throw new NotFoundError('Mesocycle', id);
-      }
-
-      res.status(204).send();
+      const response: ApiResponse<Mesocycle> = {
+        success: true,
+        data: mesocycle,
+      };
+      res.json(response);
     } catch (error) {
+      // Convert service errors to HTTP errors
+      if (error instanceof Error) {
+        if (error.message.includes('not found')) {
+          next(
+            new NotFoundError(
+              'Mesocycle',
+              req.params['id'] ?? 'unknown'
+            )
+          );
+          return;
+        }
+        if (error.message.includes('not active')) {
+          next(new ValidationError(error.message));
+          return;
+        }
+      }
       next(error);
     }
   }

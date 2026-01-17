@@ -33,7 +33,7 @@ export function CreatePlanPage(): JSX.Element {
         // Create exercises for this day
         for (let i = 0; i < dayData.exercises.length; i++) {
           const exerciseData = dayData.exercises[i];
-          if (exerciseData && exerciseData.exerciseId) {
+          if (exerciseData?.exerciseId) {
             await createPlanDayExercise.mutateAsync({
               planId: plan.id,
               dayId: planDay.id,

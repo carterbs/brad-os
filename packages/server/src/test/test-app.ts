@@ -8,6 +8,7 @@ import { migrations } from '../db/migrations/index.js';
 import { seedDefaultExercises } from '../db/seed.js';
 import { setTestDatabase } from '../db/index.js';
 import { resetRepositories } from '../repositories/index.js';
+import { resetServices } from '../services/index.js';
 
 export interface TestContext {
   app: Express;
@@ -29,8 +30,9 @@ export function createTestDatabase(withSeeds = true): Database.Database {
 }
 
 export function setupTestApp(withSeeds = true): TestContext {
-  // Reset repository singletons to ensure fresh instances
+  // Reset repository and service singletons to ensure fresh instances
   resetRepositories();
+  resetServices();
 
   // Create and set test database
   const db = createTestDatabase(withSeeds);
@@ -65,6 +67,7 @@ export function teardownTestApp(ctx: TestContext): void {
   // Reset the test database
   setTestDatabase(null);
   resetRepositories();
+  resetServices();
 
   // Close the database connection
   ctx.db.close();
