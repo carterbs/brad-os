@@ -2,6 +2,7 @@ import type {
   Mesocycle,
   MesocycleWithDetails,
   CreateMesocycleRequest,
+  NextWeekResponse,
   ApiResponse,
   ApiError,
 } from '@lifting/shared';
@@ -97,5 +98,13 @@ export const mesocycleApi = {
       method: 'PUT',
     });
     return handleResponse<Mesocycle>(response);
+  },
+
+  /**
+   * Get next week progression preview for a mesocycle
+   */
+  getNextWeekProgression: async (id: number): Promise<NextWeekResponse> => {
+    const response = await fetch(`${API_BASE}/mesocycles/${id}/next-week`);
+    return handleResponse<NextWeekResponse>(response);
   },
 };
