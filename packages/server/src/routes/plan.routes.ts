@@ -17,7 +17,10 @@ import {
   getPlanRepository,
   getPlanDayRepository,
   getPlanDayExerciseRepository,
+  getMesocycleRepository,
+  getExerciseRepository,
 } from '../repositories/index.js';
+import { getPlanModificationService } from '../services/index.js';
 
 export const planRouter = Router();
 
@@ -97,17 +100,55 @@ planRouter.put(
   validate(updatePlanSchema),
   (req: Request, res: Response, next: NextFunction): void => {
     try {
-      const repository = getPlanRepository();
+      const planRepository = getPlanRepository();
+      const planDayRepository = getPlanDayRepository();
+      const planDayExerciseRepository = getPlanDayExerciseRepository();
+      const mesocycleRepository = getMesocycleRepository();
+      const exerciseRepository = getExerciseRepository();
+      const planModificationService = getPlanModificationService();
+
       const id = parseInt(req.params['id'] ?? '', 10);
 
       if (isNaN(id)) {
         throw new NotFoundError('Plan', req.params['id'] ?? 'unknown');
       }
 
-      const plan = repository.update(id, req.body);
+      // Get the existing plan
+      const existingPlan = planRepository.findById(id);
+      if (!existingPlan) {
+        throw new NotFoundError('Plan', id);
+      }
+
+      // Check for active mesocycle
+      const mesocycles = mesocycleRepository.findByPlanId(id);
+      const activeMesocycle = mesocycles.find((m) => m.status === 'active');
+
+      // Update the plan
+      const plan = planRepository.update(id, req.body);
 
       if (!plan) {
         throw new NotFoundError('Plan', id);
+      }
+
+      // If there's an active mesocycle, sync plan state to future workouts
+      if (activeMesocycle) {
+        const planDays = planDayRepository.findByPlanId(id);
+
+        // Build exercise map for lookups
+        const allExercises = exerciseRepository.findAll();
+        const exerciseMap = new Map(allExercises.map((e) => [e.id, e]));
+
+        // Sync each plan day's exercises to matching workouts
+        for (const day of planDays) {
+          const planExercises = planDayExerciseRepository.findByPlanDayId(day.id);
+
+          planModificationService.syncPlanToMesocycle(
+            activeMesocycle.id,
+            day.id,
+            planExercises,
+            exerciseMap
+          );
+        }
       }
 
       const response: ApiResponse<Plan> = {

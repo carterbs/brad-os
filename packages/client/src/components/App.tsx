@@ -8,6 +8,7 @@ import {
   PlansPage,
   CreatePlanPage,
   PlanDetailPage,
+  EditPlanPage,
   TodayPage,
 } from '../pages';
 import { usePlans } from '../hooks/usePlans';
@@ -90,6 +91,7 @@ function AppContent(): JSX.Element {
           <Route path="/plans" element={<PlansPage />} />
           <Route path="/plans/new" element={<CreatePlanPage />} />
           <Route path="/plans/:id" element={<PlanDetailPage />} />
+          <Route path="/plans/:id/edit" element={<EditPlanPage />} />
           <Route path="/exercises" element={<ExerciseLibraryPage />} />
         </Routes>
       </Box>

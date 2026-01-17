@@ -5,12 +5,15 @@ import { WorkoutSetService } from './workout-set.service.js';
 import { WorkoutService } from './workout.service.js';
 import { ProgressionService } from './progression.service.js';
 import { DeloadService } from './deload.service.js';
+import { PlanModificationService } from './plan-modification.service.js';
+import { createRepositories } from '../repositories/index.js';
 
 export { MesocycleService } from './mesocycle.service.js';
 export { WorkoutSetService } from './workout-set.service.js';
 export { WorkoutService } from './workout.service.js';
 export { ProgressionService } from './progression.service.js';
 export { DeloadService } from './deload.service.js';
+export { PlanModificationService } from './plan-modification.service.js';
 export type {
   WorkoutWithExercises,
   WorkoutExerciseWithSets,
@@ -22,6 +25,7 @@ let workoutSetService: WorkoutSetService | null = null;
 let workoutService: WorkoutService | null = null;
 let progressionService: ProgressionService | null = null;
 let deloadService: DeloadService | null = null;
+let planModificationService: PlanModificationService | null = null;
 
 // Reset all service singletons (for testing)
 export function resetServices(): void {
@@ -30,6 +34,7 @@ export function resetServices(): void {
   workoutService = null;
   progressionService = null;
   deloadService = null;
+  planModificationService = null;
 }
 
 export function getMesocycleService(): MesocycleService {
@@ -67,6 +72,17 @@ export function getDeloadService(): DeloadService {
   return deloadService;
 }
 
+export function getPlanModificationService(): PlanModificationService {
+  if (!planModificationService) {
+    const repos = createRepositories(getDatabase());
+    planModificationService = new PlanModificationService(
+      repos,
+      getProgressionService()
+    );
+  }
+  return planModificationService;
+}
+
 // Helper to create services with a custom database (useful for testing)
 export function createServices(db: Database): {
   mesocycle: MesocycleService;
@@ -74,12 +90,16 @@ export function createServices(db: Database): {
   workout: WorkoutService;
   progression: ProgressionService;
   deload: DeloadService;
+  planModification: PlanModificationService;
 } {
+  const repos = createRepositories(db);
+  const progression = new ProgressionService();
   return {
     mesocycle: new MesocycleService(db),
     workoutSet: new WorkoutSetService(db),
     workout: new WorkoutService(db),
-    progression: new ProgressionService(),
+    progression,
     deload: new DeloadService(),
+    planModification: new PlanModificationService(repos, progression),
   };
 }

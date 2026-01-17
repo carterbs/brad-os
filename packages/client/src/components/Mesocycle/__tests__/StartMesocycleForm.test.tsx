@@ -97,7 +97,7 @@ describe('StartMesocycleForm', () => {
   it('should default start date to today', () => {
     renderWithTheme(<StartMesocycleForm plans={mockPlans} onSubmit={vi.fn()} />);
 
-    const input = screen.getByTestId('start-date-input') as HTMLInputElement;
+    const input = screen.getByTestId('start-date-input');
     const today = new Date();
     const expectedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 

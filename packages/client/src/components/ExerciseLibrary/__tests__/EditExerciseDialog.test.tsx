@@ -59,8 +59,8 @@ describe('EditExerciseDialog', () => {
       <EditExerciseDialog exercise={mockExercise} onClose={() => {}} />
     );
 
-    const nameInput = screen.getByLabelText(/Exercise Name/i) as HTMLInputElement;
-    const incrementInput = screen.getByLabelText(/Weight Increment/i) as HTMLInputElement;
+    const nameInput = screen.getByLabelText(/Exercise Name/i);
+    const incrementInput = screen.getByLabelText(/Weight Increment/i);
 
     expect(nameInput.value).toBe('Custom Squat');
     expect(incrementInput.value).toBe('10');

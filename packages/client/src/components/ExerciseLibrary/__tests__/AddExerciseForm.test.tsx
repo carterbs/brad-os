@@ -59,7 +59,7 @@ describe('AddExerciseForm', () => {
 
   it('should render weight increment input with default value of 5', () => {
     renderWithProviders(<AddExerciseForm />);
-    const input = screen.getByLabelText(/Weight Increment/i) as HTMLInputElement;
+    const input = screen.getByLabelText(/Weight Increment/i);
     expect(input).toBeInTheDocument();
     expect(input.value).toBe('5');
   });
