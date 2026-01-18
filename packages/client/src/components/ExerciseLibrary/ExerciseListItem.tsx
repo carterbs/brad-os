@@ -1,4 +1,4 @@
-import { Box, Flex, Text, Badge, IconButton } from '@radix-ui/themes';
+import { Box, Flex, Text, IconButton } from '@radix-ui/themes';
 import type { Exercise } from '@lifting/shared';
 
 interface ExerciseListItemProps {
@@ -24,32 +24,23 @@ export function ExerciseListItem({
     >
       <Flex justify="between" align="center">
         <Flex direction="column" gap="1">
-          <Flex gap="2" align="center">
-            <Text weight="medium">{exercise.name}</Text>
-            <Badge
-              color={exercise.is_custom ? 'blue' : 'gray'}
-              variant="soft"
-              size="1"
-            >
-              {exercise.is_custom ? 'Custom' : 'Built-in'}
-            </Badge>
-          </Flex>
+          <Text weight="medium">{exercise.name}</Text>
           <Text size="1" color="gray">
             +{exercise.weight_increment} lbs per progression
           </Text>
         </Flex>
 
-        {exercise.is_custom && (
-          <Flex gap="2">
-            <IconButton
-              size="1"
-              variant="ghost"
-              color="gray"
-              aria-label="Edit exercise"
-              onClick={() => onEdit?.(exercise)}
-            >
-              <EditIcon />
-            </IconButton>
+        <Flex gap="2">
+          <IconButton
+            size="1"
+            variant="ghost"
+            color="gray"
+            aria-label="Edit exercise"
+            onClick={() => onEdit?.(exercise)}
+          >
+            <EditIcon />
+          </IconButton>
+          {exercise.is_custom && (
             <IconButton
               size="1"
               variant="ghost"
@@ -59,8 +50,8 @@ export function ExerciseListItem({
             >
               <TrashIcon />
             </IconButton>
-          </Flex>
-        )}
+          )}
+        </Flex>
       </Flex>
     </Box>
   );
