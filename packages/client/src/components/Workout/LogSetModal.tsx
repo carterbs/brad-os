@@ -81,7 +81,7 @@ export function LogSetModal({
           className="dialog-content"
           data-testid="log-set-modal"
           style={{
-            backgroundColor: 'var(--color-background)',
+            backgroundColor: 'var(--gray-1)',
             borderRadius: 'var(--radius-3)',
             padding: '24px',
             position: 'fixed',
