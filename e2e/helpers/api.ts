@@ -326,6 +326,28 @@ export class ApiHelper {
     return json.data;
   }
 
+  async getWorkouts(): Promise<Workout[]> {
+    const response = await this.request.get(`${this.apiUrl}/workouts`);
+
+    if (!response.ok()) {
+      throw new Error(`Failed to get workouts: ${response.status()}`);
+    }
+
+    const json = (await response.json()) as ApiResponse<Workout[]>;
+    return json.data;
+  }
+
+  async getWorkoutById(id: number): Promise<WorkoutWithExercises> {
+    const response = await this.request.get(`${this.apiUrl}/workouts/${id}`);
+
+    if (!response.ok()) {
+      throw new Error(`Failed to get workout: ${response.status()}`);
+    }
+
+    const json = (await response.json()) as ApiResponse<WorkoutWithExercises>;
+    return json.data;
+  }
+
   async startWorkout(id: number): Promise<Workout> {
     const response = await this.request.put(
       `${this.apiUrl}/workouts/${id}/start`

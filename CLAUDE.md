@@ -182,3 +182,12 @@ useWorkout.test.ts
 3. Start with types/schemas in `packages/shared/`
 4. Run full test suite before considering complete
 5. Never use `any` - find or create proper types
+
+## Implementation Best Practices
+
+- **Read before acting**: Always read existing code/specs before implementing. Don't work blind.
+- **Explicit paths over vague instructions**: Reference exact file paths, not "look at existing patterns."
+- **Commit after each phase**: Don't batch commits at the end. Smaller commits = easier rollback.
+- **Validate before committing**: Run `npm run lint -- --fix` and `npm test` before every commit.
+- **Shared types go in shared**: Put types used by both client and server in `packages/shared/src/types/`. Import from `@lifting/shared`.
+- **Use vitest, not jest**: Follow existing test patterns with `@testing-library/react` and `msw` for mocks.
