@@ -1,21 +1,26 @@
 import { useState, useEffect } from 'react';
-import { Flex, Text, TextField, Checkbox } from '@radix-ui/themes';
+import { Flex, Text, TextField, Checkbox, IconButton } from '@radix-ui/themes';
+import { TrashIcon } from '@radix-ui/react-icons';
 import type { WorkoutSet, WorkoutStatus, LogWorkoutSetInput } from '@lifting/shared';
 
 interface SetRowProps {
   set: WorkoutSet;
   workoutStatus: WorkoutStatus;
   isActive: boolean;
+  canRemove?: boolean | undefined;
   onLog: (data: LogWorkoutSetInput) => void;
   onUnlog: () => void;
+  onRemove?: (() => void) | undefined;
 }
 
 export function SetRow({
   set,
   workoutStatus,
   isActive,
+  canRemove,
   onLog,
   onUnlog,
+  onRemove,
 }: SetRowProps): JSX.Element {
   const isDisabled = workoutStatus === 'completed' || workoutStatus === 'skipped';
   const isLogged = set.status === 'completed';
@@ -131,6 +136,22 @@ export function SetRow({
         disabled={isDisabled || isSkipped}
         size="3"
       />
+
+      {/* Remove button - only shown for removable pending sets */}
+      {canRemove === true && set.status === 'pending' && onRemove !== undefined && (
+        <IconButton
+          data-testid={`remove-set-${set.id}`}
+          variant="ghost"
+          color="red"
+          size="1"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+        >
+          <TrashIcon />
+        </IconButton>
+      )}
     </Flex>
   );
 }

@@ -511,3 +511,85 @@ workoutRouter.delete(
     }
   }
 );
+
+// ============ Add/Remove Sets ============
+
+// POST /api/workouts/:workoutId/exercises/:exerciseId/sets/add
+workoutRouter.post(
+  '/:workoutId/exercises/:exerciseId/sets/add',
+  (req: Request, res: Response, next: NextFunction): void => {
+    try {
+      const service = getWorkoutSetService();
+      const workoutId = parseInt(req.params['workoutId'] ?? '', 10);
+      const exerciseId = parseInt(req.params['exerciseId'] ?? '', 10);
+
+      if (isNaN(workoutId)) {
+        throw new NotFoundError('Workout', req.params['workoutId'] ?? 'unknown');
+      }
+
+      if (isNaN(exerciseId)) {
+        throw new NotFoundError('Exercise', req.params['exerciseId'] ?? 'unknown');
+      }
+
+      const result = service.addSetToExercise(workoutId, exerciseId);
+
+      const response: ApiResponse<typeof result> = {
+        success: true,
+        data: result,
+      };
+      res.status(201).json(response);
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message.includes('not found')) {
+          return next(
+            new NotFoundError('Workout or Exercise', `${req.params['workoutId']}/${req.params['exerciseId']}`)
+          );
+        }
+        if (error.message.includes('Cannot')) {
+          return next(new ValidationError(error.message));
+        }
+      }
+      next(error);
+    }
+  }
+);
+
+// DELETE /api/workouts/:workoutId/exercises/:exerciseId/sets/remove
+workoutRouter.delete(
+  '/:workoutId/exercises/:exerciseId/sets/remove',
+  (req: Request, res: Response, next: NextFunction): void => {
+    try {
+      const service = getWorkoutSetService();
+      const workoutId = parseInt(req.params['workoutId'] ?? '', 10);
+      const exerciseId = parseInt(req.params['exerciseId'] ?? '', 10);
+
+      if (isNaN(workoutId)) {
+        throw new NotFoundError('Workout', req.params['workoutId'] ?? 'unknown');
+      }
+
+      if (isNaN(exerciseId)) {
+        throw new NotFoundError('Exercise', req.params['exerciseId'] ?? 'unknown');
+      }
+
+      const result = service.removeSetFromExercise(workoutId, exerciseId);
+
+      const response: ApiResponse<typeof result> = {
+        success: true,
+        data: result,
+      };
+      res.json(response);
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message.includes('not found')) {
+          return next(
+            new NotFoundError('Workout or Exercise', `${req.params['workoutId']}/${req.params['exerciseId']}`)
+          );
+        }
+        if (error.message.includes('Cannot') || error.message.includes('No pending')) {
+          return next(new ValidationError(error.message));
+        }
+      }
+      next(error);
+    }
+  }
+);

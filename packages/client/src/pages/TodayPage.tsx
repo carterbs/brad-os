@@ -1,6 +1,7 @@
+import { useCallback } from 'react';
 import { Container, Flex, Heading, Box, Text, Spinner } from '@radix-ui/themes';
 import { WorkoutView } from '../components/Workout';
-import { useWorkoutTracking } from '../hooks/useWorkout';
+import { useWorkoutTracking, useAddSet, useRemoveSet } from '../hooks/useWorkout';
 
 export function TodayPage(): JSX.Element {
   const {
@@ -16,6 +17,27 @@ export function TodayPage(): JSX.Element {
     isCompleting,
     isSkippingWorkout,
   } = useWorkoutTracking();
+
+  const addSetMutation = useAddSet();
+  const removeSetMutation = useRemoveSet();
+
+  const handleAddSet = useCallback(
+    (exerciseId: number) => {
+      if (workout) {
+        addSetMutation.mutate({ workoutId: workout.id, exerciseId });
+      }
+    },
+    [workout, addSetMutation]
+  );
+
+  const handleRemoveSet = useCallback(
+    (exerciseId: number) => {
+      if (workout) {
+        removeSetMutation.mutate({ workoutId: workout.id, exerciseId });
+      }
+    },
+    [workout, removeSetMutation]
+  );
 
   if (isLoading) {
     return (
@@ -75,6 +97,8 @@ export function TodayPage(): JSX.Element {
           workout={workout}
           onSetLogged={(setId, data) => logSet(setId, data)}
           onSetUnlogged={(setId) => unlogSet(setId)}
+          onAddSet={handleAddSet}
+          onRemoveSet={handleRemoveSet}
           onWorkoutStarted={startWorkout}
           onWorkoutCompleted={completeWorkout}
           onWorkoutSkipped={skipWorkout}

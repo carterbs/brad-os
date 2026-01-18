@@ -16,12 +16,14 @@ interface WorkoutViewProps {
   workout: WorkoutWithExercises;
   onSetLogged: (setId: number, data: LogWorkoutSetInput) => void;
   onSetUnlogged: (setId: number) => void;
+  onAddSet?: ((exerciseId: number) => void) | undefined;
+  onRemoveSet?: ((exerciseId: number) => void) | undefined;
   onWorkoutStarted: () => void;
   onWorkoutCompleted: () => void;
   onWorkoutSkipped: () => void;
-  isStarting?: boolean;
-  isCompleting?: boolean;
-  isSkipping?: boolean;
+  isStarting?: boolean | undefined;
+  isCompleting?: boolean | undefined;
+  isSkipping?: boolean | undefined;
 }
 
 function formatDate(dateString: string): string {
@@ -83,6 +85,8 @@ export function WorkoutView({
   workout,
   onSetLogged,
   onSetUnlogged,
+  onAddSet,
+  onRemoveSet,
   onWorkoutStarted,
   onWorkoutCompleted,
   onWorkoutSkipped,
@@ -297,6 +301,8 @@ export function WorkoutView({
             activeSetId={activeSetId}
             onSetLogged={handleSetLogged}
             onSetUnlogged={onSetUnlogged}
+            onAddSet={onAddSet !== undefined ? (): void => onAddSet(exercise.exercise_id) : undefined}
+            onRemoveSet={onRemoveSet !== undefined ? (): void => onRemoveSet(exercise.exercise_id) : undefined}
             onActivate={() => setActiveExerciseId(exercise.exercise_id)}
           />
         ))}

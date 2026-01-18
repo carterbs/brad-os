@@ -5,6 +5,7 @@ import type {
   ApiResponse,
   ApiError,
   LogWorkoutSetInput,
+  ModifySetCountResult,
 } from '@lifting/shared';
 import {
   ApiClientError,
@@ -131,5 +132,35 @@ export const workoutApi = {
       method: 'PUT',
     });
     return handleResponse<WorkoutSet>(response);
+  },
+
+  /**
+   * Add a new set to an exercise in a workout
+   * Copies target values from the last set and propagates to future workouts
+   */
+  addSet: async (
+    workoutId: number,
+    exerciseId: number
+  ): Promise<ModifySetCountResult> => {
+    const response = await fetch(
+      `${API_BASE}/workouts/${workoutId}/exercises/${exerciseId}/sets/add`,
+      { method: 'POST' }
+    );
+    return handleResponse<ModifySetCountResult>(response);
+  },
+
+  /**
+   * Remove the last pending set from an exercise in a workout
+   * Propagates the change to future workouts
+   */
+  removeSet: async (
+    workoutId: number,
+    exerciseId: number
+  ): Promise<ModifySetCountResult> => {
+    const response = await fetch(
+      `${API_BASE}/workouts/${workoutId}/exercises/${exerciseId}/sets/remove`,
+      { method: 'DELETE' }
+    );
+    return handleResponse<ModifySetCountResult>(response);
   },
 };

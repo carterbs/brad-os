@@ -5,7 +5,7 @@ import {
   type UseQueryResult,
   type UseMutationResult,
 } from '@tanstack/react-query';
-import type { Workout, WorkoutSet, LogWorkoutSetInput } from '@lifting/shared';
+import type { Workout, WorkoutSet, LogWorkoutSetInput, ModifySetCountResult } from '@lifting/shared';
 import {
   workoutApi,
   type WorkoutWithExercises,
@@ -405,6 +405,148 @@ export function useUnlogSet(): UseMutationResult<
 
       // Remove the set from localStorage
       removeSet(workoutId, setId);
+
+      return { previousWorkout };
+    },
+    onError: (_error, { workoutId }, context) => {
+      if (context?.previousWorkout) {
+        queryClient.setQueryData(
+          workoutKeys.detail(workoutId),
+          context.previousWorkout
+        );
+        queryClient.setQueryData(workoutKeys.today(), context.previousWorkout);
+      }
+    },
+    onSettled: (_data, _error, { workoutId }) => {
+      void queryClient.invalidateQueries({
+        queryKey: workoutKeys.detail(workoutId),
+      });
+      void queryClient.invalidateQueries({ queryKey: workoutKeys.today() });
+    },
+  });
+}
+
+/**
+ * Hook for adding a set to an exercise
+ */
+export function useAddSet(): UseMutationResult<
+  ModifySetCountResult,
+  ApiClientError,
+  { workoutId: number; exerciseId: number },
+  { previousWorkout: WorkoutWithExercises | null | undefined }
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ workoutId, exerciseId }) =>
+      workoutApi.addSet(workoutId, exerciseId),
+    onMutate: async ({ workoutId, exerciseId }) => {
+      await queryClient.cancelQueries({ queryKey: workoutKeys.detail(workoutId) });
+      await queryClient.cancelQueries({ queryKey: workoutKeys.today() });
+
+      const previousWorkout = queryClient.getQueryData<WorkoutWithExercises>(
+        workoutKeys.detail(workoutId)
+      );
+
+      // Optimistically update the workout by adding a new set
+      if (previousWorkout) {
+        const optimisticWorkout: WorkoutWithExercises = {
+          ...previousWorkout,
+          exercises: previousWorkout.exercises.map((ex) => {
+            if (ex.exercise_id !== exerciseId) return ex;
+
+            const lastSet = ex.sets[ex.sets.length - 1];
+            if (!lastSet) return ex;
+
+            const newSet = {
+              id: -Date.now(), // Temporary negative ID
+              workout_id: workoutId,
+              exercise_id: exerciseId,
+              set_number: lastSet.set_number + 1,
+              target_reps: lastSet.target_reps,
+              target_weight: lastSet.target_weight,
+              actual_reps: null,
+              actual_weight: null,
+              status: 'pending' as const,
+            };
+
+            return {
+              ...ex,
+              sets: [...ex.sets, newSet],
+              total_sets: ex.total_sets + 1,
+            };
+          }),
+        };
+        queryClient.setQueryData(workoutKeys.detail(workoutId), optimisticWorkout);
+        queryClient.setQueryData(workoutKeys.today(), optimisticWorkout);
+      }
+
+      return { previousWorkout };
+    },
+    onError: (_error, { workoutId }, context) => {
+      if (context?.previousWorkout) {
+        queryClient.setQueryData(
+          workoutKeys.detail(workoutId),
+          context.previousWorkout
+        );
+        queryClient.setQueryData(workoutKeys.today(), context.previousWorkout);
+      }
+    },
+    onSettled: (_data, _error, { workoutId }) => {
+      void queryClient.invalidateQueries({
+        queryKey: workoutKeys.detail(workoutId),
+      });
+      void queryClient.invalidateQueries({ queryKey: workoutKeys.today() });
+    },
+  });
+}
+
+/**
+ * Hook for removing a set from an exercise
+ */
+export function useRemoveSet(): UseMutationResult<
+  ModifySetCountResult,
+  ApiClientError,
+  { workoutId: number; exerciseId: number },
+  { previousWorkout: WorkoutWithExercises | null | undefined }
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ workoutId, exerciseId }) =>
+      workoutApi.removeSet(workoutId, exerciseId),
+    onMutate: async ({ workoutId, exerciseId }) => {
+      await queryClient.cancelQueries({ queryKey: workoutKeys.detail(workoutId) });
+      await queryClient.cancelQueries({ queryKey: workoutKeys.today() });
+
+      const previousWorkout = queryClient.getQueryData<WorkoutWithExercises>(
+        workoutKeys.detail(workoutId)
+      );
+
+      // Optimistically update the workout by removing the last pending set
+      if (previousWorkout) {
+        const optimisticWorkout: WorkoutWithExercises = {
+          ...previousWorkout,
+          exercises: previousWorkout.exercises.map((ex) => {
+            if (ex.exercise_id !== exerciseId) return ex;
+
+            // Find and remove the last pending set
+            const pendingSets = ex.sets.filter((s) => s.status === 'pending');
+            if (pendingSets.length === 0) return ex;
+
+            const lastPendingSet = pendingSets[pendingSets.length - 1];
+            if (!lastPendingSet) return ex;
+
+            return {
+              ...ex,
+              sets: ex.sets.filter((s) => s.id !== lastPendingSet.id),
+              total_sets: ex.total_sets - 1,
+            };
+          }),
+        };
+        queryClient.setQueryData(workoutKeys.detail(workoutId), optimisticWorkout);
+        queryClient.setQueryData(workoutKeys.today(), optimisticWorkout);
+      }
 
       return { previousWorkout };
     },

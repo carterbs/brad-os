@@ -238,3 +238,11 @@ export interface PlanDayExerciseWithDetails extends PlanDayExercise {
   exercise_name: string;
   weight_increment: number;
 }
+
+// ============ Set Modification Types ============
+
+export interface ModifySetCountResult {
+  currentWorkoutSet: WorkoutSet | null;
+  futureWorkoutsAffected: number;
+  futureSetsModified: number;
+}
