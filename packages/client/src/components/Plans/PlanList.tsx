@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Flex, Text, Box, Button } from '@radix-ui/themes';
+import { Flex, Text, Box } from '@radix-ui/themes';
 import { useNavigate } from 'react-router-dom';
 import type { Plan } from '@lifting/shared';
 import { PlanCard } from './PlanCard';
@@ -50,12 +50,9 @@ export function PlanList({
         }}
         data-testid="empty-plans-message"
       >
-        <Text color="gray" as="p" mb="4">
+        <Text color="gray" as="p">
           You have not created any workout plans yet.
         </Text>
-        <Button onClick={() => { void navigate('/plans/new'); }} data-testid="create-first-plan-button">
-          Create Your First Plan
-        </Button>
       </Box>
     );
   }
