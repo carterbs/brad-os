@@ -11,7 +11,8 @@ export default defineConfig({
   reporter: 'html',
 
   use: {
-    baseURL: process.env['BASE_URL'] ?? 'http://localhost:3000',
+    // E2E tests use port 3100 to avoid conflicts with dev server (port 3000)
+    baseURL: process.env['BASE_URL'] ?? 'http://localhost:3100',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -29,14 +30,16 @@ export default defineConfig({
     timeout: 5000,
   },
 
-  // Start server with NODE_ENV=test to use isolated test database
+  // Start server with NODE_ENV=test on port 3100 to use isolated test database
+  // IMPORTANT: Never reuse existing server - always start fresh to ensure test isolation
   webServer: {
-    command: 'NODE_ENV=test npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !isCI,
+    command: 'NODE_ENV=test PORT=3100 npm run dev',
+    url: 'http://localhost:3100',
+    reuseExistingServer: false,
     cwd: '..',
     env: {
       NODE_ENV: 'test',
+      PORT: '3100',
     },
   },
 });

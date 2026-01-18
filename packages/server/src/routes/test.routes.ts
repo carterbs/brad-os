@@ -6,6 +6,22 @@ export const testRouter = Router();
 
 // Only enable test routes in non-production environments
 const isProduction = process.env['NODE_ENV'] === 'production';
+const isTest = process.env['NODE_ENV'] === 'test';
+
+/**
+ * Logs a warning if test endpoints are called without NODE_ENV=test.
+ * This helps catch accidental database pollution during development.
+ */
+function warnIfNotTestEnv(endpoint: string): void {
+  if (!isTest) {
+    console.warn('');
+    console.warn('⚠️  WARNING: Test endpoint called on development database!');
+    console.warn(`   Endpoint: ${endpoint}`);
+    console.warn('   This will modify your development data.');
+    console.warn('   Run E2E tests with NODE_ENV=test to use isolated test database.');
+    console.warn('');
+  }
+}
 
 if (isProduction) {
   // In production, return 404 for all test routes
@@ -26,6 +42,7 @@ if (isProduction) {
     '/reset',
     (_req: Request, res: Response, next: NextFunction): void => {
       try {
+        warnIfNotTestEnv('/api/test/reset');
         const db = getDatabase();
 
         // Tables to clear (in order to respect foreign key constraints)
