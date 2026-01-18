@@ -143,7 +143,9 @@ describe('ExerciseLibraryPage', () => {
       expect(screen.getByText('Custom Squat')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByLabelText('Edit exercise'));
+    // Find the edit button within a specific exercise item
+    const customSquatItem = screen.getByText('Custom Squat').closest('[data-testid="exercise-item"]')!;
+    fireEvent.click(customSquatItem.querySelector('[aria-label="Edit exercise"]')!);
 
     await waitFor(() => {
       expect(screen.getByText('Edit Exercise')).toBeInTheDocument();
@@ -189,7 +191,9 @@ describe('ExerciseLibraryPage', () => {
       expect(screen.getByText('Custom Squat')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByLabelText('Edit exercise'));
+    // Find the edit button within the Custom Squat exercise item
+    const customSquatItem = screen.getByText('Custom Squat').closest('[data-testid="exercise-item"]')!;
+    fireEvent.click(customSquatItem.querySelector('[aria-label="Edit exercise"]')!);
 
     await waitFor(() => {
       expect(screen.getByText('Edit Exercise')).toBeInTheDocument();
@@ -214,7 +218,9 @@ describe('ExerciseLibraryPage', () => {
       expect(screen.getByText('Custom Squat')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByLabelText('Delete exercise'));
+    // Find the delete button within the Custom Squat exercise item (only custom exercises have delete)
+    const customSquatItem = screen.getByText('Custom Squat').closest('[data-testid="exercise-item"]')!;
+    fireEvent.click(customSquatItem.querySelector('[aria-label="Delete exercise"]')!);
 
     await waitFor(() => {
       expect(screen.getByText('Delete Exercise')).toBeInTheDocument();

@@ -113,23 +113,22 @@ describe('ExerciseList', () => {
     });
   });
 
-  it('should visually distinguish built-in from custom exercises', async () => {
+  it('should show edit buttons for all exercises', async () => {
     renderWithProviders(<ExerciseList />);
 
     await waitFor(() => {
-      expect(screen.getByText('Built-in')).toBeInTheDocument();
-      expect(screen.getByText('Custom')).toBeInTheDocument();
+      // Edit buttons should exist for all exercises (both built-in and custom)
+      const editButtons = screen.getAllByLabelText('Edit exercise');
+      expect(editButtons).toHaveLength(2);
     });
   });
 
-  it('should show edit/delete buttons only for custom exercises', async () => {
+  it('should show delete buttons only for custom exercises', async () => {
     renderWithProviders(<ExerciseList />);
 
     await waitFor(() => {
-      // Only one edit/delete pair should exist (for Custom Squat)
-      const editButtons = screen.getAllByLabelText('Edit exercise');
+      // Only custom exercises can be deleted
       const deleteButtons = screen.getAllByLabelText('Delete exercise');
-      expect(editButtons).toHaveLength(1);
       expect(deleteButtons).toHaveLength(1);
     });
   });

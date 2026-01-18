@@ -37,16 +37,6 @@ describe('ExerciseListItem', () => {
     expect(screen.getByText('+5 lbs per progression')).toBeInTheDocument();
   });
 
-  it('should show "Built-in" badge for built-in exercises', () => {
-    renderWithTheme(<ExerciseListItem exercise={builtInExercise} />);
-    expect(screen.getByText('Built-in')).toBeInTheDocument();
-  });
-
-  it('should show "Custom" badge for custom exercises', () => {
-    renderWithTheme(<ExerciseListItem exercise={customExercise} />);
-    expect(screen.getByText('Custom')).toBeInTheDocument();
-  });
-
   it('should show edit button for custom exercises', () => {
     renderWithTheme(<ExerciseListItem exercise={customExercise} />);
     expect(screen.getByLabelText('Edit exercise')).toBeInTheDocument();
@@ -57,10 +47,23 @@ describe('ExerciseListItem', () => {
     expect(screen.getByLabelText('Delete exercise')).toBeInTheDocument();
   });
 
-  it('should not show edit/delete for built-in exercises', () => {
+  it('should show edit button for built-in exercises', () => {
     renderWithTheme(<ExerciseListItem exercise={builtInExercise} />);
-    expect(screen.queryByLabelText('Edit exercise')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Edit exercise')).toBeInTheDocument();
+  });
+
+  it('should not show delete button for built-in exercises', () => {
+    renderWithTheme(<ExerciseListItem exercise={builtInExercise} />);
     expect(screen.queryByLabelText('Delete exercise')).not.toBeInTheDocument();
+  });
+
+  it('should call onEdit when edit button clicked on built-in exercise', () => {
+    const onEdit = vi.fn();
+    renderWithTheme(
+      <ExerciseListItem exercise={builtInExercise} onEdit={onEdit} />
+    );
+    fireEvent.click(screen.getByLabelText('Edit exercise'));
+    expect(onEdit).toHaveBeenCalledWith(builtInExercise);
   });
 
   it('should call onEdit when edit button clicked', () => {
