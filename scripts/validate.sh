@@ -60,8 +60,10 @@ else
 fi
 
 # E2E Tests
+# Set CI=true to ensure Playwright starts a fresh server with NODE_ENV=test
+# rather than reusing an existing dev server that may not use the test database
 echo -n "Running E2E Tests... "
-e2e_output=$(npm run test:e2e 2>&1)
+e2e_output=$(CI=true npm run test:e2e 2>&1)
 e2e_exit=$?
 if [ $e2e_exit -eq 0 ]; then
     e2e_status="PASSED"
