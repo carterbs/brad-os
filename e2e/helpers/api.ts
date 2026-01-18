@@ -49,7 +49,7 @@ export interface Mesocycle {
   plan_id: number;
   start_date: string;
   current_week: number;
-  status: 'active' | 'completed' | 'cancelled';
+  status: 'pending' | 'active' | 'completed' | 'cancelled';
   created_at: string;
   updated_at: string;
 }
@@ -313,6 +313,19 @@ export class ApiHelper {
     return json.data;
   }
 
+  async startMesocycle(id: number): Promise<Mesocycle> {
+    const response = await this.request.put(
+      `${this.apiUrl}/mesocycles/${id}/start`
+    );
+
+    if (!response.ok()) {
+      throw new Error(`Failed to start mesocycle: ${response.status()}`);
+    }
+
+    const json = (await response.json()) as ApiResponse<Mesocycle>;
+    return json.data;
+  }
+
   // ============ Workouts ============
 
   async getTodaysWorkout(): Promise<WorkoutWithExercises | null> {
@@ -515,8 +528,11 @@ export class ApiHelper {
     startDate.setDate(today.getDate() - today.getDay());
     const startDateStr = startDate.toISOString().split('T')[0] ?? '';
 
-    // Create mesocycle
-    const mesocycle = await this.createMesocycle(plan.id, startDateStr);
+    // Create mesocycle (pending status)
+    const pendingMesocycle = await this.createMesocycle(plan.id, startDateStr);
+
+    // Start the mesocycle (generates workouts and sets status to active)
+    const mesocycle = await this.startMesocycle(pendingMesocycle.id);
 
     return { exercise, plan, mesocycle };
   }

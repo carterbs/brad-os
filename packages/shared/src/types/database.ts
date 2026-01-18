@@ -94,7 +94,7 @@ export interface UpdatePlanDayExerciseDTO {
 }
 
 // Mesocycles
-export type MesocycleStatus = 'active' | 'completed' | 'cancelled';
+export type MesocycleStatus = 'pending' | 'active' | 'completed' | 'cancelled';
 
 export interface Mesocycle extends BaseEntity {
   plan_id: number;

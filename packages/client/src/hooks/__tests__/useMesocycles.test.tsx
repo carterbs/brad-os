@@ -82,12 +82,29 @@ const handlers = [
         plan_id: body.plan_id,
         start_date: body.start_date,
         current_week: 1,
-        status: 'active',
+        status: 'pending',
         created_at: '2024-01-01T00:00:00.000Z',
         updated_at: '2024-01-01T00:00:00.000Z',
       },
     };
     return HttpResponse.json(response, { status: 201 });
+  }),
+
+  http.put('/api/mesocycles/:id/start', ({ params }) => {
+    const id = Number(params['id']);
+    const response: ApiResponse<Mesocycle> = {
+      success: true,
+      data: {
+        id,
+        plan_id: 1,
+        start_date: '2024-03-01',
+        current_week: 1,
+        status: 'active',
+        created_at: '2024-01-01T00:00:00.000Z',
+        updated_at: '2024-01-01T00:00:00.000Z',
+      },
+    };
+    return HttpResponse.json(response);
   }),
 
   http.put('/api/mesocycles/:id/complete', ({ params }) => {

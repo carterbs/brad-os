@@ -136,20 +136,31 @@ describe('mesocycleApi', () => {
   });
 
   describe('createMesocycle', () => {
-    it('should create and return mesocycle', async () => {
-      const mesocycle: Mesocycle = {
+    it('should create and start mesocycle', async () => {
+      const pendingMesocycle: Mesocycle = {
         id: 1,
         plan_id: 1,
         start_date: '2024-01-01',
         current_week: 1,
-        status: 'active',
+        status: 'pending',
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
       };
 
+      const activeMesocycle: Mesocycle = {
+        ...pendingMesocycle,
+        status: 'active',
+      };
+
+      // First call: create (returns pending)
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: () => Promise.resolve({ success: true, data: mesocycle }),
+        json: () => Promise.resolve({ success: true, data: pendingMesocycle }),
+      });
+      // Second call: start (returns active)
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ success: true, data: activeMesocycle }),
       });
 
       const result = await mesocycleApi.createMesocycle({
@@ -157,12 +168,16 @@ describe('mesocycleApi', () => {
         start_date: '2024-01-01',
       });
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/mesocycles', {
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenNthCalledWith(1, '/api/mesocycles', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan_id: 1, start_date: '2024-01-01' }),
       });
-      expect(result).toEqual(mesocycle);
+      expect(mockFetch).toHaveBeenNthCalledWith(2, '/api/mesocycles/1/start', {
+        method: 'PUT',
+      });
+      expect(result).toEqual(activeMesocycle);
     });
 
     it('should throw ConflictError when active mesocycle exists', async () => {

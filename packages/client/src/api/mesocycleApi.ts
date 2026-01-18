@@ -67,17 +67,25 @@ export const mesocycleApi = {
   },
 
   /**
-   * Create a new mesocycle from a plan
+   * Create a new mesocycle from a plan and start it
+   * (creates in pending state, then starts to generate workouts)
    */
   createMesocycle: async (
     data: CreateMesocycleRequest
   ): Promise<Mesocycle> => {
-    const response = await fetch(`${API_BASE}/mesocycles`, {
+    // First create the mesocycle (pending state)
+    const createResponse = await fetch(`${API_BASE}/mesocycles`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    return handleResponse<Mesocycle>(response);
+    const created = await handleResponse<Mesocycle>(createResponse);
+
+    // Then start it (generates workouts and sets status to active)
+    const startResponse = await fetch(`${API_BASE}/mesocycles/${created.id}/start`, {
+      method: 'PUT',
+    });
+    return handleResponse<Mesocycle>(startResponse);
   },
 
   /**

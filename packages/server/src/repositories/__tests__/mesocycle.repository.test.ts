@@ -41,7 +41,7 @@ describe('MesocycleRepository', () => {
         plan_id: testPlanId,
         start_date: '2024-01-01',
         current_week: 1,
-        status: 'active',
+        status: 'pending',
       });
       expect(mesocycle.id).toBeDefined();
       expect(mesocycle.created_at).toBeDefined();
@@ -101,6 +101,14 @@ describe('MesocycleRepository', () => {
         plan_id: testPlanId,
         start_date: '2024-01-01',
       });
+      // Set to active (create defaults to pending)
+      repository.update(active.id, { status: 'active' });
+
+      const pending = repository.create({
+        plan_id: testPlanId,
+        start_date: '2024-02-01',
+      });
+
       const completed = repository.create({
         plan_id: testPlanId,
         start_date: '2024-03-01',
@@ -110,6 +118,9 @@ describe('MesocycleRepository', () => {
       const activeMesocycles = repository.findActive();
       expect(activeMesocycles).toHaveLength(1);
       expect(activeMesocycles[0].id).toBe(active.id);
+      // Verify pending and completed are not returned
+      expect(activeMesocycles.find((m) => m.id === pending.id)).toBeUndefined();
+      expect(activeMesocycles.find((m) => m.id === completed.id)).toBeUndefined();
     });
   });
 

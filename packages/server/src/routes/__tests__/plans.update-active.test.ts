@@ -72,6 +72,18 @@ describe('PUT /api/plans/:id with active mesocycle', () => {
     return { planId: plan.id, dayIds, exerciseId: exercise.id, planDayExercises };
   }
 
+  // Helper to create and start a mesocycle (since create() now defaults to 'pending')
+  async function createAndStartMesocycle(planId: number): Promise<void> {
+    const createResponse = await request(app).post('/api/mesocycles').send({
+      plan_id: planId,
+      start_date: new Date().toISOString().split('T')[0],
+    });
+    const createBody = createResponse.body as ApiResult<{ id: number }>;
+    if (createBody.success && createBody.data.id) {
+      await request(app).put(`/api/mesocycles/${createBody.data.id}/start`);
+    }
+  }
+
   beforeEach(() => {
     ctx = setupTestApp(true); // with seeds
     app = ctx.app;
@@ -138,11 +150,8 @@ describe('PUT /api/plans/:id with active mesocycle', () => {
     it('should identify future workouts only', async () => {
       const { planId } = createTestPlanWithDays(1);
 
-      // Create mesocycle
-      await request(app).post('/api/mesocycles').send({
-        plan_id: planId,
-        start_date: new Date().toISOString().split('T')[0],
-      });
+      // Create and start mesocycle
+      await createAndStartMesocycle(planId);
 
       const mesocycle = mesocycleRepo.findActive()[0];
       expect(mesocycle).toBeDefined();
@@ -168,11 +177,8 @@ describe('PUT /api/plans/:id with active mesocycle', () => {
     it('should not modify past workouts', async () => {
       const { planId, dayIds } = createTestPlanWithDays(1);
 
-      // Create mesocycle
-      await request(app).post('/api/mesocycles').send({
-        plan_id: planId,
-        start_date: new Date().toISOString().split('T')[0],
-      });
+      // Create and start mesocycle
+      await createAndStartMesocycle(planId);
 
       const mesocycle = mesocycleRepo.findActive()[0];
       if (!mesocycle) {
@@ -232,11 +238,8 @@ describe('PUT /api/plans/:id with active mesocycle', () => {
     it('should not modify current in-progress workout', async () => {
       const { planId, dayIds } = createTestPlanWithDays(1);
 
-      // Create mesocycle
-      await request(app).post('/api/mesocycles').send({
-        plan_id: planId,
-        start_date: new Date().toISOString().split('T')[0],
-      });
+      // Create and start mesocycle
+      await createAndStartMesocycle(planId);
 
       const mesocycle = mesocycleRepo.findActive()[0];
       if (!mesocycle) {
@@ -291,11 +294,8 @@ describe('PUT /api/plans/:id with active mesocycle', () => {
     it('should add exercise to all future workout days matching the plan day', async () => {
       const { planId, dayIds } = createTestPlanWithDays(1);
 
-      // Create mesocycle
-      await request(app).post('/api/mesocycles').send({
-        plan_id: planId,
-        start_date: new Date().toISOString().split('T')[0],
-      });
+      // Create and start mesocycle
+      await createAndStartMesocycle(planId);
 
       const mesocycle = mesocycleRepo.findActive()[0];
       if (!mesocycle) {
@@ -348,11 +348,8 @@ describe('PUT /api/plans/:id with active mesocycle', () => {
     it('should create workout_sets for the new exercise with correct targets', async () => {
       const { planId, dayIds } = createTestPlanWithDays(1);
 
-      // Create mesocycle
-      await request(app).post('/api/mesocycles').send({
-        plan_id: planId,
-        start_date: new Date().toISOString().split('T')[0],
-      });
+      // Create and start mesocycle
+      await createAndStartMesocycle(planId);
 
       const mesocycle = mesocycleRepo.findActive()[0];
       if (!mesocycle) {
@@ -408,11 +405,8 @@ describe('PUT /api/plans/:id with active mesocycle', () => {
     it('should remove exercise from future workouts only', async () => {
       const { planId, dayIds, exerciseId } = createTestPlanWithDays(1);
 
-      // Create mesocycle
-      await request(app).post('/api/mesocycles').send({
-        plan_id: planId,
-        start_date: new Date().toISOString().split('T')[0],
-      });
+      // Create and start mesocycle
+      await createAndStartMesocycle(planId);
 
       const mesocycle = mesocycleRepo.findActive()[0];
       if (!mesocycle) {
@@ -470,11 +464,8 @@ describe('PUT /api/plans/:id with active mesocycle', () => {
     it('should preserve logged sets for removed exercise in current workout', async () => {
       const { planId, dayIds, exerciseId } = createTestPlanWithDays(1);
 
-      // Create mesocycle
-      await request(app).post('/api/mesocycles').send({
-        plan_id: planId,
-        start_date: new Date().toISOString().split('T')[0],
-      });
+      // Create and start mesocycle
+      await createAndStartMesocycle(planId);
 
       const mesocycle = mesocycleRepo.findActive()[0];
       if (!mesocycle) {
@@ -529,11 +520,8 @@ describe('PUT /api/plans/:id with active mesocycle', () => {
     it('should update sets count for future workouts', async () => {
       const { planId, dayIds, exerciseId, planDayExercises } = createTestPlanWithDays(1);
 
-      // Create mesocycle
-      await request(app).post('/api/mesocycles').send({
-        plan_id: planId,
-        start_date: new Date().toISOString().split('T')[0],
-      });
+      // Create and start mesocycle
+      await createAndStartMesocycle(planId);
 
       const mesocycle = mesocycleRepo.findActive()[0];
       if (!mesocycle) {
@@ -577,11 +565,8 @@ describe('PUT /api/plans/:id with active mesocycle', () => {
     it('should update target weight for future workouts', async () => {
       const { planId, dayIds, exerciseId, planDayExercises } = createTestPlanWithDays(1);
 
-      // Create mesocycle
-      await request(app).post('/api/mesocycles').send({
-        plan_id: planId,
-        start_date: new Date().toISOString().split('T')[0],
-      });
+      // Create and start mesocycle
+      await createAndStartMesocycle(planId);
 
       const mesocycle = mesocycleRepo.findActive()[0];
       if (!mesocycle) {
@@ -640,11 +625,8 @@ describe('PUT /api/plans/:id with active mesocycle', () => {
     it('should include metadata about affected workouts when mesocycle is active', async () => {
       const { planId, dayIds } = createTestPlanWithDays(1);
 
-      // Create mesocycle
-      await request(app).post('/api/mesocycles').send({
-        plan_id: planId,
-        start_date: new Date().toISOString().split('T')[0],
-      });
+      // Create and start mesocycle
+      await createAndStartMesocycle(planId);
 
       // Add new exercise
       const newExercise = exerciseRepo.create({

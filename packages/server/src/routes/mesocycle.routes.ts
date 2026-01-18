@@ -124,6 +124,51 @@ mesocycleRouter.post(
   }
 );
 
+// PUT /api/mesocycles/:id/start
+mesocycleRouter.put(
+  '/:id/start',
+  (req: Request, res: Response, next: NextFunction): void => {
+    try {
+      const service = getMesocycleService();
+      const id = parseInt(req.params['id'] ?? '', 10);
+
+      if (isNaN(id)) {
+        throw new NotFoundError('Mesocycle', req.params['id'] ?? 'unknown');
+      }
+
+      const mesocycle = service.start(id);
+
+      const response: ApiResponse<Mesocycle> = {
+        success: true,
+        data: mesocycle,
+      };
+      res.json(response);
+    } catch (error) {
+      // Convert service errors to HTTP errors
+      if (error instanceof Error) {
+        if (error.message.includes('not found')) {
+          next(
+            new NotFoundError(
+              'Mesocycle',
+              req.params['id'] ?? 'unknown'
+            )
+          );
+          return;
+        }
+        if (error.message.includes('Only pending')) {
+          next(new ValidationError(error.message));
+          return;
+        }
+        if (error.message.includes('already exists')) {
+          next(new ConflictError(error.message));
+          return;
+        }
+      }
+      next(error);
+    }
+  }
+);
+
 // PUT /api/mesocycles/:id/complete
 mesocycleRouter.put(
   '/:id/complete',

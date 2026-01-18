@@ -19,8 +19,10 @@ interface MesocycleStatusCardProps {
 
 function getStatusColor(
   status: MesocycleStatus
-): 'green' | 'gray' | 'red' {
+): 'green' | 'gray' | 'red' | 'blue' {
   switch (status) {
+    case 'pending':
+      return 'blue';
     case 'active':
       return 'green';
     case 'completed':
