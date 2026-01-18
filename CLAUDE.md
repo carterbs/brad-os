@@ -45,6 +45,25 @@ Task tool with subagent_type=Bash:
 
 **Exception**: Quick single-command checks (like `git status`) can run directly.
 
+## Database Isolation (IMPORTANT)
+
+The app uses separate SQLite databases based on `NODE_ENV`:
+
+| Database | NODE_ENV | Port | Usage |
+|----------|----------|------|-------|
+| `lifting.db` | (none) or `development` | 3000/3001 | Local development |
+| `lifting.test.db` | `test` | 3100/3101 | E2E tests only |
+| `lifting.prod.db` | `production` | - | Production |
+
+**Never make direct API calls to test or manipulate data on the dev server.**
+
+The E2E test suite handles its own server startup with `NODE_ENV=test` on port 3100. Do not:
+- Call `/api/test/reset` on the development server
+- Create test data via API calls to `localhost:3001` when dev server is running
+- Run E2E-style tests manually against the dev server
+
+If you need to test API behavior, write proper E2E tests that run in isolation via `npm run test:e2e`.
+
 ## Project Overview
 
 A single-user weight training workout tracker web app. Users create workout plans, run 6-week mesocycles with progressive overload, and track workouts with automatic weight/rep progression.

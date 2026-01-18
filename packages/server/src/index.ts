@@ -7,7 +7,10 @@ import { apiRouter } from './routes/index.js';
 import { errorHandler, requestLogger } from './middleware/index.js';
 
 const app: Express = express();
-const PORT = process.env['PORT'] ?? 3001;
+// Server runs on PORT+1 (client runs on PORT, proxies /api to server)
+// Default: client=3000, server=3001. E2E tests: client=3100, server=3101
+const basePort = parseInt(process.env['PORT'] ?? '3000', 10);
+const PORT = basePort + 1;
 
 // Security middleware
 app.use(helmet());

@@ -113,7 +113,8 @@ export class ApiHelper {
 
   constructor(
     private request: APIRequestContext,
-    baseUrl = 'http://localhost:3001'
+    // E2E tests use port 3101 (server) to match test client port 3100
+    baseUrl = 'http://localhost:3101'
   ) {
     this.apiUrl = `${baseUrl}/api`;
   }
