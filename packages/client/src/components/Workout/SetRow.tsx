@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Box, Flex, Text, TextField, Checkbox } from '@radix-ui/themes';
+import { Flex, Text, TextField, Checkbox } from '@radix-ui/themes';
 import type { WorkoutSet, WorkoutStatus, LogWorkoutSetInput } from '@lifting/shared';
 
 interface SetRowProps {
@@ -59,8 +59,8 @@ export function SetRow({
       data-testid={`set-row-${set.id}`}
       className={getStatusClass()}
       align="center"
-      gap="3"
-      p="3"
+      gap="2"
+      p="2"
       style={{
         backgroundColor: isLogged
           ? 'var(--green-2)'
@@ -72,22 +72,26 @@ export function SetRow({
         border: isActive ? '2px solid var(--accent-9)' : '2px solid transparent',
       }}
     >
-      {/* Set number */}
-      <Box style={{ minWidth: '45px' }}>
-        <Text size="2" weight="medium" color={isLogged ? undefined : 'gray'}>
-          Set {set.set_number}
+      {/* Set number badge */}
+      <Flex
+        align="center"
+        justify="center"
+        style={{
+          width: '24px',
+          height: '24px',
+          borderRadius: '50%',
+          backgroundColor: isLogged ? 'var(--green-9)' : 'var(--gray-6)',
+          color: 'white',
+          flexShrink: 0,
+        }}
+      >
+        <Text size="1" weight="bold">
+          {set.set_number}
         </Text>
-      </Box>
-
-      {/* Target info */}
-      <Box style={{ minWidth: '70px' }}>
-        <Text size="1" color="gray">
-          {set.target_reps}×{set.target_weight}
-        </Text>
-      </Box>
+      </Flex>
 
       {/* Weight input */}
-      <Flex align="center" gap="1" style={{ flex: 1 }}>
+      <Flex align="center" gap="1">
         <TextField.Root
           data-testid={`weight-input-${set.id}`}
           type="number"
@@ -97,14 +101,14 @@ export function SetRow({
           value={weight}
           onChange={(e) => setWeight(e.target.value)}
           disabled={isDisabled || isSkipped}
-          size="2"
-          style={{ width: '70px' }}
+          size="1"
+          style={{ width: '56px' }}
         />
         <Text size="1" color="gray">lb</Text>
       </Flex>
 
       {/* Reps input */}
-      <Flex align="center" gap="1" style={{ flex: 1 }}>
+      <Flex align="center" gap="1">
         <TextField.Root
           data-testid={`reps-input-${set.id}`}
           type="number"
@@ -113,22 +117,20 @@ export function SetRow({
           value={reps}
           onChange={(e) => setReps(e.target.value)}
           disabled={isDisabled || isSkipped}
-          size="2"
-          style={{ width: '60px' }}
+          size="1"
+          style={{ width: '48px' }}
         />
         <Text size="1" color="gray">reps</Text>
       </Flex>
 
       {/* Checkbox */}
-      <Box>
-        <Checkbox
-          data-testid={`log-checkbox-${set.id}`}
-          checked={isLogged}
-          onCheckedChange={handleCheckboxChange}
-          disabled={isDisabled || isSkipped}
-          size="3"
-        />
-      </Box>
+      <Checkbox
+        data-testid={`log-checkbox-${set.id}`}
+        checked={isLogged}
+        onCheckedChange={handleCheckboxChange}
+        disabled={isDisabled || isSkipped}
+        size="2"
+      />
     </Flex>
   );
 }

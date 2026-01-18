@@ -53,7 +53,7 @@ describe('SetRow', () => {
     vi.clearAllMocks();
   });
 
-  it('should display set number', () => {
+  it('should display set number in a badge', () => {
     renderWithTheme(
       <SetRow
         set={mockPendingSet}
@@ -64,22 +64,7 @@ describe('SetRow', () => {
       />
     );
 
-    expect(screen.getByText('Set 1')).toBeInTheDocument();
-  });
-
-  it('should display target info', () => {
-    renderWithTheme(
-      <SetRow
-        set={mockPendingSet}
-        workoutStatus="in_progress"
-        isActive={false}
-        onLog={mockOnLog}
-        onUnlog={mockOnUnlog}
-      />
-    );
-
-    // Target is shown as "reps×weight" format
-    expect(screen.getByText('10×135')).toBeInTheDocument();
+    expect(screen.getByText('1')).toBeInTheDocument();
   });
 
   it('should show "pending" class for pending sets', () => {
