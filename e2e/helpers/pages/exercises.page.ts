@@ -11,6 +11,11 @@ export class ExercisesPage extends BasePage {
 
   async waitForLoad(): Promise<void> {
     await this.page.waitForSelector('h1:has-text("Exercise Library")');
+    // Wait for exercise list to load (either exercise items or "no exercises" message)
+    await this.page.waitForSelector(
+      '[data-testid="exercise-item"], [data-testid="exercise-list"], :text("No exercises found")',
+      { timeout: 10000 }
+    );
   }
 
   // ============ Locators ============
