@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { Box, Button, Flex, Heading, Text, TextField } from '@radix-ui/themes';
+import { Box, Button, Flex, Heading, Text, TextField, Theme } from '@radix-ui/themes';
 import type { WorkoutSet, LogWorkoutSetInput } from '@lifting/shared';
 
 interface LogSetModalProps {
@@ -69,32 +69,33 @@ export function LogSetModal({
   return (
     <Dialog.Root open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay
-          className="dialog-overlay"
-          style={{
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            position: 'fixed',
-            inset: 0,
-          }}
-        />
-        <Dialog.Content
-          className="dialog-content"
-          data-testid="log-set-modal"
-          style={{
-            backgroundColor: 'var(--gray-1)',
-            borderRadius: 'var(--radius-3)',
-            padding: '24px',
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '90vw',
-            maxWidth: '400px',
-            maxHeight: '85vh',
-            overflow: 'auto',
-          }}
-          onKeyDown={handleKeyDown}
-        >
+        <Theme accentColor="teal" grayColor="slate" radius="medium">
+          <Dialog.Overlay
+            className="dialog-overlay"
+            style={{
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              position: 'fixed',
+              inset: 0,
+            }}
+          />
+          <Dialog.Content
+            className="dialog-content"
+            data-testid="log-set-modal"
+            style={{
+              backgroundColor: 'var(--gray-1)',
+              borderRadius: 'var(--radius-3)',
+              padding: '24px',
+              position: 'fixed',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '90vw',
+              maxWidth: '400px',
+              maxHeight: '85vh',
+              overflow: 'auto',
+            }}
+            onKeyDown={handleKeyDown}
+          >
           <Dialog.Title asChild>
             <Heading size="5" mb="4" as="h2">
               Log Set {set.set_number}
@@ -161,6 +162,7 @@ export function LogSetModal({
             </Flex>
           </form>
         </Dialog.Content>
+        </Theme>
       </Dialog.Portal>
     </Dialog.Root>
   );
