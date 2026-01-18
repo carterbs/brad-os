@@ -48,14 +48,43 @@ export class MesocycleService {
   }
 
   /**
-   * Create a new mesocycle from a plan
-   * Validates plan exists, no active mesocycle, and generates workouts
+   * Create a new mesocycle from a plan (in pending status, no workouts yet)
+   * Validates plan exists and has workout days configured
    */
   create(request: CreateMesocycleRequest): Mesocycle {
     // Check if plan exists
     const plan = this.planRepo.findById(request.plan_id);
     if (!plan) {
       throw new Error(`Plan with id ${request.plan_id} not found`);
+    }
+
+    // Get plan days with exercises to validate plan is properly configured
+    const planDays = this.planDayRepo.findByPlanId(request.plan_id);
+    if (planDays.length === 0) {
+      throw new Error('Plan has no workout days configured');
+    }
+
+    // Create mesocycle (defaults to 'pending' status)
+    const mesocycle = this.mesocycleRepo.create({
+      plan_id: request.plan_id,
+      start_date: request.start_date,
+    });
+
+    return mesocycle;
+  }
+
+  /**
+   * Start a pending mesocycle - generates workouts and sets status to active
+   * Only one mesocycle can be active at a time
+   */
+  start(id: number): Mesocycle {
+    const mesocycle = this.mesocycleRepo.findById(id);
+    if (!mesocycle) {
+      throw new Error(`Mesocycle with id ${id} not found`);
+    }
+
+    if (mesocycle.status !== 'pending') {
+      throw new Error('Only pending mesocycles can be started');
     }
 
     // Check for existing active mesocycle
@@ -65,12 +94,7 @@ export class MesocycleService {
     }
 
     // Get plan days with exercises
-    const planDays = this.planDayRepo.findByPlanId(request.plan_id);
-    if (planDays.length === 0) {
-      throw new Error('Plan has no workout days configured');
-    }
-
-    // Get exercises for each plan day
+    const planDays = this.planDayRepo.findByPlanId(mesocycle.plan_id);
     const planDaysWithExercises: PlanDayWithExercises[] = planDays.map(
       (day) => {
         const planDayExercises = this.planDayExerciseRepo.findByPlanDayId(
@@ -90,20 +114,20 @@ export class MesocycleService {
       }
     );
 
-    // Create mesocycle
-    const mesocycle = this.mesocycleRepo.create({
-      plan_id: request.plan_id,
-      start_date: request.start_date,
-    });
-
     // Generate workouts for each week (7 weeks total: 6 regular + 1 deload)
     this.generateWorkouts(
       mesocycle.id,
       planDaysWithExercises,
-      request.start_date
+      mesocycle.start_date
     );
 
-    return mesocycle;
+    // Update status to active
+    const updated = this.mesocycleRepo.update(id, { status: 'active' });
+    if (!updated) {
+      throw new Error(`Failed to start mesocycle with id ${id}`);
+    }
+
+    return updated;
   }
 
   /**
@@ -330,7 +354,7 @@ export class MesocycleService {
    * - Week 1: Base values
    * - Odd weeks (3, 5): +1 rep from previous even week
    * - Even weeks (2, 4, 6): +weight, reset reps to base
-   * - Week 7 (deload): Same weight as week 6, 50% sets
+   * - Week 7 (deload): Base weight (reduced intensity), 50% sets (reduced volume)
    */
   private calculateProgression(
     baseReps: number,
@@ -341,11 +365,11 @@ export class MesocycleService {
     isDeload: boolean
   ): { targetReps: number; targetWeight: number; setCount: number } {
     if (isDeload) {
-      // Deload week: use week 6 weight, 50% sets (rounded up)
-      const week6Weight = baseWeight + weightIncrement * 3; // 3 weight increases (weeks 2, 4, 6)
+      // Deload week: reduced intensity (base weight) and 50% volume (half sets)
+      // This gives the body proper recovery by reducing both weight and total work
       return {
         targetReps: baseReps,
-        targetWeight: week6Weight,
+        targetWeight: baseWeight,
         setCount: Math.ceil(baseSets / 2),
       };
     }

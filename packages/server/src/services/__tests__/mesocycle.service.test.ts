@@ -74,7 +74,7 @@ describe('MesocycleService', () => {
   });
 
   describe('create', () => {
-    it('should create a new mesocycle with generated workouts', () => {
+    it('should create a new mesocycle in pending status', () => {
       const { planId } = createTestPlanWithDays(3);
 
       const result = service.create({
@@ -84,11 +84,11 @@ describe('MesocycleService', () => {
 
       expect(result.id).toBeDefined();
       expect(result.plan_id).toBe(planId);
-      expect(result.status).toBe('active');
+      expect(result.status).toBe('pending');
       expect(result.current_week).toBe(1);
     });
 
-    it('should generate workouts for each week including deload', () => {
+    it('should not generate workouts on create (only on start)', () => {
       const { planId } = createTestPlanWithDays(3);
 
       service.create({
@@ -99,26 +99,27 @@ describe('MesocycleService', () => {
       const repos = createRepositories(db);
       const workouts = repos.workout.findAll();
 
-      // 7 weeks * 3 days per week = 21 workouts
-      expect(workouts).toHaveLength(21);
+      // No workouts until start() is called
+      expect(workouts).toHaveLength(0);
     });
 
-    it('should reject creation when an active mesocycle exists', () => {
+    it('should allow creating multiple pending mesocycles', () => {
       const { planId } = createTestPlanWithDays(2);
 
       // Create first mesocycle
-      service.create({
+      const meso1 = service.create({
         plan_id: planId,
         start_date: '2024-01-01',
       });
 
-      // Try to create another
-      expect(() =>
-        service.create({
-          plan_id: planId,
-          start_date: '2024-03-01',
-        })
-      ).toThrow('An active mesocycle already exists');
+      // Create another (should not throw since first is pending)
+      const meso2 = service.create({
+        plan_id: planId,
+        start_date: '2024-03-01',
+      });
+
+      expect(meso1.status).toBe('pending');
+      expect(meso2.status).toBe('pending');
     });
 
     it('should reject creation with non-existent plan', () => {
@@ -140,6 +141,74 @@ describe('MesocycleService', () => {
         })
       ).toThrow('Plan has no workout days configured');
     });
+  });
+
+  describe('start', () => {
+    it('should start a pending mesocycle and set status to active', () => {
+      const { planId } = createTestPlanWithDays(1);
+
+      const mesocycle = service.create({
+        plan_id: planId,
+        start_date: '2024-01-01',
+      });
+
+      const result = service.start(mesocycle.id);
+
+      expect(result.status).toBe('active');
+    });
+
+    it('should generate workouts for each week including deload', () => {
+      const { planId } = createTestPlanWithDays(3);
+
+      const mesocycle = service.create({
+        plan_id: planId,
+        start_date: '2024-01-01',
+      });
+      service.start(mesocycle.id);
+
+      const repos = createRepositories(db);
+      const workouts = repos.workout.findAll();
+
+      // 7 weeks * 3 days per week = 21 workouts
+      expect(workouts).toHaveLength(21);
+    });
+
+    it('should reject starting when an active mesocycle exists', () => {
+      const { planId } = createTestPlanWithDays(2);
+
+      // Create and start first mesocycle
+      const meso1 = service.create({
+        plan_id: planId,
+        start_date: '2024-01-01',
+      });
+      service.start(meso1.id);
+
+      // Create second mesocycle
+      const meso2 = service.create({
+        plan_id: planId,
+        start_date: '2024-03-01',
+      });
+
+      // Try to start second - should fail
+      expect(() => service.start(meso2.id)).toThrow(
+        'An active mesocycle already exists'
+      );
+    });
+
+    it('should reject starting non-pending mesocycle', () => {
+      const { planId } = createTestPlanWithDays(1);
+
+      const mesocycle = service.create({
+        plan_id: planId,
+        start_date: '2024-01-01',
+      });
+      service.start(mesocycle.id);
+
+      // Try to start again
+      expect(() => service.start(mesocycle.id)).toThrow(
+        'Only pending mesocycles can be started'
+      );
+    });
 
     it('should generate workout sets with base values for week 1', () => {
       const { planId } = createTestPlanWithDays(1);
@@ -148,6 +217,7 @@ describe('MesocycleService', () => {
         plan_id: planId,
         start_date: '2024-01-01',
       });
+      service.start(mesocycle.id);
 
       const repos = createRepositories(db);
       const workouts = repos.workout.findByMesocycleId(mesocycle.id);
@@ -169,6 +239,7 @@ describe('MesocycleService', () => {
         plan_id: planId,
         start_date: '2024-01-01',
       });
+      service.start(mesocycle.id);
 
       const repos = createRepositories(db);
       const workouts = repos.workout.findByMesocycleId(mesocycle.id);
@@ -199,6 +270,7 @@ describe('MesocycleService', () => {
         plan_id: planId,
         start_date: '2024-01-01',
       });
+      service.start(mesocycle.id);
 
       const repos = createRepositories(db);
       const workouts = repos.workout.findByMesocycleId(mesocycle.id);
@@ -225,13 +297,14 @@ describe('MesocycleService', () => {
       expect(week6Sets[0]?.target_reps).toBe(10);
     });
 
-    it('should generate deload week (week 7) with 50% volume', () => {
+    it('should generate deload week (week 7) with 50% volume (sets)', () => {
       const { planId } = createTestPlanWithDays(1);
 
       const mesocycle = service.create({
         plan_id: planId,
         start_date: '2024-01-01',
       });
+      service.start(mesocycle.id);
 
       const repos = createRepositories(db);
       const workouts = repos.workout.findByMesocycleId(mesocycle.id);
@@ -249,9 +322,77 @@ describe('MesocycleService', () => {
       // Original: 3 sets, Deload: 2 sets (50% rounded up)
       expect(week6Sets.length).toBe(3);
       expect(week7Sets.length).toBe(2);
+    });
 
-      // Weight should be same as week 6 (115)
-      expect(week7Sets[0]?.target_weight).toBe(115);
+    it('should generate deload week (week 7) with reduced weight (base weight)', () => {
+      const { planId } = createTestPlanWithDays(1);
+
+      const mesocycle = service.create({
+        plan_id: planId,
+        start_date: '2024-01-01',
+      });
+      service.start(mesocycle.id);
+
+      const repos = createRepositories(db);
+      const workouts = repos.workout.findByMesocycleId(mesocycle.id);
+
+      const week1Workout = workouts.find((w) => w.week_number === 1);
+      const week6Workout = workouts.find((w) => w.week_number === 6);
+      const week7Workout = workouts.find((w) => w.week_number === 7);
+
+      expect(week1Workout).toBeDefined();
+      expect(week6Workout).toBeDefined();
+      expect(week7Workout).toBeDefined();
+      if (!week1Workout || !week6Workout || !week7Workout) return;
+
+      const week1Sets = repos.workoutSet.findByWorkoutId(week1Workout.id);
+      const week6Sets = repos.workoutSet.findByWorkoutId(week6Workout.id);
+      const week7Sets = repos.workoutSet.findByWorkoutId(week7Workout.id);
+
+      // Week 6 has peak weight (100 + 5*3 = 115)
+      expect(week6Sets[0]?.target_weight).toBe(115);
+
+      // Deload week should have base weight (100), not peak weight
+      // This ensures proper recovery by reducing intensity
+      expect(week7Sets[0]?.target_weight).toBe(100);
+
+      // Deload weight should match week 1 base weight
+      expect(week7Sets[0]?.target_weight).toBe(week1Sets[0]?.target_weight);
+    });
+
+    it('should generate deload week (week 7) with base reps', () => {
+      const { planId } = createTestPlanWithDays(1);
+
+      const mesocycle = service.create({
+        plan_id: planId,
+        start_date: '2024-01-01',
+      });
+      service.start(mesocycle.id);
+
+      const repos = createRepositories(db);
+      const workouts = repos.workout.findByMesocycleId(mesocycle.id);
+
+      const week1Workout = workouts.find((w) => w.week_number === 1);
+      const week5Workout = workouts.find((w) => w.week_number === 5);
+      const week7Workout = workouts.find((w) => w.week_number === 7);
+
+      expect(week1Workout).toBeDefined();
+      expect(week5Workout).toBeDefined();
+      expect(week7Workout).toBeDefined();
+      if (!week1Workout || !week5Workout || !week7Workout) return;
+
+      const week1Sets = repos.workoutSet.findByWorkoutId(week1Workout.id);
+      const week5Sets = repos.workoutSet.findByWorkoutId(week5Workout.id);
+      const week7Sets = repos.workoutSet.findByWorkoutId(week7Workout.id);
+
+      // Week 1 has base reps (10)
+      expect(week1Sets[0]?.target_reps).toBe(10);
+
+      // Week 5 (odd week) has +1 reps (11)
+      expect(week5Sets[0]?.target_reps).toBe(11);
+
+      // Deload week should have base reps (10), lower than odd weeks
+      expect(week7Sets[0]?.target_reps).toBe(10);
     });
 
     it('should schedule workouts on correct dates based on day_of_week', () => {
@@ -262,6 +403,7 @@ describe('MesocycleService', () => {
         plan_id: planId,
         start_date: '2024-01-01',
       });
+      service.start(mesocycle.id);
 
       const repos = createRepositories(db);
       const workouts = repos.workout.findByMesocycleId(mesocycle.id);
@@ -285,10 +427,11 @@ describe('MesocycleService', () => {
     it('should return the active mesocycle with details', () => {
       const { planId } = createTestPlanWithDays(2);
 
-      service.create({
+      const mesocycle = service.create({
         plan_id: planId,
         start_date: '2024-01-01',
       });
+      service.start(mesocycle.id);
 
       const result = service.getActive();
 
@@ -306,8 +449,21 @@ describe('MesocycleService', () => {
         plan_id: planId,
         start_date: '2024-01-01',
       });
+      service.start(mesocycle.id);
 
       service.complete(mesocycle.id);
+
+      const result = service.getActive();
+      expect(result).toBeNull();
+    });
+
+    it('should not return pending mesocycles', () => {
+      const { planId } = createTestPlanWithDays(2);
+
+      service.create({
+        plan_id: planId,
+        start_date: '2024-01-01',
+      });
 
       const result = service.getActive();
       expect(result).toBeNull();
@@ -322,6 +478,7 @@ describe('MesocycleService', () => {
         plan_id: planId,
         start_date: '2024-01-01',
       });
+      service.start(mesocycle.id);
 
       const result = service.getById(mesocycle.id);
 
@@ -345,6 +502,7 @@ describe('MesocycleService', () => {
         plan_id: planId,
         start_date: '2024-01-01',
       });
+      service.start(mesocycle.id);
 
       const result = service.getById(mesocycle.id);
 
@@ -361,6 +519,7 @@ describe('MesocycleService', () => {
         plan_id: planId,
         start_date: '2024-01-01',
       });
+      service.start(mesocycle.id);
 
       const result = service.getById(mesocycle.id);
 
@@ -372,6 +531,21 @@ describe('MesocycleService', () => {
 
       // Week 7 should be deload
       expect(result.weeks[6]?.is_deload).toBe(true);
+    });
+
+    it('should return pending mesocycle with 0 workouts', () => {
+      const { planId } = createTestPlanWithDays(1);
+
+      const mesocycle = service.create({
+        plan_id: planId,
+        start_date: '2024-01-01',
+      });
+
+      const result = service.getById(mesocycle.id);
+
+      if (!result) throw new Error('Result not found');
+      expect(result.status).toBe('pending');
+      expect(result.total_workouts).toBe(0);
     });
   });
 
@@ -388,8 +562,9 @@ describe('MesocycleService', () => {
         plan_id: planId1,
         start_date: '2024-01-01',
       });
+      service.start(meso1.id);
 
-      // Complete first mesocycle so we can create another
+      // Complete first mesocycle so we can start another
       service.complete(meso1.id);
 
       const meso2 = service.create({
@@ -414,6 +589,7 @@ describe('MesocycleService', () => {
         plan_id: planId,
         start_date: '2024-01-01',
       });
+      service.start(mesocycle.id);
 
       const result = service.complete(mesocycle.id);
 
@@ -433,6 +609,7 @@ describe('MesocycleService', () => {
         plan_id: planId,
         start_date: '2024-01-01',
       });
+      service.start(mesocycle.id);
 
       service.complete(mesocycle.id);
 
@@ -441,13 +618,14 @@ describe('MesocycleService', () => {
       );
     });
 
-    it('should allow creating new mesocycle after completion', () => {
+    it('should allow starting new mesocycle after completion', () => {
       const { planId } = createTestPlanWithDays(1);
 
       const meso1 = service.create({
         plan_id: planId,
         start_date: '2024-01-01',
       });
+      service.start(meso1.id);
 
       service.complete(meso1.id);
 
@@ -456,8 +634,11 @@ describe('MesocycleService', () => {
         plan_id: planId,
         start_date: '2024-03-01',
       });
+      service.start(meso2.id);
 
-      expect(meso2.status).toBe('active');
+      expect(meso2.status).toBe('pending'); // create returns pending
+      const activeMeso = service.getActive();
+      expect(activeMeso?.status).toBe('active');
     });
   });
 
@@ -469,6 +650,7 @@ describe('MesocycleService', () => {
         plan_id: planId,
         start_date: '2024-01-01',
       });
+      service.start(mesocycle.id);
 
       const result = service.cancel(mesocycle.id);
 
@@ -482,6 +664,7 @@ describe('MesocycleService', () => {
         plan_id: planId,
         start_date: '2024-01-01',
       });
+      service.start(mesocycle.id);
 
       service.cancel(mesocycle.id);
 
@@ -505,6 +688,7 @@ describe('MesocycleService', () => {
         plan_id: planId,
         start_date: '2024-01-01',
       });
+      service.start(mesocycle.id);
 
       service.cancel(mesocycle.id);
 
@@ -513,13 +697,14 @@ describe('MesocycleService', () => {
       );
     });
 
-    it('should allow creating new mesocycle after cancellation', () => {
+    it('should allow starting new mesocycle after cancellation', () => {
       const { planId } = createTestPlanWithDays(1);
 
       const meso1 = service.create({
         plan_id: planId,
         start_date: '2024-01-01',
       });
+      service.start(meso1.id);
 
       service.cancel(meso1.id);
 
@@ -528,8 +713,10 @@ describe('MesocycleService', () => {
         plan_id: planId,
         start_date: '2024-03-01',
       });
+      service.start(meso2.id);
 
-      expect(meso2.status).toBe('active');
+      const activeMeso = service.getActive();
+      expect(activeMeso?.status).toBe('active');
     });
   });
 
@@ -565,6 +752,7 @@ describe('MesocycleService', () => {
         plan_id: plan.id,
         start_date: '2024-01-01',
       });
+      service.start(mesocycle.id);
 
       const workouts = repos.workout.findByMesocycleId(mesocycle.id);
 
