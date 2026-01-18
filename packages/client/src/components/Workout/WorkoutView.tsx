@@ -93,6 +93,12 @@ export function WorkoutView({
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
   const [showSkipConfirm, setShowSkipConfirm] = useState(false);
 
+  // Track the active exercise (the one the user is currently working on)
+  // Defaults to the first exercise, updates when user logs a set
+  const [activeExerciseId, setActiveExerciseId] = useState<number | null>(
+    workout.exercises[0]?.exercise_id ?? null
+  );
+
   // Rest timer state
   const [activeTimer, setActiveTimer] = useState<{
     exerciseId: number;
@@ -112,10 +118,13 @@ export function WorkoutView({
     0
   );
 
-  // Find the single active set across all exercises (first pending set)
+  // Find the active set: first pending set in the active exercise
   const activeSetId = ((): number | null => {
-    for (const exercise of workout.exercises) {
-      const pendingSet = exercise.sets.find((s) => s.status === 'pending');
+    const activeExercise = workout.exercises.find(
+      (ex) => ex.exercise_id === activeExerciseId
+    );
+    if (activeExercise) {
+      const pendingSet = activeExercise.sets.find((s) => s.status === 'pending');
       if (pendingSet) {
         return pendingSet.id;
       }
@@ -156,7 +165,7 @@ export function WorkoutView({
     setActiveTimer(null);
   }, []);
 
-  // Wrapper for onSetLogged that starts the timer
+  // Wrapper for onSetLogged that starts the timer and updates active exercise
   const handleSetLogged = useCallback(
     (setId: number, data: LogWorkoutSetInput): void => {
       // Find the exercise that contains this set
@@ -165,6 +174,9 @@ export function WorkoutView({
       );
 
       if (exercise) {
+        // Update active exercise to the one where the set was logged
+        setActiveExerciseId(exercise.exercise_id);
+
         const setIndex = exercise.sets.findIndex((s) => s.id === setId);
         const targetSeconds = exercise.rest_seconds || 60; // Default to 60s if not set
 
