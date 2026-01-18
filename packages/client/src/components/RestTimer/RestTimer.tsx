@@ -96,6 +96,18 @@ export function RestTimer({
     }
   }, [isComplete]);
 
+  // Auto-dismiss after timer completes (2 second delay to show completion)
+  useEffect(() => {
+    if (!isComplete || isDismissed) {
+      return undefined;
+    }
+    const timeout = setTimeout(() => {
+      dismiss();
+      onDismiss?.();
+    }, 2000);
+    return (): void => clearTimeout(timeout);
+  }, [isComplete, isDismissed, dismiss, onDismiss]);
+
   if (!isActive) {
     return null;
   }
