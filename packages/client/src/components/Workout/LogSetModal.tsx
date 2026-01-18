@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import { Box, Button, Flex, Text, TextField } from '@radix-ui/themes';
+import { Box, Button, Flex, Heading, Text, TextField } from '@radix-ui/themes';
 import type { WorkoutSet, LogWorkoutSetInput } from '@lifting/shared';
 
 interface LogSetModalProps {
@@ -96,9 +96,9 @@ export function LogSetModal({
           onKeyDown={handleKeyDown}
         >
           <Dialog.Title asChild>
-            <Text size="5" weight="bold" mb="4" as="h2">
+            <Heading size="5" mb="4" as="h2">
               Log Set {set.set_number}
-            </Text>
+            </Heading>
           </Dialog.Title>
 
           <Dialog.Description asChild>

@@ -184,7 +184,7 @@ describe('useWorkout hooks', () => {
       });
 
       expect(workoutApi.startWorkout).toHaveBeenCalled();
-      expect(vi.mocked(workoutApi.startWorkout).mock.calls[0][0]).toBe(1);
+      expect(vi.mocked(workoutApi.startWorkout).mock.calls[0]?.[0]).toBe(1);
     });
   });
 
@@ -208,7 +208,7 @@ describe('useWorkout hooks', () => {
       });
 
       expect(workoutApi.completeWorkout).toHaveBeenCalled();
-      expect(vi.mocked(workoutApi.completeWorkout).mock.calls[0][0]).toBe(1);
+      expect(vi.mocked(workoutApi.completeWorkout).mock.calls[0]?.[0]).toBe(1);
     });
   });
 
@@ -231,7 +231,7 @@ describe('useWorkout hooks', () => {
       });
 
       expect(workoutApi.skipWorkout).toHaveBeenCalled();
-      expect(vi.mocked(workoutApi.skipWorkout).mock.calls[0][0]).toBe(1);
+      expect(vi.mocked(workoutApi.skipWorkout).mock.calls[0]?.[0]).toBe(1);
     });
   });
 

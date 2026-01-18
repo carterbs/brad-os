@@ -62,8 +62,8 @@ describe('EditExerciseDialog', () => {
     const nameInput = screen.getByLabelText(/Exercise Name/i);
     const incrementInput = screen.getByLabelText(/Weight Increment/i);
 
-    expect(nameInput.value).toBe('Custom Squat');
-    expect(incrementInput.value).toBe('10');
+    expect((nameInput as HTMLInputElement).value).toBe('Custom Squat');
+    expect((incrementInput as HTMLInputElement).value).toBe('10');
   });
 
   it('should close dialog on cancel', () => {

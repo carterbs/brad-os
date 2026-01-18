@@ -286,9 +286,9 @@ export function WorkoutView({
             }}
           >
             <AlertDialog.Title asChild>
-              <Text size="5" weight="bold" mb="2" as="h2">
+              <Heading size="5" mb="2" as="h2">
                 Complete Workout?
-              </Text>
+              </Heading>
             </AlertDialog.Title>
             <AlertDialog.Description asChild>
               <Text size="3" color="gray" as="p" mb="4">
@@ -342,9 +342,9 @@ export function WorkoutView({
             }}
           >
             <AlertDialog.Title asChild>
-              <Text size="5" weight="bold" mb="2" as="h2">
+              <Heading size="5" mb="2" as="h2">
                 Skip Workout?
-              </Text>
+              </Heading>
             </AlertDialog.Title>
             <AlertDialog.Description asChild>
               <Text size="3" color="gray" as="p" mb="4">

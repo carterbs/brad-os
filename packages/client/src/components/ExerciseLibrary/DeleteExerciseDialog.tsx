@@ -46,6 +46,7 @@ export function DeleteExerciseDialog({
             width: '90vw',
             maxWidth: '400px',
           }}
+          data-testid="delete-exercise-dialog"
         >
           <AlertDialog.Title asChild>
             <Heading size="4" mb="2">Delete Exercise</Heading>

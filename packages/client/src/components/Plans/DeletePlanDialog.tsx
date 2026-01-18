@@ -53,7 +53,7 @@ export function DeletePlanDialog({
             width: '90vw',
             maxWidth: '400px',
           }}
-          data-testid="delete-confirm-dialog"
+          data-testid="delete-plan-dialog"
         >
           <AlertDialog.Title asChild>
             <Heading size="4" mb="2">

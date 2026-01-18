@@ -8,6 +8,6 @@
     "moduleResolution": "NodeNext",
     "noEmit": true
   },
-  "include": ["tests/**/*"],
+  "include": ["tests/**/*", "helpers/**/*", "playwright.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

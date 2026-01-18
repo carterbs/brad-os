@@ -60,13 +60,14 @@ export function ActivePlanWarningDialog({
               </Text>
 
               <Box
-                as="ul"
                 mb="3"
                 style={{
                   paddingLeft: 'var(--space-4)',
                   listStyle: 'disc',
                 }}
+                asChild
               >
+                <ul>
                 <li>
                   <Text size="2" color="gray">
                     Past workouts will remain unchanged
@@ -82,6 +83,7 @@ export function ActivePlanWarningDialog({
                     Any logged sets will be preserved
                   </Text>
                 </li>
+                </ul>
               </Box>
 
               {affectedWorkoutCount !== undefined && (

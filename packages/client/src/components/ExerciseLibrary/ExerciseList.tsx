@@ -39,7 +39,7 @@ export function ExerciseList({
   }
 
   return (
-    <Flex direction="column" gap="2">
+    <Flex direction="column" gap="2" data-testid="exercise-list">
       {exercises.map((exercise) => (
         <ExerciseListItem
           key={exercise.id}

@@ -118,6 +118,7 @@ export function RestTimer({
       className={`${styles['container']} ${isComplete ? styles['complete'] : ''}`}
       role="timer"
       aria-label="Rest timer"
+      data-testid="rest-timer"
     >
       <Flex direction="column" align="center" gap="3">
         <Flex align="baseline" gap="2">
@@ -163,6 +164,7 @@ export function RestTimer({
               color="gray"
               onClick={handleReset}
               aria-label="Reset timer"
+              data-testid="reset-timer-button"
             >
               Reset
             </Button>
@@ -171,6 +173,7 @@ export function RestTimer({
             variant="solid"
             onClick={handleDismiss}
             aria-label="Dismiss timer"
+            data-testid="dismiss-timer-button"
           >
             Dismiss
           </Button>

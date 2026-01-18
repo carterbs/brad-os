@@ -53,18 +53,18 @@ export function WeekCard({
           <Flex gap="2" align="center">
             <Heading size="3">Week {week.week_number}</Heading>
             {week.is_deload && (
-              <Badge color="purple" variant="soft" size="1">
+              <Badge color="purple" variant="soft" size="1" data-testid="deload-badge">
                 Deload
               </Badge>
             )}
             {isCurrentWeek && (
-              <Badge color="blue" variant="solid" size="1">
+              <Badge color="blue" variant="solid" size="1" data-testid="current-week-badge">
                 Current
               </Badge>
             )}
           </Flex>
 
-          <Text size="1" color="gray">
+          <Text size="1" color="gray" data-testid="workout-summary">
             {week.completed_workouts} / {week.total_workouts} completed
           </Text>
         </Flex>
@@ -82,7 +82,7 @@ export function WeekCard({
                   cursor: onWorkoutClick ? 'pointer' : 'default',
                 }}
                 onClick={() => onWorkoutClick?.(workout.id)}
-                data-testid={`workout-item-${workout.id}`}
+                data-testid="workout-item"
               >
                 <Flex justify="between" align="center" gap="2">
                   <Flex direction="column" gap="1">

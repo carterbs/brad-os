@@ -48,6 +48,7 @@ export function DaySelector({
             as="label"
             size="2"
             style={{ cursor: disabled ? 'not-allowed' : 'pointer' }}
+            data-testid={`day-button-${day}`}
           >
             <Flex
               direction="column"

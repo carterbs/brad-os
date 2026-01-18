@@ -101,6 +101,6 @@ describe('StartMesocycleForm', () => {
     const today = new Date();
     const expectedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-    expect(input.value).toBe(expectedDate);
+    expect((input as HTMLInputElement).value).toBe(expectedDate);
   });
 });

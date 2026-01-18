@@ -10,8 +10,10 @@ import {
   type WorkoutSet,
   type CreateWorkoutInput,
   type UpdateWorkoutInput,
+  type UpdateWorkoutDTO,
   type CreateWorkoutSetInput,
   type UpdateWorkoutSetInput,
+  type UpdateWorkoutSetDTO,
   type LogWorkoutSetInput,
 } from '@lifting/shared';
 import { validate } from '../middleware/validate.js';
@@ -141,7 +143,12 @@ workoutRouter.put(
       }
 
       const body = req.body as UpdateWorkoutInput;
-      const workout = repository.update(id, body);
+      // Filter out undefined values for exactOptionalPropertyTypes compatibility
+      const updateData: UpdateWorkoutDTO = {};
+      if (body.status !== undefined) updateData.status = body.status;
+      if (body.started_at !== undefined) updateData.started_at = body.started_at;
+      if (body.completed_at !== undefined) updateData.completed_at = body.completed_at;
+      const workout = repository.update(id, updateData);
 
       if (!workout) {
         throw new NotFoundError('Workout', id);
@@ -380,7 +387,12 @@ workoutRouter.put(
       }
 
       const updateBody = req.body as UpdateWorkoutSetInput;
-      const set = workoutSetRepository.update(id, updateBody);
+      // Filter out undefined values for exactOptionalPropertyTypes compatibility
+      const updateData: UpdateWorkoutSetDTO = {};
+      if (updateBody.actual_reps !== undefined) updateData.actual_reps = updateBody.actual_reps;
+      if (updateBody.actual_weight !== undefined) updateData.actual_weight = updateBody.actual_weight;
+      if (updateBody.status !== undefined) updateData.status = updateBody.status;
+      const set = workoutSetRepository.update(id, updateData);
 
       if (!set) {
         throw new NotFoundError('WorkoutSet', id);

@@ -20,6 +20,7 @@ export function ExerciseListItem({
         borderRadius: 'var(--radius-3)',
         border: '1px solid var(--gray-5)',
       }}
+      data-testid="exercise-item"
     >
       <Flex justify="between" align="center">
         <Flex direction="column" gap="1">

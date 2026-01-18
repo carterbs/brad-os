@@ -5,6 +5,7 @@ import { planRouter } from './plan.routes.js';
 import { mesocycleRouter } from './mesocycle.routes.js';
 import { workoutRouter } from './workout.routes.js';
 import { workoutSetRouter } from './workout-set.routes.js';
+import { testRouter } from './test.routes.js';
 
 export const apiRouter = Router();
 
@@ -14,3 +15,4 @@ apiRouter.use('/plans', planRouter);
 apiRouter.use('/mesocycles', mesocycleRouter);
 apiRouter.use('/workouts', workoutRouter);
 apiRouter.use('/workout-sets', workoutSetRouter);
+apiRouter.use('/test', testRouter);

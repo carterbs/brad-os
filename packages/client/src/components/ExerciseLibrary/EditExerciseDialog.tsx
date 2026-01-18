@@ -86,6 +86,7 @@ export function EditExerciseDialog({
             width: '90vw',
             maxWidth: '400px',
           }}
+          data-testid="edit-exercise-dialog"
         >
           <Dialog.Title asChild>
             <Heading size="4" mb="4">Edit Exercise</Heading>

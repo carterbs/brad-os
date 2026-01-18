@@ -80,7 +80,7 @@ export function MesocycleStatusCard({
             color={getStatusColor(mesocycle.status)}
             variant="soft"
             size="2"
-            data-testid="mesocycle-status-badge"
+            data-testid="mesocycle-status"
           >
             {mesocycle.status.charAt(0).toUpperCase() +
               mesocycle.status.slice(1)}
@@ -106,7 +106,7 @@ export function MesocycleStatusCard({
         </Flex>
 
         <Flex gap="3" wrap="wrap">
-          <Badge color="blue" variant="soft" size="1">
+          <Badge color="blue" variant="soft" size="1" data-testid="current-week">
             Week {mesocycle.current_week} of 7
           </Badge>
           <Badge color="gray" variant="soft" size="1">

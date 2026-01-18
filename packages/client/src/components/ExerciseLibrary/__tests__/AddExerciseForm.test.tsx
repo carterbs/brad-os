@@ -61,7 +61,7 @@ describe('AddExerciseForm', () => {
     renderWithProviders(<AddExerciseForm />);
     const input = screen.getByLabelText(/Weight Increment/i);
     expect(input).toBeInTheDocument();
-    expect(input.value).toBe('5');
+    expect((input as HTMLInputElement).value).toBe('5');
   });
 
   it('should render submit button', () => {
