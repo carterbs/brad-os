@@ -50,6 +50,7 @@ describe('ExerciseCard', () => {
       <ExerciseCard
         exercise={mockExercise}
         workoutStatus="in_progress"
+        activeSetId={null}
         onSetLogged={mockOnSetLogged}
         onSetUnlogged={mockOnSetUnlogged}
       />
@@ -63,6 +64,7 @@ describe('ExerciseCard', () => {
       <ExerciseCard
         exercise={mockExercise}
         workoutStatus="in_progress"
+        activeSetId={null}
         onSetLogged={mockOnSetLogged}
         onSetUnlogged={mockOnSetUnlogged}
       />
@@ -81,6 +83,7 @@ describe('ExerciseCard', () => {
       <ExerciseCard
         exercise={exerciseWith60sRest}
         workoutStatus="in_progress"
+        activeSetId={null}
         onSetLogged={mockOnSetLogged}
         onSetUnlogged={mockOnSetUnlogged}
       />
@@ -99,6 +102,7 @@ describe('ExerciseCard', () => {
       <ExerciseCard
         exercise={exerciseWith45sRest}
         workoutStatus="in_progress"
+        activeSetId={null}
         onSetLogged={mockOnSetLogged}
         onSetUnlogged={mockOnSetUnlogged}
       />
@@ -112,6 +116,7 @@ describe('ExerciseCard', () => {
       <ExerciseCard
         exercise={mockExercise}
         workoutStatus="in_progress"
+        activeSetId={null}
         onSetLogged={mockOnSetLogged}
         onSetUnlogged={mockOnSetUnlogged}
       />
@@ -127,6 +132,7 @@ describe('ExerciseCard', () => {
       <ExerciseCard
         exercise={mockExercise}
         workoutStatus="in_progress"
+        activeSetId={null}
         onSetLogged={mockOnSetLogged}
         onSetUnlogged={mockOnSetUnlogged}
       />
@@ -146,6 +152,7 @@ describe('ExerciseCard', () => {
       <ExerciseCard
         exercise={exerciseWithCompletedSets}
         workoutStatus="in_progress"
+        activeSetId={null}
         onSetLogged={mockOnSetLogged}
         onSetUnlogged={mockOnSetUnlogged}
       />
@@ -165,6 +172,7 @@ describe('ExerciseCard', () => {
       <ExerciseCard
         exercise={exerciseAllComplete}
         workoutStatus="in_progress"
+        activeSetId={null}
         onSetLogged={mockOnSetLogged}
         onSetUnlogged={mockOnSetUnlogged}
       />
@@ -173,7 +181,7 @@ describe('ExerciseCard', () => {
     expect(screen.getByTestId('progress-badge')).toHaveTextContent('3/3 sets');
   });
 
-  it('should highlight first pending set as active', () => {
+  it('should highlight set when activeSetId matches', () => {
     const exerciseWithFirstCompleted: WorkoutExerciseWithSets = {
       ...mockExercise,
       sets: createMockSets(3, 1),
@@ -184,14 +192,51 @@ describe('ExerciseCard', () => {
       <ExerciseCard
         exercise={exerciseWithFirstCompleted}
         workoutStatus="in_progress"
+        activeSetId={2}
         onSetLogged={mockOnSetLogged}
         onSetUnlogged={mockOnSetUnlogged}
       />
     );
 
-    // Second set (id=2) should be active (first pending)
+    // Second set (id=2) should be active because activeSetId=2 was passed
     const activeSet = screen.getByTestId('set-row-2');
     expect(activeSet).toHaveStyle('border: 2px solid var(--accent-9)');
+  });
+
+  it('should not highlight any set when activeSetId is null', () => {
+    renderWithTheme(
+      <ExerciseCard
+        exercise={mockExercise}
+        workoutStatus="in_progress"
+        activeSetId={null}
+        onSetLogged={mockOnSetLogged}
+        onSetUnlogged={mockOnSetUnlogged}
+      />
+    );
+
+    // No sets should be highlighted
+    const set1 = screen.getByTestId('set-row-1');
+    const set2 = screen.getByTestId('set-row-2');
+    const set3 = screen.getByTestId('set-row-3');
+    expect(set1).toHaveStyle('border: 2px solid transparent');
+    expect(set2).toHaveStyle('border: 2px solid transparent');
+    expect(set3).toHaveStyle('border: 2px solid transparent');
+  });
+
+  it('should not highlight any set when activeSetId does not match any set in this exercise', () => {
+    renderWithTheme(
+      <ExerciseCard
+        exercise={mockExercise}
+        workoutStatus="in_progress"
+        activeSetId={999}
+        onSetLogged={mockOnSetLogged}
+        onSetUnlogged={mockOnSetUnlogged}
+      />
+    );
+
+    // No sets should be highlighted because 999 is not a valid set ID in this exercise
+    const set1 = screen.getByTestId('set-row-1');
+    expect(set1).toHaveStyle('border: 2px solid transparent');
   });
 
   it('should call onSetLogged when checkbox is clicked', async () => {
@@ -201,6 +246,7 @@ describe('ExerciseCard', () => {
       <ExerciseCard
         exercise={mockExercise}
         workoutStatus="in_progress"
+        activeSetId={1}
         onSetLogged={mockOnSetLogged}
         onSetUnlogged={mockOnSetUnlogged}
       />
@@ -229,6 +275,7 @@ describe('ExerciseCard', () => {
       <ExerciseCard
         exercise={exerciseWithCompletedSet}
         workoutStatus="in_progress"
+        activeSetId={2}
         onSetLogged={mockOnSetLogged}
         onSetUnlogged={mockOnSetUnlogged}
       />

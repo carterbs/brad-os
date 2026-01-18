@@ -6,6 +6,7 @@ import { SetRow } from './SetRow';
 interface ExerciseCardProps {
   exercise: WorkoutExerciseWithSets;
   workoutStatus: WorkoutStatus;
+  activeSetId: number | null;
   onSetLogged: (setId: number, data: LogWorkoutSetInput) => void;
   onSetUnlogged: (setId: number) => void;
 }
@@ -25,6 +26,7 @@ function formatRestTime(seconds: number): string {
 export function ExerciseCard({
   exercise,
   workoutStatus,
+  activeSetId,
   onSetLogged,
   onSetUnlogged,
 }: ExerciseCardProps): JSX.Element {
@@ -33,9 +35,6 @@ export function ExerciseCard({
   ).length;
   const totalSets = exercise.sets.length;
   const allComplete = completedSets === totalSets;
-
-  // Find the first pending set to highlight as active
-  const activeSetId = exercise.sets.find((s) => s.status === 'pending')?.id ?? null;
 
   return (
     <Card data-testid={`exercise-card-${exercise.exercise_id}`}>

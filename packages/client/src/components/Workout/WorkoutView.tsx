@@ -112,6 +112,17 @@ export function WorkoutView({
     0
   );
 
+  // Find the single active set across all exercises (first pending set)
+  const activeSetId = ((): number | null => {
+    for (const exercise of workout.exercises) {
+      const pendingSet = exercise.sets.find((s) => s.status === 'pending');
+      if (pendingSet) {
+        return pendingSet.id;
+      }
+    }
+    return null;
+  })();
+
   // Restore timer state from localStorage on mount
   useEffect(() => {
     const savedState = loadTimerState();
@@ -271,6 +282,7 @@ export function WorkoutView({
             key={exercise.exercise_id}
             exercise={exercise}
             workoutStatus={workout.status}
+            activeSetId={activeSetId}
             onSetLogged={handleSetLogged}
             onSetUnlogged={onSetUnlogged}
           />
