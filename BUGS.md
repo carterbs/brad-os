@@ -42,6 +42,42 @@
 
 ## High Severity
 
+### BUG #10: Weight/Reps Don't Persist Across Workouts (Progressive Overload Broken)
+**Status:** Open
+
+**Steps to reproduce:**
+1. Start a mesocycle and complete workout for Day 1 Week 1
+2. On Exercise A, log sets at 100 lbs for 8 reps
+3. Complete the workout
+4. Navigate to Day 1 Week 2 (same exercises)
+
+**Expected behavior:** First set of Exercise A should show 100 lbs / 8 reps (or progressed values based on odd/even week rules)
+
+**Actual behavior:** Sets show the original plan values, not the peak values achieved in Week 1
+
+**Impact:** Core progressive overload feature is broken. Users have to manually remember and re-enter their best weights/reps each week, defeating the purpose of the tracking app.
+
+---
+
+### BUG #11: Weight/Rep Changes Lost on Page Refresh (Unlogged Sets)
+**Status:** Open
+
+**Steps to reproduce:**
+1. Start a workout
+2. Change weight value on an unlogged set (e.g., 30 to 35)
+3. Refresh the page (F5 or browser refresh)
+4. Check the weight value
+
+**Expected behavior:** Weight value should persist (35) - similar to navigation persistence from BUG #9
+
+**Actual behavior:** Weight value reverts to original (30)
+
+**Note:** BUG #9 fixed persistence for navigation away, but page refresh may bypass localStorage restoration.
+
+**Impact:** Users who adjust weights then accidentally refresh will lose their changes.
+
+---
+
 ### BUG #1: Plan creation hangs indefinitely on "Saving..."
 
 **Status:** Could Not Reproduce
@@ -66,6 +102,94 @@
 ---
 
 ## Medium Severity
+
+### BUG #12: Rest Timer Stops When App Goes to Background
+**Status:** Open
+
+**Steps to reproduce:**
+1. Start a workout and log a set (rest timer starts)
+2. Switch to another app or lock the phone
+3. Wait 30+ seconds
+4. Return to the app
+
+**Expected behavior:** Rest timer should continue counting in background and show accurate remaining time (or that time is up)
+
+**Actual behavior:** Timer pauses when app is backgrounded, shows incorrect remaining time on return
+
+**Technical note:** May require PWA with service worker, or Web Worker, or storing timer start time and calculating elapsed on focus.
+
+**Impact:** Users can't rely on the timer for actual rest periods. Core workout feature degraded.
+
+---
+
+### BUG #13: Prompt to Complete Workout When All Sets Done
+**Status:** Open
+
+**Steps to reproduce:**
+1. Start a workout with multiple exercises
+2. Log or skip all sets for all exercises
+3. Observe the UI
+
+**Expected behavior:** App should prompt user to complete the workout (dialog or prominent button)
+
+**Actual behavior:** No prompt appears. User must manually find and click the complete button.
+
+**Impact:** UX friction - users may not realize workout is ready to complete, or may forget to complete it.
+
+---
+
+### BUG #14: Reps Don't Cascade Like Weight Does
+**Status:** Open
+
+**Steps to reproduce:**
+1. Start a workout with an exercise that has multiple sets
+2. Change the reps value on the first set
+3. Observe other sets
+
+**Expected behavior:** Changing reps on first set should cascade to subsequent unlogged sets (like weight does)
+
+**Actual behavior:** Only weight cascades; reps changes don't propagate to other sets
+
+**Impact:** Users must manually update reps on each set, tedious when adjusting target reps.
+
+---
+
+### BUG #15: Numerical Input Zoom Doesn't Reset on Mobile
+**Status:** Open
+
+**Steps to reproduce:**
+1. Open app on mobile device (iOS Safari)
+2. Tap on weight or reps input field
+3. Screen zooms in to the input
+4. Finish entering value (blur the field)
+
+**Expected behavior:** Screen should zoom back to normal view after input complete
+
+**Actual behavior:** Screen stays zoomed in, user must manually pinch to zoom out
+
+**Technical note:** Often caused by inputs with font-size < 16px on iOS. Fix may involve CSS `font-size: 16px` on inputs or `maximum-scale=1` in viewport meta.
+
+**Impact:** Poor mobile UX, requires manual zoom adjustment after every input.
+
+---
+
+### BUG #16: Sound Doesn't Work on Safari
+**Status:** Open
+
+**Steps to reproduce:**
+1. Open app in Safari (macOS or iOS)
+2. Start a workout and log a set (rest timer starts)
+3. Wait for timer to complete
+
+**Expected behavior:** Sound should play when rest timer finishes
+
+**Actual behavior:** No sound plays (works in Chrome/Firefox)
+
+**Technical note:** Safari requires user interaction before playing audio. May need to "unlock" audio context on first user tap.
+
+**Impact:** Users on Safari (especially iOS) miss audio notifications for rest timer completion.
+
+---
 
 ### BUG #7: Exercises Don't Load When Editing Existing Plan
 **Status:** Fixed (2026-01-19)
