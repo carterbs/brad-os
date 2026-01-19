@@ -50,6 +50,7 @@ export function PlanForm({
     initialData ?? INITIAL_FORM_STATE
   );
   const [nameError, setNameError] = useState<string | null>(null);
+  const [daysError, setDaysError] = useState<string | null>(null);
 
   const selectedDays = useMemo(
     () => formState.days.map((d) => d.dayOfWeek),
@@ -66,6 +67,7 @@ export function PlanForm({
   };
 
   const handleDaysChange = (days: DayOfWeek[]): void => {
+    if (daysError !== null) setDaysError(null);
     setFormState((prev) => {
       // Keep existing day data for days that are still selected
       const existingDayMap = new Map(prev.days.map((d) => [d.dayOfWeek, d]));
@@ -135,6 +137,10 @@ export function PlanForm({
       }
       setStep(2);
     } else if (step === 2) {
+      if (formState.days.length === 0) {
+        setDaysError('Select at least one workout day');
+        return;
+      }
       setStep(3);
     }
   };
@@ -151,9 +157,11 @@ export function PlanForm({
     onSubmit(formState);
   };
 
-  const isStep3Valid = formState.days.every((day) =>
-    day.exercises.every((ex) => ex.exerciseId !== null)
-  );
+  const isStep3Valid =
+    formState.days.length > 0 &&
+    formState.days.every((day) =>
+      day.exercises.every((ex) => ex.exerciseId !== null)
+    );
 
   return (
     <Flex direction="column" gap="4">
@@ -223,6 +231,11 @@ export function PlanForm({
             Select the days you want to work out.
           </Text>
           <DaySelector selectedDays={selectedDays} onChange={handleDaysChange} />
+          {daysError !== null && (
+            <Text color="red" size="1" mt="2">
+              {daysError}
+            </Text>
+          )}
         </Box>
       )}
 

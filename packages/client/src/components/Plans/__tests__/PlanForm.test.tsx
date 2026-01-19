@@ -213,7 +213,7 @@ describe('PlanForm', () => {
     expect(screen.getByTestId('submit-button')).toBeDisabled();
   });
 
-  it('should show message when no days selected on step 3', () => {
+  it('should prevent proceeding to step 3 without selecting days', () => {
     renderWithTheme(
       <PlanForm
         availableExercises={mockExercises}
@@ -222,17 +222,44 @@ describe('PlanForm', () => {
       />
     );
 
-    // Go to step 3 without selecting days
+    // Go to step 2
     fireEvent.change(screen.getByTestId('plan-name-input'), {
       target: { value: 'My Plan' },
     });
     fireEvent.click(screen.getByTestId('next-button'));
-    // Don't select any days
+
+    // Try to proceed without selecting any days
     fireEvent.click(screen.getByTestId('next-button'));
 
-    expect(
-      screen.getByText('No days selected. Go back to select workout days.')
-    ).toBeInTheDocument();
+    // Should still be on step 2 with error
+    expect(screen.getByTestId('step-2')).toBeInTheDocument();
+    expect(screen.getByText('Select at least one workout day')).toBeInTheDocument();
+  });
+
+  it('should clear days error when a day is selected', () => {
+    renderWithTheme(
+      <PlanForm
+        availableExercises={mockExercises}
+        onSubmit={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    );
+
+    // Go to step 2
+    fireEvent.change(screen.getByTestId('plan-name-input'), {
+      target: { value: 'My Plan' },
+    });
+    fireEvent.click(screen.getByTestId('next-button'));
+
+    // Try to proceed without selecting any days (triggers error)
+    fireEvent.click(screen.getByTestId('next-button'));
+    expect(screen.getByText('Select at least one workout day')).toBeInTheDocument();
+
+    // Select a day
+    fireEvent.click(screen.getByTestId('day-checkbox-1'));
+
+    // Error should be cleared
+    expect(screen.queryByText('Select at least one workout day')).not.toBeInTheDocument();
   });
 
   it('should render step indicators', () => {
