@@ -5,7 +5,7 @@ set -e
 # Deploys to linux-machine via rsync over SSH
 
 REMOTE_HOST="linux-machine"
-REMOTE_DIR="/opt/lifting"
+REMOTE_DIR="~/lifting"  # Use ~ for home dir; rsync expands this correctly
 LOCAL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 
 # Colors for output
@@ -55,7 +55,7 @@ fi
 # Step 2: Ensure remote directory exists
 log_info "Ensuring remote directory exists..."
 if [ "$DRY_RUN" = false ]; then
-    ssh "$REMOTE_HOST" "sudo mkdir -p $REMOTE_DIR && sudo chown \$(whoami):\$(whoami) $REMOTE_DIR"
+    ssh "$REMOTE_HOST" "mkdir -p $REMOTE_DIR"
 fi
 
 # Step 3: Rsync files to remote
@@ -106,7 +106,9 @@ fi
 
 # Step 5: Restart the server
 log_info "Restarting server on remote..."
-ssh "$REMOTE_HOST" "cd $REMOTE_DIR && sudo systemctl restart lifting 2>/dev/null || (echo 'systemd service not found, starting manually...' && pkill -f 'node.*lifting.*index.js' 2>/dev/null || true && NODE_ENV=production nohup node packages/server/dist/index.js > /tmp/lifting.log 2>&1 &)"
+# Use bash -l to ensure proper shell expansion of ~
+# Exit code from this may be non-zero due to SSH session ending after nohup, so we ignore it
+ssh "$REMOTE_HOST" 'bash -l -c "pkill -f \"node.*lifting.*index.js\" 2>/dev/null || true; cd ~/lifting && NODE_ENV=production nohup node packages/server/dist/index.js > ~/lifting/lifting.log 2>&1 &"' || true
 
 # Step 6: Verify server is running
 log_info "Waiting for server to start..."
@@ -115,7 +117,7 @@ sleep 2
 if ssh "$REMOTE_HOST" "curl -s -o /dev/null -w '%{http_code}' http://localhost:3000/api/exercises" | grep -q "200"; then
     log_info "Server is running and healthy!"
 else
-    log_warn "Server may not be running. Check logs with: ssh $REMOTE_HOST 'tail -f /tmp/lifting.log'"
+    log_warn "Server may not be running. Check logs with: ssh $REMOTE_HOST 'tail -f ~/lifting/lifting.log'"
 fi
 
 log_info "Deployment complete!"

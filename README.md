@@ -31,37 +31,33 @@ npm run docker:down      # Stop containers
 
 Deploy to a remote Linux server via rsync over SSH.
 
-### First-time setup
+### First-time setup (optional)
 
 ```bash
-./scripts/setup-server.sh   # Install Node.js, create directories, configure systemd
+./scripts/setup-server.sh   # Install Node.js 20 if not present
 ```
-
-This script:
-- Installs Node.js 20 if not present
-- Creates `/opt/lifting` on the remote
-- Installs a systemd service for auto-start and management
 
 ### Deploy
 
 ```bash
 ./scripts/deploy.sh              # Full deploy (build + sync + restart)
 ./scripts/deploy.sh --skip-build # Skip local build
+./scripts/deploy.sh --skip-install # Skip npm install on remote
 ./scripts/deploy.sh --dry-run    # Preview without transferring
 ```
 
 ### Server management
 
 ```bash
-ssh linux-machine 'sudo systemctl status lifting'    # Check status
-ssh linux-machine 'sudo journalctl -u lifting -f'    # View logs
-ssh linux-machine 'sudo systemctl restart lifting'   # Restart
+ssh linux-machine 'tail -f ~/lifting/lifting.log'                    # View logs
+ssh linux-machine 'pkill -f "node.*lifting.*index.js"'               # Stop server
+ssh linux-machine 'cd ~/lifting && NODE_ENV=production node packages/server/dist/index.js'  # Start manually
 ```
 
-The app runs at `http://linux-machine:3000`. Database is created automatically at `/opt/lifting/packages/server/data/lifting.prod.db`.
+The app runs at `http://linux-machine:3000`. Database is created automatically at `~/lifting/packages/server/data/lifting.prod.db`.
 
 ### Configuration
 
 Edit `scripts/deploy.sh` to change:
 - `REMOTE_HOST` - SSH host alias (default: `linux-machine`)
-- `REMOTE_DIR` - Install location (default: `/opt/lifting`)
+- `REMOTE_DIR` - Install location (default: `~/lifting`)

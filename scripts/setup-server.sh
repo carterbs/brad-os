@@ -2,10 +2,9 @@
 set -e
 
 # One-time setup script for the Linux server
-# Run this once before first deployment
+# Run this once before first deployment to ensure Node.js is installed
 
 REMOTE_HOST="linux-machine"
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -47,32 +46,9 @@ else
     log_info "Node.js $NODE_VERSION is installed"
 fi
 
-# Create application directory
-log_info "Creating application directory..."
-ssh "$REMOTE_HOST" << 'EOF'
-    sudo mkdir -p /opt/lifting
-    sudo chown $(whoami):$(whoami) /opt/lifting
-EOF
-
-# Copy and install systemd service
-log_info "Installing systemd service..."
-scp "$SCRIPT_DIR/lifting.service" "$REMOTE_HOST:/tmp/lifting.service"
-ssh "$REMOTE_HOST" << 'EOF'
-    # Update User in service file to current user
-    sed -i "s/User=brad/User=$(whoami)/" /tmp/lifting.service
-
-    sudo mv /tmp/lifting.service /etc/systemd/system/lifting.service
-    sudo systemctl daemon-reload
-    sudo systemctl enable lifting
-EOF
-
 log_info "Server setup complete!"
 echo ""
 echo "Next steps:"
-echo "  1. Run ./scripts/deploy.sh to deploy the application"
-echo "  2. Access the app at http://$REMOTE_HOST:3000"
+echo "  Run ./scripts/deploy.sh to deploy the application"
 echo ""
-echo "Useful commands:"
-echo "  ssh $REMOTE_HOST 'sudo systemctl status lifting'   # Check status"
-echo "  ssh $REMOTE_HOST 'sudo journalctl -u lifting -f'   # View logs"
-echo "  ssh $REMOTE_HOST 'sudo systemctl restart lifting'  # Restart"
+echo "The app will be available at http://$REMOTE_HOST:3000"
