@@ -65,6 +65,9 @@ export function SetRow({
   const prevTargetReps = useRef(set.target_reps);
   const prevWeightOverride = useRef(weightOverride);
 
+  // Track whether pending edit has been applied (for page refresh restoration)
+  const pendingEditApplied = useRef(pendingEdit !== undefined);
+
   // Update input values when target values or weight override ACTUALLY CHANGE.
   // We skip the initial render to preserve actual values for already-logged sets.
   // We also intentionally exclude actual_weight/actual_reps from dependencies
@@ -90,6 +93,21 @@ export function SetRow({
 
     prevTargetReps.current = set.target_reps;
   }, [set.target_reps]);
+
+  // Restore pending edits when they become available after mount (fixes page refresh)
+  // This handles the case where pendingEdit wasn't available on initial render
+  // but becomes available later due to React rendering order
+  useEffect(() => {
+    if (pendingEdit !== undefined && !pendingEditApplied.current) {
+      if (pendingEdit.weight !== undefined) {
+        setWeight(pendingEdit.weight);
+      }
+      if (pendingEdit.reps !== undefined) {
+        setReps(pendingEdit.reps);
+      }
+      pendingEditApplied.current = true;
+    }
+  }, [pendingEdit]);
 
   // Clear validation error when inputs change
   useEffect(() => {

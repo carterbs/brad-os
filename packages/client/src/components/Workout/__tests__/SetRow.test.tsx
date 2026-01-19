@@ -424,4 +424,186 @@ describe('SetRow', () => {
 
     expect(weightInput).toHaveValue('180');
   });
+
+  describe('pendingEdit restoration', () => {
+    it('should use pendingEdit weight when provided on initial render', () => {
+      renderWithTheme(
+        <SetRow
+          set={mockPendingSet}
+          workoutStatus="in_progress"
+          isActive={false}
+          onLog={mockOnLog}
+          onUnlog={mockOnUnlog}
+          pendingEdit={{ weight: '150' }}
+        />
+      );
+
+      const weightInput = screen.getByTestId('weight-input-1');
+      expect(weightInput).toHaveValue('150');
+    });
+
+    it('should use pendingEdit reps when provided on initial render', () => {
+      renderWithTheme(
+        <SetRow
+          set={mockPendingSet}
+          workoutStatus="in_progress"
+          isActive={false}
+          onLog={mockOnLog}
+          onUnlog={mockOnUnlog}
+          pendingEdit={{ reps: '12' }}
+        />
+      );
+
+      const repsInput = screen.getByTestId('reps-input-1');
+      expect(repsInput).toHaveValue('12');
+    });
+
+    it('should use both pendingEdit weight and reps when provided', () => {
+      renderWithTheme(
+        <SetRow
+          set={mockPendingSet}
+          workoutStatus="in_progress"
+          isActive={false}
+          onLog={mockOnLog}
+          onUnlog={mockOnUnlog}
+          pendingEdit={{ weight: '160', reps: '15' }}
+        />
+      );
+
+      const weightInput = screen.getByTestId('weight-input-1');
+      const repsInput = screen.getByTestId('reps-input-1');
+      expect(weightInput).toHaveValue('160');
+      expect(repsInput).toHaveValue('15');
+    });
+
+    it('should restore pendingEdit when it becomes available after mount (page refresh scenario)', () => {
+      // First render without pendingEdit (simulates initial mount before localStorage loads)
+      const { rerender } = renderWithTheme(
+        <SetRow
+          set={mockPendingSet}
+          workoutStatus="in_progress"
+          isActive={false}
+          onLog={mockOnLog}
+          onUnlog={mockOnUnlog}
+        />
+      );
+
+      const weightInput = screen.getByTestId('weight-input-1');
+      const repsInput = screen.getByTestId('reps-input-1');
+
+      // Should have default target values
+      expect(weightInput).toHaveValue('135');
+      expect(repsInput).toHaveValue('10');
+
+      // Re-render with pendingEdit (simulates localStorage becoming available)
+      rerender(
+        <Theme>
+          <SetRow
+            set={mockPendingSet}
+            workoutStatus="in_progress"
+            isActive={false}
+            onLog={mockOnLog}
+            onUnlog={mockOnUnlog}
+            pendingEdit={{ weight: '175', reps: '8' }}
+          />
+        </Theme>
+      );
+
+      // Should now show pendingEdit values
+      expect(weightInput).toHaveValue('175');
+      expect(repsInput).toHaveValue('8');
+    });
+
+    it('should restore only pendingEdit weight when only weight is in pendingEdit', () => {
+      const { rerender } = renderWithTheme(
+        <SetRow
+          set={mockPendingSet}
+          workoutStatus="in_progress"
+          isActive={false}
+          onLog={mockOnLog}
+          onUnlog={mockOnUnlog}
+        />
+      );
+
+      const weightInput = screen.getByTestId('weight-input-1');
+      const repsInput = screen.getByTestId('reps-input-1');
+
+      rerender(
+        <Theme>
+          <SetRow
+            set={mockPendingSet}
+            workoutStatus="in_progress"
+            isActive={false}
+            onLog={mockOnLog}
+            onUnlog={mockOnUnlog}
+            pendingEdit={{ weight: '200' }}
+          />
+        </Theme>
+      );
+
+      expect(weightInput).toHaveValue('200');
+      expect(repsInput).toHaveValue('10'); // Should remain unchanged
+    });
+
+    it('should call onPendingEdit when weight is changed', async () => {
+      const user = userEvent.setup();
+      const mockOnPendingEdit = vi.fn();
+
+      renderWithTheme(
+        <SetRow
+          set={mockPendingSet}
+          workoutStatus="in_progress"
+          isActive={false}
+          onLog={mockOnLog}
+          onUnlog={mockOnUnlog}
+          onPendingEdit={mockOnPendingEdit}
+        />
+      );
+
+      const weightInput = screen.getByTestId('weight-input-1');
+      await user.clear(weightInput);
+      await user.type(weightInput, '155');
+
+      expect(mockOnPendingEdit).toHaveBeenCalledWith({ weight: '155' });
+    });
+
+    it('should call onPendingEdit when reps is changed', async () => {
+      const user = userEvent.setup();
+      const mockOnPendingEdit = vi.fn();
+
+      renderWithTheme(
+        <SetRow
+          set={mockPendingSet}
+          workoutStatus="in_progress"
+          isActive={false}
+          onLog={mockOnLog}
+          onUnlog={mockOnUnlog}
+          onPendingEdit={mockOnPendingEdit}
+        />
+      );
+
+      const repsInput = screen.getByTestId('reps-input-1');
+      await user.clear(repsInput);
+      await user.type(repsInput, '12');
+
+      expect(mockOnPendingEdit).toHaveBeenCalledWith({ reps: '12' });
+    });
+
+    it('should prioritize pendingEdit over weightOverride', () => {
+      renderWithTheme(
+        <SetRow
+          set={mockPendingSet}
+          workoutStatus="in_progress"
+          isActive={false}
+          onLog={mockOnLog}
+          onUnlog={mockOnUnlog}
+          weightOverride="180"
+          pendingEdit={{ weight: '190' }}
+        />
+      );
+
+      const weightInput = screen.getByTestId('weight-input-1');
+      expect(weightInput).toHaveValue('190');
+    });
+  });
 });

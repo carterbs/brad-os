@@ -60,7 +60,7 @@
 ---
 
 ### BUG #11: Weight/Rep Changes Lost on Page Refresh (Unlogged Sets)
-**Status:** Open
+**Status:** Fixed (2026-01-19)
 
 **Steps to reproduce:**
 1. Start a workout
@@ -75,6 +75,8 @@
 **Note:** BUG #9 fixed persistence for navigation away, but page refresh may bypass localStorage restoration.
 
 **Impact:** Users who adjust weights then accidentally refresh will lose their changes.
+
+**Fix:** Added a useEffect in SetRow.tsx that restores pendingEdit values when they become available after mount. The issue was that useState only uses initial values on first render, so if pendingEdit wasn't available immediately (due to React rendering order on page refresh), the component would use fallback values and never update. The new effect tracks whether pendingEdit has been applied and restores weight/reps values when pendingEdit first becomes available.
 
 ---
 
