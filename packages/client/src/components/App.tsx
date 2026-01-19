@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Box, Container, Heading, Flex } from '@radix-ui/themes';
 import { BottomNav } from './Navigation';
-import { MesoTab } from './Mesocycle';
+import { MesoTab, CompleteMesocycleDialog } from './Mesocycle';
 import {
   ExerciseLibraryPage,
   PlansPage,
@@ -32,6 +33,7 @@ const queryClient = new QueryClient({
 
 function MesoPage(): JSX.Element {
   const navigate = useNavigate();
+  const [showCompleteDialog, setShowCompleteDialog] = useState(false);
   const { data: activeMesocycle, isLoading: isLoadingMesocycle } =
     useActiveMesocycle();
   const { data: allMesocycles, isLoading: isLoadingAllMesocycles } =
@@ -51,9 +53,17 @@ function MesoPage(): JSX.Element {
     createMesocycle.mutate({ plan_id: planId, start_date: startDate });
   };
 
-  const handleComplete = (): void => {
+  const handleCompleteClick = (): void => {
+    setShowCompleteDialog(true);
+  };
+
+  const handleConfirmComplete = (): void => {
     if (activeMesocycle) {
-      completeMesocycle.mutate(activeMesocycle.id);
+      completeMesocycle.mutate(activeMesocycle.id, {
+        onSuccess: () => {
+          setShowCompleteDialog(false);
+        },
+      });
     }
   };
 
@@ -66,6 +76,13 @@ function MesoPage(): JSX.Element {
   const handleWorkoutClick = (workoutId: number): void => {
     void navigate(`/workouts/${workoutId}`);
   };
+
+  const progressPercent =
+    activeMesocycle && activeMesocycle.total_workouts > 0
+      ? Math.round(
+          (activeMesocycle.completed_workouts / activeMesocycle.total_workouts) * 100
+        )
+      : 0;
 
   return (
     <Container size="2" p="4">
@@ -82,11 +99,21 @@ function MesoPage(): JSX.Element {
           isCancelling={cancelMesocycle.isPending}
           createError={createMesocycle.error?.message ?? null}
           onCreateMesocycle={handleCreate}
-          onCompleteMesocycle={handleComplete}
+          onCompleteMesocycle={handleCompleteClick}
           onCancelMesocycle={handleCancel}
           onWorkoutClick={handleWorkoutClick}
         />
       </Flex>
+
+      <CompleteMesocycleDialog
+        open={showCompleteDialog}
+        onClose={() => setShowCompleteDialog(false)}
+        onConfirm={handleConfirmComplete}
+        isCompleting={completeMesocycle.isPending}
+        progressPercent={progressPercent}
+        completedWorkouts={activeMesocycle?.completed_workouts ?? 0}
+        totalWorkouts={activeMesocycle?.total_workouts ?? 0}
+      />
     </Container>
   );
 }

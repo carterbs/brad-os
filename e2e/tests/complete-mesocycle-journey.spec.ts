@@ -291,10 +291,14 @@ test.describe('Complete Mesocycle Journey', () => {
     // Check if mesocycle is still active and has a complete button
     const isStillActive = await mesoPage.hasActiveMesocycle();
     if (isStillActive) {
-      // Click the complete button directly (no confirmation dialog in the UI)
+      // Click the complete button to open confirmation dialog
       const completeButton = page.getByTestId('complete-mesocycle-button');
       if (await completeButton.isVisible()) {
         await completeButton.click();
+        // Wait for confirmation dialog and click confirm
+        const confirmButton = page.getByTestId('confirm-complete-button');
+        await expect(confirmButton).toBeVisible({ timeout: 5000 });
+        await confirmButton.click();
         // Wait for the page to update (mesocycle becomes inactive after completion)
         await expect(page.getByText('No active mesocycle')).toBeVisible({
           timeout: 10000,
