@@ -11,6 +11,7 @@ import {
   calculateElapsedSeconds,
   type TimerState,
 } from '../../utils/timerStorage';
+import { useWorkoutStorage, type PendingSetEdit } from '../../hooks/useLocalStorage';
 
 interface WorkoutViewProps {
   workout: WorkoutWithExercises;
@@ -111,6 +112,18 @@ export function WorkoutView({
     initialElapsed: number;
   } | null>(null);
 
+  // Pending edits storage for unlogged weight/reps changes
+  const { storedState, updatePendingEdit, clearPendingEdit } = useWorkoutStorage();
+  const pendingEdits = storedState?.workoutId === workout.id ? storedState.pendingEdits : undefined;
+
+  // Handler for pending edit changes
+  const handlePendingEdit = useCallback(
+    (setId: number, data: PendingSetEdit): void => {
+      updatePendingEdit(workout.id, setId, data);
+    },
+    [workout.id, updatePendingEdit]
+  );
+
   const isDisabled =
     workout.status === 'completed' || workout.status === 'skipped';
   const canStart = workout.status === 'pending';
@@ -172,6 +185,9 @@ export function WorkoutView({
   // Wrapper for onSetLogged that starts the timer and updates active exercise
   const handleSetLogged = useCallback(
     (setId: number, data: LogWorkoutSetInput): void => {
+      // Clear pending edit since the set is now logged
+      clearPendingEdit(workout.id, setId);
+
       // Find the exercise that contains this set
       const exercise = workout.exercises.find((ex) =>
         ex.sets.some((s) => s.id === setId)
@@ -203,7 +219,7 @@ export function WorkoutView({
       // Call the original handler
       onSetLogged(setId, data);
     },
-    [workout.exercises, onSetLogged]
+    [workout.id, workout.exercises, onSetLogged, clearPendingEdit]
   );
 
   const handleCompleteClick = (): void => {
@@ -299,11 +315,13 @@ export function WorkoutView({
             exercise={exercise}
             workoutStatus={workout.status}
             activeSetId={activeSetId}
+            pendingEdits={pendingEdits}
             onSetLogged={handleSetLogged}
             onSetUnlogged={onSetUnlogged}
             onAddSet={onAddSet !== undefined ? (): void => onAddSet(exercise.exercise_id) : undefined}
             onRemoveSet={onRemoveSet !== undefined ? (): void => onRemoveSet(exercise.exercise_id) : undefined}
             onActivate={() => setActiveExerciseId(exercise.exercise_id)}
+            onPendingEdit={handlePendingEdit}
           />
         ))}
       </Flex>

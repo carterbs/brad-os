@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Flex, Text, TextField, Checkbox, IconButton } from '@radix-ui/themes';
 import { TrashIcon } from '@radix-ui/react-icons';
 import type { WorkoutSet, WorkoutStatus, LogWorkoutSetInput } from '@lifting/shared';
+import type { PendingSetEdit } from '../../hooks/useLocalStorage';
 
 interface SetRowProps {
   set: WorkoutSet;
@@ -9,10 +10,12 @@ interface SetRowProps {
   isActive: boolean;
   canRemove?: boolean | undefined;
   weightOverride?: string | undefined;
+  pendingEdit?: PendingSetEdit | undefined;
   onLog: (data: LogWorkoutSetInput) => void;
   onUnlog: () => void;
   onRemove?: (() => void) | undefined;
   onWeightChange?: ((weight: string) => void) | undefined;
+  onPendingEdit?: ((data: PendingSetEdit) => void) | undefined;
 }
 
 function validateWeight(value: string): string | null {
@@ -36,21 +39,24 @@ export function SetRow({
   isActive,
   canRemove,
   weightOverride,
+  pendingEdit,
   onLog,
   onUnlog,
   onRemove,
   onWeightChange,
+  onPendingEdit,
 }: SetRowProps): JSX.Element {
   const isDisabled = workoutStatus === 'completed' || workoutStatus === 'skipped';
   const isLogged = set.status === 'completed';
   const isSkipped = set.status === 'skipped';
 
-  // Initialize input values from target or actual values
+  // Initialize input values from pending edit, weight override, actual, or target values
+  // Priority: pendingEdit > weightOverride > actual_weight > target_weight
   const [weight, setWeight] = useState<string>(
-    weightOverride ?? String(set.actual_weight ?? set.target_weight)
+    pendingEdit?.weight ?? weightOverride ?? String(set.actual_weight ?? set.target_weight)
   );
   const [reps, setReps] = useState<string>(
-    String(set.actual_reps ?? set.target_reps)
+    pendingEdit?.reps ?? String(set.actual_reps ?? set.target_reps)
   );
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -180,6 +186,7 @@ export function SetRow({
           onChange={(e) => {
             setWeight(e.target.value);
             onWeightChange?.(e.target.value);
+            onPendingEdit?.({ weight: e.target.value });
           }}
           disabled={isDisabled || isSkipped}
           size="1"
@@ -196,7 +203,10 @@ export function SetRow({
           inputMode="numeric"
           pattern="[0-9]*"
           value={reps}
-          onChange={(e) => setReps(e.target.value)}
+          onChange={(e) => {
+            setReps(e.target.value);
+            onPendingEdit?.({ reps: e.target.value });
+          }}
           disabled={isDisabled || isSkipped}
           size="1"
           style={{ width: '48px' }}

@@ -3,6 +3,14 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 const WORKOUT_STORAGE_KEY = 'lifting-app-workout-state';
 
 /**
+ * Pending weight/reps edit for an unlogged set
+ */
+export interface PendingSetEdit {
+  weight?: string;
+  reps?: string;
+}
+
+/**
  * Stored state for an in-progress workout
  */
 export interface StoredWorkoutState {
@@ -11,6 +19,8 @@ export interface StoredWorkoutState {
     number,
     { actual_reps: number; actual_weight: number; status: 'completed' | 'skipped' }
   >;
+  /** Pending weight/reps edits for sets that haven't been logged yet */
+  pendingEdits?: Record<number, PendingSetEdit>;
   lastUpdated: string;
 }
 
@@ -107,6 +117,9 @@ export function useWorkoutStorage(): {
   ) => void;
   removeSet: (workoutId: number, setId: number) => void;
   getStoredStateForWorkout: (workoutId: number) => StoredWorkoutState | null;
+  updatePendingEdit: (workoutId: number, setId: number, data: PendingSetEdit) => void;
+  getPendingEdit: (setId: number) => PendingSetEdit | undefined;
+  clearPendingEdit: (workoutId: number, setId: number) => void;
 } {
   const [storedState, setStoredState, clearStoredState] =
     useLocalStorage<StoredWorkoutState | null>(WORKOUT_STORAGE_KEY, null);
@@ -190,6 +203,65 @@ export function useWorkoutStorage(): {
     [storedState]
   );
 
+  const updatePendingEdit = useCallback(
+    (workoutId: number, setId: number, data: PendingSetEdit) => {
+      setStoredState((prev) => {
+        if (!prev || prev.workoutId !== workoutId) {
+          // Create new state for this workout
+          return {
+            workoutId,
+            sets: {},
+            pendingEdits: {
+              [setId]: data,
+            },
+            lastUpdated: new Date().toISOString(),
+          };
+        }
+
+        // Merge with existing pending edit for this set
+        const existingEdit = prev.pendingEdits?.[setId] ?? {};
+        return {
+          ...prev,
+          pendingEdits: {
+            ...prev.pendingEdits,
+            [setId]: { ...existingEdit, ...data },
+          },
+          lastUpdated: new Date().toISOString(),
+        };
+      });
+    },
+    [setStoredState]
+  );
+
+  const getPendingEdit = useCallback(
+    (setId: number): PendingSetEdit | undefined => {
+      return storedState?.pendingEdits?.[setId];
+    },
+    [storedState]
+  );
+
+  const clearPendingEdit = useCallback(
+    (workoutId: number, setId: number) => {
+      setStoredState((prev) => {
+        if (!prev || prev.workoutId !== workoutId || !prev.pendingEdits) {
+          return prev;
+        }
+
+        const { [setId]: _removed, ...remainingEdits } = prev.pendingEdits;
+        void _removed; // Suppress unused variable warning
+
+        const hasRemainingEdits = Object.keys(remainingEdits).length > 0;
+        return {
+          workoutId: prev.workoutId,
+          sets: prev.sets,
+          lastUpdated: new Date().toISOString(),
+          ...(hasRemainingEdits ? { pendingEdits: remainingEdits } : {}),
+        };
+      });
+    },
+    [setStoredState]
+  );
+
   return {
     storedState,
     saveState,
@@ -197,5 +269,8 @@ export function useWorkoutStorage(): {
     updateSet,
     removeSet,
     getStoredStateForWorkout,
+    updatePendingEdit,
+    getPendingEdit,
+    clearPendingEdit,
   };
 }

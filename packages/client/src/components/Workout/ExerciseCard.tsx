@@ -3,17 +3,20 @@ import { Card, Flex, Text, Badge, Box, Button } from '@radix-ui/themes';
 import { PlusIcon } from '@radix-ui/react-icons';
 import type { WorkoutStatus, LogWorkoutSetInput } from '@lifting/shared';
 import type { WorkoutExerciseWithSets } from '../../api/workoutApi';
+import type { PendingSetEdit } from '../../hooks/useLocalStorage';
 import { SetRow } from './SetRow';
 
 interface ExerciseCardProps {
   exercise: WorkoutExerciseWithSets;
   workoutStatus: WorkoutStatus;
   activeSetId: number | null;
+  pendingEdits?: Record<number, PendingSetEdit> | undefined;
   onSetLogged: (setId: number, data: LogWorkoutSetInput) => void;
   onSetUnlogged: (setId: number) => void;
   onAddSet?: (() => void) | undefined;
   onRemoveSet?: (() => void) | undefined;
   onActivate: () => void;
+  onPendingEdit?: ((setId: number, data: PendingSetEdit) => void) | undefined;
 }
 
 function formatRestTime(seconds: number): string {
@@ -32,11 +35,13 @@ export function ExerciseCard({
   exercise,
   workoutStatus,
   activeSetId,
+  pendingEdits,
   onSetLogged,
   onSetUnlogged,
   onAddSet,
   onRemoveSet,
   onActivate,
+  onPendingEdit,
 }: ExerciseCardProps): JSX.Element {
   const completedSets = exercise.sets.filter(
     (s) => s.status === 'completed'
@@ -105,10 +110,12 @@ export function ExerciseCard({
             isActive={set.id === activeSetId}
             canRemove={canRemoveAnySet && set.id === lastPendingSet?.id}
             weightOverride={weightOverrides[set.id]}
+            pendingEdit={pendingEdits?.[set.id]}
             onLog={(data) => onSetLogged(set.id, data)}
             onUnlog={() => onSetUnlogged(set.id)}
             onRemove={onRemoveSet}
             onWeightChange={(weight) => handleWeightChange(index, weight)}
+            onPendingEdit={onPendingEdit !== undefined ? (data): void => onPendingEdit(set.id, data) : undefined}
           />
         ))}
       </Flex>

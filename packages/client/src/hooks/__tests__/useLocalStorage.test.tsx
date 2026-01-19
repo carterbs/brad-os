@@ -247,4 +247,138 @@ describe('useWorkoutStorage', () => {
 
     expect(result.current.storedState?.lastUpdated).not.toBe(oldDate);
   });
+
+  describe('pending edits', () => {
+    it('should update pending edit for a set', () => {
+      const { result } = renderHook(() => useWorkoutStorage());
+
+      const state: StoredWorkoutState = {
+        workoutId: 1,
+        sets: {},
+        lastUpdated: '2024-01-15T10:00:00Z',
+      };
+
+      act(() => {
+        result.current.saveState(state);
+      });
+
+      act(() => {
+        result.current.updatePendingEdit(1, 5, { weight: '150', reps: '10' });
+      });
+
+      expect(result.current.storedState?.pendingEdits?.[5]).toEqual({
+        weight: '150',
+        reps: '10',
+      });
+    });
+
+    it('should create new state when updating pending edit with no existing state', () => {
+      const { result } = renderHook(() => useWorkoutStorage());
+
+      act(() => {
+        result.current.updatePendingEdit(1, 5, { weight: '150' });
+      });
+
+      expect(result.current.storedState?.workoutId).toBe(1);
+      expect(result.current.storedState?.pendingEdits?.[5]).toEqual({ weight: '150' });
+      expect(result.current.storedState?.sets).toEqual({});
+    });
+
+    it('should merge pending edits for the same set', () => {
+      const { result } = renderHook(() => useWorkoutStorage());
+
+      act(() => {
+        result.current.updatePendingEdit(1, 5, { weight: '150' });
+      });
+
+      act(() => {
+        result.current.updatePendingEdit(1, 5, { reps: '12' });
+      });
+
+      expect(result.current.storedState?.pendingEdits?.[5]).toEqual({
+        weight: '150',
+        reps: '12',
+      });
+    });
+
+    it('should get pending edit for a set', () => {
+      const { result } = renderHook(() => useWorkoutStorage());
+
+      act(() => {
+        result.current.updatePendingEdit(1, 5, { weight: '150', reps: '10' });
+      });
+
+      expect(result.current.getPendingEdit(5)).toEqual({ weight: '150', reps: '10' });
+      expect(result.current.getPendingEdit(99)).toBeUndefined();
+    });
+
+    it('should clear pending edit for a set', () => {
+      const { result } = renderHook(() => useWorkoutStorage());
+
+      act(() => {
+        result.current.updatePendingEdit(1, 5, { weight: '150' });
+        result.current.updatePendingEdit(1, 6, { weight: '200' });
+      });
+
+      act(() => {
+        result.current.clearPendingEdit(1, 5);
+      });
+
+      expect(result.current.storedState?.pendingEdits?.[5]).toBeUndefined();
+      expect(result.current.storedState?.pendingEdits?.[6]).toEqual({ weight: '200' });
+    });
+
+    it('should remove pendingEdits field when last edit is cleared', () => {
+      const { result } = renderHook(() => useWorkoutStorage());
+
+      act(() => {
+        result.current.updatePendingEdit(1, 5, { weight: '150' });
+      });
+
+      act(() => {
+        result.current.clearPendingEdit(1, 5);
+      });
+
+      expect(result.current.storedState?.pendingEdits).toBeUndefined();
+    });
+
+    it('should not affect other workout state when clearing pending edit', () => {
+      const { result } = renderHook(() => useWorkoutStorage());
+
+      act(() => {
+        result.current.updatePendingEdit(1, 5, { weight: '150' });
+      });
+
+      // Try to clear for a different workout - should not affect anything
+      act(() => {
+        result.current.clearPendingEdit(2, 5);
+      });
+
+      expect(result.current.storedState?.pendingEdits?.[5]).toEqual({ weight: '150' });
+    });
+
+    it('should create new state when updating pending edit for different workout', () => {
+      const { result } = renderHook(() => useWorkoutStorage());
+
+      const state: StoredWorkoutState = {
+        workoutId: 1,
+        sets: { 1: { actual_reps: 10, actual_weight: 135, status: 'completed' } },
+        lastUpdated: '2024-01-15T10:00:00Z',
+      };
+
+      act(() => {
+        result.current.saveState(state);
+      });
+
+      act(() => {
+        result.current.updatePendingEdit(2, 5, { weight: '150' });
+      });
+
+      // Should have switched to workout 2
+      expect(result.current.storedState?.workoutId).toBe(2);
+      expect(result.current.storedState?.pendingEdits?.[5]).toEqual({ weight: '150' });
+      // Previous workout data should be gone
+      expect(result.current.storedState?.sets).toEqual({});
+    });
+  });
 });
