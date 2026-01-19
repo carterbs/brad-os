@@ -53,14 +53,14 @@ describe('Migrator', () => {
     it('should return the highest applied migration version', () => {
       const migrator = new Migrator(db, migrations);
       migrator.up();
-      expect(migrator.getCurrentVersion()).toBe(7);
+      expect(migrator.getCurrentVersion()).toBe(8);
     });
   });
 
   describe('getPendingMigrations', () => {
     it('should return all migrations when none applied', () => {
       const migrator = new Migrator(db, migrations);
-      expect(migrator.getPendingMigrations()).toHaveLength(7);
+      expect(migrator.getPendingMigrations()).toHaveLength(8);
     });
 
     it('should return empty array when all migrations applied', () => {
@@ -101,7 +101,7 @@ describe('Migrator', () => {
         .prepare('SELECT * FROM _migrations ORDER BY version')
         .all() as { version: number; name: string }[];
 
-      expect(appliedMigrations).toHaveLength(7);
+      expect(appliedMigrations).toHaveLength(8);
       expect(appliedMigrations[0].name).toBe('create_exercises');
       expect(appliedMigrations[6].name).toBe('create_workout_sets');
     });
@@ -115,7 +115,7 @@ describe('Migrator', () => {
         .prepare('SELECT * FROM _migrations')
         .all() as { version: number }[];
 
-      expect(appliedMigrations).toHaveLength(7);
+      expect(appliedMigrations).toHaveLength(8);
     });
   });
 
@@ -124,18 +124,17 @@ describe('Migrator', () => {
       const migrator = new Migrator(db, migrations);
       migrator.up();
 
-      expect(migrator.getCurrentVersion()).toBe(7);
+      expect(migrator.getCurrentVersion()).toBe(8);
 
       migrator.down();
 
-      expect(migrator.getCurrentVersion()).toBe(6);
+      expect(migrator.getCurrentVersion()).toBe(7);
 
-      // Verify workout_sets table is dropped
-      const tables = db
-        .prepare("SELECT name FROM sqlite_master WHERE type='table'")
-        .all() as { name: string }[];
-      const tableNames = tables.map((t) => t.name);
-      expect(tableNames).not.toContain('workout_sets');
+      // Verify min_reps/max_reps columns are removed (migration 8 rolled back)
+      const columns = db.prepare("PRAGMA table_info(plan_day_exercises)").all() as { name: string }[];
+      const columnNames = columns.map((c) => c.name);
+      expect(columnNames).not.toContain('min_reps');
+      expect(columnNames).not.toContain('max_reps');
     });
 
     it('should do nothing when no migrations applied', () => {
@@ -150,7 +149,7 @@ describe('Migrator', () => {
       const migrator = new Migrator(db, migrations);
       migrator.up();
 
-      expect(migrator.getCurrentVersion()).toBe(7);
+      expect(migrator.getCurrentVersion()).toBe(8);
 
       migrator.reset();
 

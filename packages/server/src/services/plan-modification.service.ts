@@ -181,6 +181,8 @@ export class PlanModificationService {
           baseReps: planDayExercise.reps,
           baseSets: planDayExercise.sets,
           weightIncrement: exercise.weight_increment,
+          minReps: planDayExercise.min_reps,
+          maxReps: planDayExercise.max_reps,
         },
         workout.week_number,
         true // Assume previous weeks completed for new exercises
@@ -271,6 +273,11 @@ export class PlanModificationService {
       (w) => w.plan_day_id === planDayId
     );
 
+    // Look up the plan day exercise to get min_reps/max_reps
+    const planDayExercises =
+      this.repos.planDayExercise.findByPlanDayId(planDayId);
+    const pde = planDayExercises.find((p) => p.exercise_id === exerciseId);
+
     let modifiedSetsCount = 0;
     let affectedWorkoutCount = 0;
 
@@ -302,6 +309,8 @@ export class PlanModificationService {
           ),
           baseSets,
           weightIncrement,
+          minReps: pde?.min_reps ?? 8,
+          maxReps: pde?.max_reps ?? 12,
         },
         workout.week_number,
         true
@@ -429,6 +438,8 @@ export class PlanModificationService {
                 baseReps: planExercise.reps,
                 baseSets: planExercise.sets,
                 weightIncrement: exercise.weight_increment,
+                minReps: planExercise.min_reps,
+                maxReps: planExercise.max_reps,
               },
               workout.week_number,
               true
@@ -482,6 +493,8 @@ export class PlanModificationService {
               baseReps: planExercise.reps,
               baseSets: planExercise.sets,
               weightIncrement: exercise.weight_increment,
+              minReps: planExercise.min_reps,
+              maxReps: planExercise.max_reps,
             },
             workout.week_number,
             true

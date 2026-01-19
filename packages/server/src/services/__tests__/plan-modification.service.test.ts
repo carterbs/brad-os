@@ -67,6 +67,8 @@ describe('PlanModificationService', () => {
         weight REAL DEFAULT 30.0,
         rest_seconds INTEGER DEFAULT 60,
         sort_order INTEGER NOT NULL,
+        min_reps INTEGER NOT NULL DEFAULT 8,
+        max_reps INTEGER NOT NULL DEFAULT 12,
         FOREIGN KEY (plan_day_id) REFERENCES plan_days(id) ON DELETE CASCADE,
         FOREIGN KEY (exercise_id) REFERENCES exercises(id)
       );
