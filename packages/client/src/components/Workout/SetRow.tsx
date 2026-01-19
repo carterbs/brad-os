@@ -128,30 +128,35 @@ export function SetRow({
         <Text size="1" color="gray">reps</Text>
       </Flex>
 
-      {/* Checkbox */}
-      <Checkbox
-        data-testid={`log-checkbox-${set.id}`}
-        checked={isLogged}
-        onCheckedChange={handleCheckboxChange}
-        disabled={isDisabled || isSkipped}
-        size="3"
-      />
+      {/* Checkbox and remove button grouped together */}
+      <Flex align="center" gap="2">
+        {/* Remove button container - always rendered to maintain alignment */}
+        <Flex style={{ width: '24px', justifyContent: 'center' }}>
+          {canRemove === true && set.status === 'pending' && onRemove !== undefined && (
+            <IconButton
+              data-testid={`remove-set-${set.id}`}
+              variant="ghost"
+              color="red"
+              size="1"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove();
+              }}
+            >
+              <TrashIcon />
+            </IconButton>
+          )}
+        </Flex>
 
-      {/* Remove button - only shown for removable pending sets */}
-      {canRemove === true && set.status === 'pending' && onRemove !== undefined && (
-        <IconButton
-          data-testid={`remove-set-${set.id}`}
-          variant="ghost"
-          color="red"
-          size="1"
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-        >
-          <TrashIcon />
-        </IconButton>
-      )}
+        {/* Checkbox on the right */}
+        <Checkbox
+          data-testid={`log-checkbox-${set.id}`}
+          checked={isLogged}
+          onCheckedChange={handleCheckboxChange}
+          disabled={isDisabled || isSkipped}
+          size="3"
+        />
+      </Flex>
     </Flex>
   );
 }
