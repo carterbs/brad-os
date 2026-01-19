@@ -78,7 +78,6 @@ rsync $RSYNC_OPTS \
     --exclude '.env.local' \
     --exclude '*.log' \
     --exclude 'plans' \
-    --exclude 'docker' \
     --exclude 'BUGS.md' \
     --exclude 'CLAUDE.md' \
     --include 'packages/shared/dist/***' \
