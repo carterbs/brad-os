@@ -1,5 +1,7 @@
 /* Center text in SetRow inputs - must reset text-indent which Radix uses for padding */
+/* font-size: 16px prevents iOS Safari from auto-zooming on input focus */
 .rt-TextFieldInput {
   text-align: center !important;
   text-indent: 0 !important;
+  font-size: 16px !important;
 }
