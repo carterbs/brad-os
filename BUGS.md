@@ -75,7 +75,7 @@
 ---
 
 ### BUG #15: Numerical Input Zoom Doesn't Reset on Mobile
-**Status:** Open
+**Status:** Fixed (2026-01-19)
 
 **Steps to reproduce:**
 1. Open app on mobile device (iOS Safari)
@@ -90,6 +90,8 @@
 **Technical note:** Often caused by inputs with font-size < 16px on iOS. Fix may involve CSS `font-size: 16px` on inputs or `maximum-scale=1` in viewport meta.
 
 **Impact:** Poor mobile UX, requires manual zoom adjustment after every input.
+
+**Fix:** Added `font-size: 16px` to `.rt-TextFieldInput` class in global.css. iOS Safari only auto-zooms on inputs with font-size < 16px, so this prevents the zoom behavior entirely.
 
 ---
 
