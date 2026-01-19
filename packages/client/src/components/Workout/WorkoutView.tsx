@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { AlertDialog, Box, Button, Flex, Heading, Text, Badge, Card } from '@radix-ui/themes';
 import type { LogWorkoutSetInput } from '@lifting/shared';
 import type { WorkoutWithExercises } from '../../api/workoutApi';
@@ -97,6 +97,10 @@ export function WorkoutView({
 }: WorkoutViewProps): JSX.Element {
   const [showCompleteConfirm, setShowCompleteConfirm] = useState(false);
   const [showSkipConfirm, setShowSkipConfirm] = useState(false);
+  const [showAllSetsDonePrompt, setShowAllSetsDonePrompt] = useState(false);
+
+  // Track if user dismissed the "all sets done" prompt to avoid showing it again
+  const allSetsDonePromptDismissedRef = useRef(false);
 
   // Track the active exercise (the one the user is currently working on)
   // Defaults to the first exercise, updates when user logs a set
@@ -132,6 +136,12 @@ export function WorkoutView({
   // Count pending sets for confirmation dialog
   const pendingSetsCount = workout.exercises.reduce(
     (count, ex) => count + ex.sets.filter((s) => s.status === 'pending').length,
+    0
+  );
+
+  // Count total sets (for detecting when all sets are done)
+  const totalSetsCount = workout.exercises.reduce(
+    (count, ex) => count + ex.sets.length,
     0
   );
 
@@ -175,6 +185,14 @@ export function WorkoutView({
       setActiveTimer(null);
     }
   }, [isDisabled]);
+
+  // Show prompt when all sets are done
+  useEffect(() => {
+    const allSetsDone = canComplete && totalSetsCount > 0 && pendingSetsCount === 0;
+    if (allSetsDone && !allSetsDonePromptDismissedRef.current) {
+      setShowAllSetsDonePrompt(true);
+    }
+  }, [canComplete, totalSetsCount, pendingSetsCount]);
 
   // Handler for timer dismiss
   const handleTimerDismiss = useCallback((): void => {
@@ -375,6 +393,40 @@ export function WorkoutView({
                 data-testid="confirm-button"
               >
                 Skip Workout
+              </Button>
+            </AlertDialog.Action>
+          </Flex>
+        </AlertDialog.Content>
+      </AlertDialog.Root>
+
+      {/* All sets done prompt */}
+      <AlertDialog.Root
+        open={showAllSetsDonePrompt}
+        onOpenChange={(open) => {
+          setShowAllSetsDonePrompt(open);
+          if (!open) {
+            allSetsDonePromptDismissedRef.current = true;
+          }
+        }}
+      >
+        <AlertDialog.Content maxWidth="400px" data-testid="all-sets-done-dialog">
+          <AlertDialog.Title>All Sets Complete!</AlertDialog.Title>
+          <Text as="p" size="3" color="gray">
+            Great work! You&apos;ve logged all {totalSetsCount} sets. Ready to complete this workout?
+          </Text>
+          <Flex gap="3" justify="end" mt="4">
+            <AlertDialog.Cancel>
+              <Button variant="soft" color="gray">
+                Not Yet
+              </Button>
+            </AlertDialog.Cancel>
+            <AlertDialog.Action>
+              <Button
+                color="green"
+                onClick={onWorkoutCompleted}
+                data-testid="complete-workout-prompt-button"
+              >
+                Complete Workout
               </Button>
             </AlertDialog.Action>
           </Flex>

@@ -57,6 +57,52 @@ const createMockWorkout = (
   ],
 });
 
+// Helper to create a workout with all sets completed
+const createMockWorkoutAllSetsCompleted = (): WorkoutWithExercises => ({
+  id: 1,
+  mesocycle_id: 1,
+  plan_day_id: 1,
+  week_number: 1,
+  scheduled_date: '2024-01-15',
+  status: 'in_progress',
+  started_at: '2024-01-15T10:00:00Z',
+  completed_at: null,
+  plan_day_name: 'Push Day',
+  exercises: [
+    {
+      exercise_id: 1,
+      exercise_name: 'Bench Press',
+      sets: [
+        {
+          id: 1,
+          workout_id: 1,
+          exercise_id: 1,
+          set_number: 1,
+          target_reps: 10,
+          target_weight: 135,
+          actual_reps: 10,
+          actual_weight: 135,
+          status: 'completed',
+        },
+        {
+          id: 2,
+          workout_id: 1,
+          exercise_id: 1,
+          set_number: 2,
+          target_reps: 10,
+          target_weight: 135,
+          actual_reps: 10,
+          actual_weight: 135,
+          status: 'completed',
+        },
+      ],
+      total_sets: 2,
+      completed_sets: 2,
+      rest_seconds: 90,
+    },
+  ],
+});
+
 const renderWithTheme = (ui: React.ReactElement): ReturnType<typeof render> => {
   return render(<Theme>{ui}</Theme>);
 };
@@ -666,6 +712,122 @@ describe('WorkoutView', () => {
 
       // Timer should show ~30 seconds elapsed
       expect(screen.getByText('00:30')).toBeInTheDocument();
+    });
+  });
+
+  describe('All sets done prompt', () => {
+    it('should show prompt when all sets are completed in an in_progress workout', () => {
+      renderWithTheme(
+        <WorkoutView
+          workout={createMockWorkoutAllSetsCompleted()}
+          onSetLogged={mockOnSetLogged}
+          onSetUnlogged={mockOnSetUnlogged}
+          onWorkoutStarted={mockOnWorkoutStarted}
+          onWorkoutCompleted={mockOnWorkoutCompleted}
+          onWorkoutSkipped={mockOnWorkoutSkipped}
+        />
+      );
+
+      expect(screen.getByTestId('all-sets-done-dialog')).toBeInTheDocument();
+      expect(screen.getByText(/All Sets Complete!/)).toBeInTheDocument();
+      expect(screen.getByText(/logged all 2 sets/)).toBeInTheDocument();
+    });
+
+    it('should not show prompt when workout has pending sets', () => {
+      renderWithTheme(
+        <WorkoutView
+          workout={createMockWorkout('in_progress')}
+          onSetLogged={mockOnSetLogged}
+          onSetUnlogged={mockOnSetUnlogged}
+          onWorkoutStarted={mockOnWorkoutStarted}
+          onWorkoutCompleted={mockOnWorkoutCompleted}
+          onWorkoutSkipped={mockOnWorkoutSkipped}
+        />
+      );
+
+      expect(screen.queryByTestId('all-sets-done-dialog')).not.toBeInTheDocument();
+    });
+
+    it('should not show prompt when workout is already completed', () => {
+      const completedWorkout: WorkoutWithExercises = {
+        ...createMockWorkoutAllSetsCompleted(),
+        status: 'completed',
+        completed_at: '2024-01-15T11:00:00Z',
+      };
+
+      renderWithTheme(
+        <WorkoutView
+          workout={completedWorkout}
+          onSetLogged={mockOnSetLogged}
+          onSetUnlogged={mockOnSetUnlogged}
+          onWorkoutStarted={mockOnWorkoutStarted}
+          onWorkoutCompleted={mockOnWorkoutCompleted}
+          onWorkoutSkipped={mockOnWorkoutSkipped}
+        />
+      );
+
+      expect(screen.queryByTestId('all-sets-done-dialog')).not.toBeInTheDocument();
+    });
+
+    it('should call onWorkoutCompleted when Complete Workout is clicked in prompt', async () => {
+      const user = userEvent.setup();
+
+      renderWithTheme(
+        <WorkoutView
+          workout={createMockWorkoutAllSetsCompleted()}
+          onSetLogged={mockOnSetLogged}
+          onSetUnlogged={mockOnSetUnlogged}
+          onWorkoutStarted={mockOnWorkoutStarted}
+          onWorkoutCompleted={mockOnWorkoutCompleted}
+          onWorkoutSkipped={mockOnWorkoutSkipped}
+        />
+      );
+
+      const dialog = screen.getByTestId('all-sets-done-dialog');
+      await user.click(within(dialog).getByTestId('complete-workout-prompt-button'));
+
+      expect(mockOnWorkoutCompleted).toHaveBeenCalled();
+    });
+
+    it('should not show prompt again after being dismissed', async () => {
+      const user = userEvent.setup();
+
+      const { rerender } = renderWithTheme(
+        <WorkoutView
+          workout={createMockWorkoutAllSetsCompleted()}
+          onSetLogged={mockOnSetLogged}
+          onSetUnlogged={mockOnSetUnlogged}
+          onWorkoutStarted={mockOnWorkoutStarted}
+          onWorkoutCompleted={mockOnWorkoutCompleted}
+          onWorkoutSkipped={mockOnWorkoutSkipped}
+        />
+      );
+
+      // Prompt should be shown
+      expect(screen.getByTestId('all-sets-done-dialog')).toBeInTheDocument();
+
+      // Click "Not Yet" to dismiss
+      await user.click(screen.getByText('Not Yet'));
+
+      // Prompt should be hidden
+      expect(screen.queryByTestId('all-sets-done-dialog')).not.toBeInTheDocument();
+
+      // Re-render with same props (simulating a state update)
+      rerender(
+        <Theme>
+          <WorkoutView
+            workout={createMockWorkoutAllSetsCompleted()}
+            onSetLogged={mockOnSetLogged}
+            onSetUnlogged={mockOnSetUnlogged}
+            onWorkoutStarted={mockOnWorkoutStarted}
+            onWorkoutCompleted={mockOnWorkoutCompleted}
+            onWorkoutSkipped={mockOnWorkoutSkipped}
+          />
+        </Theme>
+      );
+
+      // Prompt should still not be shown
+      expect(screen.queryByTestId('all-sets-done-dialog')).not.toBeInTheDocument();
     });
   });
 });

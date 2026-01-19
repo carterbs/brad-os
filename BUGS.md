@@ -125,7 +125,7 @@
 ---
 
 ### BUG #13: Prompt to Complete Workout When All Sets Done
-**Status:** Open
+**Status:** Fixed (2026-01-19)
 
 **Steps to reproduce:**
 1. Start a workout with multiple exercises
@@ -137,6 +137,8 @@
 **Actual behavior:** No prompt appears. User must manually find and click the complete button.
 
 **Impact:** UX friction - users may not realize workout is ready to complete, or may forget to complete it.
+
+**Fix:** Added an "All Sets Complete!" dialog in WorkoutView.tsx that automatically appears when all sets are logged/completed during an in-progress workout. The dialog congratulates the user and offers two options: "Not Yet" to dismiss and continue, or "Complete Workout" to finish. A ref tracks whether the prompt was dismissed to avoid showing it repeatedly during the same session.
 
 ---
 

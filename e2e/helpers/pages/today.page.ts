@@ -47,6 +47,10 @@ export class TodayPage extends BasePage {
     return this.page.getByTestId('confirm-button');
   }
 
+  get allSetsDoneDialog(): Locator {
+    return this.page.getByTestId('all-sets-done-dialog');
+  }
+
   // ============ Actions ============
 
   /**
@@ -112,6 +116,9 @@ export class TodayPage extends BasePage {
     // Click the checkbox to log and wait for it to become checked
     await checkbox.click();
     await expect(checkbox).toBeChecked();
+
+    // Dismiss "all sets done" dialog if it appears (when logging the final set)
+    await this.dismissAllSetsDoneDialog();
   }
 
   /**
@@ -121,6 +128,9 @@ export class TodayPage extends BasePage {
     const checkbox = this.getLogCheckbox(setId);
     await checkbox.click();
     await expect(checkbox).toBeChecked();
+
+    // Dismiss "all sets done" dialog if it appears (when logging the final set)
+    await this.dismissAllSetsDoneDialog();
   }
 
   /**
@@ -182,6 +192,21 @@ export class TodayPage extends BasePage {
     const dismissButton = this.page.getByTestId('dismiss-timer-button');
     if (await dismissButton.isVisible()) {
       await dismissButton.click();
+    }
+  }
+
+  /**
+   * Dismiss the "all sets done" dialog if it's visible
+   */
+  async dismissAllSetsDoneDialog(): Promise<void> {
+    // Use a short timeout to check if dialog appears
+    const dialog = this.allSetsDoneDialog;
+    const isVisible = await dialog.isVisible().catch(() => false);
+    if (isVisible) {
+      // Click "Not Yet" button to dismiss
+      await this.page.getByRole('button', { name: 'Not Yet' }).click();
+      // Wait for dialog to close
+      await expect(dialog).not.toBeVisible();
     }
   }
 
