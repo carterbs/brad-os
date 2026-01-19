@@ -417,4 +417,100 @@ describe('ExerciseCard', () => {
       expect(weightInput3).toHaveValue('200');
     });
   });
+
+  describe('reps cascade', () => {
+    it('should cascade reps change to subsequent sets', async () => {
+      const user = userEvent.setup();
+
+      renderWithTheme(
+        <ExerciseCard
+          exercise={mockExercise}
+          workoutStatus="in_progress"
+          activeSetId={1}
+          onSetLogged={mockOnSetLogged}
+          onSetUnlogged={mockOnSetUnlogged}
+          onActivate={mockOnActivate}
+        />
+      );
+
+      // Get all reps inputs
+      const repsInput1 = screen.getByTestId('reps-input-1');
+      const repsInput2 = screen.getByTestId('reps-input-2');
+      const repsInput3 = screen.getByTestId('reps-input-3');
+
+      // All should start at 10
+      expect(repsInput1).toHaveValue('10');
+      expect(repsInput2).toHaveValue('10');
+      expect(repsInput3).toHaveValue('10');
+
+      // Change the first set's reps to 12
+      await user.clear(repsInput1);
+      await user.type(repsInput1, '12');
+
+      // First set should have the typed value
+      expect(repsInput1).toHaveValue('12');
+      // Subsequent sets should be updated to 12
+      expect(repsInput2).toHaveValue('12');
+      expect(repsInput3).toHaveValue('12');
+    });
+
+    it('should not cascade reps change to previous sets', async () => {
+      const user = userEvent.setup();
+
+      renderWithTheme(
+        <ExerciseCard
+          exercise={mockExercise}
+          workoutStatus="in_progress"
+          activeSetId={2}
+          onSetLogged={mockOnSetLogged}
+          onSetUnlogged={mockOnSetUnlogged}
+          onActivate={mockOnActivate}
+        />
+      );
+
+      const repsInput1 = screen.getByTestId('reps-input-1');
+      const repsInput2 = screen.getByTestId('reps-input-2');
+      const repsInput3 = screen.getByTestId('reps-input-3');
+
+      // Change the second set's reps to 15
+      await user.clear(repsInput2);
+      await user.type(repsInput2, '15');
+
+      // First set should remain unchanged
+      expect(repsInput1).toHaveValue('10');
+      // Second set should have the typed value
+      expect(repsInput2).toHaveValue('15');
+      // Third set should be updated
+      expect(repsInput3).toHaveValue('15');
+    });
+
+    it('should not cascade from the last set', async () => {
+      const user = userEvent.setup();
+
+      renderWithTheme(
+        <ExerciseCard
+          exercise={mockExercise}
+          workoutStatus="in_progress"
+          activeSetId={3}
+          onSetLogged={mockOnSetLogged}
+          onSetUnlogged={mockOnSetUnlogged}
+          onActivate={mockOnActivate}
+        />
+      );
+
+      const repsInput1 = screen.getByTestId('reps-input-1');
+      const repsInput2 = screen.getByTestId('reps-input-2');
+      const repsInput3 = screen.getByTestId('reps-input-3');
+
+      // Change the last set's reps
+      await user.clear(repsInput3);
+      await user.type(repsInput3, '8');
+
+      // Previous sets should remain unchanged
+      expect(repsInput1).toHaveValue('10');
+      expect(repsInput2).toHaveValue('10');
+      // Last set should have the typed value
+      expect(repsInput3).toHaveValue('8');
+    });
+  });
 });

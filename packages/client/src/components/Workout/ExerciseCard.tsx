@@ -60,6 +60,9 @@ export function ExerciseCard({
   // Track weight overrides for cascading weight changes to subsequent sets
   const [weightOverrides, setWeightOverrides] = useState<Record<number, string>>({});
 
+  // Track reps overrides for cascading reps changes to subsequent sets
+  const [repsOverrides, setRepsOverrides] = useState<Record<number, string>>({});
+
   // When a set's weight changes, cascade the new weight to all subsequent sets
   const handleWeightChange = (setIndex: number, newWeight: string): void => {
     setWeightOverrides((prev) => {
@@ -69,6 +72,21 @@ export function ExerciseCard({
         const set = exercise.sets[i];
         if (set !== undefined) {
           updated[set.id] = newWeight;
+        }
+      }
+      return updated;
+    });
+  };
+
+  // When a set's reps changes, cascade the new reps to all subsequent sets
+  const handleRepsChange = (setIndex: number, newReps: string): void => {
+    setRepsOverrides((prev) => {
+      const updated = { ...prev };
+      // Update all sets after the current one
+      for (let i = setIndex + 1; i < exercise.sets.length; i++) {
+        const set = exercise.sets[i];
+        if (set !== undefined) {
+          updated[set.id] = newReps;
         }
       }
       return updated;
@@ -110,11 +128,13 @@ export function ExerciseCard({
             isActive={set.id === activeSetId}
             canRemove={canRemoveAnySet && set.id === lastPendingSet?.id}
             weightOverride={weightOverrides[set.id]}
+            repsOverride={repsOverrides[set.id]}
             pendingEdit={pendingEdits?.[set.id]}
             onLog={(data) => onSetLogged(set.id, data)}
             onUnlog={() => onSetUnlogged(set.id)}
             onRemove={onRemoveSet}
             onWeightChange={(weight) => handleWeightChange(index, weight)}
+            onRepsChange={(reps) => handleRepsChange(index, reps)}
             onPendingEdit={onPendingEdit !== undefined ? (data): void => onPendingEdit(set.id, data) : undefined}
           />
         ))}

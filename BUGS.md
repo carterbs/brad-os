@@ -61,7 +61,7 @@
 ---
 
 ### BUG #14: Reps Don't Cascade Like Weight Does
-**Status:** Open
+**Status:** Fixed (2026-01-19)
 
 **Steps to reproduce:**
 1. Start a workout with an exercise that has multiple sets
@@ -73,6 +73,8 @@
 **Actual behavior:** Only weight cascades; reps changes don't propagate to other sets
 
 **Impact:** Users must manually update reps on each set, tedious when adjusting target reps.
+
+**Fix:** Added `repsOverrides` state and `handleRepsChange` function in ExerciseCard.tsx, mirroring the existing weight cascade implementation. Updated SetRow.tsx to accept `repsOverride` and `onRepsChange` props, with the reps useEffect now watching for override changes. When a user changes reps on any set, the new value cascades to all subsequent sets.
 
 ---
 

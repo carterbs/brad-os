@@ -10,11 +10,13 @@ interface SetRowProps {
   isActive: boolean;
   canRemove?: boolean | undefined;
   weightOverride?: string | undefined;
+  repsOverride?: string | undefined;
   pendingEdit?: PendingSetEdit | undefined;
   onLog: (data: LogWorkoutSetInput) => void;
   onUnlog: () => void;
   onRemove?: (() => void) | undefined;
   onWeightChange?: ((weight: string) => void) | undefined;
+  onRepsChange?: ((reps: string) => void) | undefined;
   onPendingEdit?: ((data: PendingSetEdit) => void) | undefined;
 }
 
@@ -39,24 +41,26 @@ export function SetRow({
   isActive,
   canRemove,
   weightOverride,
+  repsOverride,
   pendingEdit,
   onLog,
   onUnlog,
   onRemove,
   onWeightChange,
+  onRepsChange,
   onPendingEdit,
 }: SetRowProps): JSX.Element {
   const isDisabled = workoutStatus === 'completed' || workoutStatus === 'skipped';
   const isLogged = set.status === 'completed';
   const isSkipped = set.status === 'skipped';
 
-  // Initialize input values from pending edit, weight override, actual, or target values
-  // Priority: pendingEdit > weightOverride > actual_weight > target_weight
+  // Initialize input values from pending edit, override, actual, or target values
+  // Priority: pendingEdit > override > actual > target
   const [weight, setWeight] = useState<string>(
     pendingEdit?.weight ?? weightOverride ?? String(set.actual_weight ?? set.target_weight)
   );
   const [reps, setReps] = useState<string>(
-    pendingEdit?.reps ?? String(set.actual_reps ?? set.target_reps)
+    pendingEdit?.reps ?? repsOverride ?? String(set.actual_reps ?? set.target_reps)
   );
   const [validationError, setValidationError] = useState<string | null>(null);
 
@@ -64,6 +68,7 @@ export function SetRow({
   const prevTargetWeight = useRef(set.target_weight);
   const prevTargetReps = useRef(set.target_reps);
   const prevWeightOverride = useRef(weightOverride);
+  const prevRepsOverride = useRef(repsOverride);
 
   // Track whether pending edit has been applied (for page refresh restoration)
   const pendingEditApplied = useRef(pendingEdit !== undefined);
@@ -86,13 +91,15 @@ export function SetRow({
 
   useEffect(() => {
     const targetRepsChanged = set.target_reps !== prevTargetReps.current;
+    const repsOverrideChanged = repsOverride !== prevRepsOverride.current;
 
-    if (targetRepsChanged) {
-      setReps(String(set.target_reps));
+    if (targetRepsChanged || repsOverrideChanged) {
+      setReps(repsOverride ?? String(set.target_reps));
     }
 
     prevTargetReps.current = set.target_reps;
-  }, [set.target_reps]);
+    prevRepsOverride.current = repsOverride;
+  }, [set.target_reps, repsOverride]);
 
   // Restore pending edits when they become available after mount (fixes page refresh)
   // This handles the case where pendingEdit wasn't available on initial render
@@ -223,6 +230,7 @@ export function SetRow({
           value={reps}
           onChange={(e) => {
             setReps(e.target.value);
+            onRepsChange?.(e.target.value);
             onPendingEdit?.({ reps: e.target.value });
           }}
           disabled={isDisabled || isSkipped}
