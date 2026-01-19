@@ -100,7 +100,7 @@
 ---
 
 ### BUG #16: Sound Doesn't Work on Safari
-**Status:** Open
+**Status:** Pending Verification (2026-01-19)
 
 **Steps to reproduce:**
 1. Open app in Safari (macOS or iOS)
@@ -114,6 +114,8 @@
 **Technical note:** Safari requires user interaction before playing audio. May need to "unlock" audio context on first user tap.
 
 **Impact:** Users on Safari (especially iOS) miss audio notifications for rest timer completion.
+
+**Fix:** Changed audio.ts to use a shared AudioContext singleton instead of creating a new context per beep. Added initAudioContext() function that unlocks the context during user interaction. WorkoutView.tsx now calls initAudioContext() when user logs a set, which happens before the timer completes. This ensures the AudioContext is unlocked via user gesture before automatic playback is needed.
 
 ---
 
