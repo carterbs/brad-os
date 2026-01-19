@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { playBeep, playRestCompleteBeep, createBeepSound } from '../audio';
+import { playBeep, playRestCompleteBeep, createBeepSound, initAudioContext, resetAudioContext } from '../audio';
 
 describe('audio utilities', () => {
   interface MockOscillator {
@@ -25,6 +25,7 @@ describe('audio utilities', () => {
     currentTime: number;
     state: AudioContextState;
     resume: ReturnType<typeof vi.fn>;
+    close: ReturnType<typeof vi.fn>;
   }
 
   let mockOscillator: MockOscillator;
@@ -32,6 +33,9 @@ describe('audio utilities', () => {
   let mockAudioContext: MockAudioContext;
 
   beforeEach(() => {
+    // Reset shared AudioContext between tests
+    resetAudioContext();
+
     mockOscillator = {
       connect: vi.fn(),
       start: vi.fn(),
@@ -55,6 +59,7 @@ describe('audio utilities', () => {
       currentTime: 0,
       state: 'running',
       resume: vi.fn().mockResolvedValue(undefined) as MockAudioContext['resume'],
+      close: vi.fn().mockResolvedValue(undefined) as MockAudioContext['close'],
     };
 
     // Mock the AudioContext constructor
@@ -66,6 +71,7 @@ describe('audio utilities', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    resetAudioContext();
   });
 
   describe('createBeepSound', () => {
@@ -103,6 +109,34 @@ describe('audio utilities', () => {
 
       expect(result).toBeNull();
       warnSpy.mockRestore();
+    });
+  });
+
+  describe('initAudioContext', () => {
+    it('should create and resume AudioContext when suspended', async () => {
+      mockAudioContext.state = 'suspended';
+      await initAudioContext();
+      expect(global.AudioContext).toHaveBeenCalled();
+      expect(mockAudioContext.resume).toHaveBeenCalled();
+    });
+
+    it('should not resume AudioContext when already running', async () => {
+      mockAudioContext.state = 'running';
+      await initAudioContext();
+      expect(mockAudioContext.resume).not.toHaveBeenCalled();
+    });
+
+    it('should reuse existing AudioContext on subsequent calls', async () => {
+      await initAudioContext();
+      await initAudioContext();
+      // Should only create one AudioContext
+      expect(global.AudioContext).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle missing AudioContext gracefully', async () => {
+      vi.stubGlobal('AudioContext', undefined);
+      // Should not throw
+      await expect(initAudioContext()).resolves.toBeUndefined();
     });
   });
 
@@ -157,6 +191,13 @@ describe('audio utilities', () => {
         mockGainNode.gain.exponentialRampToValueAtTime
       ).toHaveBeenCalledWith(0.001, 0.2);
     });
+
+    it('should reuse shared AudioContext across calls', async () => {
+      await playBeep();
+      await playBeep();
+      // Should only create one AudioContext (shared singleton)
+      expect(global.AudioContext).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('playRestCompleteBeep', () => {
@@ -188,6 +229,21 @@ describe('audio utilities', () => {
         659.25,
         0
       );
+    });
+  });
+
+  describe('resetAudioContext', () => {
+    it('should close and reset the shared AudioContext', async () => {
+      // Create the shared context
+      await playBeep();
+      expect(global.AudioContext).toHaveBeenCalledTimes(1);
+
+      // Reset it
+      resetAudioContext();
+
+      // Playing again should create a new context
+      await playBeep();
+      expect(global.AudioContext).toHaveBeenCalledTimes(2);
     });
   });
 });

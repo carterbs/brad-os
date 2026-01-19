@@ -12,6 +12,7 @@ import {
   type TimerState,
 } from '../../utils/timerStorage';
 import { useWorkoutStorage, type PendingSetEdit } from '../../hooks/useLocalStorage';
+import { initAudioContext } from '../../utils/audio';
 
 interface WorkoutViewProps {
   workout: WorkoutWithExercises;
@@ -203,6 +204,9 @@ export function WorkoutView({
   // Wrapper for onSetLogged that starts the timer and updates active exercise
   const handleSetLogged = useCallback(
     (setId: number, data: LogWorkoutSetInput): void => {
+      // Unlock AudioContext for Safari (must be called during user gesture)
+      void initAudioContext();
+
       // Clear pending edit since the set is now logged
       clearPendingEdit(workout.id, setId);
 

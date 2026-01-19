@@ -1,6 +1,10 @@
 /**
  * Audio utilities for the rest timer feature.
  * Uses the Web Audio API to generate beep sounds.
+ *
+ * Safari requires AudioContext to be created/resumed during a user gesture.
+ * We use a shared AudioContext singleton that gets unlocked on first user
+ * interaction via initAudioContext().
  */
 
 interface BeepOptions {
@@ -38,6 +42,49 @@ function getAudioContextClass(): typeof AudioContext | null {
   return null;
 }
 
+// Shared AudioContext singleton for Safari compatibility
+let sharedAudioContext: AudioContext | null = null;
+
+/**
+ * Gets or creates the shared AudioContext singleton.
+ * Using a single context ensures Safari's autoplay policy is satisfied
+ * once the context is unlocked via user interaction.
+ */
+function getSharedAudioContext(): AudioContext | null {
+  if (sharedAudioContext !== null) {
+    return sharedAudioContext;
+  }
+
+  const AudioContextClass = getAudioContextClass();
+  if (!AudioContextClass) {
+    return null;
+  }
+
+  sharedAudioContext = new AudioContextClass();
+  return sharedAudioContext;
+}
+
+/**
+ * Initializes and unlocks the AudioContext for Safari compatibility.
+ * MUST be called during a user gesture (click, touch, keypress) to work on Safari.
+ *
+ * Call this early in user interaction flow (e.g., when starting a workout,
+ * logging a set, or any button click before the timer might complete).
+ *
+ * Safe to call multiple times - subsequent calls are no-ops if already unlocked.
+ */
+export async function initAudioContext(): Promise<void> {
+  const audioContext = getSharedAudioContext();
+  if (!audioContext) {
+    return;
+  }
+
+  // Resume if suspended (Safari starts contexts in suspended state)
+  if (audioContext.state === 'suspended') {
+    await audioContext.resume();
+  }
+}
+
 /**
  * Creates an AudioContext and configures an oscillator for a beep sound.
  * Useful for testing or when you need manual control over the audio context.
@@ -67,12 +114,15 @@ export function createBeepSound(options: BeepOptions = {}): AudioContext | null 
  * Plays a beep sound using the Web Audio API.
  * The sound fades out naturally over the specified duration.
  *
+ * Uses shared AudioContext for Safari compatibility. Call initAudioContext()
+ * during a user gesture before this function needs to play sound automatically.
+ *
  * @param options - Configuration for the beep sound
  */
 export async function playBeep(options: BeepOptions = {}): Promise<void> {
-  const AudioContextClass = getAudioContextClass();
+  const audioContext = getSharedAudioContext();
 
-  if (!AudioContextClass) {
+  if (!audioContext) {
     console.warn('Web Audio API is not supported in this browser');
     return;
   }
@@ -81,8 +131,6 @@ export async function playBeep(options: BeepOptions = {}): Promise<void> {
     ...DEFAULT_OPTIONS,
     ...options,
   };
-
-  const audioContext = new AudioContextClass();
 
   // Resume context if suspended (browser autoplay policy)
   if (audioContext.state === 'suspended') {
@@ -121,4 +169,14 @@ export async function playRestCompleteBeep(): Promise<void> {
 
   // Second tone: E5 (659.25 Hz)
   await playBeep({ frequency: 659.25, duration: 200, volume: 0.4 });
+}
+
+/**
+ * Resets the shared AudioContext. Primarily for testing purposes.
+ */
+export function resetAudioContext(): void {
+  if (sharedAudioContext !== null) {
+    void sharedAudioContext.close();
+    sharedAudioContext = null;
+  }
 }
