@@ -71,7 +71,6 @@ rsync $RSYNC_OPTS \
     --exclude '.git' \
     --exclude '*.db' \
     --exclude '*.sqlite' \
-    --exclude 'packages/*/src' \
     --exclude 'e2e' \
     --exclude 'playwright-report' \
     --exclude 'test-results' \
@@ -80,14 +79,6 @@ rsync $RSYNC_OPTS \
     --exclude 'plans' \
     --exclude 'BUGS.md' \
     --exclude 'CLAUDE.md' \
-    --include 'packages/shared/dist/***' \
-    --include 'packages/server/dist/***' \
-    --include 'packages/client/dist/***' \
-    --include 'packages/shared/package.json' \
-    --include 'packages/server/package.json' \
-    --include 'packages/client/package.json' \
-    --include 'package.json' \
-    --include 'package-lock.json' \
     "$LOCAL_DIR/" "$REMOTE_HOST:$REMOTE_DIR/"
 
 if [ "$DRY_RUN" = true ]; then
