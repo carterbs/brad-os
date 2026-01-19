@@ -308,3 +308,24 @@
 **Impact:** Cosmetic/code quality issue, doesn't affect functionality but violates HTML specs
 
 **Fix:** Removed AlertDialog.Description wrapper (which renders as `<p>`) and used Text component with `as="p"` directly in WorkoutView.tsx. Applied to both skip and complete workout dialogs.
+
+---
+
+## Feature Requests
+
+### FEATURE #1: Improved Progressive Overload Algorithm
+**Status:** Open (Future Enhancement)
+
+**Current behavior:** Progression is calculated at mesocycle creation based on week number. Peak performance now persists across weeks (BUG #10 fix ensures reps/weight never decrease once achieved).
+
+**Desired behavior:** True progressive overload cycle:
+1. Start at base reps (e.g., 8)
+2. Next week: +1 rep (9)
+3. Next week: add weight, drop to lower rep range (6)
+4. Build back up: 7 → 8 → 9
+5. Add weight again, drop reps
+6. Repeat cycle
+
+**Impact:** Current system doesn't implement the full progressive overload model where you build reps, add weight, drop reps, and rebuild.
+
+**Notes:** This is a significant algorithm change. Current BUG #10 fix maintains peak performance which is an improvement, but the full progression model described above would be ideal.

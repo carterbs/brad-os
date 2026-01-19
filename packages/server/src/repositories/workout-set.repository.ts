@@ -121,6 +121,16 @@ export class WorkoutSetRepository extends BaseRepository<
       values.push(data.status);
     }
 
+    if (data.target_reps !== undefined) {
+      updates.push('target_reps = ?');
+      values.push(data.target_reps);
+    }
+
+    if (data.target_weight !== undefined) {
+      updates.push('target_weight = ?');
+      values.push(data.target_weight);
+    }
+
     if (updates.length === 0) return existing;
 
     values.push(id);

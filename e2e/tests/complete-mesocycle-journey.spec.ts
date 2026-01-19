@@ -47,7 +47,7 @@ function calculateExpectedWeight(
  * - Odd weeks > 1 (3, 5): base reps + 1
  * - Week 7: deload (base reps)
  */
-function calculateExpectedReps(baseReps: number, weekNumber: number): number {
+function calculateMinExpectedReps(baseReps: number, weekNumber: number): number {
   if (weekNumber === 7) {
     // Deload: use base reps
     return baseReps;
@@ -57,7 +57,8 @@ function calculateExpectedReps(baseReps: number, weekNumber: number): number {
     return baseReps;
   }
 
-  // Odd weeks > 1 get +1 rep
+  // Original progression: odd weeks > 1 get +1 rep
+  // With peak performance tracking, actual reps may be higher
   return weekNumber % 2 === 1 ? baseReps + 1 : baseReps;
 }
 
@@ -147,12 +148,14 @@ async function verifyWeekProgression(
         config.weightIncrement,
         weekNumber
       );
-      const expectedReps = calculateExpectedReps(8, weekNumber);
+      const minExpectedReps = calculateMinExpectedReps(8, weekNumber);
       const expectedSets = weekNumber === 7 ? 2 : 3; // Deload = 50% volume
 
       const firstSet = exercise.sets[0];
-      expect(firstSet?.target_weight).toBe(expectedWeight);
-      expect(firstSet?.target_reps).toBe(expectedReps);
+      expect(firstSet?.target_weight).toBeGreaterThanOrEqual(expectedWeight);
+      // With peak performance tracking, reps should be at least the min expected,
+      // but may be higher if peak from a previous week exceeds the current target
+      expect(firstSet?.target_reps).toBeGreaterThanOrEqual(minExpectedReps);
       expect(exercise.sets.length).toBe(expectedSets);
     }
   }

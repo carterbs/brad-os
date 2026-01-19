@@ -167,6 +167,8 @@ export interface UpdateWorkoutSetDTO {
   actual_reps?: number | null;
   actual_weight?: number | null;
   status?: WorkoutSetStatus;
+  target_reps?: number;
+  target_weight?: number;
 }
 
 // ============ Extended Types for Mesocycle Management ============

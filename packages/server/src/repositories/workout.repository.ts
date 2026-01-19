@@ -91,6 +91,32 @@ export class WorkoutRepository extends BaseRepository<
   }
 
   /**
+   * Find the previous week's workout for the same plan day within the same mesocycle
+   */
+  findPreviousWeekWorkout(
+    mesocycleId: number,
+    planDayId: number,
+    currentWeekNumber: number
+  ): Workout | null {
+    if (currentWeekNumber <= 1) {
+      return null;
+    }
+
+    const stmt = this.db.prepare(`
+      SELECT * FROM workouts
+      WHERE mesocycle_id = ?
+        AND plan_day_id = ?
+        AND week_number = ?
+    `);
+    const row = stmt.get(
+      mesocycleId,
+      planDayId,
+      currentWeekNumber - 1
+    ) as WorkoutRow | undefined;
+    return row ? this.rowToWorkout(row) : null;
+  }
+
+  /**
    * Find the next upcoming workout (pending or in_progress) on or after the given date
    */
   findNextUpcoming(fromDate: string): Workout | null {

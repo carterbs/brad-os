@@ -75,6 +75,7 @@ export class WorkoutService {
 
   /**
    * Start a workout (mark as in_progress)
+   * Also applies peak performance from previous week to update targets
    */
   start(id: number): Workout {
     const workout = this.workoutRepo.findById(id);
@@ -94,6 +95,9 @@ export class WorkoutService {
       throw new Error('Cannot start a skipped workout');
     }
 
+    // Persist peak performance from previous week to DB before starting
+    this.persistPeakPerformanceToSets(workout);
+
     const updated = this.workoutRepo.update(id, {
       status: 'in_progress',
       started_at: new Date().toISOString(),
@@ -104,6 +108,107 @@ export class WorkoutService {
     }
 
     return updated;
+  }
+
+  /**
+   * Get peak performance from all previous weeks for each exercise.
+   * Returns a map of exercise_id -> { weight, reps } representing the best
+   * performance achieved in any previous same-day workout within the mesocycle.
+   */
+  private getPreviousWeekPeakPerformance(
+    workout: Workout
+  ): Map<number, { weight: number; reps: number }> {
+    const peakByExercise = new Map<number, { weight: number; reps: number }>();
+
+    // Only look for previous week data for weeks 2+
+    if (workout.week_number <= 1) {
+      return peakByExercise;
+    }
+
+    // Look back through all previous weeks to find peak performance
+    for (let week = workout.week_number - 1; week >= 1; week--) {
+      const previousWorkout = this.workoutRepo.findPreviousWeekWorkout(
+        workout.mesocycle_id,
+        workout.plan_day_id,
+        week + 1 // findPreviousWeekWorkout takes current week and looks at week-1
+      );
+
+      if (!previousWorkout) {
+        continue;
+      }
+
+      const previousSets = this.workoutSetRepo.findByWorkoutId(previousWorkout.id);
+
+      for (const set of previousSets) {
+        // Only consider completed sets with actual values
+        if (
+          set.status !== 'completed' ||
+          set.actual_weight === null ||
+          set.actual_reps === null
+        ) {
+          continue;
+        }
+
+        const existing = peakByExercise.get(set.exercise_id);
+        if (!existing) {
+          peakByExercise.set(set.exercise_id, {
+            weight: set.actual_weight,
+            reps: set.actual_reps,
+          });
+        } else {
+          // Update if this set has higher weight or same weight with higher reps
+          if (
+            set.actual_weight > existing.weight ||
+            (set.actual_weight === existing.weight &&
+              set.actual_reps > existing.reps)
+          ) {
+            peakByExercise.set(set.exercise_id, {
+              weight: set.actual_weight,
+              reps: set.actual_reps,
+            });
+          }
+        }
+      }
+    }
+
+    return peakByExercise;
+  }
+
+  /**
+   * Persist peak performance from previous week to current workout's sets.
+   * Called when starting a workout to save the adjusted targets to DB.
+   */
+  private persistPeakPerformanceToSets(workout: Workout): void {
+    const peakByExercise = this.getPreviousWeekPeakPerformance(workout);
+    if (peakByExercise.size === 0) {
+      return;
+    }
+
+    const currentSets = this.workoutSetRepo.findByWorkoutId(workout.id);
+
+    for (const set of currentSets) {
+      if (set.status !== 'pending') {
+        continue;
+      }
+
+      const peak = peakByExercise.get(set.exercise_id);
+      if (!peak) {
+        continue;
+      }
+
+      const newTargetWeight = Math.max(set.target_weight, peak.weight);
+      const newTargetReps = Math.max(set.target_reps, peak.reps);
+
+      if (
+        newTargetWeight !== set.target_weight ||
+        newTargetReps !== set.target_reps
+      ) {
+        this.workoutSetRepo.update(set.id, {
+          target_weight: newTargetWeight,
+          target_reps: newTargetReps,
+        });
+      }
+    }
   }
 
   /**
@@ -184,12 +289,31 @@ export class WorkoutService {
     );
     const sets = this.workoutSetRepo.findByWorkoutId(workout.id);
 
-    // Group sets by exercise
+    // Get peak performance from previous week to adjust targets for preview
+    const peakByExercise = this.getPreviousWeekPeakPerformance(workout);
+
+    // Group sets by exercise and apply peak performance adjustments
     const setsByExercise = new Map<number, WorkoutSet[]>();
     for (const set of sets) {
-      const existing = setsByExercise.get(set.exercise_id) ?? [];
-      existing.push(set);
-      setsByExercise.set(set.exercise_id, existing);
+      // For pending sets, adjust targets based on previous week's peak
+      let adjustedSet = set;
+      if (set.status === 'pending') {
+        const peak = peakByExercise.get(set.exercise_id);
+        if (peak) {
+          const newTargetWeight = Math.max(set.target_weight, peak.weight);
+          const newTargetReps = Math.max(set.target_reps, peak.reps);
+          if (newTargetWeight !== set.target_weight || newTargetReps !== set.target_reps) {
+            adjustedSet = {
+              ...set,
+              target_weight: newTargetWeight,
+              target_reps: newTargetReps,
+            };
+          }
+        }
+      }
+      const existing = setsByExercise.get(adjustedSet.exercise_id) ?? [];
+      existing.push(adjustedSet);
+      setsByExercise.set(adjustedSet.exercise_id, existing);
     }
 
     // Build exercises array in plan order
