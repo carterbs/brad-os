@@ -18,6 +18,33 @@ export interface ExerciseProgression {
   baseSets: number;
   /** Weight to add each progression cycle (default 5 lbs) */
   weightIncrement: number;
+  /** Minimum reps in the rep range - drop to this after adding weight (default 8) */
+  minReps: number;
+  /** Maximum reps in the rep range - triggers weight increase (default 12) */
+  maxReps: number;
+}
+
+/**
+ * Actual performance data from a previous week for an exercise.
+ * Used by dynamic progression to calculate next week's targets.
+ */
+export interface PreviousWeekPerformance {
+  /** The exercise ID */
+  exerciseId: string;
+  /** The week number this performance was from */
+  weekNumber: number;
+  /** Target weight that was prescribed */
+  targetWeight: number;
+  /** Target reps that were prescribed */
+  targetReps: number;
+  /** Actual weight achieved (best set) */
+  actualWeight: number;
+  /** Actual reps achieved at that weight (best set) */
+  actualReps: number;
+  /** Whether the user hit or exceeded target reps */
+  hitTarget: boolean;
+  /** Number of consecutive weeks at this weight failing to hit minReps */
+  consecutiveFailures: number;
 }
 
 /**

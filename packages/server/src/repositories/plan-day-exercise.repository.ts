@@ -15,6 +15,8 @@ interface PlanDayExerciseRow {
   weight: number;
   rest_seconds: number;
   sort_order: number;
+  min_reps: number;
+  max_reps: number;
 }
 
 export class PlanDayExerciseRepository extends BaseRepository<
@@ -36,13 +38,15 @@ export class PlanDayExerciseRepository extends BaseRepository<
       weight: row.weight,
       rest_seconds: row.rest_seconds,
       sort_order: row.sort_order,
+      min_reps: row.min_reps,
+      max_reps: row.max_reps,
     };
   }
 
   create(data: CreatePlanDayExerciseDTO): PlanDayExercise {
     const stmt = this.db.prepare(`
-      INSERT INTO plan_day_exercises (plan_day_id, exercise_id, sets, reps, weight, rest_seconds, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO plan_day_exercises (plan_day_id, exercise_id, sets, reps, weight, rest_seconds, sort_order, min_reps, max_reps)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -52,7 +56,9 @@ export class PlanDayExerciseRepository extends BaseRepository<
       data.reps ?? 8,
       data.weight ?? 30.0,
       data.rest_seconds ?? 60,
-      data.sort_order
+      data.sort_order,
+      data.min_reps ?? 8,
+      data.max_reps ?? 12
     );
 
     const planDayExercise = this.findById(result.lastInsertRowid as number);
@@ -116,6 +122,16 @@ export class PlanDayExerciseRepository extends BaseRepository<
     if (data.sort_order !== undefined) {
       updates.push('sort_order = ?');
       values.push(data.sort_order);
+    }
+
+    if (data.min_reps !== undefined) {
+      updates.push('min_reps = ?');
+      values.push(data.min_reps);
+    }
+
+    if (data.max_reps !== undefined) {
+      updates.push('max_reps = ?');
+      values.push(data.max_reps);
     }
 
     if (updates.length === 0) return existing;

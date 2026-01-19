@@ -15,6 +15,8 @@ describe('ProgressionService', () => {
     baseReps: 8,
     baseSets: 3,
     weightIncrement: 5,
+    minReps: 8,
+    maxReps: 12,
   };
 
   beforeEach(() => {

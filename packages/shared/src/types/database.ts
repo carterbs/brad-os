@@ -73,6 +73,10 @@ export interface PlanDayExercise {
   weight: number;
   rest_seconds: number;
   sort_order: number;
+  /** Minimum reps in the rep range (drop to this after adding weight). Default: 8 */
+  min_reps: number;
+  /** Maximum reps in the rep range (triggers weight increase). Default: 12 */
+  max_reps: number;
 }
 
 export interface CreatePlanDayExerciseDTO {
@@ -83,6 +87,8 @@ export interface CreatePlanDayExerciseDTO {
   weight?: number;
   rest_seconds?: number;
   sort_order: number;
+  min_reps?: number;
+  max_reps?: number;
 }
 
 export interface UpdatePlanDayExerciseDTO {
@@ -91,6 +97,8 @@ export interface UpdatePlanDayExerciseDTO {
   weight?: number;
   rest_seconds?: number;
   sort_order?: number;
+  min_reps?: number;
+  max_reps?: number;
 }
 
 // Mesocycles

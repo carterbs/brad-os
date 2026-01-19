@@ -13,16 +13,19 @@ const exerciseConfigs = [
 ];
 
 /**
- * Calculate expected weight for a given mesocycle week based on progression rules.
+ * Calculate expected weight for a given mesocycle week based on dynamic progression rules.
  *
- * From mesocycle.service.ts:
- * - Week 1: 0 increases (floor(1/2) = 0)
- * - Week 2: 1 increase (floor(2/2) = 1)
- * - Week 3: 1 increase (floor(3/2) = 1)
- * - Week 4: 2 increases (floor(4/2) = 2)
- * - Week 5: 2 increases (floor(5/2) = 2)
- * - Week 6: 3 increases (floor(6/2) = 3)
- * - Week 7: deload (returns to base weight for recovery)
+ * Dynamic progression algorithm (8-12 rep range):
+ * - Weight only increases when user hits maxReps (12) in the previous week
+ * - Starting at 8 reps and incrementing by 1 each week:
+ *   - Week 1: 8 reps → Week 2: 9 reps → ... → Week 5: 12 reps
+ *   - Week 6: weight increases (after hitting 12 in week 5), reps drop to 8
+ * - Week 7: deload (85% of working weight)
+ *
+ * For this test, we start at 8 reps and hit targets each week:
+ * - Weeks 1-5: base weight (building up reps)
+ * - Week 6: base weight + increment (after hitting maxReps in week 5)
+ * - Week 7: deload (85% of week 6 weight, rounded to 2.5)
  */
 function calculateExpectedWeight(
   baseWeight: number,
@@ -30,36 +33,51 @@ function calculateExpectedWeight(
   weekNumber: number
 ): number {
   if (weekNumber === 7) {
-    // Deload: reduced intensity means returning to base weight
-    return baseWeight;
+    // Deload: 85% of week 6 weight, rounded to nearest 2.5
+    const week6Weight = baseWeight + increment; // One weight increase by week 6
+    const deloadWeight = week6Weight * 0.85;
+    return Math.round(deloadWeight / 2.5) * 2.5;
   }
 
-  // Weight increments: floor(weekNumber / 2)
-  const increments = Math.floor(weekNumber / 2);
-  return baseWeight + increment * increments;
+  if (weekNumber === 6) {
+    // Week 6: weight increases after hitting maxReps (12) in week 5
+    return baseWeight + increment;
+  }
+
+  // Weeks 1-5: building up reps, weight stays at base
+  return baseWeight;
 }
 
 /**
- * Calculate expected reps for a given mesocycle week:
- * From mesocycle.service.ts:
- * - Week 1: base reps (weekNumber <= 1)
- * - Even weeks (2, 4, 6): base reps
- * - Odd weeks > 1 (3, 5): base reps + 1
- * - Week 7: deload (base reps)
+ * Calculate expected reps for a given mesocycle week using dynamic progression:
+ *
+ * Dynamic progression (8-12 rep range, starting at 8):
+ * - Week 1: 8 reps (base/min)
+ * - Week 2: 9 reps (hit target → +1)
+ * - Week 3: 10 reps
+ * - Week 4: 11 reps
+ * - Week 5: 12 reps (maxReps)
+ * - Week 6: 8 reps (after weight increase, reset to min)
+ * - Week 7: 8 reps (deload, at minReps)
  */
-function calculateMinExpectedReps(baseReps: number, weekNumber: number): number {
+function calculateMinExpectedReps(_baseReps: number, weekNumber: number): number {
+  const minReps = 8;
+  const maxReps = 12;
+
   if (weekNumber === 7) {
-    // Deload: use base reps
-    return baseReps;
+    // Deload: use minReps
+    return minReps;
   }
 
-  if (weekNumber <= 1) {
-    return baseReps;
+  if (weekNumber === 6) {
+    // After weight increase, drop to minReps
+    return minReps;
   }
 
-  // Original progression: odd weeks > 1 get +1 rep
-  // With peak performance tracking, actual reps may be higher
-  return weekNumber % 2 === 1 ? baseReps + 1 : baseReps;
+  // Weeks 1-5: building up reps from minReps
+  // Week 1: 8, Week 2: 9, Week 3: 10, Week 4: 11, Week 5: 12
+  const reps = minReps + (weekNumber - 1);
+  return Math.min(reps, maxReps);
 }
 
 /**
@@ -100,8 +118,16 @@ async function trackWorkout(
     const sets = exercise?.sets ?? [];
 
     if (exIdx === skipExerciseIndex) {
-      // Leave all sets for this exercise pending (don't log them)
-      // In the new design, unchecked sets will remain pending when completing
+      // For "skipped" exercise: only log the first set (so progression has data)
+      // This creates variety while still allowing progression algorithm to work
+      const firstSet = sets[0];
+      if (firstSet !== undefined) {
+        await todayPage.logSetWithTargets(firstSet.id);
+        // Dismiss rest timer if visible
+        if (await todayPage.isRestTimerVisible()) {
+          await todayPage.dismissRestTimer();
+        }
+      }
     } else {
       // Log first N-1 sets, leave last set pending (variety in tracking)
       for (let i = 0; i < sets.length; i++) {

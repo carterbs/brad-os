@@ -4,6 +4,7 @@ import { MesocycleService } from './mesocycle.service.js';
 import { WorkoutSetService } from './workout-set.service.js';
 import { WorkoutService } from './workout.service.js';
 import { ProgressionService } from './progression.service.js';
+import { DynamicProgressionService } from './dynamic-progression.service.js';
 import { DeloadService } from './deload.service.js';
 import { PlanModificationService } from './plan-modification.service.js';
 import { createRepositories } from '../repositories/index.js';
@@ -12,18 +13,24 @@ export { MesocycleService } from './mesocycle.service.js';
 export { WorkoutSetService } from './workout-set.service.js';
 export { WorkoutService } from './workout.service.js';
 export { ProgressionService } from './progression.service.js';
+export { DynamicProgressionService } from './dynamic-progression.service.js';
 export { DeloadService } from './deload.service.js';
 export { PlanModificationService } from './plan-modification.service.js';
 export type {
   WorkoutWithExercises,
   WorkoutExerciseWithSets,
 } from './workout.service.js';
+export type {
+  DynamicProgressionResult,
+  ProgressionReason,
+} from './dynamic-progression.service.js';
 
 // Singleton instances for use with the default database
 let mesocycleService: MesocycleService | null = null;
 let workoutSetService: WorkoutSetService | null = null;
 let workoutService: WorkoutService | null = null;
 let progressionService: ProgressionService | null = null;
+let dynamicProgressionService: DynamicProgressionService | null = null;
 let deloadService: DeloadService | null = null;
 let planModificationService: PlanModificationService | null = null;
 
@@ -33,6 +40,7 @@ export function resetServices(): void {
   workoutSetService = null;
   workoutService = null;
   progressionService = null;
+  dynamicProgressionService = null;
   deloadService = null;
   planModificationService = null;
 }
@@ -65,6 +73,13 @@ export function getProgressionService(): ProgressionService {
   return progressionService;
 }
 
+export function getDynamicProgressionService(): DynamicProgressionService {
+  if (!dynamicProgressionService) {
+    dynamicProgressionService = new DynamicProgressionService();
+  }
+  return dynamicProgressionService;
+}
+
 export function getDeloadService(): DeloadService {
   if (!deloadService) {
     deloadService = new DeloadService();
@@ -89,6 +104,7 @@ export function createServices(db: Database): {
   workoutSet: WorkoutSetService;
   workout: WorkoutService;
   progression: ProgressionService;
+  dynamicProgression: DynamicProgressionService;
   deload: DeloadService;
   planModification: PlanModificationService;
 } {
@@ -99,6 +115,7 @@ export function createServices(db: Database): {
     workoutSet: new WorkoutSetService(db),
     workout: new WorkoutService(db),
     progression,
+    dynamicProgression: new DynamicProgressionService(),
     deload: new DeloadService(),
     planModification: new PlanModificationService(repos, progression),
   };
