@@ -8,6 +8,7 @@ import { DynamicProgressionService } from './dynamic-progression.service.js';
 import { DeloadService } from './deload.service.js';
 import { PlanModificationService } from './plan-modification.service.js';
 import { NotificationService } from './notification.service.js';
+import { ExerciseHistoryService } from './exercise-history.service.js';
 import { createRepositories } from '../repositories/index.js';
 
 export { MesocycleService } from './mesocycle.service.js';
@@ -18,6 +19,7 @@ export { DynamicProgressionService } from './dynamic-progression.service.js';
 export { DeloadService } from './deload.service.js';
 export { PlanModificationService } from './plan-modification.service.js';
 export { NotificationService } from './notification.service.js';
+export { ExerciseHistoryService } from './exercise-history.service.js';
 export type {
   WorkoutWithExercises,
   WorkoutExerciseWithSets,
@@ -36,6 +38,7 @@ let dynamicProgressionService: DynamicProgressionService | null = null;
 let deloadService: DeloadService | null = null;
 let planModificationService: PlanModificationService | null = null;
 let notificationService: NotificationService | null = null;
+let exerciseHistoryService: ExerciseHistoryService | null = null;
 
 // Reset all service singletons (for testing)
 export function resetServices(): void {
@@ -47,6 +50,7 @@ export function resetServices(): void {
   deloadService = null;
   planModificationService = null;
   notificationService = null;
+  exerciseHistoryService = null;
 }
 
 export function getMesocycleService(): MesocycleService {
@@ -107,6 +111,17 @@ export function getNotificationService(): NotificationService {
     notificationService = new NotificationService();
   }
   return notificationService;
+}
+
+export function getExerciseHistoryService(): ExerciseHistoryService {
+  if (!exerciseHistoryService) {
+    const repos = createRepositories(getDatabase());
+    exerciseHistoryService = new ExerciseHistoryService(
+      repos.workoutSet,
+      repos.exercise
+    );
+  }
+  return exerciseHistoryService;
 }
 
 // Helper to create services with a custom database (useful for testing)
