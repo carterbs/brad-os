@@ -12,6 +12,13 @@
   --gray-4: #424d55;
   --gray-5: #4a565e;
   --gray-6: #525f67;
+
+  /* Green scale overrides to match custom gray lightness */
+  --green-2: #2b3e34;
+  --green-3: #32493c;
+  --green-4: #3a5545;
+  --green-5: #42614e;
+  --green-6: #4a6d58;
 }
 
 /* Center text in SetRow inputs - must reset text-indent which Radix uses for padding */
