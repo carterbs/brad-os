@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { AlertDialog, Button, Flex, Text } from '@radix-ui/themes';
 import { requestNotificationPermission } from '../../utils/notifications';
-import { initializeNotifications, getInitializationError } from '../../utils/timerNotifications';
+import { initializeNotifications } from '../../utils/timerNotifications';
 
 interface NotificationPromptProps {
   open: boolean;
@@ -14,42 +14,15 @@ export function NotificationPrompt({
   onClose,
   onEnabled,
 }: NotificationPromptProps): JSX.Element {
-  const [vapidKey, setVapidKey] = useState<string | null>(null);
   const [isEnabling, setIsEnabling] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch VAPID key on mount
-  useEffect(() => {
-    const fetchVapidKey = async (): Promise<void> => {
-      try {
-        const response = await fetch('/api/notifications/vapid-key');
-        if (!response.ok) {
-          console.error('VAPID key not available:', response.status);
-          return;
-        }
-        const data = await response.json() as { publicKey: string };
-        setVapidKey(data.publicKey);
-      } catch (err) {
-        console.error('Failed to fetch VAPID key:', err);
-      }
-    };
-
-    if (open) {
-      void fetchVapidKey();
-    }
-  }, [open]);
-
   const handleEnable = async (): Promise<void> => {
-    if (vapidKey === null || vapidKey === '') {
-      setError('VAPID key not available. Server may not be configured for push notifications.');
-      return;
-    }
-
     setIsEnabling(true);
     setError(null);
 
     try {
-      // Request permission
+      // Request permission (works without server config)
       const permission = await requestNotificationPermission();
       if (permission !== 'granted') {
         setError(`Notification permission ${permission}. Please allow notifications to continue.`);
@@ -57,15 +30,15 @@ export function NotificationPrompt({
         return;
       }
 
-      // Initialize push subscription
-      await initializeNotifications(vapidKey);
-
-      // Check for initialization errors
-      const initError = getInitializationError();
-      if (initError !== null && initError !== '') {
-        setError(initError);
-        setIsEnabling(false);
-        return;
+      // Try to set up push subscription for lock-screen delivery (optional)
+      try {
+        const response = await fetch('/api/notifications/vapid-key');
+        if (response.ok) {
+          const data = await response.json() as { publicKey: string };
+          await initializeNotifications(data.publicKey);
+        }
+      } catch {
+        // Push setup failed - local notifications will still work
       }
 
       // Success
@@ -106,7 +79,7 @@ export function NotificationPrompt({
           <Button
             color="green"
             onClick={() => { void handleEnable(); }}
-            disabled={isEnabling || vapidKey === null || vapidKey === ''}
+            disabled={isEnabling}
             data-testid="enable-notifications-button"
           >
             {isEnabling ? 'Enabling...' : 'Enable Notifications'}

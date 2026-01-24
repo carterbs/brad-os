@@ -15,6 +15,8 @@ import {
   initializeNotifications,
   scheduleTimerNotification,
   cancelTimerNotification,
+  scheduleLocalNotification,
+  cancelLocalNotification,
   getInitializationError,
   resetTimerNotifications,
 } from '../timerNotifications';
@@ -222,6 +224,135 @@ describe('timerNotifications', () => {
       await expect(initializeNotifications('test-vapid-key')).rejects.toThrow();
 
       expect(getInitializationError()).toBe('Test error message');
+    });
+  });
+
+  describe('scheduleLocalNotification', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should not schedule if permission is not granted', () => {
+      vi.mocked(getNotificationPermission).mockReturnValue('default');
+
+      scheduleLocalNotification(5000, 'Bench Press', 1);
+
+      vi.advanceTimersByTime(5000);
+      // No error thrown, just silently skipped
+    });
+
+    it('should schedule a notification via service worker when available', async () => {
+      vi.mocked(getNotificationPermission).mockReturnValue('granted');
+
+      const mockShowNotification = vi.fn().mockResolvedValue(undefined);
+      const mockRegistration = { showNotification: mockShowNotification };
+      Object.defineProperty(navigator, 'serviceWorker', {
+        value: {
+          controller: {},
+          ready: Promise.resolve(mockRegistration),
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      scheduleLocalNotification(5000, 'Bench Press', 2);
+      vi.advanceTimersByTime(5000);
+
+      // Allow the promise to resolve
+      await vi.waitFor(() => {
+        expect(mockShowNotification).toHaveBeenCalledWith('Rest Complete', {
+          body: 'Time for Bench Press - Set 2',
+          tag: 'rest-timer',
+          icon: '/icons/icon-192.png',
+          badge: '/icons/icon-192.png',
+        });
+      });
+    });
+
+    it('should fall back to Notification API when no service worker controller', () => {
+      vi.mocked(getNotificationPermission).mockReturnValue('granted');
+
+      Object.defineProperty(navigator, 'serviceWorker', {
+        value: { controller: null, ready: Promise.resolve({}) },
+        writable: true,
+        configurable: true,
+      });
+
+      const MockNotification = vi.fn();
+      vi.stubGlobal('Notification', MockNotification);
+
+      scheduleLocalNotification(3000, 'Squat', 1);
+      vi.advanceTimersByTime(3000);
+
+      expect(MockNotification).toHaveBeenCalledWith('Rest Complete', {
+        body: 'Time for Squat - Set 1',
+        tag: 'rest-timer',
+        icon: '/icons/icon-192.png',
+      });
+    });
+
+    it('should cancel previous local notification when scheduling new one', () => {
+      vi.mocked(getNotificationPermission).mockReturnValue('granted');
+
+      Object.defineProperty(navigator, 'serviceWorker', {
+        value: { controller: null, ready: Promise.resolve({}) },
+        writable: true,
+        configurable: true,
+      });
+
+      const MockNotification = vi.fn();
+      vi.stubGlobal('Notification', MockNotification);
+
+      scheduleLocalNotification(5000, 'Bench Press', 1);
+      scheduleLocalNotification(3000, 'Squat', 2);
+
+      vi.advanceTimersByTime(5000);
+
+      // Only the second one should fire
+      expect(MockNotification).toHaveBeenCalledTimes(1);
+      expect(MockNotification).toHaveBeenCalledWith('Rest Complete', {
+        body: 'Time for Squat - Set 2',
+        tag: 'rest-timer',
+        icon: '/icons/icon-192.png',
+      });
+    });
+  });
+
+  describe('cancelLocalNotification', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should cancel a pending local notification', () => {
+      vi.mocked(getNotificationPermission).mockReturnValue('granted');
+
+      Object.defineProperty(navigator, 'serviceWorker', {
+        value: { controller: null, ready: Promise.resolve({}) },
+        writable: true,
+        configurable: true,
+      });
+
+      const MockNotification = vi.fn();
+      vi.stubGlobal('Notification', MockNotification);
+
+      scheduleLocalNotification(5000, 'Bench Press', 1);
+      cancelLocalNotification();
+
+      vi.advanceTimersByTime(5000);
+
+      expect(MockNotification).not.toHaveBeenCalled();
+    });
+
+    it('should be safe to call when no notification is pending', () => {
+      expect(() => cancelLocalNotification()).not.toThrow();
     });
   });
 });

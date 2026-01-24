@@ -1,6 +1,7 @@
 /**
- * Timer notification service for scheduling push notifications when rest timers complete.
- * Manages push subscriptions and server-side notification scheduling.
+ * Timer notification service for scheduling notifications when rest timers complete.
+ * Supports both server-side push notifications and client-side local notifications.
+ * Local notifications work in PWA mode without server VAPID configuration.
  */
 
 import { subscribeToPush, getNotificationPermission } from './notifications';
@@ -11,6 +12,7 @@ const REST_TIMER_TAG = 'rest-timer';
 
 let currentSubscription: PushSubscriptionJSON | null = null;
 let initializationError: string | null = null;
+let localNotificationTimeout: ReturnType<typeof setTimeout> | null = null;
 
 
 /**
@@ -139,6 +141,63 @@ export async function cancelTimerNotification(): Promise<void> {
 }
 
 /**
+ * Schedules a local notification using setTimeout + Notification API.
+ * Works in PWA mode without server-side push infrastructure.
+ * Uses the same tag as push notifications to prevent duplicates.
+ *
+ * @param delayMs - Delay in milliseconds before notification is shown
+ * @param exerciseName - Name of the exercise for the notification body
+ * @param setNumber - Set number for the notification body
+ */
+export function scheduleLocalNotification(
+  delayMs: number,
+  exerciseName: string,
+  setNumber: number
+): void {
+  // Check permission
+  const permission = getNotificationPermission();
+  if (permission !== 'granted') {
+    return;
+  }
+
+  // Cancel any existing local notification
+  cancelLocalNotification();
+
+  localNotificationTimeout = setTimeout(() => {
+    localNotificationTimeout = null;
+
+    if (navigator.serviceWorker?.controller) {
+      // Use service worker to show notification (required on iOS PWA)
+      void navigator.serviceWorker.ready.then((reg) => {
+        void reg.showNotification('Rest Complete', {
+          body: `Time for ${exerciseName} - Set ${setNumber}`,
+          tag: REST_TIMER_TAG,
+          icon: '/icons/icon-192.png',
+          badge: '/icons/icon-192.png',
+        });
+      });
+    } else if (typeof Notification !== 'undefined') {
+      // Fallback to Notification API directly (works on desktop)
+      new Notification('Rest Complete', {
+        body: `Time for ${exerciseName} - Set ${setNumber}`,
+        tag: REST_TIMER_TAG,
+        icon: '/icons/icon-192.png',
+      });
+    }
+  }, delayMs);
+}
+
+/**
+ * Cancels any pending local notification timeout.
+ */
+export function cancelLocalNotification(): void {
+  if (localNotificationTimeout !== null) {
+    clearTimeout(localNotificationTimeout);
+    localNotificationTimeout = null;
+  }
+}
+
+/**
  * Returns the last initialization error message, if any.
  *
  * @returns Error message or null if no error
@@ -154,4 +213,5 @@ export function getInitializationError(): string | null {
 export function resetTimerNotifications(): void {
   currentSubscription = null;
   initializationError = null;
+  cancelLocalNotification();
 }
