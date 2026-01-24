@@ -11,7 +11,6 @@ Comparison of the Lifting Tracker against popular weightlifting apps (Strong, He
 The biggest gap. All this data is tracked but there's no way to review it.
 
 - **Workout history page** — browse past workouts by date/week, see what you actually did
-- **Exercise history** — per-exercise view showing weight/reps over time
 - **Personal records** — track and display PRs per exercise (1RM, 5RM, 10RM, etc.)
 - **Volume charts** — total tonnage (sets x reps x weight) over time
 - **Estimated 1RM tracking** — calculate and graph e1RM progression using Brzycki/Epley
@@ -168,7 +167,7 @@ Currently hardcoded to 85% weight / 50% sets. Power users want control:
 
 | Priority | Feature | Rationale |
 |----------|---------|-----------|
-| 1 | Workout history + exercise charts | Collecting data that can't be reviewed |
+| 1 | Workout history + volume charts | Collecting data that can't be reviewed (exercise charts done) |
 | 2 | Personal records tracking | Core motivation driver for lifters |
 | 3 | Body weight logging | Tracks the outcome of all this training |
 | 4 | RPE/RIR per set | Enables smarter auto-regulation |
