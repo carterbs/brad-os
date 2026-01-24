@@ -6,6 +6,7 @@ import { BottomNav } from './Navigation';
 import { MesoTab, CompleteMesocycleDialog } from './Mesocycle';
 import {
   ExerciseLibraryPage,
+  ExerciseHistoryPage,
   PlansPage,
   CreatePlanPage,
   PlanDetailPage,
@@ -132,6 +133,7 @@ function AppContent(): JSX.Element {
           <Route path="/plans/:id" element={<PlanDetailPage />} />
           <Route path="/plans/:id/edit" element={<EditPlanPage />} />
           <Route path="/exercises" element={<ExerciseLibraryPage />} />
+          <Route path="/exercises/:id/history" element={<ExerciseHistoryPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </Box>

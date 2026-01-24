@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { Theme } from '@radix-ui/themes';
 import { ExerciseListItem } from '../ExerciseListItem';
 import type { Exercise } from '@lifting/shared';
@@ -23,7 +24,7 @@ const customExercise: Exercise = {
 };
 
 function renderWithTheme(ui: React.ReactElement): ReturnType<typeof render> {
-  return render(<Theme>{ui}</Theme>);
+  return render(<MemoryRouter><Theme>{ui}</Theme></MemoryRouter>);
 }
 
 describe('ExerciseListItem', () => {

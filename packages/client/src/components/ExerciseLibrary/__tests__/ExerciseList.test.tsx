@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import { Theme } from '@radix-ui/themes';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
@@ -50,9 +51,11 @@ function createTestQueryClient(): QueryClient {
 function renderWithProviders(ui: ReactNode): ReturnType<typeof render> {
   const queryClient = createTestQueryClient();
   return render(
-    <QueryClientProvider client={queryClient}>
-      <Theme>{ui}</Theme>
-    </QueryClientProvider>
+    <MemoryRouter>
+      <QueryClientProvider client={queryClient}>
+        <Theme>{ui}</Theme>
+      </QueryClientProvider>
+    </MemoryRouter>
   );
 }
 

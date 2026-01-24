@@ -1,4 +1,5 @@
 export { ExerciseLibraryPage } from './ExerciseLibraryPage';
+export { ExerciseHistoryPage } from './ExerciseHistoryPage';
 export { PlansPage } from './PlansPage';
 export { CreatePlanPage } from './CreatePlanPage';
 export { PlanDetailPage } from './PlanDetailPage';
