@@ -10,6 +10,14 @@ vi.mock('../../hooks/useExercises', () => ({
   useExerciseHistory: vi.fn(),
 }));
 
+vi.mock('../../components/ExerciseHistory/WeightProgressionChart', () => ({
+  WeightProgressionChart: (): JSX.Element => <div data-testid="weight-chart">Weight Chart Mock</div>,
+}));
+
+vi.mock('../../components/ExerciseHistory/SetHistoryTable', () => ({
+  SetHistoryTable: (): JSX.Element => <div data-testid="set-history-table">Set History Mock</div>,
+}));
+
 import { useExerciseHistory } from '../../hooks/useExercises';
 
 const mockUseExerciseHistory = vi.mocked(useExerciseHistory);

@@ -52,9 +52,10 @@ describe('SetHistoryTable', () => {
     expect(rows).toHaveLength(3); // 1 header + 2 data rows
 
     // Check that the most recent entry (140 lbs, 3 sets) appears first
-    const cells = rows[1]!.querySelectorAll('td');
-    expect(cells[1]!.textContent).toBe('140 lbs');
-    expect(cells[3]!.textContent).toBe('3');
+    const firstDataRow = rows[1] as HTMLElement;
+    const cells = firstDataRow.querySelectorAll('td');
+    expect((cells[1] as HTMLElement).textContent).toBe('140 lbs');
+    expect((cells[3] as HTMLElement).textContent).toBe('3');
   });
 
   it('should display weight in lbs', () => {

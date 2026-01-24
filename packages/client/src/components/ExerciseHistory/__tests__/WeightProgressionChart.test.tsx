@@ -5,17 +5,17 @@ import { WeightProgressionChart } from '../WeightProgressionChart';
 
 // Mock recharts to avoid SVG rendering issues in jsdom
 vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }): JSX.Element => (
     <div data-testid="responsive-container">{children}</div>
   ),
-  LineChart: ({ children }: { children: React.ReactNode }) => (
+  LineChart: ({ children }: { children: React.ReactNode }): JSX.Element => (
     <div data-testid="line-chart">{children}</div>
   ),
-  Line: () => <div data-testid="line" />,
-  XAxis: () => <div data-testid="x-axis" />,
-  YAxis: () => <div data-testid="y-axis" />,
-  Tooltip: () => <div data-testid="tooltip" />,
-  CartesianGrid: () => <div data-testid="cartesian-grid" />,
+  Line: (): JSX.Element => <div data-testid="line" />,
+  XAxis: (): JSX.Element => <div data-testid="x-axis" />,
+  YAxis: (): JSX.Element => <div data-testid="y-axis" />,
+  Tooltip: (): JSX.Element => <div data-testid="tooltip" />,
+  CartesianGrid: (): JSX.Element => <div data-testid="cartesian-grid" />,
 }));
 
 const mockEntries: ExerciseHistoryEntry[] = [
@@ -56,7 +56,7 @@ describe('WeightProgressionChart', () => {
   });
 
   it('should render with single data point', () => {
-    const singleEntry: ExerciseHistoryEntry[] = [mockEntries[0]!];
+    const singleEntry: ExerciseHistoryEntry[] = [mockEntries[0] as ExerciseHistoryEntry];
 
     render(<WeightProgressionChart entries={singleEntry} />);
 
