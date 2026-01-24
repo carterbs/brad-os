@@ -4,10 +4,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
-import type { Exercise, ApiResponse } from '@lifting/shared';
+import type { Exercise, ExerciseHistory, ApiResponse } from '@lifting/shared';
 import {
   useExercises,
   useExercise,
+  useExerciseHistory,
   useCreateExercise,
   useUpdateExercise,
   useDeleteExercise,
@@ -31,6 +32,42 @@ const mockCustomExercise: Exercise = {
   updated_at: '2024-01-01T00:00:00.000Z',
 };
 
+const mockExerciseHistory: ExerciseHistory = {
+  exercise_id: 1,
+  exercise_name: 'Bench Press',
+  entries: [
+    {
+      workout_id: 10,
+      date: '2024-01-15',
+      week_number: 1,
+      mesocycle_id: 1,
+      sets: [
+        { set_number: 1, weight: 135, reps: 8 },
+        { set_number: 2, weight: 135, reps: 7 },
+      ],
+      best_weight: 135,
+      best_set_reps: 8,
+    },
+    {
+      workout_id: 20,
+      date: '2024-01-22',
+      week_number: 2,
+      mesocycle_id: 1,
+      sets: [
+        { set_number: 1, weight: 140, reps: 8 },
+        { set_number: 2, weight: 140, reps: 7 },
+      ],
+      best_weight: 140,
+      best_set_reps: 8,
+    },
+  ],
+  personal_record: {
+    weight: 140,
+    reps: 8,
+    date: '2024-01-22',
+  },
+};
+
 const handlers = [
   http.get('/api/exercises', () => {
     const response: ApiResponse<Exercise[]> = {
@@ -38,6 +75,21 @@ const handlers = [
       data: [mockExercise, mockCustomExercise],
     };
     return HttpResponse.json(response);
+  }),
+
+  http.get('/api/exercises/:id/history', ({ params }) => {
+    const id = Number(params['id']);
+    if (id === 1) {
+      const response: ApiResponse<ExerciseHistory> = {
+        success: true,
+        data: mockExerciseHistory,
+      };
+      return HttpResponse.json(response);
+    }
+    return HttpResponse.json(
+      { success: false, error: { code: 'NOT_FOUND', message: 'Not found' } },
+      { status: 404 }
+    );
   }),
 
   http.get('/api/exercises/:id', ({ params }) => {
@@ -234,5 +286,61 @@ describe('useDeleteExercise', () => {
     result.current.mutate(2);
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
+  });
+});
+
+describe('useExerciseHistory', () => {
+  beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+  afterAll(() => server.close());
+  afterEach(() => server.resetHandlers());
+
+  it('should return loading state initially', () => {
+    const { result } = renderHook(() => useExerciseHistory(1), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.isLoading).toBe(true);
+    expect(result.current.data).toBeUndefined();
+  });
+
+  it('should return data on success', async () => {
+    const { result } = renderHook(() => useExerciseHistory(1), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(result.current.data?.exercise_id).toBe(1);
+    expect(result.current.data?.exercise_name).toBe('Bench Press');
+    expect(result.current.data?.entries).toHaveLength(2);
+    expect(result.current.data?.personal_record?.weight).toBe(140);
+  });
+
+  it('should not fetch when id is 0', () => {
+    const { result } = renderHook(() => useExerciseHistory(0), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.fetchStatus).toBe('idle');
+  });
+
+  it('should return error state on API failure', async () => {
+    server.use(
+      http.get('/api/exercises/:id/history', () => {
+        return HttpResponse.json(
+          { success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error' } },
+          { status: 500 }
+        );
+      })
+    );
+
+    const { result } = renderHook(() => useExerciseHistory(1), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isError).toBe(true));
+
+    expect(result.current.error).toBeDefined();
   });
 });

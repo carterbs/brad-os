@@ -1,4 +1,4 @@
-import type { Exercise, CreateExerciseDTO, UpdateExerciseDTO, ApiResponse, ApiError } from '@lifting/shared';
+import type { Exercise, ExerciseHistory, CreateExerciseDTO, UpdateExerciseDTO, ApiResponse, ApiError } from '@lifting/shared';
 
 const API_BASE = '/api';
 
@@ -89,6 +89,11 @@ export const exerciseApi = {
       body: JSON.stringify(data),
     });
     return handleResponse<Exercise>(response);
+  },
+
+  getExerciseHistory: async (id: number): Promise<ExerciseHistory> => {
+    const response = await fetch(`${API_BASE}/exercises/${id}/history`);
+    return handleResponse<ExerciseHistory>(response);
   },
 
   deleteExercise: async (id: number): Promise<void> => {

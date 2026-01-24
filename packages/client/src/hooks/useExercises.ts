@@ -5,7 +5,7 @@ import {
   type UseQueryResult,
   type UseMutationResult,
 } from '@tanstack/react-query';
-import type { Exercise, CreateExerciseDTO, UpdateExerciseDTO } from '@lifting/shared';
+import type { Exercise, ExerciseHistory, CreateExerciseDTO, UpdateExerciseDTO } from '@lifting/shared';
 import { exerciseApi, type ApiClientError } from '../api/exerciseApi';
 
 export const exerciseKeys = {

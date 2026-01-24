@@ -19,6 +19,18 @@ interface WorkoutSetRow {
   status: string;
 }
 
+export interface CompletedSetRow {
+  workout_id: number;
+  exercise_id: number;
+  set_number: number;
+  actual_weight: number;
+  actual_reps: number;
+  scheduled_date: string;
+  completed_at: string | null;
+  week_number: number;
+  mesocycle_id: number;
+}
+
 export class WorkoutSetRepository extends BaseRepository<
   WorkoutSet,
   CreateWorkoutSetDTO,
@@ -147,5 +159,23 @@ export class WorkoutSetRepository extends BaseRepository<
     const stmt = this.db.prepare('DELETE FROM workout_sets WHERE id = ?');
     const result = stmt.run(id);
     return result.changes > 0;
+  }
+
+  findCompletedByExerciseId(exerciseId: number): CompletedSetRow[] {
+    const stmt = this.db.prepare(`
+      SELECT
+        ws.workout_id, ws.exercise_id, ws.set_number,
+        ws.actual_weight, ws.actual_reps,
+        w.scheduled_date, w.completed_at, w.week_number, w.mesocycle_id
+      FROM workout_sets ws
+      JOIN workouts w ON w.id = ws.workout_id
+      WHERE ws.exercise_id = ?
+        AND ws.status = 'completed'
+        AND ws.actual_weight IS NOT NULL
+        AND ws.actual_reps IS NOT NULL
+        AND w.status = 'completed'
+      ORDER BY w.completed_at ASC, w.scheduled_date ASC, ws.set_number ASC
+    `);
+    return stmt.all(exerciseId) as CompletedSetRow[];
   }
 }
