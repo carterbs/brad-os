@@ -117,17 +117,18 @@ export class WorkoutRepository extends BaseRepository<
   }
 
   /**
-   * Find the next upcoming workout (pending or in_progress) on or after the given date
+   * Find the next upcoming workout (pending or in_progress) ordered by scheduled date.
+   * Returns the first pending/in_progress workout regardless of whether its
+   * scheduled_date is in the past, so users who miss a day still see their next workout.
    */
-  findNextUpcoming(fromDate: string): Workout | null {
+  findNextPending(): Workout | null {
     const stmt = this.db.prepare(`
       SELECT * FROM workouts
-      WHERE scheduled_date >= ?
-        AND status IN ('pending', 'in_progress')
+      WHERE status IN ('pending', 'in_progress')
       ORDER BY scheduled_date ASC, id ASC
       LIMIT 1
     `);
-    const row = stmt.get(fromDate) as WorkoutRow | undefined;
+    const row = stmt.get() as WorkoutRow | undefined;
     return row ? this.rowToWorkout(row) : null;
   }
 

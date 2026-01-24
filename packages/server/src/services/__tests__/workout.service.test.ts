@@ -195,17 +195,23 @@ describe('WorkoutService', () => {
   });
 
   describe('getTodaysWorkout', () => {
-    it('should return null when no workout scheduled for today', () => {
-      // Create a workout for a different date
-      createTestData({ scheduledDate: '2020-01-01' });
+    it('should return null when no pending workouts exist', () => {
+      const { workoutId } = createTestData({ scheduledDate: '2020-01-01' });
+      const repos = createRepositories(db);
+
+      // Complete the only workout
+      repos.workout.update(workoutId, {
+        status: 'completed',
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+      });
 
       const result = service.getTodaysWorkout();
       expect(result).toBeNull();
     });
 
-    it('should return the scheduled workout for today', () => {
-      const today = new Date().toISOString().split('T')[0] ?? '';
-      const { workoutId } = createTestData({ scheduledDate: today });
+    it('should return a pending workout even if scheduled in the past', () => {
+      const { workoutId } = createTestData({ scheduledDate: '2020-01-01' });
 
       const result = service.getTodaysWorkout();
 
@@ -214,9 +220,8 @@ describe('WorkoutService', () => {
       expect(result.id).toBe(workoutId);
     });
 
-    it('should return in-progress workout if one exists for today', () => {
-      const today = new Date().toISOString().split('T')[0] ?? '';
-      const { workoutId } = createTestData({ scheduledDate: today });
+    it('should return in-progress workout', () => {
+      const { workoutId } = createTestData({ scheduledDate: '2020-01-01' });
       const repos = createRepositories(db);
 
       // Start the workout
@@ -233,9 +238,8 @@ describe('WorkoutService', () => {
       expect(result.status).toBe('in_progress');
     });
 
-    it('should not return completed workout for today', () => {
-      const today = new Date().toISOString().split('T')[0] ?? '';
-      const { workoutId } = createTestData({ scheduledDate: today });
+    it('should not return completed workout', () => {
+      const { workoutId } = createTestData({ scheduledDate: '2024-01-01' });
       const repos = createRepositories(db);
 
       // Complete the workout
@@ -250,9 +254,8 @@ describe('WorkoutService', () => {
       expect(result).toBeNull();
     });
 
-    it('should not return skipped workout for today', () => {
-      const today = new Date().toISOString().split('T')[0] ?? '';
-      const { workoutId } = createTestData({ scheduledDate: today });
+    it('should not return skipped workout', () => {
+      const { workoutId } = createTestData({ scheduledDate: '2024-01-01' });
       const repos = createRepositories(db);
 
       // Skip the workout
@@ -261,6 +264,56 @@ describe('WorkoutService', () => {
       const result = service.getTodaysWorkout();
 
       expect(result).toBeNull();
+    });
+
+    it('should return next pending workout when earlier ones are completed', () => {
+      // Create first workout (earlier date)
+      const { workoutId, mesocycleId, planDayId } = createTestData({ scheduledDate: '2024-01-01' });
+      const repos = createRepositories(db);
+
+      // Create second workout in the same mesocycle (later date)
+      const secondWorkout = repos.workout.create({
+        mesocycle_id: mesocycleId,
+        plan_day_id: planDayId,
+        week_number: 2,
+        scheduled_date: '2024-01-03',
+      });
+
+      // Complete the first workout
+      repos.workout.update(workoutId, {
+        status: 'completed',
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+      });
+
+      const result = service.getTodaysWorkout();
+
+      expect(result).not.toBeNull();
+      if (!result) return;
+      expect(result.id).toBe(secondWorkout.id);
+    });
+
+    it('should return next pending workout when earlier ones are skipped', () => {
+      // Create first workout (earlier date)
+      const { workoutId, mesocycleId, planDayId } = createTestData({ scheduledDate: '2024-01-01' });
+      const repos = createRepositories(db);
+
+      // Create second workout in the same mesocycle (later date)
+      const secondWorkout = repos.workout.create({
+        mesocycle_id: mesocycleId,
+        plan_day_id: planDayId,
+        week_number: 2,
+        scheduled_date: '2024-01-03',
+      });
+
+      // Skip the first workout
+      repos.workout.update(workoutId, { status: 'skipped' });
+
+      const result = service.getTodaysWorkout();
+
+      expect(result).not.toBeNull();
+      if (!result) return;
+      expect(result.id).toBe(secondWorkout.id);
     });
   });
 

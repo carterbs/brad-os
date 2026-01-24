@@ -60,19 +60,12 @@ export class WorkoutService {
   }
 
   /**
-   * Get the next upcoming workout that is pending or in_progress
-   * Looks from today onwards, so "Today" always shows the next workout to do
+   * Get the next pending or in_progress workout.
+   * Returns the first workout by scheduled_date that hasn't been completed or skipped,
+   * regardless of whether its scheduled_date is today, past, or future.
    */
   getTodaysWorkout(): WorkoutWithExercises | null {
-    // Format today's date in local timezone to avoid UTC conversion issues
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const today = `${year}-${month}-${day}`;
-
-    // Find the next upcoming workout (today or future)
-    const nextWorkout = this.workoutRepo.findNextUpcoming(today);
+    const nextWorkout = this.workoutRepo.findNextPending();
 
     if (!nextWorkout) {
       return null;
