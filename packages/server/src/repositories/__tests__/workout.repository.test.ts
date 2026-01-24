@@ -301,6 +301,131 @@ describe('WorkoutRepository', () => {
     });
   });
 
+  describe('findNextPending', () => {
+    it('should return the earliest pending workout by scheduled_date', () => {
+      repository.create({
+        mesocycle_id: testMesocycleId,
+        plan_day_id: testPlanDayId,
+        week_number: 1,
+        scheduled_date: '2024-01-08',
+      });
+      const earlier = repository.create({
+        mesocycle_id: testMesocycleId,
+        plan_day_id: testPlanDayId,
+        week_number: 2,
+        scheduled_date: '2024-01-01',
+      });
+
+      const result = repository.findNextPending();
+      expect(result?.id).toBe(earlier.id);
+      expect(result?.scheduled_date).toBe('2024-01-01');
+    });
+
+    it('should return pending workout even if scheduled_date is in the past', () => {
+      const pastWorkout = repository.create({
+        mesocycle_id: testMesocycleId,
+        plan_day_id: testPlanDayId,
+        week_number: 1,
+        scheduled_date: '2020-01-01',
+      });
+
+      const result = repository.findNextPending();
+      expect(result?.id).toBe(pastWorkout.id);
+    });
+
+    it('should return in_progress workout', () => {
+      const workout = repository.create({
+        mesocycle_id: testMesocycleId,
+        plan_day_id: testPlanDayId,
+        week_number: 1,
+        scheduled_date: '2024-01-01',
+      });
+      repository.update(workout.id, { status: 'in_progress' });
+
+      const result = repository.findNextPending();
+      expect(result?.id).toBe(workout.id);
+      expect(result?.status).toBe('in_progress');
+    });
+
+    it('should skip completed workouts', () => {
+      const completed = repository.create({
+        mesocycle_id: testMesocycleId,
+        plan_day_id: testPlanDayId,
+        week_number: 1,
+        scheduled_date: '2024-01-01',
+      });
+      repository.update(completed.id, { status: 'completed' });
+
+      const pending = repository.create({
+        mesocycle_id: testMesocycleId,
+        plan_day_id: testPlanDayId,
+        week_number: 2,
+        scheduled_date: '2024-01-08',
+      });
+
+      const result = repository.findNextPending();
+      expect(result?.id).toBe(pending.id);
+    });
+
+    it('should skip skipped workouts', () => {
+      const skipped = repository.create({
+        mesocycle_id: testMesocycleId,
+        plan_day_id: testPlanDayId,
+        week_number: 1,
+        scheduled_date: '2024-01-01',
+      });
+      repository.update(skipped.id, { status: 'skipped' });
+
+      const pending = repository.create({
+        mesocycle_id: testMesocycleId,
+        plan_day_id: testPlanDayId,
+        week_number: 2,
+        scheduled_date: '2024-01-08',
+      });
+
+      const result = repository.findNextPending();
+      expect(result?.id).toBe(pending.id);
+    });
+
+    it('should return null when no pending or in_progress workouts exist', () => {
+      const workout = repository.create({
+        mesocycle_id: testMesocycleId,
+        plan_day_id: testPlanDayId,
+        week_number: 1,
+        scheduled_date: '2024-01-01',
+      });
+      repository.update(workout.id, { status: 'completed' });
+
+      const result = repository.findNextPending();
+      expect(result).toBeNull();
+    });
+
+    it('should return null when no workouts exist', () => {
+      const result = repository.findNextPending();
+      expect(result).toBeNull();
+    });
+
+    it('should prefer in_progress over pending when earlier by date', () => {
+      repository.create({
+        mesocycle_id: testMesocycleId,
+        plan_day_id: testPlanDayId,
+        week_number: 2,
+        scheduled_date: '2024-01-08',
+      });
+      const inProgress = repository.create({
+        mesocycle_id: testMesocycleId,
+        plan_day_id: testPlanDayId,
+        week_number: 1,
+        scheduled_date: '2024-01-01',
+      });
+      repository.update(inProgress.id, { status: 'in_progress' });
+
+      const result = repository.findNextPending();
+      expect(result?.id).toBe(inProgress.id);
+      expect(result?.status).toBe('in_progress');
+    });
+  });
+
   describe('delete', () => {
     it('should delete existing workout', () => {
       const created = repository.create({
