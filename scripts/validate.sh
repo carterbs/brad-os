@@ -60,6 +60,8 @@ else
 fi
 
 # E2E Tests
+# Kill any existing process on port 3100 to avoid conflicts
+lsof -ti:3100 | xargs kill 2>/dev/null || true
 # Set CI=true to ensure Playwright starts a fresh server with NODE_ENV=test
 # rather than reusing an existing dev server that may not use the test database
 # Set PLAYWRIGHT_HTML_OPEN=never to prevent browser from opening on failure
