@@ -6,7 +6,7 @@ import { initializeNotifications, scheduleTimerNotification, scheduleLocalNotifi
 import { getSubscription } from '../../utils/subscriptionStorage';
 
 export function NotificationSettings(): JSX.Element {
-  const { isGranted, canRequest, isDenied } = useNotificationPermission();
+  const { isGranted, canRequest, isDenied, requestPermission } = useNotificationPermission();
   const { isInstalled, canInstall } = usePwaInstallStatus();
 
   const [isEnabling, setIsEnabling] = useState(false);
@@ -24,9 +24,9 @@ export function NotificationSettings(): JSX.Element {
 
     try {
       // Request permission first (works without server config)
-      const result = await Notification.requestPermission();
-      if (result !== 'granted') {
-        throw new Error(`Permission ${result}`);
+      await requestPermission();
+      if (Notification.permission !== 'granted') {
+        throw new Error(`Permission ${Notification.permission}`);
       }
 
       // Try to set up push subscription for lock-screen delivery (optional)
