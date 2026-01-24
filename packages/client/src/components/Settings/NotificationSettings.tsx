@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Box, Button, Callout, Card, Flex, Text } from '@radix-ui/themes';
 import { useNotificationPermission } from '../../hooks/useNotificationPermission';
 import { usePwaInstallStatus } from '../../hooks/usePwaInstallStatus';
-import { initializeNotifications, scheduleTimerNotification } from '../../utils/timerNotifications';
+import { initializeNotifications, scheduleTimerNotification, scheduleLocalNotification } from '../../utils/timerNotifications';
 import { getSubscription } from '../../utils/subscriptionStorage';
 
 export function NotificationSettings(): JSX.Element {
@@ -15,28 +15,30 @@ export function NotificationSettings(): JSX.Element {
   const [testSent, setTestSent] = useState(false);
 
   const hasSubscription = getSubscription() !== null;
-  const isFullyEnabled = isGranted && hasSubscription;
+  const isFullyEnabled = isGranted;
+  const hasPushSubscription = isGranted && hasSubscription;
 
   const handleEnable = async (): Promise<void> => {
     setIsEnabling(true);
     setError(null);
 
     try {
-      // Fetch VAPID key
-      const response = await fetch('/api/notifications/vapid-key');
-      if (!response.ok) {
-        throw new Error('Push notifications not configured on server');
-      }
-      const { publicKey } = (await response.json()) as { publicKey: string };
-
-      // Request permission first
+      // Request permission first (works without server config)
       const result = await Notification.requestPermission();
       if (result !== 'granted') {
         throw new Error(`Permission ${result}`);
       }
 
-      // Initialize push subscription
-      await initializeNotifications(publicKey);
+      // Try to set up push subscription for lock-screen delivery (optional)
+      try {
+        const response = await fetch('/api/notifications/vapid-key');
+        if (response.ok) {
+          const { publicKey } = (await response.json()) as { publicKey: string };
+          await initializeNotifications(publicKey);
+        }
+      } catch {
+        // Push setup failed - local notifications will still work
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -50,8 +52,15 @@ export function NotificationSettings(): JSX.Element {
     setTestSent(false);
 
     try {
-      // Schedule a notification 5 seconds from now
-      await scheduleTimerNotification(5000, 'Test Exercise', 1);
+      // Schedule local notification (always works with permission)
+      scheduleLocalNotification(5000, 'Test Exercise', 1);
+
+      // Also try push if subscription available
+      if (hasPushSubscription) {
+        await scheduleTimerNotification(5000, 'Test Exercise', 1).catch(() => {
+          // Push failed - local will still fire
+        });
+      }
       setTestSent(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');

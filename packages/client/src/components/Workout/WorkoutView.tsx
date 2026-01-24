@@ -19,6 +19,8 @@ import { getNotificationPermission } from '../../utils/notifications';
 import {
   scheduleTimerNotification,
   cancelTimerNotification,
+  scheduleLocalNotification,
+  cancelLocalNotification,
 } from '../../utils/timerNotifications';
 
 interface WorkoutViewProps {
@@ -196,9 +198,10 @@ export function WorkoutView({
     if (isDisabled) {
       clearTimerState();
       setActiveTimer(null);
-      // Cancel pending notifications
-      void cancelTimerNotification().catch((err) => {
-        console.error('Failed to cancel notification:', err);
+      // Cancel pending notifications (both local and push)
+      cancelLocalNotification();
+      void cancelTimerNotification().catch(() => {
+        // Push cancel failed - not critical
       });
     }
   }, [isDisabled]);
@@ -215,9 +218,10 @@ export function WorkoutView({
   const handleTimerDismiss = useCallback((): void => {
     clearTimerState();
     setActiveTimer(null);
-    // Cancel pending notification
-    void cancelTimerNotification().catch((err) => {
-      console.error('Failed to cancel notification:', err);
+    // Cancel pending notifications (both local and push)
+    cancelLocalNotification();
+    void cancelTimerNotification().catch(() => {
+      // Push cancel failed - not critical
     });
   }, []);
 
@@ -257,17 +261,22 @@ export function WorkoutView({
           initialElapsed: 0,
         });
 
-        // Schedule push notification
+        // Schedule notifications
         const permission = getNotificationPermission();
         if (permission === 'granted') {
-          // Schedule notification
+          // Schedule local notification (works in PWA without server config)
+          scheduleLocalNotification(
+            targetSeconds * 1000,
+            exercise.exercise_name,
+            setIndex + 1
+          );
+          // Also try server-side push (for locked-screen delivery)
           void scheduleTimerNotification(
             targetSeconds * 1000,
             exercise.exercise_name,
             setIndex + 1
-          ).catch((err) => {
-            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-            setNotificationError(`Notification error: ${errorMessage}`);
+          ).catch(() => {
+            // Push failed (VAPID not configured, etc.) - local notification is the fallback
           });
         } else if (permission === 'default' && !hasAskedForNotificationsRef.current) {
           // First time logging a set - ask for permission
@@ -480,20 +489,27 @@ export function WorkoutView({
         open={showNotificationPrompt}
         onClose={() => setShowNotificationPrompt(false)}
         onEnabled={() => {
-          // After enabling, try to schedule notification for current timer if active
+          // After enabling, schedule notification for current timer if active
           if (activeTimer) {
             const exercise = workout.exercises.find(
               (ex) => ex.exercise_id === activeTimer.exerciseId
             );
             if (exercise) {
-              const remainingMs = (activeTimer.targetSeconds - activeTimer.initialElapsed) * 1000;
+              const elapsed = activeTimer.initialElapsed;
+              const remainingMs = Math.max(0, (activeTimer.targetSeconds - elapsed) * 1000);
+              // Schedule local notification
+              scheduleLocalNotification(
+                remainingMs,
+                exercise.exercise_name,
+                activeTimer.setIndex + 1
+              );
+              // Also try push
               void scheduleTimerNotification(
                 remainingMs,
                 exercise.exercise_name,
                 activeTimer.setIndex + 1
-              ).catch((err) => {
-                const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-                setNotificationError(`Notification error: ${errorMessage}`);
+              ).catch(() => {
+                // Push failed - local notification is the fallback
               });
             }
           }
