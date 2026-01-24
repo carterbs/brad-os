@@ -1,3 +1,4 @@
+import { Flex, Text, Box, Heading } from '@radix-ui/themes';
 import type { ExerciseHistoryEntry } from '@lifting/shared';
 
 interface Props {
@@ -5,32 +6,54 @@ interface Props {
 }
 
 export function SetHistoryTable({ entries }: Props): JSX.Element {
-  // Display entries in reverse chronological order
   const reversedEntries = [...entries].reverse();
 
   return (
-    <div className="set-history-table" data-testid="set-history-table">
-      <h2>Set History</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Date</th>
-            <th>Best Weight</th>
-            <th>Reps</th>
-            <th>Sets</th>
-          </tr>
-        </thead>
-        <tbody>
-          {reversedEntries.map(entry => (
-            <tr key={entry.workout_id}>
-              <td>{new Date(entry.date).toLocaleDateString()}</td>
-              <td>{entry.best_weight} lbs</td>
-              <td>{entry.best_set_reps}</td>
-              <td>{entry.sets.length}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <Flex direction="column" gap="3" data-testid="set-history-table">
+      <Heading size="4">Set History</Heading>
+
+      {/* Header row */}
+      <Flex
+        px="3"
+        py="1"
+        justify="between"
+        align="center"
+      >
+        <Text size="1" color="gray" weight="bold" style={{ flex: '1 1 0' }}>Date</Text>
+        <Text size="1" color="gray" weight="bold" style={{ flex: '1 1 0', textAlign: 'right' }}>Weight</Text>
+        <Text size="1" color="gray" weight="bold" style={{ flex: '0.6 1 0', textAlign: 'right' }}>Reps</Text>
+        <Text size="1" color="gray" weight="bold" style={{ flex: '0.5 1 0', textAlign: 'right' }}>Sets</Text>
+      </Flex>
+
+      {/* Data rows */}
+      <Flex direction="column" gap="1">
+        {reversedEntries.map(entry => (
+          <Box
+            key={entry.workout_id}
+            px="3"
+            py="2"
+            style={{
+              backgroundColor: 'var(--gray-2)',
+              borderRadius: 'var(--radius-2)',
+            }}
+          >
+            <Flex justify="between" align="center">
+              <Text size="2" style={{ flex: '1 1 0' }}>
+                {new Date(entry.date).toLocaleDateString()}
+              </Text>
+              <Text size="2" weight="medium" style={{ flex: '1 1 0', textAlign: 'right' }}>
+                {entry.best_weight} lbs
+              </Text>
+              <Text size="2" color="gray" style={{ flex: '0.6 1 0', textAlign: 'right' }}>
+                {entry.best_set_reps}
+              </Text>
+              <Text size="2" color="gray" style={{ flex: '0.5 1 0', textAlign: 'right' }}>
+                {entry.sets.length}
+              </Text>
+            </Flex>
+          </Box>
+        ))}
+      </Flex>
+    </Flex>
   );
 }

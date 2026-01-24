@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { Theme } from '@radix-ui/themes';
 import type { ExerciseHistoryEntry } from '@lifting/shared';
 import { WeightProgressionChart } from '../WeightProgressionChart';
 
@@ -45,9 +46,13 @@ const mockEntries: ExerciseHistoryEntry[] = [
   },
 ];
 
+function renderWithTheme(ui: React.ReactElement): ReturnType<typeof render> {
+  return render(<Theme>{ui}</Theme>);
+}
+
 describe('WeightProgressionChart', () => {
   it('should render without crashing with valid data', () => {
-    render(<WeightProgressionChart entries={mockEntries} />);
+    renderWithTheme(<WeightProgressionChart entries={mockEntries} />);
 
     expect(screen.getByTestId('weight-chart')).toBeInTheDocument();
     expect(screen.getByText('Weight Progression')).toBeInTheDocument();
@@ -58,7 +63,7 @@ describe('WeightProgressionChart', () => {
   it('should render with single data point', () => {
     const singleEntry: ExerciseHistoryEntry[] = [mockEntries[0] as ExerciseHistoryEntry];
 
-    render(<WeightProgressionChart entries={singleEntry} />);
+    renderWithTheme(<WeightProgressionChart entries={singleEntry} />);
 
     expect(screen.getByTestId('weight-chart')).toBeInTheDocument();
     expect(screen.getByTestId('line-chart')).toBeInTheDocument();

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { Theme } from '@radix-ui/themes';
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { ExerciseHistory } from '@lifting/shared';
 import type { ApiClientError } from '../../api/exerciseApi';
@@ -61,9 +62,11 @@ const mockHistory: ExerciseHistory = {
 function renderWithRouter(exerciseId: string = '1'): ReturnType<typeof render> {
   return render(
     <MemoryRouter initialEntries={[`/exercises/${exerciseId}/history`]}>
-      <Routes>
-        <Route path="/exercises/:id/history" element={<ExerciseHistoryPage />} />
-      </Routes>
+      <Theme>
+        <Routes>
+          <Route path="/exercises/:id/history" element={<ExerciseHistoryPage />} />
+        </Routes>
+      </Theme>
     </MemoryRouter>
   );
 }
@@ -84,7 +87,7 @@ describe('ExerciseHistoryPage', () => {
 
     renderWithRouter();
 
-    expect(screen.getByText('Loading...')).toBeInTheDocument();
+    expect(screen.getByText('Loading history...')).toBeInTheDocument();
   });
 
   it('should show error message on fetch failure', () => {
@@ -132,7 +135,7 @@ describe('ExerciseHistoryPage', () => {
 
     renderWithRouter();
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Bench Press - History');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Bench Press');
   });
 
   it('should render chart component when data has entries', () => {
@@ -174,8 +177,7 @@ describe('ExerciseHistoryPage', () => {
 
     renderWithRouter();
 
-    expect(screen.getByText(/Personal Record/)).toBeInTheDocument();
-    expect(screen.getByText(/140/)).toBeInTheDocument();
-    expect(screen.getByText(/8/)).toBeInTheDocument();
+    expect(screen.getByText('PR')).toBeInTheDocument();
+    expect(screen.getByText(/140 lbs x 8 reps/)).toBeInTheDocument();
   });
 });

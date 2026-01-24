@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { Theme } from '@radix-ui/themes';
 import type { ExerciseHistoryEntry } from '@lifting/shared';
 import { SetHistoryTable } from '../SetHistoryTable';
 
@@ -31,35 +32,33 @@ const mockEntries: ExerciseHistoryEntry[] = [
   },
 ];
 
+function renderWithTheme(ui: React.ReactElement): ReturnType<typeof render> {
+  return render(<Theme>{ui}</Theme>);
+}
+
 describe('SetHistoryTable', () => {
-  it('should render table with correct headers', () => {
-    render(<SetHistoryTable entries={mockEntries} />);
+  it('should render with correct headers', () => {
+    renderWithTheme(<SetHistoryTable entries={mockEntries} />);
 
     expect(screen.getByTestId('set-history-table')).toBeInTheDocument();
     expect(screen.getByText('Set History')).toBeInTheDocument();
     expect(screen.getByText('Date')).toBeInTheDocument();
-    expect(screen.getByText('Best Weight')).toBeInTheDocument();
+    expect(screen.getByText('Weight')).toBeInTheDocument();
     expect(screen.getByText('Reps')).toBeInTheDocument();
     expect(screen.getByText('Sets')).toBeInTheDocument();
   });
 
   it('should render entries in reverse chronological order', () => {
-    render(<SetHistoryTable entries={mockEntries} />);
+    renderWithTheme(<SetHistoryTable entries={mockEntries} />);
 
-    const rows = screen.getAllByRole('row');
-    // First row is header, subsequent rows are data
-    // Most recent entry (workout_id 20) should come first in the table body
-    expect(rows).toHaveLength(3); // 1 header + 2 data rows
-
-    // Check that the most recent entry (140 lbs, 3 sets) appears first
-    const firstDataRow = rows[1] as HTMLElement;
-    const cells = firstDataRow.querySelectorAll('td');
-    expect((cells[1] as HTMLElement).textContent).toBe('140 lbs');
-    expect((cells[3] as HTMLElement).textContent).toBe('3');
+    // The most recent entry (140 lbs) should appear before the older one (135 lbs)
+    const weightTexts = screen.getAllByText(/lbs/);
+    expect(weightTexts[0]).toHaveTextContent('140 lbs');
+    expect(weightTexts[1]).toHaveTextContent('135 lbs');
   });
 
   it('should display weight in lbs', () => {
-    render(<SetHistoryTable entries={mockEntries} />);
+    renderWithTheme(<SetHistoryTable entries={mockEntries} />);
 
     expect(screen.getByText('135 lbs')).toBeInTheDocument();
     expect(screen.getByText('140 lbs')).toBeInTheDocument();
