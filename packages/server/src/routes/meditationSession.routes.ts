@@ -2,8 +2,8 @@ import { Router, type Request, type Response } from 'express';
 import {
   createSuccessResponse,
   createErrorResponse,
-} from '@lifting/shared';
-import { createMeditationSessionSchema } from '@lifting/shared';
+} from '@brad-os/shared';
+import { createMeditationSessionSchema } from '@brad-os/shared';
 import { getMeditationSessionRepository } from '../repositories/index.js';
 
 export const meditationSessionRouter = Router();

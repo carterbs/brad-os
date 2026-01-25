@@ -2,7 +2,7 @@ import webPush from 'web-push';
 import type {
   PushSubscriptionData,
   ScheduleNotificationInput,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 
 /**
  * Notification service for scheduling and sending push notifications

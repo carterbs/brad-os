@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Theme } from '@radix-ui/themes';
 import { MesoTab } from '../MesoTab';
-import type { MesocycleWithDetails, Plan, WeekSummary } from '@lifting/shared';
+import type { MesocycleWithDetails, Plan, WeekSummary } from '@brad-os/shared';
 
 function renderWithTheme(ui: React.ReactElement): ReturnType<typeof render> {
   return render(<Theme>{ui}</Theme>);

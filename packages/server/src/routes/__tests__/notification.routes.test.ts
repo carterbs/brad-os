@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import { setupTestApp, teardownTestApp, type TestContext } from '../../test/test-app.js';
-import type { ApiResult } from '@lifting/shared';
+import type { ApiResult } from '@brad-os/shared';
 
 // Mock web-push to avoid VAPID key validation errors
 vi.mock('web-push', () => ({

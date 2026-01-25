@@ -11,7 +11,7 @@ import type {
   StretchManifest,
   StretchSessionConfig,
   SelectedStretch,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 
 const AUDIO_BASE_PATH = '/audio/stretching';
 

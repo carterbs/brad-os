@@ -8,7 +8,7 @@
 
 import { useEffect, useRef } from 'react';
 import { Box, Flex, Text, Heading, Button, Card } from '@radix-ui/themes';
-import type { MeditationDuration } from '@lifting/shared';
+import type { MeditationDuration } from '@brad-os/shared';
 import { useSaveMeditationSession } from '../../hooks/useMeditationHistory';
 
 interface MeditationCompleteProps {

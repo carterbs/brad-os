@@ -742,7 +742,7 @@ export function createDatabase(config: DatabaseConfig): Database.Database {
 }
 
 export function getDefaultDatabasePath(): string {
-  return path.join(process.cwd(), 'data', 'lifting.db');
+  return path.join(process.cwd(), 'data', 'brad-os.db');
 }
 ```
 
@@ -786,7 +786,7 @@ import type {
   Exercise,
   CreateExerciseDTO,
   UpdateExerciseDTO,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import { BaseRepository } from './base.repository';
 
 interface ExerciseRow {
@@ -1248,7 +1248,7 @@ export function createApp(): Express {
 // packages/backend/src/middleware/error-handler.ts
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
-import type { ApiError } from '@lifting/shared';
+import type { ApiError } from '@brad-os/shared';
 
 export class AppError extends Error {
   constructor(
@@ -1440,7 +1440,7 @@ apiRouter.use('/workouts', workoutRouter);
 // packages/backend/src/routes/exercise.routes.ts
 import { Router, Request, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import type { ApiResponse, Exercise } from '@lifting/shared';
+import type { ApiResponse, Exercise } from '@brad-os/shared';
 import { validate } from '../middleware/validate';
 import { NotFoundError } from '../middleware/error-handler';
 import { getExerciseRepository } from '../repositories';

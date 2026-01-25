@@ -8,7 +8,7 @@ import {
   Select,
   TextField,
 } from '@radix-ui/themes';
-import type { Plan } from '@lifting/shared';
+import type { Plan } from '@brad-os/shared';
 
 interface StartMesocycleFormProps {
   plans: Plan[];

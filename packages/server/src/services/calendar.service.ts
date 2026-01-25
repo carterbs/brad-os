@@ -6,7 +6,7 @@ import type {
   WorkoutActivitySummary,
   StretchActivitySummary,
   MeditationActivitySummary,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import {
   WorkoutRepository,
   WorkoutSetRepository,

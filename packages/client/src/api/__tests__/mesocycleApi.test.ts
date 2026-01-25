@@ -5,7 +5,7 @@ import {
   ConflictError,
   ValidationError,
 } from '../exerciseApi';
-import type { Mesocycle, MesocycleWithDetails } from '@lifting/shared';
+import type { Mesocycle, MesocycleWithDetails } from '@brad-os/shared';
 
 describe('mesocycleApi', () => {
   const mockFetch = vi.fn();

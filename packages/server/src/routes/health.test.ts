@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { type Request, type Response } from 'express';
 import { healthRouter } from './health.js';
-import { type ApiResponse, type HealthCheckResponse } from '@lifting/shared';
+import { type ApiResponse, type HealthCheckResponse } from '@brad-os/shared';
 
 interface RouteLayer {
   route?: {

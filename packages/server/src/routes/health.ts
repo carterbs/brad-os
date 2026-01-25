@@ -3,7 +3,7 @@ import {
   APP_VERSION,
   createSuccessResponse,
   type HealthCheckResponse,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 
 export const healthRouter = Router();
 

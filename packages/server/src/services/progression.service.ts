@@ -2,7 +2,7 @@ import type {
   ExerciseProgression,
   WeekTargets,
   CompletionStatus,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 
 /**
  * Service for calculating progressive overload targets for exercises

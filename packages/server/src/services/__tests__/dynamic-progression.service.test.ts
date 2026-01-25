@@ -3,7 +3,7 @@ import { DynamicProgressionService } from '../dynamic-progression.service.js';
 import type {
   ExerciseProgression,
   PreviousWeekPerformance,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 
 describe('DynamicProgressionService', () => {
   let service: DynamicProgressionService;

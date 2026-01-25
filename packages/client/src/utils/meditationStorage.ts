@@ -4,8 +4,8 @@
  * Handles localStorage persistence for meditation session state and configuration.
  */
 
-import type { MeditationSessionState, MeditationDuration } from '@lifting/shared';
-import { MEDITATION_SESSION_STALE_THRESHOLD_MS } from '@lifting/shared';
+import type { MeditationSessionState, MeditationDuration } from '@brad-os/shared';
+import { MEDITATION_SESSION_STALE_THRESHOLD_MS } from '@brad-os/shared';
 
 const SESSION_STATE_KEY = 'meditation-session-state';
 const CONFIG_KEY = 'meditation-config';

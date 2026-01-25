@@ -4,7 +4,7 @@ import { WorkoutSetService } from '../workout-set.service.js';
 import { createRepositories } from '../../repositories/index.js';
 import { Migrator } from '../../db/migrator.js';
 import { migrations } from '../../db/migrations/index.js';
-import type { DayOfWeek } from '@lifting/shared';
+import type { DayOfWeek } from '@brad-os/shared';
 
 describe('WorkoutSetService', () => {
   let db: Database.Database;

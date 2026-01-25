@@ -10,7 +10,7 @@ vi.mock('web-push', () => ({
 
 import webPush from 'web-push';
 import { NotificationService } from '../notification.service.js';
-import type { ScheduleNotificationInput } from '@lifting/shared';
+import type { ScheduleNotificationInput } from '@brad-os/shared';
 
 describe('NotificationService', () => {
   const originalEnv = process.env;

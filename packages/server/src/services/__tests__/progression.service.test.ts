@@ -3,7 +3,7 @@ import { ProgressionService } from '../progression.service.js';
 import type {
   ExerciseProgression,
   CompletionStatus,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 
 describe('ProgressionService', () => {
   let service: ProgressionService;

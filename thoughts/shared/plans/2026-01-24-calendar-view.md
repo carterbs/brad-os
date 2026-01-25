@@ -119,7 +119,7 @@ Add `packages/shared/src/types/calendar.ts`:
 
 Export from shared index.
 
-**Success**: Types compile, exported from `@lifting/shared`
+**Success**: Types compile, exported from `@brad-os/shared`
 
 ---
 

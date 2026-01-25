@@ -1,4 +1,4 @@
-import type { Exercise, ExerciseHistory, CreateExerciseDTO, UpdateExerciseDTO, ApiResponse, ApiError } from '@lifting/shared';
+import type { Exercise, ExerciseHistory, CreateExerciseDTO, UpdateExerciseDTO, ApiResponse, ApiError } from '@brad-os/shared';
 
 const API_BASE = '/api';
 

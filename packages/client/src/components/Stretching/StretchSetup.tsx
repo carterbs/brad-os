@@ -26,7 +26,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { Box, Flex, Text, Button, TextField, Heading } from '@radix-ui/themes';
-import type { StretchSessionConfig } from '@lifting/shared';
+import type { StretchSessionConfig } from '@brad-os/shared';
 import { RegionItem } from './RegionItem';
 import { saveStretchConfig } from '../../utils/stretchStorage';
 

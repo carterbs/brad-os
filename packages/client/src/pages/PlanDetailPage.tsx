@@ -13,7 +13,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { usePlan, usePlanDays, usePlanDayExercises } from '../hooks/usePlans';
 import { useExercises } from '../hooks/useExercises';
 import { DeletePlanDialog, DAY_NAMES } from '../components/Plans';
-import type { Plan, DayOfWeek } from '@lifting/shared';
+import type { Plan, DayOfWeek } from '@brad-os/shared';
 
 export function PlanDetailPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();

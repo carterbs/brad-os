@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { Theme } from '@radix-ui/themes';
 import { ExerciseCard } from '../ExerciseCard';
 import type { WorkoutExerciseWithSets } from '../../../api/workoutApi';
-import type { WorkoutSet } from '@lifting/shared';
+import type { WorkoutSet } from '@brad-os/shared';
 
 const createMockSets = (count: number, completedCount: number = 0): WorkoutSet[] => {
   const sets: WorkoutSet[] = [];

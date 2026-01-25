@@ -1,4 +1,4 @@
-import type { ExerciseProgression, WeekTargets } from '@lifting/shared';
+import type { ExerciseProgression, WeekTargets } from '@brad-os/shared';
 
 /**
  * Service for calculating deload week parameters.

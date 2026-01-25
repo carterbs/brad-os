@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Theme } from '@radix-ui/themes';
 import { ActivityItem } from '../ActivityItem';
-import type { CalendarActivity } from '@lifting/shared';
+import type { CalendarActivity } from '@brad-os/shared';
 
 const renderWithTheme = (ui: React.ReactElement): ReturnType<typeof render> => {
   return render(<Theme>{ui}</Theme>);

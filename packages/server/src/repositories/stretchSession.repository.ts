@@ -4,7 +4,7 @@ import type {
   StretchSessionRecord,
   CreateStretchSessionRequest,
   CompletedStretch,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 
 interface StretchSessionRow {
   id: string;

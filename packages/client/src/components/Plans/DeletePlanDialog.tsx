@@ -1,5 +1,5 @@
 import { AlertDialog, Button, Flex, Text } from '@radix-ui/themes';
-import type { Plan } from '@lifting/shared';
+import type { Plan } from '@brad-os/shared';
 import { useDeletePlan } from '../../hooks/usePlans';
 import { ConflictError } from '../../api/exerciseApi';
 

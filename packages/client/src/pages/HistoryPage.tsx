@@ -9,7 +9,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Container, Heading, Flex, Text, Spinner, Box } from '@radix-ui/themes';
-import type { CalendarDayData, CalendarActivity } from '@lifting/shared';
+import type { CalendarDayData, CalendarActivity } from '@brad-os/shared';
 import { MonthCalendar, DayDetailDialog } from '../components/Calendar';
 import { ActivityFilter, type ActivityFilterType } from '../components/History';
 import { useCalendarMonth } from '../hooks/useCalendarData';

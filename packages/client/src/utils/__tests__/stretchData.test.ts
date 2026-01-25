@@ -12,7 +12,7 @@ import type {
   StretchManifest,
   StretchSessionConfig,
   Stretch,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 
 // Mock manifest data
 const mockManifest: StretchManifest = {

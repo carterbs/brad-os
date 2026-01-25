@@ -4,8 +4,8 @@
  * Handles localStorage persistence for stretch session state and configuration.
  */
 
-import type { StretchSessionState, StretchSessionConfig } from '@lifting/shared';
-import { DEFAULT_STRETCH_REGIONS, SESSION_STALE_THRESHOLD_MS } from '@lifting/shared';
+import type { StretchSessionState, StretchSessionConfig } from '@brad-os/shared';
+import { DEFAULT_STRETCH_REGIONS, SESSION_STALE_THRESHOLD_MS } from '@brad-os/shared';
 
 const SESSION_STATE_KEY = 'stretch-session-state';
 const CONFIG_KEY = 'stretch-config';

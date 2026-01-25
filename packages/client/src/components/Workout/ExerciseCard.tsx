@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, Flex, Text, Badge, Box, Button } from '@radix-ui/themes';
 import { PlusIcon } from '@radix-ui/react-icons';
-import type { WorkoutStatus, LogWorkoutSetInput } from '@lifting/shared';
+import type { WorkoutStatus, LogWorkoutSetInput } from '@brad-os/shared';
 import type { WorkoutExerciseWithSets } from '../../api/workoutApi';
 import type { PendingSetEdit } from '../../hooks/useLocalStorage';
 import { SetRow } from './SetRow';

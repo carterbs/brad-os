@@ -10,7 +10,7 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Box, Flex, Text, Spinner } from '@radix-ui/themes';
-import type { StretchSessionConfig, StretchManifest } from '@lifting/shared';
+import type { StretchSessionConfig, StretchManifest } from '@brad-os/shared';
 import {
   StretchSetup,
   StretchSession,

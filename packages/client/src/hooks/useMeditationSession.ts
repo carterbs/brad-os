@@ -14,8 +14,8 @@ import type {
   MeditationSessionState,
   MeditationDuration,
   MeditationManifest,
-} from '@lifting/shared';
-import { MEDITATION_PAUSE_TIMEOUT_MS } from '@lifting/shared';
+} from '@brad-os/shared';
+import { MEDITATION_PAUSE_TIMEOUT_MS } from '@brad-os/shared';
 import {
   playMeditationNarration,
   playMeditationBell,

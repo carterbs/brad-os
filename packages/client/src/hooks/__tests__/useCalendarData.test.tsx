@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
-import type { CalendarDataResponse, ApiResponse } from '@lifting/shared';
+import type { CalendarDataResponse, ApiResponse } from '@brad-os/shared';
 import { useCalendarMonth, calendarKeys } from '../useCalendarData';
 
 const mockCalendarResponse: CalendarDataResponse = {

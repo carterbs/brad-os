@@ -140,12 +140,12 @@ const getDbPath = (): string => {
   const workerId = process.env.TEST_WORKER_ID ?? '';
 
   const dbNames: Record<string, string> = {
-    production: 'lifting.prod.db',
-    test: workerId ? `lifting.test.${workerId}.db` : 'lifting.test.db',
-    development: 'lifting.db',
+    production: 'brad-os.prod.db',
+    test: workerId ? `brad-os.test.${workerId}.db` : 'brad-os.test.db',
+    development: 'brad-os.db',
   };
 
-  return path.join(dataDir, dbNames[env] ?? 'lifting.db');
+  return path.join(dataDir, dbNames[env] ?? 'brad-os.db');
 };
 ```
 

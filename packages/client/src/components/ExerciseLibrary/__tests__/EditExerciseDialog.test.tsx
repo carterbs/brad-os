@@ -5,7 +5,7 @@ import { Theme } from '@radix-ui/themes';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
-import type { Exercise, ApiResponse } from '@lifting/shared';
+import type { Exercise, ApiResponse } from '@brad-os/shared';
 import { EditExerciseDialog } from '../EditExerciseDialog';
 
 const mockExercise: Exercise = {

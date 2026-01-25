@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type {
   MeditationSessionRecord,
   CreateMeditationSessionRequest,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 
 interface MeditationSessionRow {
   id: string;

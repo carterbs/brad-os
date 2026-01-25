@@ -3,7 +3,7 @@ import type {
   PlanDayExercise,
   CreatePlanDayExerciseDTO,
   UpdatePlanDayExerciseDTO,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import { BaseRepository } from './base.repository.js';
 
 interface PlanDayExerciseRow {

@@ -1,5 +1,5 @@
 import { Flex, Select, IconButton, Text } from '@radix-ui/themes';
-import type { Exercise } from '@lifting/shared';
+import type { Exercise } from '@brad-os/shared';
 import type { PlanExerciseFormState } from './types';
 import {
   SETS_OPTIONS,

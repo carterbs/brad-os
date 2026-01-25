@@ -22,9 +22,9 @@ export function setTestDatabase(database: Database.Database | null): void {
 
 /**
  * Get the database filename based on NODE_ENV and TEST_WORKER_ID.
- * - test: lifting.test.db or lifting.test.{workerId}.db (isolated for E2E tests)
- * - production: lifting.prod.db (or DB_PATH env var)
- * - development (default): lifting.db
+ * - test: brad-os.test.db or brad-os.test.{workerId}.db (isolated for E2E tests)
+ * - production: brad-os.prod.db (or DB_PATH env var)
+ * - development (default): brad-os.db
  *
  * When TEST_WORKER_ID is set, each worker gets its own database file
  * to enable parallel test execution without conflicts.
@@ -36,11 +36,11 @@ export function getDatabaseFilename(): string {
   switch (env) {
     case 'test':
       // Support per-worker database files for parallel testing
-      return workerId ? `lifting.test.${workerId}.db` : 'lifting.test.db';
+      return workerId ? `brad-os.test.${workerId}.db` : 'brad-os.test.db';
     case 'production':
-      return 'lifting.prod.db';
+      return 'brad-os.prod.db';
     default:
-      return 'lifting.db';
+      return 'brad-os.db';
   }
 }
 

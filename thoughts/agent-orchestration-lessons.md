@@ -54,7 +54,7 @@ The validation prompt was too broad ("verify everything"). Better:
 Agents created types locally instead of using shared package. Should specify:
 ```
 Put shared types in packages/shared/src/types/
-Import from @lifting/shared in both client and server
+Import from @brad-os/shared in both client and server
 ```
 
 ### 5. Parallel validation would've been fine

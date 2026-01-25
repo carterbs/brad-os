@@ -5,7 +5,7 @@ import {
   type UseQueryResult,
   type UseMutationResult,
 } from '@tanstack/react-query';
-import type { Workout, WorkoutSet, LogWorkoutSetInput, ModifySetCountResult } from '@lifting/shared';
+import type { Workout, WorkoutSet, LogWorkoutSetInput, ModifySetCountResult } from '@brad-os/shared';
 import {
   workoutApi,
   type WorkoutWithExercises,

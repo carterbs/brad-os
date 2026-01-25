@@ -10,7 +10,7 @@ import type {
   MeditationManifest,
   MeditationVariant,
   ScheduledCue,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 
 const AUDIO_BASE_PATH = '/audio/meditation';
 

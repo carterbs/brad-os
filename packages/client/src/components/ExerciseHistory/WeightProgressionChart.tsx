@@ -1,6 +1,6 @@
 import { Box, Heading } from '@radix-ui/themes';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import type { ExerciseHistoryEntry } from '@lifting/shared';
+import type { ExerciseHistoryEntry } from '@brad-os/shared';
 
 interface Props {
   entries: ExerciseHistoryEntry[];

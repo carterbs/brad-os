@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Container, Flex, Heading } from '@radix-ui/themes';
-import type { Exercise } from '@lifting/shared';
+import type { Exercise } from '@brad-os/shared';
 import {
   ExerciseList,
   AddExerciseForm,

@@ -16,7 +16,7 @@ import type {
   UpdatePlanDayDTO,
   CreatePlanDayExerciseDTO,
   UpdatePlanDayExerciseDTO,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import { planApi, planDayApi, planDayExerciseApi } from '../api/planApi';
 import type { ApiClientError } from '../api/exerciseApi';
 

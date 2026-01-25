@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { DeloadService } from '../deload.service.js';
-import type { ExerciseProgression } from '@lifting/shared';
+import type { ExerciseProgression } from '@brad-os/shared';
 
 describe('DeloadService', () => {
   let service: DeloadService;

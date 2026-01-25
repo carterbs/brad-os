@@ -1,4 +1,4 @@
-import type { DayOfWeek, Plan, PlanDay, PlanDayExercise, Exercise } from '@lifting/shared';
+import type { DayOfWeek, Plan, PlanDay, PlanDayExercise, Exercise } from '@brad-os/shared';
 
 // Form state types for Plan creation/editing
 

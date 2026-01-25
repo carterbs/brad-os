@@ -1,6 +1,6 @@
 import express, { type Express, type Request, type Response } from 'express';
 import Database from 'better-sqlite3';
-import { APP_VERSION, createSuccessResponse } from '@lifting/shared';
+import { APP_VERSION, createSuccessResponse } from '@brad-os/shared';
 import { apiRouter } from '../routes/index.js';
 import { errorHandler } from '../middleware/error-handler.js';
 import { Migrator } from '../db/migrator.js';

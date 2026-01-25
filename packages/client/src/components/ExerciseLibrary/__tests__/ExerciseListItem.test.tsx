@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { Theme } from '@radix-ui/themes';
 import { ExerciseListItem } from '../ExerciseListItem';
-import type { Exercise } from '@lifting/shared';
+import type { Exercise } from '@brad-os/shared';
 
 const builtInExercise: Exercise = {
   id: 1,

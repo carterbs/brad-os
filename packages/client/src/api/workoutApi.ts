@@ -6,7 +6,7 @@ import type {
   ApiError,
   LogWorkoutSetInput,
   ModifySetCountResult,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import {
   ApiClientError,
   NotFoundError,

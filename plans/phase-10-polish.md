@@ -495,7 +495,7 @@ RUN mkdir -p /app/data && chown nodejs:nodejs /app/data
 # Environment
 ENV NODE_ENV=production
 ENV PORT=3000
-ENV DATABASE_PATH=/app/data/lifting.db
+ENV DATABASE_PATH=/app/data/brad-os.db
 
 # Expose port
 EXPOSE 3000
@@ -539,7 +539,7 @@ services:
       - lifting-data:/app/data
     environment:
       - NODE_ENV=production
-      - DATABASE_PATH=/app/data/lifting.db
+      - DATABASE_PATH=/app/data/brad-os.db
     healthcheck:
       test:
         [
@@ -808,10 +808,10 @@ The SQLite database is stored in a Docker volume (`lifting-data`). To backup:
 
 ```bash
 # Create backup
-docker cp lifting-app:/app/data/lifting.db ./backup-$(date +%Y%m%d).db
+docker cp lifting-app:/app/data/brad-os.db ./backup-$(date +%Y%m%d).db
 
 # Restore from backup
-docker cp ./backup.db lifting-app:/app/data/lifting.db
+docker cp ./backup.db lifting-app:/app/data/brad-os.db
 ```
 
 ### Environment Variables
@@ -820,7 +820,7 @@ docker cp ./backup.db lifting-app:/app/data/lifting.db
 | --------------- | ------------------------- | ------------------- |
 | `NODE_ENV`      | Environment mode          | `development`       |
 | `PORT`          | Server port               | `3000`              |
-| `DATABASE_PATH` | SQLite database file path | `./data/lifting.db` |
+| `DATABASE_PATH` | SQLite database file path | `./data/brad-os.db` |
 
 ## Project Structure
 

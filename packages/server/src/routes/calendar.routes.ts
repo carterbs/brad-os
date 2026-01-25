@@ -3,7 +3,7 @@ import {
   createSuccessResponse,
   createErrorResponse,
   type CalendarDataResponse,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import { getCalendarService } from '../services/index.js';
 
 export const calendarRouter = Router();

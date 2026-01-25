@@ -3,7 +3,7 @@ import type {
   PlanDay,
   CreatePlanDayDTO,
   UpdatePlanDayDTO,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import { BaseRepository } from './base.repository.js';
 
 interface PlanDayRow {

@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { Theme } from '@radix-ui/themes';
 import { BrowserRouter } from 'react-router-dom';
 import { PlanCard } from '../PlanCard';
-import type { Plan } from '@lifting/shared';
+import type { Plan } from '@brad-os/shared';
 
 const mockPlan: Plan = {
   id: 1,

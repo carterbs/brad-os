@@ -13,24 +13,24 @@ describe('getDatabaseFilename', () => {
     }
   });
 
-  it('should return lifting.test.db for test environment', () => {
+  it('should return brad-os.test.db for test environment', () => {
     process.env['NODE_ENV'] = 'test';
-    expect(getDatabaseFilename()).toBe('lifting.test.db');
+    expect(getDatabaseFilename()).toBe('brad-os.test.db');
   });
 
-  it('should return lifting.prod.db for production environment', () => {
+  it('should return brad-os.prod.db for production environment', () => {
     process.env['NODE_ENV'] = 'production';
-    expect(getDatabaseFilename()).toBe('lifting.prod.db');
+    expect(getDatabaseFilename()).toBe('brad-os.prod.db');
   });
 
-  it('should return lifting.db for development environment', () => {
+  it('should return brad-os.db for development environment', () => {
     process.env['NODE_ENV'] = 'development';
-    expect(getDatabaseFilename()).toBe('lifting.db');
+    expect(getDatabaseFilename()).toBe('brad-os.db');
   });
 
-  it('should return lifting.db when NODE_ENV is not set', () => {
+  it('should return brad-os.db when NODE_ENV is not set', () => {
     delete process.env['NODE_ENV'];
-    expect(getDatabaseFilename()).toBe('lifting.db');
+    expect(getDatabaseFilename()).toBe('brad-os.db');
   });
 });
 
@@ -63,26 +63,26 @@ describe('getDefaultDatabasePath', () => {
     expect(getDefaultDatabasePath()).toBe('/custom/path/mydb.db');
   });
 
-  it('should include lifting.test.db in path for test environment', () => {
+  it('should include brad-os.test.db in path for test environment', () => {
     process.env['NODE_ENV'] = 'test';
     const path = getDefaultDatabasePath();
-    expect(path).toContain('lifting.test.db');
+    expect(path).toContain('brad-os.test.db');
     expect(path).toContain('data');
   });
 
-  it('should include lifting.prod.db in path for production environment', () => {
+  it('should include brad-os.prod.db in path for production environment', () => {
     process.env['NODE_ENV'] = 'production';
     const path = getDefaultDatabasePath();
-    expect(path).toContain('lifting.prod.db');
+    expect(path).toContain('brad-os.prod.db');
     expect(path).toContain('data');
   });
 
-  it('should include lifting.db in path for development environment', () => {
+  it('should include brad-os.db in path for development environment', () => {
     process.env['NODE_ENV'] = 'development';
     const path = getDefaultDatabasePath();
-    expect(path).toContain('lifting.db');
-    expect(path).not.toContain('lifting.test.db');
-    expect(path).not.toContain('lifting.prod.db');
+    expect(path).toContain('brad-os.db');
+    expect(path).not.toContain('brad-os.test.db');
+    expect(path).not.toContain('brad-os.prod.db');
     expect(path).toContain('data');
   });
 

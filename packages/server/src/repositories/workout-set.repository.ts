@@ -4,7 +4,7 @@ import type {
   CreateWorkoutSetDTO,
   UpdateWorkoutSetDTO,
   WorkoutSetStatus,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import { BaseRepository } from './base.repository.js';
 
 interface WorkoutSetRow {

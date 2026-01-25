@@ -9,7 +9,7 @@ import type {
   Mesocycle,
   MesocycleWithDetails,
   CreateMesocycleRequest,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import { mesocycleApi } from '../api/mesocycleApi';
 import type { ApiClientError } from '../api/exerciseApi';
 

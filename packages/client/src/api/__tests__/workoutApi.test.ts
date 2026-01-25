@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { workoutApi, NotFoundError, ValidationError } from '../workoutApi';
 import type { WorkoutWithExercises } from '../workoutApi';
-import type { Workout, WorkoutSet } from '@lifting/shared';
+import type { Workout, WorkoutSet } from '@brad-os/shared';
 
 // Mock fetch globally
 const mockFetch = vi.fn();

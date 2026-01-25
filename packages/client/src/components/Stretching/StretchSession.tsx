@@ -18,8 +18,8 @@ import {
   Button,
   AlertDialog,
 } from '@radix-ui/themes';
-import type { SelectedStretch } from '@lifting/shared';
-import { BODY_REGION_LABELS } from '@lifting/shared';
+import type { SelectedStretch } from '@brad-os/shared';
+import { BODY_REGION_LABELS } from '@brad-os/shared';
 import { getStretchImageUrl } from '../../utils/stretchData';
 import type { AudioErrorState } from '../../hooks/useStretchSession';
 import styles from './StretchSession.module.css';

@@ -9,7 +9,7 @@ import {
   Select,
   Tabs,
 } from '@radix-ui/themes';
-import type { Exercise, DayOfWeek } from '@lifting/shared';
+import type { Exercise, DayOfWeek } from '@brad-os/shared';
 import { DaySelector } from './DaySelector';
 import { ExerciseConfigRow } from './ExerciseConfigRow';
 import {

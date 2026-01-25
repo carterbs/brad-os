@@ -24,7 +24,7 @@ import {
   useAddSet,
   useRemoveSet,
 } from '../hooks/useWorkout';
-import type { LogWorkoutSetInput } from '@lifting/shared';
+import type { LogWorkoutSetInput } from '@brad-os/shared';
 
 export function WorkoutPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();

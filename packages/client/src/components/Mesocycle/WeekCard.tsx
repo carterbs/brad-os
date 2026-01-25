@@ -1,5 +1,5 @@
 import { Box, Flex, Text, Heading } from '@radix-ui/themes';
-import type { WeekSummary, WorkoutStatus } from '@lifting/shared';
+import type { WeekSummary, WorkoutStatus } from '@brad-os/shared';
 
 interface WeekCardProps {
   week: WeekSummary;

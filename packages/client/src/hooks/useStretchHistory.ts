@@ -15,7 +15,7 @@ import type {
   StretchSessionRecord,
   CreateStretchSessionRequest,
   ApiResponse,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 
 const API_BASE = '/api/stretch-sessions';
 

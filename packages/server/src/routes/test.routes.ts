@@ -1,5 +1,5 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { type ApiResponse } from '@lifting/shared';
+import { type ApiResponse } from '@brad-os/shared';
 import { getDatabase, seedDefaultExercises } from '../db/index.js';
 
 export const testRouter = Router();

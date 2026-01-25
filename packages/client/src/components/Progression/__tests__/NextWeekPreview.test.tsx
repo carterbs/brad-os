@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Theme } from '@radix-ui/themes';
 import { NextWeekPreview } from '../NextWeekPreview';
-import type { NextWeekResponse } from '@lifting/shared';
+import type { NextWeekResponse } from '@brad-os/shared';
 
 function renderWithTheme(ui: React.ReactElement): ReturnType<typeof render> {
   return render(<Theme>{ui}</Theme>);

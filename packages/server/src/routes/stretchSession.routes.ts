@@ -2,8 +2,8 @@ import { Router, type Request, type Response } from 'express';
 import {
   createSuccessResponse,
   createErrorResponse,
-} from '@lifting/shared';
-import { createStretchSessionSchema } from '@lifting/shared';
+} from '@brad-os/shared';
+import { createStretchSessionSchema } from '@brad-os/shared';
 import { getStretchSessionRepository } from '../repositories/index.js';
 
 export const stretchSessionRouter = Router();

@@ -8,7 +8,7 @@ import {
   getVariantTotalSeconds,
   getSessionDefinition,
 } from '../meditationData';
-import type { MeditationManifest, MeditationVariant } from '@lifting/shared';
+import type { MeditationManifest, MeditationVariant } from '@brad-os/shared';
 
 // Mock manifest data
 const mockManifest: MeditationManifest = {

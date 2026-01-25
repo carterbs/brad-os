@@ -8,8 +8,8 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Flex, Text, Switch, Badge } from '@radix-ui/themes';
-import type { StretchRegionConfig } from '@lifting/shared';
-import { BODY_REGION_LABELS } from '@lifting/shared';
+import type { StretchRegionConfig } from '@brad-os/shared';
+import { BODY_REGION_LABELS } from '@brad-os/shared';
 
 interface RegionItemProps {
   config: StretchRegionConfig;

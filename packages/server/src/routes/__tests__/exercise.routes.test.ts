@@ -4,7 +4,7 @@ import type { Express } from 'express';
 import type Database from 'better-sqlite3';
 import { setupTestApp, teardownTestApp, type TestContext } from '../../test/test-app.js';
 import { ExerciseRepository } from '../../repositories/exercise.repository.js';
-import type { ApiResult, Exercise, ExerciseHistory } from '@lifting/shared';
+import type { ApiResult, Exercise, ExerciseHistory } from '@brad-os/shared';
 
 describe('Exercise Routes', () => {
   let ctx: TestContext;

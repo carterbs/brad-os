@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { Theme } from '@radix-ui/themes';
 import { ExerciseConfigRow } from '../ExerciseConfigRow';
 import type { PlanExerciseFormState } from '../types';
-import type { Exercise } from '@lifting/shared';
+import type { Exercise } from '@brad-os/shared';
 
 const mockExercises: Exercise[] = [
   {

@@ -1,5 +1,5 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
-import type { NextWeekResponse } from '@lifting/shared';
+import type { NextWeekResponse } from '@brad-os/shared';
 import { mesocycleApi } from '../api/mesocycleApi';
 import type { ApiClientError } from '../api/exerciseApi';
 import { mesocycleKeys } from './useMesocycles';

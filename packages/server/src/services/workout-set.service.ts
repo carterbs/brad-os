@@ -1,5 +1,5 @@
 import type { Database } from 'better-sqlite3';
-import type { WorkoutSet, LogWorkoutSetInput, ModifySetCountResult } from '@lifting/shared';
+import type { WorkoutSet, LogWorkoutSetInput, ModifySetCountResult } from '@brad-os/shared';
 import {
   WorkoutSetRepository,
   WorkoutRepository,
