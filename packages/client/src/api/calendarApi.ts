@@ -36,7 +36,10 @@ export const calendarApi = {
    * @returns Calendar data response with activities grouped by day
    */
   getMonthData: async (year: number, month: number): Promise<CalendarDataResponse> => {
-    const response = await fetch(`${API_BASE}/calendar/${year}/${month}`);
+    // Include browser's timezone offset to properly group activities by local date
+    // getTimezoneOffset() returns minutes: positive for west of UTC (e.g., EST = 300), negative for east
+    const timezoneOffset = new Date().getTimezoneOffset();
+    const response = await fetch(`${API_BASE}/calendar/${year}/${month}?tz=${timezoneOffset}`);
     return handleResponse<CalendarDataResponse>(response);
   },
 };

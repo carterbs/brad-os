@@ -25,12 +25,24 @@ function isValidMonth(value: string): boolean {
 }
 
 /**
+ * Validate timezone offset parameter - must be between -720 and 840 minutes
+ * This covers UTC-12 to UTC+14 (the full range of real-world timezones)
+ */
+function isValidTimezoneOffset(value: string | undefined): boolean {
+  if (value === undefined) return true; // Optional parameter
+  const offset = parseInt(value, 10);
+  return !isNaN(offset) && offset >= -720 && offset <= 840;
+}
+
+/**
  * GET /api/calendar/:year/:month
  * Get calendar data for a specific month.
+ * @query tz - Optional timezone offset in minutes (from Date.getTimezoneOffset())
  */
 calendarRouter.get('/:year/:month', (req: Request, res: Response): void => {
   const yearParam = req.params['year'] ?? '';
   const monthParam = req.params['month'] ?? '';
+  const tzParam = req.query['tz'] as string | undefined;
 
   // Validate year
   if (!isValidYear(yearParam)) {
@@ -54,12 +66,24 @@ calendarRouter.get('/:year/:month', (req: Request, res: Response): void => {
     return;
   }
 
+  // Validate timezone offset
+  if (!isValidTimezoneOffset(tzParam)) {
+    res.status(400).json(
+      createErrorResponse(
+        'VALIDATION_ERROR',
+        'Invalid timezone offset: must be a number between -720 and 840'
+      )
+    );
+    return;
+  }
+
   const year = parseInt(yearParam, 10);
   const month = parseInt(monthParam, 10);
+  const timezoneOffset = tzParam !== undefined ? parseInt(tzParam, 10) : 0;
 
   try {
     const service = getCalendarService();
-    const data: CalendarDataResponse = service.getMonthData(year, month);
+    const data: CalendarDataResponse = service.getMonthData(year, month, timezoneOffset);
     res.json(createSuccessResponse(data));
   } catch (error) {
     console.error('Failed to get calendar data:', error);

@@ -7,6 +7,45 @@ import type {
 } from '@brad-os/shared';
 import { BaseRepository } from './base.repository.js';
 
+/**
+ * Convert a local date boundary to a UTC timestamp.
+ * @param localDate - Local date in YYYY-MM-DD format
+ * @param isEndOfDay - If true, returns end of day (23:59:59.999), otherwise start of day (00:00:00.000)
+ * @param timezoneOffsetMinutes - Timezone offset in minutes from Date.getTimezoneOffset()
+ *                                 (positive for west of UTC, negative for east)
+ * @returns UTC timestamp in ISO format
+ */
+function localDateToUtcBoundary(
+  localDate: string,
+  isEndOfDay: boolean,
+  timezoneOffsetMinutes: number
+): string {
+  // Parse the local date components (format: YYYY-MM-DD)
+  const parts = localDate.split('-').map(Number);
+  const year = parts[0] ?? 0;
+  const month = parts[1] ?? 1;
+  const day = parts[2] ?? 1;
+
+  // Create a date representing the local time boundary
+  // For start of day: 00:00:00.000 local time
+  // For end of day: 23:59:59.999 local time
+  const localMs = Date.UTC(
+    year,
+    month - 1,
+    day,
+    isEndOfDay ? 23 : 0,
+    isEndOfDay ? 59 : 0,
+    isEndOfDay ? 59 : 0,
+    isEndOfDay ? 999 : 0
+  );
+
+  // Convert local time to UTC by adding the offset
+  // utcTime = localTime + (offsetMinutes * 60 * 1000)
+  const utcMs = localMs + timezoneOffsetMinutes * 60 * 1000;
+
+  return new Date(utcMs).toISOString();
+}
+
 interface WorkoutRow {
   id: number;
   mesocycle_id: number;
@@ -142,11 +181,17 @@ export class WorkoutRepository extends BaseRepository<
 
   /**
    * Find completed workouts where completed_at falls within the date range.
-   * Date range is inclusive of both start and end dates.
-   * @param startDate - Start date in YYYY-MM-DD format
-   * @param endDate - End date in YYYY-MM-DD format
+   * Date range is inclusive of both start and end dates in the user's local timezone.
+   * @param startDate - Start date in YYYY-MM-DD format (local date)
+   * @param endDate - End date in YYYY-MM-DD format (local date)
+   * @param timezoneOffset - Timezone offset in minutes from Date.getTimezoneOffset()
+   *                         (positive for west of UTC, negative for east). Defaults to 0 (UTC).
    */
-  findCompletedInDateRange(startDate: string, endDate: string): Workout[] {
+  findCompletedInDateRange(
+    startDate: string,
+    endDate: string,
+    timezoneOffset: number = 0
+  ): Workout[] {
     const stmt = this.db.prepare(`
       SELECT * FROM workouts
       WHERE status = 'completed'
@@ -154,9 +199,9 @@ export class WorkoutRepository extends BaseRepository<
         AND completed_at <= ?
       ORDER BY completed_at ASC
     `);
-    // Use start of startDate and end of endDate for inclusive range
-    const startTimestamp = `${startDate}T00:00:00.000Z`;
-    const endTimestamp = `${endDate}T23:59:59.999Z`;
+    // Convert local date boundaries to UTC timestamps
+    const startTimestamp = localDateToUtcBoundary(startDate, false, timezoneOffset);
+    const endTimestamp = localDateToUtcBoundary(endDate, true, timezoneOffset);
     const rows = stmt.all(startTimestamp, endTimestamp) as WorkoutRow[];
     return rows.map((row) => this.rowToWorkout(row));
   }

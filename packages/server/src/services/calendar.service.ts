@@ -15,6 +15,26 @@ import {
   MeditationSessionRepository,
 } from '../repositories/index.js';
 
+/**
+ * Convert a UTC ISO timestamp to a local date string (YYYY-MM-DD) given a timezone offset.
+ * @param isoTimestamp - UTC timestamp in ISO format (e.g., "2024-01-15T03:00:00.000Z")
+ * @param timezoneOffsetMinutes - Timezone offset in minutes from Date.getTimezoneOffset()
+ *                                 (positive for west of UTC, negative for east)
+ * @returns Local date string in YYYY-MM-DD format
+ */
+export function utcToLocalDate(isoTimestamp: string, timezoneOffsetMinutes: number): string {
+  const utcTime = new Date(isoTimestamp).getTime();
+  // Subtract offset because getTimezoneOffset() returns positive for west of UTC
+  // localTime = utcTime - (offsetMinutes * 60 * 1000)
+  const localTime = utcTime - timezoneOffsetMinutes * 60 * 1000;
+  const localDate = new Date(localTime);
+  // Extract the UTC components of the adjusted date (which now represent local time)
+  const year = localDate.getUTCFullYear();
+  const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(localDate.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export class CalendarService {
   private workoutRepo: WorkoutRepository;
   private workoutSetRepo: WorkoutSetRepository;
@@ -34,15 +54,18 @@ export class CalendarService {
    * Get calendar data for a specific month.
    * @param year - The year (e.g., 2024)
    * @param month - The month (1-12)
+   * @param timezoneOffset - Timezone offset in minutes from Date.getTimezoneOffset()
+   *                         (positive for west of UTC, negative for east). Defaults to 0 (UTC).
    * @returns CalendarDataResponse with activities grouped by date
    */
-  getMonthData(year: number, month: number): CalendarDataResponse {
+  getMonthData(year: number, month: number, timezoneOffset: number = 0): CalendarDataResponse {
     const { startDate, endDate } = this.getMonthBoundaries(year, month);
 
     // Query completed workouts, stretch sessions, and meditation sessions for the date range
-    const workouts = this.workoutRepo.findCompletedInDateRange(startDate, endDate);
-    const stretchSessions = this.stretchSessionRepo.findInDateRange(startDate, endDate);
-    const meditationSessions = this.meditationSessionRepo.findInDateRange(startDate, endDate);
+    // Pass timezone offset so repositories can adjust UTC boundaries to match local dates
+    const workouts = this.workoutRepo.findCompletedInDateRange(startDate, endDate, timezoneOffset);
+    const stretchSessions = this.stretchSessionRepo.findInDateRange(startDate, endDate, timezoneOffset);
+    const meditationSessions = this.meditationSessionRepo.findInDateRange(startDate, endDate, timezoneOffset);
 
     // Transform to CalendarActivity[]
     const activities: CalendarActivity[] = [];
@@ -58,11 +81,11 @@ export class CalendarService {
       // Count completed sets
       const completedSets = sets.filter((s) => s.status === 'completed').length;
 
-      // Extract date from completed_at
+      // Extract date from completed_at, converting UTC to local date
       const completedAt = workout.completed_at;
       const date =
         completedAt !== null && completedAt !== ''
-          ? completedAt.substring(0, 10)
+          ? utcToLocalDate(completedAt, timezoneOffset)
           : workout.scheduled_date;
 
       const summary: WorkoutActivitySummary = {
@@ -85,8 +108,8 @@ export class CalendarService {
 
     // Transform stretch sessions
     for (const session of stretchSessions) {
-      // Extract date from completedAt
-      const date = session.completedAt.substring(0, 10);
+      // Extract date from completedAt, converting UTC to local date
+      const date = utcToLocalDate(session.completedAt, timezoneOffset);
 
       const summary: StretchActivitySummary = {
         totalDurationSeconds: session.totalDurationSeconds,
@@ -105,7 +128,8 @@ export class CalendarService {
 
     // Transform meditation sessions
     for (const session of meditationSessions) {
-      const date = session.completedAt.substring(0, 10);
+      // Convert UTC timestamp to local date
+      const date = utcToLocalDate(session.completedAt, timezoneOffset);
 
       const summary: MeditationActivitySummary = {
         durationSeconds: session.actualDurationSeconds,

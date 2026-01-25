@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
-import { CalendarService } from '../calendar.service.js';
+import { CalendarService, utcToLocalDate } from '../calendar.service.js';
 import { Migrator } from '../../db/migrator.js';
 import { migrations } from '../../db/migrations/index.js';
 import { PlanRepository } from '../../repositories/plan.repository.js';
@@ -565,6 +565,111 @@ describe('CalendarService', () => {
         expect(
           result.days['2024-01-15'].activities.filter((a) => a.type === 'workout')
         ).toHaveLength(2);
+      });
+    });
+
+    describe('timezone handling', () => {
+      it('should convert UTC timestamp to correct local date for EST (UTC-5)', () => {
+        // 10 PM EST on Jan 15 = 3 AM UTC on Jan 16
+        // EST has timezone offset of 300 minutes (5 hours * 60)
+        const utcTimestamp = '2024-01-16T03:00:00.000Z';
+        const estOffset = 300; // EST is UTC-5, so offset is positive
+
+        const localDate = utcToLocalDate(utcTimestamp, estOffset);
+
+        // Should be Jan 15 in EST, not Jan 16 (which is the UTC date)
+        expect(localDate).toBe('2024-01-15');
+      });
+
+      it('should convert UTC timestamp to correct local date for UTC+2', () => {
+        // 1 AM UTC+2 on Jan 16 = 11 PM UTC on Jan 15
+        // UTC+2 has timezone offset of -120 minutes
+        const utcTimestamp = '2024-01-15T23:00:00.000Z';
+        const utcPlus2Offset = -120; // UTC+2 is negative offset
+
+        const localDate = utcToLocalDate(utcTimestamp, utcPlus2Offset);
+
+        // Should be Jan 16 in UTC+2
+        expect(localDate).toBe('2024-01-16');
+      });
+
+      it('should show session at 10 PM EST on correct local date', () => {
+        // Scenario: User completes stretch session at 10 PM EST on Jan 15
+        // This is stored as 3 AM UTC on Jan 16
+        stretchSessionRepo.create({
+          completedAt: '2024-01-16T03:00:00.000Z', // 10 PM EST = 3 AM UTC next day
+          totalDurationSeconds: 300,
+          regionsCompleted: 3,
+          regionsSkipped: 0,
+          stretches: [],
+        });
+
+        // Query with EST timezone offset (300 minutes)
+        const result = service.getMonthData(2024, 1, 300);
+
+        // Activity should appear on Jan 15 (local date), not Jan 16 (UTC date)
+        expect(result.days['2024-01-15']).toBeDefined();
+        expect(result.days['2024-01-16']).toBeUndefined();
+        expect(result.days['2024-01-15'].activities[0].date).toBe('2024-01-15');
+      });
+
+      it('should show workout completed at 11:30 PM EST on correct local date', () => {
+        // User completes workout at 11:30 PM EST on Jan 15
+        // This is 4:30 AM UTC on Jan 16
+        const workout = workoutRepo.create({
+          mesocycle_id: testMesocycleId,
+          plan_day_id: testPlanDayId,
+          week_number: 1,
+          scheduled_date: '2024-01-15',
+        });
+        workoutRepo.update(workout.id, {
+          status: 'completed',
+          completed_at: '2024-01-16T04:30:00.000Z', // 11:30 PM EST
+        });
+
+        // Query with EST timezone offset
+        const result = service.getMonthData(2024, 1, 300);
+
+        // Should appear on Jan 15 in EST
+        expect(result.days['2024-01-15']).toBeDefined();
+        expect(result.days['2024-01-16']).toBeUndefined();
+      });
+
+      it('should include activities that cross month boundary correctly', () => {
+        // Session at 10 PM EST on Jan 31 = 3 AM UTC on Feb 1
+        stretchSessionRepo.create({
+          completedAt: '2024-02-01T03:00:00.000Z', // 10 PM EST on Jan 31
+          totalDurationSeconds: 300,
+          regionsCompleted: 3,
+          regionsSkipped: 0,
+          stretches: [],
+        });
+
+        // Query January with EST offset - should find the activity
+        const januaryResult = service.getMonthData(2024, 1, 300);
+        expect(januaryResult.days['2024-01-31']).toBeDefined();
+
+        // Query February with EST offset - should NOT find the activity
+        const februaryResult = service.getMonthData(2024, 2, 300);
+        expect(februaryResult.days['2024-01-31']).toBeUndefined();
+      });
+
+      it('should default to UTC when no timezone offset is provided', () => {
+        // Session at 3 AM UTC on Jan 16
+        stretchSessionRepo.create({
+          completedAt: '2024-01-16T03:00:00.000Z',
+          totalDurationSeconds: 300,
+          regionsCompleted: 3,
+          regionsSkipped: 0,
+          stretches: [],
+        });
+
+        // Query without timezone offset (defaults to 0 / UTC)
+        const result = service.getMonthData(2024, 1);
+
+        // Should appear on Jan 16 (UTC date)
+        expect(result.days['2024-01-16']).toBeDefined();
+        expect(result.days['2024-01-15']).toBeUndefined();
       });
     });
   });

@@ -5,9 +5,12 @@ import type { CalendarDataResponse, CalendarDayData } from '@brad-os/shared';
 
 describe('calendarApi', () => {
   const mockFetch = vi.fn();
+  const mockTimezoneOffset = 300; // EST
 
   beforeEach(() => {
     vi.stubGlobal('fetch', mockFetch);
+    // Mock Date.prototype.getTimezoneOffset for consistent test behavior
+    vi.spyOn(Date.prototype, 'getTimezoneOffset').mockReturnValue(mockTimezoneOffset);
   });
 
   afterEach(() => {
@@ -58,7 +61,7 @@ describe('calendarApi', () => {
 
       const result = await calendarApi.getMonthData(2024, 1);
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/calendar/2024/1');
+      expect(mockFetch).toHaveBeenCalledWith('/api/calendar/2024/1?tz=300');
       expect(result).toEqual(calendarResponse);
       expect(result.days['2024-01-15']).toEqual(mockDayData);
     });
@@ -77,7 +80,7 @@ describe('calendarApi', () => {
 
       const result = await calendarApi.getMonthData(2024, 2);
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/calendar/2024/2');
+      expect(mockFetch).toHaveBeenCalledWith('/api/calendar/2024/2?tz=300');
       expect(result.days).toEqual({});
     });
 
@@ -196,7 +199,7 @@ describe('calendarApi', () => {
 
       await calendarApi.getMonthData(2024, 12);
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/calendar/2024/12');
+      expect(mockFetch).toHaveBeenCalledWith('/api/calendar/2024/12?tz=300');
     });
   });
 });

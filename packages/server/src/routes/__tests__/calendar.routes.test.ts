@@ -192,5 +192,83 @@ describe('Calendar Routes', () => {
         }
       });
     });
+
+    describe('timezone offset parameter', () => {
+      it('should accept valid timezone offset (EST = 300)', async () => {
+        const response = await request(app).get('/api/calendar/2024/6?tz=300');
+        const body = response.body as ApiResult<CalendarDataResponse>;
+
+        expect(response.status).toBe(200);
+        expect(body.success).toBe(true);
+      });
+
+      it('should accept valid negative timezone offset (UTC+2 = -120)', async () => {
+        const response = await request(app).get('/api/calendar/2024/6?tz=-120');
+        const body = response.body as ApiResult<CalendarDataResponse>;
+
+        expect(response.status).toBe(200);
+        expect(body.success).toBe(true);
+      });
+
+      it('should accept timezone offset at minimum valid value (-720 = UTC+12)', async () => {
+        const response = await request(app).get('/api/calendar/2024/6?tz=-720');
+        const body = response.body as ApiResult<CalendarDataResponse>;
+
+        expect(response.status).toBe(200);
+        expect(body.success).toBe(true);
+      });
+
+      it('should accept timezone offset at maximum valid value (840 = UTC-14)', async () => {
+        const response = await request(app).get('/api/calendar/2024/6?tz=840');
+        const body = response.body as ApiResult<CalendarDataResponse>;
+
+        expect(response.status).toBe(200);
+        expect(body.success).toBe(true);
+      });
+
+      it('should return 400 for timezone offset below minimum (-721)', async () => {
+        const response = await request(app).get('/api/calendar/2024/6?tz=-721');
+        const body = response.body as ApiResult<never>;
+
+        expect(response.status).toBe(400);
+        expect(body.success).toBe(false);
+        if (!body.success) {
+          expect(body.error.code).toBe('VALIDATION_ERROR');
+          expect(body.error.message).toContain('timezone');
+        }
+      });
+
+      it('should return 400 for timezone offset above maximum (841)', async () => {
+        const response = await request(app).get('/api/calendar/2024/6?tz=841');
+        const body = response.body as ApiResult<never>;
+
+        expect(response.status).toBe(400);
+        expect(body.success).toBe(false);
+        if (!body.success) {
+          expect(body.error.code).toBe('VALIDATION_ERROR');
+          expect(body.error.message).toContain('timezone');
+        }
+      });
+
+      it('should return 400 for non-numeric timezone offset', async () => {
+        const response = await request(app).get('/api/calendar/2024/6?tz=abc');
+        const body = response.body as ApiResult<never>;
+
+        expect(response.status).toBe(400);
+        expect(body.success).toBe(false);
+        if (!body.success) {
+          expect(body.error.code).toBe('VALIDATION_ERROR');
+          expect(body.error.message).toContain('timezone');
+        }
+      });
+
+      it('should work without timezone parameter (defaults to UTC)', async () => {
+        const response = await request(app).get('/api/calendar/2024/6');
+        const body = response.body as ApiResult<CalendarDataResponse>;
+
+        expect(response.status).toBe(200);
+        expect(body.success).toBe(true);
+      });
+    });
   });
 });
