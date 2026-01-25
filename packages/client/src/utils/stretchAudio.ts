@@ -99,7 +99,12 @@ export function setMediaSessionCallbacks(callbacks: {
 /**
  * Play a narration audio clip.
  *
- * Pauses the keepalive loop while playing, resumes after.
+ * Plays narration while keeping the keepalive loop running in the background.
+ * The keepalive continues at 1% volume to maintain the audio session, which is
+ * essential for:
+ * 1. Background playback when screen is locked (iOS/Android)
+ * 2. Allowing external music apps (Spotify) to continue playing
+ *
  * Resolves when the clip finishes playing.
  * Rejects with AudioPlaybackError if the clip fails to load.
  *
@@ -111,11 +116,10 @@ export async function playNarration(clipPath: string): Promise<void> {
     throw new Error('Audio not initialized. Call initStretchAudio() first.');
   }
 
-  // Pause keepalive during narration
-  const wasKeepaliveRunning = isKeepaliveRunning;
-  if (wasKeepaliveRunning) {
-    pauseKeepalive();
-  }
+  // Note: We intentionally do NOT pause keepalive during narration.
+  // Keeping it running at 1% volume maintains the audio session,
+  // which prevents iOS/Android from suspending audio when the screen is locked
+  // and allows Spotify to continue playing without interruption.
 
   const url = getAssetUrl(clipPath);
 
@@ -135,19 +139,11 @@ export async function playNarration(clipPath: string): Promise<void> {
 
     narrationAudio.onended = (): void => {
       cleanup();
-      // Resume keepalive after narration
-      if (wasKeepaliveRunning) {
-        startKeepalive();
-      }
       resolve();
     };
 
     narrationAudio.onerror = (): void => {
       cleanup();
-      // Resume keepalive even on error
-      if (wasKeepaliveRunning) {
-        startKeepalive();
-      }
       reject(new AudioPlaybackError(`Failed to load audio: ${url}`, clipPath));
     };
 
@@ -159,9 +155,6 @@ export async function playNarration(clipPath: string): Promise<void> {
     if (playPromise !== undefined) {
       playPromise.catch((error: Error) => {
         cleanup();
-        if (wasKeepaliveRunning) {
-          startKeepalive();
-        }
         reject(new AudioPlaybackError(`Playback failed: ${error.message}`, clipPath));
       });
     }
@@ -191,17 +184,6 @@ export function startKeepalive(): void {
         console.warn('Failed to start keepalive audio:', error.message);
       });
   }
-}
-
-/**
- * Pause the keepalive loop (internal use during narration).
- */
-function pauseKeepalive(): void {
-  if (!keepaliveAudio) {
-    return;
-  }
-  keepaliveAudio.pause();
-  isKeepaliveRunning = false;
 }
 
 /**

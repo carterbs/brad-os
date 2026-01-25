@@ -160,6 +160,7 @@ export function useStretchSession({
   );
 
   // Advance to next segment or stretch
+  // Timer starts immediately in both cases - runs simultaneously with narration
   const advanceSegment = useCallback(() => {
     setState((prev) => {
       if (prev.status !== 'active') return prev;
@@ -206,18 +207,7 @@ export function useStretchSession({
     clearTimer();
 
     if (state.currentSegment === 1) {
-      // Play transition narration
-      const clipPath = currentStretch.stretch.bilateral
-        ? 'shared/switch-sides.wav'
-        : 'shared/halfway.wav';
-
-      const success = await playNarrationSafe(clipPath);
-      if (success === false) {
-        // Audio error - state machine paused, waiting for retry/skip
-        return;
-      }
-
-      // Advance to segment 2
+      // Advance to segment 2 FIRST so timer starts immediately
       advanceSegment();
 
       // Update MediaSession
@@ -226,6 +216,18 @@ export function useStretchSession({
         BODY_REGION_LABELS[currentStretch.region],
         2
       );
+
+      // Play transition narration (non-blocking - timer runs during narration)
+      const clipPath = currentStretch.stretch.bilateral
+        ? 'shared/switch-sides.wav'
+        : 'shared/halfway.wav';
+
+      const success = await playNarrationSafe(clipPath);
+      if (success === false) {
+        // Audio error overlay shown, but timer continues running
+        // User can retry or skip the audio
+        return;
+      }
     } else {
       // Record completed stretch
       const skipped = skippedSegmentsRef.current.get(state.currentStretchIndex) ?? 0;
@@ -258,16 +260,12 @@ export function useStretchSession({
         return;
       }
 
-      // Advance to next stretch
+      // Advance to next stretch (timer starts immediately, runs with narration)
       advanceSegment();
 
       // Get the new current stretch and play its narration
       const nextStretch = state.selectedStretches[nextIndex];
       if (nextStretch === undefined) {
-        return;
-      }
-      const success = await playNarrationSafe(nextStretch.stretch.audioFiles.begin);
-      if (success === false) {
         return;
       }
 
@@ -276,6 +274,11 @@ export function useStretchSession({
         BODY_REGION_LABELS[nextStretch.region],
         1
       );
+
+      const success = await playNarrationSafe(nextStretch.stretch.audioFiles.begin);
+      if (success === false) {
+        return;
+      }
     }
   }, [
     currentStretch,
@@ -288,7 +291,17 @@ export function useStretchSession({
   ]);
 
   // Start a new session
+  // NOTE: This should only be called when the app has focus. When Spotify is
+  // configured, StretchPage.tsx waits for the app to lose and regain focus
+  // before calling start(), ensuring we don't start while the user is in Spotify.
   const start = useCallback(async (): Promise<void> => {
+    // Defensive check: don't start if the document is hidden (e.g., Spotify is open)
+    // This prevents race conditions with visibility detection
+    if (document.visibilityState === 'hidden') {
+      console.warn('Cannot start session: document is hidden');
+      return;
+    }
+
     if (manifest === null) {
       console.warn('Cannot start session: manifest not loaded');
       return;
@@ -307,6 +320,7 @@ export function useStretchSession({
     setCompletedStretches([]);
     skippedSegmentsRef.current.clear();
 
+    // Timer starts immediately - it runs simultaneously with narration
     const newState: StretchSessionState = {
       status: 'active',
       currentStretchIndex: 0,
@@ -324,13 +338,9 @@ export function useStretchSession({
     startKeepalive();
     setMediaSessionPlaybackState('playing');
 
-    // Play first stretch narration
+    // Play first stretch narration (runs simultaneously with timer)
     const firstStretch = selectedStretches[0];
     if (firstStretch === undefined) {
-      return;
-    }
-    const success = await playNarrationSafe(firstStretch.stretch.audioFiles.begin);
-    if (success === false) {
       return;
     }
 
@@ -339,6 +349,11 @@ export function useStretchSession({
       BODY_REGION_LABELS[firstStretch.region],
       1
     );
+
+    const success = await playNarrationSafe(firstStretch.stretch.audioFiles.begin);
+    if (success === false) {
+      return;
+    }
   }, [manifest, config, playNarrationSafe]);
 
   // Pause the session

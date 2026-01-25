@@ -99,7 +99,7 @@ test.describe('Calendar View', () => {
   test.describe('with completed workout', () => {
     test.beforeEach(async ({ api }) => {
       // Set up a workout scenario and complete it
-      const { mesocycle } = await api.setupWorkoutScenario('E2E Bench Press');
+      await api.setupWorkoutScenario('E2E Bench Press');
 
       // Get today's workout and complete it
       const workout = await api.getTodaysWorkout();

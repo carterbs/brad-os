@@ -158,7 +158,10 @@ describe('stretchAudio', () => {
       await expect(playPromise).rejects.toThrow(AudioPlaybackError);
     });
 
-    it('should pause keepalive during playback', async () => {
+    it('should keep keepalive running during playback to maintain audio session', async () => {
+      // Keeping the keepalive running during narration is essential for:
+      // 1. Background playback when screen is locked (iOS/Android)
+      // 2. Allowing external music apps (Spotify) to continue playing
       initStretchAudio();
       expect(mockAudioElements[0]).toBeDefined();
       expect(mockAudioElements[1]).toBeDefined();
@@ -175,7 +178,9 @@ describe('stretchAudio', () => {
 
       const playPromise = playNarration('test.wav');
 
-      expect(keepaliveAudio.pause).toHaveBeenCalled();
+      // Keepalive should NOT be paused - it continues running
+      expect(keepaliveAudio.pause).not.toHaveBeenCalled();
+      expect(isKeepaliveActive()).toBe(true);
 
       // Simulate ended
       setTimeout(() => {
@@ -183,6 +188,9 @@ describe('stretchAudio', () => {
       }, 10);
 
       await playPromise;
+
+      // Keepalive should still be active after narration
+      expect(isKeepaliveActive()).toBe(true);
     });
   });
 
