@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Ensure TTS audio files exist, generating them if needed
 
 AUDIO_DIR="packages/client/public/audio/stretching"
@@ -13,7 +13,7 @@ fi
 echo "TTS audio files not found, generating..."
 
 # Check for Python 3
-if ! command -v python3 &> /dev/null; then
+if ! command -v python3 > /dev/null 2>&1; then
     echo "Error: python3 is required for TTS generation"
     exit 1
 fi
