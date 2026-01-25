@@ -113,9 +113,9 @@ export class ApiHelper {
 
   constructor(
     private request: APIRequestContext,
-    // E2E tests use port 3100 to match the Playwright webServer config
+    // E2E tests use port 3200 to match the Playwright webServer config
     // Can be overridden via BASE_URL env var for custom test environments
-    baseUrl = process.env['BASE_URL'] ?? 'http://localhost:3100'
+    baseUrl = process.env['BASE_URL'] ?? 'http://localhost:3200'
   ) {
     this.apiUrl = `${baseUrl}/api`;
   }
@@ -541,5 +541,114 @@ export class ApiHelper {
     const mesocycle = await this.startMesocycle(pendingMesocycle.id);
 
     return { exercise, plan, mesocycle };
+  }
+
+  // ============ Stretch Sessions ============
+
+  async createStretchSession(input: {
+    completedAt: string;
+    totalDurationSeconds: number;
+    regionsCompleted: number;
+    regionsSkipped: number;
+    stretches: Array<{
+      region: string;
+      stretchId: string;
+      stretchName: string;
+      durationSeconds: number;
+      skippedSegments: number;
+    }>;
+  }): Promise<{ id: number; completed_at: string }> {
+    const response = await this.request.post(`${this.apiUrl}/stretch-sessions`, {
+      data: input,
+    });
+
+    if (!response.ok()) {
+      throw new Error(`Failed to create stretch session: ${response.status()}`);
+    }
+
+    const json = (await response.json()) as ApiResponse<{ id: number; completed_at: string }>;
+    return json.data;
+  }
+
+  async getStretchSessions(): Promise<Array<{ id: number; completed_at: string }>> {
+    const response = await this.request.get(`${this.apiUrl}/stretch-sessions`);
+
+    if (!response.ok()) {
+      throw new Error(`Failed to get stretch sessions: ${response.status()}`);
+    }
+
+    const json = (await response.json()) as ApiResponse<Array<{ id: number; completed_at: string }>>;
+    return json.data;
+  }
+
+  // ============ Calendar ============
+
+  async getCalendarMonth(year: number, month: number): Promise<{
+    startDate: string;
+    endDate: string;
+    days: Record<string, unknown>;
+  }> {
+    const response = await this.request.get(`${this.apiUrl}/calendar/${year}/${month}`);
+
+    if (!response.ok()) {
+      throw new Error(`Failed to get calendar data: ${response.status()}`);
+    }
+
+    const json = (await response.json()) as ApiResponse<{
+      startDate: string;
+      endDate: string;
+      days: Record<string, unknown>;
+    }>;
+    return json.data;
+  }
+
+  /**
+   * Create a quick stretch session for today (for E2E testing)
+   */
+  async createQuickStretchSession(): Promise<{ id: number; completed_at: string }> {
+    const now = new Date().toISOString();
+    return this.createStretchSession({
+      completedAt: now,
+      totalDurationSeconds: 300,
+      regionsCompleted: 2,
+      regionsSkipped: 0,
+      stretches: [
+        {
+          region: 'neck',
+          stretchId: 'neck-stretch-1',
+          stretchName: 'Neck Tilt',
+          durationSeconds: 150,
+          skippedSegments: 0,
+        },
+        {
+          region: 'shoulders',
+          stretchId: 'shoulder-stretch-1',
+          stretchName: 'Shoulder Roll',
+          durationSeconds: 150,
+          skippedSegments: 0,
+        },
+      ],
+    });
+  }
+
+  /**
+   * Complete a workout via API (all sets logged)
+   */
+  async completeWorkoutViaApi(workoutId: number): Promise<Workout> {
+    // Get the workout with exercises
+    const workout = await this.getWorkoutById(workoutId);
+
+    // Start the workout
+    await this.startWorkout(workoutId);
+
+    // Log all sets
+    for (const exercise of workout.exercises) {
+      for (const set of exercise.sets) {
+        await this.logSet(set.id, set.target_reps, set.target_weight);
+      }
+    }
+
+    // Complete the workout
+    return this.completeWorkout(workoutId);
   }
 }

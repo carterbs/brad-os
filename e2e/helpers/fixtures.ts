@@ -4,6 +4,7 @@ import { TodayPage } from './pages/today.page.js';
 import { ExercisesPage } from './pages/exercises.page.js';
 import { PlansPage } from './pages/plans.page.js';
 import { MesoPage } from './pages/meso.page.js';
+import { CalendarPage } from './pages/calendar.page.js';
 
 // Extend the base test with our custom fixtures
 export const test = base.extend<{
@@ -12,6 +13,7 @@ export const test = base.extend<{
   exercisesPage: ExercisesPage;
   plansPage: PlansPage;
   mesoPage: MesoPage;
+  calendarPage: CalendarPage;
 }>({
   api: async ({ request }, use) => {
     const api = new ApiHelper(request);
@@ -36,6 +38,11 @@ export const test = base.extend<{
   mesoPage: async ({ page }, use) => {
     const mesoPage = new MesoPage(page);
     await use(mesoPage);
+  },
+
+  calendarPage: async ({ page }, use) => {
+    const calendarPage = new CalendarPage(page);
+    await use(calendarPage);
   },
 });
 

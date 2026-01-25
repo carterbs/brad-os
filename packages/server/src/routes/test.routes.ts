@@ -47,6 +47,18 @@ if (isProduction) {
 
         // Tables to clear (in order to respect foreign key constraints)
         const tablesToClear = [
+          'stretch_sessions',
+          'workout_sets',
+          'workouts',
+          'mesocycles',
+          'plan_day_exercises',
+          'plan_days',
+          'plans',
+          'exercises',
+        ];
+
+        // Tables with INTEGER PRIMARY KEY AUTOINCREMENT (need sqlite_sequence reset)
+        const tablesWithAutoIncrement = [
           'workout_sets',
           'workouts',
           'mesocycles',
@@ -61,8 +73,8 @@ if (isProduction) {
           db.prepare(`DELETE FROM ${table}`).run();
         }
 
-        // Reset auto-increment counters
-        for (const table of tablesToClear) {
+        // Reset auto-increment counters (only for tables that use it)
+        for (const table of tablesWithAutoIncrement) {
           db.prepare(
             `DELETE FROM sqlite_sequence WHERE name = ?`
           ).run(table);
