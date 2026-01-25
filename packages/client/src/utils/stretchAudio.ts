@@ -263,14 +263,24 @@ export function setMediaSessionPlaybackState(
 }
 
 /**
+ * Stop the current narration audio.
+ * Call this when skipping a stretch or segment to interrupt the narration.
+ */
+export function stopNarration(): void {
+  if (narrationAudio) {
+    narrationAudio.pause();
+    narrationAudio.currentTime = 0;
+    narrationAudio.onended = null;
+    narrationAudio.onerror = null;
+  }
+}
+
+/**
  * Stop all audio and clean up.
  * Call this when ending a session or unmounting.
  */
 export function stopAllAudio(): void {
-  if (narrationAudio) {
-    narrationAudio.pause();
-    narrationAudio.currentTime = 0;
-  }
+  stopNarration();
 
   stopKeepalive();
 

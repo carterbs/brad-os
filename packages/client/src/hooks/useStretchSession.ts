@@ -20,6 +20,7 @@ import type {
 import { BODY_REGION_LABELS, PAUSE_TIMEOUT_MS } from '@lifting/shared';
 import {
   playNarration,
+  stopNarration,
   startKeepalive,
   stopKeepalive,
   setMediaSessionMetadata,
@@ -390,6 +391,9 @@ export function useStretchSession({
 
   // Skip current segment
   const skipSegment = useCallback(() => {
+    // Stop any playing narration
+    stopNarration();
+
     // Record the skip
     skippedSegmentsRef.current.set(
       state.currentStretchIndex,
@@ -401,23 +405,50 @@ export function useStretchSession({
   }, [state.currentStretchIndex, handleSegmentComplete]);
 
   // Skip entire stretch
-  const skipStretch = useCallback(() => {
+  const skipStretch = useCallback((): void => {
+    // Stop any playing narration
+    stopNarration();
+
     // Record both segments as skipped
     skippedSegmentsRef.current.set(state.currentStretchIndex, 2);
 
+    // Record the skipped stretch in completedStretches
+    const skippedStretch = state.selectedStretches[state.currentStretchIndex];
+    if (skippedStretch !== undefined) {
+      setCompletedStretches((prev) => [
+        ...prev,
+        {
+          region: skippedStretch.region,
+          stretchId: skippedStretch.stretch.id,
+          stretchName: skippedStretch.stretch.name,
+          durationSeconds: skippedStretch.durationSeconds,
+          skippedSegments: 2,
+        },
+      ]);
+    }
+
+    const nextIndex = state.currentStretchIndex + 1;
+
+    if (nextIndex >= state.selectedStretches.length) {
+      // This was the last stretch - complete the session
+      setState((prev) => ({
+        ...prev,
+        status: 'complete',
+        segmentStartedAt: null,
+      }));
+
+      // Play completion narration in background
+      void playNarrationSafe('shared/session-complete.wav');
+
+      stopKeepalive();
+      setMediaSessionPlaybackState('none');
+      clearStretchState();
+      return;
+    }
+
+    // Update state immediately
     setState((prev) => {
       if (prev.status !== 'active' && prev.status !== 'paused') return prev;
-
-      const nextIndex = prev.currentStretchIndex + 1;
-
-      if (nextIndex >= prev.selectedStretches.length) {
-        // This was the last stretch - complete the session
-        return {
-          ...prev,
-          status: 'complete',
-          segmentStartedAt: null,
-        };
-      }
 
       const newState: StretchSessionState = {
         ...prev,
@@ -432,7 +463,19 @@ export function useStretchSession({
       saveStretchState(newState);
       return newState;
     });
-  }, [state.currentStretchIndex]);
+
+    // Play narration for next stretch in background (don't block UI)
+    const nextStretch = state.selectedStretches[nextIndex];
+    if (nextStretch !== undefined) {
+      void playNarrationSafe(nextStretch.stretch.audioFiles.begin);
+
+      setMediaSessionMetadata(
+        nextStretch.stretch.name,
+        BODY_REGION_LABELS[nextStretch.region],
+        1
+      );
+    }
+  }, [state.currentStretchIndex, state.selectedStretches, playNarrationSafe]);
 
   // End session early
   const end = useCallback(() => {
