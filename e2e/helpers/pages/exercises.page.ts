@@ -2,11 +2,11 @@ import { type Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page.js';
 
 /**
- * Page object for the Exercise Library page (/exercises)
+ * Page object for the Exercise Library page (/lifting/exercises)
  */
 export class ExercisesPage extends BasePage {
   async goto(): Promise<void> {
-    await this.page.goto(this.getFullUrl('/exercises'));
+    await this.page.goto(this.getFullUrl('/lifting/exercises'));
   }
 
   async waitForLoad(): Promise<void> {

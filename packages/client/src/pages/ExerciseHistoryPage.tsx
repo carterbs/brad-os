@@ -29,7 +29,7 @@ export function ExerciseHistoryPage(): JSX.Element {
     return (
       <Container size="2" p="4">
         <Flex direction="column" gap="4">
-          <Button variant="soft" color="gray" onClick={() => void navigate('/exercises')}>
+          <Button variant="soft" color="gray" onClick={() => void navigate('/lifting/exercises')}>
             &larr; Back to Exercises
           </Button>
           <Box p="4" style={{ backgroundColor: 'var(--red-2)', borderRadius: 'var(--radius-3)' }}>
@@ -47,7 +47,7 @@ export function ExerciseHistoryPage(): JSX.Element {
           variant="soft"
           color="gray"
           style={{ alignSelf: 'flex-start' }}
-          onClick={() => void navigate('/exercises')}
+          onClick={() => void navigate('/lifting/exercises')}
         >
           &larr; Back to Exercises
         </Button>

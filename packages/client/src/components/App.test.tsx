@@ -33,6 +33,20 @@ const handlers = [
     };
     return HttpResponse.json(response);
   }),
+  http.get('/api/stretch-sessions/latest', () => {
+    const response: ApiResponse<null> = {
+      success: true,
+      data: null,
+    };
+    return HttpResponse.json(response);
+  }),
+  http.get('/api/meditation-sessions/latest', () => {
+    const response: ApiResponse<null> = {
+      success: true,
+      data: null,
+    };
+    return HttpResponse.json(response);
+  }),
 ];
 
 const server = setupServer(...handlers);
@@ -42,7 +56,7 @@ describe('App', () => {
   afterAll(() => server.close());
   afterEach(() => server.resetHandlers());
 
-  it('should render the app with navigation', () => {
+  it('should render the app with global navigation', () => {
     render(
       <Theme>
         <App />
@@ -51,12 +65,14 @@ describe('App', () => {
 
     const nav = screen.getByRole('navigation');
     expect(nav).toBeInTheDocument();
+    // Global nav has: Today, Activities, History, Profile
     expect(screen.getByRole('link', { name: /Today/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Meso/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Exercises/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Activities/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /History/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Profile/i })).toBeInTheDocument();
   });
 
-  it('should show Today page by default', async () => {
+  it('should show Today Dashboard by default', async () => {
     render(
       <Theme>
         <App />

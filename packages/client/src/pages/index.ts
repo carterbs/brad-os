@@ -10,3 +10,8 @@ export { SettingsPage } from './SettingsPage';
 export { StretchPage } from './StretchPage';
 export { CalendarPage } from './CalendarPage';
 export { MeditationPage } from './MeditationPage';
+export { MesoPage } from './MesoPage';
+export { ActivitiesPage } from './ActivitiesPage';
+export { TodayDashboard } from './TodayDashboard';
+export { HistoryPage } from './HistoryPage';
+export { ProfilePage } from './ProfilePage';

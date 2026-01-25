@@ -14,7 +14,7 @@ test.describe('Calendar View', () => {
       await calendarPage.goto();
       await calendarPage.waitForLoad();
 
-      await expect(calendarPage.heading).toContainText('Calendar');
+      await expect(calendarPage.heading).toContainText('History');
       await expect(calendarPage.calendar).toBeVisible();
     });
 
@@ -56,8 +56,8 @@ test.describe('Calendar View', () => {
 
     test('should navigate via bottom nav', async ({ page }) => {
       await page.goto('/');
-      await page.getByRole('link', { name: /calendar/i }).click();
-      await expect(page.locator('h1').first()).toContainText('Calendar');
+      await page.getByRole('link', { name: /history/i }).click();
+      await expect(page.locator('h1').first()).toContainText('History');
     });
   });
 
@@ -109,7 +109,7 @@ test.describe('Calendar View', () => {
       }
     });
 
-    test('should show workout in day dialog', async ({ calendarPage, api, page }) => {
+    test('should show workout in day dialog', async ({ calendarPage, api }) => {
       // Get calendar data and find which date has the workout
       // (Use UTC date since server stores completed_at in UTC)
       const now = new Date();
@@ -166,7 +166,7 @@ test.describe('Calendar View', () => {
       await calendarPage.clickActivityItem(0);
 
       // Should navigate to workout detail page
-      await expect(page).toHaveURL(/\/workouts\/\d+/);
+      await expect(page).toHaveURL(/\/lifting\/workouts\/\d+/);
     });
   });
 
@@ -176,7 +176,7 @@ test.describe('Calendar View', () => {
       await api.createQuickStretchSession();
     });
 
-    test('should show stretch in day dialog', async ({ calendarPage, api, page }) => {
+    test('should show stretch in day dialog', async ({ calendarPage, api }) => {
       const now = new Date();
       const calendarData = await api.getCalendarMonth(now.getFullYear(), now.getMonth() + 1);
       const stretchDate = Object.keys(calendarData.days).find(dateKey => {
@@ -224,8 +224,8 @@ test.describe('Calendar View', () => {
 
       await calendarPage.clickActivityItem(0);
 
-      // Dialog should close but we stay on calendar (stretch has no detail page)
-      await expect(page).toHaveURL(/\/calendar/);
+      // Dialog should close but we stay on history page (stretch has no detail page)
+      await expect(page).toHaveURL(/\/history/);
     });
   });
 
@@ -242,7 +242,7 @@ test.describe('Calendar View', () => {
       await api.createQuickStretchSession();
     });
 
-    test('should show both workout and stretch in day dialog', async ({ calendarPage, api, page }) => {
+    test('should show both workout and stretch in day dialog', async ({ calendarPage, api }) => {
       const now = new Date();
       const calendarData = await api.getCalendarMonth(now.getFullYear(), now.getMonth() + 1);
       // Find a date with both activities

@@ -26,7 +26,7 @@ export function PlanDetailPage(): JSX.Element {
   const [planToDelete, setPlanToDelete] = useState<Plan | null>(null);
 
   const handleEdit = (): void => {
-    void navigate(`/plans/${planId}/edit`);
+    void navigate(`/lifting/plans/${planId}/edit`);
   };
 
   const handleDelete = (): void => {
@@ -41,7 +41,7 @@ export function PlanDetailPage(): JSX.Element {
 
   const handleDeleteSuccess = (): void => {
     setPlanToDelete(null);
-    void navigate('/plans');
+    void navigate('/lifting/plans');
   };
 
   if (planLoading || daysLoading) {
@@ -151,7 +151,7 @@ export function PlanDetailPage(): JSX.Element {
 
         {/* Back Button */}
         <Box mt="4">
-          <Button variant="soft" color="gray" onClick={() => void navigate('/plans')}>
+          <Button variant="soft" color="gray" onClick={() => void navigate('/lifting/plans')}>
             Back to Plans
           </Button>
         </Box>

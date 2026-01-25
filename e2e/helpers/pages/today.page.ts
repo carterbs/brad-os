@@ -2,11 +2,12 @@ import { type Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page.js';
 
 /**
- * Page object for the Today page (/)
+ * Page object for the Lifting Today page (/lifting/today)
+ * This is the full workout tracking UI for lifting.
  */
 export class TodayPage extends BasePage {
   async goto(): Promise<void> {
-    await this.page.goto(this.getFullUrl('/'));
+    await this.page.goto(this.getFullUrl('/lifting/today'));
   }
 
   async waitForLoad(): Promise<void> {

@@ -12,7 +12,7 @@ export function PlansPage(): JSX.Element {
       <Flex direction="column" gap="4">
         <Flex justify="between" align="center">
           <Heading size="6">My Plans</Heading>
-          <Button onClick={() => void navigate('/plans/new')} data-testid="create-plan-button">
+          <Button onClick={() => void navigate('/lifting/plans/new')} data-testid="create-plan-button">
             Create Plan
           </Button>
         </Flex>

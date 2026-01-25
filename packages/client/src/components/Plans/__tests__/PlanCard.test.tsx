@@ -79,7 +79,7 @@ describe('PlanCard', () => {
   it('should navigate to plan detail page on click', () => {
     renderWithProviders(<PlanCard plan={mockPlan} />);
     fireEvent.click(screen.getByTestId('plan-card-1'));
-    expect(mockNavigate).toHaveBeenCalledWith('/plans/1');
+    expect(mockNavigate).toHaveBeenCalledWith('/lifting/plans/1');
   });
 
   it('should show menu button', () => {

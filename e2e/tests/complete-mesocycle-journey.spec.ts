@@ -94,9 +94,9 @@ async function trackWorkout(
 
   // Navigate to workout if not already there
   const currentUrl = page.url();
-  if (!currentUrl.includes(`/workouts/${workoutId}`)) {
-    await page.goto(`/workouts/${workoutId}`);
-    await page.waitForURL(/\/workouts\/\d+/);
+  if (!currentUrl.includes(`/lifting/workouts/${workoutId}`)) {
+    await page.goto(`/lifting/workouts/${workoutId}`);
+    await page.waitForURL(/\/lifting\/workouts\/\d+/);
   }
 
   // Wait for workout content to load
@@ -257,7 +257,7 @@ test.describe('Complete Mesocycle Journey', () => {
     });
 
     // Verify plan was created (we're on the plan detail page)
-    await expect(page).toHaveURL(/\/plans\/\d+$/);
+    await expect(page).toHaveURL(/\/lifting\/plans\/\d+$/);
 
     // ============ Step 3: Start Mesocycle via UI ============
     const startDate = testData.getWeekStartDate();

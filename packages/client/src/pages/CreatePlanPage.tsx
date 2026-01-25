@@ -50,7 +50,7 @@ export function CreatePlanPage(): JSX.Element {
         }
       }
 
-      void navigate(`/plans/${plan.id}`);
+      void navigate(`/lifting/plans/${plan.id}`);
     } catch (error) {
       // Error is handled by React Query
       console.error('Failed to create plan:', error);
@@ -84,7 +84,7 @@ export function CreatePlanPage(): JSX.Element {
         <PlanForm
           availableExercises={exercises ?? []}
           onSubmit={(data) => void handleSubmit(data)}
-          onCancel={() => void navigate('/plans')}
+          onCancel={() => void navigate('/lifting/plans')}
           isSubmitting={isSubmitting}
         />
       </Flex>

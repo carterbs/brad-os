@@ -4,11 +4,11 @@ import { BasePage } from './base.page.js';
 type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 /**
- * Page object for the Plans page (/plans)
+ * Page object for the Plans page (/lifting/plans)
  */
 export class PlansPage extends BasePage {
   async goto(): Promise<void> {
-    await this.page.goto(this.getFullUrl('/plans'));
+    await this.page.goto(this.getFullUrl('/lifting/plans'));
   }
 
   async waitForLoad(): Promise<void> {
@@ -65,7 +65,7 @@ export class PlansPage extends BasePage {
    */
   async navigateToCreatePlan(): Promise<void> {
     await this.createPlanButton.click();
-    await this.page.waitForURL(/\/plans\/new/);
+    await this.page.waitForURL(/\/lifting\/plans\/new/);
     await expect(this.step1).toBeVisible();
   }
 
@@ -84,7 +84,7 @@ export class PlansPage extends BasePage {
   async clickEditPlan(name: string): Promise<void> {
     const card = this.getPlanCard(name);
     await card.getByRole('button', { name: /edit/i }).click();
-    await this.page.waitForURL(/\/plans\/\d+\/edit/);
+    await this.page.waitForURL(/\/lifting\/plans\/\d+\/edit/);
   }
 
   /**
@@ -275,7 +275,7 @@ export class PlansPage extends BasePage {
     await expect(this.submitButton).toBeEnabled();
     await this.submitButton.click();
     // Wait longer for the API call and navigation
-    await this.page.waitForURL(/\/plans\/\d+$/, { timeout: 15000 });
+    await this.page.waitForURL(/\/lifting\/plans\/\d+$/, { timeout: 15000 });
   }
 
   /**

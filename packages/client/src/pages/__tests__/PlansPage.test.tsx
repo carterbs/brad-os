@@ -87,7 +87,7 @@ describe('PlansPage', () => {
   it('should navigate to create page when create button clicked', () => {
     renderWithProviders(<PlansPage />);
     fireEvent.click(screen.getByTestId('create-plan-button'));
-    expect(mockNavigate).toHaveBeenCalledWith('/plans/new');
+    expect(mockNavigate).toHaveBeenCalledWith('/lifting/plans/new');
   });
 
   it('should display loading state', () => {

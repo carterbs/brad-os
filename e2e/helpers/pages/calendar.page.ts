@@ -2,15 +2,15 @@ import { type Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page.js';
 
 /**
- * Page object for the Calendar page (/calendar)
+ * Page object for the History page (/history)
  */
 export class CalendarPage extends BasePage {
   async goto(): Promise<void> {
-    await this.page.goto(this.getFullUrl('/calendar'));
+    await this.page.goto(this.getFullUrl('/history'));
   }
 
   async waitForLoad(): Promise<void> {
-    await this.page.waitForSelector('h1:has-text("Calendar")');
+    await this.page.waitForSelector('h1:has-text("History")');
   }
 
   // ============ Locators ============

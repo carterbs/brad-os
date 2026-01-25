@@ -23,7 +23,7 @@ export function ExerciseListItem({
     >
       <Flex justify="between" align="center">
         <Link
-          to={`/exercises/${exercise.id}/history`}
+          to={`/lifting/exercises/${exercise.id}/history`}
           style={{
             textDecoration: 'none',
             color: 'inherit',

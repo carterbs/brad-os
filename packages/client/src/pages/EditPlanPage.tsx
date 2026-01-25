@@ -83,7 +83,7 @@ export function EditPlanPage(): JSX.Element {
   };
 
   const handleWarningCancel = (): void => {
-    void navigate(`/plans/${planId}`);
+    void navigate(`/lifting/plans/${planId}`);
   };
 
   const handleSubmit = async (data: PlanFormState): Promise<void> => {
@@ -149,7 +149,7 @@ export function EditPlanPage(): JSX.Element {
         await handleDayExercises(planId, dayId, dayData.exercises);
       }
 
-      void navigate(`/plans/${planId}`);
+      void navigate(`/lifting/plans/${planId}`);
     } catch (error) {
       console.error('Failed to update plan:', error);
     }
@@ -255,7 +255,7 @@ export function EditPlanPage(): JSX.Element {
           initialData={initialFormState}
           availableExercises={exercises ?? []}
           onSubmit={(data) => void handleSubmit(data)}
-          onCancel={() => void navigate(`/plans/${planId}`)}
+          onCancel={() => void navigate(`/lifting/plans/${planId}`)}
           isSubmitting={isSubmitting}
         />
       </Flex>

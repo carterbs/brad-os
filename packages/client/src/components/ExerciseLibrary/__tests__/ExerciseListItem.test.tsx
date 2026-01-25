@@ -61,13 +61,13 @@ describe('ExerciseListItem', () => {
     renderWithTheme(<ExerciseListItem exercise={builtInExercise} />);
     const link = screen.getByTestId('exercise-link');
     expect(link).toBeInTheDocument();
-    expect(link).toHaveAttribute('href', '/exercises/1/history');
+    expect(link).toHaveAttribute('href', '/lifting/exercises/1/history');
   });
 
   it('should render link with correct href for custom exercise', () => {
     renderWithTheme(<ExerciseListItem exercise={customExercise} />);
     const link = screen.getByTestId('exercise-link');
-    expect(link).toHaveAttribute('href', '/exercises/2/history');
+    expect(link).toHaveAttribute('href', '/lifting/exercises/2/history');
   });
 
   it('should have cursor pointer style on the link', () => {

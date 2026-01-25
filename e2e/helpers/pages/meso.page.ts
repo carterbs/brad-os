@@ -2,11 +2,11 @@ import { type Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page.js';
 
 /**
- * Page object for the Mesocycle tab/page (/meso)
+ * Page object for the Mesocycle tab/page (/lifting)
  */
 export class MesoPage extends BasePage {
   async goto(): Promise<void> {
-    await this.page.goto(this.getFullUrl('/meso'));
+    await this.page.goto(this.getFullUrl('/lifting'));
   }
 
   async waitForLoad(): Promise<void> {

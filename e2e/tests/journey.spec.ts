@@ -47,7 +47,7 @@ test.describe('Full User Journey', () => {
     await plansPage.submitPlan();
 
     // Verify we're on the plan detail page
-    await expect(page).toHaveURL(/\/plans\/\d+$/);
+    await expect(page).toHaveURL(/\/lifting\/plans\/\d+$/);
 
     // ============ Step 3: Start a mesocycle ============
     await mesoPage.goto();

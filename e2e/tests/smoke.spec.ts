@@ -18,15 +18,25 @@ test.describe('Smoke Tests', () => {
   test('should navigate between pages', async ({ page }) => {
     await page.goto('/');
 
-    // Navigate to exercises
+    // Navigate to Activities hub
+    await page.getByRole('link', { name: /activities/i }).click();
+    await expect(page.locator('h1').first()).toContainText('Activities');
+
+    // Navigate to Lifting (via activity card)
+    await page.getByTestId('activity-card-lifting').click();
+    await expect(page.locator('h1').first()).toContainText('Mesocycle');
+
+    // Navigate to Exercises within Lifting nav
     await page.getByRole('link', { name: /exercises/i }).click();
     await expect(page.locator('h1').first()).toContainText('Exercise Library');
 
-    // Navigate to plans
+    // Navigate to Plans within Lifting nav
     await page.getByRole('link', { name: /plans/i }).click();
     await expect(page.locator('h1').first()).toContainText('My Plans');
 
-    // Navigate back to today
+    // Navigate back to Activities via Back button, then to Today via global nav
+    await page.getByRole('button', { name: /back to activities/i }).click();
+    await expect(page.locator('h1').first()).toContainText('Activities');
     await page.getByRole('link', { name: /today/i }).click();
     await expect(page.locator('h1').first()).toContainText('Today');
   });
