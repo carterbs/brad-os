@@ -7,6 +7,7 @@ import { workoutRouter } from './workout.routes.js';
 import { workoutSetRouter } from './workout-set.routes.js';
 import { testRouter } from './test.routes.js';
 import { notificationRouter } from './notification.routes.js';
+import { stretchSessionRouter } from './stretchSession.routes.js';
 
 export const apiRouter = Router();
 
@@ -18,3 +19,4 @@ apiRouter.use('/workouts', workoutRouter);
 apiRouter.use('/workout-sets', workoutSetRouter);
 apiRouter.use('/test', testRouter);
 apiRouter.use('/notifications', notificationRouter);
+apiRouter.use('/stretch-sessions', stretchSessionRouter);

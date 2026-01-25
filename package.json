@@ -21,7 +21,8 @@
     "docker:dev": "docker-compose up --build",
     "docker:dev:detached": "docker-compose up --build -d",
     "docker:down": "docker-compose down",
-    "docker:prod": "docker-compose -f docker-compose.yml -f docker-compose.prod.yml up --build"
+    "docker:prod": "docker-compose -f docker-compose.yml -f docker-compose.prod.yml up --build",
+    "generate:tts": "python3 scripts/generate-tts.py"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.0.0",

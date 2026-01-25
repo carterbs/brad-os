@@ -8,6 +8,7 @@ import { migration as migration005 } from './005_create_mesocycles.js';
 import { migration as migration006 } from './006_create_workouts.js';
 import { migration as migration007 } from './007_create_workout_sets.js';
 import { migration as migration008 } from './008_add_rep_range_columns.js';
+import { migration as migration009 } from './009_create_stretch_sessions.js';
 
 export const migrations: Migration[] = [
   migration001,
@@ -18,4 +19,5 @@ export const migrations: Migration[] = [
   migration006,
   migration007,
   migration008,
+  migration009,
 ];

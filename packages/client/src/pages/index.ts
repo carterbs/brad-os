@@ -7,3 +7,4 @@ export { EditPlanPage } from './EditPlanPage';
 export { TodayPage } from './TodayPage';
 export { WorkoutPage } from './WorkoutPage';
 export { SettingsPage } from './SettingsPage';
+export { StretchPage } from './StretchPage';

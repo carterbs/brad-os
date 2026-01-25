@@ -45,3 +45,6 @@ e2e/test-results/
 tmp/
 temp/
 .playwright-mcp/
+
+# Generated audio assets (TTS)
+packages/client/public/audio/

@@ -7,6 +7,7 @@ import { PlanDayExerciseRepository } from './plan-day-exercise.repository.js';
 import { MesocycleRepository } from './mesocycle.repository.js';
 import { WorkoutRepository } from './workout.repository.js';
 import { WorkoutSetRepository } from './workout-set.repository.js';
+import { StretchSessionRepository } from './stretchSession.repository.js';
 
 export { BaseRepository } from './base.repository.js';
 export { ExerciseRepository } from './exercise.repository.js';
@@ -16,6 +17,7 @@ export { PlanDayExerciseRepository } from './plan-day-exercise.repository.js';
 export { MesocycleRepository } from './mesocycle.repository.js';
 export { WorkoutRepository } from './workout.repository.js';
 export { WorkoutSetRepository } from './workout-set.repository.js';
+export { StretchSessionRepository } from './stretchSession.repository.js';
 
 // Singleton instances for use with the default database
 let exerciseRepository: ExerciseRepository | null = null;
@@ -25,6 +27,7 @@ let planDayExerciseRepository: PlanDayExerciseRepository | null = null;
 let mesocycleRepository: MesocycleRepository | null = null;
 let workoutRepository: WorkoutRepository | null = null;
 let workoutSetRepository: WorkoutSetRepository | null = null;
+let stretchSessionRepository: StretchSessionRepository | null = null;
 
 // Reset all repository singletons (for testing)
 export function resetRepositories(): void {
@@ -35,6 +38,7 @@ export function resetRepositories(): void {
   mesocycleRepository = null;
   workoutRepository = null;
   workoutSetRepository = null;
+  stretchSessionRepository = null;
 }
 
 export function getExerciseRepository(): ExerciseRepository {
@@ -86,6 +90,13 @@ export function getWorkoutSetRepository(): WorkoutSetRepository {
   return workoutSetRepository;
 }
 
+export function getStretchSessionRepository(): StretchSessionRepository {
+  if (!stretchSessionRepository) {
+    stretchSessionRepository = new StretchSessionRepository(getDatabase());
+  }
+  return stretchSessionRepository;
+}
+
 // Helper to create repositories with a custom database (useful for testing)
 export function createRepositories(db: Database): {
   exercise: ExerciseRepository;
@@ -95,6 +106,7 @@ export function createRepositories(db: Database): {
   mesocycle: MesocycleRepository;
   workout: WorkoutRepository;
   workoutSet: WorkoutSetRepository;
+  stretchSession: StretchSessionRepository;
 } {
   return {
     exercise: new ExerciseRepository(db),
@@ -104,5 +116,6 @@ export function createRepositories(db: Database): {
     mesocycle: new MesocycleRepository(db),
     workout: new WorkoutRepository(db),
     workoutSet: new WorkoutSetRepository(db),
+    stretchSession: new StretchSessionRepository(db),
   };
 }

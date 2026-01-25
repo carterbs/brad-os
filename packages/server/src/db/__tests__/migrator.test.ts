@@ -53,14 +53,14 @@ describe('Migrator', () => {
     it('should return the highest applied migration version', () => {
       const migrator = new Migrator(db, migrations);
       migrator.up();
-      expect(migrator.getCurrentVersion()).toBe(8);
+      expect(migrator.getCurrentVersion()).toBe(9);
     });
   });
 
   describe('getPendingMigrations', () => {
     it('should return all migrations when none applied', () => {
       const migrator = new Migrator(db, migrations);
-      expect(migrator.getPendingMigrations()).toHaveLength(8);
+      expect(migrator.getPendingMigrations()).toHaveLength(9);
     });
 
     it('should return empty array when all migrations applied', () => {
@@ -101,7 +101,7 @@ describe('Migrator', () => {
         .prepare('SELECT * FROM _migrations ORDER BY version')
         .all() as { version: number; name: string }[];
 
-      expect(appliedMigrations).toHaveLength(8);
+      expect(appliedMigrations).toHaveLength(9);
       expect(appliedMigrations[0].name).toBe('create_exercises');
       expect(appliedMigrations[6].name).toBe('create_workout_sets');
     });
@@ -115,7 +115,7 @@ describe('Migrator', () => {
         .prepare('SELECT * FROM _migrations')
         .all() as { version: number }[];
 
-      expect(appliedMigrations).toHaveLength(8);
+      expect(appliedMigrations).toHaveLength(9);
     });
   });
 
@@ -124,17 +124,15 @@ describe('Migrator', () => {
       const migrator = new Migrator(db, migrations);
       migrator.up();
 
-      expect(migrator.getCurrentVersion()).toBe(8);
+      expect(migrator.getCurrentVersion()).toBe(9);
 
       migrator.down();
 
-      expect(migrator.getCurrentVersion()).toBe(7);
+      expect(migrator.getCurrentVersion()).toBe(8);
 
-      // Verify min_reps/max_reps columns are removed (migration 8 rolled back)
-      const columns = db.prepare("PRAGMA table_info(plan_day_exercises)").all() as { name: string }[];
-      const columnNames = columns.map((c) => c.name);
-      expect(columnNames).not.toContain('min_reps');
-      expect(columnNames).not.toContain('max_reps');
+      // Verify stretch_sessions table is removed (migration 9 rolled back)
+      const stretchSessionsTable = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='stretch_sessions'").get();
+      expect(stretchSessionsTable).toBeUndefined();
     });
 
     it('should do nothing when no migrations applied', () => {
@@ -149,7 +147,7 @@ describe('Migrator', () => {
       const migrator = new Migrator(db, migrations);
       migrator.up();
 
-      expect(migrator.getCurrentVersion()).toBe(8);
+      expect(migrator.getCurrentVersion()).toBe(9);
 
       migrator.reset();
 
