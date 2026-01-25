@@ -5,3 +5,4 @@ export * from './plan-modification.js';
 export * from './notification.js';
 export * from './stretching.js';
 export * from './calendar.js';
+export * from './meditation.js';
