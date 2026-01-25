@@ -1,63 +1,39 @@
 # Lifting - Workout Tracker
 
-A single-user weight training workout tracker with progressive overload.
+A mobile-first workout tracker with stretching and meditation. Track progressive overload across 6-week mesocycles.
+
+## Screenshots
+
+| Today | Workout | Calendar |
+|-------|---------|----------|
+| ![Today](docs/screenshots/today.png) | ![Workout](docs/screenshots/workout-tracker.png) | ![Calendar](docs/screenshots/calendar.png) |
 
 ## Features
 
-### Workout Tracker
-Track your workouts with an intuitive interface. Log sets, adjust weights and reps on the fly, and mark exercises complete as you go.
-
-![Workout Tracker](docs/screenshots/workout-tracker.png)
-
-### Plan Creator
-Build custom workout plans with a step-by-step wizard. Configure exercises with sets, reps, starting weight, rest periods, and progressive overload increments.
-
-![Plan Creator](docs/screenshots/plan-creator.png)
+- **Workout Plans**: Build custom plans with exercises, sets, reps, and rest periods
+- **Progressive Overload**: Automatic weight/rep progression across 6-week mesocycles
+- **Stretch Routines**: Guided stretching sessions by body region
+- **Meditation Timer**: Simple meditation with configurable duration
+- **Activity Calendar**: Track all activities with visual history
 
 ## Development
 
 ```bash
 npm install              # Install dependencies
 npm run dev              # Start client (3000) + server (3001)
-npm run test             # Run unit tests
-npm run lint             # Run ESLint
-npm run typecheck        # TypeScript check
+npm run validate         # Run all checks (lint, types, tests)
 npm run build            # Build all packages
-```
-
-## Docker
-
-```bash
-npm run docker:dev       # Development environment
-npm run docker:down      # Stop containers
 ```
 
 ## Structure
 
-- `packages/shared` - Shared types/utilities
+- `packages/shared` - Shared types/schemas
 - `packages/server` - Express API + SQLite
 - `packages/client` - React + Radix UI
 - `e2e` - Playwright E2E tests
 
 ## Deployment
 
-Deploy to a remote Linux server via rsync over SSH.
-
-### First-time setup (optional)
-
 ```bash
-./scripts/setup-server.sh   # Install Node.js 20 if not present
+./scripts/deploy.sh      # Build + deploy to remote server
 ```
-
-### Deploy
-
-```bash
-./scripts/deploy.sh              # Full deploy (build + sync + restart)
-./scripts/deploy.sh --skip-build # Skip local build
-./scripts/deploy.sh --skip-install # Skip npm install on remote
-./scripts/deploy.sh --dry-run    # Preview without transferring
-```
-
-Edit `scripts/deploy.sh` to change:
-- `REMOTE_HOST` - SSH host alias (default: `linux-machine`)
-- `REMOTE_DIR` - Install location (default: `~/lifting`)
