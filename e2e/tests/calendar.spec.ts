@@ -290,9 +290,12 @@ test.describe('Calendar View', () => {
       const now = new Date();
       const data = await api.getCalendarMonth(now.getFullYear(), now.getMonth() + 1);
 
-      // Today's date should have activities
-      const todayStr = now.toISOString().split('T')[0];
-      expect(data.days).toHaveProperty(todayStr ?? '');
+      // Today's date should have activities (use local date, not UTC)
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
+      expect(data.days).toHaveProperty(todayStr);
     });
 
     test('should include stretch session in calendar data', async ({ api }) => {
@@ -302,9 +305,12 @@ test.describe('Calendar View', () => {
       const now = new Date();
       const data = await api.getCalendarMonth(now.getFullYear(), now.getMonth() + 1);
 
-      // Today's date should have activities
-      const todayStr = now.toISOString().split('T')[0];
-      expect(data.days).toHaveProperty(todayStr ?? '');
+      // Today's date should have activities (use local date, not UTC)
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const todayStr = `${year}-${month}-${day}`;
+      expect(data.days).toHaveProperty(todayStr);
     });
   });
 });

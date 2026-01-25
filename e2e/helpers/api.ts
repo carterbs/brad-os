@@ -588,7 +588,9 @@ export class ApiHelper {
     endDate: string;
     days: Record<string, unknown>;
   }> {
-    const response = await this.request.get(`${this.apiUrl}/calendar/${year}/${month}`);
+    // Include timezone offset to get activities grouped by local date
+    const timezoneOffset = new Date().getTimezoneOffset();
+    const response = await this.request.get(`${this.apiUrl}/calendar/${year}/${month}?tz=${timezoneOffset}`);
 
     if (!response.ok()) {
       throw new Error(`Failed to get calendar data: ${response.status()}`);

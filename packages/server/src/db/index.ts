@@ -36,7 +36,7 @@ export function getDatabaseFilename(): string {
   switch (env) {
     case 'test':
       // Support per-worker database files for parallel testing
-      return workerId ? `brad-os.test.${workerId}.db` : 'brad-os.test.db';
+      return workerId !== undefined ? `brad-os.test.${workerId}.db` : 'brad-os.test.db';
     case 'production':
       return 'brad-os.prod.db';
     default:

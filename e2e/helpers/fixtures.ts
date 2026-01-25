@@ -34,6 +34,7 @@ export const test = base.extend<
 >({
   // Worker-specific base URL based on parallel worker index (worker-scoped)
   workerBaseUrl: [
+    // eslint-disable-next-line no-empty-pattern, @typescript-eslint/explicit-function-return-type
     async ({}, use, workerInfo) => {
       const baseUrl = getWorkerBaseUrl(workerInfo.parallelIndex);
       await use(baseUrl);

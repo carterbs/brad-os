@@ -6,7 +6,7 @@ import { BASE_PORT, PORT_SPACING, WORKER_COUNT } from './global-setup.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-export default async function globalTeardown(): Promise<void> {
+export default function globalTeardown(): void {
   console.log('Stopping test servers...');
 
   // Get PIDs from environment
