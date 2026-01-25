@@ -137,11 +137,16 @@ export class PlansPage extends BasePage {
   }
 
   /**
-   * Check if a plan exists
+   * Check if a plan exists (waits up to 5s for it to appear)
    */
   async planExists(name: string): Promise<boolean> {
     const card = this.getPlanCard(name);
-    return card.isVisible();
+    try {
+      await expect(card).toBeVisible({ timeout: 5000 });
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   // ============ Plan Creation Steps ============

@@ -1,0 +1,432 @@
+{
+  "regions": {
+    "back": {
+      "stretches": [
+        {
+          "id": "back-childs-pose",
+          "name": "Child\u2019s Pose",
+          "description": "Kneel on the floor, sit back on your heels, and extend your arms forward on the ground. Lower your chest towards the floor, feeling a gentle stretch in your lower back.",
+          "bilateral": false,
+          "image": "back/childs-pose.png",
+          "audioFiles": {
+            "begin": "back/childs-pose-begin.wav"
+          }
+        },
+        {
+          "id": "back-cat-cow-stretch",
+          "name": "Cat-Cow Stretch",
+          "description": "Start on all fours with hands under shoulders and knees under hips. Inhale to arch your back (Cow), lifting your head and tailbone. Exhale to round your spine (Cat), tucking your chin and pelvis, stretching the lower back.",
+          "bilateral": false,
+          "image": "back/cat-cow-stretch.png",
+          "audioFiles": {
+            "begin": "back/cat-cow-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "back-knees-to-chest-stretch",
+          "name": "Knees-to-Chest Stretch",
+          "description": "Lie on your back and bring both knees towards your chest. Hug your knees with your arms, gently pulling them closer to deepen the stretch in your lower back.",
+          "bilateral": false,
+          "image": "back/knees-to-chest-stretch.png",
+          "audioFiles": {
+            "begin": "back/knees-to-chest-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "back-cobra-stretch",
+          "name": "Cobra Stretch",
+          "description": "Lie face down with your hands placed under your shoulders. Push your upper body off the ground by straightening your arms, lifting your chest while keeping your hips on the floor, to stretch the lower back.",
+          "bilateral": false,
+          "image": "back/cobra-stretch.png",
+          "audioFiles": {
+            "begin": "back/cobra-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "back-supine-spinal-twist",
+          "name": "Supine Spinal Twist",
+          "description": "Lie on your back with arms extended out to the sides. Bend one knee and cross it over to the opposite side of your body, keeping your shoulders flat on the ground, to stretch the lower back and spine.",
+          "bilateral": true,
+          "image": "back/supine-spinal-twist.png",
+          "audioFiles": {
+            "begin": "back/supine-spinal-twist-begin.wav"
+          }
+        }
+      ]
+    },
+    "calves": {
+      "stretches": [
+        {
+          "id": "calves-standing-calf-stretch",
+          "name": "Standing Calf Stretch",
+          "description": "Stand facing a wall with your hands pressed against it. Step one foot back, keeping it flat on the ground and your knee straight. Bend your front knee and lean toward the wall until you feel a stretch in the calf of the back leg.",
+          "bilateral": true,
+          "image": "calves/standing-calf-stretch.png",
+          "audioFiles": {
+            "begin": "calves/standing-calf-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "calves-downward-facing-dog",
+          "name": "Downward-Facing Dog",
+          "description": "Begin on all fours with your hands shoulder-width apart and knees hip-width apart. Lift your hips toward the ceiling, straightening your legs as much as possible while keeping your heels on the ground. Press your chest toward your thighs to deepen the stretch in your calves.",
+          "bilateral": false,
+          "image": "calves/downward-facing-dog.png",
+          "audioFiles": {
+            "begin": "calves/downward-facing-dog-begin.wav"
+          }
+        },
+        {
+          "id": "calves-wall-push-up-calf-stretch",
+          "name": "Wall Push-Up Calf Stretch",
+          "description": "Stand facing a wall with one foot forward and one foot back. Keep your back heel flat on the ground and bend your front knee, leaning into the wall. You should feel a stretch in the calf of the back leg.",
+          "bilateral": true,
+          "image": "calves/wall-push-up-calf-stretch.png",
+          "audioFiles": {
+            "begin": "calves/wall-push-up-calf-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "calves-bent-knee-calf-stretch",
+          "name": "Bent-Knee Calf Stretch",
+          "description": "Stand with both feet flat on the floor. Step one foot back, bend both knees slightly, and lean forward into the stretch. This variation targets the lower calf muscles.",
+          "bilateral": true,
+          "image": "calves/bent-knee-calf-stretch.png",
+          "audioFiles": {
+            "begin": "calves/bent-knee-calf-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "calves-single-leg-standing-calf-stretch",
+          "name": "Single-Leg Standing Calf Stretch",
+          "description": "Stand on one leg, keeping the other leg straight and behind you with the heel on the ground. Lean forward slightly to stretch the calf of the standing leg.",
+          "bilateral": true,
+          "image": "calves/single-leg-standing-calf-stretch.png",
+          "audioFiles": {
+            "begin": "calves/single-leg-standing-calf-stretch-begin.wav"
+          }
+        }
+      ]
+    },
+    "glutes": {
+      "stretches": [
+        {
+          "id": "glutes-seated-figure-four-stretch",
+          "name": "Seated Figure-Four Stretch",
+          "description": "Sit on the floor with both legs extended. Bend one knee and place the ankle over the opposite thigh. Gently press the bent knee downward to deepen the stretch in the glute of the crossed leg.",
+          "bilateral": true,
+          "image": "glutes/seated-figure-four-stretch.png",
+          "audioFiles": {
+            "begin": "glutes/seated-figure-four-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "glutes-standing-glute-stretch",
+          "name": "Standing Glute Stretch",
+          "description": "Stand tall and cross one ankle over the opposite knee. Slowly bend the standing leg and hinge forward at the hips, keeping your back straight to stretch the glute of the crossed leg.",
+          "bilateral": true,
+          "image": "glutes/standing-glute-stretch.png",
+          "audioFiles": {
+            "begin": "glutes/standing-glute-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "glutes-pigeon-pose",
+          "name": "Pigeon Pose",
+          "description": "From a plank position, bring one knee forward and place it behind your wrist while extending the opposite leg straight back. Lower your hips toward the ground to stretch the glute of the bent leg.",
+          "bilateral": true,
+          "image": "glutes/pigeon-pose.png",
+          "audioFiles": {
+            "begin": "glutes/pigeon-pose-begin.wav"
+          }
+        },
+        {
+          "id": "glutes-cross-body-glute-stretch",
+          "name": "Cross-Body Glute Stretch",
+          "description": "Stand upright and bring one leg across your body, placing the ankle on the opposite knee. Gently push the crossed knee outward with your hand to feel a stretch in the glute of the crossed leg.",
+          "bilateral": true,
+          "image": "glutes/cross-body-glute-stretch.png",
+          "audioFiles": {
+            "begin": "glutes/cross-body-glute-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "glutes-supine-figure-four-stretch",
+          "name": "Supine Figure-Four Stretch",
+          "description": "Lie on your back with both knees bent. Cross one ankle over the opposite knee and gently pull the uncrossed leg toward your chest, feeling the stretch in the glute of the crossed leg.",
+          "bilateral": true,
+          "image": "glutes/supine-figure-four-stretch.png",
+          "audioFiles": {
+            "begin": "glutes/supine-figure-four-stretch-begin.wav"
+          }
+        }
+      ]
+    },
+    "hamstrings": {
+      "stretches": [
+        {
+          "id": "hamstrings-standing-hamstring-stretch",
+          "name": "Standing Hamstring Stretch",
+          "description": "Stand tall with your feet hip-width apart. Hinge forward at the hips, keeping your back straight, and reach towards your toes until you feel a stretch in the back of your thighs.",
+          "bilateral": false,
+          "image": "hamstrings/standing-hamstring-stretch.png",
+          "audioFiles": {
+            "begin": "hamstrings/standing-hamstring-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "hamstrings-seated-forward-bend",
+          "name": "Seated Forward Bend",
+          "description": "Sit on the floor with your legs extended straight in front of you. Hinge forward at the hips, reaching towards your toes while keeping your back straight to feel the stretch in your hamstrings.",
+          "bilateral": false,
+          "image": "hamstrings/seated-forward-bend.png",
+          "audioFiles": {
+            "begin": "hamstrings/seated-forward-bend-begin.wav"
+          }
+        },
+        {
+          "id": "hamstrings-supine-hamstring-stretch",
+          "name": "Supine Hamstring Stretch",
+          "description": "Lie on your back and lift one leg up, keeping it straight. Gently pull the leg towards you by the thigh to stretch the hamstrings.",
+          "bilateral": true,
+          "image": "hamstrings/supine-hamstring-stretch.png",
+          "audioFiles": {
+            "begin": "hamstrings/supine-hamstring-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "hamstrings-standing-one-leg-hamstring-stretch",
+          "name": "Standing One-Leg Hamstring Stretch",
+          "description": "Stand on one leg and extend the other leg straight in front of you with the heel on the ground. Hinge forward at the hips to stretch the hamstring of the standing leg.",
+          "bilateral": true,
+          "image": "hamstrings/standing-one-leg-hamstring-stretch.png",
+          "audioFiles": {
+            "begin": "hamstrings/standing-one-leg-hamstring-stretch-begin.wav"
+          }
+        }
+      ]
+    },
+    "hip_flexors": {
+      "stretches": [
+        {
+          "id": "hip_flexors-kneeling-hip-flexor-stretch",
+          "name": "Kneeling Hip Flexor Stretch",
+          "description": "Kneel on one knee with the other foot flat in front, creating a 90-degree angle. Gently push your hips forward while keeping your back straight to feel a stretch in the front of the kneeling leg\u2019s hip.",
+          "bilateral": true,
+          "image": "hip_flexors/kneeling-hip-flexor-stretch.png",
+          "audioFiles": {
+            "begin": "hip_flexors/kneeling-hip-flexor-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "hip_flexors-standing-lunge-hip-flexor-stretch",
+          "name": "Standing Lunge Hip Flexor Stretch",
+          "description": "Step one foot forward into a lunge position, keeping the back leg straight and the heel on the ground. Push your hips forward to stretch the hip flexors of the back leg.",
+          "bilateral": true,
+          "image": "hip_flexors/standing-lunge-hip-flexor-stretch.png",
+          "audioFiles": {
+            "begin": "hip_flexors/standing-lunge-hip-flexor-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "hip_flexors-pigeon-pose-stretch",
+          "name": "Pigeon Pose Stretch",
+          "description": "From a plank position, bring one knee forward and place it behind your wrist, extending the opposite leg straight back. Lower your hips towards the ground to stretch the hip flexors and glutes.",
+          "bilateral": true,
+          "image": "hip_flexors/pigeon-pose-stretch.png",
+          "audioFiles": {
+            "begin": "hip_flexors/pigeon-pose-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "hip_flexors-high-knee-stretch",
+          "name": "High Knee Stretch",
+          "description": "Stand tall and lift one knee towards your chest, holding it with your hand and gently pulling to deepen the stretch in the hip flexors.",
+          "bilateral": true,
+          "image": "hip_flexors/high-knee-stretch.png",
+          "audioFiles": {
+            "begin": "hip_flexors/high-knee-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "hip_flexors-reverse-lunge-hip-flexor-stretch",
+          "name": "Reverse Lunge Hip Flexor Stretch",
+          "description": "Step one foot back into a reverse lunge, keeping your torso upright, and gently push your hips forward to stretch the hip flexors of the back leg.",
+          "bilateral": true,
+          "image": "hip_flexors/reverse-lunge-hip-flexor-stretch.png",
+          "audioFiles": {
+            "begin": "hip_flexors/reverse-lunge-hip-flexor-stretch-begin.wav"
+          }
+        }
+      ]
+    },
+    "neck": {
+      "stretches": [
+        {
+          "id": "neck-forward-tilt",
+          "name": "Neck Forward Tilt",
+          "description": "Gently lower your chin toward your chest, feeling a stretch along the back of your neck.",
+          "bilateral": false,
+          "image": "neck/neck-forward-tilt.png",
+          "audioFiles": {
+            "begin": "neck/neck-forward-tilt-begin.wav"
+          }
+        },
+        {
+          "id": "neck-side-tilt",
+          "name": "Neck Side Tilt",
+          "description": "Tilt your head to one side, bringing your ear toward your shoulder, stretching the side of your neck.",
+          "bilateral": true,
+          "image": "neck/neck-side-tilt.png",
+          "audioFiles": {
+            "begin": "neck/neck-side-tilt-begin.wav"
+          }
+        },
+        {
+          "id": "neck-rotation",
+          "name": "Neck Rotation",
+          "description": "Slowly turn your head to one side, as if looking over your shoulder, to stretch the neck muscles.",
+          "bilateral": true,
+          "image": "neck/neck-rotation.png",
+          "audioFiles": {
+            "begin": "neck/neck-rotation-begin.wav"
+          }
+        },
+        {
+          "id": "neck-upper-trapezius-stretch",
+          "name": "Upper Trapezius Stretch",
+          "description": "Sit or stand upright. Tilt your head to one side and gently pull your opposite arm down and away from your body to deepen the stretch in the upper trapezius.",
+          "bilateral": true,
+          "image": "neck/upper-trapezius-stretch.png",
+          "audioFiles": {
+            "begin": "neck/upper-trapezius-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "neck-levator-scapulae-stretch",
+          "name": "Levator Scapulae Stretch",
+          "description": "Sit or stand upright. Tilt your head diagonally downward toward your armpit and use your opposite hand to gently apply pressure to your head, stretching the levator scapulae muscle on the side of your neck.",
+          "bilateral": true,
+          "image": "neck/levator-scapulae-stretch.png",
+          "audioFiles": {
+            "begin": "neck/levator-scapulae-stretch-begin.wav"
+          }
+        }
+      ]
+    },
+    "quads": {
+      "stretches": [
+        {
+          "id": "quads-standing-quad-stretch",
+          "name": "Standing Quad Stretch",
+          "description": "Stand on one leg and grab the ankle of the opposite leg, pulling your heel towards your buttocks to stretch the front of your thigh.",
+          "bilateral": true,
+          "image": "quads/standing-quad-stretch.png",
+          "audioFiles": {
+            "begin": "quads/standing-quad-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "quads-lunge-quad-stretch",
+          "name": "Lunge Quad Stretch",
+          "description": "From a lunge position, keep your back straight and gently push your hips forward while pulling your back foot towards your buttocks.",
+          "bilateral": false,
+          "image": "quads/lunge-quad-stretch.png",
+          "audioFiles": {
+            "begin": "quads/lunge-quad-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "quads-side-lying-quad-stretch",
+          "name": "Side-Lying Quad Stretch",
+          "description": "Lie on your side, bend your top knee, and grab your ankle to pull your heel towards your buttocks, stretching the quad.",
+          "bilateral": false,
+          "image": "quads/side-lying-quad-stretch.png",
+          "audioFiles": {
+            "begin": "quads/side-lying-quad-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "quads-reverse-lunge-quad-stretch",
+          "name": "Reverse Lunge Quad Stretch",
+          "description": "Step one foot back into a reverse lunge, keeping your torso upright, and gently pull your back foot towards your buttocks to stretch the quad.",
+          "bilateral": true,
+          "image": "quads/reverse-lunge-quad-stretch.png",
+          "audioFiles": {
+            "begin": "quads/reverse-lunge-quad-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "quads-prone-quad-stretch",
+          "name": "Prone Quad Stretch",
+          "description": "Lie face down and bend one knee, bringing your heel toward your buttocks. Use your hand to gently push your heel closer to deepen the stretch.",
+          "bilateral": true,
+          "image": "quads/prone-quad-stretch.png",
+          "audioFiles": {
+            "begin": "quads/prone-quad-stretch-begin.wav"
+          }
+        }
+      ]
+    },
+    "shoulders": {
+      "stretches": [
+        {
+          "id": "shoulders-cross-body-shoulder-stretch",
+          "name": "Cross-Body Shoulder Stretch",
+          "description": "Bring one arm across your chest at shoulder height. Use your opposite arm to gently pull the extended arm closer to your body, feeling the stretch in the shoulder.",
+          "bilateral": true,
+          "image": "shoulders/cross-body-shoulder-stretch.png",
+          "audioFiles": {
+            "begin": "shoulders/cross-body-shoulder-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "shoulders-overhead-shoulder-stretch",
+          "name": "Overhead Shoulder Stretch",
+          "description": "Reach one arm overhead, bending the elbow so your hand drops between your shoulder blades. Use your other hand to gently press on the bent elbow, deepening the stretch in the shoulder and triceps.",
+          "bilateral": true,
+          "image": "shoulders/overhead-shoulder-stretch.png",
+          "audioFiles": {
+            "begin": "shoulders/overhead-shoulder-stretch-begin.wav"
+          }
+        },
+        {
+          "id": "shoulders-thread-the-needle",
+          "name": "Thread the Needle",
+          "description": "Start on all fours. Slide one arm underneath the opposite arm, lowering your shoulder and ear to the ground. Extend the other arm forward, feeling a stretch in the shoulder and upper back.",
+          "bilateral": true,
+          "image": "shoulders/thread-the-needle.png",
+          "audioFiles": {
+            "begin": "shoulders/thread-the-needle-begin.wav"
+          }
+        },
+        {
+          "id": "shoulders-shoulder-shrugs",
+          "name": "Shoulder Shrugs",
+          "description": "Stand or sit upright. Lift both shoulders towards your ears in a shrugging motion, then slowly release them back down. This helps relieve tension in the shoulder muscles.",
+          "bilateral": false,
+          "image": "shoulders/shoulder-shrugs.png",
+          "audioFiles": {
+            "begin": "shoulders/shoulder-shrugs-begin.wav"
+          }
+        },
+        {
+          "id": "shoulders-arm-behind-the-back-stretch",
+          "name": "Arm Behind the Back Stretch",
+          "description": "Reach one arm behind your back, palm facing inward. Use the opposite hand to gently press the reaching arm downward and away from your body, stretching the shoulder and chest.",
+          "bilateral": true,
+          "image": "shoulders/arm-behind-the-back-stretch.png",
+          "audioFiles": {
+            "begin": "shoulders/arm-behind-the-back-stretch-begin.wav"
+          }
+        }
+      ]
+    }
+  },
+  "shared": {
+    "switchSides": "shared/switch-sides.wav",
+    "halfway": "shared/halfway.wav",
+    "sessionComplete": "shared/session-complete.wav",
+    "silence": "shared/silence-1s.wav"
+  }
+}
