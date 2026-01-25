@@ -95,6 +95,25 @@ export class MeditationSessionRepository {
   }
 
   /**
+   * Find meditation sessions within a date range.
+   * @param startDate - Start date in YYYY-MM-DD format
+   * @param endDate - End date in YYYY-MM-DD format
+   * @returns Array of meditation sessions completed within the range
+   */
+  findInDateRange(startDate: string, endDate: string): MeditationSessionRecord[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM meditation_sessions
+      WHERE completed_at >= ?
+        AND completed_at <= ?
+      ORDER BY completed_at ASC
+    `);
+    const startTimestamp = `${startDate}T00:00:00.000Z`;
+    const endTimestamp = `${endDate}T23:59:59.999Z`;
+    const rows = stmt.all(startTimestamp, endTimestamp) as MeditationSessionRow[];
+    return rows.map((row) => this.rowToRecord(row));
+  }
+
+  /**
    * Get aggregate statistics for meditation sessions.
    */
   getStats(): MeditationStats {

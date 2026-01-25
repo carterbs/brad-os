@@ -5,12 +5,14 @@ import type {
   CalendarDataResponse,
   WorkoutActivitySummary,
   StretchActivitySummary,
+  MeditationActivitySummary,
 } from '@lifting/shared';
 import {
   WorkoutRepository,
   WorkoutSetRepository,
   PlanDayRepository,
   StretchSessionRepository,
+  MeditationSessionRepository,
 } from '../repositories/index.js';
 
 export class CalendarService {
@@ -18,12 +20,14 @@ export class CalendarService {
   private workoutSetRepo: WorkoutSetRepository;
   private planDayRepo: PlanDayRepository;
   private stretchSessionRepo: StretchSessionRepository;
+  private meditationSessionRepo: MeditationSessionRepository;
 
   constructor(db: Database) {
     this.workoutRepo = new WorkoutRepository(db);
     this.workoutSetRepo = new WorkoutSetRepository(db);
     this.planDayRepo = new PlanDayRepository(db);
     this.stretchSessionRepo = new StretchSessionRepository(db);
+    this.meditationSessionRepo = new MeditationSessionRepository(db);
   }
 
   /**
@@ -35,9 +39,10 @@ export class CalendarService {
   getMonthData(year: number, month: number): CalendarDataResponse {
     const { startDate, endDate } = this.getMonthBoundaries(year, month);
 
-    // Query completed workouts and stretch sessions for the date range
+    // Query completed workouts, stretch sessions, and meditation sessions for the date range
     const workouts = this.workoutRepo.findCompletedInDateRange(startDate, endDate);
     const stretchSessions = this.stretchSessionRepo.findInDateRange(startDate, endDate);
+    const meditationSessions = this.meditationSessionRepo.findInDateRange(startDate, endDate);
 
     // Transform to CalendarActivity[]
     const activities: CalendarActivity[] = [];
@@ -92,6 +97,24 @@ export class CalendarService {
       activities.push({
         id: `stretch-${session.id}`,
         type: 'stretch',
+        date,
+        completedAt: session.completedAt,
+        summary,
+      });
+    }
+
+    // Transform meditation sessions
+    for (const session of meditationSessions) {
+      const date = session.completedAt.substring(0, 10);
+
+      const summary: MeditationActivitySummary = {
+        durationSeconds: session.actualDurationSeconds,
+        meditationType: session.sessionType,
+      };
+
+      activities.push({
+        id: `meditation-${session.id}`,
+        type: 'meditation',
         date,
         completedAt: session.completedAt,
         summary,
