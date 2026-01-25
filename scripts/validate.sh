@@ -3,16 +3,34 @@
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
 NC='\033[0m' # No Color
 
 echo ""
 echo "Running validations..."
 echo ""
 
+# Create temp files for capturing output
+TMPDIR=$(mktemp -d)
+trap "rm -rf $TMPDIR" EXIT
+
 # Track overall status
 all_passed=true
 
-# TypeScript
+# Kill any existing process on port 3100 to avoid conflicts
+lsof -ti:3100 | xargs kill 2>/dev/null || true
+
+# Strategy: Run E2E in background (slow, 40s) while running fast checks sequentially
+# This avoids resource contention while still parallelizing the bottleneck
+
+# Start E2E Tests in background (the slow one)
+# Set CI=true to ensure Playwright starts a fresh server with NODE_ENV=test
+# Set PLAYWRIGHT_HTML_OPEN=never to prevent browser from opening on failure
+(CI=true PLAYWRIGHT_HTML_OPEN=never npm run test:e2e > "$TMPDIR/e2e.out" 2>&1; echo $? > "$TMPDIR/e2e.exit") &
+e2e_pid=$!
+
+# Run fast checks sequentially while E2E runs in background
+# TypeScript (~0.2s)
 echo -n "Checking TypeScript... "
 tsc_output=$(npm run typecheck 2>&1)
 tsc_exit=$?
@@ -27,7 +45,7 @@ else
     all_passed=false
 fi
 
-# Lint
+# Lint (~11s)
 echo -n "Checking Lint... "
 lint_output=$(npm run lint 2>&1)
 lint_exit=$?
@@ -42,7 +60,7 @@ else
     all_passed=false
 fi
 
-# Unit Tests
+# Unit Tests (~9s)
 echo -n "Running Unit Tests... "
 test_output=$(npm test 2>&1)
 test_exit=$?
@@ -59,16 +77,13 @@ else
     all_passed=false
 fi
 
-# E2E Tests
-# Kill any existing process on port 3100 to avoid conflicts
-lsof -ti:3100 | xargs kill 2>/dev/null || true
-# Set CI=true to ensure Playwright starts a fresh server with NODE_ENV=test
-# rather than reusing an existing dev server that may not use the test database
-# Set PLAYWRIGHT_HTML_OPEN=never to prevent browser from opening on failure
+# Wait for E2E to complete
 echo -n "Running E2E Tests... "
-e2e_output=$(CI=true PLAYWRIGHT_HTML_OPEN=never npm run test:e2e 2>&1)
-e2e_exit=$?
-if [ $e2e_exit -eq 0 ]; then
+wait $e2e_pid
+
+e2e_exit=$(cat "$TMPDIR/e2e.exit")
+e2e_output=$(cat "$TMPDIR/e2e.out")
+if [ "$e2e_exit" -eq 0 ]; then
     e2e_status="PASSED"
     e2e_detail=$(echo "$e2e_output" | grep -E "[0-9]+ passed" | tail -1 | sed 's/.*[[:space:]]\([0-9]*\) passed.*/\1 passed/')
     echo -e "${GREEN}PASSED${NC}"
