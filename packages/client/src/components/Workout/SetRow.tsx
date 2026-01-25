@@ -166,7 +166,7 @@ export function SetRow({
       p="2"
       style={{
         backgroundColor: isLogged
-          ? 'var(--green-3)'
+          ? 'var(--gray-4)'
           : isSkipped
             ? 'var(--gray-3)'
             : hasError
@@ -190,7 +190,7 @@ export function SetRow({
           width: '24px',
           height: '24px',
           borderRadius: '50%',
-          backgroundColor: isLogged ? 'var(--green-9)' : 'var(--gray-6)',
+          backgroundColor: isLogged ? 'var(--accent-9)' : 'var(--gray-6)',
           color: 'white',
           flexShrink: 0,
         }}
