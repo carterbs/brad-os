@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Space workers by 10 ports to avoid conflicts.
 export const BASE_PORT = 3200;
 export const PORT_SPACING = 10;  // Each worker gets: PORT (client) and PORT+1 (server)
-export const WORKER_COUNT = 4;
+export const WORKER_COUNT = 8;
 
 interface ServerInfo {
   process: ChildProcess;

@@ -7,12 +7,12 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
-  // Enable parallel execution with 4 workers
+  // Enable parallel execution with 8 workers
   // Each worker gets its own server instance and database via global-setup
-  workers: 4,
-  reporter: 'html',
+  workers: 8,
+  reporter: [['html'], ['json', { outputFile: 'test-results.json' }]],
 
-  // Global setup starts 4 server instances on ports 3200-3203
+  // Global setup starts 8 server instances on ports 3200-3270
   // Global teardown stops all servers and cleans up databases
   globalSetup: './global-setup.ts',
   globalTeardown: './global-teardown.ts',
@@ -33,7 +33,7 @@ export default defineConfig({
   ],
 
   // Timeout settings
-  timeout: 60000,
+  timeout: 15000,
   expect: {
     timeout: 10000,
   },

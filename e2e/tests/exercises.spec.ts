@@ -2,7 +2,7 @@ import { test, expect, testData } from '../helpers/fixtures.js';
 
 test.describe('Exercise Library', () => {
   // Run serially to avoid database conflicts between parallel tests
-  test.describe.configure({ mode: 'serial' });
+  // Parallel OK: each worker has isolated database
 
   test.beforeEach(async ({ api }) => {
     await api.resetDatabase();

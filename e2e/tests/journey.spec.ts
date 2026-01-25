@@ -6,8 +6,7 @@ import { test, expect, testData } from '../helpers/fixtures.js';
  * Tests the complete flow: create exercise → create plan → start mesocycle → track workout
  */
 test.describe('Full User Journey', () => {
-  // Run serially to avoid database conflicts between parallel tests
-  test.describe.configure({ mode: 'serial' });
+  // Each worker has isolated database, so parallel is safe
 
   test.beforeEach(async ({ api }) => {
     await api.resetDatabase();

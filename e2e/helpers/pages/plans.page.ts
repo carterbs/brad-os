@@ -133,6 +133,11 @@ export class PlansPage extends BasePage {
    */
   async getPlanCount(): Promise<number> {
     const cards = this.page.locator('[data-testid^="plan-card"]');
+    // Wait for at least one card or empty state before counting
+    await Promise.race([
+      cards.first().waitFor({ timeout: 5000 }).catch(() => {}),
+      this.emptyPlansMessage.waitFor({ timeout: 5000 }).catch(() => {}),
+    ]);
     return cards.count();
   }
 
