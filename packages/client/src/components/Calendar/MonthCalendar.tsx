@@ -1,5 +1,4 @@
 import Calendar from 'react-calendar';
-import 'react-calendar/dist/Calendar.css';
 import { Box } from '@radix-ui/themes';
 import type { CalendarDayData } from '@lifting/shared';
 
