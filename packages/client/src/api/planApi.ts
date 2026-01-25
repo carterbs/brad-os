@@ -10,7 +10,7 @@ import type {
   UpdatePlanDayExerciseDTO,
   ApiResponse,
   ApiError,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import {
   ApiClientError,
   NotFoundError,

@@ -74,8 +74,8 @@ Create the root `package.json` with npm workspaces configuration.
   "private": true,
   "workspaces": ["packages/*", "e2e"],
   "scripts": {
-    "dev": "concurrently -n client,server -c blue,green \"npm run dev -w @lifting/client\" \"npm run dev -w @lifting/server\"",
-    "build": "npm run build -w @lifting/shared && npm run build -w @lifting/server && npm run build -w @lifting/client",
+    "dev": "concurrently -n client,server -c blue,green \"npm run dev -w @brad-os/client\" \"npm run dev -w @brad-os/server\"",
+    "build": "npm run build -w @brad-os/shared && npm run build -w @brad-os/server && npm run build -w @brad-os/client",
     "lint": "eslint . --ext .ts,.tsx",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
@@ -310,7 +310,7 @@ temp/
 
 ```json
 {
-  "name": "@lifting/shared",
+  "name": "@brad-os/shared",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -400,7 +400,7 @@ export function createErrorResponse(error: string): ApiResponse<never> {
 
 ```json
 {
-  "name": "@lifting/server",
+  "name": "@brad-os/server",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -414,7 +414,7 @@ export function createErrorResponse(error: string): ApiResponse<never> {
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@lifting/shared": "*",
+    "@brad-os/shared": "*",
     "better-sqlite3": "^9.4.3",
     "cors": "^2.8.5",
     "express": "^4.18.3"
@@ -454,7 +454,7 @@ export function createErrorResponse(error: string): ApiResponse<never> {
 ```typescript
 import express, { type Express, type Request, type Response } from 'express';
 import cors from 'cors';
-import { APP_VERSION, createSuccessResponse } from '@lifting/shared';
+import { APP_VERSION, createSuccessResponse } from '@brad-os/shared';
 import { initializeDatabase } from './db/index.js';
 import { healthRouter } from './routes/health.js';
 
@@ -498,7 +498,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH =
-  process.env['DB_PATH'] ?? path.join(__dirname, '../../data/lifting.db');
+  process.env['DB_PATH'] ?? path.join(__dirname, '../../data/brad-os.db');
 
 let db: Database.Database | null = null;
 
@@ -549,7 +549,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DB_PATH =
-  process.env['DB_PATH'] ?? path.join(__dirname, '../../data/lifting.db');
+  process.env['DB_PATH'] ?? path.join(__dirname, '../../data/brad-os.db');
 
 let db: Database.Database | null = null;
 
@@ -595,7 +595,7 @@ import {
   APP_VERSION,
   createSuccessResponse,
   type HealthCheckResponse,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 
 export const healthRouter = Router();
 
@@ -617,7 +617,7 @@ healthRouter.get('/', (_req: Request, res: Response): void => {
 
 ```json
 {
-  "name": "@lifting/client",
+  "name": "@brad-os/client",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -630,7 +630,7 @@ healthRouter.get('/', (_req: Request, res: Response): void => {
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@lifting/shared": "*",
+    "@brad-os/shared": "*",
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/themes": "^3.0.0",
     "react": "^18.2.0",
@@ -735,7 +735,7 @@ createRoot(rootElement).render(
 ```typescript
 import { useEffect, useState } from 'react';
 import { Box, Container, Heading, Text, Flex } from '@radix-ui/themes';
-import { APP_VERSION, type HealthCheckResponse } from '@lifting/shared';
+import { APP_VERSION, type HealthCheckResponse } from '@brad-os/shared';
 
 interface HealthStatus {
   loading: boolean;
@@ -973,7 +973,7 @@ RUN npm install
 COPY . .
 
 # Build shared package
-RUN npm run build -w @lifting/shared
+RUN npm run build -w @brad-os/shared
 
 # Expose ports
 EXPOSE 3000 3001
@@ -1033,7 +1033,7 @@ RUN mkdir -p /app/data
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3001
-ENV DB_PATH=/app/data/lifting.db
+ENV DB_PATH=/app/data/brad-os.db
 
 EXPOSE 3001
 
@@ -1064,7 +1064,7 @@ services:
     environment:
       - NODE_ENV=development
       - PORT=3001
-      - DB_PATH=/app/packages/server/data/lifting.db
+      - DB_PATH=/app/packages/server/data/brad-os.db
 
 volumes:
   lifting-data:
@@ -1228,7 +1228,7 @@ import '@testing-library/jest-dom/vitest';
 
 ```json
 {
-  "name": "@lifting/client",
+  "name": "@brad-os/client",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -1241,7 +1241,7 @@ import '@testing-library/jest-dom/vitest';
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@lifting/shared": "*",
+    "@brad-os/shared": "*",
     "@radix-ui/react-slot": "^1.0.2",
     "@radix-ui/themes": "^3.0.0",
     "react": "^18.2.0",
@@ -1296,19 +1296,19 @@ typescript: ^5.4.0
 vitest: ^1.3.0
 ```
 
-### @lifting/shared (devDependencies)
+### @brad-os/shared (devDependencies)
 
 ```
 typescript: ^5.4.0
 vitest: ^1.3.0
 ```
 
-### @lifting/server
+### @brad-os/server
 
 **dependencies:**
 
 ```
-@lifting/shared: *
+@brad-os/shared: *
 better-sqlite3: ^9.4.3
 cors: ^2.8.5
 express: ^4.18.3
@@ -1326,12 +1326,12 @@ typescript: ^5.4.0
 vitest: ^1.3.0
 ```
 
-### @lifting/client
+### @brad-os/client
 
 **dependencies:**
 
 ```
-@lifting/shared: *
+@brad-os/shared: *
 @radix-ui/react-slot: ^1.0.2
 @radix-ui/themes: ^3.0.0
 react: ^18.2.0
@@ -1433,7 +1433,7 @@ Execute these steps in order:
 9. Build shared package:
 
    ```bash
-   npm run build -w @lifting/shared
+   npm run build -w @brad-os/shared
    ```
 
 10. Initialize git repository:
@@ -1518,7 +1518,7 @@ docker-compose build
    Should return no results (except in type definitions from dependencies)
 
 5. **Database file created:**
-   - After running server, check that `packages/server/data/lifting.db` exists
+   - After running server, check that `packages/server/data/brad-os.db` exists
 
 ### E2E Test Verification (requires running servers)
 
@@ -1559,7 +1559,7 @@ Development scripts: dev, build, lint, typecheck, test, docker:dev
 
 1. **File creation order matters** - Create parent directories before files, and create dependency packages (shared) before dependent packages (server, client).
 
-2. **The shared package must be built before other packages** - Run `npm run build -w @lifting/shared` after installing dependencies.
+2. **The shared package must be built before other packages** - Run `npm run build -w @brad-os/shared` after installing dependencies.
 
 3. **ESLint requires all tsconfig.json files to exist** - Create all TypeScript configs before running lint.
 

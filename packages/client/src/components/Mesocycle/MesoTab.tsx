@@ -1,5 +1,5 @@
 import { Box, Flex, Text, Heading, Spinner, Badge, Card } from '@radix-ui/themes';
-import type { MesocycleWithDetails, Plan, Mesocycle } from '@lifting/shared';
+import type { MesocycleWithDetails, Plan, Mesocycle } from '@brad-os/shared';
 import { MesocycleStatusCard } from './MesocycleStatusCard';
 import { WeekCard } from './WeekCard';
 import { StartMesocycleForm } from './StartMesocycleForm';

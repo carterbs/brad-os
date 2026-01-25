@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Theme } from '@radix-ui/themes';
 import type { UseQueryResult } from '@tanstack/react-query';
-import type { Exercise, ExerciseHistory } from '@lifting/shared';
+import type { Exercise, ExerciseHistory } from '@brad-os/shared';
 import type { ApiClientError } from '../../api/exerciseApi';
 import { ExerciseHistoryPage } from '../ExerciseHistoryPage';
 

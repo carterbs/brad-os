@@ -1,5 +1,5 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
-import type { CalendarDataResponse } from '@lifting/shared';
+import type { CalendarDataResponse } from '@brad-os/shared';
 import { calendarApi } from '../api/calendarApi';
 import type { ApiClientError } from '../api/exerciseApi';
 

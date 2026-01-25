@@ -8,7 +8,7 @@ import type {
   AddedExercise,
   RemovedExercise,
   ModifiedExercise,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import type { createRepositories } from '../repositories/index.js';
 import type { ProgressionService } from './progression.service.js';
 

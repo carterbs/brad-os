@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Theme } from '@radix-ui/themes';
-import type { ExerciseHistoryEntry } from '@lifting/shared';
+import type { ExerciseHistoryEntry } from '@brad-os/shared';
 import { WeightProgressionChart } from '../WeightProgressionChart';
 
 // Mock recharts to avoid SVG rendering issues in jsdom

@@ -7,7 +7,7 @@ import {
   saveMeditationConfig,
   loadMeditationConfig,
 } from '../meditationStorage';
-import type { MeditationSessionState } from '@lifting/shared';
+import type { MeditationSessionState } from '@brad-os/shared';
 
 describe('meditationStorage', () => {
   beforeEach(() => {

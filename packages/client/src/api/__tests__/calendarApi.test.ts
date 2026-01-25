@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { calendarApi } from '../calendarApi';
 import { NotFoundError, ApiClientError } from '../exerciseApi';
-import type { CalendarDataResponse, CalendarDayData } from '@lifting/shared';
+import type { CalendarDataResponse, CalendarDayData } from '@brad-os/shared';
 
 describe('calendarApi', () => {
   const mockFetch = vi.fn();

@@ -4,7 +4,7 @@ import {
   type ApiResponse,
   type WorkoutSet,
   type LogWorkoutSetInput,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import { validate } from '../middleware/validate.js';
 import { NotFoundError, ValidationError } from '../middleware/error-handler.js';
 import { getWorkoutSetService } from '../services/index.js';

@@ -1,4 +1,4 @@
-import type { ExerciseHistory, ExerciseHistoryEntry } from '@lifting/shared';
+import type { ExerciseHistory, ExerciseHistoryEntry } from '@brad-os/shared';
 import type { WorkoutSetRepository, CompletedSetRow } from '../repositories/workout-set.repository.js';
 import type { ExerciseRepository } from '../repositories/exercise.repository.js';
 

@@ -8,8 +8,8 @@
  */
 
 import { Box, Flex, Text, Button, Heading } from '@radix-ui/themes';
-import type { MeditationDuration } from '@lifting/shared';
-import { MEDITATION_DURATIONS, MEDITATION_DURATION_LABELS } from '@lifting/shared';
+import type { MeditationDuration } from '@brad-os/shared';
+import { MEDITATION_DURATIONS, MEDITATION_DURATION_LABELS } from '@brad-os/shared';
 import styles from './MeditationSetup.module.css';
 
 interface MeditationSetupProps {

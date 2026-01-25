@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Box, Flex, Text, Button } from '@radix-ui/themes';
-import type { MeditationSessionRecord } from '@lifting/shared';
+import type { MeditationSessionRecord } from '@brad-os/shared';
 
 interface MeditationCardProps {
   lastSession: MeditationSessionRecord | null | undefined;

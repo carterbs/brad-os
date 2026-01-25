@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Box, Flex, Text, IconButton } from '@radix-ui/themes';
-import type { Exercise } from '@lifting/shared';
+import type { Exercise } from '@brad-os/shared';
 
 interface ExerciseListItemProps {
   exercise: Exercise;

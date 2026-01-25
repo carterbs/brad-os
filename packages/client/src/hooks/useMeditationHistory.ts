@@ -15,7 +15,7 @@ import type {
   MeditationSessionRecord,
   CreateMeditationSessionRequest,
   ApiResponse,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 
 const API_BASE = '/api/meditation-sessions';
 

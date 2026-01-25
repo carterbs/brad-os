@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import type { ReactNode } from 'react';
-import type { Mesocycle, MesocycleWithDetails, ApiResponse } from '@lifting/shared';
+import type { Mesocycle, MesocycleWithDetails, ApiResponse } from '@brad-os/shared';
 import {
   useMesocycles,
   useActiveMesocycle,

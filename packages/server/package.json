@@ -1,5 +1,5 @@
 {
-  "name": "@lifting/server",
+  "name": "@brad-os/server",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@lifting/shared": "*",
+    "@brad-os/shared": "*",
     "better-sqlite3": "^11.7.0",
     "cors": "^2.8.5",
     "express": "^4.18.3",

@@ -15,7 +15,7 @@ import {
   MesocycleRepository,
   WorkoutRepository,
 } from '../../repositories/index.js';
-import type { DayOfWeek, Mesocycle, MesocycleWithDetails, ApiResult } from '@lifting/shared';
+import type { DayOfWeek, Mesocycle, MesocycleWithDetails, ApiResult } from '@brad-os/shared';
 
 describe('Mesocycle Routes', () => {
   let ctx: TestContext;

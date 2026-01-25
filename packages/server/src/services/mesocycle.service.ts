@@ -9,7 +9,7 @@ import type {
   PlanDay,
   PlanDayExercise,
   Exercise,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import {
   MesocycleRepository,
   PlanRepository,

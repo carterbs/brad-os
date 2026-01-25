@@ -6,7 +6,7 @@
 
 import { subscribeToPush, getNotificationPermission } from './notifications';
 import { saveSubscription, getSubscription } from './subscriptionStorage';
-import type { PushSubscriptionInput } from '@lifting/shared';
+import type { PushSubscriptionInput } from '@brad-os/shared';
 
 const REST_TIMER_TAG = 'rest-timer';
 

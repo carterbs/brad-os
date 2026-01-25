@@ -16,7 +16,7 @@ import {
   WorkoutRepository,
   WorkoutSetRepository,
 } from '../../repositories/index.js';
-import type { DayOfWeek, PlanDayExercise, Plan, ApiResult } from '@lifting/shared';
+import type { DayOfWeek, PlanDayExercise, Plan, ApiResult } from '@brad-os/shared';
 
 describe('PUT /api/plans/:id with active mesocycle', () => {
   let ctx: TestContext;

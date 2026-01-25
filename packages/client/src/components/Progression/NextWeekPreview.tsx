@@ -1,5 +1,5 @@
 import { Box, Flex, Text, Heading } from '@radix-ui/themes';
-import type { NextWeekResponse } from '@lifting/shared';
+import type { NextWeekResponse } from '@brad-os/shared';
 import { ProgressionIndicator } from './ProgressionIndicator';
 import { DeloadBadge } from './DeloadBadge';
 

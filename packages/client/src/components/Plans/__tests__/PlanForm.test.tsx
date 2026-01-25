@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Theme } from '@radix-ui/themes';
 import { PlanForm } from '../PlanForm';
-import type { Exercise } from '@lifting/shared';
+import type { Exercise } from '@brad-os/shared';
 
 const mockExercises: Exercise[] = [
   {

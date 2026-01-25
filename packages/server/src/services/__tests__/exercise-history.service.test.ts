@@ -3,7 +3,7 @@ import { ExerciseHistoryService } from '../exercise-history.service.js';
 import type { WorkoutSetRepository } from '../../repositories/workout-set.repository.js';
 import type { ExerciseRepository } from '../../repositories/exercise.repository.js';
 import type { CompletedSetRow } from '../../repositories/workout-set.repository.js';
-import type { Exercise, ExerciseHistory } from '@lifting/shared';
+import type { Exercise, ExerciseHistory } from '@brad-os/shared';
 
 function createMockExerciseRepo(): {
   findById: ReturnType<typeof vi.fn>;

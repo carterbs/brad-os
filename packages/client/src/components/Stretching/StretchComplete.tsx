@@ -8,8 +8,8 @@
 
 import { useEffect, useRef } from 'react';
 import { Box, Flex, Text, Heading, Button, Card } from '@radix-ui/themes';
-import type { CompletedStretch } from '@lifting/shared';
-import { BODY_REGION_LABELS } from '@lifting/shared';
+import type { CompletedStretch } from '@brad-os/shared';
+import { BODY_REGION_LABELS } from '@brad-os/shared';
 import { useSaveStretchSession } from '../../hooks/useStretchHistory';
 
 interface StretchCompleteProps {

@@ -1,5 +1,5 @@
 import { Box, Flex, Text, Spinner } from '@radix-ui/themes';
-import type { Exercise } from '@lifting/shared';
+import type { Exercise } from '@brad-os/shared';
 import { useExercises } from '../../hooks/useExercises';
 import { ExerciseListItem } from './ExerciseListItem';
 

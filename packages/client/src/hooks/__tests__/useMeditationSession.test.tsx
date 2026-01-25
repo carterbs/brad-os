@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useMeditationSession } from '../useMeditationSession';
-import type { MeditationManifest } from '@lifting/shared';
+import type { MeditationManifest } from '@brad-os/shared';
 
 // Mock audio module
 vi.mock('../../utils/meditationAudio', () => ({

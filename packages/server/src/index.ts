@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { APP_VERSION, createSuccessResponse } from '@lifting/shared';
+import { APP_VERSION, createSuccessResponse } from '@brad-os/shared';
 import { initializeDatabase } from './db/index.js';
 import { apiRouter } from './routes/index.js';
 import { errorHandler, requestLogger } from './middleware/index.js';

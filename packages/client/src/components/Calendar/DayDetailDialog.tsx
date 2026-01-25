@@ -1,6 +1,6 @@
 import { Dialog, Button, Flex, Text, Box, VisuallyHidden } from '@radix-ui/themes';
 import { Cross2Icon } from '@radix-ui/react-icons';
-import type { CalendarDayData, CalendarActivity } from '@lifting/shared';
+import type { CalendarDayData, CalendarActivity } from '@brad-os/shared';
 import { ActivityItem } from './ActivityItem';
 
 interface DayDetailDialogProps {

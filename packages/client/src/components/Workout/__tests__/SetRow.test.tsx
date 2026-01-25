@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Theme } from '@radix-ui/themes';
 import { SetRow } from '../SetRow';
-import type { WorkoutSet } from '@lifting/shared';
+import type { WorkoutSet } from '@brad-os/shared';
 
 const mockPendingSet: WorkoutSet = {
   id: 1,

@@ -10,7 +10,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Box, Flex, Text, Heading, Button, Card, Spinner } from '@radix-ui/themes';
-import type { MeditationManifest, MeditationDuration } from '@lifting/shared';
+import type { MeditationManifest, MeditationDuration } from '@brad-os/shared';
 import { useMeditationSession } from '../hooks/useMeditationSession';
 import { loadMeditationManifest } from '../utils/meditationData';
 import { initMeditationAudio } from '../utils/meditationAudio';

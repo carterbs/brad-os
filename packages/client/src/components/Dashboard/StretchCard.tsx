@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Box, Flex, Text, Button } from '@radix-ui/themes';
-import type { StretchSessionRecord } from '@lifting/shared';
+import type { StretchSessionRecord } from '@brad-os/shared';
 
 interface StretchCardProps {
   lastSession: StretchSessionRecord | null | undefined;

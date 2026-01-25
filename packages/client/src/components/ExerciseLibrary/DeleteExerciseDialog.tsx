@@ -1,5 +1,5 @@
 import { AlertDialog, Button, Flex, Text } from '@radix-ui/themes';
-import type { Exercise } from '@lifting/shared';
+import type { Exercise } from '@brad-os/shared';
 import { useDeleteExercise } from '../../hooks/useExercises';
 
 interface DeleteExerciseDialogProps {

@@ -1,5 +1,5 @@
 import { Box, Flex, Text, Heading, Badge, IconButton, DropdownMenu } from '@radix-ui/themes';
-import type { Plan } from '@lifting/shared';
+import type { Plan } from '@brad-os/shared';
 import { useNavigate } from 'react-router-dom';
 
 interface PlanCardProps {

@@ -10,7 +10,7 @@ import {
   type Mesocycle,
   type MesocycleWithDetails,
   type CreateMesocycleRequest,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import { validate } from '../middleware/validate.js';
 import {
   NotFoundError,

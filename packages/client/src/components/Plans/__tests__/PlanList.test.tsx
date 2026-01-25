@@ -4,7 +4,7 @@ import { Theme } from '@radix-ui/themes';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PlanList } from '../PlanList';
-import type { Plan } from '@lifting/shared';
+import type { Plan } from '@brad-os/shared';
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {

@@ -630,7 +630,7 @@ import type {
   MesocycleWithWorkouts,
   ScheduledWorkout,
   WeekSummary,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import { addDays, addWeeks, format, parseISO } from 'date-fns';
 
 export class MesocycleService {
@@ -1435,7 +1435,7 @@ import type {
   Mesocycle,
   MesocycleWithWorkouts,
   CreateMesocycleRequest,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 
 const API_BASE = '/api/mesocycles';
 
@@ -1611,7 +1611,7 @@ describe('useMesocycle', () => {
 ```typescript
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { mesocyclesApi } from '../api/mesocycles';
-import type { CreateMesocycleRequest } from '@lifting/shared';
+import type { CreateMesocycleRequest } from '@brad-os/shared';
 
 export function useMesocycles() {
   return useQuery({
@@ -1909,7 +1909,7 @@ import { WeekCard } from './WeekCard';
 import { StartMesocycleForm } from './StartMesocycleForm';
 import { MesocycleStatusCard } from './MesocycleStatusCard';
 import { LoadingSkeleton } from './LoadingSkeleton';
-import type { CreateMesocycleRequest } from '@lifting/shared';
+import type { CreateMesocycleRequest } from '@brad-os/shared';
 
 export function MesoTab() {
   const { data: activeMeso, isLoading: isLoadingActive } = useActiveMesocycle();
@@ -2013,7 +2013,7 @@ export function MesoTab() {
 ```typescript
 import { useState } from 'react';
 import * as Select from '@radix-ui/react-select';
-import type { Plan, CreateMesocycleRequest } from '@lifting/shared';
+import type { Plan, CreateMesocycleRequest } from '@brad-os/shared';
 
 interface Props {
   plans: Plan[];
@@ -2093,7 +2093,7 @@ export function StartMesocycleForm({ plans, onSubmit, isSubmitting }: Props) {
 **File**: `packages/frontend/src/components/WeekCard.tsx`
 
 ```typescript
-import type { WeekSummary, WorkoutStatus } from '@lifting/shared';
+import type { WeekSummary, WorkoutStatus } from '@brad-os/shared';
 import { format, parseISO } from 'date-fns';
 
 interface Props {
@@ -2145,7 +2145,7 @@ export function WeekCard({ week }: Props) {
 **File**: `packages/frontend/src/components/MesocycleStatusCard.tsx`
 
 ```typescript
-import type { MesocycleWithWorkouts } from '@lifting/shared';
+import type { MesocycleWithWorkouts } from '@brad-os/shared';
 import { format, parseISO } from 'date-fns';
 
 interface Props {

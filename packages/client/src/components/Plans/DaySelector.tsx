@@ -1,5 +1,5 @@
 import { Flex, Text, Box, Checkbox } from '@radix-ui/themes';
-import type { DayOfWeek } from '@lifting/shared';
+import type { DayOfWeek } from '@brad-os/shared';
 
 const DAY_NAMES: Record<DayOfWeek, string> = {
   0: 'Sunday',

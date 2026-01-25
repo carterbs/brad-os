@@ -8,7 +8,7 @@ import {
   ConflictError,
   ValidationError,
 } from '../exerciseApi';
-import type { Exercise, ApiResponse, ApiError } from '@lifting/shared';
+import type { Exercise, ApiResponse, ApiError } from '@brad-os/shared';
 
 const mockExercise: Exercise = {
   id: 1,

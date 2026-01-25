@@ -10,7 +10,7 @@ import type {
   Mesocycle,
   Workout,
   Exercise,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 
 describe('PlanModificationService', () => {
   let db: Database.Database;

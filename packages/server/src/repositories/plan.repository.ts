@@ -1,5 +1,5 @@
 import type { Database } from 'better-sqlite3';
-import type { Plan, CreatePlanDTO, UpdatePlanDTO } from '@lifting/shared';
+import type { Plan, CreatePlanDTO, UpdatePlanDTO } from '@brad-os/shared';
 import { BaseRepository } from './base.repository.js';
 
 interface PlanRow {

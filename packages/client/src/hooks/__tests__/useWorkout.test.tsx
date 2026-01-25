@@ -12,7 +12,7 @@ import {
   useSkipSet,
 } from '../useWorkout';
 import { workoutApi, type WorkoutWithExercises } from '../../api/workoutApi';
-import type { Workout, WorkoutSet } from '@lifting/shared';
+import type { Workout, WorkoutSet } from '@brad-os/shared';
 
 // Mock the API
 vi.mock('../../api/workoutApi', () => ({

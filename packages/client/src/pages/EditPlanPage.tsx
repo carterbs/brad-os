@@ -23,7 +23,7 @@ import {
   DAY_NAMES,
   DEFAULT_EXERCISE_CONFIG,
 } from '../components/Plans';
-import type { PlanDay, PlanDayExercise } from '@lifting/shared';
+import type { PlanDay, PlanDayExercise } from '@brad-os/shared';
 
 export function EditPlanPage(): JSX.Element {
   const { id } = useParams<{ id: string }>();

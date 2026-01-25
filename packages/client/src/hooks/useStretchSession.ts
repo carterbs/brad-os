@@ -16,8 +16,8 @@ import type {
   SelectedStretch,
   StretchManifest,
   CompletedStretch,
-} from '@lifting/shared';
-import { BODY_REGION_LABELS, PAUSE_TIMEOUT_MS } from '@lifting/shared';
+} from '@brad-os/shared';
+import { BODY_REGION_LABELS, PAUSE_TIMEOUT_MS } from '@brad-os/shared';
 import {
   playNarration,
   stopNarration,

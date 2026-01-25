@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { Theme } from '@radix-ui/themes';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DeletePlanDialog } from '../DeletePlanDialog';
-import type { Plan } from '@lifting/shared';
+import type { Plan } from '@brad-os/shared';
 import { ConflictError } from '../../../api/exerciseApi';
 
 const mockMutate = vi.fn();

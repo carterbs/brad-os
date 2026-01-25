@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { Theme } from '@radix-ui/themes';
 import { DaySelector } from '../DaySelector';
-import type { DayOfWeek } from '@lifting/shared';
+import type { DayOfWeek } from '@brad-os/shared';
 
 function renderWithTheme(ui: React.ReactElement): ReturnType<typeof render> {
   return render(<Theme>{ui}</Theme>);

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Flex, Text, Box } from '@radix-ui/themes';
 import { useNavigate } from 'react-router-dom';
-import type { Plan } from '@lifting/shared';
+import type { Plan } from '@brad-os/shared';
 import { PlanCard } from './PlanCard';
 import { DeletePlanDialog } from './DeletePlanDialog';
 

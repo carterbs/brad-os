@@ -3,7 +3,7 @@ import type {
   Exercise,
   CreateExerciseDTO,
   UpdateExerciseDTO,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import { BaseRepository } from './base.repository.js';
 
 interface ExerciseRow {

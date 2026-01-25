@@ -1,4 +1,4 @@
-import type { CalendarDataResponse, ApiResponse, ApiError } from '@lifting/shared';
+import type { CalendarDataResponse, ApiResponse, ApiError } from '@brad-os/shared';
 import {
   ApiClientError,
   NotFoundError,

@@ -1,6 +1,6 @@
 import Calendar from 'react-calendar';
 import { Box } from '@radix-ui/themes';
-import type { CalendarDayData } from '@lifting/shared';
+import type { CalendarDayData } from '@brad-os/shared';
 
 interface MonthCalendarProps {
   activities: CalendarDayData[];

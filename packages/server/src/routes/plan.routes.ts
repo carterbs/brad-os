@@ -16,7 +16,7 @@ import {
   type UpdatePlanDayDTO,
   type CreatePlanDayExerciseDTO,
   type UpdatePlanDayExerciseDTO,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import { validate } from '../middleware/validate.js';
 import { NotFoundError, ConflictError } from '../middleware/error-handler.js';
 import {

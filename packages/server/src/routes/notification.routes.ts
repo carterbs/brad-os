@@ -5,7 +5,7 @@ import {
   type ApiResponse,
   type ScheduleNotificationInput,
   type CancelNotificationInput,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import { validate } from '../middleware/validate.js';
 import { getNotificationService } from '../services/index.js';
 

@@ -7,7 +7,7 @@ import {
   type ExerciseHistory,
   type CreateExerciseDTO,
   type UpdateExerciseDTO,
-} from '@lifting/shared';
+} from '@brad-os/shared';
 import { validate } from '../middleware/validate.js';
 import { NotFoundError, ConflictError } from '../middleware/error-handler.js';
 import { getExerciseRepository } from '../repositories/index.js';

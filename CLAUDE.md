@@ -12,14 +12,14 @@ git worktree add ../lifting-worktrees/<branch-name> -b <branch-name>
 # 2. Set up the worktree (REQUIRED before running tests)
 cd ../lifting-worktrees/<branch-name>
 npm install
-npm run build -w @lifting/shared
+npm run build -w @brad-os/shared
 
 # 3. Make changes and verify
 # ... make changes ...
 npm run validate  # Run full test suite
 
 # 4. Commit and merge back to main (from main worktree)
-cd /Users/bradcarter/Documents/Dev/lifting
+cd /Users/bradcarter/Documents/Dev/brad-os
 git merge <branch-name>
 
 # 5. Clean up the worktree
@@ -29,7 +29,7 @@ git branch -d <branch-name>
 
 **Worktree Setup Requirements:**
 - `npm install` - Install dependencies (worktrees don't share node_modules)
-- `npm run build -w @lifting/shared` - Build shared package (required by server/client)
+- `npm run build -w @brad-os/shared` - Build shared package (required by server/client)
 
 This keeps main clean and allows easy rollback of changes.
 
@@ -47,7 +47,7 @@ Use the Task tool with `subagent_type=Bash` for:
 Example:
 ```
 Task tool with subagent_type=Bash:
-  prompt: "Run npm run validate in /Users/bradcarter/Documents/Dev/lifting and report results"
+  prompt: "Run npm run validate in /Users/bradcarter/Documents/Dev/brad-os and report results"
 ```
 
 **Why**: These commands produce verbose output that consumes context. Running them in subagents keeps the main conversation focused on implementation decisions.
@@ -60,17 +60,17 @@ The app uses separate SQLite databases based on `NODE_ENV`:
 
 | Database | NODE_ENV | Port | Usage |
 |----------|----------|------|-------|
-| `lifting.db` | (none) or `development` | 3000/3001 | Local development |
-| `lifting.test.{N}.db` | `test` | 3200+N*10 | E2E tests (parallel workers) |
-| `lifting.prod.db` | `production` | - | Production |
+| `brad-os.db` | (none) or `development` | 3000/3001 | Local development |
+| `brad-os.test.{N}.db` | `test` | 3200+N*10 | E2E tests (parallel workers) |
+| `brad-os.prod.db` | `production` | - | Production |
 
 **Never make direct API calls to test or manipulate data on the dev server.**
 
 The E2E test suite runs 4 parallel workers, each with its own server and database:
-- Worker 0: ports 3200/3201, database `lifting.test.0.db`
-- Worker 1: ports 3210/3211, database `lifting.test.1.db`
-- Worker 2: ports 3220/3221, database `lifting.test.2.db`
-- Worker 3: ports 3230/3231, database `lifting.test.3.db`
+- Worker 0: ports 3200/3201, database `brad-os.test.0.db`
+- Worker 1: ports 3210/3211, database `brad-os.test.1.db`
+- Worker 2: ports 3220/3221, database `brad-os.test.2.db`
+- Worker 3: ports 3230/3231, database `brad-os.test.3.db`
 
 Do not:
 - Call `/api/test/reset` on the development server
@@ -380,7 +380,7 @@ Individual commands:
 - **Explicit paths over vague instructions**: Reference exact file paths, not "look at existing patterns."
 - **Commit after each phase**: Don't batch commits at the end. Smaller commits = easier rollback.
 - **Validate before committing**: Run `npm run validate` before every commit.
-- **Shared types go in shared**: Put types used by both client and server in `packages/shared/src/types/`. Import from `@lifting/shared`.
+- **Shared types go in shared**: Put types used by both client and server in `packages/shared/src/types/`. Import from `@brad-os/shared`.
 - **Use vitest, not jest**: Follow existing test patterns with `@testing-library/react` and `msw` for mocks.
 
 ## Test Policy (CRITICAL)

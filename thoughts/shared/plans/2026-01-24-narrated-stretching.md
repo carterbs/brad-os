@@ -486,7 +486,7 @@ export type CreateStretchSessionRequest = Omit<StretchSessionRecord, 'id'>;
 
 ### Success Criteria
 - [ ] Types compile with `npm run typecheck`
-- [ ] Constants importable from `@lifting/shared`
+- [ ] Constants importable from `@brad-os/shared`
 - [ ] `StretchSessionState` tracks segment-level granularity
 - [ ] `SelectedStretch` ties a specific stretch to its region config
 - [ ] `StretchSessionRecord` and `CompletedStretch` types available for server + client

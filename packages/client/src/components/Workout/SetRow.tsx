@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Flex, Text, TextField, Checkbox, IconButton } from '@radix-ui/themes';
 import { TrashIcon } from '@radix-ui/react-icons';
-import type { WorkoutSet, WorkoutStatus, LogWorkoutSetInput } from '@lifting/shared';
+import type { WorkoutSet, WorkoutStatus, LogWorkoutSetInput } from '@brad-os/shared';
 import type { PendingSetEdit } from '../../hooks/useLocalStorage';
 
 interface SetRowProps {

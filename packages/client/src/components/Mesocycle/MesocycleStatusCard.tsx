@@ -6,7 +6,7 @@ import {
   Button,
   Progress,
 } from '@radix-ui/themes';
-import type { MesocycleWithDetails } from '@lifting/shared';
+import type { MesocycleWithDetails } from '@brad-os/shared';
 
 interface MesocycleStatusCardProps {
   mesocycle: MesocycleWithDetails;

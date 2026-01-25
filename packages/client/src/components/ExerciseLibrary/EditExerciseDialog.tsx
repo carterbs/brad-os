@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Dialog, Box, Button, Flex, Text, TextField } from '@radix-ui/themes';
-import type { Exercise } from '@lifting/shared';
+import type { Exercise } from '@brad-os/shared';
 import { useUpdateExercise } from '../../hooks/useExercises';
 
 interface EditExerciseDialogProps {

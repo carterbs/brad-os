@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Theme } from '@radix-ui/themes';
-import type { ExerciseHistoryEntry } from '@lifting/shared';
+import type { ExerciseHistoryEntry } from '@brad-os/shared';
 import { SetHistoryTable } from '../SetHistoryTable';
 
 const mockEntries: ExerciseHistoryEntry[] = [

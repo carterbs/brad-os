@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import { setupTestApp, teardownTestApp, type TestContext } from '../../test/test-app.js';
-import type { ApiResult, CalendarDataResponse } from '@lifting/shared';
+import type { ApiResult, CalendarDataResponse } from '@brad-os/shared';
 
 describe('Calendar Routes', () => {
   let ctx: TestContext;

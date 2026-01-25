@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { AlertDialog, Box, Button, Flex, Heading, Text, Badge, Card } from '@radix-ui/themes';
-import type { LogWorkoutSetInput } from '@lifting/shared';
+import type { LogWorkoutSetInput } from '@brad-os/shared';
 import type { WorkoutWithExercises } from '../../api/workoutApi';
 import { ExerciseCard } from './ExerciseCard';
 import { RestTimer } from '../RestTimer';
