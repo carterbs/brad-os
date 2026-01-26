@@ -360,6 +360,7 @@ struct RegionToggleCard: View {
             HStack {
                 Image(systemName: region.iconName)
                     .foregroundColor(isEnabled ? Theme.stretch : Theme.textSecondary)
+                    .accessibilityHidden(true)
 
                 Text(region.displayName)
                     .font(.subheadline)
@@ -380,10 +381,13 @@ struct RegionToggleCard: View {
                             .foregroundColor(Theme.stretch)
                     }
                     .buttonStyle(PlainButtonStyle())
+                    .accessibilityLabel("Duration: \(durationSeconds / 60) minute\(durationSeconds == 60 ? "" : "s")")
+                    .accessibilityHint("Double tap to toggle between 1 and 2 minutes")
                 }
 
                 Image(systemName: isEnabled ? "checkmark.circle.fill" : "circle")
                     .foregroundColor(isEnabled ? Theme.stretch : Theme.textSecondary)
+                    .accessibilityHidden(true)
             }
             .padding(Theme.Spacing.md)
             .background(isEnabled ? Theme.stretch.opacity(0.1) : Theme.backgroundSecondary)
@@ -394,6 +398,9 @@ struct RegionToggleCard: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityLabel("\(region.displayName), \(isEnabled ? "enabled" : "disabled")")
+        .accessibilityHint("Double tap to \(isEnabled ? "disable" : "enable") this region")
+        .accessibilityAddTraits(isEnabled ? [.isSelected] : [])
     }
 }
 
@@ -468,6 +475,10 @@ struct DurationOption: View {
     let isSelected: Bool
     let onSelect: () -> Void
 
+    private var durationLabel: String {
+        duration == 60 ? "1 minute" : "2 minutes"
+    }
+
     var body: some View {
         Button(action: onSelect) {
             VStack(spacing: 4) {
@@ -490,6 +501,9 @@ struct DurationOption: View {
             )
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityLabel(durationLabel)
+        .accessibilityHint(isSelected ? "Currently selected" : "Double tap to select")
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 }
 
@@ -644,6 +658,7 @@ struct StretchActiveView: View {
                 .font(.system(size: 64, weight: .bold, design: .rounded))
                 .foregroundColor(Theme.textPrimary)
                 .monospacedDigit()
+                .accessibilityLabel(timerAccessibilityLabel)
 
             if sessionManager.status == .paused {
                 Text("PAUSED")
@@ -664,6 +679,7 @@ struct StretchActiveView: View {
             }
             .frame(height: 4)
             .padding(.horizontal, Theme.Spacing.xl)
+            .accessibilityHidden(true)  // Timer value already announced
         }
     }
 
@@ -696,6 +712,8 @@ struct StretchActiveView: View {
                     }
                     .foregroundColor(Theme.textSecondary)
                 }
+                .accessibilityLabel("Skip Segment")
+                .accessibilityHint("Skip to the next segment of this stretch")
 
                 // Pause/Resume button
                 Button(action: {
@@ -715,6 +733,8 @@ struct StretchActiveView: View {
                             .foregroundColor(.white)
                     }
                 }
+                .accessibilityLabel(sessionManager.status == .paused ? "Resume" : "Pause")
+                .accessibilityHint(sessionManager.status == .paused ? "Resume the stretching session" : "Pause the stretching session")
 
                 // End button
                 Button(action: onCancel) {
@@ -726,6 +746,8 @@ struct StretchActiveView: View {
                     }
                     .foregroundColor(Theme.textSecondary)
                 }
+                .accessibilityLabel("End Session")
+                .accessibilityHint("End the stretching session early")
             }
 
             // Skip entire stretch button
@@ -734,6 +756,21 @@ struct StretchActiveView: View {
                     .font(.caption)
                     .foregroundColor(Theme.textSecondary)
             }
+            .accessibilityLabel("Skip Entire Stretch")
+            .accessibilityHint("Skip both segments of this stretch and move to the next one")
+        }
+    }
+
+    // MARK: - Accessibility Helpers
+
+    private var timerAccessibilityLabel: String {
+        let totalSeconds = Int(sessionManager.segmentRemaining)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        if minutes > 0 {
+            return "\(minutes) minute\(minutes == 1 ? "" : "s") and \(seconds) second\(seconds == 1 ? "" : "s") remaining"
+        } else {
+            return "\(seconds) second\(seconds == 1 ? "" : "s") remaining"
         }
     }
 }
@@ -744,30 +781,64 @@ struct StretchCompleteView: View {
     let onDone: () -> Void
     let onStartAnother: () -> Void
 
+    @State private var hasSaved = false
+    @State private var saveError: String?
+    @State private var isSaving = false
+    @State private var showSuccessAnimation = false
+
+    private let apiClient: APIClientProtocol
+
+    init(
+        sessionManager: StretchSessionManager,
+        onDone: @escaping () -> Void,
+        onStartAnother: @escaping () -> Void,
+        apiClient: APIClientProtocol = APIClient.shared
+    ) {
+        self.sessionManager = sessionManager
+        self.onDone = onDone
+        self.onStartAnother = onStartAnother
+        self.apiClient = apiClient
+    }
+
     var body: some View {
         VStack(spacing: Theme.Spacing.xl) {
             Spacer()
 
-            // Success icon
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 80))
-                .foregroundColor(Theme.stretch)
+            // Success header with icon
+            VStack(spacing: Theme.Spacing.md) {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(Theme.stretch)
+                    .scaleEffect(showSuccessAnimation ? 1.0 : 0.5)
+                    .opacity(showSuccessAnimation ? 1.0 : 0.0)
+                    .accessibilityHidden(true)
 
-            Text("Great Stretch!")
-                .font(.largeTitle)
-                .fontWeight(.bold)
-                .foregroundColor(Theme.textPrimary)
+                Text("Great Stretch!")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                    .foregroundColor(Theme.textPrimary)
+                    .opacity(showSuccessAnimation ? 1.0 : 0.0)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Stretching session complete. Great stretch!")
+            .onAppear {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                    showSuccessAnimation = true
+                }
+            }
 
             // Stats
             VStack(spacing: Theme.Spacing.md) {
-                StatRow(label: "Duration", value: formattedDuration)
-                StatRow(label: "Stretches Completed", value: "\(completedCount)")
+                StatRow(label: "Duration", value: formattedDuration, valueColor: Theme.stretch)
+                StatRow(label: "Stretches Completed", value: "\(completedCount)", valueColor: Theme.stretch)
                 if skippedCount > 0 {
-                    StatRow(label: "Stretches Skipped", value: "\(skippedCount)")
+                    StatRow(label: "Stretches Skipped", value: "\(skippedCount)", valueColor: Theme.statusSkipped)
                 }
             }
             .padding(Theme.Spacing.md)
             .cardStyle()
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(sessionSummaryAccessibilityLabel)
 
             // Stretch breakdown
             if !sessionManager.completedStretches.isEmpty {
@@ -782,6 +853,7 @@ struct StretchCompleteView: View {
                             Image(systemName: completed.region.iconName)
                                 .foregroundColor(Theme.stretch)
                                 .frame(width: 24)
+                                .accessibilityHidden(true)
 
                             Text(completed.stretchName)
                                 .font(.subheadline)
@@ -800,9 +872,12 @@ struct StretchCompleteView: View {
                             } else {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundColor(Theme.stretch)
+                                    .accessibilityHidden(true)
                             }
                         }
                         .padding(.vertical, 4)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel(stretchAccessibilityLabel(for: completed))
                     }
                 }
                 .padding(Theme.Spacing.md)
@@ -810,6 +885,25 @@ struct StretchCompleteView: View {
             }
 
             Spacer()
+
+            // Save status indicator
+            if isSaving {
+                HStack(spacing: Theme.Spacing.sm) {
+                    ProgressView()
+                        .tint(Theme.textSecondary)
+                    Text("Saving session...")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
+                }
+            } else if let error = saveError {
+                HStack(spacing: Theme.Spacing.sm) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(Theme.warning)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(Theme.warning)
+                }
+            }
 
             // Actions
             VStack(spacing: Theme.Spacing.md) {
@@ -827,7 +921,53 @@ struct StretchCompleteView: View {
             }
         }
         .padding(Theme.Spacing.md)
+        .task {
+            await saveSession()
+        }
     }
+
+    // MARK: - API Integration
+
+    private func saveSession() async {
+        guard !hasSaved else { return }
+        hasSaved = true
+        isSaving = true
+
+        // Calculate total duration from session start to now
+        let totalDurationSeconds: Int
+        if let startTime = sessionManager.sessionStartTime {
+            totalDurationSeconds = Int(Date().timeIntervalSince(startTime))
+        } else {
+            // Fallback: sum up individual stretch durations
+            totalDurationSeconds = sessionManager.completedStretches.reduce(0) { $0 + $1.durationSeconds }
+        }
+
+        // Build the session record
+        let session = StretchSession(
+            id: UUID().uuidString,  // Server will assign real ID
+            completedAt: Date(),
+            totalDurationSeconds: totalDurationSeconds,
+            regionsCompleted: completedCount,
+            regionsSkipped: skippedCount,
+            stretches: sessionManager.completedStretches
+        )
+
+        do {
+            _ = try await apiClient.createStretchSession(session)
+            isSaving = false
+            #if DEBUG
+            print("[StretchCompleteView] Session saved successfully")
+            #endif
+        } catch {
+            isSaving = false
+            saveError = "Could not save session"
+            #if DEBUG
+            print("[StretchCompleteView] Failed to save session: \(error)")
+            #endif
+        }
+    }
+
+    // MARK: - Computed Properties
 
     private var formattedDuration: String {
         guard let startTime = sessionManager.sessionStartTime else {
@@ -849,21 +989,44 @@ struct StretchCompleteView: View {
     private var skippedCount: Int {
         sessionManager.completedStretches.filter { $0.skippedSegments == 2 }.count
     }
+
+    // MARK: - Accessibility Helpers
+
+    private var sessionSummaryAccessibilityLabel: String {
+        var label = "Session summary: Duration \(formattedDuration), \(completedCount) stretches completed"
+        if skippedCount > 0 {
+            label += ", \(skippedCount) stretches skipped"
+        }
+        return label
+    }
+
+    private func stretchAccessibilityLabel(for completed: CompletedStretch) -> String {
+        if completed.skippedSegments == 2 {
+            return "\(completed.stretchName), skipped"
+        } else if completed.skippedSegments == 1 {
+            return "\(completed.stretchName), partially completed"
+        } else {
+            return "\(completed.stretchName), completed"
+        }
+    }
 }
 
 /// Simple stat row for completion view
 struct StatRow: View {
     let label: String
     let value: String
+    var valueColor: Color = Theme.textPrimary
 
     var body: some View {
         HStack {
             Text(label)
+                .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
             Spacer()
             Text(value)
-                .fontWeight(.medium)
-                .foregroundColor(Theme.textPrimary)
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundColor(valueColor)
         }
     }
 }

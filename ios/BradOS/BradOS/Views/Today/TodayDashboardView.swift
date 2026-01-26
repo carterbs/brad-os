@@ -3,11 +3,7 @@ import SwiftUI
 /// Main dashboard showing today's scheduled activities
 struct TodayDashboardView: View {
     @EnvironmentObject var appState: AppState
-
-    // Placeholder state - will be replaced with actual data
-    @State private var todayWorkout: Workout? = Workout.mockTodayWorkout
-    @State private var lastStretchSession: StretchSession? = StretchSession.mockRecentSession
-    @State private var lastMeditationSession: MeditationSession? = MeditationSession.mockRecentSession
+    @StateObject private var viewModel = DashboardViewModel()
 
     var body: some View {
         NavigationStack {
@@ -24,6 +20,12 @@ struct TodayDashboardView: View {
             .background(Theme.background)
             .navigationTitle("Today")
             .navigationBarTitleDisplayMode(.large)
+            .refreshable {
+                await viewModel.loadDashboard()
+            }
+            .task {
+                await viewModel.loadDashboard()
+            }
         }
     }
 
@@ -34,7 +36,19 @@ struct TodayDashboardView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             SectionHeader(title: "Today's Workout")
 
-            if let workout = todayWorkout {
+            if viewModel.isLoading && viewModel.workout == nil {
+                // Loading state
+                VStack(spacing: Theme.Spacing.md) {
+                    ProgressView()
+                        .tint(Theme.textSecondary)
+                    Text("Loading...")
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textSecondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(Theme.Spacing.lg)
+                .cardStyle()
+            } else if let workout = viewModel.workout {
                 TodayWorkoutCard(workout: workout) {
                     // Navigate to workout - placeholder
                     appState.isShowingLiftingContext = true
@@ -74,7 +88,7 @@ struct TodayDashboardView: View {
             // Stretch Card
             ActivityQuickCard(
                 title: "Stretch",
-                subtitle: formatLastSession(lastStretchSession?.completedAt),
+                subtitle: stretchSubtitle,
                 iconName: ActivityType.stretch.iconName,
                 color: Theme.stretch
             ) {
@@ -84,7 +98,7 @@ struct TodayDashboardView: View {
             // Meditation Card
             ActivityQuickCard(
                 title: "Meditation",
-                subtitle: formatLastSession(lastMeditationSession?.completedAt),
+                subtitle: meditationSubtitle,
                 iconName: ActivityType.meditation.iconName,
                 color: Theme.meditation
             ) {
@@ -103,23 +117,20 @@ struct TodayDashboardView: View {
         }
     }
 
-    // MARK: - Helpers
+    // MARK: - Computed Properties
 
-    private func formatLastSession(_ date: Date?) -> String {
-        guard let date = date else {
-            return "Never"
+    private var stretchSubtitle: String {
+        if let formattedDate = viewModel.formattedLastStretchDate {
+            return "Last: \(formattedDate)"
         }
+        return "Start stretching"
+    }
 
-        let calendar = Calendar.current
-        if calendar.isDateInToday(date) {
-            return "Today"
-        } else if calendar.isDateInYesterday(date) {
-            return "Yesterday"
-        } else {
-            let formatter = RelativeDateTimeFormatter()
-            formatter.unitsStyle = .short
-            return formatter.localizedString(for: date, relativeTo: Date())
+    private var meditationSubtitle: String {
+        if let formattedDate = viewModel.formattedLastMeditationDate {
+            return "Last: \(formattedDate)"
         }
+        return "Start meditating"
     }
 }
 
