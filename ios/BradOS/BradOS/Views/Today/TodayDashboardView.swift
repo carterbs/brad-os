@@ -44,14 +44,19 @@ struct TodayDashboardView: View {
             .task {
                 await viewModel.loadDashboard()
             }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+                Task {
+                    await viewModel.loadDashboard()
+                }
+            }
         }
     }
 
     // MARK: - Navigation
 
     private func navigateToWorkout() {
-        if viewModel.workout != nil {
-            appState.isShowingLiftingContext = true
+        if let workoutId = viewModel.workout?.id {
+            appState.navigateToWorkout(workoutId)
         }
     }
 }
@@ -65,8 +70,7 @@ struct TodayDashboardView: View {
 }
 
 #Preview("Loading") {
-    let viewModel = DashboardViewModel.loading
-    return TodayDashboardView()
+    TodayDashboardView()
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
 }
