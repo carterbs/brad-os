@@ -383,6 +383,58 @@ Individual commands:
 - **Shared types go in shared**: Put types used by both client and server in `packages/shared/src/types/`. Import from `@brad-os/shared`.
 - **Use vitest, not jest**: Follow existing test patterns with `@testing-library/react` and `msw` for mocks.
 
+## iOS App Testing
+
+The project includes a native iOS app at `ios/BradOS/`. Claude can perform exploratory testing using the iOS Simulator MCP.
+
+### Setup
+
+Run the setup script to install dependencies:
+
+```bash
+./scripts/setup-ios-testing.sh
+```
+
+This installs:
+- **idb-companion** (Homebrew) - Facebook's iOS Development Bridge
+- **fb-idb** (pip) - Python client for idb
+- **ios-simulator-mcp** (npx) - MCP server for Claude Code integration
+
+### Building and Running
+
+```bash
+# Build for simulator
+xcodebuild -workspace ios/BradOS/BradOS.xcworkspace \
+  -scheme BradOS \
+  -sdk iphonesimulator \
+  -destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
+  -derivedDataPath ./build/ios \
+  build
+
+# Install and launch
+xcrun simctl install booted ./build/ios/Build/Products/Debug-iphonesimulator/BradOS.app
+xcrun simctl launch booted com.bradcarter.brad-os
+```
+
+### Exploratory Testing Skill
+
+Use `/explore-ios` to run exploratory QA testing on the iOS app. This uses:
+
+| Tool | Purpose |
+|------|---------|
+| `ui_describe_all` | Get accessibility tree (like Playwright's `browser_snapshot`) |
+| `ui_tap` | Tap at coordinates |
+| `ui_swipe` | Swipe gestures |
+| `ui_type` | Text input |
+| `screenshot` | Capture visual state |
+
+### iOS App Details
+
+- **Bundle ID:** `com.bradcarter.brad-os`
+- **Workspace:** `ios/BradOS/BradOS.xcworkspace`
+- **Scheme:** `BradOS`
+- **Features:** Stretching, Meditation, Calendar, Profile (mirrors PWA)
+
 ## Test Policy (CRITICAL)
 
 **NEVER skip or disable tests to "solve" a problem.** If tests are failing or timing out:
