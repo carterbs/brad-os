@@ -46,7 +46,15 @@ struct WorkoutView: View {
             }
             .background(Theme.background)
 
-            // Rest Timer Bar (compact, at bottom)
+            // Floating action buttons at bottom
+            if let workout = workout {
+                VStack {
+                    Spacer()
+                    floatingActionButtons(workout)
+                }
+            }
+
+            // Rest Timer Bar (compact, above floating buttons)
             if restTimer.isActive && !showingTimerOverlay {
                 VStack {
                     Spacer()
@@ -57,6 +65,7 @@ struct WorkoutView: View {
                         onTap: { showingTimerOverlay = true },
                         onDismiss: { dismissRestTimer() }
                     )
+                    .padding(.bottom, workout?.status == .inProgress || workout?.status == .pending ? 80 : 0)
                 }
             }
 
@@ -161,16 +170,30 @@ struct WorkoutView: View {
             // Header
             workoutHeader(workout)
 
-            // Action Buttons
-            actionButtons(workout)
-
             // Exercises
             if let exercises = workout.exercises {
                 exercisesSection(exercises, workoutStatus: workout.status)
             }
         }
         .padding(Theme.Spacing.md)
-        .padding(.bottom, restTimer.isActive ? 100 : 0)
+        .padding(.bottom, bottomPadding(for: workout))
+    }
+
+    /// Calculate bottom padding based on floating UI elements
+    private func bottomPadding(for workout: Workout) -> CGFloat {
+        var padding: CGFloat = 0
+
+        // Add space for floating action buttons
+        if workout.status == .pending || workout.status == .inProgress {
+            padding += 100
+        }
+
+        // Add space for rest timer bar
+        if restTimer.isActive {
+            padding += 80
+        }
+
+        return padding
     }
 
     // MARK: - Header
@@ -185,7 +208,8 @@ struct WorkoutView: View {
                         .fontWeight(.bold)
                         .foregroundColor(Theme.textPrimary)
 
-                    Text(formattedDate(workout.scheduledDate))
+                    // Show today's date if workout is in progress, otherwise scheduled date
+                    Text(formattedDate(workout.status == .inProgress ? Date() : workout.scheduledDate))
                         .font(.subheadline)
                         .foregroundColor(Theme.textSecondary)
                 }
@@ -211,13 +235,13 @@ struct WorkoutView: View {
         return formatter.string(from: date)
     }
 
-    // MARK: - Action Buttons
+    // MARK: - Floating Action Buttons
 
     @ViewBuilder
-    private func actionButtons(_ workout: Workout) -> some View {
-        HStack(spacing: Theme.Spacing.md) {
-            switch workout.status {
-            case .pending:
+    private func floatingActionButtons(_ workout: Workout) -> some View {
+        switch workout.status {
+        case .pending:
+            HStack(spacing: Theme.Spacing.md) {
                 Button(action: { Task { await startWorkout() } }) {
                     HStack {
                         if isStarting {
@@ -229,17 +253,24 @@ struct WorkoutView: View {
                         Text("Start Workout")
                     }
                     .frame(maxWidth: .infinity)
+                    .padding(.vertical, Theme.Spacing.md)
                 }
-                .buttonStyle(PrimaryButtonStyle())
+                .buttonStyle(GlassPrimaryButtonStyle())
                 .disabled(isStarting)
 
                 Button(action: { showingSkipAlert = true }) {
                     Text("Skip")
+                        .padding(.horizontal, Theme.Spacing.lg)
+                        .padding(.vertical, Theme.Spacing.md)
                 }
-                .buttonStyle(SecondaryButtonStyle())
+                .buttonStyle(GlassSecondaryButtonStyle())
                 .disabled(isSkipping)
+            }
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.bottom, Theme.Spacing.lg)
 
-            case .inProgress:
+        case .inProgress:
+            HStack(spacing: Theme.Spacing.md) {
                 Button(action: { showingCompleteAlert = true }) {
                     HStack {
                         if isCompleting {
@@ -251,19 +282,24 @@ struct WorkoutView: View {
                         Text("Complete")
                     }
                     .frame(maxWidth: .infinity)
+                    .padding(.vertical, Theme.Spacing.md)
                 }
-                .buttonStyle(PrimaryButtonStyle())
+                .buttonStyle(GlassPrimaryButtonStyle())
                 .disabled(isCompleting)
 
                 Button(action: { showingSkipAlert = true }) {
                     Text("Skip")
+                        .padding(.horizontal, Theme.Spacing.lg)
+                        .padding(.vertical, Theme.Spacing.md)
                 }
-                .buttonStyle(SecondaryButtonStyle())
+                .buttonStyle(GlassSecondaryButtonStyle())
                 .disabled(isSkipping)
-
-            case .completed, .skipped:
-                EmptyView()
             }
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.bottom, Theme.Spacing.lg)
+
+        case .completed, .skipped:
+            EmptyView()
         }
     }
 

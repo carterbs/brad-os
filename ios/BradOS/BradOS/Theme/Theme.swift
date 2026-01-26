@@ -123,6 +123,51 @@ struct SecondaryButtonStyle: ButtonStyle {
     }
 }
 
+/// Glass-style primary button with blur background
+struct GlassPrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.vertical, Theme.Spacing.sm)
+            .background(
+                ZStack {
+                    // Glass blur effect
+                    RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
+                        .fill(.ultraThinMaterial)
+                    // Accent color overlay
+                    RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
+                        .fill(configuration.isPressed ? Theme.accentLight.opacity(0.8) : Theme.accent.opacity(0.75))
+                }
+            )
+            .foregroundColor(.white)
+            .fontWeight(.semibold)
+            .cornerRadius(Theme.CornerRadius.lg)
+            .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+    }
+}
+
+/// Glass-style secondary button with blur background
+struct GlassSecondaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.vertical, Theme.Spacing.sm)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
+                    .fill(.ultraThinMaterial)
+                    .opacity(configuration.isPressed ? 0.9 : 1.0)
+            )
+            .foregroundColor(Theme.textPrimary)
+            .fontWeight(.medium)
+            .cornerRadius(Theme.CornerRadius.lg)
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
+                    .stroke(Theme.border.opacity(0.5), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
+    }
+}
+
 extension View {
     func cardStyle() -> some View {
         modifier(CardStyle())
