@@ -352,6 +352,14 @@ struct MeditationActiveView: View {
     @State private var scheduledCues: [ScheduledCue] = []
     @State private var isPlayingCue: Bool = false
 
+    // Pause timeout
+    @State private var pauseTimeoutTimer: Timer?
+
+    // UI state
+    @State private var showEndConfirmation: Bool = false
+    @State private var showAudioError: Bool = false
+    @State private var audioErrorMessage: String = ""
+
     // Audio and storage
     private let storage = MeditationStorage.shared
     private let audioEngine = MeditationAudioEngine.shared
@@ -398,6 +406,24 @@ struct MeditationActiveView: View {
         }
         .onChange(of: scenePhase) { _, newPhase in
             handleScenePhaseChange(newPhase)
+        }
+        .alert("End Session?", isPresented: $showEndConfirmation) {
+            Button("End Session", role: .destructive) {
+                completeSession(fully: false)
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to end this meditation session early?")
+        }
+        .alert("Audio Error", isPresented: $showAudioError) {
+            Button("Continue Without Audio") {
+                // Session continues even without audio
+            }
+            Button("Retry") {
+                retryAudioInitialization()
+            }
+        } message: {
+            Text(audioErrorMessage)
         }
     }
 
@@ -524,15 +550,24 @@ struct MeditationActiveView: View {
 
                 // Load scheduled cues from recovered state or generate new ones
                 if let recovered = recoveredState, !recovered.scheduledCues.isEmpty {
-                    scheduledCues = recovered.scheduledCues
+                    await MainActor.run {
+                        scheduledCues = recovered.scheduledCues
+                    }
                 } else {
-                    scheduledCues = try await manifestService.generateScheduledCues(
+                    let cues = try await manifestService.generateScheduledCues(
                         sessionId: "basic-breathing",
                         duration: duration.rawValue
                     )
+                    await MainActor.run {
+                        scheduledCues = cues
+                    }
                 }
             } catch {
-                print("Failed to initialize audio: \(error)")
+                // Show error but allow session to continue without audio
+                await MainActor.run {
+                    audioErrorMessage = "Could not initialize audio. The session will continue without sound."
+                    showAudioError = true
+                }
             }
         }
 
@@ -558,8 +593,26 @@ struct MeditationActiveView: View {
         displayTimer = nil
         breathingTimer?.invalidate()
         breathingTimer = nil
+        pauseTimeoutTimer?.invalidate()
+        pauseTimeoutTimer = nil
         audioEngine.stopAll()
         nowPlaying.clear()
+    }
+
+    // MARK: - Audio Error Handling
+
+    private func retryAudioInitialization() {
+        Task {
+            do {
+                try await audioEngine.initialize()
+                audioEngine.startKeepalive()
+            } catch {
+                await MainActor.run {
+                    audioErrorMessage = "Could not initialize audio: \(error.localizedDescription)"
+                    showAudioError = true
+                }
+            }
+        }
     }
 
     // MARK: - Display Timer
@@ -696,12 +749,18 @@ struct MeditationActiveView: View {
         // Update Now Playing
         nowPlaying.updatePlaybackState(isPlaying: false, elapsedTime: calculateElapsed())
 
+        // Start pause timeout (30 minutes)
+        startPauseTimeout()
+
         // Save state
         saveSessionState()
     }
 
     private func resumeSession() {
         guard isPaused, let pausedAtTime = pausedAt else { return }
+
+        // Cancel pause timeout
+        cancelPauseTimeout()
 
         // Accumulate paused time
         pausedElapsed += Date().timeIntervalSince(pausedAtTime)
@@ -721,15 +780,39 @@ struct MeditationActiveView: View {
         saveSessionState()
     }
 
+    // MARK: - Pause Timeout
+
+    private func startPauseTimeout() {
+        cancelPauseTimeout()
+
+        // 30-minute timeout for paused sessions
+        pauseTimeoutTimer = Timer.scheduledTimer(
+            withTimeInterval: MEDITATION_PAUSE_TIMEOUT,
+            repeats: false
+        ) { [self] _ in
+            // Auto-end session after timeout
+            DispatchQueue.main.async {
+                self.completeSession(fully: false)
+            }
+        }
+    }
+
+    private func cancelPauseTimeout() {
+        pauseTimeoutTimer?.invalidate()
+        pauseTimeoutTimer = nil
+    }
+
     // MARK: - End Session
 
     private func endSession() {
-        completeSession(fully: false)
+        // Show confirmation dialog instead of ending immediately
+        showEndConfirmation = true
     }
 
     private func completeSession(fully: Bool) {
         displayTimer?.invalidate()
         breathingTimer?.invalidate()
+        cancelPauseTimeout()
 
         let actualDuration = Int(calculateElapsed())
 
