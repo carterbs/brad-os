@@ -1,51 +1,57 @@
 import SwiftUI
 
-/// View displaying exercise library
+/// View displaying exercise library with API integration
 struct ExercisesView: View {
-    // Placeholder state - will be replaced with actual data
-    @State private var exercises: [Exercise] = Exercise.mockExercises
-    @State private var showingAddExercise: Bool = false
-    @State private var newExerciseName: String = ""
-    @State private var searchText: String = ""
+    @StateObject private var viewModel = ExercisesViewModel()
+    @State private var searchText = ""
 
     private var filteredExercises: [Exercise] {
         if searchText.isEmpty {
-            return exercises
+            return viewModel.exercises
         }
-        return exercises.filter { $0.name.localizedCaseInsensitiveContains(searchText) }
+        return viewModel.exercises.filter {
+            $0.name.localizedCaseInsensitiveContains(searchText)
+        }
     }
 
     var body: some View {
+        Group {
+            switch viewModel.exercisesState {
+            case .idle, .loading:
+                LoadingView(message: "Loading exercises...")
+
+            case .error(let error):
+                errorView(error)
+
+            case .loaded:
+                contentView
+            }
+        }
+        .background(Theme.background)
+        .navigationTitle("Exercises")
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $searchText, prompt: "Search exercises")
+        .task {
+            await viewModel.loadExercises()
+        }
+    }
+
+    // MARK: - Content View
+
+    @ViewBuilder
+    private var contentView: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.md) {
-                // Add Exercise Section
                 addExerciseSection
 
-                // Exercise List
                 if filteredExercises.isEmpty {
-                    if searchText.isEmpty {
-                        EmptyStateView(
-                            iconName: "dumbbell",
-                            title: "No Exercises",
-                            message: "Add your first exercise to get started."
-                        )
-                    } else {
-                        EmptyStateView(
-                            iconName: "magnifyingglass",
-                            title: "No Results",
-                            message: "No exercises match '\(searchText)'"
-                        )
-                    }
+                    emptyStateView
                 } else {
                     exerciseListSection
                 }
             }
             .padding(Theme.Spacing.md)
         }
-        .background(Theme.background)
-        .navigationTitle("Exercises")
-        .navigationBarTitleDisplayMode(.large)
-        .searchable(text: $searchText, prompt: "Search exercises")
     }
 
     // MARK: - Add Exercise Section
@@ -58,19 +64,63 @@ struct ExercisesView: View {
                 .fontWeight(.medium)
                 .foregroundColor(Theme.textPrimary)
 
-            HStack(spacing: Theme.Spacing.sm) {
-                TextField("Exercise name", text: $newExerciseName)
-                    .textFieldStyle(.plain)
-                    .padding(Theme.Spacing.sm)
-                    .background(Theme.backgroundTertiary)
-                    .cornerRadius(Theme.CornerRadius.sm)
+            // Name field
+            TextField("Exercise name", text: $viewModel.newExerciseName)
+                .textFieldStyle(.plain)
+                .padding(Theme.Spacing.sm)
+                .background(Theme.backgroundTertiary)
+                .cornerRadius(Theme.CornerRadius.sm)
 
-                Button(action: addExercise) {
-                    Image(systemName: "plus.circle.fill")
-                        .font(.title2)
-                        .foregroundColor(newExerciseName.isEmpty ? Theme.disabled : Theme.accent)
+            HStack(spacing: Theme.Spacing.sm) {
+                // Weight increment field
+                HStack(spacing: 4) {
+                    Text("+")
+                        .foregroundColor(Theme.textSecondary)
+                    TextField("5", text: $viewModel.newWeightIncrement)
+                        .keyboardType(.decimalPad)
+                        .frame(width: 50)
+                        .multilineTextAlignment(.center)
+                    Text("lbs/progression")
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
                 }
-                .disabled(newExerciseName.isEmpty)
+                .padding(Theme.Spacing.sm)
+                .background(Theme.backgroundTertiary)
+                .cornerRadius(Theme.CornerRadius.sm)
+
+                Spacer()
+
+                // Add button
+                Button(action: {
+                    Task { await viewModel.createExercise() }
+                }) {
+                    HStack(spacing: 4) {
+                        if viewModel.isCreating {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .scaleEffect(0.8)
+                        }
+                        Text(viewModel.isCreating ? "Adding..." : "Add Exercise")
+                    }
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .disabled(viewModel.newExerciseName.trimmingCharacters(in: .whitespaces).isEmpty || viewModel.isCreating)
+            }
+
+            // Validation error
+            if let error = viewModel.formValidationError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(Theme.error)
+            }
+
+            // API error
+            if let error = viewModel.createError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(Theme.error)
             }
         }
         .padding(Theme.Spacing.md)
@@ -78,19 +128,23 @@ struct ExercisesView: View {
         .cornerRadius(Theme.CornerRadius.md)
     }
 
-    private func addExercise() {
-        guard !newExerciseName.isEmpty else { return }
+    // MARK: - Empty State
 
-        let newExercise = Exercise(
-            id: exercises.count + 1,
-            name: newExerciseName,
-            weightIncrement: 5,
-            isCustom: true,
-            createdAt: Date(),
-            updatedAt: Date()
-        )
-        exercises.append(newExercise)
-        newExerciseName = ""
+    @ViewBuilder
+    private var emptyStateView: some View {
+        if searchText.isEmpty {
+            EmptyStateView(
+                iconName: "dumbbell",
+                title: "No Exercises",
+                message: "No exercises found. Add your first exercise above!"
+            )
+        } else {
+            EmptyStateView(
+                iconName: "magnifyingglass",
+                title: "No Results",
+                message: "No exercises match '\(searchText)'"
+            )
+        }
     }
 
     // MARK: - Exercise List
@@ -101,73 +155,111 @@ struct ExercisesView: View {
             SectionHeader(title: "All Exercises")
 
             ForEach(filteredExercises) { exercise in
-                ExerciseRow(exercise: exercise) {
-                    // Delete action
-                    exercises.removeAll { $0.id == exercise.id }
-                }
+                ExerciseRow(
+                    exercise: exercise,
+                    isDeleting: viewModel.deletingExerciseId == exercise.id,
+                    onDelete: {
+                        Task { await viewModel.deleteExercise(exercise) }
+                    }
+                )
             }
         }
+        .alert("Cannot Delete", isPresented: .init(
+            get: { viewModel.deleteError != nil },
+            set: { if !$0 { viewModel.clearDeleteError() } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(viewModel.deleteError ?? "")
+        }
     }
-}
 
-/// Row displaying an exercise
-struct ExerciseRow: View {
-    let exercise: Exercise
-    let onDelete: () -> Void
+    // MARK: - Error View
 
-    @State private var showingDeleteAlert: Bool = false
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(exercise.name)
-                    .font(.subheadline)
-                    .foregroundColor(Theme.textPrimary)
-
-                HStack(spacing: Theme.Spacing.sm) {
-                    Text("+\(Int(exercise.weightIncrement)) lbs/progression")
-                        .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
-
-                    if exercise.isCustom {
-                        Text("•")
-                            .foregroundColor(Theme.textSecondary)
-                        Text("Custom")
-                            .font(.caption)
-                            .foregroundColor(Theme.accent)
-                    }
-                }
-            }
-
-            Spacer()
-
-            Menu {
-                NavigationLink(value: ExerciseHistoryDestination(exerciseId: exercise.id, exerciseName: exercise.name)) {
-                    Label("View History", systemImage: "clock")
-                }
-
-                Button(role: .destructive, action: { showingDeleteAlert = true }) {
-                    Label("Delete", systemImage: "trash")
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .foregroundColor(Theme.textSecondary)
-                    .padding(Theme.Spacing.sm)
+    @ViewBuilder
+    private func errorView(_ error: Error) -> some View {
+        VStack(spacing: Theme.Spacing.md) {
+            EmptyStateView(
+                iconName: "exclamationmark.triangle",
+                title: "Failed to Load",
+                message: error.localizedDescription,
+                buttonTitle: "Try Again"
+            ) {
+                Task { await viewModel.loadExercises() }
             }
         }
         .padding(Theme.Spacing.md)
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.md)
+    }
+}
+
+/// Row displaying an exercise with navigation and delete actions
+struct ExerciseRow: View {
+    let exercise: Exercise
+    let isDeleting: Bool
+    let onDelete: () -> Void
+
+    @State private var showingDeleteAlert = false
+
+    var body: some View {
+        NavigationLink(value: ExerciseHistoryDestination(
+            exerciseId: exercise.id,
+            exerciseName: exercise.name
+        )) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(exercise.name)
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textPrimary)
+
+                    HStack(spacing: Theme.Spacing.sm) {
+                        Text("+\(exercise.weightIncrement.formatted()) lbs per progression")
+                            .font(.caption)
+                            .foregroundColor(Theme.textSecondary)
+
+                        if exercise.isCustom {
+                            Text("*")
+                                .foregroundColor(Theme.textSecondary)
+                            Text("Custom")
+                                .font(.caption)
+                                .foregroundColor(Theme.accent)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                if isDeleting {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .padding(Theme.Spacing.sm)
+                } else {
+                    Button(action: { showingDeleteAlert = true }) {
+                        Image(systemName: "trash")
+                            .foregroundColor(Theme.error.opacity(0.7))
+                            .padding(Theme.Spacing.sm)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundColor(Theme.textSecondary)
+            }
+            .padding(Theme.Spacing.md)
+            .background(Theme.backgroundSecondary)
+            .cornerRadius(Theme.CornerRadius.md)
+        }
+        .buttonStyle(PlainButtonStyle())
         .alert("Delete Exercise?", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive, action: onDelete)
         } message: {
-            Text("This will remove '\(exercise.name)' from your exercise library. This won't affect existing workout history.")
+            Text("Are you sure you want to delete \(exercise.name)?")
         }
     }
 }
 
-/// View displaying exercise history
+/// View displaying exercise history with charts
 struct ExerciseHistoryView: View {
     let exerciseId: Int
     let exerciseName: String
@@ -275,7 +367,7 @@ struct ExerciseHistoryView: View {
 
                     Spacer()
 
-                    Text("3×10 @ \(135 - index * 5) lbs")
+                    Text("3x10 @ \(135 - index * 5) lbs")
                         .font(.subheadline)
                         .foregroundColor(Theme.textSecondary)
                 }
