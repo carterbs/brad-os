@@ -1,0 +1,424 @@
+import Foundation
+
+/// Main API client for Brad OS server
+final class APIClient: APIClientProtocol {
+    // MARK: - Singleton
+
+    static let shared = APIClient()
+
+    // MARK: - Properties
+
+    private let configuration: APIConfiguration
+    private let session: URLSession
+    private let decoder: JSONDecoder
+    private let encoder: JSONEncoder
+
+    // MARK: - Initialization
+
+    init(configuration: APIConfiguration = .default, session: URLSession = .shared) {
+        self.configuration = configuration
+        self.session = session
+
+        // Configure decoder for ISO 8601 dates with fractional seconds
+        self.decoder = JSONDecoder()
+        self.decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let dateString = try container.decode(String.self)
+
+            // Try ISO 8601 with fractional seconds first
+            let formatterWithFractional = ISO8601DateFormatter()
+            formatterWithFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = formatterWithFractional.date(from: dateString) {
+                return date
+            }
+
+            // Try ISO 8601 without fractional seconds
+            let formatterWithoutFractional = ISO8601DateFormatter()
+            formatterWithoutFractional.formatOptions = [.withInternetDateTime]
+            if let date = formatterWithoutFractional.date(from: dateString) {
+                return date
+            }
+
+            // Try date-only format (YYYY-MM-DD)
+            let dateOnlyFormatter = DateFormatter()
+            dateOnlyFormatter.dateFormat = "yyyy-MM-dd"
+            dateOnlyFormatter.timeZone = TimeZone(identifier: "UTC")
+            if let date = dateOnlyFormatter.date(from: dateString) {
+                return date
+            }
+
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Cannot decode date from: \(dateString)"
+            )
+        }
+
+        // Configure encoder for ISO 8601 dates
+        self.encoder = JSONEncoder()
+        self.encoder.dateEncodingStrategy = .iso8601
+    }
+
+    // MARK: - Core Request Methods
+
+    /// Perform GET request and decode response
+    private func get<T: Decodable>(_ path: String, queryItems: [URLQueryItem]? = nil) async throws -> T {
+        let request = try buildRequest(path: path, method: "GET", queryItems: queryItems)
+        return try await performRequest(request)
+    }
+
+    /// Perform GET request that may return null
+    private func getOptional<T: Decodable>(_ path: String, queryItems: [URLQueryItem]? = nil) async throws -> T? {
+        let request = try buildRequest(path: path, method: "GET", queryItems: queryItems)
+        return try await performOptionalRequest(request)
+    }
+
+    /// Perform POST request with body
+    private func post<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+        var request = try buildRequest(path: path, method: "POST")
+        request.httpBody = try encoder.encode(body)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        return try await performRequest(request)
+    }
+
+    /// Perform PUT request with optional body
+    private func put<T: Decodable>(_ path: String) async throws -> T {
+        let request = try buildRequest(path: path, method: "PUT")
+        return try await performRequest(request)
+    }
+
+    /// Perform PUT request with body
+    private func put<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+        var request = try buildRequest(path: path, method: "PUT")
+        request.httpBody = try encoder.encode(body)
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        return try await performRequest(request)
+    }
+
+    /// Perform DELETE request
+    private func delete(_ path: String) async throws {
+        let request = try buildRequest(path: path, method: "DELETE")
+        let (data, response) = try await performDataTask(for: request)
+        try validateResponse(data: data, response: response, allowEmpty: true)
+    }
+
+    // MARK: - Request Building
+
+    private func buildRequest(path: String, method: String, queryItems: [URLQueryItem]? = nil) throws -> URLRequest {
+        var components = URLComponents(url: configuration.baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: true)
+        if let queryItems = queryItems, !queryItems.isEmpty {
+            components?.queryItems = queryItems
+        }
+
+        guard let url = components?.url else {
+            throw APIError.unknown("Invalid URL path: \(path)")
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        return request
+    }
+
+    // MARK: - Response Handling
+
+    private func performDataTask(for request: URLRequest) async throws -> (Data, URLResponse) {
+        do {
+            return try await session.data(for: request)
+        } catch {
+            throw APIError.network(error)
+        }
+    }
+
+    private func performRequest<T: Decodable>(_ request: URLRequest) async throws -> T {
+        let (data, response) = try await performDataTask(for: request)
+        try validateResponse(data: data, response: response)
+
+        do {
+            let apiResponse = try decoder.decode(APIResponse<T>.self, from: data)
+            return apiResponse.data
+        } catch let decodingError {
+            // Log the raw response for debugging
+            #if DEBUG
+            if let jsonString = String(data: data, encoding: .utf8) {
+                print("[APIClient] Failed to decode response: \(jsonString)")
+                print("[APIClient] Decoding error: \(decodingError)")
+            }
+            #endif
+            throw APIError.decoding(decodingError)
+        }
+    }
+
+    private func performOptionalRequest<T: Decodable>(_ request: URLRequest) async throws -> T? {
+        let (data, response) = try await performDataTask(for: request)
+        try validateResponse(data: data, response: response)
+
+        do {
+            // Try to decode as APIResponse<T?>
+            let apiResponse = try decoder.decode(APIResponse<T?>.self, from: data)
+            return apiResponse.data
+        } catch {
+            throw APIError.decoding(error)
+        }
+    }
+
+    private func validateResponse(data: Data, response: URLResponse, allowEmpty: Bool = false) throws {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.network(NSError(domain: "APIClient", code: -1, userInfo: [
+                NSLocalizedDescriptionKey: "Invalid response type"
+            ]))
+        }
+
+        // Success range
+        if (200...299).contains(httpResponse.statusCode) {
+            return
+        }
+
+        // Try to parse error response
+        if let errorResponse = try? decoder.decode(APIErrorResponse.self, from: data) {
+            let code = APIErrorCode(rawValue: errorResponse.error.code) ?? .unknown
+            throw APIError(
+                code: code,
+                message: errorResponse.error.message,
+                statusCode: httpResponse.statusCode,
+                details: errorResponse.error.details?.value
+            )
+        }
+
+        // Fallback error based on status code
+        let message = "Request failed with status \(httpResponse.statusCode)"
+        switch httpResponse.statusCode {
+        case 404:
+            throw APIError.notFound(message)
+        case 400:
+            throw APIError.validation(message)
+        case 409:
+            throw APIError.conflict(message)
+        case 403:
+            throw APIError.forbidden(message)
+        case 500...599:
+            throw APIError.internalError(message)
+        default:
+            throw APIError.unknown(message, statusCode: httpResponse.statusCode)
+        }
+    }
+
+    // MARK: - Workouts
+
+    func getTodaysWorkout() async throws -> Workout? {
+        try await getOptional("/workouts/today")
+    }
+
+    func getWorkout(id: Int) async throws -> Workout {
+        try await get("/workouts/\(id)")
+    }
+
+    func startWorkout(id: Int) async throws -> Workout {
+        try await put("/workouts/\(id)/start")
+    }
+
+    func completeWorkout(id: Int) async throws -> Workout {
+        try await put("/workouts/\(id)/complete")
+    }
+
+    func skipWorkout(id: Int) async throws -> Workout {
+        try await put("/workouts/\(id)/skip")
+    }
+
+    // MARK: - Workout Sets
+
+    func logSet(id: Int, actualReps: Int, actualWeight: Double) async throws -> WorkoutSet {
+        struct LogSetBody: Encodable {
+            let actual_reps: Int
+            let actual_weight: Double
+        }
+        return try await put("/workout-sets/\(id)/log", body: LogSetBody(actual_reps: actualReps, actual_weight: actualWeight))
+    }
+
+    func skipSet(id: Int) async throws -> WorkoutSet {
+        try await put("/workout-sets/\(id)/skip")
+    }
+
+    func unlogSet(id: Int) async throws -> WorkoutSet {
+        try await put("/workout-sets/\(id)/unlog")
+    }
+
+    // MARK: - Exercises
+
+    func getExercises() async throws -> [Exercise] {
+        try await get("/exercises")
+    }
+
+    func getExercise(id: Int) async throws -> Exercise {
+        try await get("/exercises/\(id)")
+    }
+
+    func createExercise(name: String, weightIncrement: Double = 5.0) async throws -> Exercise {
+        struct CreateExerciseBody: Encodable {
+            let name: String
+            let weight_increment: Double
+        }
+        return try await post("/exercises", body: CreateExerciseBody(name: name, weight_increment: weightIncrement))
+    }
+
+    func updateExercise(id: Int, name: String? = nil, weightIncrement: Double? = nil) async throws -> Exercise {
+        struct UpdateExerciseBody: Encodable {
+            let name: String?
+            let weight_increment: Double?
+        }
+        return try await put("/exercises/\(id)", body: UpdateExerciseBody(name: name, weight_increment: weightIncrement))
+    }
+
+    func deleteExercise(id: Int) async throws {
+        try await delete("/exercises/\(id)")
+    }
+
+    func getExerciseHistory(id: Int) async throws -> ExerciseHistory {
+        try await get("/exercises/\(id)/history")
+    }
+
+    // MARK: - Plans
+
+    func getPlans() async throws -> [Plan] {
+        try await get("/plans")
+    }
+
+    func getPlan(id: Int) async throws -> Plan {
+        try await get("/plans/\(id)")
+    }
+
+    func createPlan(name: String, durationWeeks: Int = 6) async throws -> Plan {
+        struct CreatePlanBody: Encodable {
+            let name: String
+            let duration_weeks: Int
+        }
+        return try await post("/plans", body: CreatePlanBody(name: name, duration_weeks: durationWeeks))
+    }
+
+    func updatePlan(id: Int, name: String? = nil, durationWeeks: Int? = nil) async throws -> Plan {
+        struct UpdatePlanBody: Encodable {
+            let name: String?
+            let duration_weeks: Int?
+        }
+        return try await put("/plans/\(id)", body: UpdatePlanBody(name: name, duration_weeks: durationWeeks))
+    }
+
+    func deletePlan(id: Int) async throws {
+        try await delete("/plans/\(id)")
+    }
+
+    // MARK: - Mesocycles
+
+    func getMesocycles() async throws -> [Mesocycle] {
+        try await get("/mesocycles")
+    }
+
+    func getActiveMesocycle() async throws -> Mesocycle? {
+        try await getOptional("/mesocycles/active")
+    }
+
+    func getMesocycle(id: Int) async throws -> Mesocycle {
+        try await get("/mesocycles/\(id)")
+    }
+
+    func createMesocycle(planId: Int, startDate: Date) async throws -> Mesocycle {
+        struct CreateMesocycleBody: Encodable {
+            let plan_id: Int
+            let start_date: String
+        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        let dateString = formatter.string(from: startDate)
+        return try await post("/mesocycles", body: CreateMesocycleBody(plan_id: planId, start_date: dateString))
+    }
+
+    func startMesocycle(id: Int) async throws -> Mesocycle {
+        try await put("/mesocycles/\(id)/start")
+    }
+
+    func completeMesocycle(id: Int) async throws -> Mesocycle {
+        try await put("/mesocycles/\(id)/complete")
+    }
+
+    func cancelMesocycle(id: Int) async throws -> Mesocycle {
+        try await put("/mesocycles/\(id)/cancel")
+    }
+
+    // MARK: - Stretch Sessions
+
+    func getStretchSessions() async throws -> [StretchSession] {
+        try await get("/stretch-sessions")
+    }
+
+    func getLatestStretchSession() async throws -> StretchSession? {
+        try await getOptional("/stretch-sessions/latest")
+    }
+
+    func createStretchSession(_ session: StretchSession) async throws -> StretchSession {
+        // Use a custom body struct to match server expectations
+        struct CreateStretchSessionBody: Encodable {
+            let completed_at: String
+            let total_duration_seconds: Int
+            let regions_completed: Int
+            let regions_skipped: Int
+        }
+
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        let body = CreateStretchSessionBody(
+            completed_at: formatter.string(from: session.completedAt),
+            total_duration_seconds: session.totalDurationSeconds,
+            regions_completed: session.regionsCompleted,
+            regions_skipped: session.regionsSkipped
+        )
+        return try await post("/stretch-sessions", body: body)
+    }
+
+    // MARK: - Meditation Sessions
+
+    func getMeditationSessions() async throws -> [MeditationSession] {
+        try await get("/meditation-sessions")
+    }
+
+    func getLatestMeditationSession() async throws -> MeditationSession? {
+        try await getOptional("/meditation-sessions/latest")
+    }
+
+    func createMeditationSession(_ session: MeditationSession) async throws -> MeditationSession {
+        // Use a custom body struct to match server expectations
+        struct CreateMeditationSessionBody: Encodable {
+            let completed_at: String
+            let session_type: String
+            let planned_duration_seconds: Int
+            let actual_duration_seconds: Int
+            let completed_fully: Bool
+        }
+
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
+        let body = CreateMeditationSessionBody(
+            completed_at: formatter.string(from: session.completedAt),
+            session_type: session.sessionType,
+            planned_duration_seconds: session.plannedDurationSeconds,
+            actual_duration_seconds: session.actualDurationSeconds,
+            completed_fully: session.completedFully
+        )
+        return try await post("/meditation-sessions", body: body)
+    }
+
+    func getMeditationStats() async throws -> MeditationStats {
+        try await get("/meditation-sessions/stats")
+    }
+
+    // MARK: - Calendar
+
+    func getCalendarData(year: Int, month: Int, timezoneOffset: Int? = nil) async throws -> CalendarData {
+        var queryItems: [URLQueryItem]? = nil
+        if let tz = timezoneOffset {
+            queryItems = [URLQueryItem(name: "tz", value: String(tz))]
+        }
+        return try await get("/calendar/\(year)/\(month)", queryItems: queryItems)
+    }
+}
