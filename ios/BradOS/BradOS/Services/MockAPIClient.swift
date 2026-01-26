@@ -418,6 +418,15 @@ final class MockAPIClient: APIClientProtocol {
         return mockStretchSession
     }
 
+    func getStretchSession(id: String) async throws -> StretchSession {
+        await simulateDelay()
+        try checkForError()
+        if let session = mockStretchSession, session.id == id {
+            return session
+        }
+        throw APIError.notFound("Stretch session not found")
+    }
+
     func createStretchSession(_ session: StretchSession) async throws -> StretchSession {
         await simulateDelay()
         try checkForError()

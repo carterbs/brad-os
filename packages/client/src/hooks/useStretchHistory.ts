@@ -20,6 +20,21 @@ import type {
 const API_BASE = '/api/stretch-sessions';
 
 /**
+ * Fetch a stretch session by ID.
+ */
+async function fetchSessionById(id: string): Promise<StretchSessionRecord> {
+  const response = await fetch(`${API_BASE}/${id}`);
+  if (!response.ok) {
+    if (response.status === 404) {
+      throw new Error('Stretch session not found');
+    }
+    throw new Error('Failed to fetch stretch session');
+  }
+  const result = (await response.json()) as ApiResponse<StretchSessionRecord>;
+  return result.data;
+}
+
+/**
  * Fetch the most recent stretch session.
  */
 async function fetchLatestSession(): Promise<StretchSessionRecord | null> {
@@ -51,6 +66,21 @@ async function saveSession(
 
   const result = (await response.json()) as ApiResponse<StretchSessionRecord>;
   return result.data;
+}
+
+/**
+ * Hook to fetch a stretch session by ID.
+ */
+export function useStretchSession(
+  id: string | undefined
+): UseQueryResult<StretchSessionRecord, Error> {
+  const isEnabled = id !== undefined && id.length > 0;
+  return useQuery({
+    queryKey: ['stretch-sessions', id],
+    queryFn: () => fetchSessionById(id ?? ''),
+    enabled: isEnabled,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
 }
 
 /**

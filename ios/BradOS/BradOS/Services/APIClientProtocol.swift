@@ -102,6 +102,9 @@ protocol APIClientProtocol {
     /// Get all stretch sessions
     func getStretchSessions() async throws -> [StretchSession]
 
+    /// Get a specific stretch session by ID
+    func getStretchSession(id: String) async throws -> StretchSession
+
     /// Get the most recent stretch session (nil if none)
     func getLatestStretchSession() async throws -> StretchSession?
 

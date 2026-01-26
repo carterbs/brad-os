@@ -6,7 +6,7 @@ The Calendar & History feature provides users with a visual timeline of their co
 
 The calendar displays a monthly grid where each day shows colored activity indicators (dots) representing different activity types: blue for workouts, teal for stretches, and purple for meditations. When users click on any day, a detail dialog opens showing all activities completed on that date, with formatted summaries specific to each activity type.
 
-The History view extends the Calendar view by adding activity type filters at the top, allowing users to focus on specific activity types. Filtering updates both the visible activity dots on the calendar and the activities shown in day detail dialogs. From the day detail dialog, users can click on workout activities to navigate to the detailed workout view page.
+The History view extends the Calendar view by adding activity type filters at the top, allowing users to focus on specific activity types. Filtering updates both the visible activity dots on the calendar and the activities shown in day detail dialogs. From the day detail dialog, users can click on workout activities to navigate to the detailed workout view page, and click on stretch activities to navigate to the stretch session detail page. Meditation activities close the dialog without navigation since they don't have additional details to display.
 
 ## Requirements
 
@@ -132,16 +132,71 @@ Feature: Activity Item Navigation
     Then the app should navigate to "/lifting/workouts/{workoutId}"
     And the dialog should close
 
-  Scenario: Click stretch activity (no detail page)
+  Scenario: Navigate to stretch session detail page
     Given the day detail dialog shows a stretch activity
     When the user clicks on the stretch activity item
-    Then the dialog should close
-    And no navigation should occur
+    Then the app should navigate to "/stretch-sessions/{sessionId}"
+    And the dialog should close
 
-  Scenario: Click meditation activity (no detail page)
+  Scenario: Click meditation activity (no navigation)
     Given the day detail dialog shows a meditation activity
     When the user clicks on the meditation activity item
     Then the dialog should close
+    And no navigation should occur
+```
+
+### Stretch Session Detail Page
+
+```gherkin
+Feature: Stretch Session Detail View
+
+  Scenario: Display stretch session header
+    Given the user navigates to "/stretch-sessions/{sessionId}"
+    When the page loads
+    Then the page should display the session date and time
+    And the page should show total duration in minutes
+    And the page should show the number of regions completed
+
+  Scenario: Display stretch list
+    Given a stretch session with 6 stretches was completed
+    When the user views the session detail page
+    Then all 6 stretches should be displayed in order
+    And each stretch should show the body region name
+    And each stretch should show the stretch name
+    And each stretch should show the configured duration (60s or 120s)
+
+  Scenario: Display skipped stretch indicator
+    Given a stretch session where "Neck Forward Tilt" was skipped
+    When the user views the session detail page
+    Then the "Neck Forward Tilt" stretch should show a "Skipped" indicator
+    And the skipped stretch should have muted styling
+
+  Scenario: Display partially completed stretch
+    Given a stretch session where one segment of "Shoulder Cross-Body" was skipped
+    When the user views the session detail page
+    Then the stretch should show "1/2 segments" indicator
+
+  Scenario: Navigate back to history
+    Given the user is viewing a stretch session detail page
+    When the user clicks the back button
+    Then the app should navigate back to the history page
+
+  Scenario: Handle invalid session ID
+    Given the user navigates to "/stretch-sessions/invalid-id"
+    When the page loads
+    Then an error message should be displayed
+    And a link to return to history should be shown
+
+  Scenario: Display session summary card
+    Given a stretch session was completed
+    When the user views the session detail page
+    Then a summary card should show:
+      | Field             | Example Value        |
+      | Date              | January 15, 2026     |
+      | Time              | 7:30 AM              |
+      | Total Duration    | 12 min               |
+      | Regions Completed | 4                    |
+      | Regions Skipped   | 1                    |
 ```
 
 ### History Page with Filtering

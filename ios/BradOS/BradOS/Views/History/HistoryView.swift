@@ -9,6 +9,7 @@ struct HistoryView: View {
     @State private var showingDayDetail: Bool = false
     @State private var selectedDayActivities: [CalendarActivity] = []
     @State private var pendingWorkoutId: Int? = nil
+    @State private var pendingStretchSessionId: String? = nil
 
     init(apiClient: APIClientProtocol = APIClient.shared) {
         _viewModel = StateObject(wrappedValue: CalendarViewModel(apiClient: apiClient))
@@ -57,10 +58,22 @@ struct HistoryView: View {
                     onWorkoutTapped: { workoutId in
                         pendingWorkoutId = workoutId
                         showingDayDetail = false
+                    },
+                    onStretchTapped: { sessionId in
+                        pendingStretchSessionId = sessionId
+                        showingDayDetail = false
                     }
                 )
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+            }
+            .navigationDestination(isPresented: Binding(
+                get: { pendingStretchSessionId != nil },
+                set: { if !$0 { pendingStretchSessionId = nil } }
+            )) {
+                if let sessionId = pendingStretchSessionId {
+                    StretchSessionDetailView(sessionId: sessionId)
+                }
             }
             .onChange(of: showingDayDetail) { _, isShowing in
                 // Navigate to workout after sheet dismisses
@@ -327,6 +340,7 @@ struct DayDetailSheet: View {
     let date: Date
     let activities: [CalendarActivity]
     var onWorkoutTapped: ((Int) -> Void)? = nil
+    var onStretchTapped: ((String) -> Void)? = nil
 
     @Environment(\.dismiss) private var dismiss
 
@@ -373,14 +387,24 @@ struct DayDetailSheet: View {
     }
 
     private func handleActivityTap(_ activity: CalendarActivity) {
-        if activity.type == .workout {
+        switch activity.type {
+        case .workout:
             // Extract workout ID from activity.id (format: "workout-123")
             if let workoutIdString = activity.id.split(separator: "-").last,
                let workoutId = Int(workoutIdString) {
                 onWorkoutTapped?(workoutId)
             }
+        case .stretch:
+            // Extract session ID from activity.id (format: "stretch-{uuid}")
+            // The UUID is everything after "stretch-"
+            if activity.id.hasPrefix("stretch-") {
+                let sessionId = String(activity.id.dropFirst("stretch-".count))
+                onStretchTapped?(sessionId)
+            }
+        case .meditation:
+            // No detail page for meditation, just dismiss
+            break
         }
-        // For stretch and meditation, just dismiss
         dismiss()
     }
 }
@@ -390,8 +414,8 @@ struct DayActivityCard: View {
     let activity: CalendarActivity
     var onTap: (() -> Void)? = nil
 
-    private var isWorkout: Bool {
-        activity.type == .workout
+    private var hasDetailView: Bool {
+        activity.type == .workout || activity.type == .stretch
     }
 
     var body: some View {
@@ -413,8 +437,8 @@ struct DayActivityCard: View {
                             .foregroundColor(Theme.textSecondary)
                     }
 
-                    // Show chevron for workouts to indicate navigation
-                    if isWorkout {
+                    // Show chevron for activities with detail views
+                    if hasDetailView {
                         Image(systemName: "chevron.right")
                             .font(.caption)
                             .foregroundColor(Theme.textSecondary)

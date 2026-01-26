@@ -381,6 +381,10 @@ final class APIClient: APIClientProtocol {
         try await getOptional("/stretch-sessions/latest")
     }
 
+    func getStretchSession(id: String) async throws -> StretchSession {
+        try await get("/stretch-sessions/\(id)")
+    }
+
     func createStretchSession(_ session: StretchSession) async throws -> StretchSession {
         // Use a custom body struct to match server expectations (camelCase)
         struct CompletedStretchBody: Encodable {
