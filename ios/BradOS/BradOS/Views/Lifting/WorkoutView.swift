@@ -348,7 +348,7 @@ struct WorkoutView: View {
         for (setId, edit) in state.pendingEdits {
             localSetEdits[setId] = SetEditState(
                 weight: edit.weight ?? 0,
-                reps: edit.reps ?? 0
+                reps: Double(edit.reps ?? 0)
             )
         }
 
@@ -694,17 +694,17 @@ struct ExerciseCard: View {
                 .font(.caption)
                 .foregroundColor(Theme.textSecondary)
 
-                ForEach(exercise.sets, id: \.id) { set in
+                ForEach(exercise.sets, id: \.id) { workoutSet in
                     SetRow(
-                        set: set,
+                        workoutSet: workoutSet,
                         isEditable: isEditable,
-                        localEdit: localEdits[set.id],
+                        localEdit: localEdits[workoutSet.id],
                         onEdited: { weight, reps in
-                            onSetEdited(set.id, weight, reps)
+                            onSetEdited(workoutSet.id, weight, reps)
                         },
-                        onLog: { onLogSet(set) },
-                        onUnlog: { onUnlogSet(set) },
-                        onSkip: { onSkipSet(set) }
+                        onLog: { onLogSet(workoutSet) },
+                        onUnlog: { onUnlogSet(workoutSet) },
+                        onSkip: { onSkipSet(workoutSet) }
                     )
                 }
             }
@@ -757,7 +757,7 @@ struct ExerciseCard: View {
 
 /// Row displaying a single set with edit and action capabilities
 struct SetRow: View {
-    let set: WorkoutSet
+    let workoutSet: WorkoutSet
     let isEditable: Bool
     let localEdit: SetEditState?
     let onEdited: (Double, Int) -> Void
@@ -777,10 +777,10 @@ struct SetRow: View {
                     .fill(statusColor)
                     .frame(width: 28, height: 28)
 
-                Text("\(set.setNumber)")
+                Text("\(workoutSet.setNumber)")
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundColor(set.status == .pending ? Theme.textPrimary : .white)
+                    .foregroundColor(workoutSet.status == .pending ? Theme.textPrimary : .white)
             }
             .frame(width: 40)
 
@@ -795,7 +795,7 @@ struct SetRow: View {
                 .frame(maxWidth: .infinity)
                 .onChange(of: weightText) { _, newValue in
                     if let weight = Double(newValue) {
-                        onEdited(weight, Int(repsText) ?? set.targetReps)
+                        onEdited(weight, Int(repsText) ?? workoutSet.targetReps)
                     }
                 }
 
@@ -810,21 +810,21 @@ struct SetRow: View {
                 .frame(maxWidth: .infinity)
                 .onChange(of: repsText) { _, newValue in
                     if let reps = Int(newValue) {
-                        onEdited(Double(weightText) ?? set.targetWeight, reps)
+                        onEdited(Double(weightText) ?? workoutSet.targetWeight, reps)
                     }
                 }
 
             // Action button
             actionButton
         }
-        .opacity(set.status == .skipped ? 0.5 : (set.status == .completed ? 0.8 : 1))
+        .opacity(workoutSet.status == .skipped ? 0.5 : (workoutSet.status == .completed ? 0.8 : 1))
         .onAppear {
             initializeTextFields()
         }
         .confirmationDialog("Set Actions", isPresented: $showingActions) {
-            if set.status == .completed {
+            if workoutSet.status == .completed {
                 Button("Unlog Set") { onUnlog() }
-            } else if set.status == .pending {
+            } else if workoutSet.status == .pending {
                 Button("Skip Set", role: .destructive) { onSkip() }
             }
             Button("Cancel", role: .cancel) {}
@@ -832,7 +832,7 @@ struct SetRow: View {
     }
 
     private var statusColor: Color {
-        switch set.status {
+        switch workoutSet.status {
         case .completed: return Theme.success
         case .skipped: return Theme.statusSkipped
         case .pending: return Theme.backgroundTertiary
@@ -840,30 +840,30 @@ struct SetRow: View {
     }
 
     private var inputBackground: Color {
-        set.status == .pending ? Theme.backgroundTertiary : Theme.backgroundSecondary
+        workoutSet.status == .pending ? Theme.backgroundTertiary : Theme.backgroundSecondary
     }
 
     private var canEdit: Bool {
-        isEditable && set.status == .pending
+        isEditable && workoutSet.status == .pending
     }
 
     @ViewBuilder
     private var actionButton: some View {
-        if set.status == .pending && isEditable {
+        if workoutSet.status == .pending && isEditable {
             Button(action: onLog) {
                 Image(systemName: "circle")
                     .font(.title2)
                     .foregroundColor(Theme.textSecondary)
             }
             .frame(width: 44)
-        } else if set.status == .completed {
+        } else if workoutSet.status == .completed {
             Button(action: { showingActions = true }) {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.title2)
                     .foregroundColor(Theme.success)
             }
             .frame(width: 44)
-        } else if set.status == .skipped {
+        } else if workoutSet.status == .skipped {
             Image(systemName: "forward.fill")
                 .font(.caption)
                 .foregroundColor(Theme.statusSkipped)
@@ -879,12 +879,12 @@ struct SetRow: View {
         if let edit = localEdit {
             weightText = formatWeight(edit.weight)
             repsText = "\(Int(edit.reps))"
-        } else if set.status == .completed {
-            weightText = formatWeight(set.actualWeight ?? set.targetWeight)
-            repsText = "\(set.actualReps ?? set.targetReps)"
+        } else if workoutSet.status == .completed {
+            weightText = formatWeight(workoutSet.actualWeight ?? workoutSet.targetWeight)
+            repsText = "\(workoutSet.actualReps ?? workoutSet.targetReps)"
         } else {
-            weightText = formatWeight(set.targetWeight)
-            repsText = "\(set.targetReps)"
+            weightText = formatWeight(workoutSet.targetWeight)
+            repsText = "\(workoutSet.targetReps)"
         }
     }
 
