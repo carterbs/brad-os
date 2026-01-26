@@ -1,19 +1,12 @@
 import SwiftUI
 
-/// Stretch session states
-enum StretchSessionState {
-    case setup
-    case active
-    case complete
-}
-
 /// Main stretch view managing session lifecycle
 struct StretchView: View {
     @EnvironmentObject var appState: AppState
+    @StateObject private var sessionManager = StretchSessionManager()
 
-    @State private var sessionState: StretchSessionState = .setup
     @State private var config: StretchSessionConfig = .defaultConfig
-    @State private var completedSession: StretchSession?
+    @State private var showCancelConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -21,44 +14,37 @@ struct StretchView: View {
                 Theme.background
                     .ignoresSafeArea()
 
-                switch sessionState {
-                case .setup:
+                switch sessionManager.status {
+                case .idle:
                     StretchSetupView(
                         config: $config,
                         onStart: startSession
                     )
 
-                case .active:
+                case .active, .paused:
                     StretchActiveView(
-                        config: config,
-                        onComplete: { session in
-                            completedSession = session
-                            sessionState = .complete
-                        },
-                        onCancel: {
-                            sessionState = .setup
-                        }
+                        sessionManager: sessionManager,
+                        onCancel: { showCancelConfirmation = true }
                     )
 
                 case .complete:
-                    if let session = completedSession {
-                        StretchCompleteView(
-                            session: session,
-                            onDone: {
-                                appState.isShowingStretch = false
-                            },
-                            onStartAnother: {
-                                sessionState = .setup
-                            }
-                        )
-                    }
+                    StretchCompleteView(
+                        sessionManager: sessionManager,
+                        onDone: {
+                            sessionManager.reset()
+                            appState.isShowingStretch = false
+                        },
+                        onStartAnother: {
+                            sessionManager.reset()
+                        }
+                    )
                 }
             }
             .navigationTitle("Stretch")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    if sessionState == .setup {
+                    if sessionManager.status == .idle {
                         Button(action: {
                             appState.isShowingStretch = false
                         }) {
@@ -71,11 +57,21 @@ struct StretchView: View {
                     }
                 }
             }
+            .alert("End Session?", isPresented: $showCancelConfirmation) {
+                Button("Continue Stretching", role: .cancel) {}
+                Button("End Session", role: .destructive) {
+                    sessionManager.endSession()
+                }
+            } message: {
+                Text("Are you sure you want to end this stretch session?")
+            }
         }
     }
 
     private func startSession() {
-        sessionState = .active
+        Task {
+            await sessionManager.start(with: config)
+        }
     }
 }
 
@@ -103,6 +99,9 @@ struct StretchSetupView: View {
             }
             .padding(Theme.Spacing.md)
         }
+        .onAppear {
+            spotifyUrl = config.spotifyPlaylistUrl ?? ""
+        }
     }
 
     // MARK: - Region Selection
@@ -127,8 +126,12 @@ struct StretchSetupView: View {
                     RegionToggleCard(
                         region: config.regions[index].region,
                         isEnabled: config.regions[index].enabled,
+                        durationSeconds: config.regions[index].durationSeconds,
                         onToggle: {
                             config.regions[index].enabled.toggle()
+                        },
+                        onDurationToggle: {
+                            config.regions[index].durationSeconds = config.regions[index].durationSeconds == 60 ? 120 : 60
                         }
                     )
                 }
@@ -152,25 +155,29 @@ struct StretchSetupView: View {
     @ViewBuilder
     private var durationSection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            SectionHeader(title: "Duration per Region")
+            SectionHeader(title: "Default Duration")
 
             HStack(spacing: Theme.Spacing.md) {
                 DurationOption(
                     duration: 60,
                     isSelected: config.regions.first?.durationSeconds == 60,
-                    onSelect: { setDuration(60) }
+                    onSelect: { setAllDurations(60) }
                 )
 
                 DurationOption(
                     duration: 120,
                     isSelected: config.regions.first?.durationSeconds == 120,
-                    onSelect: { setDuration(120) }
+                    onSelect: { setAllDurations(120) }
                 )
             }
+
+            Text("Tap individual regions to set custom durations")
+                .font(.caption)
+                .foregroundColor(Theme.textSecondary)
         }
     }
 
-    private func setDuration(_ seconds: Int) {
+    private func setAllDurations(_ seconds: Int) {
         for index in config.regions.indices {
             config.regions[index].durationSeconds = seconds
         }
@@ -188,6 +195,8 @@ struct StretchSetupView: View {
                 .padding(Theme.Spacing.md)
                 .background(Theme.backgroundSecondary)
                 .cornerRadius(Theme.CornerRadius.md)
+                .autocapitalization(.none)
+                .autocorrectionDisabled()
                 .onChange(of: spotifyUrl) { _, newValue in
                     config.spotifyPlaylistUrl = newValue.isEmpty ? nil : newValue
                 }
@@ -216,7 +225,7 @@ struct StretchSetupView: View {
             .buttonStyle(PrimaryButtonStyle())
             .disabled(enabledRegions.isEmpty)
 
-            Text("\(enabledRegions.count) regions • ~\(totalMinutes) minutes")
+            Text("\(enabledRegions.count) regions | ~\(totalMinutes) minutes")
                 .font(.caption)
                 .foregroundColor(Theme.textSecondary)
         }
@@ -224,11 +233,13 @@ struct StretchSetupView: View {
     }
 }
 
-/// Toggle card for a body region
+/// Toggle card for a body region with duration badge
 struct RegionToggleCard: View {
     let region: BodyRegion
     let isEnabled: Bool
+    let durationSeconds: Int
     let onToggle: () -> Void
+    let onDurationToggle: () -> Void
 
     var body: some View {
         Button(action: onToggle) {
@@ -241,6 +252,21 @@ struct RegionToggleCard: View {
                     .foregroundColor(isEnabled ? Theme.textPrimary : Theme.textSecondary)
 
                 Spacer()
+
+                if isEnabled {
+                    // Duration badge - tappable
+                    Button(action: onDurationToggle) {
+                        Text("\(durationSeconds / 60)m")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Theme.stretch.opacity(0.2))
+                            .cornerRadius(4)
+                            .foregroundColor(Theme.stretch)
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                }
 
                 Image(systemName: isEnabled ? "checkmark.circle.fill" : "circle")
                     .foregroundColor(isEnabled ? Theme.stretch : Theme.textSecondary)
@@ -290,24 +316,8 @@ struct DurationOption: View {
 
 /// Active stretch session view
 struct StretchActiveView: View {
-    let config: StretchSessionConfig
-    let onComplete: (StretchSession) -> Void
+    @ObservedObject var sessionManager: StretchSessionManager
     let onCancel: () -> Void
-
-    @State private var currentRegionIndex: Int = 0
-    @State private var timeRemaining: Int = 0
-    @State private var isPaused: Bool = false
-    @State private var skippedRegions: Set<Int> = []
-    @State private var sessionStartTime: Date = Date()
-
-    private var enabledRegions: [StretchRegionConfig] {
-        config.regions.filter { $0.enabled }
-    }
-
-    private var currentRegion: StretchRegionConfig? {
-        guard currentRegionIndex < enabledRegions.count else { return nil }
-        return enabledRegions[currentRegionIndex]
-    }
 
     var body: some View {
         VStack(spacing: Theme.Spacing.xl) {
@@ -317,9 +327,13 @@ struct StretchActiveView: View {
             progressSection
 
             // Current stretch display
-            if let region = currentRegion {
-                currentStretchSection(region)
+            if let stretch = sessionManager.currentStretch,
+               let region = sessionManager.currentRegion {
+                currentStretchSection(stretch: stretch, region: region)
             }
+
+            // Segment indicator
+            segmentIndicator
 
             // Timer
             timerSection
@@ -330,12 +344,6 @@ struct StretchActiveView: View {
             controlsSection
         }
         .padding(Theme.Spacing.md)
-        .onAppear {
-            if let region = currentRegion {
-                timeRemaining = region.durationSeconds
-            }
-            startTimer()
-        }
     }
 
     // MARK: - Progress Section
@@ -343,13 +351,13 @@ struct StretchActiveView: View {
     @ViewBuilder
     private var progressSection: some View {
         VStack(spacing: Theme.Spacing.sm) {
-            Text("Region \(currentRegionIndex + 1) of \(enabledRegions.count)")
+            Text("Stretch \(sessionManager.currentStretchIndex + 1) of \(sessionManager.totalStretches)")
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
 
             // Progress dots
             HStack(spacing: Theme.Spacing.xs) {
-                ForEach(0..<enabledRegions.count, id: \.self) { index in
+                ForEach(0..<sessionManager.totalStretches, id: \.self) { index in
                     Circle()
                         .fill(dotColor(for: index))
                         .frame(width: 8, height: 8)
@@ -359,11 +367,18 @@ struct StretchActiveView: View {
     }
 
     private func dotColor(for index: Int) -> Color {
-        if index < currentRegionIndex {
-            return skippedRegions.contains(index) ? Theme.statusSkipped : Theme.stretch
-        } else if index == currentRegionIndex {
+        if index < sessionManager.currentStretchIndex {
+            // Completed
+            let completed = sessionManager.completedStretches[safe: index]
+            if let completed = completed, completed.skippedSegments == 2 {
+                return Theme.statusSkipped
+            }
+            return Theme.stretch
+        } else if index == sessionManager.currentStretchIndex {
+            // Current
             return Theme.stretch
         } else {
+            // Pending
             return Theme.backgroundTertiary
         }
     }
@@ -371,21 +386,74 @@ struct StretchActiveView: View {
     // MARK: - Current Stretch Section
 
     @ViewBuilder
-    private func currentStretchSection(_ region: StretchRegionConfig) -> some View {
+    private func currentStretchSection(stretch: Stretch, region: BodyRegion) -> some View {
         VStack(spacing: Theme.Spacing.md) {
-            Image(systemName: region.region.iconName)
+            Image(systemName: region.iconName)
                 .font(.system(size: 60))
                 .foregroundColor(Theme.stretch)
 
-            Text(region.region.displayName)
+            Text(stretch.name)
                 .font(.largeTitle)
                 .fontWeight(.bold)
                 .foregroundColor(Theme.textPrimary)
+                .multilineTextAlignment(.center)
 
-            Text("Hold the stretch and breathe deeply")
+            Text(region.displayName)
+                .font(.headline)
+                .foregroundColor(Theme.stretch)
+
+            Text(stretch.description)
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .padding(.horizontal)
         }
+    }
+
+    // MARK: - Segment Indicator
+
+    @ViewBuilder
+    private var segmentIndicator: some View {
+        if let stretch = sessionManager.currentStretch {
+            HStack(spacing: Theme.Spacing.md) {
+                // Segment 1
+                segmentPill(
+                    number: 1,
+                    label: stretch.bilateral ? "Left Side" : "First Half",
+                    isActive: sessionManager.currentSegment == 1
+                )
+
+                // Segment 2
+                segmentPill(
+                    number: 2,
+                    label: stretch.bilateral ? "Right Side" : "Second Half",
+                    isActive: sessionManager.currentSegment == 2
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func segmentPill(number: Int, label: String, isActive: Bool) -> some View {
+        VStack(spacing: 4) {
+            Text("Segment \(number)")
+                .font(.caption2)
+                .foregroundColor(isActive ? Theme.stretch : Theme.textSecondary)
+
+            Text(label)
+                .font(.caption)
+                .fontWeight(isActive ? .semibold : .regular)
+                .foregroundColor(isActive ? Theme.textPrimary : Theme.textSecondary)
+        }
+        .padding(.horizontal, Theme.Spacing.md)
+        .padding(.vertical, Theme.Spacing.sm)
+        .background(isActive ? Theme.stretch.opacity(0.2) : Theme.backgroundSecondary)
+        .cornerRadius(Theme.CornerRadius.sm)
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.sm)
+                .stroke(isActive ? Theme.stretch : Color.clear, lineWidth: 1)
+        )
     }
 
     // MARK: - Timer Section
@@ -398,18 +466,39 @@ struct StretchActiveView: View {
                 .foregroundColor(Theme.textPrimary)
                 .monospacedDigit()
 
-            if isPaused {
+            if sessionManager.status == .paused {
                 Text("PAUSED")
                     .font(.headline)
                     .foregroundColor(Theme.warning)
             }
+
+            // Progress bar for current segment
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Theme.backgroundTertiary)
+
+                    Capsule()
+                        .fill(Theme.stretch)
+                        .frame(width: geometry.size.width * progressFraction)
+                }
+            }
+            .frame(height: 4)
+            .padding(.horizontal, Theme.Spacing.xl)
         }
     }
 
     private var formattedTime: String {
-        let minutes = timeRemaining / 60
-        let seconds = timeRemaining % 60
+        let totalSeconds = Int(sessionManager.segmentRemaining)
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
         return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    private var progressFraction: Double {
+        let total = sessionManager.segmentDuration
+        guard total > 0 else { return 0 }
+        return sessionManager.segmentElapsed / total
     }
 
     // MARK: - Controls Section
@@ -418,32 +507,38 @@ struct StretchActiveView: View {
     private var controlsSection: some View {
         VStack(spacing: Theme.Spacing.md) {
             HStack(spacing: Theme.Spacing.lg) {
-                // Skip button
-                Button(action: skipRegion) {
+                // Skip Segment button
+                Button(action: { sessionManager.skipSegment() }) {
                     VStack {
                         Image(systemName: "forward.fill")
                             .font(.title2)
-                        Text("Skip")
+                        Text("Skip Segment")
                             .font(.caption)
                     }
                     .foregroundColor(Theme.textSecondary)
                 }
 
                 // Pause/Resume button
-                Button(action: togglePause) {
+                Button(action: {
+                    if sessionManager.status == .paused {
+                        sessionManager.resume()
+                    } else {
+                        sessionManager.pause()
+                    }
+                }) {
                     ZStack {
                         Circle()
                             .fill(Theme.stretch)
                             .frame(width: 80, height: 80)
 
-                        Image(systemName: isPaused ? "play.fill" : "pause.fill")
+                        Image(systemName: sessionManager.status == .paused ? "play.fill" : "pause.fill")
                             .font(.title)
                             .foregroundColor(.white)
                     }
                 }
 
                 // End button
-                Button(action: endSession) {
+                Button(action: onCancel) {
                     VStack {
                         Image(systemName: "stop.fill")
                             .font(.title2)
@@ -453,70 +548,20 @@ struct StretchActiveView: View {
                     .foregroundColor(Theme.textSecondary)
                 }
             }
-        }
-    }
 
-    // MARK: - Actions
-
-    private func startTimer() {
-        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { timer in
-            guard !isPaused else { return }
-
-            if timeRemaining > 0 {
-                timeRemaining -= 1
-            } else {
-                // Move to next region
-                if currentRegionIndex < enabledRegions.count - 1 {
-                    currentRegionIndex += 1
-                    if let region = currentRegion {
-                        timeRemaining = region.durationSeconds
-                    }
-                } else {
-                    timer.invalidate()
-                    completeSession()
-                }
+            // Skip entire stretch button
+            Button(action: { sessionManager.skipStretch() }) {
+                Text("Skip Entire Stretch")
+                    .font(.caption)
+                    .foregroundColor(Theme.textSecondary)
             }
         }
-    }
-
-    private func togglePause() {
-        isPaused.toggle()
-    }
-
-    private func skipRegion() {
-        skippedRegions.insert(currentRegionIndex)
-
-        if currentRegionIndex < enabledRegions.count - 1 {
-            currentRegionIndex += 1
-            if let region = currentRegion {
-                timeRemaining = region.durationSeconds
-            }
-        } else {
-            completeSession()
-        }
-    }
-
-    private func endSession() {
-        completeSession()
-    }
-
-    private func completeSession() {
-        let totalDuration = Int(Date().timeIntervalSince(sessionStartTime))
-        let session = StretchSession(
-            id: UUID().uuidString,
-            completedAt: Date(),
-            totalDurationSeconds: totalDuration,
-            regionsCompleted: enabledRegions.count - skippedRegions.count,
-            regionsSkipped: skippedRegions.count,
-            stretches: nil
-        )
-        onComplete(session)
     }
 }
 
 /// Stretch session completion view
 struct StretchCompleteView: View {
-    let session: StretchSession
+    @ObservedObject var sessionManager: StretchSessionManager
     let onDone: () -> Void
     let onStartAnother: () -> Void
 
@@ -536,14 +581,54 @@ struct StretchCompleteView: View {
 
             // Stats
             VStack(spacing: Theme.Spacing.md) {
-                StatRow(label: "Duration", value: session.formattedDuration)
-                StatRow(label: "Regions Completed", value: "\(session.regionsCompleted)")
-                if session.regionsSkipped > 0 {
-                    StatRow(label: "Regions Skipped", value: "\(session.regionsSkipped)")
+                StatRow(label: "Duration", value: formattedDuration)
+                StatRow(label: "Stretches Completed", value: "\(completedCount)")
+                if skippedCount > 0 {
+                    StatRow(label: "Stretches Skipped", value: "\(skippedCount)")
                 }
             }
             .padding(Theme.Spacing.md)
             .cardStyle()
+
+            // Stretch breakdown
+            if !sessionManager.completedStretches.isEmpty {
+                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                    Text("Session Details")
+                        .font(.headline)
+                        .foregroundColor(Theme.textPrimary)
+                        .padding(.bottom, Theme.Spacing.xs)
+
+                    ForEach(sessionManager.completedStretches) { completed in
+                        HStack {
+                            Image(systemName: completed.region.iconName)
+                                .foregroundColor(Theme.stretch)
+                                .frame(width: 24)
+
+                            Text(completed.stretchName)
+                                .font(.subheadline)
+                                .foregroundColor(Theme.textPrimary)
+
+                            Spacer()
+
+                            if completed.skippedSegments == 2 {
+                                Text("Skipped")
+                                    .font(.caption)
+                                    .foregroundColor(Theme.statusSkipped)
+                            } else if completed.skippedSegments == 1 {
+                                Text("Partial")
+                                    .font(.caption)
+                                    .foregroundColor(Theme.warning)
+                            } else {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(Theme.stretch)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+                .padding(Theme.Spacing.md)
+                .cardStyle()
+            }
 
             Spacer()
 
@@ -564,6 +649,27 @@ struct StretchCompleteView: View {
         }
         .padding(Theme.Spacing.md)
     }
+
+    private var formattedDuration: String {
+        guard let startTime = sessionManager.sessionStartTime else {
+            return "0m"
+        }
+        let totalSeconds = Int(Date().timeIntervalSince(startTime))
+        let minutes = totalSeconds / 60
+        let seconds = totalSeconds % 60
+        if seconds == 0 {
+            return "\(minutes)m"
+        }
+        return "\(minutes)m \(seconds)s"
+    }
+
+    private var completedCount: Int {
+        sessionManager.completedStretches.filter { $0.skippedSegments < 2 }.count
+    }
+
+    private var skippedCount: Int {
+        sessionManager.completedStretches.filter { $0.skippedSegments == 2 }.count
+    }
 }
 
 /// Simple stat row for completion view
@@ -580,6 +686,14 @@ struct StatRow: View {
                 .fontWeight(.medium)
                 .foregroundColor(Theme.textPrimary)
         }
+    }
+}
+
+// MARK: - Array Extension
+
+extension Array {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }
 
