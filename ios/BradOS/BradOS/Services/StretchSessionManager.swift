@@ -350,7 +350,7 @@ class StretchSessionManager: ObservableObject {
         }
     }
 
-    /// End the session early
+    /// End the session early (without saving) - resets directly to idle
     func endSession() {
         timer?.cancel()
         timer = nil
@@ -360,7 +360,23 @@ class StretchSessionManager: ObservableObject {
         pauseTimeoutTimer = nil
         audioManager.stopAllAudio()
         audioManager.deactivateSession()
-        finalizeSession()
+        clearNowPlayingInfo()
+        // Reset directly to idle without going through complete state
+        // This ensures no session is saved when ending early
+        status = .idle
+        currentStretchIndex = 0
+        currentSegment = 1
+        segmentRemaining = 0
+        selectedStretches = []
+        completedStretches = []
+        skippedSegments = [:]
+        _sessionStartTime = nil
+        segmentStartedAt = nil
+        pausedElapsed = 0
+        pausedAt = nil
+        spotifyState = .idle
+        isWaitingForSpotifyReturn = false
+        pendingConfig = nil
     }
 
     /// Reset to idle state
