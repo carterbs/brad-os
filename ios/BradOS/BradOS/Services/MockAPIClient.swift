@@ -157,6 +157,37 @@ final class MockAPIClient: APIClientProtocol {
         )
     }
 
+    func addSet(workoutId: Int, exerciseId: Int) async throws -> ModifySetCountResult {
+        await simulateDelay()
+        try checkForError()
+        let newSet = WorkoutSet(
+            id: Int.random(in: 1000...9999),
+            workoutId: workoutId,
+            exerciseId: exerciseId,
+            setNumber: 4,
+            targetReps: 10,
+            targetWeight: 100,
+            actualReps: nil,
+            actualWeight: nil,
+            status: .pending
+        )
+        return ModifySetCountResult(
+            currentWorkoutSet: newSet,
+            futureWorkoutsAffected: 5,
+            futureSetsModified: 5
+        )
+    }
+
+    func removeSet(workoutId: Int, exerciseId: Int) async throws -> ModifySetCountResult {
+        await simulateDelay()
+        try checkForError()
+        return ModifySetCountResult(
+            currentWorkoutSet: nil,
+            futureWorkoutsAffected: 5,
+            futureSetsModified: 5
+        )
+    }
+
     // MARK: - Exercises
 
     func getExercises() async throws -> [Exercise] {

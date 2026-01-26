@@ -1,5 +1,8 @@
 import Foundation
 
+/// Empty body for POST/PUT requests that don't need a body
+private struct EmptyBody: Encodable {}
+
 /// Main API client for Brad OS server
 final class APIClient: APIClientProtocol {
     // MARK: - Singleton
@@ -94,11 +97,17 @@ final class APIClient: APIClientProtocol {
         return try await performRequest(request)
     }
 
-    /// Perform DELETE request
+    /// Perform DELETE request (no response body)
     private func delete(_ path: String) async throws {
         let request = try buildRequest(path: path, method: "DELETE")
         let (data, response) = try await performDataTask(for: request)
         try validateResponse(data: data, response: response, allowEmpty: true)
+    }
+
+    /// Perform DELETE request with response body
+    private func delete<T: Decodable>(_ path: String) async throws -> T {
+        let request = try buildRequest(path: path, method: "DELETE")
+        return try await performRequest(request)
     }
 
     // MARK: - Request Building
@@ -240,6 +249,14 @@ final class APIClient: APIClientProtocol {
 
     func unlogSet(id: Int) async throws -> WorkoutSet {
         try await put("/workout-sets/\(id)/unlog")
+    }
+
+    func addSet(workoutId: Int, exerciseId: Int) async throws -> ModifySetCountResult {
+        try await post("/workouts/\(workoutId)/exercises/\(exerciseId)/sets/add", body: EmptyBody())
+    }
+
+    func removeSet(workoutId: Int, exerciseId: Int) async throws -> ModifySetCountResult {
+        try await delete("/workouts/\(workoutId)/exercises/\(exerciseId)/sets/remove")
     }
 
     // MARK: - Exercises

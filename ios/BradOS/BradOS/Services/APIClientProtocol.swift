@@ -31,6 +31,12 @@ protocol APIClientProtocol {
     /// Unlog a previously logged set (reset to pending)
     func unlogSet(id: Int) async throws -> WorkoutSet
 
+    /// Add a set to an exercise in a workout (also adds to future workouts)
+    func addSet(workoutId: Int, exerciseId: Int) async throws -> ModifySetCountResult
+
+    /// Remove the last pending set from an exercise (also removes from future workouts)
+    func removeSet(workoutId: Int, exerciseId: Int) async throws -> ModifySetCountResult
+
     // MARK: - Exercises
 
     /// Get all exercises
