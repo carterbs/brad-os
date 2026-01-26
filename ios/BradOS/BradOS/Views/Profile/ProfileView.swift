@@ -2,12 +2,7 @@ import SwiftUI
 
 /// User profile and settings view
 struct ProfileView: View {
-    // Placeholder stats - will be replaced with actual data
-    @State private var mesocyclesCompleted: Int = 3
-    @State private var totalMesocycles: Int = 4
-    @State private var totalMeditationSessions: Int = 47
-    @State private var totalMeditationMinutes: Int = 520
-    @State private var notificationsEnabled: Bool = true
+    @StateObject private var viewModel = ProfileViewModel()
 
     var body: some View {
         NavigationStack {
@@ -27,6 +22,12 @@ struct ProfileView: View {
             .background(Theme.background)
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.large)
+            .refreshable {
+                await viewModel.loadStats()
+            }
+            .task {
+                await viewModel.loadStats()
+            }
         }
     }
 
@@ -37,38 +38,73 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             SectionHeader(title: "Statistics")
 
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Theme.Spacing.md) {
-                StatCard(
-                    title: "Mesocycles",
-                    value: "\(mesocyclesCompleted)",
-                    subtitle: "completed",
-                    iconName: "trophy.fill",
-                    color: Theme.lifting
-                )
+            if viewModel.isLoading {
+                // Loading skeleton
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Theme.Spacing.md) {
+                    ForEach(0..<4, id: \.self) { _ in
+                        StatCardSkeleton()
+                    }
+                }
+            } else if let error = viewModel.error {
+                // Error state
+                VStack(spacing: Theme.Spacing.sm) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.largeTitle)
+                        .foregroundColor(Theme.error)
 
-                StatCard(
-                    title: "Total Mesos",
-                    value: "\(totalMesocycles)",
-                    subtitle: "all time",
-                    iconName: "chart.bar.fill",
-                    color: Theme.accent
-                )
+                    Text("Failed to load statistics")
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textPrimary)
 
-                StatCard(
-                    title: "Meditations",
-                    value: "\(totalMeditationSessions)",
-                    subtitle: "sessions",
-                    iconName: "brain.head.profile",
-                    color: Theme.meditation
-                )
+                    Text(error)
+                        .font(.caption)
+                        .foregroundColor(Theme.textSecondary)
 
-                StatCard(
-                    title: "Meditation",
-                    value: "\(totalMeditationMinutes)",
-                    subtitle: "minutes",
-                    iconName: "clock.fill",
-                    color: Theme.meditation
-                )
+                    Button("Retry") {
+                        Task { await viewModel.loadStats() }
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(Theme.accent)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(Theme.Spacing.lg)
+                .background(Theme.backgroundSecondary)
+                .cornerRadius(Theme.CornerRadius.md)
+            } else {
+                // Normal stats grid
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Theme.Spacing.md) {
+                    StatCard(
+                        title: "Mesocycles",
+                        value: "\(viewModel.mesocyclesCompleted)",
+                        subtitle: "completed",
+                        iconName: "trophy.fill",
+                        color: Theme.lifting
+                    )
+
+                    StatCard(
+                        title: "Total Mesos",
+                        value: "\(viewModel.totalMesocycles)",
+                        subtitle: "all time",
+                        iconName: "chart.bar.fill",
+                        color: Theme.accent
+                    )
+
+                    StatCard(
+                        title: "Meditations",
+                        value: "\(viewModel.meditationSessions)",
+                        subtitle: "sessions",
+                        iconName: "brain.head.profile",
+                        color: Theme.meditation
+                    )
+
+                    StatCard(
+                        title: "Meditation",
+                        value: "\(viewModel.meditationMinutes)",
+                        subtitle: "minutes",
+                        iconName: "clock.fill",
+                        color: Theme.meditation
+                    )
+                }
             }
         }
     }
@@ -80,21 +116,11 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             SectionHeader(title: "Settings")
 
+            // Notification Settings Component (will be replaced with NotificationSettingsView)
+            NotificationSettingsView()
+
+            // Other Settings
             VStack(spacing: 0) {
-                // Notifications Toggle
-                SettingsRow(
-                    title: "Notifications",
-                    subtitle: "Rest timer and workout reminders",
-                    iconName: "bell.fill",
-                    iconColor: Theme.warning
-                ) {
-                    Toggle("", isOn: $notificationsEnabled)
-                        .tint(Theme.accent)
-                }
-
-                Divider()
-                    .background(Theme.border)
-
                 // Data Management
                 SettingsRow(
                     title: "Export Data",
@@ -207,6 +233,38 @@ struct StatCard: View {
             RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
                 .stroke(Theme.border, lineWidth: 1)
         )
+    }
+}
+
+/// Loading skeleton for StatCard
+struct StatCardSkeleton: View {
+    @State private var isAnimating = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Theme.border)
+                .frame(width: 20, height: 20)
+
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Theme.border)
+                .frame(width: 60, height: 28)
+
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Theme.border)
+                .frame(width: 80, height: 12)
+        }
+        .padding(Theme.Spacing.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.backgroundSecondary)
+        .cornerRadius(Theme.CornerRadius.md)
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
+                .stroke(Theme.border, lineWidth: 1)
+        )
+        .opacity(isAnimating ? 0.5 : 1.0)
+        .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isAnimating)
+        .onAppear { isAnimating = true }
     }
 }
 

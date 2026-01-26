@@ -44,6 +44,7 @@ targets:
           - audio
         LSApplicationQueriesSchemes:
           - spotify
+        NSUserNotificationsUsageDescription: BradOS uses notifications to alert you when rest timers complete during workouts.
 
 schemes:
   BradOS:
