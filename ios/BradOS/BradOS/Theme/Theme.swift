@@ -164,6 +164,55 @@ struct GlassSecondaryButtonStyle: ButtonStyle {
     }
 }
 
+/// Glass-style circular button for secondary actions
+struct GlassCircleButtonStyle: ButtonStyle {
+    let size: CGFloat
+
+    init(size: CGFloat = 56) {
+        self.size = size
+    }
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(width: size, height: size)
+            .background(.ultraThinMaterial, in: Circle())
+            .overlay(
+                Circle()
+                    .stroke(.white.opacity(0.15), lineWidth: 1)
+            )
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
+/// Glass-style circular button with color tint for primary actions
+struct GlassPrimaryCircleButtonStyle: ButtonStyle {
+    let size: CGFloat
+    let color: Color
+
+    init(size: CGFloat = 80, color: Color = Theme.accent) {
+        self.size = size
+        self.color = color
+    }
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .frame(width: size, height: size)
+            .background(.ultraThinMaterial, in: Circle())
+            .background(
+                Circle()
+                    .fill(configuration.isPressed ? color.opacity(0.5) : color.opacity(0.6))
+            )
+            .overlay(
+                Circle()
+                    .stroke(.white.opacity(0.2), lineWidth: 1)
+            )
+            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
 extension View {
     func cardStyle() -> some View {
         modifier(CardStyle())

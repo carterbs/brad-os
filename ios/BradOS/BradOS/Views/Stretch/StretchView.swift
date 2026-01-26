@@ -818,15 +818,11 @@ struct StretchActiveView: View {
             HStack(spacing: Theme.Spacing.xl) {
                 // Skip Segment button
                 Button(action: { sessionManager.skipSegment() }) {
-                    Circle()
-                        .fill(Theme.backgroundSecondary)
-                        .frame(width: 56, height: 56)
-                        .overlay(
-                            Image(systemName: "forward.fill")
-                                .font(.title3)
-                                .foregroundColor(Theme.textSecondary)
-                        )
+                    Image(systemName: "forward.fill")
+                        .font(.title3)
+                        .foregroundColor(Theme.textSecondary)
                 }
+                .buttonStyle(GlassCircleButtonStyle(size: 56))
                 .accessibilityLabel("Skip Segment")
                 .accessibilityHint("Skip to the next segment of this stretch")
 
@@ -838,29 +834,21 @@ struct StretchActiveView: View {
                         sessionManager.pause()
                     }
                 }) {
-                    Circle()
-                        .fill(Theme.stretch)
-                        .frame(width: 80, height: 80)
-                        .overlay(
-                            Image(systemName: sessionManager.status == .paused ? "play.fill" : "pause.fill")
-                                .font(.title)
-                                .foregroundColor(.white)
-                        )
+                    Image(systemName: sessionManager.status == .paused ? "play.fill" : "pause.fill")
+                        .font(.title)
+                        .foregroundColor(.white)
                 }
+                .buttonStyle(GlassPrimaryCircleButtonStyle(size: 80, color: Theme.stretch))
                 .accessibilityLabel(sessionManager.status == .paused ? "Resume" : "Pause")
                 .accessibilityHint(sessionManager.status == .paused ? "Resume the stretching session" : "Pause the stretching session")
 
                 // End button
                 Button(action: onCancel) {
-                    Circle()
-                        .fill(Theme.backgroundSecondary)
-                        .frame(width: 56, height: 56)
-                        .overlay(
-                            Image(systemName: "stop.fill")
-                                .font(.title3)
-                                .foregroundColor(Theme.textSecondary)
-                        )
+                    Image(systemName: "stop.fill")
+                        .font(.title3)
+                        .foregroundColor(Theme.textSecondary)
                 }
+                .buttonStyle(GlassCircleButtonStyle(size: 56))
                 .accessibilityLabel("End Session")
                 .accessibilityHint("End the stretching session early")
             }
@@ -869,12 +857,8 @@ struct StretchActiveView: View {
             Button(action: { sessionManager.skipStretch() }) {
                 Text("Skip Entire Stretch")
                     .font(.subheadline)
-                    .foregroundColor(Theme.textSecondary)
-                    .padding(.horizontal, Theme.Spacing.lg)
-                    .padding(.vertical, Theme.Spacing.sm)
-                    .background(Theme.backgroundSecondary)
-                    .cornerRadius(Theme.CornerRadius.md)
             }
+            .buttonStyle(GlassSecondaryButtonStyle())
             .accessibilityLabel("Skip Entire Stretch")
             .accessibilityHint("Skip both segments of this stretch and move to the next one")
         }
