@@ -7,17 +7,68 @@ enum MeditationSessionState {
     case complete
 }
 
-/// Breathing phase for meditation
-enum BreathingPhase: String {
+/// Breathing phase for meditation (spec: 4-2-6-2 = 14 second cycle)
+enum BreathingPhase: String, CaseIterable {
     case inhale = "Inhale"
-    case hold = "Hold"
+    case holdIn = "Hold"
     case exhale = "Exhale"
+    case rest = "Rest"
 
     var duration: Double {
         switch self {
         case .inhale: return 4.0
-        case .hold: return 4.0
-        case .exhale: return 4.0
+        case .holdIn: return 2.0
+        case .exhale: return 6.0
+        case .rest: return 2.0
+        }
+    }
+
+    var next: BreathingPhase {
+        switch self {
+        case .inhale: return .holdIn
+        case .holdIn: return .exhale
+        case .exhale: return .rest
+        case .rest: return .inhale
+        }
+    }
+
+    /// Scale factor for the breathing circle (1.0 to 1.8)
+    var targetScale: CGFloat {
+        switch self {
+        case .inhale: return 1.8   // Grows to 1.8
+        case .holdIn: return 1.8   // Stays at 1.8
+        case .exhale: return 1.0   // Shrinks to 1.0
+        case .rest: return 1.0     // Stays at 1.0
+        }
+    }
+
+    /// Starting scale for the phase
+    var startScale: CGFloat {
+        switch self {
+        case .inhale: return 1.0
+        case .holdIn: return 1.8
+        case .exhale: return 1.8
+        case .rest: return 1.0
+        }
+    }
+
+    /// Opacity for the breathing circle (0.6 to 1.0)
+    var targetOpacity: Double {
+        switch self {
+        case .inhale: return 1.0   // Fades to 1.0
+        case .holdIn: return 1.0   // Stays at 1.0
+        case .exhale: return 0.6   // Fades to 0.6
+        case .rest: return 0.6     // Stays at 0.6
+        }
+    }
+
+    /// Starting opacity for the phase
+    var startOpacity: Double {
+        switch self {
+        case .inhale: return 0.6
+        case .holdIn: return 1.0
+        case .exhale: return 1.0
+        case .rest: return 0.6
         }
     }
 }
@@ -25,10 +76,15 @@ enum BreathingPhase: String {
 /// Main meditation view managing session lifecycle
 struct MeditationView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.scenePhase) var scenePhase
 
     @State private var sessionState: MeditationSessionState = .setup
     @State private var selectedDuration: MeditationDuration = .five
     @State private var completedSession: MeditationSession?
+    @State private var showRecoveryPrompt: Bool = false
+    @State private var recoverableSession: MeditationSessionPersisted?
+
+    private let storage = MeditationStorage.shared
 
     var body: some View {
         NavigationStack {
@@ -46,12 +102,15 @@ struct MeditationView: View {
                 case .active:
                     MeditationActiveView(
                         duration: selectedDuration,
+                        recoveredState: recoverableSession,
                         onComplete: { session in
                             completedSession = session
                             sessionState = .complete
+                            storage.clearMeditationState()
                         },
                         onCancel: {
                             sessionState = .setup
+                            storage.clearMeditationState()
                         }
                     )
 
@@ -63,6 +122,7 @@ struct MeditationView: View {
                                 appState.isShowingMeditation = false
                             },
                             onStartAnother: {
+                                recoverableSession = nil
                                 sessionState = .setup
                             }
                         )
@@ -86,10 +146,43 @@ struct MeditationView: View {
                     }
                 }
             }
+            .onAppear {
+                loadSavedPreferences()
+                checkForRecoverableSession()
+            }
+            .alert("Resume Session?", isPresented: $showRecoveryPrompt) {
+                Button("Resume") {
+                    if let recovered = recoverableSession {
+                        selectedDuration = MeditationDuration(rawValue: recovered.durationMinutes) ?? .five
+                        sessionState = .active
+                    }
+                }
+                Button("Start Fresh", role: .cancel) {
+                    recoverableSession = nil
+                    storage.clearMeditationState()
+                }
+            } message: {
+                Text("You have an unfinished meditation session. Would you like to resume?")
+            }
+        }
+    }
+
+    private func loadSavedPreferences() {
+        let config = storage.loadMeditationConfig()
+        selectedDuration = MeditationDuration(rawValue: config.duration) ?? .five
+    }
+
+    private func checkForRecoverableSession() {
+        if let recovered = storage.recoverableSession() {
+            recoverableSession = recovered
+            showRecoveryPrompt = true
         }
     }
 
     private func startSession() {
+        // Save duration preference
+        storage.saveMeditationConfig(MeditationConfig(duration: selectedDuration.rawValue))
+        recoverableSession = nil
         sessionState = .active
     }
 }
@@ -101,6 +194,8 @@ struct MeditationSetupView: View {
 
     // Placeholder last session
     @State private var lastSession: MeditationSession? = MeditationSession.mockRecentSession
+
+    private let storage = MeditationStorage.shared
 
     var body: some View {
         VStack(spacing: Theme.Spacing.xl) {
@@ -144,6 +239,10 @@ struct MeditationSetupView: View {
             .buttonStyle(PrimaryButtonStyle())
         }
         .padding(Theme.Spacing.md)
+        .onChange(of: selectedDuration) { _, newDuration in
+            // Save preference when changed
+            storage.saveMeditationConfig(MeditationConfig(duration: newDuration.rawValue))
+        }
     }
 
     // MARK: - Duration Selection
@@ -223,23 +322,48 @@ struct MeditationDurationOption: View {
     }
 }
 
-/// Active meditation session view
+/// Active meditation session view with timestamp-based timer
 struct MeditationActiveView: View {
     let duration: MeditationDuration
+    let recoveredState: MeditationSessionPersisted?
     let onComplete: (MeditationSession) -> Void
     let onCancel: () -> Void
 
-    @State private var timeRemaining: Int
+    @Environment(\.scenePhase) var scenePhase
+
+    // Timer state - using timestamps for background resilience
+    @State private var sessionStartTime: Date = Date()
+    @State private var pausedElapsed: TimeInterval = 0
+    @State private var pausedAt: Date?
     @State private var isPaused: Bool = false
+    @State private var displayedTimeRemaining: Int = 0
+
+    // Breathing animation state
     @State private var breathingPhase: BreathingPhase = .inhale
     @State private var breathingProgress: Double = 0
-    @State private var sessionStartTime: Date = Date()
+    @State private var circleScale: CGFloat = 1.0
+    @State private var circleOpacity: Double = 0.6
 
-    init(duration: MeditationDuration, onComplete: @escaping (MeditationSession) -> Void, onCancel: @escaping () -> Void) {
+    // Timer for updates
+    @State private var displayTimer: Timer?
+    @State private var breathingTimer: Timer?
+
+    // Audio and storage
+    private let storage = MeditationStorage.shared
+    private let audioEngine = MeditationAudioEngine.shared
+    private let nowPlaying = NowPlayingManager.shared
+
+    init(
+        duration: MeditationDuration,
+        recoveredState: MeditationSessionPersisted? = nil,
+        onComplete: @escaping (MeditationSession) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
         self.duration = duration
+        self.recoveredState = recoveredState
         self.onComplete = onComplete
         self.onCancel = onCancel
-        self._timeRemaining = State(initialValue: duration.seconds)
+        self._displayedTimeRemaining = State(initialValue: duration.seconds)
     }
 
     var body: some View {
@@ -262,8 +386,13 @@ struct MeditationActiveView: View {
         }
         .padding(Theme.Spacing.md)
         .onAppear {
-            startTimer()
-            startBreathingCycle()
+            initializeSession()
+        }
+        .onDisappear {
+            cleanup()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            handleScenePhaseChange(newPhase)
         }
     }
 
@@ -284,8 +413,8 @@ struct MeditationActiveView: View {
     }
 
     private var formattedTime: String {
-        let minutes = timeRemaining / 60
-        let seconds = timeRemaining % 60
+        let minutes = displayedTimeRemaining / 60
+        let seconds = displayedTimeRemaining % 60
         return String(format: "%d:%02d", minutes, seconds)
     }
 
@@ -301,25 +430,13 @@ struct MeditationActiveView: View {
 
             // Animated inner circle
             Circle()
-                .fill(Theme.meditation.opacity(0.3))
-                .frame(width: breathingCircleSize, height: breathingCircleSize)
-                .animation(.easeInOut(duration: breathingPhase.duration), value: breathingProgress)
+                .fill(Theme.meditation.opacity(circleOpacity))
+                .frame(width: 100 * circleScale, height: 100 * circleScale)
 
             // Center dot
             Circle()
                 .fill(Theme.meditation)
                 .frame(width: 20, height: 20)
-        }
-    }
-
-    private var breathingCircleSize: CGFloat {
-        switch breathingPhase {
-        case .inhale:
-            return 80 + (120 * breathingProgress)
-        case .hold:
-            return 200
-        case .exhale:
-            return 200 - (120 * breathingProgress)
         }
     }
 
@@ -376,63 +493,206 @@ struct MeditationActiveView: View {
         }
     }
 
-    // MARK: - Timer Logic
+    // MARK: - Session Lifecycle
 
-    private func startTimer() {
-        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { timer in
-            guard !isPaused else { return }
+    private func initializeSession() {
+        // Recover state if available
+        if let recovered = recoveredState {
+            sessionStartTime = recovered.sessionStartedAt ?? Date()
+            pausedElapsed = recovered.pausedElapsed
+            if recovered.status == .paused {
+                pausedAt = recovered.pausedAt
+                isPaused = true
+            }
+        } else {
+            sessionStartTime = Date()
+            pausedElapsed = 0
+            pausedAt = nil
+            isPaused = false
+        }
 
-            if timeRemaining > 0 {
-                timeRemaining -= 1
-            } else {
-                timer.invalidate()
-                completeSession(fully: true)
+        // Initialize audio
+        Task {
+            do {
+                try await audioEngine.initialize()
+                audioEngine.startKeepalive()
+            } catch {
+                print("Failed to initialize audio: \(error)")
             }
         }
+
+        // Setup lock screen controls
+        nowPlaying.setupRemoteCommands(
+            onPlay: { resumeSession() },
+            onPause: { pauseSession() }
+        )
+
+        // Start timers
+        startDisplayTimer()
+        startBreathingCycle()
+
+        // Save initial state
+        saveSessionState()
+
+        // Update Now Playing
+        updateNowPlaying()
     }
+
+    private func cleanup() {
+        displayTimer?.invalidate()
+        displayTimer = nil
+        breathingTimer?.invalidate()
+        breathingTimer = nil
+        audioEngine.stopAll()
+        nowPlaying.clear()
+    }
+
+    // MARK: - Display Timer
+
+    private func startDisplayTimer() {
+        displayTimer?.invalidate()
+        displayTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            updateDisplayedTime()
+        }
+    }
+
+    private func updateDisplayedTime() {
+        let elapsed = calculateElapsed()
+        let remaining = max(0, Double(duration.seconds) - elapsed)
+        displayedTimeRemaining = Int(remaining)
+
+        if remaining <= 0 {
+            completeSession(fully: true)
+        }
+    }
+
+    private func calculateElapsed() -> TimeInterval {
+        if let pausedAt = pausedAt {
+            // Currently paused - elapsed is time until pause
+            return pausedAt.timeIntervalSince(sessionStartTime) - pausedElapsed
+        } else {
+            // Running - elapsed is time since start minus paused time
+            return Date().timeIntervalSince(sessionStartTime) - pausedElapsed
+        }
+    }
+
+    // MARK: - Breathing Animation
 
     private func startBreathingCycle() {
-        func runPhase(_ phase: BreathingPhase) {
-            guard !isPaused else {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                    runPhase(phase)
-                }
-                return
-            }
+        breathingTimer?.invalidate()
 
-            breathingPhase = phase
-            breathingProgress = 0
+        // Start at correct initial values
+        circleScale = breathingPhase.startScale
+        circleOpacity = breathingPhase.startOpacity
 
-            withAnimation(.linear(duration: phase.duration)) {
-                breathingProgress = 1
-            }
+        runBreathingPhase()
+    }
 
-            DispatchQueue.main.asyncAfter(deadline: .now() + phase.duration) {
-                if timeRemaining > 0 {
-                    let nextPhase: BreathingPhase
-                    switch phase {
-                    case .inhale: nextPhase = .hold
-                    case .hold: nextPhase = .exhale
-                    case .exhale: nextPhase = .inhale
-                    }
-                    runPhase(nextPhase)
-                }
+    private func runBreathingPhase() {
+        guard displayedTimeRemaining > 0 else { return }
+
+        if isPaused {
+            // Check again in a moment when paused
+            breathingTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: false) { _ in
+                runBreathingPhase()
             }
+            return
         }
 
-        runPhase(.inhale)
+        let phase = breathingPhase
+        breathingProgress = 0
+
+        // Animate to target values
+        withAnimation(.easeInOut(duration: phase.duration)) {
+            circleScale = phase.targetScale
+            circleOpacity = phase.targetOpacity
+            breathingProgress = 1
+        }
+
+        // Schedule next phase
+        breathingTimer = Timer.scheduledTimer(withTimeInterval: phase.duration, repeats: false) { _ in
+            if displayedTimeRemaining > 0 {
+                breathingPhase = phase.next
+                runBreathingPhase()
+            }
+        }
     }
 
+    // MARK: - Pause/Resume
+
     private func togglePause() {
-        isPaused.toggle()
+        if isPaused {
+            resumeSession()
+        } else {
+            pauseSession()
+        }
     }
+
+    private func pauseSession() {
+        guard !isPaused else { return }
+
+        isPaused = true
+        pausedAt = Date()
+
+        // Pause audio
+        audioEngine.pause()
+
+        // Update Now Playing
+        nowPlaying.updatePlaybackState(isPlaying: false, elapsedTime: calculateElapsed())
+
+        // Save state
+        saveSessionState()
+    }
+
+    private func resumeSession() {
+        guard isPaused, let pausedAtTime = pausedAt else { return }
+
+        // Accumulate paused time
+        pausedElapsed += Date().timeIntervalSince(pausedAtTime)
+        pausedAt = nil
+        isPaused = false
+
+        // Resume audio
+        audioEngine.resume()
+
+        // Update Now Playing
+        nowPlaying.updatePlaybackState(isPlaying: true, elapsedTime: calculateElapsed())
+
+        // Restart breathing animation from current phase
+        startBreathingCycle()
+
+        // Save state
+        saveSessionState()
+    }
+
+    // MARK: - End Session
 
     private func endSession() {
         completeSession(fully: false)
     }
 
     private func completeSession(fully: Bool) {
-        let actualDuration = Int(Date().timeIntervalSince(sessionStartTime))
+        displayTimer?.invalidate()
+        breathingTimer?.invalidate()
+
+        let actualDuration = Int(calculateElapsed())
+
+        // Stop audio
+        audioEngine.stopAll()
+
+        // Clear now playing
+        nowPlaying.clear()
+
+        // Clear saved state
+        storage.clearMeditationState()
+
+        // Play bell if fully completed
+        if fully {
+            Task {
+                try? await audioEngine.playBell()
+            }
+        }
+
         let session = MeditationSession(
             id: UUID().uuidString,
             completedAt: Date(),
@@ -442,6 +702,53 @@ struct MeditationActiveView: View {
             completedFully: fully
         )
         onComplete(session)
+    }
+
+    // MARK: - State Persistence
+
+    private func saveSessionState() {
+        let state = MeditationSessionPersisted(
+            status: isPaused ? .paused : .active,
+            sessionType: "basic-breathing",
+            durationMinutes: duration.rawValue,
+            sessionStartedAt: sessionStartTime,
+            pausedAt: pausedAt,
+            pausedElapsed: pausedElapsed,
+            scheduledCues: [],  // Will be populated in Phase 5
+            currentPhaseIndex: 0
+        )
+        storage.saveMeditationState(state)
+    }
+
+    // MARK: - Scene Phase Handling
+
+    private func handleScenePhaseChange(_ newPhase: ScenePhase) {
+        switch newPhase {
+        case .active:
+            // App came to foreground - recalculate time
+            updateDisplayedTime()
+            updateNowPlaying()
+        case .background:
+            // Save state when going to background
+            saveSessionState()
+        case .inactive:
+            break
+        @unknown default:
+            break
+        }
+    }
+
+    // MARK: - Now Playing
+
+    private func updateNowPlaying() {
+        let elapsed = calculateElapsed()
+        nowPlaying.updateMetadata(
+            title: "Basic Breathing",
+            phase: breathingPhase.rawValue,
+            duration: Double(duration.seconds),
+            elapsedTime: elapsed,
+            isPlaying: !isPaused
+        )
     }
 }
 
