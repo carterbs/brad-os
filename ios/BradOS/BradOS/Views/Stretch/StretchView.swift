@@ -21,11 +21,18 @@ struct StretchView: View {
 
                 switch sessionManager.status {
                 case .idle:
-                    StretchSetupView(
-                        config: $config,
-                        onStart: startSession,
-                        onConfigChange: saveConfig
-                    )
+                    if sessionManager.isWaitingForSpotifyReturn {
+                        // Waiting for user to return from Spotify
+                        SpotifyWaitView(onCancel: {
+                            sessionManager.cancelSpotifyWait()
+                        })
+                    } else {
+                        StretchSetupView(
+                            config: $config,
+                            onStart: startSession,
+                            onConfigChange: saveConfig
+                        )
+                    }
 
                 case .active, .paused:
                     StretchActiveView(
@@ -1028,6 +1035,47 @@ struct StatRow: View {
                 .fontWeight(.semibold)
                 .foregroundColor(valueColor)
         }
+    }
+}
+
+// MARK: - Spotify Wait View
+
+/// View shown while waiting for user to return from Spotify
+struct SpotifyWaitView: View {
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(spacing: Theme.Spacing.xl) {
+            Spacer()
+
+            // Spotify icon
+            Image(systemName: "music.note.list")
+                .font(.system(size: 60))
+                .foregroundColor(Theme.stretch)
+
+            Text("Opening Spotify...")
+                .font(.title2)
+                .fontWeight(.semibold)
+                .foregroundColor(Theme.textPrimary)
+
+            Text("Come back here when your music is playing")
+                .font(.subheadline)
+                .foregroundColor(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal)
+
+            Spacer()
+
+            // Cancel button
+            Button(action: onCancel) {
+                Text("Start Without Spotify")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.bottom, Theme.Spacing.xl)
+        }
+        .padding(Theme.Spacing.md)
     }
 }
 

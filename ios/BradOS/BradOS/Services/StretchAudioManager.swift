@@ -21,84 +21,166 @@ enum StretchAudioError: Error, LocalizedError {
 }
 
 /// Manages audio playback for stretch narration
-/// Interrupts Spotify during narration and resumes it after completion
+///
+/// Uses a keepalive audio loop pattern (matching PWA) that:
+/// 1. Plays silent audio at low volume to maintain the audio session
+/// 2. Allows Spotify to continue playing alongside stretching
+/// 3. Keeps the app alive when the screen is locked
+/// 4. Plays narration audio on top of the keepalive without pausing it
 @MainActor
 class StretchAudioManager: ObservableObject {
-    private var player: AVPlayer?
-    private var playbackObserver: NSObjectProtocol?
+    /// Player for narration audio clips
+    private var narrationPlayer: AVPlayer?
+    private var narrationObserver: NSObjectProtocol?
+
+    /// Player for silent keepalive loop
+    private var keepalivePlayer: AVPlayer?
+    private var keepaliveObserver: NSObjectProtocol?
+    private var isKeepaliveRunning = false
 
     /// Base path for stretch audio files in bundle
     private let audioBasePath = "Audio/Stretching"
+
+    /// Keepalive volume (matches PWA's 1% / 0.01)
+    private let keepaliveVolume: Float = 0.01
 
     init() {}
 
     deinit {
         Task { @MainActor in
-            stopAudio()
+            stopAllAudio()
         }
     }
 
-    /// Plays narration audio, interrupting Spotify. Returns when clip finishes.
-    /// - Parameter clipPath: Relative path to audio file (e.g., "back/childs-pose-begin.wav")
-    func playNarration(_ clipPath: String) async throws {
-        // Clean up any existing playback
-        stopAudio()
+    // MARK: - Session Lifecycle
 
-        // Configure audio session to interrupt other audio
+    /// Configure and activate the audio session for stretching
+    /// Call this when starting a stretch session
+    func activateSession() throws {
         do {
+            // Use .playback to allow background audio
+            // Use .mixWithOthers to let Spotify continue playing
+            // Use .duckOthers to lower Spotify volume during narration
             try AVAudioSession.sharedInstance().setCategory(
                 .playback,
                 mode: .spokenAudio,
-                options: []
+                options: [.mixWithOthers, .duckOthers]
             )
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
             throw StretchAudioError.sessionConfigurationFailed(error)
         }
+    }
+
+    /// Deactivate the audio session when ending a stretch session
+    func deactivateSession() {
+        stopAllAudio()
+        try? AVAudioSession.sharedInstance().setActive(
+            false,
+            options: .notifyOthersOnDeactivation
+        )
+    }
+
+    // MARK: - Keepalive Loop
+
+    /// Start the silent keepalive audio loop
+    /// This maintains the audio session and keeps the app alive on lock screen
+    func startKeepalive() {
+        guard !isKeepaliveRunning else { return }
+
+        // Find silence audio file
+        guard let silenceURL = findAudioFile("shared/silence-1s.wav") else {
+            #if DEBUG
+            print("[StretchAudioManager] Silence file not found, skipping keepalive")
+            #endif
+            return
+        }
+
+        // Create looping player
+        let playerItem = AVPlayerItem(url: silenceURL)
+        keepalivePlayer = AVPlayer(playerItem: playerItem)
+        keepalivePlayer?.volume = keepaliveVolume
+
+        // Set up loop notification
+        keepaliveObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: playerItem,
+            queue: .main
+        ) { [weak self] _ in
+            // Loop by seeking back to start
+            self?.keepalivePlayer?.seek(to: .zero)
+            self?.keepalivePlayer?.play()
+        }
+
+        keepalivePlayer?.play()
+        isKeepaliveRunning = true
+
+        #if DEBUG
+        print("[StretchAudioManager] Keepalive started")
+        #endif
+    }
+
+    /// Stop the keepalive audio loop
+    func stopKeepalive() {
+        if let observer = keepaliveObserver {
+            NotificationCenter.default.removeObserver(observer)
+            keepaliveObserver = nil
+        }
+        keepalivePlayer?.pause()
+        keepalivePlayer = nil
+        isKeepaliveRunning = false
+
+        #if DEBUG
+        print("[StretchAudioManager] Keepalive stopped")
+        #endif
+    }
+
+    /// Check if keepalive is currently running
+    var isKeepaliveActive: Bool {
+        isKeepaliveRunning
+    }
+
+    // MARK: - Narration Playback
+
+    /// Plays narration audio. Returns when clip finishes.
+    /// Keepalive continues running during narration (matching PWA behavior).
+    /// - Parameter clipPath: Relative path to audio file (e.g., "back/childs-pose-begin.wav")
+    func playNarration(_ clipPath: String) async throws {
+        // Stop any existing narration (but not keepalive)
+        stopNarration()
 
         // Build full path and find in bundle
-        // The clipPath comes as "back/childs-pose-begin.wav"
-        // We need to find it in the bundle (either as nested folders or flat files)
         let url = findAudioFile(clipPath)
         guard let audioURL = url else {
             // Silently skip missing audio files - this allows the app to work
             // even if audio files haven't been bundled yet
-            print("Audio file not found, skipping: \(clipPath)")
-            try await deactivateAudioSession()
+            #if DEBUG
+            print("[StretchAudioManager] Audio file not found, skipping: \(clipPath)")
+            #endif
             return
         }
 
         // Create player
         let playerItem = AVPlayerItem(url: audioURL)
-        player = AVPlayer(playerItem: playerItem)
+        narrationPlayer = AVPlayer(playerItem: playerItem)
 
         // Wait for playback to complete
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            playbackObserver = NotificationCenter.default.addObserver(
+            narrationObserver = NotificationCenter.default.addObserver(
                 forName: .AVPlayerItemDidPlayToEndTime,
                 object: playerItem,
                 queue: .main
             ) { [weak self] _ in
-                self?.removeObserver()
+                self?.removeNarrationObserver()
                 continuation.resume()
             }
 
-            // Also handle playback errors
-            playerItem.addObserver(
-                self as! NSObject,
-                forKeyPath: "status",
-                options: [.new],
-                context: nil
-            )
-
-            player?.play()
+            narrationPlayer?.play()
         }
-
-        // Deactivate session to let Spotify resume
-        try await deactivateAudioSession()
     }
 
     /// Plays narration without waiting for completion (fire-and-forget)
+    /// Timer should NOT wait for this - it runs in parallel.
     /// - Parameter clipPath: Relative path to audio file
     func playNarrationAsync(_ clipPath: String) {
         Task {
@@ -106,33 +188,26 @@ class StretchAudioManager: ObservableObject {
         }
     }
 
-    /// Stop any currently playing audio and deactivate the audio session
-    func stopAudio() {
-        removeObserver()
-        player?.pause()
-        player = nil
+    /// Stop any currently playing narration (but not keepalive)
+    func stopNarration() {
+        removeNarrationObserver()
+        narrationPlayer?.pause()
+        narrationPlayer = nil
+    }
 
-        // Deactivate session to let other audio resume
-        try? AVAudioSession.sharedInstance().setActive(
-            false,
-            options: .notifyOthersOnDeactivation
-        )
+    /// Stop all audio including keepalive
+    func stopAllAudio() {
+        stopNarration()
+        stopKeepalive()
     }
 
     // MARK: - Private Helpers
 
-    private func removeObserver() {
-        if let observer = playbackObserver {
+    private func removeNarrationObserver() {
+        if let observer = narrationObserver {
             NotificationCenter.default.removeObserver(observer)
-            playbackObserver = nil
+            narrationObserver = nil
         }
-    }
-
-    private func deactivateAudioSession() async throws {
-        try AVAudioSession.sharedInstance().setActive(
-            false,
-            options: .notifyOthersOnDeactivation
-        )
     }
 
     /// Find audio file in bundle
@@ -185,15 +260,22 @@ class StretchAudioManager: ObservableObject {
 extension StretchAudioManager {
     /// Open Spotify playlist via deep link
     /// - Parameter urlString: Spotify playlist URL (web or deep link format)
+    /// - Returns: The playlist ID if a valid Spotify URL was found, nil otherwise
     @MainActor
-    func openSpotifyPlaylist(_ urlString: String) {
-        guard !urlString.isEmpty else { return }
+    func openSpotifyPlaylist(_ urlString: String) -> String? {
+        guard !urlString.isEmpty else { return nil }
 
         var spotifyURL: URL?
+        var playlistId: String?
 
         // If it's already a spotify: deep link, use directly
         if urlString.hasPrefix("spotify:") {
             spotifyURL = URL(string: urlString)
+            // Extract ID from spotify:playlist:ID format
+            let components = urlString.components(separatedBy: ":")
+            if components.count >= 3 {
+                playlistId = components[2]
+            }
         }
         // Convert web URL to deep link
         else if let url = URL(string: urlString) {
@@ -203,6 +285,7 @@ extension StretchAudioManager {
                 let type = pathComponents[1]  // "playlist", "album", "track"
                 let id = pathComponents[2]
                 spotifyURL = URL(string: "spotify:\(type):\(id)")
+                playlistId = id
             }
         }
 
@@ -211,12 +294,15 @@ extension StretchAudioManager {
             // First check if Spotify is installed
             if UIApplication.shared.canOpenURL(url) {
                 UIApplication.shared.open(url, options: [:], completionHandler: nil)
+                return playlistId
             } else {
                 // Fallback to web URL
                 if let webURL = URL(string: urlString) {
                     UIApplication.shared.open(webURL, options: [:], completionHandler: nil)
+                    return playlistId
                 }
             }
         }
+        return nil
     }
 }
