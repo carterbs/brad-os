@@ -1,0 +1,90 @@
+{
+  "sessions": [
+    {
+      "id": "basic-breathing",
+      "name": "Basic Breathing",
+      "description": "A simple breathing meditation focusing on natural breath awareness.",
+      "variants": [
+        {
+          "durationMinutes": 5,
+          "phases": [
+            {
+              "type": "intro",
+              "durationSeconds": 30,
+              "fixedCues": [
+                { "atSeconds": 0, "audioFile": "sessions/basic-breathing/intro-welcome.wav" }
+              ]
+            },
+            {
+              "type": "breathing",
+              "durationSeconds": 240,
+              "fixedCues": [],
+              "interjectionWindows": []
+            },
+            {
+              "type": "closing",
+              "durationSeconds": 30,
+              "fixedCues": [
+                { "atSeconds": 0, "audioFile": "sessions/basic-breathing/closing.wav" }
+              ]
+            }
+          ]
+        },
+        {
+          "durationMinutes": 10,
+          "phases": [
+            {
+              "type": "intro",
+              "durationSeconds": 45,
+              "fixedCues": [
+                { "atSeconds": 0, "audioFile": "sessions/basic-breathing/intro-welcome.wav" }
+              ]
+            },
+            {
+              "type": "breathing",
+              "durationSeconds": 525,
+              "fixedCues": [],
+              "interjectionWindows": []
+            },
+            {
+              "type": "closing",
+              "durationSeconds": 30,
+              "fixedCues": [
+                { "atSeconds": 0, "audioFile": "sessions/basic-breathing/closing.wav" }
+              ]
+            }
+          ]
+        },
+        {
+          "durationMinutes": 20,
+          "phases": [
+            {
+              "type": "intro",
+              "durationSeconds": 60,
+              "fixedCues": [
+                { "atSeconds": 0, "audioFile": "sessions/basic-breathing/intro-welcome.wav" }
+              ]
+            },
+            {
+              "type": "breathing",
+              "durationSeconds": 1110,
+              "fixedCues": [],
+              "interjectionWindows": []
+            },
+            {
+              "type": "closing",
+              "durationSeconds": 30,
+              "fixedCues": [
+                { "atSeconds": 0, "audioFile": "sessions/basic-breathing/closing.wav" }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "shared": {
+    "bell": "shared/bell.wav",
+    "silence": "shared/silence.wav"
+  }
+}

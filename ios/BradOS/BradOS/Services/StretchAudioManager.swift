@@ -39,7 +39,7 @@ class StretchAudioManager: ObservableObject {
     private var isKeepaliveRunning = false
 
     /// Base path for stretch audio files in bundle
-    private let audioBasePath = "Audio/Stretching"
+    private let audioBasePath = "Audio/stretching"
 
     /// Keepalive volume (matches PWA's 1% / 0.01)
     private let keepaliveVolume: Float = 0.01
@@ -211,46 +211,41 @@ class StretchAudioManager: ObservableObject {
     }
 
     /// Find audio file in bundle
-    /// Tries multiple strategies to locate the file
+    /// Paths come from manifest like "back/childs-pose-begin.wav" or "shared/switch-sides.wav"
+    /// Files are stored in Audio/stretching/...
     private func findAudioFile(_ clipPath: String) -> URL? {
-        // Strategy 1: Try as full path within Audio/Stretching folder
         let components = clipPath.components(separatedBy: "/")
         let filename = components.last ?? clipPath
         let filenameWithoutExt = (filename as NSString).deletingPathExtension
-        let ext = (filename as NSString).pathExtension
+        let ext = (filename as NSString).pathExtension.isEmpty ? "wav" : (filename as NSString).pathExtension
 
-        // Try with full directory structure
+        // Build subdirectory path: Audio/stretching/{folder}
+        let folder = components.count > 1 ? components.dropLast().joined(separator: "/") : ""
+        let subdirectory = folder.isEmpty ? "Audio/stretching" : "Audio/stretching/\(folder)"
+
+        // Try in the expected location
         if let url = Bundle.main.url(
             forResource: filenameWithoutExt,
             withExtension: ext,
-            subdirectory: "Audio/Stretching/\(components.dropLast().joined(separator: "/"))"
+            subdirectory: subdirectory
         ) {
+            #if DEBUG
+            print("[StretchAudioManager] Found audio: \(clipPath) at \(url.path)")
+            #endif
             return url
         }
 
-        // Strategy 2: Try flat file in Audio/Stretching
-        if let url = Bundle.main.url(
-            forResource: filenameWithoutExt,
-            withExtension: ext,
-            subdirectory: "Audio/Stretching"
-        ) {
-            return url
-        }
-
-        // Strategy 3: Try in Resources/Audio/Stretching
-        if let url = Bundle.main.url(
-            forResource: filenameWithoutExt,
-            withExtension: ext,
-            subdirectory: "Resources/Audio/Stretching"
-        ) {
-            return url
-        }
-
-        // Strategy 4: Try just the filename anywhere in bundle
+        // Fallback: Try just the filename anywhere in bundle
         if let url = Bundle.main.url(forResource: filenameWithoutExt, withExtension: ext) {
+            #if DEBUG
+            print("[StretchAudioManager] Found audio (fallback): \(clipPath) at \(url.path)")
+            #endif
             return url
         }
 
+        #if DEBUG
+        print("[StretchAudioManager] Audio file not found: \(clipPath) (looked in \(subdirectory))")
+        #endif
         return nil
     }
 }

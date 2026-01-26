@@ -23,7 +23,11 @@ targets:
       - path: BradOS
         excludes:
           - "*.xcassets"
+          - "Resources/Audio"
       - path: BradOS/Assets.xcassets
+      - path: BradOS/Resources/Audio
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bradcarter.brad-os
