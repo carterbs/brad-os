@@ -191,14 +191,9 @@ final class WorkoutStateManager: ObservableObject {
 // MARK: - Result Types for API Responses
 
 /// Result from adding or removing sets
+/// Note: Server returns camelCase JSON, so no CodingKeys needed (Swift uses property names)
 struct ModifySetCountResult: Codable {
     let currentWorkoutSet: WorkoutSet?
     let futureWorkoutsAffected: Int
     let futureSetsModified: Int
-
-    enum CodingKeys: String, CodingKey {
-        case currentWorkoutSet = "current_workout_set"
-        case futureWorkoutsAffected = "future_workouts_affected"
-        case futureSetsModified = "future_sets_modified"
-    }
 }

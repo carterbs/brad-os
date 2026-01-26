@@ -409,7 +409,11 @@ struct WorkoutView: View {
         isCompleting = true
 
         do {
-            workout = try await apiClient.completeWorkout(id: workoutId)
+            // Preserve planDayName since the complete API doesn't return it
+            let existingPlanDayName = workout?.planDayName
+            var completedWorkout = try await apiClient.completeWorkout(id: workoutId)
+            completedWorkout.planDayName = existingPlanDayName
+            workout = completedWorkout
             stateManager.clearState()
             dismissRestTimer()
         } catch {
@@ -425,7 +429,11 @@ struct WorkoutView: View {
         isSkipping = true
 
         do {
-            workout = try await apiClient.skipWorkout(id: workoutId)
+            // Preserve planDayName since the skip API doesn't return it
+            let existingPlanDayName = workout?.planDayName
+            var skippedWorkout = try await apiClient.skipWorkout(id: workoutId)
+            skippedWorkout.planDayName = existingPlanDayName
+            workout = skippedWorkout
             stateManager.clearState()
             dismissRestTimer()
         } catch {
