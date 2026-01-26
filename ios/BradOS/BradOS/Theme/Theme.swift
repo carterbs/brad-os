@@ -129,20 +129,19 @@ struct GlassPrimaryButtonStyle: ButtonStyle {
         configuration.label
             .padding(.horizontal, Theme.Spacing.md)
             .padding(.vertical, Theme.Spacing.sm)
-            .background(
-                ZStack {
-                    // Glass blur effect
-                    RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                        .fill(.ultraThinMaterial)
-                    // Accent color overlay
-                    RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                        .fill(configuration.isPressed ? Theme.accentLight.opacity(0.8) : Theme.accent.opacity(0.75))
-                }
-            )
             .foregroundColor(.white)
             .fontWeight(.semibold)
-            .cornerRadius(Theme.CornerRadius.lg)
-            .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: Theme.CornerRadius.lg))
+            .background(
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
+                    .fill(configuration.isPressed ? Theme.accentLight.opacity(0.7) : Theme.accent.opacity(0.6))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
+                    .stroke(.white.opacity(0.2), lineWidth: 1)
+            )
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
@@ -152,19 +151,16 @@ struct GlassSecondaryButtonStyle: ButtonStyle {
         configuration.label
             .padding(.horizontal, Theme.Spacing.md)
             .padding(.vertical, Theme.Spacing.sm)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                    .fill(.ultraThinMaterial)
-                    .opacity(configuration.isPressed ? 0.9 : 1.0)
-            )
             .foregroundColor(Theme.textPrimary)
             .fontWeight(.medium)
-            .cornerRadius(Theme.CornerRadius.lg)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: Theme.CornerRadius.lg))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                    .stroke(Theme.border.opacity(0.5), lineWidth: 1)
+                    .stroke(.white.opacity(0.15), lineWidth: 1)
             )
-            .shadow(color: .black.opacity(0.15), radius: 6, x: 0, y: 3)
+            .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
+            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 

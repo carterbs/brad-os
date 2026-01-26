@@ -241,7 +241,7 @@ struct WorkoutView: View {
     private func floatingActionButtons(_ workout: Workout) -> some View {
         switch workout.status {
         case .pending:
-            HStack(spacing: Theme.Spacing.md) {
+            floatingButtonBar {
                 Button(action: { Task { await startWorkout() } }) {
                     HStack {
                         if isStarting {
@@ -253,24 +253,22 @@ struct WorkoutView: View {
                         Text("Start Workout")
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, Theme.Spacing.md)
+                    .padding(.vertical, Theme.Spacing.sm)
                 }
                 .buttonStyle(GlassPrimaryButtonStyle())
                 .disabled(isStarting)
 
                 Button(action: { showingSkipAlert = true }) {
                     Text("Skip")
-                        .padding(.horizontal, Theme.Spacing.lg)
-                        .padding(.vertical, Theme.Spacing.md)
+                        .padding(.horizontal, Theme.Spacing.md)
+                        .padding(.vertical, Theme.Spacing.sm)
                 }
                 .buttonStyle(GlassSecondaryButtonStyle())
                 .disabled(isSkipping)
             }
-            .padding(.horizontal, Theme.Spacing.md)
-            .padding(.bottom, Theme.Spacing.lg)
 
         case .inProgress:
-            HStack(spacing: Theme.Spacing.md) {
+            floatingButtonBar {
                 Button(action: { showingCompleteAlert = true }) {
                     HStack {
                         if isCompleting {
@@ -282,25 +280,40 @@ struct WorkoutView: View {
                         Text("Complete")
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, Theme.Spacing.md)
+                    .padding(.vertical, Theme.Spacing.sm)
                 }
                 .buttonStyle(GlassPrimaryButtonStyle())
                 .disabled(isCompleting)
 
                 Button(action: { showingSkipAlert = true }) {
                     Text("Skip")
-                        .padding(.horizontal, Theme.Spacing.lg)
-                        .padding(.vertical, Theme.Spacing.md)
+                        .padding(.horizontal, Theme.Spacing.md)
+                        .padding(.vertical, Theme.Spacing.sm)
                 }
                 .buttonStyle(GlassSecondaryButtonStyle())
                 .disabled(isSkipping)
             }
-            .padding(.horizontal, Theme.Spacing.md)
-            .padding(.bottom, Theme.Spacing.lg)
 
         case .completed, .skipped:
             EmptyView()
         }
+    }
+
+    /// Glass container bar for floating buttons
+    @ViewBuilder
+    private func floatingButtonBar<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        HStack(spacing: Theme.Spacing.md) {
+            content()
+        }
+        .padding(.horizontal, Theme.Spacing.md)
+        .padding(.vertical, Theme.Spacing.md)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: Theme.CornerRadius.xl))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.xl)
+                .stroke(.white.opacity(0.1), lineWidth: 1)
+        )
+        .padding(.horizontal, Theme.Spacing.md)
+        .padding(.bottom, Theme.Spacing.md)
     }
 
     // MARK: - Exercises Section
