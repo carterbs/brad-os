@@ -47,9 +47,17 @@ class StretchAudioManager: ObservableObject {
     init() {}
 
     deinit {
-        Task { @MainActor in
-            stopAllAudio()
+        // Clean up observers synchronously - do NOT create a Task here
+        // as it would capture self after deallocation begins, causing
+        // "deallocated with non-zero retain count" crash
+        if let observer = narrationObserver {
+            NotificationCenter.default.removeObserver(observer)
         }
+        if let observer = keepaliveObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        narrationPlayer?.pause()
+        keepalivePlayer?.pause()
     }
 
     // MARK: - Session Lifecycle
