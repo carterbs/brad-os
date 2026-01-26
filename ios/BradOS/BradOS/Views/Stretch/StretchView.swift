@@ -47,9 +47,13 @@ struct StretchView: View {
                     StretchCompleteView(
                         sessionManager: sessionManager,
                         onDone: {
+                            // Important: Set isShowingStretch = false FIRST to dismiss the entire view
+                            // before resetting session state. Otherwise, reset() changes status to .idle,
+                            // which causes the view to switch to StretchSetupView before dismissal,
+                            // leading to navigation corruption that exits the app.
                             sessionStorage.clear()
-                            sessionManager.reset()
                             appState.isShowingStretch = false
+                            sessionManager.reset()
                         },
                         onStartAnother: {
                             sessionStorage.clear()
