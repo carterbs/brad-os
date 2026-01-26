@@ -45,8 +45,18 @@ final class APIClient: APIClientProtocol {
             // Try date-only format (YYYY-MM-DD)
             let dateOnlyFormatter = DateFormatter()
             dateOnlyFormatter.dateFormat = "yyyy-MM-dd"
+            dateOnlyFormatter.locale = Locale(identifier: "en_US_POSIX")
             dateOnlyFormatter.timeZone = TimeZone(identifier: "UTC")
             if let date = dateOnlyFormatter.date(from: dateString) {
+                return date
+            }
+
+            // Try space-separated datetime format (YYYY-MM-DD HH:mm:ss) - SQLite default format
+            let sqliteFormatter = DateFormatter()
+            sqliteFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+            sqliteFormatter.locale = Locale(identifier: "en_US_POSIX")
+            sqliteFormatter.timeZone = TimeZone(identifier: "UTC")
+            if let date = sqliteFormatter.date(from: dateString) {
                 return date
             }
 
