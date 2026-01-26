@@ -85,10 +85,10 @@ class StretchSessionManager: ObservableObject {
     // MARK: - Initialization
 
     init(
-        audioManager: StretchAudioManager = StretchAudioManager(),
+        audioManager: StretchAudioManager? = nil,
         manifestLoader: StretchManifestLoader = .shared
     ) {
-        self.audioManager = audioManager
+        self.audioManager = audioManager ?? StretchAudioManager()
         self.manifestLoader = manifestLoader
         setupRemoteCommandCenter()
     }

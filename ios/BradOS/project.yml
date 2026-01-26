@@ -40,6 +40,10 @@ targets:
         UIUserInterfaceStyle: Dark
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        UIBackgroundModes:
+          - audio
+        LSApplicationQueriesSchemes:
+          - spotify
 
 schemes:
   BradOS:

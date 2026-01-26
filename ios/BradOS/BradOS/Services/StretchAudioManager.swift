@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import UIKit
 
 /// Errors that can occur during audio playback
 enum StretchAudioError: Error, LocalizedError {
