@@ -99,13 +99,13 @@ class CalendarViewModel: ObservableObject {
         return activities
     }
 
-    /// Get recent activities sorted by date (most recent first)
+    /// Get recent activities sorted by completion time (most recent first)
     /// - Parameter limit: Maximum number of activities to return
-    /// - Returns: Array of recent activities sorted by date descending
+    /// - Returns: Array of recent activities sorted by completedAt descending
     func recentActivities(limit: Int = 3) -> [CalendarActivity] {
         activitiesByDate.values
             .flatMap { $0 }
-            .sorted { $0.date > $1.date }
+            .sorted { ($0.completedAt ?? $0.date) > ($1.completedAt ?? $1.date) }
             .prefix(limit)
             .map { $0 }
     }
