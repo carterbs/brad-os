@@ -10,8 +10,14 @@ struct StretchView: View {
     @State private var showRecoveryPrompt = false
     @State private var recoveryInfo: (stretchName: String, regionName: String, progress: String)?
 
+    // Session saving state (managed at parent level like MeditationView)
+    @State private var isSavingSession = false
+    @State private var saveError: String?
+    @State private var hasSavedSession = false
+
     private let configStorage = StretchConfigStorage.shared
     private let sessionStorage = StretchSessionStorage.shared
+    private let apiClient: APIClientProtocol = APIClient.shared
 
     var body: some View {
         NavigationStack {
@@ -46,25 +52,27 @@ struct StretchView: View {
                 case .complete:
                     StretchCompleteView(
                         sessionManager: sessionManager,
+                        isSaving: isSavingSession,
+                        saveError: saveError,
                         onDone: {
-                            // Important: Set isShowingStretch = false FIRST to dismiss the entire view
-                            // before resetting session state. Otherwise, reset() changes status to .idle,
-                            // which causes the view to switch to StretchSetupView before dismissal,
-                            // leading to navigation corruption that exits the app.
-                            sessionStorage.clear()
+                            // Simple dismissal only - cleanup is handled by .onDisappear
+                            // This matches MeditationView's pattern which avoids navigation issues
                             appState.isShowingStretch = false
-                            sessionManager.reset()
                         },
                         onStartAnother: {
                             sessionStorage.clear()
+                            hasSavedSession = false
+                            saveError = nil
                             sessionManager.reset()
+                        },
+                        onRetrySync: {
+                            saveSessionToServer()
                         }
                     )
                 }
             }
-            .navigationTitle(sessionManager.status == .idle ? "Stretch" : "")
+            .navigationTitle("Stretch")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarHidden(sessionManager.status == .active || sessionManager.status == .paused)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     if sessionManager.status == .idle {
@@ -111,6 +119,11 @@ struct StretchView: View {
                 if newStatus == .active || newStatus == .paused {
                     saveSessionState()
                 }
+                // Save session to server when complete (like MeditationView)
+                if newStatus == .complete {
+                    sessionStorage.clear()
+                    saveSessionToServer()
+                }
             }
             .onChange(of: sessionManager.currentStretchIndex) { _, _ in
                 if sessionManager.status == .active || sessionManager.status == .paused {
@@ -121,6 +134,11 @@ struct StretchView: View {
                 if sessionManager.status == .active || sessionManager.status == .paused {
                     saveSessionState()
                 }
+            }
+            .onDisappear {
+                // Clean up session manager when view is dismissed to prevent
+                // lingering timers/observers from causing issues
+                sessionManager.reset()
             }
         }
     }
@@ -153,6 +171,56 @@ struct StretchView: View {
 
     private func saveConfig() {
         configStorage.save(config)
+    }
+
+    private func saveSessionToServer() {
+        guard !hasSavedSession else { return }
+        hasSavedSession = true
+        isSavingSession = true
+        saveError = nil
+
+        // Calculate total duration from session start to now
+        let totalDurationSeconds: Int
+        if let startTime = sessionManager.sessionStartTime {
+            totalDurationSeconds = Int(Date().timeIntervalSince(startTime))
+        } else {
+            // Fallback: sum up individual stretch durations
+            totalDurationSeconds = sessionManager.completedStretches.reduce(0) { $0 + $1.durationSeconds }
+        }
+
+        // Count completed vs skipped
+        let completedCount = sessionManager.completedStretches.filter { $0.skippedSegments < 2 }.count
+        let skippedCount = sessionManager.completedStretches.filter { $0.skippedSegments == 2 }.count
+
+        // Build the session record
+        let session = StretchSession(
+            id: UUID().uuidString,  // Server will assign real ID
+            completedAt: Date(),
+            totalDurationSeconds: totalDurationSeconds,
+            regionsCompleted: completedCount,
+            regionsSkipped: skippedCount,
+            stretches: sessionManager.completedStretches
+        )
+
+        Task {
+            do {
+                _ = try await apiClient.createStretchSession(session)
+                await MainActor.run {
+                    isSavingSession = false
+                }
+                #if DEBUG
+                print("[StretchView] Session saved successfully")
+                #endif
+            } catch {
+                await MainActor.run {
+                    isSavingSession = false
+                    saveError = "Could not save session"
+                }
+                #if DEBUG
+                print("[StretchView] Failed to save session: \(error)")
+                #endif
+            }
+        }
     }
 }
 
@@ -827,29 +895,17 @@ struct StretchActiveView: View {
 }
 
 /// Stretch session completion view
+/// Note: Session saving is handled by the parent StretchView (like MeditationView pattern)
+/// to avoid navigation issues when dismissing while async work is in progress.
 struct StretchCompleteView: View {
     @ObservedObject var sessionManager: StretchSessionManager
+    let isSaving: Bool
+    let saveError: String?
     let onDone: () -> Void
     let onStartAnother: () -> Void
+    let onRetrySync: () -> Void
 
-    @State private var hasSaved = false
-    @State private var saveError: String?
-    @State private var isSaving = false
     @State private var showSuccessAnimation = false
-
-    private let apiClient: APIClientProtocol
-
-    init(
-        sessionManager: StretchSessionManager,
-        onDone: @escaping () -> Void,
-        onStartAnother: @escaping () -> Void,
-        apiClient: APIClientProtocol = APIClient.shared
-    ) {
-        self.sessionManager = sessionManager
-        self.onDone = onDone
-        self.onStartAnother = onStartAnother
-        self.apiClient = apiClient
-    }
 
     var body: some View {
         VStack(spacing: Theme.Spacing.xl) {
@@ -937,24 +993,8 @@ struct StretchCompleteView: View {
 
             Spacer()
 
-            // Save status indicator
-            if isSaving {
-                HStack(spacing: Theme.Spacing.sm) {
-                    ProgressView()
-                        .tint(Theme.textSecondary)
-                    Text("Saving session...")
-                        .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
-                }
-            } else if let error = saveError {
-                HStack(spacing: Theme.Spacing.sm) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundColor(Theme.warning)
-                    Text(error)
-                        .font(.caption)
-                        .foregroundColor(Theme.warning)
-                }
-            }
+            // Save status indicator (matches MeditationCompleteView pattern)
+            syncStatusView
 
             // Actions
             VStack(spacing: Theme.Spacing.md) {
@@ -972,50 +1012,37 @@ struct StretchCompleteView: View {
             }
         }
         .padding(Theme.Spacing.md)
-        .task {
-            await saveSession()
-        }
     }
 
-    // MARK: - API Integration
+    // MARK: - Sync Status
 
-    private func saveSession() async {
-        guard !hasSaved else { return }
-        hasSaved = true
-        isSaving = true
-
-        // Calculate total duration from session start to now
-        let totalDurationSeconds: Int
-        if let startTime = sessionManager.sessionStartTime {
-            totalDurationSeconds = Int(Date().timeIntervalSince(startTime))
-        } else {
-            // Fallback: sum up individual stretch durations
-            totalDurationSeconds = sessionManager.completedStretches.reduce(0) { $0 + $1.durationSeconds }
+    @ViewBuilder
+    private var syncStatusView: some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            if isSaving {
+                ProgressView()
+                    .tint(Theme.stretch)
+                Text("Saving session...")
+                    .font(.caption)
+                    .foregroundColor(Theme.textSecondary)
+            } else if let error = saveError {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(Theme.warning)
+                Text(error)
+                    .font(.caption)
+                    .foregroundColor(Theme.warning)
+                Button("Retry", action: onRetrySync)
+                    .font(.caption)
+                    .foregroundColor(Theme.accent)
+            } else {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(Theme.success)
+                Text("Session saved")
+                    .font(.caption)
+                    .foregroundColor(Theme.textSecondary)
+            }
         }
-
-        // Build the session record
-        let session = StretchSession(
-            id: UUID().uuidString,  // Server will assign real ID
-            completedAt: Date(),
-            totalDurationSeconds: totalDurationSeconds,
-            regionsCompleted: completedCount,
-            regionsSkipped: skippedCount,
-            stretches: sessionManager.completedStretches
-        )
-
-        do {
-            _ = try await apiClient.createStretchSession(session)
-            isSaving = false
-            #if DEBUG
-            print("[StretchCompleteView] Session saved successfully")
-            #endif
-        } catch {
-            isSaving = false
-            saveError = "Could not save session"
-            #if DEBUG
-            print("[StretchCompleteView] Failed to save session: \(error)")
-            #endif
-        }
+        .padding(Theme.Spacing.sm)
     }
 
     // MARK: - Computed Properties
