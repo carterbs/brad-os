@@ -83,8 +83,11 @@ struct MeditationView: View {
     @State private var completedSession: MeditationSession?
     @State private var showRecoveryPrompt: Bool = false
     @State private var recoverableSession: MeditationSessionPersisted?
+    @State private var isSavingSession: Bool = false
+    @State private var saveError: Error?
 
     private let storage = MeditationStorage.shared
+    private let apiService = MeditationAPIService.shared
 
     var body: some View {
         NavigationStack {
@@ -107,6 +110,9 @@ struct MeditationView: View {
                             completedSession = session
                             sessionState = .complete
                             storage.clearMeditationState()
+
+                            // Save session to API
+                            saveSessionToServer(session)
                         },
                         onCancel: {
                             sessionState = .setup
@@ -118,12 +124,17 @@ struct MeditationView: View {
                     if let session = completedSession {
                         MeditationCompleteView(
                             session: session,
+                            isSaving: isSavingSession,
+                            saveError: saveError,
                             onDone: {
                                 appState.isShowingMeditation = false
                             },
                             onStartAnother: {
                                 recoverableSession = nil
                                 sessionState = .setup
+                            },
+                            onRetrySync: {
+                                saveSessionToServer(session)
                             }
                         )
                     }
@@ -185,6 +196,26 @@ struct MeditationView: View {
         recoverableSession = nil
         sessionState = .active
     }
+
+    private func saveSessionToServer(_ session: MeditationSession) {
+        isSavingSession = true
+        saveError = nil
+
+        Task {
+            do {
+                _ = try await apiService.saveSession(session)
+                await MainActor.run {
+                    isSavingSession = false
+                    saveError = nil
+                }
+            } catch {
+                await MainActor.run {
+                    isSavingSession = false
+                    saveError = error
+                }
+            }
+        }
+    }
 }
 
 /// Setup view for configuring meditation session
@@ -192,10 +223,11 @@ struct MeditationSetupView: View {
     @Binding var selectedDuration: MeditationDuration
     let onStart: () -> Void
 
-    // Placeholder last session
-    @State private var lastSession: MeditationSession? = MeditationSession.mockRecentSession
+    @State private var lastSession: MeditationSession?
+    @State private var isLoadingLastSession: Bool = false
 
     private let storage = MeditationStorage.shared
+    private let apiService = MeditationAPIService.shared
 
     var body: some View {
         VStack(spacing: Theme.Spacing.xl) {
@@ -222,7 +254,10 @@ struct MeditationSetupView: View {
             durationSelectionSection
 
             // Last Session Info
-            if let lastSession = lastSession {
+            if isLoadingLastSession {
+                ProgressView()
+                    .tint(Theme.meditation)
+            } else if let lastSession = lastSession {
                 lastSessionSection(lastSession)
             }
 
@@ -239,9 +274,33 @@ struct MeditationSetupView: View {
             .buttonStyle(PrimaryButtonStyle())
         }
         .padding(Theme.Spacing.md)
+        .onAppear {
+            fetchLastSession()
+        }
         .onChange(of: selectedDuration) { _, newDuration in
             // Save preference when changed
             storage.saveMeditationConfig(MeditationConfig(duration: newDuration.rawValue))
+        }
+    }
+
+    // MARK: - API
+
+    private func fetchLastSession() {
+        isLoadingLastSession = true
+        Task {
+            do {
+                let session = try await apiService.fetchLatestSession()
+                await MainActor.run {
+                    lastSession = session
+                    isLoadingLastSession = false
+                }
+            } catch {
+                await MainActor.run {
+                    // If fetch fails, just don't show last session
+                    lastSession = nil
+                    isLoadingLastSession = false
+                }
+            }
         }
     }
 
@@ -894,8 +953,11 @@ struct MeditationActiveView: View {
 /// Meditation session completion view
 struct MeditationCompleteView: View {
     let session: MeditationSession
+    let isSaving: Bool
+    let saveError: Error?
     let onDone: () -> Void
     let onStartAnother: () -> Void
+    let onRetrySync: () -> Void
 
     var body: some View {
         VStack(spacing: Theme.Spacing.xl) {
@@ -927,6 +989,9 @@ struct MeditationCompleteView: View {
             .padding(Theme.Spacing.md)
             .cardStyle()
 
+            // Sync Status
+            syncStatusView
+
             Spacer()
 
             // Actions
@@ -945,6 +1010,37 @@ struct MeditationCompleteView: View {
             }
         }
         .padding(Theme.Spacing.md)
+    }
+
+    // MARK: - Sync Status
+
+    @ViewBuilder
+    private var syncStatusView: some View {
+        HStack(spacing: Theme.Spacing.sm) {
+            if isSaving {
+                ProgressView()
+                    .tint(Theme.meditation)
+                Text("Saving session...")
+                    .font(.caption)
+                    .foregroundColor(Theme.textSecondary)
+            } else if let error = saveError {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(Theme.warning)
+                Text("Failed to save")
+                    .font(.caption)
+                    .foregroundColor(Theme.warning)
+                Button("Retry", action: onRetrySync)
+                    .font(.caption)
+                    .foregroundColor(Theme.accent)
+            } else {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundColor(Theme.success)
+                Text("Session saved")
+                    .font(.caption)
+                    .foregroundColor(Theme.textSecondary)
+            }
+        }
+        .padding(Theme.Spacing.sm)
     }
 }
 
