@@ -55,6 +55,20 @@ struct ExerciseHistoryEntry: Codable, Identifiable {
         case weekNumber = "week_number"
         case sets
     }
+
+    /// Best weight achieved in this entry (max actual_weight from completed sets)
+    var bestWeight: Double {
+        sets.compactMap { $0.actualWeight }.max() ?? sets.first?.targetWeight ?? 0
+    }
+
+    /// Best reps achieved at best weight
+    var bestSetReps: Int {
+        let maxWeight = bestWeight
+        return sets
+            .filter { $0.actualWeight == maxWeight }
+            .compactMap { $0.actualReps }
+            .max() ?? sets.first?.targetReps ?? 0
+    }
 }
 
 /// A set within exercise history

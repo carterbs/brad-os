@@ -19,6 +19,38 @@ struct Exercise: Identifiable, Codable, Hashable {
     }
 }
 
+// MARK: - DTOs
+
+/// Request body for POST /api/exercises
+struct CreateExerciseDTO: Encodable {
+    let name: String
+    let weightIncrement: Double
+    let isCustom: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case weightIncrement = "weight_increment"
+        case isCustom = "is_custom"
+    }
+
+    init(name: String, weightIncrement: Double = 5.0) {
+        self.name = name
+        self.weightIncrement = weightIncrement
+        self.isCustom = true
+    }
+}
+
+/// Request body for PUT /api/exercises/:id
+struct UpdateExerciseDTO: Encodable {
+    let name: String?
+    let weightIncrement: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case weightIncrement = "weight_increment"
+    }
+}
+
 // MARK: - Mock Data
 extension Exercise {
     static let mockExercises: [Exercise] = [
