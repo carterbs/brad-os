@@ -10,6 +10,10 @@ struct BradOSApp: App {
                 .environmentObject(appState)
                 .environment(\.apiClient, APIClient.shared)
                 .preferredColorScheme(.dark)
+                .onAppear {
+                    // Request notification permission for rest timer
+                    RestTimerManager.requestNotificationPermission()
+                }
         }
     }
 }

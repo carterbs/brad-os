@@ -23,11 +23,12 @@ struct WorkoutView: View {
     // Local edit state (set ID -> edited values)
     @State private var localSetEdits: [Int: SetEditState] = [:]
 
-    // Rest timer state
-    @State private var activeRestTimer: RestTimerState?
+    // Full-screen timer overlay
+    @State private var showingTimerOverlay = false
 
-    // State manager for persistence
+    // Managers for persistence and timer
     @StateObject private var stateManager = WorkoutStateManager()
+    @StateObject private var restTimer = RestTimerManager()
 
     var body: some View {
         ZStack {
@@ -44,15 +45,32 @@ struct WorkoutView: View {
             }
             .background(Theme.background)
 
-            // Rest Timer Overlay
-            if let timer = activeRestTimer {
+            // Rest Timer Bar (compact, at bottom)
+            if restTimer.isActive && !showingTimerOverlay {
                 VStack {
                     Spacer()
-                    RestTimerView(state: timer) {
-                        dismissRestTimer()
-                    }
+                    RestTimerBar(
+                        elapsedSeconds: restTimer.elapsedSeconds,
+                        targetSeconds: restTimer.targetSeconds,
+                        isComplete: restTimer.isComplete,
+                        onTap: { showingTimerOverlay = true },
+                        onDismiss: { dismissRestTimer() }
+                    )
                 }
             }
+
+            // Rest Timer Overlay (full screen)
+            if showingTimerOverlay && restTimer.isActive {
+                RestTimerOverlay(
+                    elapsedSeconds: restTimer.elapsedSeconds,
+                    targetSeconds: restTimer.targetSeconds,
+                    isComplete: restTimer.isComplete,
+                    onDismiss: { showingTimerOverlay = false }
+                )
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
+            restTimer.handleForeground()
         }
         .navigationTitle(workout?.planDayName ?? "Workout")
         .navigationBarTitleDisplayMode(.inline)
@@ -151,7 +169,7 @@ struct WorkoutView: View {
             }
         }
         .padding(Theme.Spacing.md)
-        .padding(.bottom, activeRestTimer != nil ? 100 : 0)
+        .padding(.bottom, restTimer.isActive ? 100 : 0)
     }
 
     // MARK: - Header
@@ -322,9 +340,11 @@ struct WorkoutView: View {
             let elapsed = Int(Date().timeIntervalSince(timerState.startedAt))
             // Only restore if within 5 minutes of target
             if elapsed < timerState.targetSeconds + 300 {
-                activeRestTimer = RestTimerState(
+                restTimer.restore(
+                    startedAt: timerState.startedAt,
                     targetSeconds: timerState.targetSeconds,
-                    startedAt: timerState.startedAt
+                    exerciseId: timerState.exerciseId,
+                    setNumber: timerState.setNumber
                 )
             }
         }
@@ -556,12 +576,15 @@ struct WorkoutView: View {
     // MARK: - Rest Timer
 
     private func startRestTimer(targetSeconds: Int, exerciseId: Int, setNumber: Int) {
-        let startedAt = Date()
-        activeRestTimer = RestTimerState(targetSeconds: targetSeconds, startedAt: startedAt)
+        restTimer.start(
+            targetSeconds: targetSeconds,
+            exerciseId: exerciseId,
+            setNumber: setNumber
+        )
 
         // Persist timer state
         let timerState = StoredTimerState(
-            startedAt: startedAt,
+            startedAt: Date(),
             targetSeconds: targetSeconds,
             exerciseId: exerciseId,
             setNumber: setNumber
@@ -570,8 +593,9 @@ struct WorkoutView: View {
     }
 
     private func dismissRestTimer() {
-        activeRestTimer = nil
+        restTimer.dismiss()
         stateManager.clearTimerState()
+        showingTimerOverlay = false
     }
 }
 
@@ -834,103 +858,6 @@ struct SetRow: View {
             return "\(Int(weight))"
         }
         return String(format: "%.1f", weight)
-    }
-}
-
-/// Rest timer state
-struct RestTimerState {
-    let targetSeconds: Int
-    let startedAt: Date
-
-    var elapsedSeconds: Int {
-        Int(Date().timeIntervalSince(startedAt))
-    }
-
-    var remainingSeconds: Int {
-        max(0, targetSeconds - elapsedSeconds)
-    }
-
-    var isComplete: Bool {
-        elapsedSeconds >= targetSeconds
-    }
-}
-
-/// Rest timer overlay view
-struct RestTimerView: View {
-    let state: RestTimerState
-    let onDismiss: () -> Void
-
-    @State private var elapsedSeconds: Int = 0
-    @State private var timer: Timer?
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Rest Timer")
-                    .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
-
-                Text(formattedTime)
-                    .font(.title)
-                    .fontWeight(.bold)
-                    .foregroundColor(isComplete ? Theme.success : Theme.textPrimary)
-                    .monospacedDigit()
-            }
-
-            Spacer()
-
-            if isComplete {
-                Text("Ready!")
-                    .font(.headline)
-                    .foregroundColor(Theme.success)
-            }
-
-            Button(action: onDismiss) {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.title2)
-                    .foregroundColor(Theme.textSecondary)
-            }
-        }
-        .padding(Theme.Spacing.md)
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.md)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                .stroke(isComplete ? Theme.success : Theme.accent, lineWidth: 2)
-        )
-        .padding(Theme.Spacing.md)
-        .shadow(color: .black.opacity(0.3), radius: 10)
-        .onAppear {
-            startTimer()
-        }
-        .onDisappear {
-            timer?.invalidate()
-        }
-    }
-
-    private var isComplete: Bool {
-        elapsedSeconds >= state.targetSeconds
-    }
-
-    private var formattedTime: String {
-        let displaySeconds: Int
-        if isComplete {
-            // Show overtime
-            displaySeconds = elapsedSeconds - state.targetSeconds
-        } else {
-            displaySeconds = state.targetSeconds - elapsedSeconds
-        }
-        let minutes = displaySeconds / 60
-        let seconds = displaySeconds % 60
-        let prefix = isComplete ? "+" : ""
-        return "\(prefix)\(minutes):\(String(format: "%02d", seconds))"
-    }
-
-    private func startTimer() {
-        elapsedSeconds = state.elapsedSeconds
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            elapsedSeconds = state.elapsedSeconds
-        }
     }
 }
 
