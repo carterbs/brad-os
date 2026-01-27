@@ -1,8 +1,10 @@
 import express from 'express';
 import cors from 'cors';
+import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
 
 const app = express();
 app.use(cors({ origin: true }));
+app.use(stripPathPrefix('health'));
 
 app.get('/', (_req, res) => {
   res.json({

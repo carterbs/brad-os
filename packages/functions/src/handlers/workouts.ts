@@ -15,6 +15,7 @@ import {
 } from '@brad-os/shared';
 import { validate } from '../middleware/validate.js';
 import { errorHandler, NotFoundError, ValidationError } from '../middleware/error-handler.js';
+import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
 import {
   WorkoutRepository,
   WorkoutSetRepository,
@@ -29,6 +30,7 @@ import { getFirestoreDb } from '../firebase.js';
 const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
+app.use(stripPathPrefix('workouts'));
 
 // Lazy repository initialization
 let workoutRepo: WorkoutRepository | null = null;

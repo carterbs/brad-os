@@ -33,12 +33,25 @@ export function getFirestoreDb(): Firestore {
 }
 
 /**
+ * Detect environment based on Cloud Function name.
+ * Functions prefixed with 'dev' use dev collections.
+ * Functions prefixed with 'prod' use production collections.
+ */
+export function getEnvironment(): 'dev' | 'prod' {
+  // K_SERVICE is the function name in Cloud Functions v2
+  // FUNCTION_NAME is for v1 (fallback)
+  const functionName = process.env.K_SERVICE || process.env.FUNCTION_NAME || '';
+  return functionName.startsWith('dev') ? 'dev' : 'prod';
+}
+
+/**
  * Get the prefixed collection name based on environment.
- * Cloud Functions run in production - no prefix needed.
- * For staging/dev environments, use different Firebase projects.
+ * Dev functions use 'dev_' prefix (e.g., dev_exercises).
+ * Prod functions use no prefix (e.g., exercises).
  */
 export function getCollectionName(baseName: string): string {
-  return baseName;
+  const env = getEnvironment();
+  return env === 'dev' ? `dev_${baseName}` : baseName;
 }
 
 export { type Firestore };

@@ -9,12 +9,14 @@ import {
 } from '@brad-os/shared';
 import { validate } from '../middleware/validate.js';
 import { errorHandler, NotFoundError, ValidationError, ConflictError } from '../middleware/error-handler.js';
+import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
 import { MesocycleService } from '../services/mesocycle.service.js';
 import { getFirestoreDb } from '../firebase.js';
 
 const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
+app.use(stripPathPrefix('mesocycles'));
 
 // Lazy service initialization
 let mesocycleService: MesocycleService | null = null;

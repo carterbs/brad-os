@@ -1,4 +1,5 @@
 import type { Firestore, WriteBatch } from 'firebase-admin/firestore';
+import { getCollectionName } from '../firebase.js';
 import type {
   Mesocycle,
   CreateMesocycleRequest,
@@ -364,7 +365,7 @@ export class MesocycleService {
     // Now batch create all sets
     let batch: WriteBatch = this.db.batch();
     let writeCount = 0;
-    const workoutSetsCollection = this.db.collection('workout_sets');
+    const workoutSetsCollection = this.db.collection(getCollectionName('workout_sets'));
 
     for (let i = 0; i < workoutsToCreate.length; i++) {
       const workoutId = workoutIds[i];

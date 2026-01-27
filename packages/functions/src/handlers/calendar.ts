@@ -7,10 +7,12 @@ import {
 } from '@brad-os/shared';
 import { getCalendarService } from '../services/index.js';
 import { errorHandler } from '../middleware/error-handler.js';
+import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
 
 const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
+app.use(stripPathPrefix('calendar'));
 
 /**
  * Validate year parameter - must be a valid 4-digit year (1000-9999)

@@ -3,12 +3,14 @@ import cors from 'cors';
 import { createStretchSessionSchema } from '@brad-os/shared';
 import { validate } from '../middleware/validate.js';
 import { errorHandler, NotFoundError } from '../middleware/error-handler.js';
+import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
 import { StretchSessionRepository } from '../repositories/stretchSession.repository.js';
 import { getFirestoreDb } from '../firebase.js';
 
 const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
+app.use(stripPathPrefix('stretch-sessions'));
 
 // Lazy repository initialization
 let repo: StretchSessionRepository | null = null;
