@@ -580,6 +580,80 @@ describe('DynamicProgressionService', () => {
   });
 
   describe('edge cases', () => {
+    it('should handle undefined minReps/maxReps by using defaults (8/12)', () => {
+      // This tests the scenario where plan_day_exercises don't have min_reps/max_reps set
+      // The workout.service.ts should provide defaults of 8/12 when building ExerciseProgression
+      const exerciseWithDefaults: ExerciseProgression = {
+        exerciseId: 'exercise-1',
+        planExerciseId: 'plan-exercise-1',
+        baseWeight: 100,
+        baseReps: 10,
+        baseSets: 3,
+        weightIncrement: 5,
+        minReps: 8, // Default when plan_day_exercises.min_reps is undefined
+        maxReps: 12, // Default when plan_day_exercises.max_reps is undefined
+      };
+
+      const prevPerf: PreviousWeekPerformance = {
+        exerciseId: 'exercise-1',
+        weekNumber: 1,
+        targetWeight: 100,
+        targetReps: 10,
+        actualWeight: 100,
+        actualReps: 10,
+        hitTarget: true,
+        consecutiveFailures: 0,
+      };
+
+      const result = service.calculateNextWeekTargets(
+        exerciseWithDefaults,
+        prevPerf,
+        false
+      );
+
+      // Should work correctly with default values
+      expect(result.targetReps).toBe(11);
+      expect(result.targetWeight).toBe(100);
+      expect(result.reason).toBe('hit_target');
+      // Verify targetReps is a valid number (not NaN)
+      expect(Number.isNaN(result.targetReps)).toBe(false);
+    });
+
+    it('should produce NaN when minReps/maxReps are NaN (demonstrates bug without defaults)', () => {
+      // This test documents what happens WITHOUT the defaults
+      // When undefined values flow through, they become NaN
+      const exerciseWithNaN: ExerciseProgression = {
+        exerciseId: 'exercise-1',
+        planExerciseId: 'plan-exercise-1',
+        baseWeight: 100,
+        baseReps: 10,
+        baseSets: 3,
+        weightIncrement: 5,
+        minReps: NaN, // What happens when pde.min_reps is undefined
+        maxReps: NaN, // What happens when pde.max_reps is undefined
+      };
+
+      const prevPerf: PreviousWeekPerformance = {
+        exerciseId: 'exercise-1',
+        weekNumber: 1,
+        targetWeight: 100,
+        targetReps: 10,
+        actualWeight: 100,
+        actualReps: 10,
+        hitTarget: true,
+        consecutiveFailures: 0,
+      };
+
+      const result = service.calculateNextWeekTargets(
+        exerciseWithNaN,
+        prevPerf,
+        false
+      );
+
+      // With NaN maxReps, Math.min(targetReps + 1, NaN) returns NaN
+      expect(Number.isNaN(result.targetReps)).toBe(true);
+    });
+
     it('should handle weight increment with decimals', () => {
       const exercise = { ...baseExercise, weightIncrement: 2.5 };
       const prevPerf: PreviousWeekPerformance = {

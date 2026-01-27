@@ -191,7 +191,7 @@ export class WorkoutService {
         firstSet.targetWeight,
         firstSet.targetReps,
         sets.map((s) => ({ actualWeight: s.actualWeight, actualReps: s.actualReps })),
-        pde.min_reps,
+        pde.min_reps ?? 8,
         exerciseHistory
       );
 
@@ -323,8 +323,8 @@ export class WorkoutService {
         baseReps: pde.reps,
         baseSets: pde.sets,
         weightIncrement: exercise.weight_increment,
-        minReps: pde.min_reps,
-        maxReps: pde.max_reps,
+        minReps: pde.min_reps ?? 8,
+        maxReps: pde.max_reps ?? 12,
       };
 
       const prevPerf = previousPerformance.get(pde.exercise_id) ?? null;
