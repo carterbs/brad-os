@@ -9,11 +9,10 @@ struct BradOSApp: App {
 
     init() {
         // Configure App Check BEFORE FirebaseApp.configure()
-        #if DEBUG
-        // Use debug provider for simulator/debug builds
+        // Simulators use debug provider, physical devices use DeviceCheck
+        #if targetEnvironment(simulator)
         let providerFactory = AppCheckDebugProviderFactory()
         #else
-        // Use DeviceCheck for release builds (works on all iOS devices)
         let providerFactory = DeviceCheckProviderFactory()
         #endif
 
