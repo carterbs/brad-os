@@ -67,12 +67,12 @@ class StretchAudioManager: ObservableObject {
     func activateSession() throws {
         do {
             // Use .playback to allow background audio
-            // Use .mixWithOthers to let Spotify continue playing
-            // Use .duckOthers to lower Spotify volume during narration
+            // Use .mixWithOthers to let Spotify continue playing at full volume
+            // Ducking is enabled only during narration via enableDucking()
             try AVAudioSession.sharedInstance().setCategory(
                 .playback,
-                mode: .spokenAudio,
-                options: [.mixWithOthers, .duckOthers]
+                mode: .default,
+                options: [.mixWithOthers]
             )
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
@@ -86,6 +86,27 @@ class StretchAudioManager: ObservableObject {
         try? AVAudioSession.sharedInstance().setActive(
             false,
             options: .notifyOthersOnDeactivation
+        )
+    }
+
+    /// Enable audio ducking before narration
+    /// This lowers Spotify/other audio volume while our narration plays
+    private func enableDucking() {
+        try? AVAudioSession.sharedInstance().setCategory(
+            .playback,
+            mode: .spokenAudio,
+            options: [.mixWithOthers, .duckOthers]
+        )
+    }
+
+    /// Restore audio after narration completes
+    /// This removes ducking so Spotify/other audio returns to normal volume
+    private func restoreAudioAfterDucking() {
+        // Switch to mixWithOthers only (no ducking) so Spotify volume restores
+        try? AVAudioSession.sharedInstance().setCategory(
+            .playback,
+            mode: .default,
+            options: [.mixWithOthers]
         )
     }
 
@@ -169,8 +190,9 @@ class StretchAudioManager: ObservableObject {
             return
         }
 
-        // Begin ducking other audio (like Spotify/Safari)
-        // This activates an interruption that lowers other audio volume
+        // Enable ducking before narration plays
+        // This lowers Spotify/other audio volume during our narration
+        enableDucking()
         try? AVAudioSession.sharedInstance().setActive(true, options: [])
 
         // Create player
@@ -185,6 +207,8 @@ class StretchAudioManager: ObservableObject {
                 queue: .main
             ) { [weak self] _ in
                 self?.removeNarrationObserver()
+                // Restore audio so Spotify/other audio returns to normal volume
+                self?.restoreAudioAfterDucking()
                 continuation.resume()
             }
 
@@ -204,8 +228,12 @@ class StretchAudioManager: ObservableObject {
     /// Stop any currently playing narration (but not keepalive)
     func stopNarration() {
         removeNarrationObserver()
-        narrationPlayer?.pause()
-        narrationPlayer = nil
+        if narrationPlayer != nil {
+            narrationPlayer?.pause()
+            narrationPlayer = nil
+            // Restore audio so Spotify/other audio returns to normal volume
+            restoreAudioAfterDucking()
+        }
     }
 
     /// Stop all audio including keepalive
