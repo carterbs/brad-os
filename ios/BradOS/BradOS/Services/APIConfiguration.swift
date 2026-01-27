@@ -10,15 +10,18 @@ struct APIConfiguration {
         // Use localhost for simulator, configurable IP for device
         #if targetEnvironment(simulator)
         let urlString = "http://localhost:3001/api"
+        print("🔧 [APIConfiguration] Using SIMULATOR config: \(urlString)")
         #else
         // For physical device testing, use your Mac's IP address
         // This can be configured via the Settings app or environment variable
-        let urlString = ProcessInfo.processInfo.environment["BRAD_OS_API_URL"]
-            ?? "http://192.168.5.98:3001/api"
+        let envURL = ProcessInfo.processInfo.environment["BRAD_OS_API_URL"]
+        let urlString = envURL ?? "http://192.168.5.98:3000/api"
+        print("🔧 [APIConfiguration] Using DEVICE config: \(urlString) (env: \(envURL ?? "not set"))")
         #endif
         #else
         // Production URL
         let urlString = "https://api.brad-os.com/api"
+        print("🔧 [APIConfiguration] Using PRODUCTION config: \(urlString)")
         #endif
 
         guard let url = URL(string: urlString) else {

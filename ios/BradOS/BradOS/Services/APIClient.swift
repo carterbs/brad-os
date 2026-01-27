@@ -19,9 +19,19 @@ final class APIClient: APIClientProtocol {
 
     // MARK: - Initialization
 
-    init(configuration: APIConfiguration = .default, session: URLSession = .shared) {
+    init(configuration: APIConfiguration = .default, session: URLSession? = nil) {
         self.configuration = configuration
-        self.session = session
+
+        // Use a custom session that bypasses proxies for local network access
+        if let session = session {
+            self.session = session
+        } else {
+            let config = URLSessionConfiguration.default
+            config.connectionProxyDictionary = [:] // Disable proxies (including Private Relay)
+            self.session = URLSession(configuration: config)
+        }
+
+        print("🌐 [APIClient] Initialized with baseURL: \(configuration.baseURL.absoluteString) (proxy bypass enabled)")
 
         // Configure decoder for ISO 8601 dates with fractional seconds
         self.decoder = JSONDecoder()
@@ -142,9 +152,15 @@ final class APIClient: APIClientProtocol {
     // MARK: - Response Handling
 
     private func performDataTask(for request: URLRequest) async throws -> (Data, URLResponse) {
+        print("🌐 [APIClient] \(request.httpMethod ?? "?") \(request.url?.absoluteString ?? "?")")
         do {
-            return try await session.data(for: request)
+            let (data, response) = try await session.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse {
+                print("🌐 [APIClient] Response: \(httpResponse.statusCode) (\(data.count) bytes)")
+            }
+            return (data, response)
         } catch {
+            print("🌐 [APIClient] Network error: \(error.localizedDescription)")
             throw APIError.network(error)
         }
     }
