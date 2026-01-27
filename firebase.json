@@ -1,0 +1,39 @@
+{
+  "functions": {
+    "source": "packages/functions",
+    "runtime": "nodejs20",
+    "codebase": "default",
+    "predeploy": [
+      "npm run build -w @brad-os/shared",
+      "npm run build -w @brad-os/functions"
+    ]
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      { "source": "/api/dev/health/**", "function": "devHealth" },
+      { "source": "/api/dev/exercises/**", "function": "devExercises" },
+      { "source": "/api/dev/plans/**", "function": "devPlans" },
+      { "source": "/api/dev/mesocycles/**", "function": "devMesocycles" },
+      { "source": "/api/dev/workouts/**", "function": "devWorkouts" },
+      { "source": "/api/dev/workout-sets/**", "function": "devWorkoutSets" },
+      { "source": "/api/dev/stretch-sessions/**", "function": "devStretchSessions" },
+      { "source": "/api/dev/meditation-sessions/**", "function": "devMeditationSessions" },
+      { "source": "/api/dev/calendar/**", "function": "devCalendar" },
+      { "source": "/api/prod/health/**", "function": "prodHealth" },
+      { "source": "/api/prod/exercises/**", "function": "prodExercises" },
+      { "source": "/api/prod/plans/**", "function": "prodPlans" },
+      { "source": "/api/prod/mesocycles/**", "function": "prodMesocycles" },
+      { "source": "/api/prod/workouts/**", "function": "prodWorkouts" },
+      { "source": "/api/prod/workout-sets/**", "function": "prodWorkoutSets" },
+      { "source": "/api/prod/stretch-sessions/**", "function": "prodStretchSessions" },
+      { "source": "/api/prod/meditation-sessions/**", "function": "prodMeditationSessions" },
+      { "source": "/api/prod/calendar/**", "function": "prodCalendar" }
+    ]
+  }
+}

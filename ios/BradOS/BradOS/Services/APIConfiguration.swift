@@ -4,24 +4,21 @@ import Foundation
 struct APIConfiguration {
     let baseURL: URL
 
+    /// Cloud Functions base URLs
+    private static let devCloudFunctionsURL = "https://brad-os.web.app/api/dev"
+    private static let prodCloudFunctionsURL = "https://brad-os.web.app/api/prod"
+
     /// Default configuration based on build settings
     static var `default`: APIConfiguration {
+        // DEBUG builds use dev functions, Release builds use prod functions
+        // Override with BRAD_OS_API_URL env var for local testing if needed
         #if DEBUG
-        // Use localhost for simulator, configurable IP for device
-        #if targetEnvironment(simulator)
-        let urlString = "http://localhost:3001/api"
-        print("🔧 [APIConfiguration] Using SIMULATOR config: \(urlString)")
-        #else
-        // For physical device testing, use your Mac's IP address
-        // This can be configured via the Settings app or environment variable
         let envURL = ProcessInfo.processInfo.environment["BRAD_OS_API_URL"]
-        let urlString = envURL ?? "http://192.168.5.98:3000/api"
-        print("🔧 [APIConfiguration] Using DEVICE config: \(urlString) (env: \(envURL ?? "not set"))")
-        #endif
+        let urlString = envURL ?? devCloudFunctionsURL
+        print("🔧 [APIConfiguration] Using DEV: \(urlString) (env override: \(envURL != nil))")
         #else
-        // Production URL
-        let urlString = "https://api.brad-os.com/api"
-        print("🔧 [APIConfiguration] Using PRODUCTION config: \(urlString)")
+        let urlString = prodCloudFunctionsURL
+        print("🔧 [APIConfiguration] Using PROD: \(urlString)")
         #endif
 
         guard let url = URL(string: urlString) else {

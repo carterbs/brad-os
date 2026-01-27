@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "npm run dev -w @brad-os/server",
     "build": "npm run build -w @brad-os/shared && npm run build -w @brad-os/server",
+    "build:functions": "npm run build -w @brad-os/shared && npm run build -w @brad-os/functions",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write \"**/*.{ts,json,md}\"",
@@ -18,7 +19,11 @@
     "docker:dev": "docker-compose up --build",
     "docker:dev:detached": "docker-compose up --build -d",
     "docker:down": "docker-compose down",
-    "docker:prod": "docker-compose -f docker-compose.yml -f docker-compose.prod.yml up --build"
+    "docker:prod": "docker-compose -f docker-compose.yml -f docker-compose.prod.yml up --build",
+    "deploy:functions": "npm run build:functions && firebase deploy --only functions",
+    "deploy:functions:dev": "npm run build:functions && firebase deploy --only functions:devHealth,functions:devExercises,functions:devPlans,functions:devMesocycles,functions:devWorkouts,functions:devWorkoutSets,functions:devStretchSessions,functions:devMeditationSessions,functions:devCalendar",
+    "deploy:functions:prod": "npm run build:functions && firebase deploy --only functions:prodHealth,functions:prodExercises,functions:prodPlans,functions:prodMesocycles,functions:prodWorkouts,functions:prodWorkoutSets,functions:prodStretchSessions,functions:prodMeditationSessions,functions:prodCalendar",
+    "deploy:hosting": "firebase deploy --only hosting"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.0.0",
