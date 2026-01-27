@@ -20,8 +20,8 @@ const dateStringSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const dateTimeStringSchema = z.string().datetime().nullable();
 
 export const createWorkoutSchema = z.object({
-  mesocycle_id: z.number().int().positive(),
-  plan_day_id: z.number().int().positive(),
+  mesocycle_id: z.string().min(1),
+  plan_day_id: z.string().min(1),
   week_number: z.number().int().positive(),
   scheduled_date: dateStringSchema,
 });
@@ -33,8 +33,8 @@ export const updateWorkoutSchema = z.object({
 });
 
 export const createWorkoutSetSchema = z.object({
-  workout_id: z.number().int().positive(),
-  exercise_id: z.number().int().positive(),
+  workout_id: z.string().min(1),
+  exercise_id: z.string().min(1),
   set_number: z.number().int().positive(),
   target_reps: z.number().int().positive(),
   target_weight: z.number().nonnegative(),

@@ -15,17 +15,17 @@ export const workoutSetRouter = Router();
 workoutSetRouter.put(
   '/:id/log',
   validate(logWorkoutSetSchema),
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const service = getWorkoutSetService();
-      const id = parseInt(req.params['id'] ?? '', 10);
+      const id = req.params['id'];
 
-      if (isNaN(id)) {
-        throw new NotFoundError('WorkoutSet', req.params['id'] ?? 'unknown');
+      if (!id) {
+        throw new NotFoundError('WorkoutSet', 'unknown');
       }
 
       const body = req.body as LogWorkoutSetInput;
-      const set = service.log(id, {
+      const set = await service.log(id, {
         actual_reps: body.actual_reps,
         actual_weight: body.actual_weight,
       });
@@ -57,16 +57,16 @@ workoutSetRouter.put(
 // PUT /api/workout-sets/:id/skip
 workoutSetRouter.put(
   '/:id/skip',
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const service = getWorkoutSetService();
-      const id = parseInt(req.params['id'] ?? '', 10);
+      const id = req.params['id'];
 
-      if (isNaN(id)) {
-        throw new NotFoundError('WorkoutSet', req.params['id'] ?? 'unknown');
+      if (!id) {
+        throw new NotFoundError('WorkoutSet', 'unknown');
       }
 
-      const set = service.skip(id);
+      const set = await service.skip(id);
 
       const response: ApiResponse<WorkoutSet> = {
         success: true,
@@ -92,16 +92,16 @@ workoutSetRouter.put(
 // PUT /api/workout-sets/:id/unlog
 workoutSetRouter.put(
   '/:id/unlog',
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const service = getWorkoutSetService();
-      const id = parseInt(req.params['id'] ?? '', 10);
+      const id = req.params['id'];
 
-      if (isNaN(id)) {
-        throw new NotFoundError('WorkoutSet', req.params['id'] ?? 'unknown');
+      if (!id) {
+        throw new NotFoundError('WorkoutSet', 'unknown');
       }
 
-      const set = service.unlog(id);
+      const set = await service.unlog(id);
 
       const response: ApiResponse<WorkoutSet> = {
         success: true,

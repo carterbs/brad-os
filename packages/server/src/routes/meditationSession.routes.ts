@@ -12,7 +12,7 @@ export const meditationSessionRouter = Router();
  * POST /api/meditation-sessions
  * Create a new meditation session record.
  */
-meditationSessionRouter.post('/', (req: Request, res: Response): void => {
+meditationSessionRouter.post('/', async (req: Request, res: Response): Promise<void> => {
   const parseResult = createMeditationSessionSchema.safeParse(req.body);
   if (!parseResult.success) {
     res.status(400).json(
@@ -27,7 +27,7 @@ meditationSessionRouter.post('/', (req: Request, res: Response): void => {
 
   try {
     const repository = getMeditationSessionRepository();
-    const record = repository.create(parseResult.data);
+    const record = await repository.create(parseResult.data);
     res.status(201).json(createSuccessResponse(record));
   } catch (error) {
     console.error('Failed to create meditation session:', error);
@@ -39,10 +39,10 @@ meditationSessionRouter.post('/', (req: Request, res: Response): void => {
  * GET /api/meditation-sessions/latest
  * Get the most recent meditation session.
  */
-meditationSessionRouter.get('/latest', (_req: Request, res: Response): void => {
+meditationSessionRouter.get('/latest', async (_req: Request, res: Response): Promise<void> => {
   try {
     const repository = getMeditationSessionRepository();
-    const record = repository.getLatest();
+    const record = await repository.getLatest();
     res.json(createSuccessResponse(record));
   } catch (error) {
     console.error('Failed to get latest meditation session:', error);
@@ -54,10 +54,10 @@ meditationSessionRouter.get('/latest', (_req: Request, res: Response): void => {
  * GET /api/meditation-sessions/stats
  * Get aggregate statistics for meditation sessions.
  */
-meditationSessionRouter.get('/stats', (_req: Request, res: Response): void => {
+meditationSessionRouter.get('/stats', async (_req: Request, res: Response): Promise<void> => {
   try {
     const repository = getMeditationSessionRepository();
-    const stats = repository.getStats();
+    const stats = await repository.getStats();
     res.json(createSuccessResponse(stats));
   } catch (error) {
     console.error('Failed to get meditation session stats:', error);
@@ -69,10 +69,10 @@ meditationSessionRouter.get('/stats', (_req: Request, res: Response): void => {
  * GET /api/meditation-sessions
  * Get all meditation sessions.
  */
-meditationSessionRouter.get('/', (_req: Request, res: Response): void => {
+meditationSessionRouter.get('/', async (_req: Request, res: Response): Promise<void> => {
   try {
     const repository = getMeditationSessionRepository();
-    const records = repository.getAll();
+    const records = await repository.getAll();
     res.json(createSuccessResponse(records));
   } catch (error) {
     console.error('Failed to get meditation sessions:', error);

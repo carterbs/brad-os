@@ -71,7 +71,7 @@ export function initializeFirebase(config?: FirebaseConfig): App {
 
   // Check if already initialized (e.g., in tests)
   const existingApps = getApps();
-  if (existingApps.length > 0) {
+  if (existingApps.length > 0 && existingApps[0] !== undefined) {
     firebaseApp = existingApps[0];
     return firebaseApp;
   }

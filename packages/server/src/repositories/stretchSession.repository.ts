@@ -104,6 +104,9 @@ export class StretchSessionRepository {
     }
 
     const doc = snapshot.docs[0];
+    if (doc === undefined) {
+      return null;
+    }
     const data = doc.data();
     return {
       id: doc.id,

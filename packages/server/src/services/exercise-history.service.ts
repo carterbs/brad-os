@@ -8,13 +8,13 @@ export class ExerciseHistoryService {
     private exerciseRepo: ExerciseRepository
   ) {}
 
-  getHistory(exerciseId: number): ExerciseHistory | null {
-    const exercise = this.exerciseRepo.findById(exerciseId);
+  async getHistory(exerciseId: string): Promise<ExerciseHistory | null> {
+    const exercise = await this.exerciseRepo.findById(exerciseId);
     if (!exercise) {
       return null;
     }
 
-    const rows = this.workoutSetRepo.findCompletedByExerciseId(exerciseId);
+    const rows = await this.workoutSetRepo.findCompletedByExerciseId(exerciseId);
 
     if (rows.length === 0) {
       return {
@@ -37,7 +37,7 @@ export class ExerciseHistoryService {
   }
 
   private groupRowsIntoEntries(rows: CompletedSetRow[]): ExerciseHistoryEntry[] {
-    const entriesByWorkout = new Map<number, CompletedSetRow[]>();
+    const entriesByWorkout = new Map<string, CompletedSetRow[]>();
 
     for (const row of rows) {
       const existing = entriesByWorkout.get(row.workout_id) ?? [];

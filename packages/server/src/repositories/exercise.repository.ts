@@ -48,6 +48,9 @@ export class ExerciseRepository extends BaseRepository<
       return null;
     }
     const doc = snapshot.docs[0];
+    if (!doc) {
+      return null;
+    }
     return { id: doc.id, ...doc.data() } as Exercise;
   }
 

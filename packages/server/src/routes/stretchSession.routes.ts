@@ -15,7 +15,7 @@ export const stretchSessionRouter = Router();
  * POST /api/stretch-sessions
  * Create a new stretch session record.
  */
-stretchSessionRouter.post('/', (req: Request, res: Response): void => {
+stretchSessionRouter.post('/', async (req: Request, res: Response): Promise<void> => {
   const parseResult = createStretchSessionSchema.safeParse(req.body);
   if (!parseResult.success) {
     res.status(400).json(
@@ -30,7 +30,7 @@ stretchSessionRouter.post('/', (req: Request, res: Response): void => {
 
   try {
     const repository = getStretchSessionRepository();
-    const record = repository.create(parseResult.data);
+    const record = await repository.create(parseResult.data);
     res.status(201).json(createSuccessResponse(record));
   } catch (error) {
     console.error('Failed to create stretch session:', error);
@@ -42,10 +42,10 @@ stretchSessionRouter.post('/', (req: Request, res: Response): void => {
  * GET /api/stretch-sessions/latest
  * Get the most recent stretch session.
  */
-stretchSessionRouter.get('/latest', (_req: Request, res: Response): void => {
+stretchSessionRouter.get('/latest', async (_req: Request, res: Response): Promise<void> => {
   try {
     const repository = getStretchSessionRepository();
-    const record = repository.getLatest();
+    const record = await repository.getLatest();
     res.json(createSuccessResponse(record));
   } catch (error) {
     console.error('Failed to get latest stretch session:', error);
@@ -59,11 +59,11 @@ stretchSessionRouter.get('/latest', (_req: Request, res: Response): void => {
  */
 stretchSessionRouter.get(
   '/:id',
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const repository = getStretchSessionRepository();
       const id = req.params['id'] ?? '';
-      const session = repository.findById(id);
+      const session = await repository.findById(id);
 
       if (!session) {
         throw new NotFoundError('Stretch session', id);
@@ -84,10 +84,10 @@ stretchSessionRouter.get(
  * GET /api/stretch-sessions
  * Get all stretch sessions.
  */
-stretchSessionRouter.get('/', (_req: Request, res: Response): void => {
+stretchSessionRouter.get('/', async (_req: Request, res: Response): Promise<void> => {
   try {
     const repository = getStretchSessionRepository();
-    const records = repository.getAll();
+    const records = await repository.getAll();
     res.json(createSuccessResponse(records));
   } catch (error) {
     console.error('Failed to get stretch sessions:', error);

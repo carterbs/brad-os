@@ -79,6 +79,7 @@ export async function seedDefaultPlanAndMesocycle(db: Firestore): Promise<void> 
 
   for (let index = 0; index < day1Exercises.length; index++) {
     const ex = day1Exercises[index];
+    if (ex === undefined) continue;
     await planDayExerciseRepo.create({
       plan_day_id: day1.id,
       exercise_id: await getExerciseId(ex.name),
@@ -109,6 +110,7 @@ export async function seedDefaultPlanAndMesocycle(db: Firestore): Promise<void> 
 
   for (let index = 0; index < day2Exercises.length; index++) {
     const ex = day2Exercises[index];
+    if (ex === undefined) continue;
     await planDayExerciseRepo.create({
       plan_day_id: day2.id,
       exercise_id: await getExerciseId(ex.name),

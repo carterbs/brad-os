@@ -1,6 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import { type ApiResponse } from '@brad-os/shared';
 import { getDatabase, seedDefaultExercises } from '../db/index.js';
+import { getCollectionName } from '../firebase/index.js';
 
 export const testRouter = Router();
 
@@ -33,20 +34,50 @@ if (isProduction) {
   });
 } else {
   /**
+   * Helper to delete all documents in a Firestore collection.
+   */
+  async function deleteCollection(
+    db: FirebaseFirestore.Firestore,
+    collectionName: string
+  ): Promise<void> {
+    const collectionRef = db.collection(collectionName);
+    const snapshot = await collectionRef.get();
+
+    if (snapshot.empty) {
+      return;
+    }
+
+    // Delete in batches of 500 (Firestore limit)
+    const batchSize = 500;
+    const docs = snapshot.docs;
+
+    for (let i = 0; i < docs.length; i += batchSize) {
+      const batch = db.batch();
+      const batchDocs = docs.slice(i, i + batchSize);
+
+      for (const doc of batchDocs) {
+        batch.delete(doc.ref);
+      }
+
+      await batch.commit();
+    }
+  }
+
+  /**
    * POST /api/test/reset
    *
    * Resets the database to a clean state for E2E testing.
-   * Clears all tables except _migrations and re-seeds default exercises.
+   * Clears all collections and re-seeds default exercises.
    */
   testRouter.post(
     '/reset',
-    (_req: Request, res: Response, next: NextFunction): void => {
+    async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         warnIfNotTestEnv('/api/test/reset');
         const db = getDatabase();
 
-        // Tables to clear (in order to respect foreign key constraints)
-        const tablesToClear = [
+        // Collections to clear (order doesn't matter in Firestore)
+        const collectionsToClear = [
           'stretch_sessions',
           'workout_sets',
           'workouts',
@@ -57,31 +88,13 @@ if (isProduction) {
           'exercises',
         ];
 
-        // Tables with INTEGER PRIMARY KEY AUTOINCREMENT (need sqlite_sequence reset)
-        const tablesWithAutoIncrement = [
-          'workout_sets',
-          'workouts',
-          'mesocycles',
-          'plan_day_exercises',
-          'plan_days',
-          'plans',
-          'exercises',
-        ];
-
-        // Clear all tables
-        for (const table of tablesToClear) {
-          db.prepare(`DELETE FROM ${table}`).run();
-        }
-
-        // Reset auto-increment counters (only for tables that use it)
-        for (const table of tablesWithAutoIncrement) {
-          db.prepare(
-            `DELETE FROM sqlite_sequence WHERE name = ?`
-          ).run(table);
+        // Clear all collections (using prefixed names)
+        for (const collection of collectionsToClear) {
+          await deleteCollection(db, getCollectionName(collection));
         }
 
         // Re-seed default exercises
-        seedDefaultExercises(db);
+        await seedDefaultExercises(db);
 
         const response: ApiResponse<{ message: string }> = {
           success: true,

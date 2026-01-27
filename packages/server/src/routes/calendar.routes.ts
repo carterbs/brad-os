@@ -39,7 +39,7 @@ function isValidTimezoneOffset(value: string | undefined): boolean {
  * Get calendar data for a specific month.
  * @query tz - Optional timezone offset in minutes (from Date.getTimezoneOffset())
  */
-calendarRouter.get('/:year/:month', (req: Request, res: Response): void => {
+calendarRouter.get('/:year/:month', async (req: Request, res: Response): Promise<void> => {
   const yearParam = req.params['year'] ?? '';
   const monthParam = req.params['month'] ?? '';
   const tzParam = req.query['tz'] as string | undefined;
@@ -83,7 +83,7 @@ calendarRouter.get('/:year/:month', (req: Request, res: Response): void => {
 
   try {
     const service = getCalendarService();
-    const data: CalendarDataResponse = service.getMonthData(year, month, timezoneOffset);
+    const data: CalendarDataResponse = await service.getMonthData(year, month, timezoneOffset);
     res.json(createSuccessResponse(data));
   } catch (error) {
     console.error('Failed to get calendar data:', error);

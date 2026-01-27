@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3';
+import type { Firestore } from 'firebase-admin/firestore';
 import { getDatabase } from '../db/index.js';
 import { MesocycleService } from './mesocycle.service.js';
 import { WorkoutSetService } from './workout-set.service.js';
@@ -125,7 +125,7 @@ export function getCalendarService(): CalendarService {
 }
 
 // Helper to create services with a custom database (useful for testing)
-export function createServices(db: Database): {
+export function createServices(db: Firestore): {
   mesocycle: MesocycleService;
   workoutSet: WorkoutSetService;
   workout: WorkoutService;

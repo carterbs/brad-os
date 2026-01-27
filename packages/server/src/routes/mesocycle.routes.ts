@@ -24,10 +24,10 @@ export const mesocycleRouter = Router();
 // GET /api/mesocycles
 mesocycleRouter.get(
   '/',
-  (_req: Request, res: Response, next: NextFunction): void => {
+  async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const service = getMesocycleService();
-      const mesocycles = service.list();
+      const mesocycles = await service.list();
 
       const response: ApiResponse<Mesocycle[]> = {
         success: true,
@@ -43,10 +43,10 @@ mesocycleRouter.get(
 // GET /api/mesocycles/active
 mesocycleRouter.get(
   '/active',
-  (_req: Request, res: Response, next: NextFunction): void => {
+  async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const service = getMesocycleService();
-      const mesocycle = service.getActive();
+      const mesocycle = await service.getActive();
 
       const response: ApiResponse<MesocycleWithDetails | null> = {
         success: true,
@@ -62,16 +62,16 @@ mesocycleRouter.get(
 // GET /api/mesocycles/:id
 mesocycleRouter.get(
   '/:id',
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const service = getMesocycleService();
-      const id = parseInt(req.params['id'] ?? '', 10);
+      const id = req.params['id'];
 
-      if (isNaN(id)) {
-        throw new NotFoundError('Mesocycle', req.params['id'] ?? 'unknown');
+      if (!id) {
+        throw new NotFoundError('Mesocycle', 'unknown');
       }
 
-      const mesocycle = service.getById(id);
+      const mesocycle = await service.getById(id);
 
       if (!mesocycle) {
         throw new NotFoundError('Mesocycle', id);
@@ -92,11 +92,11 @@ mesocycleRouter.get(
 mesocycleRouter.post(
   '/',
   validate(createMesocycleSchema),
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const service = getMesocycleService();
       const createRequest = req.body as CreateMesocycleRequest;
-      const mesocycle = service.create(createRequest);
+      const mesocycle = await service.create(createRequest);
 
       const response: ApiResponse<Mesocycle> = {
         success: true,
@@ -127,16 +127,16 @@ mesocycleRouter.post(
 // PUT /api/mesocycles/:id/start
 mesocycleRouter.put(
   '/:id/start',
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const service = getMesocycleService();
-      const id = parseInt(req.params['id'] ?? '', 10);
+      const id = req.params['id'];
 
-      if (isNaN(id)) {
-        throw new NotFoundError('Mesocycle', req.params['id'] ?? 'unknown');
+      if (!id) {
+        throw new NotFoundError('Mesocycle', 'unknown');
       }
 
-      const mesocycle = service.start(id);
+      const mesocycle = await service.start(id);
 
       const response: ApiResponse<Mesocycle> = {
         success: true,
@@ -172,16 +172,16 @@ mesocycleRouter.put(
 // PUT /api/mesocycles/:id/complete
 mesocycleRouter.put(
   '/:id/complete',
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const service = getMesocycleService();
-      const id = parseInt(req.params['id'] ?? '', 10);
+      const id = req.params['id'];
 
-      if (isNaN(id)) {
-        throw new NotFoundError('Mesocycle', req.params['id'] ?? 'unknown');
+      if (!id) {
+        throw new NotFoundError('Mesocycle', 'unknown');
       }
 
-      const mesocycle = service.complete(id);
+      const mesocycle = await service.complete(id);
 
       const response: ApiResponse<Mesocycle> = {
         success: true,
@@ -213,16 +213,16 @@ mesocycleRouter.put(
 // PUT /api/mesocycles/:id/cancel
 mesocycleRouter.put(
   '/:id/cancel',
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const service = getMesocycleService();
-      const id = parseInt(req.params['id'] ?? '', 10);
+      const id = req.params['id'];
 
-      if (isNaN(id)) {
-        throw new NotFoundError('Mesocycle', req.params['id'] ?? 'unknown');
+      if (!id) {
+        throw new NotFoundError('Mesocycle', 'unknown');
       }
 
-      const mesocycle = service.cancel(id);
+      const mesocycle = await service.cancel(id);
 
       const response: ApiResponse<Mesocycle> = {
         success: true,

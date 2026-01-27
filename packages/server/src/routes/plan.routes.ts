@@ -35,10 +35,10 @@ export const planRouter = Router();
 // GET /api/plans
 planRouter.get(
   '/',
-  (_req: Request, res: Response, next: NextFunction): void => {
+  async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const repository = getPlanRepository();
-      const plans = repository.findAll();
+      const plans = await repository.findAll();
 
       const response: ApiResponse<Plan[]> = {
         success: true,
@@ -54,16 +54,16 @@ planRouter.get(
 // GET /api/plans/:id
 planRouter.get(
   '/:id',
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const repository = getPlanRepository();
-      const id = parseInt(req.params['id'] ?? '', 10);
+      const id = req.params['id'];
 
-      if (isNaN(id)) {
-        throw new NotFoundError('Plan', req.params['id'] ?? 'unknown');
+      if (!id) {
+        throw new NotFoundError('Plan', 'unknown');
       }
 
-      const plan = repository.findById(id);
+      const plan = await repository.findById(id);
 
       if (!plan) {
         throw new NotFoundError('Plan', id);
@@ -84,10 +84,10 @@ planRouter.get(
 planRouter.post(
   '/',
   validate(createPlanSchema),
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const repository = getPlanRepository();
-      const plan = repository.create(req.body as CreatePlanDTO);
+      const plan = await repository.create(req.body as CreatePlanDTO);
 
       const response: ApiResponse<Plan> = {
         success: true,
@@ -104,7 +104,7 @@ planRouter.post(
 planRouter.put(
   '/:id',
   validate(updatePlanSchema),
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const planRepository = getPlanRepository();
       const planDayRepository = getPlanDayRepository();
@@ -113,24 +113,24 @@ planRouter.put(
       const exerciseRepository = getExerciseRepository();
       const planModificationService = getPlanModificationService();
 
-      const id = parseInt(req.params['id'] ?? '', 10);
+      const id = req.params['id'];
 
-      if (isNaN(id)) {
-        throw new NotFoundError('Plan', req.params['id'] ?? 'unknown');
+      if (!id) {
+        throw new NotFoundError('Plan', 'unknown');
       }
 
       // Get the existing plan
-      const existingPlan = planRepository.findById(id);
+      const existingPlan = await planRepository.findById(id);
       if (!existingPlan) {
         throw new NotFoundError('Plan', id);
       }
 
       // Check for active mesocycle
-      const mesocycles = mesocycleRepository.findByPlanId(id);
+      const mesocycles = await mesocycleRepository.findByPlanId(id);
       const activeMesocycle = mesocycles.find((m) => m.status === 'active');
 
       // Update the plan
-      const plan = planRepository.update(id, req.body as UpdatePlanDTO);
+      const plan = await planRepository.update(id, req.body as UpdatePlanDTO);
 
       if (!plan) {
         throw new NotFoundError('Plan', id);
@@ -138,17 +138,17 @@ planRouter.put(
 
       // If there's an active mesocycle, sync plan state to future workouts
       if (activeMesocycle) {
-        const planDays = planDayRepository.findByPlanId(id);
+        const planDays = await planDayRepository.findByPlanId(id);
 
         // Build exercise map for lookups
-        const allExercises = exerciseRepository.findAll();
+        const allExercises = await exerciseRepository.findAll();
         const exerciseMap = new Map(allExercises.map((e) => [e.id, e]));
 
         // Sync each plan day's exercises to matching workouts
         for (const day of planDays) {
-          const planExercises = planDayExerciseRepository.findByPlanDayId(day.id);
+          const planExercises = await planDayExerciseRepository.findByPlanDayId(day.id);
 
-          planModificationService.syncPlanToMesocycle(
+          await planModificationService.syncPlanToMesocycle(
             activeMesocycle.id,
             day.id,
             planExercises,
@@ -171,22 +171,22 @@ planRouter.put(
 // DELETE /api/plans/:id
 planRouter.delete(
   '/:id',
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const repository = getPlanRepository();
-      const id = parseInt(req.params['id'] ?? '', 10);
+      const id = req.params['id'];
 
-      if (isNaN(id)) {
-        throw new NotFoundError('Plan', req.params['id'] ?? 'unknown');
+      if (!id) {
+        throw new NotFoundError('Plan', 'unknown');
       }
 
-      if (repository.isInUse(id)) {
+      if (await repository.isInUse(id)) {
         throw new ConflictError(
           'Cannot delete plan that has active mesocycles'
         );
       }
 
-      const deleted = repository.delete(id);
+      const deleted = await repository.delete(id);
 
       if (!deleted) {
         throw new NotFoundError('Plan', id);
@@ -204,22 +204,22 @@ planRouter.delete(
 // GET /api/plans/:planId/days
 planRouter.get(
   '/:planId/days',
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const planRepository = getPlanRepository();
       const planDayRepository = getPlanDayRepository();
-      const planId = parseInt(req.params['planId'] ?? '', 10);
+      const planId = req.params['planId'];
 
-      if (isNaN(planId)) {
-        throw new NotFoundError('Plan', req.params['planId'] ?? 'unknown');
+      if (!planId) {
+        throw new NotFoundError('Plan', 'unknown');
       }
 
-      const plan = planRepository.findById(planId);
+      const plan = await planRepository.findById(planId);
       if (!plan) {
         throw new NotFoundError('Plan', planId);
       }
 
-      const days = planDayRepository.findByPlanId(planId);
+      const days = await planDayRepository.findByPlanId(planId);
 
       const response: ApiResponse<PlanDay[]> = {
         success: true,
@@ -236,22 +236,22 @@ planRouter.get(
 planRouter.post(
   '/:planId/days',
   validate(createPlanDaySchema.omit({ plan_id: true })),
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const planRepository = getPlanRepository();
       const planDayRepository = getPlanDayRepository();
-      const planId = parseInt(req.params['planId'] ?? '', 10);
+      const planId = req.params['planId'];
 
-      if (isNaN(planId)) {
-        throw new NotFoundError('Plan', req.params['planId'] ?? 'unknown');
+      if (!planId) {
+        throw new NotFoundError('Plan', 'unknown');
       }
 
-      const plan = planRepository.findById(planId);
+      const plan = await planRepository.findById(planId);
       if (!plan) {
         throw new NotFoundError('Plan', planId);
       }
 
-      const day = planDayRepository.create({
+      const day = await planDayRepository.create({
         ...(req.body as Omit<CreatePlanDayDTO, 'plan_id'>),
         plan_id: planId,
       });
@@ -271,16 +271,16 @@ planRouter.post(
 planRouter.put(
   '/:planId/days/:dayId',
   validate(updatePlanDaySchema),
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const planDayRepository = getPlanDayRepository();
-      const dayId = parseInt(req.params['dayId'] ?? '', 10);
+      const dayId = req.params['dayId'];
 
-      if (isNaN(dayId)) {
-        throw new NotFoundError('PlanDay', req.params['dayId'] ?? 'unknown');
+      if (!dayId) {
+        throw new NotFoundError('PlanDay', 'unknown');
       }
 
-      const day = planDayRepository.update(dayId, req.body as UpdatePlanDayDTO);
+      const day = await planDayRepository.update(dayId, req.body as UpdatePlanDayDTO);
 
       if (!day) {
         throw new NotFoundError('PlanDay', dayId);
@@ -300,16 +300,16 @@ planRouter.put(
 // DELETE /api/plans/:planId/days/:dayId
 planRouter.delete(
   '/:planId/days/:dayId',
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const planDayRepository = getPlanDayRepository();
-      const dayId = parseInt(req.params['dayId'] ?? '', 10);
+      const dayId = req.params['dayId'];
 
-      if (isNaN(dayId)) {
-        throw new NotFoundError('PlanDay', req.params['dayId'] ?? 'unknown');
+      if (!dayId) {
+        throw new NotFoundError('PlanDay', 'unknown');
       }
 
-      const deleted = planDayRepository.delete(dayId);
+      const deleted = await planDayRepository.delete(dayId);
 
       if (!deleted) {
         throw new NotFoundError('PlanDay', dayId);
@@ -327,22 +327,22 @@ planRouter.delete(
 // GET /api/plans/:planId/days/:dayId/exercises
 planRouter.get(
   '/:planId/days/:dayId/exercises',
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const planDayRepository = getPlanDayRepository();
       const planDayExerciseRepository = getPlanDayExerciseRepository();
-      const dayId = parseInt(req.params['dayId'] ?? '', 10);
+      const dayId = req.params['dayId'];
 
-      if (isNaN(dayId)) {
-        throw new NotFoundError('PlanDay', req.params['dayId'] ?? 'unknown');
+      if (!dayId) {
+        throw new NotFoundError('PlanDay', 'unknown');
       }
 
-      const day = planDayRepository.findById(dayId);
+      const day = await planDayRepository.findById(dayId);
       if (!day) {
         throw new NotFoundError('PlanDay', dayId);
       }
 
-      const exercises = planDayExerciseRepository.findByPlanDayId(dayId);
+      const exercises = await planDayExerciseRepository.findByPlanDayId(dayId);
 
       const response: ApiResponse<PlanDayExercise[]> = {
         success: true,
@@ -359,22 +359,22 @@ planRouter.get(
 planRouter.post(
   '/:planId/days/:dayId/exercises',
   validate(createPlanDayExerciseSchema.omit({ plan_day_id: true })),
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const planDayRepository = getPlanDayRepository();
       const planDayExerciseRepository = getPlanDayExerciseRepository();
-      const dayId = parseInt(req.params['dayId'] ?? '', 10);
+      const dayId = req.params['dayId'];
 
-      if (isNaN(dayId)) {
-        throw new NotFoundError('PlanDay', req.params['dayId'] ?? 'unknown');
+      if (!dayId) {
+        throw new NotFoundError('PlanDay', 'unknown');
       }
 
-      const day = planDayRepository.findById(dayId);
+      const day = await planDayRepository.findById(dayId);
       if (!day) {
         throw new NotFoundError('PlanDay', dayId);
       }
 
-      const exercise = planDayExerciseRepository.create({
+      const exercise = await planDayExerciseRepository.create({
         ...(req.body as Omit<CreatePlanDayExerciseDTO, 'plan_day_id'>),
         plan_day_id: dayId,
       });
@@ -394,19 +394,16 @@ planRouter.post(
 planRouter.put(
   '/:planId/days/:dayId/exercises/:exerciseId',
   validate(updatePlanDayExerciseSchema),
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const planDayExerciseRepository = getPlanDayExerciseRepository();
-      const exerciseId = parseInt(req.params['exerciseId'] ?? '', 10);
+      const exerciseId = req.params['exerciseId'];
 
-      if (isNaN(exerciseId)) {
-        throw new NotFoundError(
-          'PlanDayExercise',
-          req.params['exerciseId'] ?? 'unknown'
-        );
+      if (!exerciseId) {
+        throw new NotFoundError('PlanDayExercise', 'unknown');
       }
 
-      const exercise = planDayExerciseRepository.update(exerciseId, req.body as UpdatePlanDayExerciseDTO);
+      const exercise = await planDayExerciseRepository.update(exerciseId, req.body as UpdatePlanDayExerciseDTO);
 
       if (!exercise) {
         throw new NotFoundError('PlanDayExercise', exerciseId);
@@ -426,19 +423,16 @@ planRouter.put(
 // DELETE /api/plans/:planId/days/:dayId/exercises/:exerciseId
 planRouter.delete(
   '/:planId/days/:dayId/exercises/:exerciseId',
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const planDayExerciseRepository = getPlanDayExerciseRepository();
-      const exerciseId = parseInt(req.params['exerciseId'] ?? '', 10);
+      const exerciseId = req.params['exerciseId'];
 
-      if (isNaN(exerciseId)) {
-        throw new NotFoundError(
-          'PlanDayExercise',
-          req.params['exerciseId'] ?? 'unknown'
-        );
+      if (!exerciseId) {
+        throw new NotFoundError('PlanDayExercise', 'unknown');
       }
 
-      const deleted = planDayExerciseRepository.delete(exerciseId);
+      const deleted = await planDayExerciseRepository.delete(exerciseId);
 
       if (!deleted) {
         throw new NotFoundError('PlanDayExercise', exerciseId);

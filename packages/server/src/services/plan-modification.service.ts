@@ -53,8 +53,8 @@ export class PlanModificationService {
    * A workout is considered "modifiable" if:
    * - It has status 'pending' (not started, completed, skipped, or in_progress)
    */
-  getFutureWorkouts(mesocycleId: number): Workout[] {
-    const allWorkouts = this.repos.workout.findByMesocycleId(mesocycleId);
+  async getFutureWorkouts(mesocycleId: string): Promise<Workout[]> {
+    const allWorkouts = await this.repos.workout.findByMesocycleId(mesocycleId);
 
     return allWorkouts.filter((workout) => {
       // Only include pending workouts
@@ -66,7 +66,7 @@ export class PlanModificationService {
    * Compare old and new exercise lists to determine changes.
    */
   diffPlanDayExercises(
-    planDayId: number,
+    planDayId: string,
     oldExercises: PlanDayExercise[],
     newExercises: PlanDayExercise[]
   ): PlanDiff {
@@ -158,13 +158,13 @@ export class PlanModificationService {
   /**
    * Add a new exercise to all future workouts for a specific plan day.
    */
-  addExerciseToFutureWorkouts(
-    mesocycleId: number,
-    planDayId: number,
+  async addExerciseToFutureWorkouts(
+    mesocycleId: string,
+    planDayId: string,
     planDayExercise: PlanDayExercise,
     exercise: Exercise
-  ): AddExerciseResult {
-    const futureWorkouts = this.getFutureWorkouts(mesocycleId);
+  ): Promise<AddExerciseResult> {
+    const futureWorkouts = await this.getFutureWorkouts(mesocycleId);
     const matchingWorkouts = futureWorkouts.filter(
       (w) => w.plan_day_id === planDayId
     );
@@ -175,8 +175,8 @@ export class PlanModificationService {
       // Calculate progressive overload based on week number
       const targets = this.progressionService.calculateTargetsForWeek(
         {
-          exerciseId: String(exercise.id),
-          planExerciseId: String(planDayExercise.id),
+          exerciseId: exercise.id,
+          planExerciseId: planDayExercise.id,
           baseWeight: planDayExercise.weight,
           baseReps: planDayExercise.reps,
           baseSets: planDayExercise.sets,
@@ -190,7 +190,7 @@ export class PlanModificationService {
 
       // Create workout sets for this exercise
       for (let setNum = 1; setNum <= targets.targetSets; setNum++) {
-        this.repos.workoutSet.create({
+        await this.repos.workoutSet.create({
           workout_id: workout.id,
           exercise_id: exercise.id,
           set_number: setNum,
@@ -211,12 +211,12 @@ export class PlanModificationService {
    * Remove an exercise from all future workouts for a specific plan day.
    * Preserves sets that have logged data.
    */
-  removeExerciseFromFutureWorkouts(
-    mesocycleId: number,
-    planDayId: number,
-    exerciseId: number
-  ): RemoveExerciseResult {
-    const futureWorkouts = this.getFutureWorkouts(mesocycleId);
+  async removeExerciseFromFutureWorkouts(
+    mesocycleId: string,
+    planDayId: string,
+    exerciseId: string
+  ): Promise<RemoveExerciseResult> {
+    const futureWorkouts = await this.getFutureWorkouts(mesocycleId);
     const matchingWorkouts = futureWorkouts.filter(
       (w) => w.plan_day_id === planDayId
     );
@@ -226,7 +226,7 @@ export class PlanModificationService {
     const warnings: string[] = [];
 
     for (const workout of matchingWorkouts) {
-      const sets = this.repos.workoutSet.findByWorkoutAndExercise(
+      const sets = await this.repos.workoutSet.findByWorkoutAndExercise(
         workout.id,
         exerciseId
       );
@@ -244,7 +244,7 @@ export class PlanModificationService {
       } else {
         // Delete all sets for this exercise in this workout
         for (const set of sets) {
-          this.repos.workoutSet.delete(set.id);
+          await this.repos.workoutSet.delete(set.id);
           removedSetsCount++;
         }
       }
@@ -261,28 +261,28 @@ export class PlanModificationService {
    * Update exercise targets (reps, weight, sets, rest) for all future workouts.
    * Recalculates progressive overload from the new base values.
    */
-  updateExerciseTargetsForFutureWorkouts(
-    mesocycleId: number,
-    planDayId: number,
-    exerciseId: number,
+  async updateExerciseTargetsForFutureWorkouts(
+    mesocycleId: string,
+    planDayId: string,
+    exerciseId: string,
     changes: ExerciseChanges,
     weightIncrement: number
-  ): UpdateExerciseResult {
-    const futureWorkouts = this.getFutureWorkouts(mesocycleId);
+  ): Promise<UpdateExerciseResult> {
+    const futureWorkouts = await this.getFutureWorkouts(mesocycleId);
     const matchingWorkouts = futureWorkouts.filter(
       (w) => w.plan_day_id === planDayId
     );
 
     // Look up the plan day exercise to get min_reps/max_reps
     const planDayExercises =
-      this.repos.planDayExercise.findByPlanDayId(planDayId);
+      await this.repos.planDayExercise.findByPlanDayId(planDayId);
     const pde = planDayExercises.find((p) => p.exercise_id === exerciseId);
 
     let modifiedSetsCount = 0;
     let affectedWorkoutCount = 0;
 
     for (const workout of matchingWorkouts) {
-      const existingSets = this.repos.workoutSet.findByWorkoutAndExercise(
+      const existingSets = await this.repos.workoutSet.findByWorkoutAndExercise(
         workout.id,
         exerciseId
       );
@@ -300,7 +300,7 @@ export class PlanModificationService {
       // Calculate new targets with progression
       const newTargets = this.progressionService.calculateTargetsForWeek(
         {
-          exerciseId: String(exerciseId),
+          exerciseId: exerciseId,
           planExerciseId: 'updated',
           baseWeight: changes.weight ?? firstPendingSet.target_weight,
           baseReps: changes.reps ?? this.reverseProgressionReps(
@@ -324,7 +324,7 @@ export class PlanModificationService {
         if (newSetCount > currentSetCount) {
           // Add more sets
           for (let i = currentSetCount + 1; i <= newSetCount; i++) {
-            this.repos.workoutSet.create({
+            await this.repos.workoutSet.create({
               workout_id: workout.id,
               exercise_id: exerciseId,
               set_number: i,
@@ -340,7 +340,7 @@ export class PlanModificationService {
             .sort((a, b) => b.set_number - a.set_number);
 
           for (const set of setsToRemove) {
-            this.repos.workoutSet.delete(set.id);
+            await this.repos.workoutSet.delete(set.id);
             modifiedSetsCount++;
           }
         }
@@ -348,16 +348,16 @@ export class PlanModificationService {
 
       // Update target values for remaining pending sets when reps or weight change
       if (changes.reps !== undefined || changes.weight !== undefined) {
-        const updatedPendingSets = this.repos.workoutSet
-          .findByWorkoutAndExercise(workout.id, exerciseId)
+        const updatedPendingSets = (await this.repos.workoutSet
+          .findByWorkoutAndExercise(workout.id, exerciseId))
           .filter((s) => s.status === 'pending');
 
         for (const set of updatedPendingSets) {
           // Delete old set and create new one with updated targets
           // This is a workaround since our update doesn't support target_reps/target_weight
           const setNumber = set.set_number;
-          this.repos.workoutSet.delete(set.id);
-          this.repos.workoutSet.create({
+          await this.repos.workoutSet.delete(set.id);
+          await this.repos.workoutSet.create({
             workout_id: workout.id,
             exercise_id: exerciseId,
             set_number: setNumber,
@@ -393,12 +393,12 @@ export class PlanModificationService {
    * This compares the current plan state to what exists in workouts
    * and adds/removes/updates as needed.
    */
-  syncPlanToMesocycle(
-    mesocycleId: number,
-    planDayId: number,
+  async syncPlanToMesocycle(
+    mesocycleId: string,
+    planDayId: string,
     planExercises: PlanDayExercise[],
-    exercises: Map<number, Exercise>
-  ): ModificationResult {
+    exercises: Map<string, Exercise>
+  ): Promise<ModificationResult> {
     const result: ModificationResult = {
       affectedWorkoutCount: 0,
       warnings: [],
@@ -407,7 +407,7 @@ export class PlanModificationService {
       modifiedSetsCount: 0,
     };
 
-    const futureWorkouts = this.getFutureWorkouts(mesocycleId);
+    const futureWorkouts = await this.getFutureWorkouts(mesocycleId);
     const matchingWorkouts = futureWorkouts.filter(
       (w) => w.plan_day_id === planDayId
     );
@@ -421,7 +421,7 @@ export class PlanModificationService {
 
     for (const workout of matchingWorkouts) {
       // Get all existing sets for this workout
-      const existingSets = this.repos.workoutSet.findByWorkoutId(workout.id);
+      const existingSets = await this.repos.workoutSet.findByWorkoutId(workout.id);
       const existingExerciseIds = new Set(existingSets.map((s) => s.exercise_id));
 
       // Find exercises to add (in plan but not in workout)
@@ -432,8 +432,8 @@ export class PlanModificationService {
           if (exercise) {
             const targets = this.progressionService.calculateTargetsForWeek(
               {
-                exerciseId: String(exercise.id),
-                planExerciseId: String(planExercise.id),
+                exerciseId: exercise.id,
+                planExerciseId: planExercise.id,
                 baseWeight: planExercise.weight,
                 baseReps: planExercise.reps,
                 baseSets: planExercise.sets,
@@ -446,7 +446,7 @@ export class PlanModificationService {
             );
 
             for (let setNum = 1; setNum <= targets.targetSets; setNum++) {
-              this.repos.workoutSet.create({
+              await this.repos.workoutSet.create({
                 workout_id: workout.id,
                 exercise_id: exercise.id,
                 set_number: setNum,
@@ -468,7 +468,7 @@ export class PlanModificationService {
               `Preserved logged set in workout ${workout.id} for exercise ${existingSet.exercise_id}`
             );
           } else {
-            this.repos.workoutSet.delete(existingSet.id);
+            await this.repos.workoutSet.delete(existingSet.id);
             result.removedSetsCount++;
           }
         }
@@ -487,8 +487,8 @@ export class PlanModificationService {
 
           const targets = this.progressionService.calculateTargetsForWeek(
             {
-              exerciseId: String(exercise.id),
-              planExerciseId: String(planExercise.id),
+              exerciseId: exercise.id,
+              planExerciseId: planExercise.id,
               baseWeight: planExercise.weight,
               baseReps: planExercise.reps,
               baseSets: planExercise.sets,
@@ -504,7 +504,7 @@ export class PlanModificationService {
           if (pendingSets.length < targets.targetSets) {
             // Add more sets
             for (let i = pendingSets.length + 1; i <= targets.targetSets; i++) {
-              this.repos.workoutSet.create({
+              await this.repos.workoutSet.create({
                 workout_id: workout.id,
                 exercise_id: exercise.id,
                 set_number: i,
@@ -520,14 +520,14 @@ export class PlanModificationService {
               .sort((a, b) => b.set_number - a.set_number);
 
             for (const set of setsToRemove) {
-              this.repos.workoutSet.delete(set.id);
+              await this.repos.workoutSet.delete(set.id);
               result.removedSetsCount++;
             }
           }
 
           // Update targets for remaining pending sets
-          const updatedPendingSets = this.repos.workoutSet
-            .findByWorkoutAndExercise(workout.id, exercise.id)
+          const updatedPendingSets = (await this.repos.workoutSet
+            .findByWorkoutAndExercise(workout.id, exercise.id))
             .filter((s) => s.status === 'pending');
 
           for (const set of updatedPendingSets) {
@@ -537,8 +537,8 @@ export class PlanModificationService {
             ) {
               // Delete and recreate to update targets
               const setNumber = set.set_number;
-              this.repos.workoutSet.delete(set.id);
-              this.repos.workoutSet.create({
+              await this.repos.workoutSet.delete(set.id);
+              await this.repos.workoutSet.create({
                 workout_id: workout.id,
                 exercise_id: exercise.id,
                 set_number: setNumber,
@@ -561,11 +561,11 @@ export class PlanModificationService {
    * Apply a diff to an active mesocycle.
    * This is the main entry point for applying plan modifications.
    */
-  applyDiffToMesocycle(
-    mesocycleId: number,
+  async applyDiffToMesocycle(
+    mesocycleId: string,
     diff: PlanDiff,
     exerciseInfo: ExerciseInfo[]
-  ): ModificationResult {
+  ): Promise<ModificationResult> {
     const result: ModificationResult = {
       affectedWorkoutCount: 0,
       warnings: [],
@@ -575,7 +575,7 @@ export class PlanModificationService {
     };
 
     // Get mesocycle to access plan info
-    const mesocycle = this.repos.mesocycle.findById(mesocycleId);
+    const mesocycle = await this.repos.mesocycle.findById(mesocycleId);
     if (!mesocycle) {
       result.warnings.push('Mesocycle not found');
       return result;
@@ -583,7 +583,7 @@ export class PlanModificationService {
 
     // Process removed exercises first
     for (const removed of diff.removedExercises) {
-      const removeResult = this.removeExerciseFromFutureWorkouts(
+      const removeResult = await this.removeExerciseFromFutureWorkouts(
         mesocycleId,
         removed.planDayId,
         removed.exerciseId
@@ -603,7 +603,7 @@ export class PlanModificationService {
         (e) => e.pde.exercise_id === added.exerciseId
       );
       if (info) {
-        const addResult = this.addExerciseToFutureWorkouts(
+        const addResult = await this.addExerciseToFutureWorkouts(
           mesocycleId,
           added.planDayId,
           added.planDayExercise,
@@ -624,7 +624,7 @@ export class PlanModificationService {
       );
       const weightIncrement = info?.exercise.weight_increment ?? 5;
 
-      const updateResult = this.updateExerciseTargetsForFutureWorkouts(
+      const updateResult = await this.updateExerciseTargetsForFutureWorkouts(
         mesocycleId,
         modified.planDayId,
         modified.exerciseId,

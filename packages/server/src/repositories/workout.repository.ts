@@ -122,6 +122,9 @@ export class WorkoutRepository extends BaseRepository<
       return null;
     }
     const doc = snapshot.docs[0];
+    if (doc === undefined) {
+      return null;
+    }
     return { id: doc.id, ...doc.data() } as Workout;
   }
 
@@ -147,12 +150,16 @@ export class WorkoutRepository extends BaseRepository<
 
     if (!pendingSnapshot.empty) {
       const doc = pendingSnapshot.docs[0];
-      candidates.push({ id: doc.id, ...doc.data() } as Workout);
+      if (doc !== undefined) {
+        candidates.push({ id: doc.id, ...doc.data() } as Workout);
+      }
     }
 
     if (!inProgressSnapshot.empty) {
       const doc = inProgressSnapshot.docs[0];
-      candidates.push({ id: doc.id, ...doc.data() } as Workout);
+      if (doc !== undefined) {
+        candidates.push({ id: doc.id, ...doc.data() } as Workout);
+      }
     }
 
     if (candidates.length === 0) {
@@ -161,7 +168,7 @@ export class WorkoutRepository extends BaseRepository<
 
     // Return the one with earliest scheduled_date
     candidates.sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date));
-    return candidates[0];
+    return candidates[0] ?? null;
   }
 
   async findAll(): Promise<Workout[]> {

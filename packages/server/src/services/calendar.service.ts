@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3';
+import type { Firestore } from 'firebase-admin/firestore';
 import type {
   CalendarActivity,
   CalendarDayData,
@@ -42,7 +42,7 @@ export class CalendarService {
   private stretchSessionRepo: StretchSessionRepository;
   private meditationSessionRepo: MeditationSessionRepository;
 
-  constructor(db: Database) {
+  constructor(db: Firestore) {
     this.workoutRepo = new WorkoutRepository(db);
     this.workoutSetRepo = new WorkoutSetRepository(db);
     this.planDayRepo = new PlanDayRepository(db);
@@ -58,22 +58,22 @@ export class CalendarService {
    *                         (positive for west of UTC, negative for east). Defaults to 0 (UTC).
    * @returns CalendarDataResponse with activities grouped by date
    */
-  getMonthData(year: number, month: number, timezoneOffset: number = 0): CalendarDataResponse {
+  async getMonthData(year: number, month: number, timezoneOffset: number = 0): Promise<CalendarDataResponse> {
     const { startDate, endDate } = this.getMonthBoundaries(year, month);
 
     // Query completed workouts, stretch sessions, and meditation sessions for the date range
     // Pass timezone offset so repositories can adjust UTC boundaries to match local dates
-    const workouts = this.workoutRepo.findCompletedInDateRange(startDate, endDate, timezoneOffset);
-    const stretchSessions = this.stretchSessionRepo.findInDateRange(startDate, endDate, timezoneOffset);
-    const meditationSessions = this.meditationSessionRepo.findInDateRange(startDate, endDate, timezoneOffset);
+    const workouts = await this.workoutRepo.findCompletedInDateRange(startDate, endDate, timezoneOffset);
+    const stretchSessions = await this.stretchSessionRepo.findInDateRange(startDate, endDate, timezoneOffset);
+    const meditationSessions = await this.meditationSessionRepo.findInDateRange(startDate, endDate, timezoneOffset);
 
     // Transform to CalendarActivity[]
     const activities: CalendarActivity[] = [];
 
     // Transform workouts
     for (const workout of workouts) {
-      const planDay = this.planDayRepo.findById(workout.plan_day_id);
-      const sets = this.workoutSetRepo.findByWorkoutId(workout.id);
+      const planDay = await this.planDayRepo.findById(workout.plan_day_id);
+      const sets = await this.workoutSetRepo.findByWorkoutId(workout.id);
 
       // Count unique exercises
       const uniqueExerciseIds = new Set(sets.map((s) => s.exercise_id));

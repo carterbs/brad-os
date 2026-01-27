@@ -18,8 +18,8 @@ export interface ExerciseChanges {
  * Represents an added exercise to a plan day
  */
 export interface AddedExercise {
-  planDayId: number;
-  exerciseId: number;
+  planDayId: string;
+  exerciseId: string;
   planDayExercise: PlanDayExercise;
 }
 
@@ -27,18 +27,18 @@ export interface AddedExercise {
  * Represents a removed exercise from a plan day
  */
 export interface RemovedExercise {
-  planDayId: number;
-  exerciseId: number;
-  planDayExerciseId: number;
+  planDayId: string;
+  exerciseId: string;
+  planDayExerciseId: string;
 }
 
 /**
  * Represents a modified exercise in a plan day
  */
 export interface ModifiedExercise {
-  planDayId: number;
-  exerciseId: number;
-  planDayExerciseId: number;
+  planDayId: string;
+  exerciseId: string;
+  planDayExerciseId: string;
   changes: ExerciseChanges;
 }
 
@@ -49,8 +49,8 @@ export interface PlanDiff {
   addedExercises: AddedExercise[];
   removedExercises: RemovedExercise[];
   modifiedExercises: ModifiedExercise[];
-  addedDays: number[]; // plan_day_ids
-  removedDays: number[]; // plan_day_ids
+  addedDays: string[]; // plan_day_ids
+  removedDays: string[]; // plan_day_ids
 }
 
 /**
@@ -70,7 +70,7 @@ export interface ModificationResult {
 export interface PlanUpdateResponse {
   success: true;
   data: {
-    planId: number;
+    planId: string;
     affectedWorkouts: number;
     warnings: string[];
     hasActiveMesocycle: boolean;

@@ -18,10 +18,10 @@ export const exerciseRouter = Router();
 // GET /api/exercises
 exerciseRouter.get(
   '/',
-  (_req: Request, res: Response, next: NextFunction): void => {
+  async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const repository = getExerciseRepository();
-      const exercises = repository.findAll();
+      const exercises = await repository.findAll();
 
       const response: ApiResponse<Exercise[]> = {
         success: true,
@@ -37,16 +37,16 @@ exerciseRouter.get(
 // GET /api/exercises/:id/history
 exerciseRouter.get(
   '/:id/history',
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const id = parseInt(req.params['id'] ?? '', 10);
+      const id = req.params['id'];
 
-      if (isNaN(id)) {
-        throw new NotFoundError('Exercise', req.params['id'] ?? 'unknown');
+      if (!id) {
+        throw new NotFoundError('Exercise', 'unknown');
       }
 
       const exerciseHistoryService = getExerciseHistoryService();
-      const history = exerciseHistoryService.getHistory(id);
+      const history = await exerciseHistoryService.getHistory(id);
 
       if (!history) {
         throw new NotFoundError('Exercise', id);
@@ -66,16 +66,16 @@ exerciseRouter.get(
 // GET /api/exercises/:id
 exerciseRouter.get(
   '/:id',
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const repository = getExerciseRepository();
-      const id = parseInt(req.params['id'] ?? '', 10);
+      const id = req.params['id'];
 
-      if (isNaN(id)) {
-        throw new NotFoundError('Exercise', req.params['id'] ?? 'unknown');
+      if (!id) {
+        throw new NotFoundError('Exercise', 'unknown');
       }
 
-      const exercise = repository.findById(id);
+      const exercise = await repository.findById(id);
 
       if (!exercise) {
         throw new NotFoundError('Exercise', id);
@@ -96,10 +96,10 @@ exerciseRouter.get(
 exerciseRouter.post(
   '/',
   validate(createExerciseSchema),
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const repository = getExerciseRepository();
-      const exercise = repository.create(req.body as CreateExerciseDTO);
+      const exercise = await repository.create(req.body as CreateExerciseDTO);
 
       const response: ApiResponse<Exercise> = {
         success: true,
@@ -116,16 +116,16 @@ exerciseRouter.post(
 exerciseRouter.put(
   '/:id',
   validate(updateExerciseSchema),
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const repository = getExerciseRepository();
-      const id = parseInt(req.params['id'] ?? '', 10);
+      const id = req.params['id'];
 
-      if (isNaN(id)) {
-        throw new NotFoundError('Exercise', req.params['id'] ?? 'unknown');
+      if (!id) {
+        throw new NotFoundError('Exercise', 'unknown');
       }
 
-      const exercise = repository.update(id, req.body as UpdateExerciseDTO);
+      const exercise = await repository.update(id, req.body as UpdateExerciseDTO);
 
       if (!exercise) {
         throw new NotFoundError('Exercise', id);
@@ -145,26 +145,26 @@ exerciseRouter.put(
 // DELETE /api/exercises/:id
 exerciseRouter.delete(
   '/:id',
-  (req: Request, res: Response, next: NextFunction): void => {
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const repository = getExerciseRepository();
-      const id = parseInt(req.params['id'] ?? '', 10);
+      const id = req.params['id'];
 
-      if (isNaN(id)) {
-        throw new NotFoundError('Exercise', req.params['id'] ?? 'unknown');
+      if (!id) {
+        throw new NotFoundError('Exercise', 'unknown');
       }
 
-      const exercise = repository.findById(id);
+      const exercise = await repository.findById(id);
 
       if (!exercise) {
         throw new NotFoundError('Exercise', id);
       }
 
-      if (repository.isInUse(id)) {
+      if (await repository.isInUse(id)) {
         throw new ConflictError('Cannot delete exercise that is used in a plan');
       }
 
-      repository.delete(id);
+      await repository.delete(id);
 
       res.status(204).send();
     } catch (error) {

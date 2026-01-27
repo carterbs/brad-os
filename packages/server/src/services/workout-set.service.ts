@@ -1,4 +1,4 @@
-import type { Database } from 'better-sqlite3';
+import type { Firestore } from 'firebase-admin/firestore';
 import type { WorkoutSet, LogWorkoutSetInput, ModifySetCountResult } from '@brad-os/shared';
 import {
   WorkoutSetRepository,
@@ -10,12 +10,12 @@ import { PlanModificationService } from './plan-modification.service.js';
 import { ProgressionService } from './progression.service.js';
 
 export class WorkoutSetService {
-  private db: Database;
+  private db: Firestore;
   private workoutSetRepo: WorkoutSetRepository;
   private workoutRepo: WorkoutRepository;
   private exerciseRepo: ExerciseRepository;
 
-  constructor(db: Database) {
+  constructor(db: Firestore) {
     this.db = db;
     this.workoutSetRepo = new WorkoutSetRepository(db);
     this.workoutRepo = new WorkoutRepository(db);
@@ -25,7 +25,7 @@ export class WorkoutSetService {
   /**
    * Get a workout set by ID
    */
-  getById(id: number): WorkoutSet | null {
+  async getById(id: string): Promise<WorkoutSet | null> {
     return this.workoutSetRepo.findById(id);
   }
 
@@ -33,8 +33,8 @@ export class WorkoutSetService {
    * Log actual reps and weight for a set
    * Auto-starts the workout if not already started
    */
-  log(id: number, data: LogWorkoutSetInput): WorkoutSet {
-    const workoutSet = this.workoutSetRepo.findById(id);
+  async log(id: string, data: LogWorkoutSetInput): Promise<WorkoutSet> {
+    const workoutSet = await this.workoutSetRepo.findById(id);
     if (!workoutSet) {
       throw new Error(`WorkoutSet with id ${id} not found`);
     }
@@ -49,7 +49,7 @@ export class WorkoutSetService {
     }
 
     // Check workout status
-    const workout = this.workoutRepo.findById(workoutSet.workout_id);
+    const workout = await this.workoutRepo.findById(workoutSet.workout_id);
     if (!workout) {
       throw new Error(`Workout with id ${workoutSet.workout_id} not found`);
     }
@@ -64,14 +64,14 @@ export class WorkoutSetService {
 
     // Auto-start workout if pending
     if (workout.status === 'pending') {
-      this.workoutRepo.update(workout.id, {
+      await this.workoutRepo.update(workout.id, {
         status: 'in_progress',
         started_at: new Date().toISOString(),
       });
     }
 
     // Update the set
-    const updated = this.workoutSetRepo.update(id, {
+    const updated = await this.workoutSetRepo.update(id, {
       actual_reps: data.actual_reps,
       actual_weight: data.actual_weight,
       status: 'completed',
@@ -89,14 +89,14 @@ export class WorkoutSetService {
    * Auto-starts the workout if not already started
    * Clears any previously logged values
    */
-  skip(id: number): WorkoutSet {
-    const workoutSet = this.workoutSetRepo.findById(id);
+  async skip(id: string): Promise<WorkoutSet> {
+    const workoutSet = await this.workoutSetRepo.findById(id);
     if (!workoutSet) {
       throw new Error(`WorkoutSet with id ${id} not found`);
     }
 
     // Check workout status
-    const workout = this.workoutRepo.findById(workoutSet.workout_id);
+    const workout = await this.workoutRepo.findById(workoutSet.workout_id);
     if (!workout) {
       throw new Error(`Workout with id ${workoutSet.workout_id} not found`);
     }
@@ -111,14 +111,14 @@ export class WorkoutSetService {
 
     // Auto-start workout if pending
     if (workout.status === 'pending') {
-      this.workoutRepo.update(workout.id, {
+      await this.workoutRepo.update(workout.id, {
         status: 'in_progress',
         started_at: new Date().toISOString(),
       });
     }
 
     // Update the set - clear actual values and set status to skipped
-    const updated = this.workoutSetRepo.update(id, {
+    const updated = await this.workoutSetRepo.update(id, {
       actual_reps: null,
       actual_weight: null,
       status: 'skipped',
@@ -135,14 +135,14 @@ export class WorkoutSetService {
    * Unlog a set (revert to pending)
    * Clears actual_reps/actual_weight and sets status back to pending
    */
-  unlog(id: number): WorkoutSet {
-    const workoutSet = this.workoutSetRepo.findById(id);
+  async unlog(id: string): Promise<WorkoutSet> {
+    const workoutSet = await this.workoutSetRepo.findById(id);
     if (!workoutSet) {
       throw new Error(`WorkoutSet with id ${id} not found`);
     }
 
     // Check workout status
-    const workout = this.workoutRepo.findById(workoutSet.workout_id);
+    const workout = await this.workoutRepo.findById(workoutSet.workout_id);
     if (!workout) {
       throw new Error(`Workout with id ${workoutSet.workout_id} not found`);
     }
@@ -156,7 +156,7 @@ export class WorkoutSetService {
     }
 
     // Update the set - clear actual values and set status to pending
-    const updated = this.workoutSetRepo.update(id, {
+    const updated = await this.workoutSetRepo.update(id, {
       actual_reps: null,
       actual_weight: null,
       status: 'pending',
@@ -174,8 +174,8 @@ export class WorkoutSetService {
    * Copies target values from the last existing set.
    * Propagates the change to all future pending workouts in the mesocycle.
    */
-  addSetToExercise(workoutId: number, exerciseId: number): ModifySetCountResult {
-    const workout = this.workoutRepo.findById(workoutId);
+  async addSetToExercise(workoutId: string, exerciseId: string): Promise<ModifySetCountResult> {
+    const workout = await this.workoutRepo.findById(workoutId);
     if (!workout) {
       throw new Error(`Workout with id ${workoutId} not found`);
     }
@@ -189,7 +189,7 @@ export class WorkoutSetService {
     }
 
     // Get existing sets for this exercise
-    const existingSets = this.workoutSetRepo.findByWorkoutAndExercise(
+    const existingSets = await this.workoutSetRepo.findByWorkoutAndExercise(
       workoutId,
       exerciseId
     );
@@ -207,7 +207,7 @@ export class WorkoutSetService {
 
     // Create new set with next set number
     const newSetNumber = lastSet.set_number + 1;
-    const newSet = this.workoutSetRepo.create({
+    const newSet = await this.workoutSetRepo.create({
       workout_id: workoutId,
       exercise_id: exerciseId,
       set_number: newSetNumber,
@@ -216,7 +216,7 @@ export class WorkoutSetService {
     });
 
     // Propagate to future workouts
-    const propagationResult = this.propagateSetCountToFutureWorkouts(
+    const propagationResult = await this.propagateSetCountToFutureWorkouts(
       workout.mesocycle_id,
       workout.plan_day_id,
       exerciseId,
@@ -236,8 +236,8 @@ export class WorkoutSetService {
    * Must keep at least 1 set per exercise.
    * Propagates the change to all future pending workouts in the mesocycle.
    */
-  removeSetFromExercise(workoutId: number, exerciseId: number): ModifySetCountResult {
-    const workout = this.workoutRepo.findById(workoutId);
+  async removeSetFromExercise(workoutId: string, exerciseId: string): Promise<ModifySetCountResult> {
+    const workout = await this.workoutRepo.findById(workoutId);
     if (!workout) {
       throw new Error(`Workout with id ${workoutId} not found`);
     }
@@ -251,7 +251,7 @@ export class WorkoutSetService {
     }
 
     // Get existing sets for this exercise
-    const existingSets = this.workoutSetRepo.findByWorkoutAndExercise(
+    const existingSets = await this.workoutSetRepo.findByWorkoutAndExercise(
       workoutId,
       exerciseId
     );
@@ -280,13 +280,13 @@ export class WorkoutSetService {
     }
 
     // Delete the set
-    this.workoutSetRepo.delete(setToRemove.id);
+    await this.workoutSetRepo.delete(setToRemove.id);
 
     // Calculate new set count
     const newSetCount = existingSets.length - 1;
 
     // Propagate to future workouts
-    const propagationResult = this.propagateSetCountToFutureWorkouts(
+    const propagationResult = await this.propagateSetCountToFutureWorkouts(
       workout.mesocycle_id,
       workout.plan_day_id,
       exerciseId,
@@ -304,14 +304,14 @@ export class WorkoutSetService {
    * Propagate set count changes to future pending workouts.
    * Uses PlanModificationService.updateExerciseTargetsForFutureWorkouts internally.
    */
-  private propagateSetCountToFutureWorkouts(
-    mesocycleId: number,
-    planDayId: number,
-    exerciseId: number,
+  private async propagateSetCountToFutureWorkouts(
+    mesocycleId: string,
+    planDayId: string,
+    exerciseId: string,
     newSetCount: number
-  ): { affectedWorkoutCount: number; modifiedSetsCount: number } {
+  ): Promise<{ affectedWorkoutCount: number; modifiedSetsCount: number }> {
     // Get exercise for weight increment
-    const exercise = this.exerciseRepo.findById(exerciseId);
+    const exercise = await this.exerciseRepo.findById(exerciseId);
     if (!exercise) {
       return { affectedWorkoutCount: 0, modifiedSetsCount: 0 };
     }
@@ -322,7 +322,7 @@ export class WorkoutSetService {
     const planModService = new PlanModificationService(repos, progressionService);
 
     // Call updateExerciseTargetsForFutureWorkouts with the new set count
-    const result = planModService.updateExerciseTargetsForFutureWorkouts(
+    const result = await planModService.updateExerciseTargetsForFutureWorkouts(
       mesocycleId,
       planDayId,
       exerciseId,
