@@ -9,22 +9,15 @@ struct APIConfiguration {
 
     /// Default configuration based on build settings
     static var `default`: APIConfiguration {
+        // All environments use Cloud Functions
+        // Override with BRAD_OS_API_URL env var for local testing if needed
         #if DEBUG
-        #if targetEnvironment(simulator)
-        // Local development - use Express server for fast iteration
-        let urlString = "http://localhost:3001/api"
-        print("🔧 [APIConfiguration] Using SIMULATOR config: \(urlString)")
-        #else
-        // Device testing - use Cloud Functions
-        // Can be overridden via environment variable for local testing
         let envURL = ProcessInfo.processInfo.environment["BRAD_OS_API_URL"]
         let urlString = envURL ?? cloudFunctionsURL
-        print("🔧 [APIConfiguration] Using DEVICE config: \(urlString) (env: \(envURL ?? "not set"))")
-        #endif
+        print("🔧 [APIConfiguration] Using: \(urlString) (env override: \(envURL != nil))")
         #else
-        // Production - Cloud Functions
         let urlString = cloudFunctionsURL
-        print("🔧 [APIConfiguration] Using PRODUCTION config: \(urlString)")
+        print("🔧 [APIConfiguration] Using PRODUCTION: \(urlString)")
         #endif
 
         guard let url = URL(string: urlString) else {
