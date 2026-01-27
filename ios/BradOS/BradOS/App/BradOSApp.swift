@@ -1,9 +1,25 @@
 import SwiftUI
 import BradOSCore
+import FirebaseCore
+import FirebaseAppCheck
 
 @main
 struct BradOSApp: App {
     @StateObject private var appState = AppState()
+
+    init() {
+        // Configure App Check BEFORE FirebaseApp.configure()
+        #if DEBUG
+        // Use debug provider for simulator/debug builds
+        let providerFactory = AppCheckDebugProviderFactory()
+        #else
+        // Use DeviceCheck for release builds (works on all iOS devices)
+        let providerFactory = DeviceCheckProviderFactory()
+        #endif
+
+        AppCheck.setAppCheckProviderFactory(providerFactory)
+        FirebaseApp.configure()
+    }
 
     var body: some Scene {
         WindowGroup {

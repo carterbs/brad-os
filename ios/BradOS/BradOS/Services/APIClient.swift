@@ -1,5 +1,6 @@
 import Foundation
 import BradOSCore
+import FirebaseAppCheck
 
 /// Empty body for POST/PUT requests that don't need a body
 private struct EmptyBody: Encodable {}
@@ -153,6 +154,17 @@ final class APIClient: APIClientProtocol {
     // MARK: - Response Handling
 
     private func performDataTask(for request: URLRequest) async throws -> (Data, URLResponse) {
+        var request = request
+
+        // Attach App Check token to request
+        do {
+            let token = try await AppCheck.appCheck().token(forcingRefresh: false)
+            request.setValue(token.token, forHTTPHeaderField: "X-Firebase-AppCheck")
+        } catch {
+            // Log warning but continue - server will reject if enforcement is on
+            print("⚠️ [APIClient] Failed to get App Check token: \(error.localizedDescription)")
+        }
+
         print("🌐 [APIClient] \(request.httpMethod ?? "?") \(request.url?.absoluteString ?? "?")")
         do {
             let (data, response) = try await session.data(for: request)
