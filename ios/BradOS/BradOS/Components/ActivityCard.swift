@@ -17,7 +17,7 @@ struct ActivityCard: View {
                     .font(.headline)
                     .foregroundColor(Theme.textPrimary)
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 100)
             .padding(Theme.Spacing.lg)
             .background(Theme.backgroundSecondary)
             .cornerRadius(Theme.CornerRadius.lg)
