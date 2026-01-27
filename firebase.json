@@ -2,6 +2,29 @@
   "functions": {
     "source": "packages/functions",
     "runtime": "nodejs20",
-    "codebase": "default"
+    "codebase": "default",
+    "predeploy": [
+      "npm run build -w @brad-os/shared",
+      "npm run build -w @brad-os/functions"
+    ]
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      { "source": "/api/health/**", "function": "health" },
+      { "source": "/api/exercises/**", "function": "exercises" },
+      { "source": "/api/plans/**", "function": "plans" },
+      { "source": "/api/mesocycles/**", "function": "mesocycles" },
+      { "source": "/api/workouts/**", "function": "workouts" },
+      { "source": "/api/workout-sets/**", "function": "workoutSets" },
+      { "source": "/api/stretch-sessions/**", "function": "stretchSessions" },
+      { "source": "/api/meditation-sessions/**", "function": "meditationSessions" },
+      { "source": "/api/calendar/**", "function": "calendar" }
+    ]
   }
 }
