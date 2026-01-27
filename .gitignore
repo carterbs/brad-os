@@ -54,3 +54,7 @@ e2e/test-results.json
 # iOS testing artifacts
 ios-test-screenshots/
 scripts/ralph-ios/
+
+# Firebase Emulator data (user's local state)
+emulator-data/
+# Keep seed data in git (not ignored)

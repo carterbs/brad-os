@@ -156,13 +156,18 @@ final class APIClient: APIClientProtocol {
     private func performDataTask(for request: URLRequest) async throws -> (Data, URLResponse) {
         var request = request
 
-        // Attach App Check token to request
-        do {
-            let token = try await AppCheck.appCheck().token(forcingRefresh: false)
-            request.setValue(token.token, forHTTPHeaderField: "X-Firebase-AppCheck")
-        } catch {
-            // Log warning but continue - server will reject if enforcement is on
-            print("⚠️ [APIClient] Failed to get App Check token: \(error.localizedDescription)")
+        // Skip App Check for emulator (localhost) - server bypasses verification in emulator mode
+        if configuration.isEmulator {
+            print("🔧 [APIClient] Skipping App Check for emulator")
+        } else {
+            // Attach App Check token to request
+            do {
+                let token = try await AppCheck.appCheck().token(forcingRefresh: false)
+                request.setValue(token.token, forHTTPHeaderField: "X-Firebase-AppCheck")
+            } catch {
+                // Log warning but continue - server will reject if enforcement is on
+                print("⚠️ [APIClient] Failed to get App Check token: \(error.localizedDescription)")
+            }
         }
 
         print("🌐 [APIClient] \(request.httpMethod ?? "?") \(request.url?.absoluteString ?? "?")")

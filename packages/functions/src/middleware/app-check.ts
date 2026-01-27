@@ -2,15 +2,27 @@ import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import { getAppCheck } from 'firebase-admin/app-check';
 import type { ApiError } from '@brad-os/shared';
 
+// Log once at startup if running in emulator mode
+if (process.env['FUNCTIONS_EMULATOR'] === 'true') {
+  console.log('⚠️  Running in emulator - App Check verification disabled');
+}
+
 /**
  * Middleware to verify Firebase App Check token.
  * Rejects requests without a valid token.
+ * Bypasses verification in emulator mode.
  */
 export const requireAppCheck: RequestHandler = (
   req: Request,
   res: Response,
   next: NextFunction
 ): void => {
+  // Bypass App Check in emulator
+  if (process.env['FUNCTIONS_EMULATOR'] === 'true') {
+    next();
+    return;
+  }
+
   const appCheckToken = req.headers['x-firebase-appcheck'];
 
   if (typeof appCheckToken !== 'string' || appCheckToken === '') {

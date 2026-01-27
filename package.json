@@ -23,7 +23,13 @@
     "deploy:functions": "npm run build:functions && firebase deploy --only functions",
     "deploy:functions:dev": "npm run build:functions && firebase deploy --only functions:devHealth,functions:devExercises,functions:devPlans,functions:devMesocycles,functions:devWorkouts,functions:devWorkoutSets,functions:devStretchSessions,functions:devMeditationSessions,functions:devCalendar",
     "deploy:functions:prod": "npm run build:functions && firebase deploy --only functions:prodHealth,functions:prodExercises,functions:prodPlans,functions:prodMesocycles,functions:prodWorkouts,functions:prodWorkoutSets,functions:prodStretchSessions,functions:prodMeditationSessions,functions:prodCalendar",
-    "deploy:hosting": "firebase deploy --only hosting"
+    "deploy:hosting": "firebase deploy --only hosting",
+    "emulators": "npm run build:functions && firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data",
+    "emulators:fresh": "npm run build:functions && firebase emulators:start",
+    "emulators:seed": "npm run build:functions && firebase emulators:start --import=./seed-data",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:integration:watch": "vitest --config vitest.integration.config.ts",
+    "seed:generate": "npx tsx scripts/generate-seed-data.ts"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.0.0",
@@ -31,6 +37,7 @@
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "prettier": "^3.2.5",
+    "tsx": "^4.7.0",
     "typescript": "^5.4.0",
     "vitest": "^1.3.0"
   }
