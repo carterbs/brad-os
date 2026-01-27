@@ -9,6 +9,9 @@ options:
 packages:
   BradOSCore:
     path: BradOSCore
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    version: 11.0.0
 
 settings:
   base:
@@ -36,6 +39,8 @@ targets:
         buildPhase: resources
     dependencies:
       - package: BradOSCore
+      - package: Firebase
+        product: FirebaseAppCheck
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bradcarter.brad-os
