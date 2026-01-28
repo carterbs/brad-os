@@ -92,22 +92,53 @@ class StretchAudioManager: ObservableObject {
     /// Enable audio ducking before narration
     /// This lowers Spotify/other audio volume while our narration plays
     private func enableDucking() {
-        try? AVAudioSession.sharedInstance().setCategory(
-            .playback,
-            mode: .spokenAudio,
-            options: [.mixWithOthers, .duckOthers]
-        )
+        do {
+            // Deactivate first to cleanly change category - this is key for
+            // triggering ducking instead of pausing in apps like Spotify
+            try AVAudioSession.sharedInstance().setActive(false)
+
+            // Navigation app pattern: .voicePrompt mode with ducking options
+            // .duckOthers lowers other audio volume
+            // .interruptSpokenAudioAndMixWithOthers allows mixing with music
+            try AVAudioSession.sharedInstance().setCategory(
+                .playback,
+                mode: .voicePrompt,
+                options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
+            )
+
+            // Reactivate with new category
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            #if DEBUG
+            print("[StretchAudioManager] Failed to enable ducking: \(error)")
+            #endif
+        }
     }
 
     /// Restore audio after narration completes
     /// This removes ducking so Spotify/other audio returns to normal volume
     private func restoreAudioAfterDucking() {
-        // Switch to mixWithOthers only (no ducking) so Spotify volume restores
-        try? AVAudioSession.sharedInstance().setCategory(
-            .playback,
-            mode: .default,
-            options: [.mixWithOthers]
-        )
+        do {
+            // Deactivate with notification to tell other apps (Spotify) to resume
+            try AVAudioSession.sharedInstance().setActive(
+                false,
+                options: .notifyOthersOnDeactivation
+            )
+
+            // Switch back to non-ducking category
+            try AVAudioSession.sharedInstance().setCategory(
+                .playback,
+                mode: .default,
+                options: [.mixWithOthers]
+            )
+
+            // Reactivate our session for keepalive
+            try AVAudioSession.sharedInstance().setActive(true)
+        } catch {
+            #if DEBUG
+            print("[StretchAudioManager] Failed to restore audio: \(error)")
+            #endif
+        }
     }
 
     // MARK: - Keepalive Loop

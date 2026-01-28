@@ -9,6 +9,10 @@ struct APIConfiguration {
         baseURL.host == "localhost" || baseURL.host == "127.0.0.1"
     }
 
+    // MARK: - Debug Flag
+    // Set to true to use dev API on physical device for testing
+    private static let forceDevAPIOnPhysicalDevice = false
+
     /// Cloud Functions base URLs
     private static let devCloudFunctionsURL = "https://brad-os.web.app/api/dev"
     private static let prodCloudFunctionsURL = "https://brad-os.web.app/api/prod"
@@ -49,9 +53,17 @@ struct APIConfiguration {
         }
 
         // Physical devices use prod, simulators use dev
-        if isPhysicalDevice {
+        // Unless forceDevAPIOnPhysicalDevice is set for debugging
+        if isPhysicalDevice && !forceDevAPIOnPhysicalDevice {
             let urlString = prodCloudFunctionsURL
             print("🔧 [APIConfiguration] Using PROD (physical device): \(urlString)")
+            guard let url = URL(string: urlString) else {
+                fatalError("Invalid API base URL: \(urlString)")
+            }
+            return APIConfiguration(baseURL: url)
+        } else if isPhysicalDevice && forceDevAPIOnPhysicalDevice {
+            let urlString = devCloudFunctionsURL
+            print("⚠️ [APIConfiguration] FORCED DEV on physical device: \(urlString)")
             guard let url = URL(string: urlString) else {
                 fatalError("Invalid API base URL: \(urlString)")
             }
