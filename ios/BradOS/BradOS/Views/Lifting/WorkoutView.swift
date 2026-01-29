@@ -5,6 +5,7 @@ import BradOSCore
 /// Full workout tracking view with API integration
 struct WorkoutView: View {
     let workoutId: String
+    @EnvironmentObject var appState: AppState
     @Environment(\.apiClient) private var apiClient
     @Environment(\.dismiss) private var dismiss
 
@@ -21,6 +22,7 @@ struct WorkoutView: View {
     // Alerts
     @State private var showingCompleteAlert = false
     @State private var showingSkipAlert = false
+    @State private var showingStretchPrompt = false
 
     // Local edit state (set ID -> edited values)
     @State private var localSetEdits: [String: SetEditState] = [:]
@@ -113,6 +115,15 @@ struct WorkoutView: View {
             }
         } message: {
             Text("This workout will be marked as skipped.")
+        }
+        .alert("Time to Stretch?", isPresented: $showingStretchPrompt) {
+            Button("Not Now", role: .cancel) {}
+            Button("Start Stretch") {
+                appState.isShowingLiftingContext = false
+                appState.isShowingStretch = true
+            }
+        } message: {
+            Text("Stretching after a workout helps with recovery. Start a stretch session?")
         }
     }
 
@@ -466,6 +477,7 @@ struct WorkoutView: View {
             workout = completedWorkout
             stateManager.clearState()
             dismissRestTimer()
+            showingStretchPrompt = true
         } catch {
             #if DEBUG
             print("[WorkoutView] Failed to complete workout: \(error)")
