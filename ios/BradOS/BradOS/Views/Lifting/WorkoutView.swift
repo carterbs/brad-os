@@ -265,16 +265,17 @@ struct WorkoutView: View {
                         Text("Start Workout")
                     }
                     .frame(maxWidth: .infinity)
+                    .padding(.vertical, Theme.Spacing.sm)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(GlassSecondaryButtonStyle())
                 .disabled(isStarting)
 
                 Button(action: { showingSkipAlert = true }) {
                     Text("Skip")
+                        .padding(.horizontal, Theme.Spacing.md)
+                        .padding(.vertical, Theme.Spacing.sm)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
+                .buttonStyle(GlassSecondaryButtonStyle())
                 .disabled(isSkipping)
             }
 
@@ -291,16 +292,17 @@ struct WorkoutView: View {
                         Text("Complete")
                     }
                     .frame(maxWidth: .infinity)
+                    .padding(.vertical, Theme.Spacing.sm)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
+                .buttonStyle(GlassSecondaryButtonStyle())
                 .disabled(isCompleting)
 
                 Button(action: { showingSkipAlert = true }) {
                     Text("Skip")
+                        .padding(.horizontal, Theme.Spacing.md)
+                        .padding(.vertical, Theme.Spacing.sm)
                 }
-                .buttonStyle(.bordered)
-                .controlSize(.large)
+                .buttonStyle(GlassSecondaryButtonStyle())
                 .disabled(isSkipping)
             }
 
