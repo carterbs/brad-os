@@ -187,6 +187,13 @@ export interface WorkoutWithSets extends Workout {
   plan_day_name: string;
 }
 
+// Computed warm-up set (not persisted, calculated on-the-fly)
+export interface WarmupSet {
+  warmup_number: number;
+  target_weight: number;
+  target_reps: number;
+}
+
 // Exercise info with target values for a workout
 export interface WorkoutExercise {
   exercise_id: string;
@@ -194,6 +201,7 @@ export interface WorkoutExercise {
   sets: WorkoutSet[];
   total_sets: number;
   completed_sets: number;
+  warmup_sets: WarmupSet[];
 }
 
 // Workout summary for week display

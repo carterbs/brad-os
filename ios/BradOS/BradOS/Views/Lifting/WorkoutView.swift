@@ -785,6 +785,17 @@ struct ExerciseCard: View {
                 .font(.caption)
                 .foregroundColor(Theme.textSecondary)
 
+                // Warm-up sets (visual reminder, non-interactive)
+                if !exercise.warmupSets.isEmpty {
+                    ForEach(exercise.warmupSets) { warmup in
+                        WarmupSetRow(warmupSet: warmup)
+                    }
+
+                    Divider()
+                        .background(Theme.border)
+                        .padding(.vertical, 2)
+                }
+
                 ForEach(exercise.sets, id: \.id) { workoutSet in
                     SetRow(
                         workoutSet: workoutSet,
@@ -1015,6 +1026,52 @@ struct SetRow: View {
             weightText = formatWeight(workoutSet.targetWeight)
             repsText = "\(workoutSet.targetReps)"
         }
+    }
+
+    private func formatWeight(_ weight: Double) -> String {
+        if weight.truncatingRemainder(dividingBy: 1) == 0 {
+            return "\(Int(weight))"
+        }
+        return String(format: "%.1f", weight)
+    }
+}
+
+/// Row displaying a warm-up set (non-interactive visual reminder)
+struct WarmupSetRow: View {
+    let warmupSet: WarmupSet
+
+    var body: some View {
+        HStack {
+            // "W" badge instead of set number
+            ZStack {
+                Circle()
+                    .fill(Theme.backgroundTertiary)
+                    .frame(width: 28, height: 28)
+
+                Text("W")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(Theme.textSecondary)
+            }
+            .frame(width: 40)
+
+            // Weight (read-only)
+            Text(formatWeight(warmupSet.targetWeight))
+                .frame(maxWidth: .infinity)
+                .padding(Theme.Spacing.sm)
+
+            // Reps (read-only)
+            Text("\(warmupSet.targetReps)")
+                .frame(maxWidth: .infinity)
+                .padding(Theme.Spacing.sm)
+
+            // Empty action column
+            Spacer()
+                .frame(width: 44)
+        }
+        .font(.subheadline)
+        .foregroundColor(Theme.textSecondary)
+        .opacity(0.6)
     }
 
     private func formatWeight(_ weight: Double) -> String {

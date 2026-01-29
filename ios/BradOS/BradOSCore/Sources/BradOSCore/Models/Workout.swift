@@ -74,6 +74,26 @@ public struct Workout: Identifiable, Codable, Hashable, Sendable {
     }
 }
 
+/// A computed warm-up set (not persisted, visual reminder only)
+public struct WarmupSet: Identifiable, Codable, Hashable, Sendable {
+    public var id: String { "warmup-\(warmupNumber)" }
+    public let warmupNumber: Int
+    public let targetReps: Int
+    public let targetWeight: Double
+
+    public enum CodingKeys: String, CodingKey {
+        case warmupNumber = "warmup_number"
+        case targetReps = "target_reps"
+        case targetWeight = "target_weight"
+    }
+
+    public init(warmupNumber: Int, targetReps: Int, targetWeight: Double) {
+        self.warmupNumber = warmupNumber
+        self.targetReps = targetReps
+        self.targetWeight = targetWeight
+    }
+}
+
 /// An exercise within a workout with all its sets
 public struct WorkoutExercise: Identifiable, Codable, Hashable, Sendable {
     public var id: String { exerciseId }
@@ -83,6 +103,7 @@ public struct WorkoutExercise: Identifiable, Codable, Hashable, Sendable {
     public var totalSets: Int
     public var completedSets: Int
     public var restSeconds: Int
+    public var warmupSets: [WarmupSet]
 
     public enum CodingKeys: String, CodingKey {
         case exerciseId = "exercise_id"
@@ -91,6 +112,7 @@ public struct WorkoutExercise: Identifiable, Codable, Hashable, Sendable {
         case totalSets = "total_sets"
         case completedSets = "completed_sets"
         case restSeconds = "rest_seconds"
+        case warmupSets = "warmup_sets"
     }
 
     public init(
@@ -99,7 +121,8 @@ public struct WorkoutExercise: Identifiable, Codable, Hashable, Sendable {
         sets: [WorkoutSet],
         totalSets: Int,
         completedSets: Int,
-        restSeconds: Int
+        restSeconds: Int,
+        warmupSets: [WarmupSet] = []
     ) {
         self.exerciseId = exerciseId
         self.exerciseName = exerciseName
@@ -107,6 +130,7 @@ public struct WorkoutExercise: Identifiable, Codable, Hashable, Sendable {
         self.totalSets = totalSets
         self.completedSets = completedSets
         self.restSeconds = restSeconds
+        self.warmupSets = warmupSets
     }
 
     public var formattedRestTime: String {
@@ -196,7 +220,11 @@ public extension Workout {
                 ],
                 totalSets: 3,
                 completedSets: 0,
-                restSeconds: 90
+                restSeconds: 90,
+                warmupSets: [
+                    WarmupSet(warmupNumber: 1, targetReps: 10, targetWeight: 55),
+                    WarmupSet(warmupNumber: 2, targetReps: 10, targetWeight: 80)
+                ]
             ),
             WorkoutExercise(
                 exerciseId: "mock-exercise-4",
@@ -208,7 +236,11 @@ public extension Workout {
                 ],
                 totalSets: 3,
                 completedSets: 0,
-                restSeconds: 90
+                restSeconds: 90,
+                warmupSets: [
+                    WarmupSet(warmupNumber: 1, targetReps: 10, targetWeight: 37.5),
+                    WarmupSet(warmupNumber: 2, targetReps: 10, targetWeight: 57.5)
+                ]
             )
         ],
         planDayName: "Push Day",

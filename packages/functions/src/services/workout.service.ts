@@ -3,6 +3,7 @@ import type {
   Workout,
   WorkoutSet,
   WorkoutExercise,
+  WarmupSet,
   ExerciseProgression,
   PreviousWeekPerformance,
 } from '../shared.js';
@@ -505,6 +506,11 @@ export class WorkoutService {
         (s) => s.status === 'completed'
       ).length;
 
+      const firstSet = exerciseSets[0];
+      const warmupSets = firstSet
+        ? WorkoutService.calculateWarmupSets(firstSet.target_weight, firstSet.target_reps)
+        : [];
+
       exercises.push({
         exercise_id: pde.exercise_id,
         exercise_name: exercise.name,
@@ -512,6 +518,7 @@ export class WorkoutService {
         total_sets: exerciseSets.length,
         completed_sets: completedSets,
         rest_seconds: pde.rest_seconds,
+        warmup_sets: warmupSets,
       });
     }
 
@@ -520,5 +527,25 @@ export class WorkoutService {
       plan_day_name: planDay?.name ?? 'Unknown',
       exercises,
     };
+  }
+
+  /**
+   * Calculate warm-up sets for an exercise.
+   * Returns 2 warm-up sets at 40% and 60% of working weight.
+   * Skips warm-ups if working weight is too low (≤ 20 lbs).
+   */
+  static calculateWarmupSets(workingWeight: number, targetReps: number): WarmupSet[] {
+    if (workingWeight <= 20) {
+      return [];
+    }
+
+    const WARMUP_PERCENTAGES = [0.4, 0.6];
+    const ROUNDING_INCREMENT = 2.5;
+
+    return WARMUP_PERCENTAGES.map((pct, index) => ({
+      warmup_number: index + 1,
+      target_weight: Math.round((workingWeight * pct) / ROUNDING_INCREMENT) * ROUNDING_INCREMENT,
+      target_reps: targetReps,
+    }));
   }
 }

@@ -583,4 +583,116 @@ describe('WorkoutService', () => {
       );
     });
   });
+
+  describe('calculateWarmupSets', () => {
+    it('should return 2 warmup sets at 40% and 60% of working weight', () => {
+      const result = WorkoutService.calculateWarmupSets(100, 8);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual({ warmup_number: 1, target_weight: 40, target_reps: 8 });
+      expect(result[1]).toEqual({ warmup_number: 2, target_weight: 60, target_reps: 8 });
+    });
+
+    it('should round warmup weights to nearest 2.5 lbs', () => {
+      // 135 * 0.4 = 54 → 54/2.5 = 21.6 → round(21.6) = 22 → 22*2.5 = 55
+      // 135 * 0.6 = 81 → 81/2.5 = 32.4 → round(32.4) = 32 → 32*2.5 = 80
+      const result = WorkoutService.calculateWarmupSets(135, 10);
+
+      expect(result[0]?.target_weight).toBe(55);
+      expect(result[1]?.target_weight).toBe(80);
+    });
+
+    it('should return empty array when working weight is 20 or less', () => {
+      expect(WorkoutService.calculateWarmupSets(20, 8)).toEqual([]);
+      expect(WorkoutService.calculateWarmupSets(15, 8)).toEqual([]);
+      expect(WorkoutService.calculateWarmupSets(0, 8)).toEqual([]);
+    });
+
+    it('should return warmup sets when working weight is just above threshold', () => {
+      const result = WorkoutService.calculateWarmupSets(25, 8);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]?.target_weight).toBe(10);
+      expect(result[1]?.target_weight).toBe(15);
+    });
+
+    it('should use target reps from working set', () => {
+      const result = WorkoutService.calculateWarmupSets(200, 12);
+
+      expect(result[0]?.target_reps).toBe(12);
+      expect(result[1]?.target_reps).toBe(12);
+    });
+
+    it('should handle non-round working weights', () => {
+      // 67.5 * 0.4 = 27 → rounds to 27.5
+      // 67.5 * 0.6 = 40.5 → rounds to 40
+      const result = WorkoutService.calculateWarmupSets(67.5, 8);
+
+      expect(result[0]?.target_weight).toBe(27.5);
+      expect(result[1]?.target_weight).toBe(40);
+    });
+  });
+
+  describe('warmup sets in getById response', () => {
+    it('should include warmup_sets on each exercise', async () => {
+      const workout = createMockWorkout();
+      const sets = [
+        createMockWorkoutSet({ id: 'set-1', set_number: 1, target_weight: 100 }),
+        createMockWorkoutSet({ id: 'set-2', set_number: 2, target_weight: 100 }),
+      ];
+
+      mockWorkoutRepo.findById.mockResolvedValue(workout);
+      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockPlanDayExerciseRepo.findByPlanDayId.mockResolvedValue([mockPlanDayExercise]);
+      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
+      mockExerciseRepo.findById.mockResolvedValue(mockExercise);
+
+      const result = await service.getById('workout-1');
+
+      expect(result?.exercises[0]?.warmup_sets).toHaveLength(2);
+      expect(result?.exercises[0]?.warmup_sets[0]?.target_weight).toBe(40);
+      expect(result?.exercises[0]?.warmup_sets[1]?.target_weight).toBe(60);
+    });
+
+    it('should not include warmup_sets for low-weight exercises', async () => {
+      // Use in_progress to avoid dynamic progression overriding target_weight
+      const workout = createMockWorkout({ status: 'in_progress' });
+      const sets = [
+        createMockWorkoutSet({ id: 'set-1', set_number: 1, target_weight: 15 }),
+      ];
+
+      mockWorkoutRepo.findById.mockResolvedValue(workout);
+      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockPlanDayExerciseRepo.findByPlanDayId.mockResolvedValue([mockPlanDayExercise]);
+      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
+      mockExerciseRepo.findById.mockResolvedValue(mockExercise);
+
+      const result = await service.getById('workout-1');
+
+      expect(result?.exercises[0]?.warmup_sets).toEqual([]);
+    });
+
+    it('should not count warmup sets in total_sets or completed_sets', async () => {
+      const workout = createMockWorkout({ status: 'in_progress' });
+      const sets = [
+        createMockWorkoutSet({ id: 'set-1', set_number: 1, status: 'completed', actual_reps: 8, actual_weight: 100 }),
+        createMockWorkoutSet({ id: 'set-2', set_number: 2, status: 'pending' }),
+        createMockWorkoutSet({ id: 'set-3', set_number: 3, status: 'pending' }),
+      ];
+
+      mockWorkoutRepo.findById.mockResolvedValue(workout);
+      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockPlanDayExerciseRepo.findByPlanDayId.mockResolvedValue([mockPlanDayExercise]);
+      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
+      mockExerciseRepo.findById.mockResolvedValue(mockExercise);
+
+      const result = await service.getById('workout-1');
+
+      // total_sets and completed_sets should only count working sets
+      expect(result?.exercises[0]?.total_sets).toBe(3);
+      expect(result?.exercises[0]?.completed_sets).toBe(1);
+      // warmup_sets is a separate array
+      expect(result?.exercises[0]?.warmup_sets).toHaveLength(2);
+    });
+  });
 });
