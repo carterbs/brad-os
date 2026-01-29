@@ -57,6 +57,12 @@ struct LiftingTabView: View {
                     }
                 }
             }
+            .onAppear {
+                if let workoutId = appState.selectedWorkoutId {
+                    navigationPath.append(WorkoutDestination(workoutId: workoutId))
+                    appState.selectedWorkoutId = nil
+                }
+            }
         }
     }
 }
