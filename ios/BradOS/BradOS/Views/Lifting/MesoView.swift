@@ -369,7 +369,12 @@ struct WeekCard: View {
 
             Text(statusText(for: workout.status))
                 .font(.caption)
+                .fontWeight(.medium)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(statusColor(for: workout.status).opacity(0.2))
                 .foregroundColor(statusColor(for: workout.status))
+                .cornerRadius(Theme.CornerRadius.sm)
 
             if isPending || isInProgress {
                 Image(systemName: "chevron.right")
@@ -390,7 +395,7 @@ struct WeekCard: View {
         switch status {
         case .completed: return Theme.statusCompleted
         case .skipped: return Theme.statusSkipped
-        case .inProgress: return Theme.accent
+        case .inProgress: return Theme.statusInProgress
         case .pending: return Theme.backgroundTertiary
         }
     }
