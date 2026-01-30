@@ -44,7 +44,12 @@ class StretchAudioManager: ObservableObject {
     /// Keepalive volume (matches PWA's 1% / 0.01)
     private let keepaliveVolume: Float = 0.01
 
-    init() {}
+    /// Observer for audio session interruptions (phone calls, Siri, etc.)
+    private var interruptionObserver: NSObjectProtocol?
+
+    init() {
+        setupInterruptionObserver()
+    }
 
     deinit {
         // Clean up observers synchronously - do NOT create a Task here
@@ -56,8 +61,55 @@ class StretchAudioManager: ObservableObject {
         if let observer = keepaliveObserver {
             NotificationCenter.default.removeObserver(observer)
         }
+        if let observer = interruptionObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
         narrationPlayer?.pause()
         keepalivePlayer?.pause()
+    }
+
+    // MARK: - Audio Interruption Handling
+
+    private func setupInterruptionObserver() {
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            queue: .main
+        ) { [weak self] notification in
+            self?.handleInterruption(notification)
+        }
+    }
+
+    private func handleInterruption(_ notification: Notification) {
+        guard let userInfo = notification.userInfo,
+              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
+            return
+        }
+
+        switch type {
+        case .began:
+            #if DEBUG
+            print("[StretchAudioManager] Audio interruption began (e.g. phone call)")
+            #endif
+
+        case .ended:
+            #if DEBUG
+            print("[StretchAudioManager] Audio interruption ended")
+            #endif
+            if let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt {
+                let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
+                if options.contains(.shouldResume) {
+                    // Reactivate audio session and restart keepalive so the
+                    // timer continues running while the screen is locked
+                    try? AVAudioSession.sharedInstance().setActive(true)
+                    resumeKeepalivePlayback()
+                }
+            }
+
+        @unknown default:
+            break
+        }
     }
 
     // MARK: - Session Lifecycle
@@ -108,6 +160,11 @@ class StretchAudioManager: ObservableObject {
 
             // Reactivate with new category
             try AVAudioSession.sharedInstance().setActive(true)
+
+            // Restart keepalive - setActive(false) stops all audio players,
+            // so the keepalive loop must be re-triggered to prevent iOS from
+            // suspending the app while the screen is locked
+            resumeKeepalivePlayback()
         } catch {
             #if DEBUG
             print("[StretchAudioManager] Failed to enable ducking: \(error)")
@@ -134,6 +191,11 @@ class StretchAudioManager: ObservableObject {
 
             // Reactivate our session for keepalive
             try AVAudioSession.sharedInstance().setActive(true)
+
+            // Restart keepalive - setActive(false) stops all audio players,
+            // so the keepalive loop must be re-triggered to prevent iOS from
+            // suspending the app while the screen is locked
+            resumeKeepalivePlayback()
         } catch {
             #if DEBUG
             print("[StretchAudioManager] Failed to restore audio: \(error)")
@@ -198,6 +260,30 @@ class StretchAudioManager: ObservableObject {
     /// Check if keepalive is currently running
     var isKeepaliveActive: Bool {
         isKeepaliveRunning
+    }
+
+    /// Ensure the keepalive audio loop is actively playing.
+    /// Call this after returning from background or after audio interruptions
+    /// to guarantee the audio session stays alive and iOS doesn't suspend the app.
+    func ensureKeepaliveActive() {
+        guard isKeepaliveRunning else {
+            // Keepalive was never started or was intentionally stopped
+            return
+        }
+
+        // Reactivate session in case it was deactivated
+        try? AVAudioSession.sharedInstance().setActive(true)
+        resumeKeepalivePlayback()
+    }
+
+    /// Resume keepalive playback after an audio session interruption
+    /// Unlike startKeepalive(), this doesn't recreate the player — it just
+    /// seeks to the start and plays again, which is sufficient after
+    /// setActive(false) stops the player mid-stream.
+    private func resumeKeepalivePlayback() {
+        guard isKeepaliveRunning, let player = keepalivePlayer else { return }
+        player.seek(to: .zero)
+        player.play()
     }
 
     // MARK: - Narration Playback

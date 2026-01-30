@@ -133,6 +133,13 @@ class StretchSessionManager: ObservableObject {
     }
 
     private func handleAppBecameActive() {
+        // Ensure keepalive audio is still running for active/paused sessions.
+        // iOS may have suspended audio playback while the app was backgrounded
+        // or the screen was locked, so we re-verify here.
+        if status == .active || status == .paused {
+            audioManager.ensureKeepaliveActive()
+        }
+
         switch spotifyState {
         case .waitingForVisible:
             // User returned from Spotify, now start the session
