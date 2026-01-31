@@ -293,3 +293,31 @@ export interface ExerciseHistory {
     date: string;
   } | null;
 }
+
+// ============ Barcodes ============
+
+export type BarcodeType = 'code128' | 'code39' | 'qr';
+
+export interface Barcode extends BaseEntity {
+  label: string;
+  value: string;
+  barcode_type: BarcodeType;
+  color: string;
+  sort_order: number;
+}
+
+export interface CreateBarcodeDTO {
+  label: string;
+  value: string;
+  barcode_type: BarcodeType;
+  color: string;
+  sort_order?: number;
+}
+
+export interface UpdateBarcodeDTO {
+  label?: string;
+  value?: string;
+  barcode_type?: BarcodeType;
+  color?: string;
+  sort_order?: number;
+}

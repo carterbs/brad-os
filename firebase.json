@@ -49,6 +49,8 @@
       { "source": "/api/dev/meditation-sessions/**", "function": "devMeditationSessions" },
       { "source": "/api/dev/calendar", "function": "devCalendar" },
       { "source": "/api/dev/calendar/**", "function": "devCalendar" },
+      { "source": "/api/dev/barcodes", "function": "devBarcodes" },
+      { "source": "/api/dev/barcodes/**", "function": "devBarcodes" },
       { "source": "/api/prod/health", "function": "prodHealth" },
       { "source": "/api/prod/health/**", "function": "prodHealth" },
       { "source": "/api/prod/exercises", "function": "prodExercises" },
@@ -66,7 +68,9 @@
       { "source": "/api/prod/meditation-sessions", "function": "prodMeditationSessions" },
       { "source": "/api/prod/meditation-sessions/**", "function": "prodMeditationSessions" },
       { "source": "/api/prod/calendar", "function": "prodCalendar" },
-      { "source": "/api/prod/calendar/**", "function": "prodCalendar" }
+      { "source": "/api/prod/calendar/**", "function": "prodCalendar" },
+      { "source": "/api/prod/barcodes", "function": "prodBarcodes" },
+      { "source": "/api/prod/barcodes/**", "function": "prodBarcodes" }
     ]
   }
 }

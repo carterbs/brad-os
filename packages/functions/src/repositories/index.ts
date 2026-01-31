@@ -9,6 +9,7 @@ import { WorkoutRepository } from './workout.repository.js';
 import { WorkoutSetRepository } from './workout-set.repository.js';
 import { StretchSessionRepository } from './stretchSession.repository.js';
 import { MeditationSessionRepository } from './meditationSession.repository.js';
+import { BarcodeRepository } from './barcode.repository.js';
 
 export { BaseRepository } from './base.repository.js';
 export { ExerciseRepository } from './exercise.repository.js';
@@ -20,6 +21,7 @@ export { WorkoutRepository } from './workout.repository.js';
 export { WorkoutSetRepository } from './workout-set.repository.js';
 export { StretchSessionRepository } from './stretchSession.repository.js';
 export { MeditationSessionRepository } from './meditationSession.repository.js';
+export { BarcodeRepository } from './barcode.repository.js';
 export type { CompletedSetRow } from './workout-set.repository.js';
 
 // Singleton instances for use with the default database
@@ -32,6 +34,7 @@ let workoutRepository: WorkoutRepository | null = null;
 let workoutSetRepository: WorkoutSetRepository | null = null;
 let stretchSessionRepository: StretchSessionRepository | null = null;
 let meditationSessionRepository: MeditationSessionRepository | null = null;
+let barcodeRepository: BarcodeRepository | null = null;
 
 // Reset all repository singletons (for testing)
 export function resetRepositories(): void {
@@ -44,6 +47,7 @@ export function resetRepositories(): void {
   workoutSetRepository = null;
   stretchSessionRepository = null;
   meditationSessionRepository = null;
+  barcodeRepository = null;
 }
 
 export function getExerciseRepository(): ExerciseRepository {
@@ -109,6 +113,13 @@ export function getMeditationSessionRepository(): MeditationSessionRepository {
   return meditationSessionRepository;
 }
 
+export function getBarcodeRepository(): BarcodeRepository {
+  if (!barcodeRepository) {
+    barcodeRepository = new BarcodeRepository(getFirestoreDb());
+  }
+  return barcodeRepository;
+}
+
 // Helper to create repositories with a custom database (useful for testing)
 export function createRepositories(db: Firestore): {
   exercise: ExerciseRepository;
@@ -120,6 +131,7 @@ export function createRepositories(db: Firestore): {
   workoutSet: WorkoutSetRepository;
   stretchSession: StretchSessionRepository;
   meditationSession: MeditationSessionRepository;
+  barcode: BarcodeRepository;
 } {
   return {
     exercise: new ExerciseRepository(db),
@@ -131,5 +143,6 @@ export function createRepositories(db: Firestore): {
     workoutSet: new WorkoutSetRepository(db),
     stretchSession: new StretchSessionRepository(db),
     meditationSession: new MeditationSessionRepository(db),
+    barcode: new BarcodeRepository(db),
   };
 }
