@@ -79,7 +79,7 @@ struct BarcodeFormView: View {
         VStack(spacing: Theme.Spacing.md) {
             SectionHeader(title: "Preview")
 
-            VStack(spacing: 0) {
+            VStack(spacing: Theme.Spacing.sm) {
                 if !value.isEmpty {
                     BarcodeImageView(value: value, barcodeType: barcodeType, height: 100)
                         .padding(Theme.Spacing.md)
