@@ -117,6 +117,28 @@ struct ProfileView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             SectionHeader(title: "Settings")
 
+            VStack(spacing: 0) {
+                NavigationLink(destination: BarcodeWalletView()) {
+                    SettingsRow(
+                        title: "Barcode Wallet",
+                        subtitle: "Manage membership barcodes",
+                        iconName: "barcode",
+                        iconColor: Theme.accent
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(Theme.textSecondary)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .background(Theme.backgroundSecondary)
+            .cornerRadius(Theme.CornerRadius.md)
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
+                    .stroke(Theme.border, lineWidth: 1)
+            )
+
             NotificationSettingsView()
         }
     }

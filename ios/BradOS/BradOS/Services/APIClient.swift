@@ -498,6 +498,28 @@ final class APIClient: APIClientProtocol {
         try await get("/meditation-sessions/stats")
     }
 
+    // MARK: - Barcodes
+
+    func getBarcodes() async throws -> [Barcode] {
+        try await get("/barcodes")
+    }
+
+    func getBarcode(id: String) async throws -> Barcode {
+        try await get("/barcodes/\(id)")
+    }
+
+    func createBarcode(_ dto: CreateBarcodeDTO) async throws -> Barcode {
+        try await post("/barcodes", body: dto)
+    }
+
+    func updateBarcode(id: String, dto: UpdateBarcodeDTO) async throws -> Barcode {
+        try await put("/barcodes/\(id)", body: dto)
+    }
+
+    func deleteBarcode(id: String) async throws {
+        try await delete("/barcodes/\(id)")
+    }
+
     // MARK: - Calendar
 
     func getCalendarData(year: Int, month: Int, timezoneOffset: Int? = nil) async throws -> CalendarData {

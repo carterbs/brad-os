@@ -129,4 +129,21 @@ public protocol APIClientProtocol: Sendable {
 
     /// Get calendar data for a specific month
     func getCalendarData(year: Int, month: Int, timezoneOffset: Int?) async throws -> CalendarData
+
+    // MARK: - Barcodes
+
+    /// Get all barcodes ordered by sort_order
+    func getBarcodes() async throws -> [Barcode]
+
+    /// Get a specific barcode by ID
+    func getBarcode(id: String) async throws -> Barcode
+
+    /// Create a new barcode
+    func createBarcode(_ dto: CreateBarcodeDTO) async throws -> Barcode
+
+    /// Update an existing barcode
+    func updateBarcode(id: String, dto: UpdateBarcodeDTO) async throws -> Barcode
+
+    /// Delete a barcode
+    func deleteBarcode(id: String) async throws
 }

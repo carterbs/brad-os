@@ -25,6 +25,7 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     public var mockMeditationStats: MeditationStats?
     public var mockExerciseHistory: ExerciseHistory?
     public var mockCalendarData: CalendarData?
+    public var mockBarcodes: [Barcode] = []
 
     // MARK: - Initialization
 
@@ -39,6 +40,7 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         mockActiveMesocycle = Mesocycle.mockActiveMesocycle
         mockMeditationStats = MeditationStats.mockStats
         mockExerciseHistory = ExerciseHistory.mockHistory
+        mockBarcodes = Barcode.mockBarcodes
     }
 
     // MARK: - Helper Methods
@@ -467,6 +469,66 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         return stats
     }
 
+    // MARK: - Barcodes
+
+    public func getBarcodes() async throws -> [Barcode] {
+        await simulateDelay()
+        try checkForError()
+        return mockBarcodes
+    }
+
+    public func getBarcode(id: String) async throws -> Barcode {
+        await simulateDelay()
+        try checkForError()
+        guard let barcode = mockBarcodes.first(where: { $0.id == id }) else {
+            throw APIError.notFound("Barcode \(id) not found")
+        }
+        return barcode
+    }
+
+    public func createBarcode(_ dto: CreateBarcodeDTO) async throws -> Barcode {
+        await simulateDelay()
+        try checkForError()
+        let newId = "mock-barcode-\(UUID().uuidString.prefix(8))"
+        let barcode = Barcode(
+            id: newId,
+            label: dto.label,
+            value: dto.value,
+            barcodeType: BarcodeType(rawValue: dto.barcodeType) ?? .code128,
+            color: dto.color,
+            sortOrder: dto.sortOrder,
+            createdAt: Date(),
+            updatedAt: Date()
+        )
+        mockBarcodes.append(barcode)
+        return barcode
+    }
+
+    public func updateBarcode(id: String, dto: UpdateBarcodeDTO) async throws -> Barcode {
+        await simulateDelay()
+        try checkForError()
+        guard let index = mockBarcodes.firstIndex(where: { $0.id == id }) else {
+            throw APIError.notFound("Barcode \(id) not found")
+        }
+        var barcode = mockBarcodes[index]
+        if let label = dto.label { barcode.label = label }
+        if let value = dto.value { barcode.value = value }
+        if let barcodeType = dto.barcodeType, let type = BarcodeType(rawValue: barcodeType) {
+            barcode.barcodeType = type
+        }
+        if let color = dto.color { barcode.color = color }
+        if let sortOrder = dto.sortOrder { barcode.sortOrder = sortOrder }
+        barcode.updatedAt = Date()
+        mockBarcodes[index] = barcode
+        return barcode
+    }
+
+    public func deleteBarcode(id: String) async throws {
+        await simulateDelay()
+        try checkForError()
+        mockBarcodes.removeAll { $0.id == id }
+    }
+
     // MARK: - Calendar
 
     public func getCalendarData(year: Int, month: Int, timezoneOffset: Int?) async throws -> CalendarData {
@@ -512,6 +574,7 @@ public extension MockAPIClient {
         client.mockPlans = []
         client.mockMesocycles = []
         client.mockActiveMesocycle = nil
+        client.mockBarcodes = []
         return client
     }
 }

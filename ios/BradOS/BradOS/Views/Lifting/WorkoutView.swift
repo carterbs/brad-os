@@ -30,6 +30,10 @@ struct WorkoutView: View {
     // Full-screen timer overlay
     @State private var showingTimerOverlay = false
 
+    // Barcode wallet
+    @State private var showingBarcodeSheet = false
+    @State private var walletBarcodes: [Barcode] = []
+
     // Managers for persistence and timer
     @StateObject private var stateManager = WorkoutStateManager()
     @StateObject private var restTimer = RestTimerManager()
@@ -87,6 +91,27 @@ struct WorkoutView: View {
         }
         .navigationTitle(workout?.planDayName ?? "Workout")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if !walletBarcodes.isEmpty {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { showingBarcodeSheet = true }) {
+                        Image(systemName: "barcode")
+                            .foregroundColor(Theme.textPrimary)
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showingBarcodeSheet) {
+            BarcodeDisplaySheet(barcodes: walletBarcodes)
+        }
+        .task {
+            // Load barcodes silently for quick access
+            do {
+                walletBarcodes = try await apiClient.getBarcodes()
+            } catch {
+                // Non-critical — barcode access is secondary to the workout
+            }
+        }
         .task {
             await loadWorkout()
         }
