@@ -19,7 +19,7 @@ struct ShoppingListView: View {
                 if let errorMsg = viewModel.remindersError {
                     Text(errorMsg)
                         .font(.caption)
-                        .foregroundColor(.red)
+                        .foregroundColor(Theme.error)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, Theme.Spacing.md)
                 }
@@ -96,26 +96,29 @@ struct ShoppingListView: View {
         )
     }
 
-    // MARK: - Reminders Button
+    // MARK: - Save to Grocery List Button
 
     @ViewBuilder
     private var remindersButton: some View {
         Button(action: {
             Task { await viewModel.exportToReminders() }
         }) {
-            HStack {
+            HStack(spacing: Theme.Spacing.sm) {
                 if viewModel.isExportingToReminders {
                     ProgressView()
                         .tint(.white)
                 } else if viewModel.remindersExportResult != nil {
-                    Image(systemName: "checkmark")
-                    Text("Sent to Reminders!")
+                    Image(systemName: "checkmark.circle.fill")
+                    Text("Saved to Grocery List!")
                 } else {
-                    Image(systemName: "checklist")
-                    Text("Send to Reminders")
+                    Image(systemName: "cart.badge.plus")
+                    Text("Save to Grocery List")
                 }
             }
+            .font(.subheadline)
+            .fontWeight(.semibold)
             .frame(maxWidth: .infinity)
+            .padding(.vertical, Theme.Spacing.sm)
         }
         .buttonStyle(PrimaryButtonStyle())
         .disabled(viewModel.isExportingToReminders)
