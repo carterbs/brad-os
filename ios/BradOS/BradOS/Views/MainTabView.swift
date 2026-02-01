@@ -56,16 +56,23 @@ struct MainTabView: View {
 
                     Image(systemName: isActive ? tab.filledIcon : tab.outlinedIcon)
                         .font(.system(size: Theme.Typography.tabBarIcon, weight: isActive ? .semibold : .medium))
-                        .foregroundColor(isActive ? Theme.textPrimary : Theme.textTertiary)
+                        .foregroundColor(isActive ? Theme.interactivePrimary : Theme.textTertiary)
                 }
                 .frame(height: 28)
 
                 Text(tab.label)
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundColor(isActive ? Theme.textPrimary : Theme.textTertiary)
+                    .foregroundColor(isActive ? Theme.interactivePrimary : Theme.textTertiary)
             }
             .frame(maxWidth: .infinity)
+            .padding(.vertical, Theme.Spacing.space1)
+            .background(
+                isActive
+                    ? Capsule(style: .continuous)
+                        .fill(Theme.interactivePrimary.opacity(0.10))
+                    : nil
+            )
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())

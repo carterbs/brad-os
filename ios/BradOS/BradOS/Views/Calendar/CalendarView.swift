@@ -88,7 +88,7 @@ struct CalendarView: View {
                     HStack(spacing: Theme.Spacing.space1) {
                         Circle()
                             .fill(type.color)
-                            .frame(width: 8, height: 8)
+                            .frame(width: Theme.Dimensions.dotMD, height: Theme.Dimensions.dotMD)
                         Text(type.displayName)
                             .font(.caption)
                             .foregroundColor(Theme.textSecondary)

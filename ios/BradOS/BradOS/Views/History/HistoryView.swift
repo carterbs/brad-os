@@ -159,7 +159,7 @@ struct FilterChip: View {
                 .frame(height: 32)
                 .background(
                     isSelected
-                        ? Theme.interactivePrimary.opacity(0.18)
+                        ? Theme.interactivePrimary.opacity(0.20)
                         : Color.white.opacity(0.06)
                 )
                 .clipShape(Capsule(style: .continuous))

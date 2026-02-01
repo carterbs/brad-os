@@ -14,7 +14,7 @@ struct Theme {
 
     // MARK: - Text Colors (white at fixed opacities)
     static let textPrimary = Color.white.opacity(0.92)
-    static let textSecondary = Color.white.opacity(0.72)
+    static let textSecondary = Color.white.opacity(0.78)
     static let textTertiary = Color.white.opacity(0.56)
     static let textDisabled = Color.white.opacity(0.38)
     static let textOnAccent = Color(hex: "061018").opacity(0.95)
@@ -32,7 +32,7 @@ struct Theme {
     static let interactiveFocusRing = Color(hex: "A48BFF").opacity(0.75)
 
     // MARK: - Activity Colors
-    static let lifting = Color(hex: "6D6BFF")
+    static let lifting = Color(hex: "4F6AFF")
     static let stretch = Color(hex: "21D6C2")
     static let meditation = Color(hex: "B26BFF")
     static let mealPlan = Color(hex: "FF7AAE")

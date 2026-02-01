@@ -254,6 +254,7 @@ struct StretchSetupView: View {
                     startButton
                 }
                 .padding(Theme.Spacing.space4)
+                .padding(.bottom, Theme.Spacing.space8)
             }
         }
         .onAppear {
@@ -277,12 +278,16 @@ struct StretchSetupView: View {
                     Text(editMode == .active ? "Done" : "Reorder")
                         .font(.caption)
                         .foregroundColor(Theme.interactivePrimary)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
                 }
 
                 Button(action: toggleAll) {
                     Text(allSelected ? "Deselect All" : "Select All")
                         .font(.caption)
                         .foregroundColor(Theme.interactivePrimary)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
                 }
             }
 
@@ -457,8 +462,8 @@ struct RegionToggleCard: View {
                 Text(region.displayName)
                     .font(.subheadline)
                     .foregroundColor(isEnabled ? Theme.textPrimary : Theme.textSecondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
 
                 Spacer()
 

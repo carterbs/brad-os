@@ -93,7 +93,7 @@ struct ActivitiesView: View {
                         .font(.subheadline)
                         .foregroundColor(Theme.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(Theme.Spacing.space6)
+                        .glassCard()
                 } else {
                     ForEach(activities) { activity in
                         RecentActivityRow(activity: activity)

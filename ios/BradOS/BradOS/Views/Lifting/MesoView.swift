@@ -96,17 +96,15 @@ struct MesoView: View {
     }
 
     private var loadingCard: some View {
-        VStack(spacing: Theme.Spacing.space4) {
+        HStack(spacing: Theme.Spacing.space3) {
             ProgressView()
-                .scaleEffect(1.2)
 
             Text("Loading mesocycle...")
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(Theme.Spacing.space6)
-        .glassCard()
+        .padding(.vertical, Theme.Spacing.space4)
     }
 
     private func errorCard(_ error: Error) -> some View {

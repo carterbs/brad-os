@@ -57,7 +57,7 @@ struct MealPlanView: View {
                 .foregroundColor(Theme.mealPlan)
 
             Text("Weekly Meal Plan")
-                .font(.title2)
+                .font(.headline)
                 .fontWeight(.bold)
                 .foregroundColor(Theme.textPrimary)
 
@@ -135,6 +135,7 @@ struct MealPlanView: View {
                 newPlanButton
             }
             .padding(Theme.Spacing.space4)
+            .padding(.bottom, Theme.Spacing.space7)
         }
     }
 

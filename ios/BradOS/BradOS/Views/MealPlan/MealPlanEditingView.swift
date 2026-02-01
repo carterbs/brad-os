@@ -45,6 +45,7 @@ struct MealPlanEditingView: View {
                 ScrollView {
                     ShoppingListView(viewModel: viewModel)
                         .padding(Theme.Spacing.space4)
+                        .padding(.bottom, Theme.Spacing.space7)
                 }
             }
 

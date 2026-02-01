@@ -12,13 +12,9 @@ struct StatusBadge: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
             .frame(height: 24)
-            .background(Color.white.opacity(0.08))
+            .background(statusColor.opacity(0.2))
             .foregroundColor(statusColor)
             .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous)
-                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
-            )
     }
 
     private var statusColor: Color {
@@ -47,13 +43,9 @@ struct GenericBadge: View {
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
             .frame(height: 24)
-            .background(Color.white.opacity(0.08))
+            .background(color.opacity(0.2))
             .foregroundColor(color)
             .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous)
-                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
-            )
     }
 }
 

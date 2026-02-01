@@ -232,7 +232,9 @@ struct PlanDetailView: View {
     @ViewBuilder
     private func planInfoSection(_ plan: Plan) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
-            SectionHeader(title: "Plan Details")
+            Text("Plan Details")
+                .font(.headline)
+                .foregroundColor(Theme.textPrimary)
 
             HStack(spacing: Theme.Spacing.space6) {
                 VStack {
