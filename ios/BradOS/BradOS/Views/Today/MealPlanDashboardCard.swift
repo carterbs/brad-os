@@ -26,44 +26,22 @@ struct MealPlanDashboardCard: View {
     // MARK: - Loading State
 
     private var loadingState: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            HStack {
-                Image(systemName: "fork.knife")
-                    .font(.system(size: Theme.Typography.iconXS))
-                    .foregroundColor(Theme.mealPlan)
-                Text("Meal Plan")
-                    .font(.headline)
-                    .foregroundColor(Theme.textPrimary)
-                Spacer()
-            }
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
+            cardHeader
 
             Text("Loading meal plan...")
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.mealPlan.opacity(0.08))
-        .cornerRadius(Theme.CornerRadius.lg)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                .stroke(Theme.mealPlan.opacity(0.3), lineWidth: 1)
-        )
+        .glassCard()
     }
 
     // MARK: - Meal Content
 
     private var mealContent: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             // Header
-            HStack {
-                Image(systemName: "fork.knife")
-                    .font(.system(size: Theme.Typography.iconXS))
-                    .foregroundColor(Theme.mealPlan)
-                Text("Meal Plan")
-                    .font(.headline)
-                    .foregroundColor(Theme.textPrimary)
-                Spacer()
-            }
+            cardHeader
 
             if todayMeals.isEmpty {
                 Text("No finalized meal plan")
@@ -71,41 +49,59 @@ struct MealPlanDashboardCard: View {
                     .foregroundColor(Theme.textSecondary)
             } else {
                 // Meal rows for breakfast, lunch, dinner
-                VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
                     mealRow(for: .breakfast)
                     mealRow(for: .lunch)
                     mealRow(for: .dinner)
                 }
             }
 
-            // Action button
+            // Action link
             HStack {
                 Spacer()
-                HStack(spacing: 4) {
-                    Text("View Plan")
-                        .font(.subheadline)
-                        .fontWeight(.medium)
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                }
-                .foregroundColor(Theme.mealPlan)
+                actionLink
             }
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.mealPlan.opacity(0.08))
-        .cornerRadius(Theme.CornerRadius.lg)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                .stroke(Theme.mealPlan.opacity(0.3), lineWidth: 1)
-        )
+        .glassCard()
+    }
+
+    // MARK: - Card Header
+
+    private var cardHeader: some View {
+        HStack {
+            cardHeaderIcon
+            Text("Meal Plan")
+                .font(.title3)
+                .foregroundColor(Theme.textPrimary)
+            Spacer()
+        }
+    }
+
+    private var cardHeaderIcon: some View {
+        Image(systemName: "fork.knife")
+            .font(.system(size: Theme.Typography.cardHeaderIcon))
+            .foregroundColor(Theme.mealPlan)
+            .frame(width: Theme.Dimensions.iconFrameMD, height: Theme.Dimensions.iconFrameMD)
+            .background(Theme.mealPlan.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
     }
 
     // MARK: - Helpers
 
+    private var actionLink: some View {
+        HStack(spacing: Theme.Spacing.space1) {
+            Text("View Plan")
+                .font(.callout.weight(.semibold))
+            Image(systemName: "chevron.right")
+                .font(.caption)
+        }
+        .foregroundColor(Theme.mealPlan)
+    }
+
     @ViewBuilder
     private func mealRow(for mealType: MealType) -> some View {
         let entry = todayMeals.first { $0.mealType == mealType }
-        HStack(spacing: Theme.Spacing.sm) {
+        HStack(spacing: Theme.Spacing.space2) {
             Image(systemName: mealTypeIcon(mealType))
                 .font(.caption)
                 .foregroundColor(Theme.textSecondary)
@@ -139,7 +135,7 @@ struct MealPlanDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }
 
@@ -150,7 +146,7 @@ struct MealPlanDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }
 
@@ -161,6 +157,6 @@ struct MealPlanDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }

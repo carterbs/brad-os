@@ -14,8 +14,7 @@ struct MealPlanView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Theme.background
-                    .ignoresSafeArea()
+                AuroraBackground()
 
                 if viewModel.isLoading {
                     loadingState
@@ -36,7 +35,7 @@ struct MealPlanView: View {
                             Image(systemName: "chevron.left")
                             Text("Back")
                         }
-                        .foregroundColor(Theme.accent)
+                        .foregroundColor(Theme.interactivePrimary)
                     }
                 }
             }
@@ -50,7 +49,7 @@ struct MealPlanView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             Spacer()
 
             Image(systemName: "fork.knife")
@@ -66,7 +65,7 @@ struct MealPlanView: View {
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, Theme.Spacing.lg)
+                .padding(.horizontal, Theme.Spacing.space6)
 
             Button(action: {
                 Task { await viewModel.generatePlan() }
@@ -78,24 +77,24 @@ struct MealPlanView: View {
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(PrimaryButtonStyle())
-            .padding(.horizontal, Theme.Spacing.xl)
+            .padding(.horizontal, Theme.Spacing.space7)
 
             if let error = viewModel.error {
                 Text(error)
                     .font(.caption)
-                    .foregroundColor(Theme.error)
+                    .foregroundColor(Theme.destructive)
             }
 
             Spacer()
         }
-        .padding(Theme.Spacing.md)
+        .padding(Theme.Spacing.space4)
     }
 
     // MARK: - Loading State
 
     @ViewBuilder
     private var loadingState: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             ProgressView()
                 .tint(Theme.mealPlan)
                 .scaleEffect(1.5)
@@ -104,7 +103,7 @@ struct MealPlanView: View {
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
         }
-        .padding(Theme.Spacing.xl)
+        .padding(Theme.Spacing.space7)
     }
 
     // MARK: - Session Content
@@ -135,7 +134,7 @@ struct MealPlanView: View {
 
                 newPlanButton
             }
-            .padding(Theme.Spacing.md)
+            .padding(Theme.Spacing.space4)
         }
     }
 
@@ -143,7 +142,7 @@ struct MealPlanView: View {
 
     @ViewBuilder
     private var finalizedBadge: some View {
-        HStack(spacing: Theme.Spacing.sm) {
+        HStack(spacing: Theme.Spacing.space2) {
             Image(systemName: "checkmark.seal.fill")
                 .font(.caption)
                 .foregroundColor(Theme.success.opacity(0.8))
@@ -152,10 +151,10 @@ struct MealPlanView: View {
                 .fontWeight(.medium)
                 .foregroundColor(Theme.success.opacity(0.8))
         }
-        .padding(.horizontal, Theme.Spacing.sm)
-        .padding(.vertical, Theme.Spacing.xs)
+        .padding(.horizontal, Theme.Spacing.space2)
+        .padding(.vertical, Theme.Spacing.space1)
         .background(Theme.success.opacity(0.1))
-        .cornerRadius(Theme.CornerRadius.lg)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous))
     }
 
     // MARK: - New Plan Button
@@ -172,7 +171,7 @@ struct MealPlanView: View {
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(SecondaryButtonStyle())
-        .padding(.top, Theme.Spacing.sm)
+        .padding(.top, Theme.Spacing.space2)
     }
 }
 
@@ -180,10 +179,12 @@ struct MealPlanView: View {
     MealPlanView(apiClient: MockAPIClient.empty)
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
+        .background(AuroraBackground())
 }
 
 #Preview("Meal Plan - With Session") {
     MealPlanView(apiClient: MockAPIClient())
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
+        .background(AuroraBackground())
 }

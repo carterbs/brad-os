@@ -5,16 +5,16 @@ struct ProfileView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: Theme.Spacing.lg) {
+                VStack(spacing: Theme.Spacing.space6) {
                     // Settings Section
                     settingsSection
 
                     // About Section
                     aboutSection
                 }
-                .padding(Theme.Spacing.md)
+                .padding(Theme.Spacing.space5)
             }
-            .background(Theme.background)
+            .background(AuroraBackground())
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.large)
         }
@@ -24,7 +24,7 @@ struct ProfileView: View {
 
     @ViewBuilder
     private var settingsSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             SectionHeader(title: "Settings")
 
             VStack(spacing: 0) {
@@ -33,21 +33,16 @@ struct ProfileView: View {
                         title: "Barcode Wallet",
                         subtitle: "Manage membership barcodes",
                         iconName: "barcode",
-                        iconColor: Theme.accent
+                        iconColor: Theme.interactivePrimary
                     ) {
                         Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundColor(Theme.textSecondary)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
                     }
                 }
                 .buttonStyle(.plain)
             }
-            .background(Theme.backgroundSecondary)
-            .cornerRadius(Theme.CornerRadius.md)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                    .stroke(Theme.border, lineWidth: 1)
-            )
+            .glassCard(.card, padding: 0)
 
             NotificationSettingsView()
         }
@@ -57,7 +52,7 @@ struct ProfileView: View {
 
     @ViewBuilder
     private var aboutSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             SectionHeader(title: "About")
 
             VStack(spacing: 0) {
@@ -72,8 +67,7 @@ struct ProfileView: View {
                         .foregroundColor(Theme.textSecondary)
                 }
             }
-            .background(Theme.backgroundSecondary)
-            .cornerRadius(Theme.CornerRadius.md)
+            .glassCard(.card, padding: 0)
         }
     }
 }
@@ -87,19 +81,19 @@ struct SettingsRow<Accessory: View>: View {
     @ViewBuilder let accessory: () -> Accessory
 
     var body: some View {
-        HStack(spacing: Theme.Spacing.md) {
+        HStack(spacing: Theme.Spacing.space4) {
             Image(systemName: iconName)
                 .foregroundColor(iconColor)
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.subheadline)
+                    .font(.headline)
                     .foregroundColor(Theme.textPrimary)
 
                 if let subtitle = subtitle {
                     Text(subtitle)
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundColor(Theme.textSecondary)
                 }
             }
@@ -108,7 +102,8 @@ struct SettingsRow<Accessory: View>: View {
 
             accessory()
         }
-        .padding(Theme.Spacing.md)
+        .padding(Theme.Spacing.space4)
+        .frame(minHeight: Theme.Dimensions.listRowMinHeight)
     }
 }
 

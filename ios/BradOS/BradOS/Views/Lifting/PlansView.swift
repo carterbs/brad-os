@@ -13,7 +13,7 @@ struct PlansView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: Theme.Spacing.md) {
+            VStack(spacing: Theme.Spacing.space4) {
                 if isLoading {
                     LoadingView()
                         .frame(maxWidth: .infinity, minHeight: 200)
@@ -41,9 +41,8 @@ struct PlansView: View {
                     }
                 }
             }
-            .padding(Theme.Spacing.md)
+            .padding(Theme.Spacing.space4)
         }
-        .background(Theme.background)
         .navigationTitle("Plans")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
@@ -85,7 +84,7 @@ struct PlanCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
                 HStack {
                     Text(plan.name)
                         .font(.headline)
@@ -97,16 +96,17 @@ struct PlanCard: View {
                         .foregroundColor(Theme.textSecondary)
                 }
 
-                HStack(spacing: Theme.Spacing.lg) {
+                HStack(spacing: Theme.Spacing.space6) {
                     Label("\(plan.durationWeeks) weeks", systemImage: "calendar")
                     Label("\(plan.days?.count ?? 0) days/week", systemImage: "repeat")
                 }
                 .font(.caption)
                 .foregroundColor(Theme.textSecondary)
+                .monospacedDigit()
 
                 if let days = plan.days, !days.isEmpty {
                     Divider()
-                        .background(Theme.border)
+                        .background(Theme.divider)
 
                     VStack(alignment: .leading, spacing: 4) {
                         ForEach(days.prefix(3)) { day in
@@ -125,18 +125,12 @@ struct PlanCard: View {
                         if days.count > 3 {
                             Text("+\(days.count - 3) more days")
                                 .font(.caption)
-                                .foregroundColor(Theme.accent)
+                                .foregroundColor(Theme.interactivePrimary)
                         }
                     }
                 }
             }
-            .padding(Theme.Spacing.md)
-            .background(Theme.backgroundSecondary)
-            .cornerRadius(Theme.CornerRadius.md)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                    .stroke(Theme.border, lineWidth: 1)
-            )
+            .glassCard()
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -167,7 +161,7 @@ struct PlanDetailView: View {
                 )
                 .frame(maxWidth: .infinity, minHeight: 300)
             } else if let plan = plan {
-                VStack(spacing: Theme.Spacing.lg) {
+                VStack(spacing: Theme.Spacing.space6) {
                     // Plan Info
                     planInfoSection(plan)
 
@@ -179,10 +173,9 @@ struct PlanDetailView: View {
                     // Actions
                     actionsSection
                 }
-                .padding(Theme.Spacing.md)
+                .padding(Theme.Spacing.space4)
             }
         }
-        .background(Theme.background)
         .navigationTitle(plan?.name ?? "Plan")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -238,15 +231,16 @@ struct PlanDetailView: View {
 
     @ViewBuilder
     private func planInfoSection(_ plan: Plan) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             SectionHeader(title: "Plan Details")
 
-            HStack(spacing: Theme.Spacing.lg) {
+            HStack(spacing: Theme.Spacing.space6) {
                 VStack {
                     Text("\(plan.durationWeeks)")
                         .font(.title)
                         .fontWeight(.bold)
-                        .foregroundColor(Theme.accent)
+                        .foregroundColor(Theme.interactivePrimary)
+                        .monospacedDigit()
                     Text("weeks")
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
@@ -259,7 +253,8 @@ struct PlanDetailView: View {
                     Text("\(plan.days?.count ?? 0)")
                         .font(.title)
                         .fontWeight(.bold)
-                        .foregroundColor(Theme.accent)
+                        .foregroundColor(Theme.interactivePrimary)
+                        .monospacedDigit()
                     Text("days/week")
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
@@ -272,15 +267,15 @@ struct PlanDetailView: View {
                     Text("\(totalExercises)")
                         .font(.title)
                         .fontWeight(.bold)
-                        .foregroundColor(Theme.accent)
+                        .foregroundColor(Theme.interactivePrimary)
+                        .monospacedDigit()
                     Text("exercises")
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(Theme.Spacing.md)
-            .cardStyle()
+            .glassCard()
         }
     }
 
@@ -290,7 +285,7 @@ struct PlanDetailView: View {
 
     @ViewBuilder
     private func daysSection(_ days: [PlanDay]) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             SectionHeader(title: "Workout Days")
 
             ForEach(days) { day in
@@ -301,7 +296,7 @@ struct PlanDetailView: View {
 
     @ViewBuilder
     private var actionsSection: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             Button(action: { /* Start mesocycle with this plan */ }) {
                 HStack {
                     Image(systemName: "play.fill")
@@ -341,19 +336,20 @@ struct PlanDayCard: View {
                     Text("\(day.exercises?.count ?? 0) exercises")
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
+                        .monospacedDigit()
 
                     Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
                 }
-                .padding(Theme.Spacing.md)
+                .padding(Theme.Spacing.space4)
             }
             .buttonStyle(PlainButtonStyle())
 
             // Expanded content
             if isExpanded, let exercises = day.exercises {
                 Divider()
-                    .background(Theme.border)
+                    .background(Theme.divider)
 
                 VStack(spacing: 0) {
                     ForEach(exercises) { exercise in
@@ -364,22 +360,18 @@ struct PlanDayCard: View {
 
                             Spacer()
 
-                            Text("\(exercise.sets)×\(exercise.reps) @ \(Int(exercise.weight)) lbs")
+                            Text("\(exercise.sets)\u{00D7}\(exercise.reps) @ \(Int(exercise.weight)) lbs")
                                 .font(.caption)
                                 .foregroundColor(Theme.textSecondary)
+                                .monospacedDigit()
                         }
-                        .padding(.horizontal, Theme.Spacing.md)
-                        .padding(.vertical, Theme.Spacing.sm)
+                        .padding(.horizontal, Theme.Spacing.space4)
+                        .padding(.vertical, Theme.Spacing.space2)
                     }
                 }
             }
         }
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.md)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                .stroke(Theme.border, lineWidth: 1)
-        )
+        .glassCard(padding: 0)
     }
 }
 
@@ -416,12 +408,12 @@ struct CreatePlanSheet: View {
                     Section {
                         Text(error)
                             .font(.caption)
-                            .foregroundColor(Theme.error)
+                            .foregroundColor(Theme.destructive)
                     }
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.background)
+            .background(AuroraBackground())
             .navigationTitle("New Plan")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -466,4 +458,5 @@ struct CreatePlanSheet: View {
     }
     .environment(\.apiClient, MockAPIClient())
     .preferredColorScheme(.dark)
+    .background(AuroraBackground())
 }

@@ -18,9 +18,9 @@ struct ActivitiesView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: Theme.Spacing.lg) {
+                VStack(spacing: Theme.Spacing.space6) {
                     // Activity Cards Grid
-                    LazyVGrid(columns: columns, spacing: Theme.Spacing.md) {
+                    LazyVGrid(columns: columns, spacing: Theme.Spacing.space3) {
                         // Lifting - Full width
                         ActivityCard(activityType: .workout) {
                             appState.isShowingLiftingContext = true
@@ -39,23 +39,21 @@ struct ActivitiesView: View {
 
                         // Meal Plan (not an ActivityType — not tracked on calendar)
                         Button(action: { appState.isShowingMealPlan = true }) {
-                            VStack(spacing: Theme.Spacing.md) {
+                            VStack(spacing: 10) {
                                 Image(systemName: "fork.knife")
-                                    .font(.system(size: Theme.Typography.iconMD))
+                                    .font(.system(size: Theme.Typography.activityGridIcon))
                                     .foregroundColor(Theme.mealPlan)
 
                                 Text("Meal Plan")
                                     .font(.headline)
                                     .foregroundColor(Theme.textPrimary)
+
+                                Text("Weekly meals")
+                                    .font(.footnote)
+                                    .foregroundColor(Theme.textSecondary)
                             }
                             .frame(maxWidth: .infinity, minHeight: 100)
-                            .padding(Theme.Spacing.lg)
-                            .background(Theme.backgroundSecondary)
-                            .cornerRadius(Theme.CornerRadius.lg)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                                    .stroke(Theme.border, lineWidth: 1)
-                            )
+                            .glassCard(.card, padding: Theme.Spacing.space6)
                         }
                         .buttonStyle(PlainButtonStyle())
                     }
@@ -63,9 +61,9 @@ struct ActivitiesView: View {
                     // Recent Activity Section
                     recentActivitySection
                 }
-                .padding(Theme.Spacing.md)
+                .padding(Theme.Spacing.space5)
             }
-            .background(Theme.background)
+            .background(AuroraBackground())
             .navigationTitle("Activities")
             .navigationBarTitleDisplayMode(.large)
             .task {
@@ -78,7 +76,7 @@ struct ActivitiesView: View {
 
     @ViewBuilder
     private var recentActivitySection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             SectionHeader(title: "Recent Activity", actionTitle: "See All") {
                 appState.selectedTab = .history
             }
@@ -95,7 +93,7 @@ struct ActivitiesView: View {
                         .font(.subheadline)
                         .foregroundColor(Theme.textSecondary)
                         .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(Theme.Spacing.lg)
+                        .padding(Theme.Spacing.space6)
                 } else {
                     ForEach(activities) { activity in
                         RecentActivityRow(activity: activity)
@@ -109,30 +107,28 @@ struct ActivitiesView: View {
 /// Placeholder row for loading state
 struct RecentActivityRowPlaceholder: View {
     var body: some View {
-        HStack(spacing: Theme.Spacing.md) {
+        HStack(spacing: Theme.Spacing.space4) {
             RoundedRectangle(cornerRadius: Theme.CornerRadius.sm)
-                .fill(Theme.backgroundTertiary)
+                .fill(Theme.BG.surface.opacity(0.35))
                 .frame(width: 36, height: 36)
 
             VStack(alignment: .leading, spacing: 4) {
                 RoundedRectangle(cornerRadius: Theme.CornerRadius.sm)
-                    .fill(Theme.backgroundTertiary)
+                    .fill(Theme.BG.surface.opacity(0.35))
                     .frame(width: 100, height: 14)
 
                 RoundedRectangle(cornerRadius: Theme.CornerRadius.sm)
-                    .fill(Theme.backgroundTertiary)
+                    .fill(Theme.BG.surface.opacity(0.35))
                     .frame(width: 60, height: 12)
             }
 
             Spacer()
 
             RoundedRectangle(cornerRadius: Theme.CornerRadius.sm)
-                .fill(Theme.backgroundTertiary)
+                .fill(Theme.BG.surface.opacity(0.35))
                 .frame(width: 50, height: 12)
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.md)
+        .glassCard()
     }
 }
 
@@ -141,14 +137,14 @@ struct RecentActivityRow: View {
     let activity: CalendarActivity
 
     var body: some View {
-        HStack(spacing: Theme.Spacing.md) {
+        HStack(spacing: Theme.Spacing.space4) {
             // Activity type icon
             Image(systemName: activity.type.iconName)
                 .font(.system(size: Theme.Typography.iconXS))
                 .foregroundColor(activity.type.color)
                 .frame(width: 36, height: 36)
                 .background(activity.type.color.opacity(0.2))
-                .cornerRadius(Theme.CornerRadius.sm)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(activityTitle)
@@ -167,9 +163,7 @@ struct RecentActivityRow: View {
                 .font(.caption)
                 .foregroundColor(Theme.textSecondary)
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.md)
+        .glassCard()
     }
 
     private var activityTitle: String {
@@ -220,17 +214,20 @@ struct RecentActivityRow: View {
 #Preview("Activities") {
     ActivitiesView(apiClient: MockAPIClient())
         .environmentObject(AppState())
+        .background(AuroraBackground())
         .preferredColorScheme(.dark)
 }
 
 #Preview("Activities - Loading") {
     ActivitiesView(apiClient: MockAPIClient.withDelay(10.0))
         .environmentObject(AppState())
+        .background(AuroraBackground())
         .preferredColorScheme(.dark)
 }
 
 #Preview("Activities - Empty") {
     ActivitiesView(apiClient: MockAPIClient.empty)
         .environmentObject(AppState())
+        .background(AuroraBackground())
         .preferredColorScheme(.dark)
 }

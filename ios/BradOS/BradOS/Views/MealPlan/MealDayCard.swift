@@ -32,7 +32,7 @@ struct MealDayCard: View {
                     Text(mealName)
                         .font(.body)
                         .foregroundColor(Theme.textPrimary)
-                        .strikethrough(action == .remove, color: Theme.error)
+                        .strikethrough(action == .remove, color: Theme.destructive)
                         .lineLimit(2)
                 } else {
                     Text("\u{2014}")
@@ -48,10 +48,11 @@ struct MealDayCard: View {
                 Text("\(effort)")
                     .font(.caption2)
                     .monospaced()
+                    .monospacedDigit()
                     .foregroundColor(Theme.textSecondary)
-                    .padding(Theme.Spacing.xs)
+                    .padding(Theme.Spacing.space1)
                     .background(Theme.mealPlan.opacity(0.2))
-                    .cornerRadius(Theme.CornerRadius.sm)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
             }
 
             // Action badge
@@ -62,15 +63,16 @@ struct MealDayCard: View {
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(Theme.mealPlan.opacity(0.2))
-                    .cornerRadius(Theme.CornerRadius.sm)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
             }
         }
-        .padding(.horizontal, Theme.Spacing.md)
+        .padding(.horizontal, Theme.Spacing.space4)
         .padding(.vertical, 10)
+        .background(.ultraThinMaterial)
         .background(backgroundColor)
-        .cornerRadius(Theme.CornerRadius.lg)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
                 .stroke(borderColor, lineWidth: 1)
         )
         .opacity(isInteractive ? 1.0 : 0.5)
@@ -93,9 +95,9 @@ struct MealDayCard: View {
         case .swap:
             return Theme.mealPlan.opacity(0.15)
         case .remove:
-            return Theme.error.opacity(0.15)
+            return Theme.destructive.opacity(0.15)
         case nil:
-            return Theme.backgroundSecondary
+            return Theme.BG.surface.opacity(GlassLevel.card.fillOpacity)
         }
     }
 
@@ -107,9 +109,9 @@ struct MealDayCard: View {
         case .swap:
             return Theme.mealPlan
         case .remove:
-            return Theme.error
+            return Theme.destructive
         case nil:
-            return Theme.border.opacity(0.5)
+            return Theme.strokeSubtle
         }
     }
 }
@@ -122,7 +124,7 @@ struct MealDayCard: View {
         viewModel: .preview
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }
 
@@ -132,6 +134,6 @@ struct MealDayCard: View {
         viewModel: .preview
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }

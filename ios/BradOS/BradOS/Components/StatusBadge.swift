@@ -9,23 +9,28 @@ struct StatusBadge: View {
         Text(status.rawValue.capitalized.replacingOccurrences(of: "_", with: " "))
             .font(.caption)
             .fontWeight(.medium)
-            .padding(.horizontal, Theme.Spacing.sm)
-            .padding(.vertical, Theme.Spacing.xs)
-            .background(backgroundColor)
-            .foregroundColor(Theme.textOnDark)
-            .cornerRadius(Theme.CornerRadius.sm)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .frame(height: 24)
+            .background(Color.white.opacity(0.08))
+            .foregroundColor(statusColor)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous)
+                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+            )
     }
 
-    private var backgroundColor: Color {
+    private var statusColor: Color {
         switch status {
         case .pending:
-            return Theme.statusScheduled
+            return Theme.info
         case .inProgress:
-            return Theme.statusInProgress
+            return Theme.warning
         case .completed:
-            return Theme.statusCompleted
+            return Theme.success
         case .skipped:
-            return Theme.statusSkipped
+            return Theme.neutral
         }
     }
 }
@@ -39,25 +44,30 @@ struct GenericBadge: View {
         Text(text)
             .font(.caption)
             .fontWeight(.medium)
-            .padding(.horizontal, 8)
+            .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .background(color.opacity(0.2))
+            .frame(height: 24)
+            .background(Color.white.opacity(0.08))
             .foregroundColor(color)
-            .cornerRadius(Theme.CornerRadius.sm)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous)
+                    .stroke(Color.white.opacity(0.10), lineWidth: 1)
+            )
     }
 }
 
 #Preview {
-    VStack(spacing: 16) {
+    VStack(spacing: Theme.Spacing.space4) {
         StatusBadge(status: .pending)
         StatusBadge(status: .inProgress)
         StatusBadge(status: .completed)
         StatusBadge(status: .skipped)
 
-        GenericBadge(text: "Week 2", color: Theme.accent)
+        GenericBadge(text: "Week 2", color: Theme.interactivePrimary)
         GenericBadge(text: "Deload", color: Theme.warning)
     }
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }

@@ -48,29 +48,24 @@ private struct DayCard: View {
                 .font(.headline)
                 .fontWeight(.semibold)
                 .foregroundColor(Theme.mealPlan)
-                .padding(.horizontal, Theme.Spacing.md)
-                .padding(.top, Theme.Spacing.sm)
-                .padding(.bottom, Theme.Spacing.xs)
+                .padding(.horizontal, Theme.Spacing.space4)
+                .padding(.top, Theme.Spacing.space2)
+                .padding(.bottom, Theme.Spacing.space1)
 
             // Meal rows
             if entries.isEmpty {
                 Text("No meals planned")
                     .font(.caption)
                     .foregroundColor(Theme.textSecondary)
-                    .padding(.horizontal, Theme.Spacing.md)
-                    .padding(.vertical, Theme.Spacing.sm)
+                    .padding(.horizontal, Theme.Spacing.space4)
+                    .padding(.vertical, Theme.Spacing.space2)
             } else {
                 ForEach(entries) { entry in
                     MealRow(entry: entry, isHighlighted: changedSlots.contains(entry.id))
                 }
             }
         }
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.lg)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                .stroke(Theme.border.opacity(0.5), lineWidth: 1)
-        )
+        .glassCard(padding: 0)
     }
 }
 
@@ -80,7 +75,7 @@ private struct MealRow: View {
     let isHighlighted: Bool
 
     var body: some View {
-        HStack(spacing: Theme.Spacing.sm) {
+        HStack(spacing: Theme.Spacing.space2) {
             // Meal type icon
             Image(systemName: mealTypeIcon)
                 .font(.caption)
@@ -107,7 +102,7 @@ private struct MealRow: View {
 
             Spacer()
         }
-        .padding(.horizontal, Theme.Spacing.md)
+        .padding(.horizontal, Theme.Spacing.space4)
         .padding(.vertical, 10)
         .background(
             isHighlighted
@@ -142,6 +137,6 @@ private struct MealRow: View {
         )
         .padding()
     }
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }

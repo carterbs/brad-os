@@ -15,7 +15,7 @@ struct MesoView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: Theme.Spacing.lg) {
+            VStack(spacing: Theme.Spacing.space6) {
                 // Active Mesocycle Section
                 activeMesocycleSection
 
@@ -24,9 +24,8 @@ struct MesoView: View {
                     completedMesocyclesSection
                 }
             }
-            .padding(Theme.Spacing.md)
+            .padding(Theme.Spacing.space4)
         }
-        .background(Theme.background)
         .navigationTitle("Mesocycle")
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
@@ -79,7 +78,7 @@ struct MesoView: View {
 
     @ViewBuilder
     private var activeMesocycleSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             SectionHeader(title: "Active Mesocycle")
 
             if isLoading {
@@ -97,7 +96,7 @@ struct MesoView: View {
     }
 
     private var loadingCard: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             ProgressView()
                 .scaleEffect(1.2)
 
@@ -106,15 +105,15 @@ struct MesoView: View {
                 .foregroundColor(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(Theme.Spacing.lg)
-        .cardStyle()
+        .padding(Theme.Spacing.space6)
+        .glassCard()
     }
 
     private func errorCard(_ error: Error) -> some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: Theme.Typography.iconSM))
-                .foregroundColor(Theme.error)
+                .foregroundColor(Theme.destructive)
 
             Text("Failed to load")
                 .font(.headline)
@@ -131,12 +130,12 @@ struct MesoView: View {
             .buttonStyle(SecondaryButtonStyle())
         }
         .frame(maxWidth: .infinity)
-        .padding(Theme.Spacing.lg)
-        .cardStyle()
+        .padding(Theme.Spacing.space6)
+        .glassCard()
     }
 
     private var noActiveMesocycleCard: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             Image(systemName: "calendar.badge.plus")
                 .font(.system(size: Theme.Typography.iconMD))
                 .foregroundColor(Theme.textSecondary)
@@ -155,18 +154,18 @@ struct MesoView: View {
                     .fontWeight(.medium)
             }
             .buttonStyle(PrimaryButtonStyle())
-            .padding(.top, Theme.Spacing.sm)
+            .padding(.top, Theme.Spacing.space2)
         }
         .frame(maxWidth: .infinity)
-        .padding(Theme.Spacing.lg)
-        .cardStyle()
+        .padding(Theme.Spacing.space6)
+        .glassCard()
     }
 
     // MARK: - Completed Mesocycles Section
 
     @ViewBuilder
     private var completedMesocyclesSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             SectionHeader(title: "Completed")
 
             ForEach(completedMesocycles) { meso in
@@ -198,7 +197,7 @@ struct ActiveMesocycleCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             // Header Card
             headerCard
 
@@ -233,7 +232,7 @@ struct ActiveMesocycleCard: View {
 
     @ViewBuilder
     private var headerCard: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             // Header
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
@@ -251,7 +250,7 @@ struct ActiveMesocycleCard: View {
                 if let activeWeek = activeWeekNumber {
                     GenericBadge(
                         text: activeWeek == 7 ? "Deload" : "Week \(activeWeek)",
-                        color: activeWeek == 7 ? Theme.warning : Theme.accent
+                        color: activeWeek == 7 ? Theme.warning : Theme.interactivePrimary
                     )
                 }
             }
@@ -266,17 +265,25 @@ struct ActiveMesocycleCard: View {
                     Text("\(mesocycle.completedWorkouts ?? 0)/\(mesocycle.totalWorkouts ?? 0) workouts")
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
+                        .monospacedDigit()
                 }
 
-                ProgressView(value: mesocycle.progressPercentage)
-                    .tint(Theme.accent)
+                GeometryReader { geometry in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            .fill(Color.white.opacity(0.06))
+                            .frame(height: Theme.Dimensions.progressBarHeight)
+                        RoundedRectangle(cornerRadius: 2, style: .continuous)
+                            .fill(Theme.lifting)
+                            .frame(width: geometry.size.width * (mesocycle.progressPercentage ?? 0), height: Theme.Dimensions.progressBarHeight)
+                    }
+                }
+                .frame(height: Theme.Dimensions.progressBarHeight)
             }
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.md)
+        .glassCard(.elevated)
         .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
                 .stroke(Theme.lifting.opacity(0.5), lineWidth: 2)
         )
     }
@@ -309,18 +316,19 @@ struct WeekCard: View {
     @Binding var navigationPath: NavigationPath
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
             // Week Header
             HStack {
                 Text(week.isDeload ? "Deload Week" : "Week \(week.weekNumber)")
                     .font(.subheadline)
                     .fontWeight(.semibold)
-                    .foregroundColor(isActiveWeek ? Theme.accent : Theme.textPrimary)
+                    .foregroundColor(isActiveWeek ? Theme.interactivePrimary : Theme.textPrimary)
+                    .monospacedDigit()
 
                 if week.isComplete {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.caption)
-                        .foregroundColor(Theme.statusCompleted)
+                        .foregroundColor(Theme.success)
                 }
 
                 Spacer()
@@ -329,11 +337,11 @@ struct WeekCard: View {
                     Text("Active")
                         .font(.caption2)
                         .fontWeight(.semibold)
-                        .foregroundColor(Theme.textOnDark)
+                        .foregroundColor(Theme.textOnAccent)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
-                        .background(Theme.accent)
-                        .cornerRadius(Theme.CornerRadius.sm)
+                        .background(Theme.interactivePrimary)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
                 }
             }
 
@@ -342,12 +350,10 @@ struct WeekCard: View {
                 workoutRow(workout)
             }
         }
-        .padding(Theme.Spacing.md)
-        .background(isActiveWeek ? Theme.accent.opacity(0.08) : Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.md)
+        .glassCard()
         .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                .stroke(isActiveWeek ? Theme.accent : Theme.border, lineWidth: isActiveWeek ? 2 : 1)
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
+                .stroke(isActiveWeek ? Theme.interactivePrimary : Theme.strokeSubtle, lineWidth: isActiveWeek ? 2 : 1)
         )
     }
 
@@ -374,7 +380,7 @@ struct WeekCard: View {
                 .padding(.vertical, 4)
                 .background(statusColor(for: workout.status).opacity(0.2))
                 .foregroundColor(statusColor(for: workout.status))
-                .cornerRadius(Theme.CornerRadius.sm)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
 
             if isPending || isInProgress {
                 Image(systemName: "chevron.right")
@@ -393,10 +399,10 @@ struct WeekCard: View {
 
     private func statusColor(for status: WorkoutStatus) -> Color {
         switch status {
-        case .completed: return Theme.statusCompleted
-        case .skipped: return Theme.statusSkipped
-        case .inProgress: return Theme.statusInProgress
-        case .pending: return Theme.backgroundTertiary
+        case .completed: return Theme.success
+        case .skipped: return Theme.neutral
+        case .inProgress: return Theme.warning
+        case .pending: return Theme.BG.surface.opacity(0.35)
         }
     }
 
@@ -432,17 +438,16 @@ struct CompletedMesocycleCard: View {
             VStack(alignment: .trailing, spacing: 4) {
                 GenericBadge(
                     text: mesocycle.status == .completed ? "Completed" : "Cancelled",
-                    color: mesocycle.status == .completed ? Theme.success : Theme.statusSkipped
+                    color: mesocycle.status == .completed ? Theme.success : Theme.neutral
                 )
 
                 Text("\(mesocycle.completedWorkouts ?? 0)/\(mesocycle.totalWorkouts ?? 0) workouts")
                     .font(.caption)
                     .foregroundColor(Theme.textSecondary)
+                    .monospacedDigit()
             }
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.md)
+        .glassCard()
     }
 
     private var dateRange: String {
@@ -483,7 +488,7 @@ struct NewMesocycleSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(Theme.background)
+            .background(AuroraBackground())
             .navigationTitle("New Mesocycle")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -511,4 +516,5 @@ struct NewMesocycleSheet: View {
     }
     .environmentObject(AppState())
     .preferredColorScheme(.dark)
+    .background(AuroraBackground())
 }

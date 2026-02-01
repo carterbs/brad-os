@@ -19,7 +19,7 @@ struct HistoryView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: Theme.Spacing.lg) {
+                VStack(spacing: Theme.Spacing.space6) {
                     // Filter Buttons
                     filterSection
 
@@ -47,9 +47,9 @@ struct HistoryView: View {
                     // Legend
                     legendSection
                 }
-                .padding(Theme.Spacing.md)
+                .padding(Theme.Spacing.space4)
             }
-            .background(Theme.background)
+            .background(AuroraBackground())
             .navigationTitle("History")
             .navigationBarTitleDisplayMode(.large)
             .sheet(isPresented: $showingDayDetail) {
@@ -96,7 +96,7 @@ struct HistoryView: View {
     @ViewBuilder
     private var filterSection: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Theme.Spacing.sm) {
+            HStack(spacing: Theme.Spacing.space2) {
                 FilterChip(title: "All", isSelected: selectedFilter == nil) {
                     selectedFilter = nil
                 }
@@ -118,14 +118,14 @@ struct HistoryView: View {
 
     @ViewBuilder
     private var legendSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
             Text("Legend")
                 .font(.caption)
                 .foregroundColor(Theme.textSecondary)
 
-            HStack(spacing: Theme.Spacing.lg) {
+            HStack(spacing: Theme.Spacing.space6) {
                 ForEach(ActivityType.allCases, id: \.self) { type in
-                    HStack(spacing: Theme.Spacing.xs) {
+                    HStack(spacing: Theme.Spacing.space1) {
                         Circle()
                             .fill(type.color)
                             .frame(width: Theme.Dimensions.dotMD, height: Theme.Dimensions.dotMD)
@@ -137,29 +137,41 @@ struct HistoryView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Theme.Spacing.md)
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.md)
+        .glassCard()
     }
 }
 
-/// Filter chip button
+/// Filter chip button — Aurora Glass spec
+/// H:32pt, pill radius, glass fills with stroke
 struct FilterChip: View {
     let title: String
-    var color: Color = Theme.accent
+    var color: Color = Theme.interactivePrimary
     let isSelected: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.subheadline)
-                .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundColor(isSelected ? Theme.textOnDark : Theme.textPrimary)
-                .padding(.horizontal, Theme.Spacing.md)
-                .padding(.vertical, Theme.Spacing.sm)
-                .background(isSelected ? color : Theme.backgroundTertiary)
-                .cornerRadius(Theme.CornerRadius.lg)
+                .font(.footnote)
+                .fontWeight(.medium)
+                .foregroundColor(isSelected ? Theme.interactivePrimary : Theme.textSecondary)
+                .padding(.horizontal, Theme.Spacing.space3)
+                .frame(height: 32)
+                .background(
+                    isSelected
+                        ? Theme.interactivePrimary.opacity(0.18)
+                        : Color.white.opacity(0.06)
+                )
+                .clipShape(Capsule(style: .continuous))
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(
+                            isSelected
+                                ? Theme.interactivePrimary.opacity(0.50)
+                                : Color.white.opacity(0.10),
+                            lineWidth: 1
+                        )
+                )
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -176,8 +188,8 @@ struct MonthCalendarView: View {
     private let daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"]
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.md) {
-            // Month Navigation
+        VStack(spacing: Theme.Spacing.space4) {
+            // Month Navigation — Glass L1 container
             HStack {
                 Button(action: { viewModel.previousMonth() }) {
                     Image(systemName: "chevron.left")
@@ -188,6 +200,7 @@ struct MonthCalendarView: View {
 
                 Text(monthYearString)
                     .font(.headline)
+                    .monospacedDigit()
                     .foregroundColor(Theme.textPrimary)
 
                 Spacer()
@@ -197,7 +210,9 @@ struct MonthCalendarView: View {
                         .foregroundColor(Theme.textPrimary)
                 }
             }
-            .padding(.horizontal, Theme.Spacing.sm)
+            .padding(.horizontal, Theme.Spacing.space2)
+            .padding(.vertical, Theme.Spacing.space2)
+            .glassCard(.card, padding: 0)
 
             // Days of Week Header
             HStack {
@@ -211,7 +226,7 @@ struct MonthCalendarView: View {
             }
 
             // Calendar Grid
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: Theme.Spacing.sm) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 7), spacing: Theme.Spacing.space2) {
                 ForEach(daysInMonth, id: \.self) { date in
                     if let date = date {
                         CalendarDayCell(
@@ -231,9 +246,7 @@ struct MonthCalendarView: View {
                 }
             }
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.md)
+        .glassCard()
     }
 
     private var monthYearString: String {
@@ -278,11 +291,12 @@ struct CalendarDayCell: View {
             VStack(spacing: 2) {
                 Text("\(calendar.component(.day, from: date))")
                     .font(.subheadline)
+                    .monospacedDigit()
                     .fontWeight(isToday ? .bold : .regular)
                     .foregroundColor(textColor)
 
-                // Activity dots
-                HStack(spacing: 2) {
+                // Activity dots — 5pt diameter, 3pt gap
+                HStack(spacing: 3) {
                     ForEach(activityTypes, id: \.self) { type in
                         Circle()
                             .fill(dotColor(for: type))
@@ -294,24 +308,28 @@ struct CalendarDayCell: View {
             .frame(maxWidth: .infinity)
             .frame(height: 44)
             .background(backgroundColor)
-            .cornerRadius(Theme.CornerRadius.sm)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
+            .shadow(
+                color: isToday && !isSelected ? Theme.interactivePrimary.opacity(0.35) : Color.clear,
+                radius: 8, x: 0, y: 2
+            )
         }
         .buttonStyle(PlainButtonStyle())
     }
 
     private func dotColor(for type: ActivityType) -> Color {
         // When selected, use white for dots that would blend with the accent background
-        if isSelected && type.color == Theme.accent {
-            return Theme.textOnDark
+        if isSelected && type.color == Theme.interactivePrimary {
+            return Color.white
         }
         return type.color
     }
 
     private var textColor: Color {
         if isSelected {
-            return Theme.textOnDark
+            return Color.white
         } else if isToday {
-            return Theme.accent
+            return Color.white
         } else {
             return Theme.textPrimary
         }
@@ -319,9 +337,9 @@ struct CalendarDayCell: View {
 
     private var backgroundColor: Color {
         if isSelected {
-            return Theme.accent
+            return Theme.interactivePrimary
         } else if isToday {
-            return Theme.accent.opacity(0.2)
+            return Theme.interactivePrimary
         } else {
             return Color.clear
         }
@@ -348,7 +366,7 @@ struct DayDetailSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: Theme.Spacing.md) {
+                VStack(spacing: Theme.Spacing.space4) {
                     if activities.isEmpty {
                         EmptyStateView(
                             iconName: "calendar.badge.minus",
@@ -366,9 +384,9 @@ struct DayDetailSheet: View {
                         }
                     }
                 }
-                .padding(Theme.Spacing.md)
+                .padding(Theme.Spacing.space4)
             }
-            .background(Theme.background)
+            .background(AuroraBackground())
             .navigationTitle(formattedDate)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -410,7 +428,7 @@ struct DayDetailSheet: View {
     }
 }
 
-/// Card showing activity details in day detail sheet
+/// Card showing activity details in day detail sheet — Glass L4 (overlay)
 struct DayActivityCard: View {
     let activity: CalendarActivity
     var onTap: (() -> Void)? = nil
@@ -421,7 +439,7 @@ struct DayActivityCard: View {
 
     var body: some View {
         Button(action: { onTap?() }) {
-            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
                 HStack {
                     Image(systemName: activity.type.iconName)
                         .foregroundColor(activity.type.color)
@@ -435,6 +453,7 @@ struct DayActivityCard: View {
                     if let completedAt = activity.completedAt {
                         Text(formatTime(completedAt))
                             .font(.caption)
+                            .monospacedDigit()
                             .foregroundColor(Theme.textSecondary)
                     }
 
@@ -447,14 +466,12 @@ struct DayActivityCard: View {
                 }
 
                 Divider()
-                    .background(Theme.border)
+                    .background(Theme.divider)
 
                 // Activity-specific details
                 activityDetails
             }
-            .padding(Theme.Spacing.md)
-            .background(Theme.backgroundSecondary)
-            .cornerRadius(Theme.CornerRadius.md)
+            .glassCard(.overlay)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -472,6 +489,7 @@ struct DayActivityCard: View {
                 if let sets = activity.summary.setsCompleted, let total = activity.summary.totalSets {
                     Text("\(sets)/\(total) sets completed")
                         .font(.caption)
+                        .monospacedDigit()
                         .foregroundColor(Theme.textSecondary)
                 }
             }
@@ -481,11 +499,13 @@ struct DayActivityCard: View {
                 if let regions = activity.summary.regionsCompleted {
                     Text("\(regions) regions stretched")
                         .font(.subheadline)
+                        .monospacedDigit()
                         .foregroundColor(Theme.textPrimary)
                 }
                 if let duration = activity.summary.totalDurationSeconds {
                     Text("\(duration / 60) minutes")
                         .font(.caption)
+                        .monospacedDigit()
                         .foregroundColor(Theme.textSecondary)
                 }
             }
@@ -495,6 +515,7 @@ struct DayActivityCard: View {
                 if let duration = activity.summary.durationSeconds {
                     Text("\(duration / 60) minute session")
                         .font(.subheadline)
+                        .monospacedDigit()
                         .foregroundColor(Theme.textPrimary)
                 }
             }
@@ -512,16 +533,19 @@ struct DayActivityCard: View {
     HistoryView(apiClient: MockAPIClient())
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
+        .background(AuroraBackground())
 }
 
 #Preview("History View - Loading") {
     HistoryView(apiClient: MockAPIClient.withDelay(10.0))
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
+        .background(AuroraBackground())
 }
 
 #Preview("History View - Error") {
     HistoryView(apiClient: MockAPIClient.failing())
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
+        .background(AuroraBackground())
 }

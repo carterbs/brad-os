@@ -10,10 +10,10 @@ struct QueuedActionsButton: View {
             Button(action: {
                 Task { await viewModel.submitQueuedActions() }
             }) {
-                HStack(spacing: Theme.Spacing.sm) {
+                HStack(spacing: Theme.Spacing.space2) {
                     if viewModel.isSending {
                         ProgressView()
-                            .tint(Theme.textOnDark)
+                            .tint(Theme.textOnAccent)
                     } else {
                         Image(systemName: "paperplane.fill")
                             .font(.subheadline)
@@ -21,12 +21,18 @@ struct QueuedActionsButton: View {
                     Text(buttonLabel)
                         .font(.subheadline)
                         .fontWeight(.semibold)
+
+                    // Badge dot
+                    Circle()
+                        .fill(Theme.mealPlan)
+                        .frame(width: Theme.Dimensions.dotMD, height: Theme.Dimensions.dotMD)
                 }
-                .foregroundColor(Theme.textOnDark)
-                .padding(.horizontal, Theme.Spacing.lg)
-                .padding(.vertical, Theme.Spacing.sm + 2)
-                .background(Theme.mealPlan)
-                .cornerRadius(Theme.CornerRadius.xl)
+                .foregroundColor(Theme.textOnAccent)
+                .padding(.horizontal, Theme.Spacing.space6)
+                .padding(.vertical, Theme.Spacing.space2 + 2)
+                .background(.ultraThinMaterial)
+                .background(Theme.mealPlan.opacity(0.85))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.xl, style: .continuous))
                 .shadow(color: Theme.mealPlan.opacity(0.4), radius: 8, y: 4)
             }
             .disabled(viewModel.isSending)
@@ -55,6 +61,6 @@ struct QueuedActionsButton: View {
     // but the button won't show without actions queued
     QueuedActionsButton(viewModel: vm)
         .padding()
-        .background(Theme.background)
+        .background(AuroraBackground())
         .preferredColorScheme(.dark)
 }

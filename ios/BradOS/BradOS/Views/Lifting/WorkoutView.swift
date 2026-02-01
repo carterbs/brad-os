@@ -51,7 +51,6 @@ struct WorkoutView: View {
                     emptyContent
                 }
             }
-            .background(Theme.background)
 
             // Floating action buttons at bottom
             if let workout = workout {
@@ -155,7 +154,7 @@ struct WorkoutView: View {
     // MARK: - Content Views
 
     private var loadingContent: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             ProgressView()
                 .scaleEffect(1.5)
             Text("Loading workout...")
@@ -166,10 +165,10 @@ struct WorkoutView: View {
     }
 
     private func errorContent(_ error: Error) -> some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: Theme.Typography.iconLG))
-                .foregroundColor(Theme.error)
+                .foregroundColor(Theme.destructive)
 
             Text("Failed to load workout")
                 .font(.headline)
@@ -185,12 +184,12 @@ struct WorkoutView: View {
             }
             .buttonStyle(PrimaryButtonStyle())
         }
-        .padding(Theme.Spacing.lg)
+        .padding(Theme.Spacing.space6)
         .frame(maxWidth: .infinity, minHeight: 300)
     }
 
     private var emptyContent: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             Image(systemName: "questionmark.circle")
                 .font(.system(size: Theme.Typography.iconLG))
                 .foregroundColor(Theme.textSecondary)
@@ -203,7 +202,7 @@ struct WorkoutView: View {
     }
 
     private func workoutContent(_ workout: Workout) -> some View {
-        VStack(spacing: Theme.Spacing.lg) {
+        VStack(spacing: Theme.Spacing.space6) {
             // Header
             workoutHeader(workout)
 
@@ -212,7 +211,7 @@ struct WorkoutView: View {
                 exercisesSection(exercises, workoutStatus: workout.status)
             }
         }
-        .padding(Theme.Spacing.md)
+        .padding(Theme.Spacing.space4)
         .padding(.bottom, bottomPadding(for: workout))
     }
 
@@ -237,7 +236,7 @@ struct WorkoutView: View {
 
     @ViewBuilder
     private func workoutHeader(_ workout: Workout) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(workout.planDayName ?? "Workout")
@@ -259,11 +258,10 @@ struct WorkoutView: View {
             if workout.weekNumber == 7 {
                 GenericBadge(text: "Deload Week", color: Theme.warning)
             } else {
-                GenericBadge(text: "Week \(workout.weekNumber)", color: Theme.accent)
+                GenericBadge(text: "Week \(workout.weekNumber)", color: Theme.interactivePrimary)
             }
         }
-        .padding(Theme.Spacing.md)
-        .cardStyle()
+        .glassCard()
     }
 
     private func formattedDate(_ date: Date) -> String {
@@ -278,62 +276,62 @@ struct WorkoutView: View {
     private func floatingActionButtons(_ workout: Workout) -> some View {
         switch workout.status {
         case .pending:
-            HStack(spacing: Theme.Spacing.md) {
+            HStack(spacing: Theme.Spacing.space4) {
                 Button(action: { Task { await startWorkout() } }) {
                     HStack {
                         if isStarting {
                             ProgressView()
-                                .tint(Theme.textOnDark)
+                                .tint(Theme.textOnAccent)
                         } else {
                             Image(systemName: "play.fill")
                         }
                         Text("Start Workout")
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, Theme.Spacing.sm)
+                    .padding(.vertical, Theme.Spacing.space2)
                 }
                 .buttonStyle(GlassPrimaryButtonStyle())
                 .disabled(isStarting)
 
                 Button(action: { showingSkipAlert = true }) {
                     Text("Skip")
-                        .padding(.horizontal, Theme.Spacing.md)
-                        .padding(.vertical, Theme.Spacing.sm)
+                        .padding(.horizontal, Theme.Spacing.space4)
+                        .padding(.vertical, Theme.Spacing.space2)
                 }
                 .buttonStyle(GlassSecondaryButtonStyle())
                 .disabled(isSkipping)
             }
-            .padding(.horizontal, Theme.Spacing.md)
-            .padding(.bottom, Theme.Spacing.md)
+            .padding(.horizontal, Theme.Spacing.space4)
+            .padding(.bottom, Theme.Spacing.space4)
 
         case .inProgress:
-            HStack(spacing: Theme.Spacing.md) {
+            HStack(spacing: Theme.Spacing.space4) {
                 Button(action: { showingCompleteAlert = true }) {
                     HStack {
                         if isCompleting {
                             ProgressView()
-                                .tint(Theme.textOnDark)
+                                .tint(Theme.textOnAccent)
                         } else {
                             Image(systemName: "checkmark")
                         }
                         Text("Complete")
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, Theme.Spacing.sm)
+                    .padding(.vertical, Theme.Spacing.space2)
                 }
                 .buttonStyle(GlassPrimaryButtonStyle())
                 .disabled(isCompleting)
 
                 Button(action: { showingSkipAlert = true }) {
                     Text("Skip")
-                        .padding(.horizontal, Theme.Spacing.md)
-                        .padding(.vertical, Theme.Spacing.sm)
+                        .padding(.horizontal, Theme.Spacing.space4)
+                        .padding(.vertical, Theme.Spacing.space2)
                 }
                 .buttonStyle(GlassSecondaryButtonStyle())
                 .disabled(isSkipping)
             }
-            .padding(.horizontal, Theme.Spacing.md)
-            .padding(.bottom, Theme.Spacing.md)
+            .padding(.horizontal, Theme.Spacing.space4)
+            .padding(.bottom, Theme.Spacing.space4)
 
         case .completed, .skipped:
             EmptyView()
@@ -345,7 +343,7 @@ struct WorkoutView: View {
 
     @ViewBuilder
     private func exercisesSection(_ exercises: [WorkoutExercise], workoutStatus: WorkoutStatus) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             SectionHeader(title: "Exercises")
 
             ForEach(exercises) { exercise in
@@ -760,7 +758,7 @@ struct ExerciseCard: View {
     let onRemoveSet: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             // Header
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
@@ -777,15 +775,15 @@ struct ExerciseCard: View {
 
                 GenericBadge(
                     text: "\(completedSets)/\(exercise.totalSets) sets",
-                    color: completedSets == exercise.totalSets ? Theme.success : Theme.accent
+                    color: completedSets == exercise.totalSets ? Theme.success : Theme.interactivePrimary
                 )
             }
 
             Divider()
-                .background(Theme.border)
+                .background(Theme.divider)
 
             // Sets
-            VStack(spacing: Theme.Spacing.sm) {
+            VStack(spacing: Theme.Spacing.space2) {
                 // Header row
                 HStack {
                     Text("Set")
@@ -807,7 +805,7 @@ struct ExerciseCard: View {
                     }
 
                     Divider()
-                        .background(Theme.border)
+                        .background(Theme.divider)
                         .padding(.vertical, 2)
                 }
 
@@ -829,14 +827,14 @@ struct ExerciseCard: View {
 
             // Add/Remove Set Buttons
             if isEditable {
-                HStack(spacing: Theme.Spacing.md) {
+                HStack(spacing: Theme.Spacing.space4) {
                     Button(action: onAddSet) {
                         HStack {
                             Image(systemName: "plus")
                             Text("Add Set")
                         }
                         .font(.subheadline)
-                        .foregroundColor(Theme.accent)
+                        .foregroundColor(Theme.interactivePrimary)
                     }
 
                     Spacer()
@@ -848,19 +846,13 @@ struct ExerciseCard: View {
                                 Text("Remove Set")
                             }
                             .font(.subheadline)
-                            .foregroundColor(Theme.error)
+                            .foregroundColor(Theme.destructive)
                         }
                     }
                 }
             }
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.md)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                .stroke(Theme.border, lineWidth: 1)
-        )
+        .glassCard()
     }
 
     private var completedSets: Int {
@@ -913,7 +905,8 @@ struct SetRow: View {
                 Text("\(workoutSet.setNumber)")
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundColor(workoutSet.status == .pending ? Theme.textPrimary : Theme.textOnDark)
+                    .foregroundColor(workoutSet.status == .pending ? Theme.textPrimary : Theme.textOnAccent)
+                    .monospacedDigit()
             }
             .frame(width: 40)
 
@@ -923,9 +916,11 @@ struct SetRow: View {
             })
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.center)
-                .padding(Theme.Spacing.sm)
+                .monospacedDigit()
+                .padding(Theme.Spacing.space2)
+                .frame(height: Theme.Dimensions.inputHeight)
                 .background(inputBackground)
-                .cornerRadius(Theme.CornerRadius.sm)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
                 .disabled(!canEdit)
                 .frame(maxWidth: .infinity)
                 .onChange(of: weightText) { _, newValue in
@@ -940,9 +935,11 @@ struct SetRow: View {
             })
                 .keyboardType(.numberPad)
                 .multilineTextAlignment(.center)
-                .padding(Theme.Spacing.sm)
+                .monospacedDigit()
+                .padding(Theme.Spacing.space2)
+                .frame(height: Theme.Dimensions.inputHeight)
                 .background(inputBackground)
-                .cornerRadius(Theme.CornerRadius.sm)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
                 .disabled(!canEdit)
                 .frame(maxWidth: .infinity)
                 .onChange(of: repsText) { _, newValue in
@@ -983,13 +980,13 @@ struct SetRow: View {
     private var statusColor: Color {
         switch workoutSet.status {
         case .completed: return Theme.success
-        case .skipped: return Theme.statusSkipped
-        case .pending: return Theme.backgroundTertiary
+        case .skipped: return Theme.neutral
+        case .pending: return Theme.BG.surface.opacity(0.35)
         }
     }
 
     private var inputBackground: Color {
-        workoutSet.status == .pending ? Theme.backgroundTertiary : Theme.backgroundSecondary
+        workoutSet.status == .pending ? Theme.BG.surface.opacity(0.35) : Color.clear
     }
 
     private var canEdit: Bool {
@@ -1021,7 +1018,7 @@ struct SetRow: View {
         } else if workoutSet.status == .skipped {
             Image(systemName: "forward.fill")
                 .font(.caption)
-                .foregroundColor(Theme.statusSkipped)
+                .foregroundColor(Theme.neutral)
                 .frame(width: 44)
         } else {
             Spacer()
@@ -1060,7 +1057,7 @@ struct WarmupSetRow: View {
             // "W" badge instead of set number
             ZStack {
                 Circle()
-                    .fill(Theme.backgroundTertiary)
+                    .fill(Theme.BG.surface.opacity(0.35))
                     .frame(width: 28, height: 28)
 
                 Text("W")
@@ -1073,12 +1070,14 @@ struct WarmupSetRow: View {
             // Weight (read-only)
             Text(formatWeight(warmupSet.targetWeight))
                 .frame(maxWidth: .infinity)
-                .padding(Theme.Spacing.sm)
+                .padding(Theme.Spacing.space2)
+                .monospacedDigit()
 
             // Reps (read-only)
             Text("\(warmupSet.targetReps)")
                 .frame(maxWidth: .infinity)
-                .padding(Theme.Spacing.sm)
+                .padding(Theme.Spacing.space2)
+                .monospacedDigit()
 
             // Empty action column
             Spacer()
@@ -1103,4 +1102,5 @@ struct WarmupSetRow: View {
     }
     .environment(\.apiClient, MockAPIClient())
     .preferredColorScheme(.dark)
+    .background(AuroraBackground())
 }

@@ -29,76 +29,46 @@ struct WorkoutDashboardCard: View {
     // MARK: - Loading State
 
     private var loadingState: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            HStack {
-                Image(systemName: "dumbbell.fill")
-                    .font(.system(size: Theme.Typography.iconXS))
-                    .foregroundColor(Theme.lifting)
-                Text("Lifting")
-                    .font(.headline)
-                    .foregroundColor(Theme.textPrimary)
-                Spacer()
-            }
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
+            cardHeader(iconColor: Theme.lifting)
 
             Text("Loading workout...")
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.lifting.opacity(0.1))
-        .cornerRadius(Theme.CornerRadius.lg)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                .stroke(Theme.lifting.opacity(0.5), lineWidth: 1)
-        )
+        .glassCard()
     }
 
     // MARK: - No Workout State
 
     private var noWorkoutState: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            HStack {
-                Image(systemName: "dumbbell.fill")
-                    .font(.system(size: Theme.Typography.iconXS))
-                    .foregroundColor(Theme.textSecondary)
-                Text("Lifting")
-                    .font(.headline)
-                    .foregroundColor(Theme.textPrimary)
-                Spacer()
-            }
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
+            cardHeader(iconColor: Theme.textSecondary)
 
             Text("No workout scheduled for today.")
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.lg)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                .stroke(Theme.border, lineWidth: 1)
-        )
+        .glassCard()
     }
 
     // MARK: - Workout Content
 
     @ViewBuilder
     private func workoutContent(_ workout: Workout) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             // Header with badge
             HStack {
-                Image(systemName: "dumbbell.fill")
-                    .font(.system(size: Theme.Typography.iconXS))
-                    .foregroundColor(Theme.lifting)
+                cardHeaderIcon(color: Theme.lifting)
                 Text("Lifting")
-                    .font(.headline)
+                    .font(.title3)
                     .foregroundColor(Theme.textPrimary)
                 Spacer()
                 statusBadge(for: workout.status)
             }
 
             // Plan day name and details
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.space1) {
                 Text(workout.planDayName ?? "Workout")
                     .font(.title3)
                     .fontWeight(.medium)
@@ -107,6 +77,7 @@ struct WorkoutDashboardCard: View {
                 Text("Week \(workout.weekNumber) \u{2022} \(exerciseCount(workout)) exercises")
                     .font(.subheadline)
                     .foregroundColor(Theme.textSecondary)
+                    .monospacedDigit()
             }
 
             // Progress indicator for in-progress workouts
@@ -115,21 +86,38 @@ struct WorkoutDashboardCard: View {
                 Text("Progress: \(progress.completed)/\(progress.total) sets")
                     .font(.subheadline)
                     .foregroundColor(Theme.textSecondary)
+                    .monospacedDigit()
             }
 
-            // Action button
+            // Action link
             HStack {
                 Spacer()
-                actionButton(for: workout.status)
+                actionLink(for: workout.status)
             }
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.lifting.opacity(0.1))
-        .cornerRadius(Theme.CornerRadius.lg)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                .stroke(Theme.lifting.opacity(0.5), lineWidth: 1)
-        )
+        .glassCard()
+        .auroraGlow(Theme.lifting)
+    }
+
+    // MARK: - Card Header
+
+    private func cardHeader(iconColor: Color) -> some View {
+        HStack {
+            cardHeaderIcon(color: iconColor)
+            Text("Lifting")
+                .font(.title3)
+                .foregroundColor(Theme.textPrimary)
+            Spacer()
+        }
+    }
+
+    private func cardHeaderIcon(color: Color) -> some View {
+        Image(systemName: "dumbbell.fill")
+            .font(.system(size: Theme.Typography.cardHeaderIcon))
+            .foregroundColor(color)
+            .frame(width: Theme.Dimensions.iconFrameMD, height: Theme.Dimensions.iconFrameMD)
+            .background(color.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
     }
 
     // MARK: - Helpers
@@ -140,32 +128,31 @@ struct WorkoutDashboardCard: View {
         Text(config.label)
             .font(.caption)
             .fontWeight(.medium)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, Theme.Spacing.space2)
+            .padding(.vertical, Theme.Spacing.space1)
             .background(config.color.opacity(0.2))
             .foregroundColor(config.color)
-            .cornerRadius(Theme.CornerRadius.sm)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
     }
 
     private func badgeConfig(for status: WorkoutStatus) -> (label: String, color: Color) {
         switch status {
         case .pending:
-            return ("Ready", Theme.statusSkipped) // Gray
+            return ("Ready", Theme.neutral)
         case .inProgress:
-            return ("In Progress", Theme.statusInProgress) // Yellow/Orange
+            return ("In Progress", Theme.warning)
         case .completed:
-            return ("Completed", Theme.statusCompleted) // Green
+            return ("Completed", Theme.success)
         case .skipped:
-            return ("Skipped", Theme.statusSkipped) // Gray
+            return ("Skipped", Theme.neutral)
         }
     }
 
     @ViewBuilder
-    private func actionButton(for status: WorkoutStatus) -> some View {
-        HStack(spacing: 4) {
+    private func actionLink(for status: WorkoutStatus) -> some View {
+        HStack(spacing: Theme.Spacing.space1) {
             Text(actionText(for: status))
-                .font(.subheadline)
-                .fontWeight(.medium)
+                .font(.callout.weight(.semibold))
             Image(systemName: "chevron.right")
                 .font(.caption)
         }
@@ -204,7 +191,7 @@ struct WorkoutDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }
 
@@ -215,7 +202,7 @@ struct WorkoutDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }
 
@@ -226,7 +213,7 @@ struct WorkoutDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }
 
@@ -239,7 +226,7 @@ struct WorkoutDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }
 
@@ -252,6 +239,6 @@ struct WorkoutDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }

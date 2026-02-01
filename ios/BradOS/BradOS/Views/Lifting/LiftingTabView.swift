@@ -34,7 +34,7 @@ struct LiftingTabView: View {
                     }
                     .tag(LiftingTab.exercises)
             }
-            .tint(Theme.accent)
+            .tint(Theme.interactivePrimary)
             .navigationDestination(for: WorkoutDestination.self) { destination in
                 WorkoutView(workoutId: destination.workoutId)
             }
@@ -53,7 +53,7 @@ struct LiftingTabView: View {
                             Image(systemName: "chevron.left")
                             Text("Back")
                         }
-                        .foregroundColor(Theme.accent)
+                        .foregroundColor(Theme.interactivePrimary)
                     }
                 }
             }
@@ -86,4 +86,5 @@ struct ExerciseHistoryDestination: Hashable {
     LiftingTabView()
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
+        .background(AuroraBackground())
 }

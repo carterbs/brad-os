@@ -26,28 +26,14 @@ struct StretchDashboardCard: View {
     // MARK: - Loading State
 
     private var loadingState: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            HStack {
-                Image(systemName: "figure.flexibility")
-                    .font(.system(size: Theme.Typography.iconXS))
-                    .foregroundColor(Theme.stretch)
-                Text("Stretch")
-                    .font(.headline)
-                    .foregroundColor(Theme.textPrimary)
-                Spacer()
-            }
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
+            cardHeader
 
             Text("Loading stretch data...")
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.stretch.opacity(0.1))
-        .cornerRadius(Theme.CornerRadius.lg)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                .stroke(Theme.stretch.opacity(0.5), lineWidth: 1)
-        )
+        .glassCard()
     }
 
     // MARK: - Stretch Content
@@ -55,45 +41,51 @@ struct StretchDashboardCard: View {
     private var stretchContent: some View {
         let status = getStatusInfo()
 
-        return VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        return VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             // Header
-            HStack {
-                Image(systemName: "figure.flexibility")
-                    .font(.system(size: Theme.Typography.iconXS))
-                    .foregroundColor(Theme.stretch)
-                Text("Stretch")
-                    .font(.headline)
-                    .foregroundColor(Theme.textPrimary)
-                Spacer()
-            }
+            cardHeader
 
             // Status message
             Text(status.message)
                 .font(.subheadline)
                 .foregroundColor(status.isUrgent ? Theme.warning : Theme.textSecondary)
 
-            // Action button
+            // Action link
             HStack {
                 Spacer()
-                actionButton
+                actionLink
             }
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.stretch.opacity(0.1))
-        .cornerRadius(Theme.CornerRadius.lg)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                .stroke(status.isUrgent ? Theme.warning : Theme.stretch.opacity(0.5), lineWidth: 1)
-        )
+        .glassCard()
+    }
+
+    // MARK: - Card Header
+
+    private var cardHeader: some View {
+        HStack {
+            cardHeaderIcon
+            Text("Stretch")
+                .font(.title3)
+                .foregroundColor(Theme.textPrimary)
+            Spacer()
+        }
+    }
+
+    private var cardHeaderIcon: some View {
+        Image(systemName: "figure.flexibility")
+            .font(.system(size: Theme.Typography.cardHeaderIcon))
+            .foregroundColor(Theme.stretch)
+            .frame(width: Theme.Dimensions.iconFrameMD, height: Theme.Dimensions.iconFrameMD)
+            .background(Theme.stretch.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
     }
 
     // MARK: - Helpers
 
-    private var actionButton: some View {
-        HStack(spacing: 4) {
+    private var actionLink: some View {
+        HStack(spacing: Theme.Spacing.space1) {
             Text("Stretch Now")
-                .font(.subheadline)
-                .fontWeight(.medium)
+                .font(.callout.weight(.semibold))
             Image(systemName: "chevron.right")
                 .font(.caption)
         }
@@ -137,7 +129,7 @@ struct StretchDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }
 
@@ -148,7 +140,7 @@ struct StretchDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }
 
@@ -166,7 +158,7 @@ struct StretchDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }
 
@@ -184,7 +176,7 @@ struct StretchDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }
 
@@ -202,6 +194,6 @@ struct StretchDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }

@@ -31,7 +31,7 @@ struct BarcodeDisplaySheet: View {
                     .font(.title)
                     .foregroundColor(.white.opacity(0.7))
             }
-            .padding(Theme.Spacing.lg)
+            .padding(Theme.Spacing.space6)
         }
         .background(Color.black)
         .onAppear {
@@ -51,14 +51,14 @@ struct BarcodeDisplaySheet: View {
             Spacer()
 
             VStack(spacing: 0) {
-                // Barcode image on white background
+                // Barcode image on white background — NO glass treatment for scanning
                 BarcodeImageView(
                     value: barcode.value,
                     barcodeType: barcode.barcodeType,
                     height: barcode.barcodeType == .qr ? 200 : 140
                 )
-                .padding(.horizontal, Theme.Spacing.lg)
-                .padding(.vertical, Theme.Spacing.xl)
+                .padding(.horizontal, Theme.Spacing.space6)
+                .padding(.vertical, Theme.Spacing.space7)
                 .background(Color.white)
 
                 // Label on colored background
@@ -67,17 +67,21 @@ struct BarcodeDisplaySheet: View {
                     .fontWeight(.bold)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, Theme.Spacing.lg)
+                    .padding(.vertical, Theme.Spacing.space6)
                     .background(Color(hex: String(barcode.color.dropFirst())))
             }
-            .cornerRadius(Theme.CornerRadius.xl)
-            .padding(.horizontal, Theme.Spacing.lg)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.xl, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.xl, style: .continuous)
+                    .stroke(Theme.strokeMedium, lineWidth: 1)
+            )
+            .padding(.horizontal, Theme.Spacing.space6)
 
             // Value text below card
             Text(barcode.value)
                 .font(.system(.title3, design: .monospaced))
                 .foregroundColor(.white.opacity(0.7))
-                .padding(.top, Theme.Spacing.lg)
+                .padding(.top, Theme.Spacing.space6)
 
             Spacer()
         }
@@ -87,7 +91,7 @@ struct BarcodeDisplaySheet: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             Image(systemName: "barcode.viewfinder")
                 .font(.system(size: 48))
                 .foregroundColor(.white.opacity(0.5))

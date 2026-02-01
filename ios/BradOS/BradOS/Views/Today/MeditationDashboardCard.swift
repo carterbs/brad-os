@@ -26,48 +26,26 @@ struct MeditationDashboardCard: View {
     // MARK: - Loading State
 
     private var loadingState: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-            HStack {
-                Image(systemName: "brain.head.profile")
-                    .font(.system(size: Theme.Typography.iconXS))
-                    .foregroundColor(Theme.meditation)
-                Text("Meditation")
-                    .font(.headline)
-                    .foregroundColor(Theme.textPrimary)
-                Spacer()
-            }
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
+            cardHeader
 
             Text("Loading meditation data...")
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.meditation.opacity(0.1))
-        .cornerRadius(Theme.CornerRadius.lg)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                .stroke(Theme.meditation.opacity(0.5), lineWidth: 1)
-        )
+        .glassCard()
     }
 
     // MARK: - Meditation Content
 
     private var meditationContent: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             // Header
-            HStack {
-                Image(systemName: "brain.head.profile")
-                    .font(.system(size: Theme.Typography.iconXS))
-                    .foregroundColor(Theme.meditation)
-                Text("Meditation")
-                    .font(.headline)
-                    .foregroundColor(Theme.textPrimary)
-                Spacer()
-            }
+            cardHeader
 
             // Status message and duration
             if let session = lastSession {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Theme.Spacing.space1) {
                     Text(statusMessage)
                         .font(.subheadline)
                         .foregroundColor(Theme.textSecondary)
@@ -76,6 +54,7 @@ struct MeditationDashboardCard: View {
                     Text("Last session: \(minutes) min")
                         .font(.caption)
                         .foregroundColor(Theme.textSecondary)
+                        .monospacedDigit()
                 }
             } else {
                 Text("No meditation sessions yet")
@@ -83,28 +62,42 @@ struct MeditationDashboardCard: View {
                     .foregroundColor(Theme.textSecondary)
             }
 
-            // Action button
+            // Action link
             HStack {
                 Spacer()
-                actionButton
+                actionLink
             }
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.meditation.opacity(0.1))
-        .cornerRadius(Theme.CornerRadius.lg)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                .stroke(Theme.meditation.opacity(0.5), lineWidth: 1)
-        )
+        .glassCard()
+    }
+
+    // MARK: - Card Header
+
+    private var cardHeader: some View {
+        HStack {
+            cardHeaderIcon
+            Text("Meditation")
+                .font(.title3)
+                .foregroundColor(Theme.textPrimary)
+            Spacer()
+        }
+    }
+
+    private var cardHeaderIcon: some View {
+        Image(systemName: "brain.head.profile")
+            .font(.system(size: Theme.Typography.cardHeaderIcon))
+            .foregroundColor(Theme.meditation)
+            .frame(width: Theme.Dimensions.iconFrameMD, height: Theme.Dimensions.iconFrameMD)
+            .background(Theme.meditation.opacity(0.12))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
     }
 
     // MARK: - Helpers
 
-    private var actionButton: some View {
-        HStack(spacing: 4) {
+    private var actionLink: some View {
+        HStack(spacing: Theme.Spacing.space1) {
             Text("Meditate")
-                .font(.subheadline)
-                .fontWeight(.medium)
+                .font(.callout.weight(.semibold))
             Image(systemName: "chevron.right")
                 .font(.caption)
         }
@@ -146,7 +139,7 @@ struct MeditationDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }
 
@@ -157,7 +150,7 @@ struct MeditationDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }
 
@@ -175,7 +168,7 @@ struct MeditationDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }
 
@@ -193,7 +186,7 @@ struct MeditationDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }
 
@@ -211,6 +204,6 @@ struct MeditationDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }

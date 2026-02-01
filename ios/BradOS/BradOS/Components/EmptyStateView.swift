@@ -7,32 +7,33 @@ struct EmptyStateView: View {
     let message: String
     var buttonTitle: String?
     var buttonAction: (() -> Void)?
+    var glowColor: Color?
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             Image(systemName: iconName)
-                .font(.system(size: 48))
-                .foregroundColor(Theme.textSecondary)
+                .font(.system(size: 56, weight: .regular))
+                .foregroundColor(Theme.textTertiary)
+                .auroraGlow(glowColor ?? Theme.interactivePrimary, intensity: .secondary, offset: CGPoint(x: -10, y: -10))
 
             Text(title)
-                .font(.headline)
+                .font(.system(size: 20, weight: .semibold))
                 .foregroundColor(Theme.textPrimary)
 
             Text(message)
-                .font(.subheadline)
+                .font(.callout)
                 .foregroundColor(Theme.textSecondary)
                 .multilineTextAlignment(.center)
 
             if let buttonTitle = buttonTitle, let buttonAction = buttonAction {
                 Button(action: buttonAction) {
                     Text(buttonTitle)
-                        .fontWeight(.medium)
                 }
-                .buttonStyle(PrimaryButtonStyle())
-                .padding(.top, Theme.Spacing.sm)
+                .buttonStyle(GlassPrimaryButtonStyle())
+                .padding(.top, Theme.Spacing.space2)
             }
         }
-        .padding(Theme.Spacing.xl)
+        .padding(Theme.Spacing.space7)
     }
 }
 
@@ -44,6 +45,6 @@ struct EmptyStateView: View {
         buttonTitle: "Start Mesocycle"
     ) {}
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }

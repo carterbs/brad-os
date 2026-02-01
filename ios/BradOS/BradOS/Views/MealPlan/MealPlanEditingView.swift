@@ -32,8 +32,8 @@ struct MealPlanEditingView: View {
                 }
             }
             .pickerStyle(.segmented)
-            .padding(.horizontal, Theme.Spacing.md)
-            .padding(.top, Theme.Spacing.sm)
+            .padding(.horizontal, Theme.Spacing.space4)
+            .padding(.top, Theme.Spacing.space2)
 
             // Tab content
             switch selectedTab {
@@ -44,33 +44,33 @@ struct MealPlanEditingView: View {
             case .shopping:
                 ScrollView {
                     ShoppingListView(viewModel: viewModel)
-                        .padding(Theme.Spacing.md)
+                        .padding(Theme.Spacing.space4)
                 }
             }
 
             Spacer(minLength: 0)
 
             // Bottom controls pinned at bottom
-            VStack(spacing: Theme.Spacing.sm) {
+            VStack(spacing: Theme.Spacing.space2) {
                 // Error display
                 if let error = viewModel.error {
-                    HStack(spacing: Theme.Spacing.sm) {
+                    HStack(spacing: Theme.Spacing.space2) {
                         Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(Theme.error)
+                            .foregroundColor(Theme.destructive)
                         Text(error)
                             .font(.caption)
-                            .foregroundColor(Theme.error)
+                            .foregroundColor(Theme.destructive)
                     }
-                    .padding(.horizontal, Theme.Spacing.md)
+                    .padding(.horizontal, Theme.Spacing.space4)
                 }
 
                 // Collapsible freeform critique
                 CollapsibleCritiqueView(viewModel: viewModel)
-                    .padding(.horizontal, Theme.Spacing.md)
+                    .padding(.horizontal, Theme.Spacing.space4)
 
                 // Queued actions button
                 QueuedActionsButton(viewModel: viewModel)
-                    .padding(.horizontal, Theme.Spacing.md)
+                    .padding(.horizontal, Theme.Spacing.space4)
 
                 // Finalize button
                 Button(action: {
@@ -83,15 +83,15 @@ struct MealPlanEditingView: View {
                     .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(PrimaryButtonStyle())
-                .padding(.horizontal, Theme.Spacing.md)
+                .padding(.horizontal, Theme.Spacing.space4)
             }
-            .padding(.bottom, Theme.Spacing.sm)
+            .padding(.bottom, Theme.Spacing.space2)
         }
     }
 }
 
 #Preview("Editing View") {
     MealPlanEditingView(viewModel: .preview)
-        .background(Theme.background)
+        .background(AuroraBackground())
         .preferredColorScheme(.dark)
 }

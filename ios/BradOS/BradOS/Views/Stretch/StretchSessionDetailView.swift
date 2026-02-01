@@ -26,7 +26,7 @@ struct StretchSessionDetailView: View {
                 sessionContent(session)
             }
         }
-        .background(Theme.background)
+        .background(AuroraBackground())
         .navigationTitle("Stretch Session")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -38,7 +38,7 @@ struct StretchSessionDetailView: View {
 
     @ViewBuilder
     private func sessionContent(_ session: StretchSession) -> some View {
-        VStack(spacing: Theme.Spacing.lg) {
+        VStack(spacing: Theme.Spacing.space6) {
             // Summary card
             summaryCard(session)
 
@@ -47,14 +47,14 @@ struct StretchSessionDetailView: View {
                 stretchList(stretches)
             }
         }
-        .padding(Theme.Spacing.md)
+        .padding(Theme.Spacing.space4)
     }
 
     @ViewBuilder
     private func summaryCard(_ session: StretchSession) -> some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             // Date and time header
-            VStack(spacing: Theme.Spacing.xs) {
+            VStack(spacing: Theme.Spacing.space1) {
                 Text(formattedDate(session.completedAt))
                     .font(.headline)
                     .foregroundColor(Theme.textPrimary)
@@ -65,10 +65,10 @@ struct StretchSessionDetailView: View {
             }
 
             Divider()
-                .background(Theme.border)
+                .background(Theme.divider)
 
             // Stats
-            VStack(spacing: Theme.Spacing.sm) {
+            VStack(spacing: Theme.Spacing.space2) {
                 StatRow(
                     label: "Duration",
                     value: session.formattedDuration,
@@ -85,29 +85,27 @@ struct StretchSessionDetailView: View {
                     StatRow(
                         label: "Regions Skipped",
                         value: "\(session.regionsSkipped)",
-                        valueColor: Theme.statusSkipped
+                        valueColor: Theme.neutral
                     )
                 }
             }
         }
-        .padding(Theme.Spacing.md)
-        .cardStyle()
+        .glassCard()
     }
 
     @ViewBuilder
     private func stretchList(_ stretches: [CompletedStretch]) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
             Text("Stretches")
                 .font(.headline)
                 .foregroundColor(Theme.textPrimary)
-                .padding(.bottom, Theme.Spacing.xs)
+                .padding(.bottom, Theme.Spacing.space1)
 
             ForEach(stretches) { stretch in
                 stretchRow(stretch)
             }
         }
-        .padding(Theme.Spacing.md)
-        .cardStyle()
+        .glassCard()
     }
 
     @ViewBuilder
@@ -143,7 +141,7 @@ struct StretchSessionDetailView: View {
         if stretch.skippedSegments == 2 {
             Text("Skipped")
                 .font(.caption)
-                .foregroundColor(Theme.statusSkipped)
+                .foregroundColor(Theme.neutral)
         } else if stretch.skippedSegments == 1 {
             Text("1/2")
                 .font(.caption)
@@ -202,6 +200,7 @@ struct StretchSessionDetailView: View {
         StretchSessionDetailView(sessionId: "mock-session-id")
     }
     .environment(\.apiClient, MockAPIClient.withStretchSession())
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }
 
@@ -210,6 +209,7 @@ struct StretchSessionDetailView: View {
         StretchSessionDetailView(sessionId: "mock-session-id")
     }
     .environment(\.apiClient, MockAPIClient.withDelay(10.0))
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }
 

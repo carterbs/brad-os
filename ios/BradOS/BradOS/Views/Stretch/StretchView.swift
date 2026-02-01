@@ -23,8 +23,7 @@ struct StretchView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Theme.background
-                    .ignoresSafeArea()
+                AuroraBackground()
 
                 switch sessionManager.status {
                 case .idle:
@@ -84,7 +83,7 @@ struct StretchView: View {
                                 Image(systemName: "chevron.left")
                                 Text("Back")
                             }
-                            .foregroundColor(Theme.accent)
+                            .foregroundColor(Theme.interactivePrimary)
                         }
                     }
                 }
@@ -241,7 +240,7 @@ struct StretchSetupView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(spacing: Theme.Spacing.lg) {
+                VStack(spacing: Theme.Spacing.space6) {
                     // Region Selection with reordering
                     regionSelectionSection
 
@@ -254,7 +253,7 @@ struct StretchSetupView: View {
                     // Start Button
                     startButton
                 }
-                .padding(Theme.Spacing.md)
+                .padding(Theme.Spacing.space4)
             }
         }
         .onAppear {
@@ -266,7 +265,7 @@ struct StretchSetupView: View {
 
     @ViewBuilder
     private var regionSelectionSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             HStack {
                 SectionHeader(title: "Body Regions")
 
@@ -277,13 +276,13 @@ struct StretchSetupView: View {
                 }) {
                     Text(editMode == .active ? "Done" : "Reorder")
                         .font(.caption)
-                        .foregroundColor(Theme.accent)
+                        .foregroundColor(Theme.interactivePrimary)
                 }
 
                 Button(action: toggleAll) {
                     Text(allSelected ? "Deselect All" : "Select All")
                         .font(.caption)
-                        .foregroundColor(Theme.accent)
+                        .foregroundColor(Theme.interactivePrimary)
                 }
             }
 
@@ -292,7 +291,7 @@ struct StretchSetupView: View {
                 reorderableRegionList
             } else {
                 // Grid mode for normal viewing
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Theme.Spacing.sm) {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Theme.Spacing.space2) {
                     ForEach(config.regions.indices, id: \.self) { index in
                         RegionToggleCard(
                             region: config.regions[index].region,
@@ -315,7 +314,7 @@ struct StretchSetupView: View {
 
     @ViewBuilder
     private var reorderableRegionList: some View {
-        VStack(spacing: Theme.Spacing.xs) {
+        VStack(spacing: Theme.Spacing.space1) {
             ForEach(config.regions.indices, id: \.self) { index in
                 ReorderableRegionRow(
                     config: $config.regions[index],
@@ -354,10 +353,10 @@ struct StretchSetupView: View {
 
     @ViewBuilder
     private var durationSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             SectionHeader(title: "Default Duration")
 
-            HStack(spacing: Theme.Spacing.md) {
+            HStack(spacing: Theme.Spacing.space4) {
                 DurationOption(
                     duration: 60,
                     isSelected: config.regions.first?.durationSeconds == 60,
@@ -388,14 +387,19 @@ struct StretchSetupView: View {
 
     @ViewBuilder
     private var spotifySection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             SectionHeader(title: "Spotify Playlist (Optional)")
 
             TextField("Paste Spotify playlist URL", text: $spotifyUrl)
                 .textFieldStyle(.plain)
-                .padding(Theme.Spacing.md)
-                .background(Theme.backgroundSecondary)
-                .cornerRadius(Theme.CornerRadius.md)
+                .padding(Theme.Spacing.space4)
+                .background(.ultraThinMaterial)
+                .background(Theme.BG.surface.opacity(0.35))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
+                        .stroke(Theme.strokeSubtle, lineWidth: 1)
+                )
                 .autocapitalization(.none)
                 .autocorrectionDisabled()
                 .onChange(of: spotifyUrl) { _, newValue in
@@ -416,7 +420,7 @@ struct StretchSetupView: View {
         let enabledRegions = config.regions.filter { $0.enabled }
         let totalMinutes = enabledRegions.reduce(0) { $0 + $1.durationSeconds } / 60
 
-        VStack(spacing: Theme.Spacing.sm) {
+        VStack(spacing: Theme.Spacing.space2) {
             Button(action: onStart) {
                 HStack {
                     Image(systemName: "play.fill")
@@ -431,11 +435,11 @@ struct StretchSetupView: View {
                 .font(.caption)
                 .foregroundColor(Theme.textSecondary)
         }
-        .padding(.top, Theme.Spacing.md)
+        .padding(.top, Theme.Spacing.space4)
     }
 }
 
-/// Toggle card for a body region with duration badge
+/// Toggle card for a body region — filter chip style
 struct RegionToggleCard: View {
     let region: BodyRegion
     let isEnabled: Bool
@@ -464,10 +468,10 @@ struct RegionToggleCard: View {
                         Text("\(durationSeconds / 60)m")
                             .font(.caption)
                             .fontWeight(.medium)
-                            .padding(.horizontal, Theme.Spacing.sm)
-                            .padding(.vertical, Theme.Spacing.xs)
+                            .padding(.horizontal, Theme.Spacing.space2)
+                            .padding(.vertical, Theme.Spacing.space1)
                             .background(Theme.stretch.opacity(0.2))
-                            .cornerRadius(Theme.CornerRadius.sm)
+                            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
                             .foregroundColor(Theme.stretch)
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -479,12 +483,17 @@ struct RegionToggleCard: View {
                     .foregroundColor(isEnabled ? Theme.stretch : Theme.textSecondary)
                     .accessibilityHidden(true)
             }
-            .padding(Theme.Spacing.md)
-            .background(isEnabled ? Theme.stretch.opacity(0.1) : Theme.backgroundSecondary)
-            .cornerRadius(Theme.CornerRadius.md)
+            .padding(Theme.Spacing.space4)
+            .background(
+                isEnabled
+                    ? AnyShapeStyle(.ultraThinMaterial)
+                    : AnyShapeStyle(Color.white.opacity(0.06))
+            )
+            .background(isEnabled ? Theme.interactivePrimary.opacity(0.18) : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                    .stroke(isEnabled ? Theme.stretch : Theme.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
+                    .stroke(isEnabled ? Theme.interactivePrimary.opacity(0.50) : Color.white.opacity(0.10), lineWidth: 1)
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -503,7 +512,7 @@ struct ReorderableRegionRow: View {
     let onMoveDown: () -> Void
 
     var body: some View {
-        HStack(spacing: Theme.Spacing.sm) {
+        HStack(spacing: Theme.Spacing.space2) {
             // Position indicator
             Text("\(index + 1)")
                 .font(.caption)
@@ -527,7 +536,7 @@ struct ReorderableRegionRow: View {
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
                 .background(Theme.stretch.opacity(0.2))
-                .cornerRadius(Theme.CornerRadius.sm)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
                 .foregroundColor(Theme.stretch)
 
             // Enabled toggle
@@ -553,9 +562,18 @@ struct ReorderableRegionRow: View {
                 .disabled(index == totalCount - 1)
             }
         }
-        .padding(Theme.Spacing.sm)
-        .background(config.enabled ? Theme.stretch.opacity(0.1) : Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.sm)
+        .padding(Theme.Spacing.space2)
+        .background(
+            config.enabled
+                ? AnyShapeStyle(.ultraThinMaterial)
+                : AnyShapeStyle(Color.white.opacity(0.06))
+        )
+        .background(config.enabled ? Theme.stretch.opacity(0.1) : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous)
+                .stroke(Theme.strokeSubtle, lineWidth: 1)
+        )
     }
 }
 
@@ -582,12 +600,17 @@ struct DurationOption: View {
                     .foregroundColor(Theme.textSecondary)
             }
             .frame(maxWidth: .infinity)
-            .padding(Theme.Spacing.md)
-            .background(isSelected ? Theme.stretch.opacity(0.1) : Theme.backgroundSecondary)
-            .cornerRadius(Theme.CornerRadius.md)
+            .padding(Theme.Spacing.space4)
+            .background(
+                isSelected
+                    ? AnyShapeStyle(.ultraThinMaterial)
+                    : AnyShapeStyle(Color.white.opacity(0.06))
+            )
+            .background(isSelected ? Theme.stretch.opacity(0.18) : Color.clear)
+            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                    .stroke(isSelected ? Theme.stretch : Theme.border, lineWidth: 2)
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
+                    .stroke(isSelected ? Theme.stretch.opacity(0.50) : Color.white.opacity(0.10), lineWidth: 2)
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -603,10 +626,10 @@ struct StretchActiveView: View {
     let onCancel: () -> Void
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             // Progress indicator at top
             progressSection
-                .padding(.top, Theme.Spacing.md)
+                .padding(.top, Theme.Spacing.space4)
 
             // Current stretch display
             if let stretch = sessionManager.currentStretch,
@@ -625,21 +648,21 @@ struct StretchActiveView: View {
             // Controls
             controlsSection
         }
-        .padding(.horizontal, Theme.Spacing.md)
-        .padding(.bottom, Theme.Spacing.md)
+        .padding(.horizontal, Theme.Spacing.space4)
+        .padding(.bottom, Theme.Spacing.space4)
     }
 
     // MARK: - Progress Section
 
     @ViewBuilder
     private var progressSection: some View {
-        VStack(spacing: Theme.Spacing.sm) {
+        VStack(spacing: Theme.Spacing.space2) {
             Text("Stretch \(sessionManager.currentStretchIndex + 1) of \(sessionManager.totalStretches)")
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
 
             // Progress dots
-            HStack(spacing: Theme.Spacing.xs) {
+            HStack(spacing: Theme.Spacing.space1) {
                 ForEach(0..<sessionManager.totalStretches, id: \.self) { index in
                     Circle()
                         .fill(dotColor(for: index))
@@ -654,7 +677,7 @@ struct StretchActiveView: View {
             // Completed
             let completed = sessionManager.completedStretches[safe: index]
             if let completed = completed, completed.skippedSegments == 2 {
-                return Theme.statusSkipped
+                return Theme.neutral
             }
             return Theme.stretch
         } else if index == sessionManager.currentStretchIndex {
@@ -662,7 +685,7 @@ struct StretchActiveView: View {
             return Theme.stretch
         } else {
             // Pending
-            return Theme.backgroundTertiary
+            return Color.white.opacity(0.06)
         }
     }
 
@@ -670,7 +693,7 @@ struct StretchActiveView: View {
 
     @ViewBuilder
     private func currentStretchSection(stretch: Stretch, region: BodyRegion) -> some View {
-        VStack(spacing: Theme.Spacing.sm) {
+        VStack(spacing: Theme.Spacing.space2) {
             // Show stretch image if available, otherwise show icon
             if let imagePath = stretch.image,
                let uiImage = loadStretchImage(imagePath) {
@@ -678,7 +701,7 @@ struct StretchActiveView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(maxWidth: .infinity, maxHeight: 280)
-                    .cornerRadius(Theme.CornerRadius.md)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
             } else {
                 Image(systemName: region.iconName)
                     .font(.system(size: Theme.Typography.iconXXL))
@@ -730,7 +753,7 @@ struct StretchActiveView: View {
     @ViewBuilder
     private var segmentIndicator: some View {
         if let stretch = sessionManager.currentStretch {
-            HStack(spacing: Theme.Spacing.md) {
+            HStack(spacing: Theme.Spacing.space4) {
                 // Segment 1
                 segmentPill(
                     number: 1,
@@ -760,12 +783,17 @@ struct StretchActiveView: View {
                 .fontWeight(isActive ? .semibold : .regular)
                 .foregroundColor(isActive ? Theme.textPrimary : Theme.textSecondary)
         }
-        .padding(.horizontal, Theme.Spacing.md)
-        .padding(.vertical, Theme.Spacing.sm)
-        .background(isActive ? Theme.stretch.opacity(0.2) : Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.sm)
+        .padding(.horizontal, Theme.Spacing.space4)
+        .padding(.vertical, Theme.Spacing.space2)
+        .background(
+            isActive
+                ? AnyShapeStyle(.ultraThinMaterial)
+                : AnyShapeStyle(Color.white.opacity(0.06))
+        )
+        .background(isActive ? Theme.stretch.opacity(0.2) : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.sm)
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous)
                 .stroke(isActive ? Theme.stretch : Color.clear, lineWidth: 1)
         )
     }
@@ -774,11 +802,12 @@ struct StretchActiveView: View {
 
     @ViewBuilder
     private var timerSection: some View {
-        VStack(spacing: Theme.Spacing.sm) {
+        VStack(spacing: Theme.Spacing.space2) {
             Text(formattedTime)
-                .font(.system(size: Theme.Typography.timerLG, weight: .bold, design: .rounded))
+                .font(.system(size: 34, weight: .bold, design: .rounded))
                 .foregroundColor(Theme.textPrimary)
                 .monospacedDigit()
+                .auroraGlow(Theme.stretch)
                 .accessibilityLabel(timerAccessibilityLabel)
 
             if sessionManager.status == .paused {
@@ -791,15 +820,15 @@ struct StretchActiveView: View {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Theme.backgroundTertiary)
+                        .fill(Color.white.opacity(0.06))
 
                     Capsule()
                         .fill(Theme.stretch)
                         .frame(width: geometry.size.width * progressFraction)
                 }
             }
-            .frame(height: 4)
-            .padding(.horizontal, Theme.Spacing.xl)
+            .frame(height: Theme.Dimensions.progressBarHeight)
+            .padding(.horizontal, Theme.Spacing.space7)
             .accessibilityHidden(true)  // Timer value already announced
         }
     }
@@ -821,8 +850,8 @@ struct StretchActiveView: View {
 
     @ViewBuilder
     private var controlsSection: some View {
-        VStack(spacing: Theme.Spacing.md) {
-            HStack(spacing: Theme.Spacing.xl) {
+        VStack(spacing: Theme.Spacing.space4) {
+            HStack(spacing: Theme.Spacing.space7) {
                 // Skip Segment button
                 Button(action: { sessionManager.skipSegment() }) {
                     Image(systemName: "forward.fill")
@@ -843,7 +872,7 @@ struct StretchActiveView: View {
                 }) {
                     Image(systemName: sessionManager.status == .paused ? "play.fill" : "pause.fill")
                         .font(.title)
-                        .foregroundColor(Theme.textOnDark)
+                        .foregroundColor(Theme.textOnAccent)
                 }
                 .buttonStyle(GlassPrimaryCircleButtonStyle(size: 80, color: Theme.stretch))
                 .accessibilityLabel(sessionManager.status == .paused ? "Resume" : "Pause")
@@ -901,9 +930,9 @@ struct StretchCompleteView: View {
     var body: some View {
         VStack(spacing: 0) {
             ScrollView {
-                VStack(spacing: Theme.Spacing.xl) {
+                VStack(spacing: Theme.Spacing.space7) {
                     // Success header with icon
-                    VStack(spacing: Theme.Spacing.md) {
+                    VStack(spacing: Theme.Spacing.space4) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: Theme.Typography.iconXXL))
                             .foregroundColor(Theme.stretch)
@@ -924,28 +953,41 @@ struct StretchCompleteView: View {
                             showSuccessAnimation = true
                         }
                     }
-                    .padding(.top, Theme.Spacing.xl)
+                    .padding(.top, Theme.Spacing.space7)
 
-                    // Stats
-                    VStack(spacing: Theme.Spacing.md) {
-                        StatRow(label: "Duration", value: formattedDuration, valueColor: Theme.stretch)
-                        StatRow(label: "Stretches Completed", value: "\(completedCount)", valueColor: Theme.stretch)
+                    // Stats — 2-column grid, Glass L1
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: Theme.Spacing.space3) {
+                        StatCard(
+                            icon: "clock",
+                            value: formattedDuration,
+                            label: "Duration",
+                            valueColor: Theme.stretch
+                        )
+                        StatCard(
+                            icon: "checkmark.circle",
+                            value: "\(completedCount)",
+                            label: "Completed",
+                            valueColor: Theme.stretch
+                        )
                         if skippedCount > 0 {
-                            StatRow(label: "Stretches Skipped", value: "\(skippedCount)", valueColor: Theme.statusSkipped)
+                            StatCard(
+                                icon: "forward.fill",
+                                value: "\(skippedCount)",
+                                label: "Skipped",
+                                valueColor: Theme.neutral
+                            )
                         }
                     }
-                    .padding(Theme.Spacing.md)
-                    .cardStyle()
                     .accessibilityElement(children: .combine)
                     .accessibilityLabel(sessionSummaryAccessibilityLabel)
 
                     // Stretch breakdown
                     if !sessionManager.completedStretches.isEmpty {
-                        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+                        VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
                             Text("Session Details")
                                 .font(.headline)
                                 .foregroundColor(Theme.textPrimary)
-                                .padding(.bottom, Theme.Spacing.xs)
+                                .padding(.bottom, Theme.Spacing.space1)
 
                             ForEach(sessionManager.completedStretches) { completed in
                                 HStack {
@@ -963,7 +1005,7 @@ struct StretchCompleteView: View {
                                     if completed.skippedSegments == 2 {
                                         Text("Skipped")
                                             .font(.caption)
-                                            .foregroundColor(Theme.statusSkipped)
+                                            .foregroundColor(Theme.neutral)
                                     } else if completed.skippedSegments == 1 {
                                         Text("Partial")
                                             .font(.caption)
@@ -979,19 +1021,18 @@ struct StretchCompleteView: View {
                                 .accessibilityLabel(stretchAccessibilityLabel(for: completed))
                             }
                         }
-                        .padding(Theme.Spacing.md)
-                        .cardStyle()
+                        .glassCard()
                     }
 
                     // Save status indicator (matches MeditationCompleteView pattern)
                     syncStatusView
                 }
-                .padding(.horizontal, Theme.Spacing.md)
-                .padding(.bottom, Theme.Spacing.md)
+                .padding(.horizontal, Theme.Spacing.space4)
+                .padding(.bottom, Theme.Spacing.space4)
             }
 
             // Actions pinned at bottom
-            VStack(spacing: Theme.Spacing.md) {
+            VStack(spacing: Theme.Spacing.space4) {
                 Button(action: onDone) {
                     Text("Done")
                         .frame(maxWidth: .infinity)
@@ -1004,7 +1045,7 @@ struct StretchCompleteView: View {
                 }
                 .buttonStyle(SecondaryButtonStyle())
             }
-            .padding(Theme.Spacing.md)
+            .padding(Theme.Spacing.space4)
         }
     }
 
@@ -1012,7 +1053,7 @@ struct StretchCompleteView: View {
 
     @ViewBuilder
     private var syncStatusView: some View {
-        HStack(spacing: Theme.Spacing.sm) {
+        HStack(spacing: Theme.Spacing.space2) {
             if isSaving {
                 ProgressView()
                     .tint(Theme.stretch)
@@ -1027,7 +1068,7 @@ struct StretchCompleteView: View {
                     .foregroundColor(Theme.warning)
                 Button("Retry", action: onRetrySync)
                     .font(.caption)
-                    .foregroundColor(Theme.accent)
+                    .foregroundColor(Theme.interactivePrimary)
             } else {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(Theme.success)
@@ -1036,7 +1077,7 @@ struct StretchCompleteView: View {
                     .foregroundColor(Theme.textSecondary)
             }
         }
-        .padding(Theme.Spacing.sm)
+        .padding(Theme.Spacing.space2)
     }
 
     // MARK: - Computed Properties
@@ -1083,7 +1124,35 @@ struct StretchCompleteView: View {
     }
 }
 
-/// Simple stat row for completion view
+/// Stat card for completion view — Glass L1, icon 18pt, display value monospacedDigit, footnote label
+struct StatCard: View {
+    let icon: String
+    let value: String
+    let label: String
+    var valueColor: Color = Theme.textPrimary
+
+    var body: some View {
+        VStack(spacing: Theme.Spacing.space2) {
+            Image(systemName: icon)
+                .font(.system(size: 18))
+                .foregroundColor(valueColor)
+
+            Text(value)
+                .font(.title2)
+                .fontWeight(.semibold)
+                .foregroundColor(valueColor)
+                .monospacedDigit()
+
+            Text(label)
+                .font(.footnote)
+                .foregroundColor(Theme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .glassCard()
+    }
+}
+
+/// Simple stat row for completion view (legacy, kept for StretchSessionDetailView)
 struct StatRow: View {
     let label: String
     let value: String
@@ -1112,7 +1181,7 @@ struct AppReturnWaitView: View {
     let onStartNow: () -> Void
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.xl) {
+        VStack(spacing: Theme.Spacing.space7) {
             Spacer()
 
             // Icon
@@ -1141,10 +1210,10 @@ struct AppReturnWaitView: View {
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(SecondaryButtonStyle())
-            .padding(.horizontal, Theme.Spacing.md)
-            .padding(.bottom, Theme.Spacing.xl)
+            .padding(.horizontal, Theme.Spacing.space4)
+            .padding(.bottom, Theme.Spacing.space7)
         }
-        .padding(Theme.Spacing.md)
+        .padding(Theme.Spacing.space4)
     }
 }
 
@@ -1159,5 +1228,6 @@ extension Array {
 #Preview {
     StretchView()
         .environmentObject(AppState())
+        .background(AuroraBackground())
         .preferredColorScheme(.dark)
 }

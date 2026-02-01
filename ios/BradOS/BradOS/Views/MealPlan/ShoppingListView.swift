@@ -9,7 +9,7 @@ struct ShoppingListView: View {
         if viewModel.shoppingList.isEmpty {
             emptyState
         } else {
-            VStack(spacing: Theme.Spacing.md) {
+            VStack(spacing: Theme.Spacing.space4) {
                 ForEach(viewModel.shoppingList) { section in
                     sectionCard(section)
                 }
@@ -23,7 +23,7 @@ struct ShoppingListView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             Spacer()
 
             Image(systemName: "cart")
@@ -34,7 +34,7 @@ struct ShoppingListView: View {
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
                 .multilineTextAlignment(.center)
-                .padding(.horizontal, Theme.Spacing.lg)
+                .padding(.horizontal, Theme.Spacing.space6)
 
             Spacer()
         }
@@ -45,7 +45,7 @@ struct ShoppingListView: View {
 
     @ViewBuilder
     private func sectionCard(_ section: ShoppingListSection) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
             // Section header
             HStack {
                 Text(section.name)
@@ -57,11 +57,12 @@ struct ShoppingListView: View {
 
                 Text("\(section.items.count)")
                     .font(.caption)
+                    .monospacedDigit()
                     .foregroundColor(Theme.textSecondary)
-                    .padding(.horizontal, Theme.Spacing.sm)
+                    .padding(.horizontal, Theme.Spacing.space2)
                     .padding(.vertical, 2)
-                    .background(Theme.backgroundTertiary)
-                    .cornerRadius(Theme.CornerRadius.sm)
+                    .background(Theme.BG.surface.opacity(0.55))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
             }
 
             if section.isPantryStaples {
@@ -76,16 +77,10 @@ struct ShoppingListView: View {
                 Text(item.displayText)
                     .font(.subheadline)
                     .foregroundColor(Theme.textPrimary)
-                    .padding(.leading, Theme.Spacing.xs)
+                    .padding(.leading, Theme.Spacing.space1)
             }
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.lg)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                .stroke(Theme.border.opacity(0.5), lineWidth: 1)
-        )
+        .glassCard()
     }
 
     // MARK: - Save to Grocery List Button
@@ -104,14 +99,14 @@ struct SaveToGroceryListButton: View {
     @ObservedObject var viewModel: MealPlanViewModel
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.sm) {
+        VStack(spacing: Theme.Spacing.space2) {
             Button(action: {
                 Task { await viewModel.exportToReminders() }
             }) {
-                HStack(spacing: Theme.Spacing.sm) {
+                HStack(spacing: Theme.Spacing.space2) {
                     if viewModel.isExportingToReminders {
                         ProgressView()
-                            .tint(Theme.textOnDark)
+                            .tint(Theme.textOnAccent)
                     } else if viewModel.remindersExportResult != nil {
                         Image(systemName: "checkmark.circle.fill")
                         Text("Saved to Grocery List!")
@@ -123,7 +118,7 @@ struct SaveToGroceryListButton: View {
                 .font(.subheadline)
                 .fontWeight(.semibold)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, Theme.Spacing.sm)
+                .padding(.vertical, Theme.Spacing.space2)
             }
             .buttonStyle(PrimaryButtonStyle())
             .disabled(viewModel.isExportingToReminders)
@@ -131,9 +126,9 @@ struct SaveToGroceryListButton: View {
             if let errorMsg = viewModel.remindersError {
                 Text(errorMsg)
                     .font(.caption)
-                    .foregroundColor(Theme.error)
+                    .foregroundColor(Theme.destructive)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, Theme.Spacing.md)
+                    .padding(.horizontal, Theme.Spacing.space4)
             }
         }
     }
@@ -141,12 +136,11 @@ struct SaveToGroceryListButton: View {
 
 #Preview("Shopping List") {
     ZStack {
-        Theme.background
-            .ignoresSafeArea()
+        AuroraBackground()
 
         ScrollView {
             ShoppingListView(viewModel: .preview)
-                .padding(Theme.Spacing.md)
+                .padding(Theme.Spacing.space4)
         }
     }
     .preferredColorScheme(.dark)

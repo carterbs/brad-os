@@ -20,7 +20,7 @@ struct BarcodeImageView: View {
                     .scaledToFit()
             } else {
                 // Fallback if rendering fails
-                VStack(spacing: Theme.Spacing.sm) {
+                VStack(spacing: Theme.Spacing.space2) {
                     Image(systemName: "exclamationmark.triangle")
                         .font(.title2)
                         .foregroundColor(Theme.textSecondary)

@@ -5,21 +5,21 @@ struct LoadingView: View {
     var message: String = "Loading..."
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             ProgressView()
-                .progressViewStyle(CircularProgressViewStyle(tint: Theme.accent))
+                .progressViewStyle(CircularProgressViewStyle(tint: Theme.interactivePrimary))
                 .scaleEffect(1.5)
 
             Text(message)
-                .font(.subheadline)
+                .font(.callout)
                 .foregroundColor(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.background)
     }
 }
 
 #Preview {
     LoadingView()
+        .background(AuroraBackground())
         .preferredColorScheme(.dark)
 }

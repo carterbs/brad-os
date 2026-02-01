@@ -19,7 +19,7 @@ struct CalendarView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: Theme.Spacing.lg) {
+                VStack(spacing: Theme.Spacing.space6) {
                     // Calendar (no filter section)
                     if viewModel.isLoading {
                         LoadingView(message: "Loading calendar...")
@@ -44,9 +44,9 @@ struct CalendarView: View {
                     // Legend
                     legendSection
                 }
-                .padding(Theme.Spacing.md)
+                .padding(Theme.Spacing.space4)
             }
-            .background(Theme.background)
+            .background(AuroraBackground())
             .navigationTitle("Calendar")
             .navigationBarTitleDisplayMode(.large)
             .sheet(isPresented: $showingDayDetail) {
@@ -78,14 +78,14 @@ struct CalendarView: View {
 
     @ViewBuilder
     private var legendSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
             Text("Legend")
                 .font(.caption)
                 .foregroundColor(Theme.textSecondary)
 
-            HStack(spacing: Theme.Spacing.lg) {
+            HStack(spacing: Theme.Spacing.space6) {
                 ForEach(ActivityType.allCases, id: \.self) { type in
-                    HStack(spacing: Theme.Spacing.xs) {
+                    HStack(spacing: Theme.Spacing.space1) {
                         Circle()
                             .fill(type.color)
                             .frame(width: 8, height: 8)
@@ -97,9 +97,7 @@ struct CalendarView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(Theme.Spacing.md)
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.md)
+        .glassCard()
     }
 }
 
@@ -107,16 +105,19 @@ struct CalendarView: View {
     CalendarView(apiClient: MockAPIClient())
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
+        .background(AuroraBackground())
 }
 
 #Preview("Calendar View - Loading") {
     CalendarView(apiClient: MockAPIClient.withDelay(10.0))
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
+        .background(AuroraBackground())
 }
 
 #Preview("Calendar View - Error") {
     CalendarView(apiClient: MockAPIClient.failing())
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
+        .background(AuroraBackground())
 }

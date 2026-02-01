@@ -1,32 +1,30 @@
 import SwiftUI
 import BradOSCore
 
-/// A card displaying an activity type for the Activities page
+/// A card displaying an activity type for the Activities grid
 struct ActivityCard: View {
     let activityType: ActivityType
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: Theme.Spacing.md) {
+            VStack(spacing: Theme.Spacing.space3) {
                 Image(systemName: activityType.iconName)
-                    .font(.system(size: 40))
+                    .font(.system(size: Theme.Typography.activityGridIcon, weight: .regular))
                     .foregroundColor(activityType.color)
+                    .frame(width: Theme.Dimensions.iconFrameLG, height: Theme.Dimensions.iconFrameLG)
+                    .background(activityType.color.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
 
                 Text(activityType.displayName)
                     .font(.headline)
                     .foregroundColor(Theme.textPrimary)
             }
             .frame(maxWidth: .infinity, minHeight: 100)
-            .padding(Theme.Spacing.lg)
-            .background(Theme.backgroundSecondary)
-            .cornerRadius(Theme.CornerRadius.lg)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                    .stroke(Theme.border, lineWidth: 1)
-            )
+            .glassCard(.card, padding: Theme.Spacing.space6)
         }
         .buttonStyle(PlainButtonStyle())
+        .scaleEffect(1.0) // Press handled by button style
     }
 }
 
@@ -40,21 +38,22 @@ struct ActivityQuickCard: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: Theme.Spacing.md) {
+            HStack(spacing: Theme.Spacing.space3) {
                 Image(systemName: iconName)
-                    .font(.system(size: 24))
+                    .font(.system(size: Theme.Typography.cardHeaderIcon, weight: .medium))
                     .foregroundColor(color)
-                    .frame(width: 40)
+                    .frame(width: Theme.Dimensions.iconFrameMD, height: Theme.Dimensions.iconFrameMD)
+                    .background(color.opacity(0.12))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(title)
-                        .font(.subheadline)
-                        .fontWeight(.medium)
+                        .font(.headline)
                         .foregroundColor(Theme.textPrimary)
 
                     if let subtitle = subtitle {
                         Text(subtitle)
-                            .font(.caption)
+                            .font(.subheadline)
                             .foregroundColor(Theme.textSecondary)
                     }
                 }
@@ -62,26 +61,19 @@ struct ActivityQuickCard: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Theme.textTertiary)
             }
-            .padding(Theme.Spacing.md)
-            .background(Theme.backgroundSecondary)
-            .cornerRadius(Theme.CornerRadius.md)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                    .stroke(Theme.border, lineWidth: 1)
-            )
+            .glassCard()
         }
         .buttonStyle(PlainButtonStyle())
     }
 }
 
 #Preview {
-    VStack(spacing: 16) {
+    VStack(spacing: Theme.Spacing.space4) {
         ActivityCard(activityType: .workout) {}
         ActivityCard(activityType: .stretch) {}
-        ActivityCard(activityType: .meditation) {}
 
         ActivityQuickCard(
             title: "Today's Workout",
@@ -97,7 +89,7 @@ struct ActivityQuickCard: View {
             color: Theme.stretch
         ) {}
     }
-    .padding()
-    .background(Theme.background)
+    .padding(Theme.Spacing.space5)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }

@@ -11,46 +11,38 @@ struct NotificationSettingsView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Status Row - always visible
             statusRow
 
-            // Enable Button (when permission not determined)
             if notificationManager.canRequest {
-                Divider().background(Theme.border)
+                Divider().background(Theme.divider)
                 enableButton
             }
 
-            // Test Button (when authorized)
             if notificationManager.isAuthorized {
-                Divider().background(Theme.border)
+                Divider().background(Theme.divider)
                 testButton
             }
 
-            // Denied Instructions (when blocked)
             if notificationManager.isDenied {
-                Divider().background(Theme.border)
+                Divider().background(Theme.divider)
                 deniedInstructions
             }
 
-            // Error Display
             if let error = error {
-                Divider().background(Theme.border)
+                Divider().background(Theme.divider)
                 errorBanner(error)
             }
 
-            // Test Confirmation Banner
             if showTestConfirmation {
-                Divider().background(Theme.border)
+                Divider().background(Theme.divider)
                 confirmationBanner
             }
         }
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.md)
+        .glassCard(.card, padding: 0)
         .task {
             await notificationManager.refreshAuthorizationStatus()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
-            // Refresh status when returning from Settings app
             Task {
                 await notificationManager.refreshAuthorizationStatus()
             }
@@ -61,29 +53,28 @@ struct NotificationSettingsView: View {
 
     @ViewBuilder
     private var statusRow: some View {
-        HStack(spacing: Theme.Spacing.md) {
+        HStack(spacing: Theme.Spacing.space3) {
             Image(systemName: statusIconName)
                 .foregroundColor(statusColor)
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text("Notifications")
-                    .font(.subheadline)
+                    .font(.headline)
                     .foregroundColor(Theme.textPrimary)
 
                 Text(statusText)
-                    .font(.caption)
+                    .font(.footnote)
                     .foregroundColor(Theme.textSecondary)
             }
 
             Spacer()
 
-            // Status indicator circle
             Circle()
                 .fill(statusColor)
                 .frame(width: 10, height: 10)
         }
-        .padding(Theme.Spacing.md)
+        .padding(Theme.Spacing.space4)
     }
 
     private var statusIconName: String {
@@ -104,7 +95,7 @@ struct NotificationSettingsView: View {
         case .authorized, .provisional, .ephemeral:
             return Theme.success
         case .denied:
-            return Theme.error
+            return Theme.destructive
         case .notDetermined:
             return Theme.warning
         @unknown default:
@@ -150,8 +141,8 @@ struct NotificationSettingsView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(Theme.Spacing.md)
-            .foregroundColor(Theme.accent)
+            .padding(Theme.Spacing.space4)
+            .foregroundColor(Theme.interactivePrimary)
         }
         .disabled(isEnabling)
     }
@@ -169,8 +160,6 @@ struct NotificationSettingsView: View {
                 do {
                     try await notificationManager.scheduleTestNotification()
                     showTestConfirmation = true
-
-                    // Auto-hide confirmation after 5 seconds
                     try? await Task.sleep(for: .seconds(5))
                     showTestConfirmation = false
                 } catch {
@@ -190,8 +179,8 @@ struct NotificationSettingsView: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(Theme.Spacing.md)
-            .foregroundColor(Theme.accent)
+            .padding(Theme.Spacing.space4)
+            .foregroundColor(Theme.interactivePrimary)
         }
         .disabled(isTesting)
     }
@@ -200,7 +189,7 @@ struct NotificationSettingsView: View {
 
     @ViewBuilder
     private var deniedInstructions: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
             Text("To enable notifications:")
                 .font(.caption)
                 .fontWeight(.medium)
@@ -221,12 +210,13 @@ struct NotificationSettingsView: View {
                 }
                 .font(.caption)
                 .fontWeight(.medium)
+                .foregroundColor(Theme.interactivePrimary)
             }
-            .padding(.top, Theme.Spacing.xs)
+            .padding(.top, Theme.Spacing.space1)
         }
-        .padding(Theme.Spacing.md)
+        .padding(Theme.Spacing.space4)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.error.opacity(0.1))
+        .background(Theme.destructive.opacity(0.10))
     }
 
     // MARK: - Banners
@@ -235,10 +225,10 @@ struct NotificationSettingsView: View {
     private func errorBanner(_ message: String) -> some View {
         HStack {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundColor(Theme.error)
+                .foregroundColor(Theme.destructive)
             Text(message)
                 .font(.caption)
-                .foregroundColor(Theme.error)
+                .foregroundColor(Theme.destructive)
             Spacer()
             Button {
                 error = nil
@@ -247,8 +237,8 @@ struct NotificationSettingsView: View {
                     .foregroundColor(Theme.textSecondary)
             }
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.error.opacity(0.1))
+        .padding(Theme.Spacing.space4)
+        .background(Theme.destructive.opacity(0.10))
     }
 
     @ViewBuilder
@@ -261,8 +251,8 @@ struct NotificationSettingsView: View {
                 .foregroundColor(Theme.success)
             Spacer()
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.success.opacity(0.1))
+        .padding(Theme.Spacing.space4)
+        .background(Theme.success.opacity(0.10))
     }
 }
 
@@ -270,7 +260,7 @@ struct NotificationSettingsView: View {
     VStack {
         NotificationSettingsView()
     }
-    .padding()
-    .background(Theme.background)
+    .padding(Theme.Spacing.space5)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }

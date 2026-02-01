@@ -6,8 +6,8 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            Theme.background
-                .ignoresSafeArea()
+            // Aurora Glass Level 0 background
+            AuroraBackground()
 
             if appState.isShowingLiftingContext {
                 LiftingTabView()

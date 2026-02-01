@@ -9,7 +9,7 @@ struct TodayDashboardView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: Theme.Spacing.lg) {
+                VStack(spacing: Theme.Spacing.space6) {
                     // Meal Plan Card
                     MealPlanDashboardCard(
                         todayMeals: viewModel.todayMeals,
@@ -26,9 +26,8 @@ struct TodayDashboardView: View {
                         navigateToWorkout()
                     }
                 }
-                .padding(Theme.Spacing.md)
+                .padding(Theme.Spacing.space4)
             }
-            .background(Theme.background)
             .navigationTitle("Today")
             .navigationBarTitleDisplayMode(.large)
             .refreshable {

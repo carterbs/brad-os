@@ -21,7 +21,7 @@ struct TodayFocusView: View {
     }
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             focusCard
 
             dayChipScroller
@@ -34,7 +34,7 @@ struct TodayFocusView: View {
     private var focusCard: some View {
         let entries = entriesForDay(selectedDayIndex)
 
-        VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
             Text(fullDayNames[selectedDayIndex])
                 .font(.headline)
                 .fontWeight(.bold)
@@ -45,14 +45,9 @@ struct TodayFocusView: View {
                 focusMealRow(mealType: mealType, entry: entry)
             }
         }
-        .padding(Theme.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.lg)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                .stroke(Theme.mealPlan.opacity(0.3), lineWidth: 1)
-        )
+        .glassCard()
+        .auroraGlow(Theme.mealPlan, intensity: .primary)
         .animation(.easeInOut(duration: 0.25), value: selectedDayIndex)
     }
 
@@ -61,7 +56,7 @@ struct TodayFocusView: View {
         let entryId = entry?.id ?? ""
         let isChanged = changedSlots.contains(entryId)
 
-        HStack(spacing: Theme.Spacing.sm) {
+        HStack(spacing: Theme.Spacing.space2) {
             Image(systemName: mealTypeIcon(mealType))
                 .font(.body)
                 .foregroundColor(Theme.mealPlan)
@@ -79,10 +74,10 @@ struct TodayFocusView: View {
 
             Spacer()
         }
-        .padding(.vertical, Theme.Spacing.sm)
-        .padding(.horizontal, Theme.Spacing.sm)
+        .padding(.vertical, Theme.Spacing.space2)
+        .padding(.horizontal, Theme.Spacing.space2)
         .background(isChanged ? Theme.success.opacity(0.15) : Color.clear)
-        .cornerRadius(Theme.CornerRadius.md)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
     }
 
     // MARK: - Day Chip Scroller
@@ -119,7 +114,7 @@ struct TodayFocusView: View {
                 if isToday {
                     Circle()
                         .fill(Theme.mealPlan)
-                        .frame(width: 5, height: 5)
+                        .frame(width: Theme.Dimensions.dotSM, height: Theme.Dimensions.dotSM)
                 }
             }
 
@@ -132,13 +127,18 @@ struct TodayFocusView: View {
         }
         .frame(width: 90, alignment: .leading)
         .frame(minHeight: 72)
-        .padding(Theme.Spacing.sm)
-        .background(isSelected ? Theme.mealPlan.opacity(0.15) : Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.lg)
+        .padding(Theme.Spacing.space2)
+        .background(
+            isSelected
+                ? AnyShapeStyle(.ultraThinMaterial)
+                : AnyShapeStyle(Color.clear)
+        )
+        .background(isSelected ? Theme.mealPlan.opacity(0.15) : Theme.BG.surface.opacity(0.35))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
                 .stroke(
-                    isSelected ? Theme.mealPlan.opacity(0.5) : Theme.border.opacity(0.5),
+                    isSelected ? Theme.mealPlan.opacity(0.5) : Theme.strokeSubtle,
                     lineWidth: 1
                 )
         )
@@ -195,6 +195,6 @@ extension MealType: @retroactive CaseIterable {
         )
         .padding()
     }
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }

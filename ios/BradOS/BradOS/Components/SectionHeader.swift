@@ -9,7 +9,7 @@ struct SectionHeader: View {
     var body: some View {
         HStack {
             Text(title)
-                .font(.headline)
+                .font(.system(size: 22, weight: .semibold))
                 .foregroundColor(Theme.textPrimary)
 
             Spacer()
@@ -17,8 +17,8 @@ struct SectionHeader: View {
             if let actionTitle = actionTitle, let action = action {
                 Button(action: action) {
                     Text(actionTitle)
-                        .font(.subheadline)
-                        .foregroundColor(Theme.accent)
+                        .font(.callout.weight(.semibold))
+                        .foregroundColor(Theme.interactivePrimary)
                 }
             }
         }
@@ -26,11 +26,11 @@ struct SectionHeader: View {
 }
 
 #Preview {
-    VStack(spacing: 16) {
+    VStack(spacing: Theme.Spacing.space4) {
         SectionHeader(title: "Recent Workouts")
         SectionHeader(title: "Plans", actionTitle: "See All") {}
     }
-    .padding()
-    .background(Theme.background)
+    .padding(Theme.Spacing.space5)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }

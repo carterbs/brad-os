@@ -9,18 +9,18 @@ struct RestTimerOverlay: View {
 
     var body: some View {
         ZStack {
-            // Semi-transparent background
-            Theme.overlayBackground
+            // Scrim background
+            Theme.scrimStandard
                 .ignoresSafeArea()
 
-            VStack(spacing: Theme.Spacing.xl) {
+            VStack(spacing: Theme.Spacing.space7) {
                 Spacer()
 
                 // Circular progress indicator
                 ZStack {
                     // Background circle
                     Circle()
-                        .stroke(Theme.backgroundTertiary, lineWidth: 12)
+                        .stroke(Color.white.opacity(0.06), lineWidth: 12)
                         .frame(width: Theme.Dimensions.timerCircle, height: Theme.Dimensions.timerCircle)
 
                     // Progress arc
@@ -35,9 +35,10 @@ struct RestTimerOverlay: View {
                         .animation(.easeInOut(duration: 0.3), value: progress)
 
                     // Center content
-                    VStack(spacing: Theme.Spacing.xs) {
+                    VStack(spacing: Theme.Spacing.space1) {
                         Text(timeString)
-                            .font(.system(size: Theme.Typography.timerMD, weight: .bold, design: .monospaced))
+                            .font(.system(size: 34, weight: .bold))
+                            .monospacedDigit()
                             .foregroundColor(isComplete ? Theme.success : Theme.textPrimary)
 
                         Text(statusText)
@@ -49,32 +50,27 @@ struct RestTimerOverlay: View {
 
                 // Status indicator
                 if isComplete {
-                    HStack(spacing: Theme.Spacing.sm) {
+                    HStack(spacing: Theme.Spacing.space2) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.title2)
                         Text("Ready for Next Set")
                             .font(.headline)
                     }
                     .foregroundColor(Theme.success)
-                    .padding(.top, Theme.Spacing.md)
+                    .padding(.top, Theme.Spacing.space4)
                 }
 
                 Spacer()
 
-                // Dismiss button
+                // Dismiss button — glass secondary style
                 Button(action: onDismiss) {
                     HStack {
                         Image(systemName: "xmark")
                         Text("Dismiss")
                     }
-                    .font(.headline)
-                    .foregroundColor(Theme.textPrimary)
-                    .padding(.horizontal, Theme.Spacing.xl)
-                    .padding(.vertical, Theme.Spacing.md)
-                    .background(Theme.backgroundSecondary)
-                    .cornerRadius(Theme.CornerRadius.lg)
                 }
-                .padding(.bottom, Theme.Spacing.xl)
+                .buttonStyle(GlassSecondaryButtonStyle())
+                .padding(.bottom, Theme.Spacing.space7)
             }
         }
         .transition(.opacity)
@@ -96,7 +92,7 @@ struct RestTimerOverlay: View {
         } else if progress > 0.75 {
             return Theme.warning
         } else {
-            return Theme.accent
+            return Theme.interactivePrimary
         }
     }
 
@@ -163,13 +159,13 @@ struct RestTimerBar: View {
                 // Progress ring
                 ZStack {
                     Circle()
-                        .stroke(Theme.backgroundTertiary, lineWidth: 3)
+                        .stroke(Color.white.opacity(0.06), lineWidth: 3)
                         .frame(width: Theme.Dimensions.progressRing, height: Theme.Dimensions.progressRing)
 
                     Circle()
                         .trim(from: 0, to: progress)
                         .stroke(
-                            isComplete ? Theme.success : Theme.accent,
+                            isComplete ? Theme.success : Theme.interactivePrimary,
                             style: StrokeStyle(lineWidth: 3, lineCap: .round)
                         )
                         .frame(width: Theme.Dimensions.progressRing, height: Theme.Dimensions.progressRing)
@@ -181,19 +177,17 @@ struct RestTimerBar: View {
                         .font(.title2)
                         .foregroundColor(Theme.textSecondary)
                 }
-                .padding(.leading, Theme.Spacing.sm)
+                .padding(.leading, Theme.Spacing.space2)
             }
-            .padding(Theme.Spacing.md)
-            .background(Theme.backgroundSecondary)
-            .cornerRadius(Theme.CornerRadius.md)
+            .glassCard(.elevated, radius: Theme.CornerRadius.md)
             .overlay(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                    .stroke(isComplete ? Theme.success : Theme.accent, lineWidth: 2)
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
+                    .stroke(isComplete ? Theme.success : Theme.interactivePrimary, lineWidth: 1)
             )
         }
         .buttonStyle(PlainButtonStyle())
-        .padding(.horizontal, Theme.Spacing.md)
-        .shadow(color: Theme.shadowColor, radius: 10)
+        .padding(.horizontal, Theme.Spacing.space4)
+        .shadow(color: Theme.Shadow.smColor, radius: Theme.Shadow.smBlur, y: Theme.Shadow.smY)
     }
 
     private var progress: Double {
@@ -248,7 +242,7 @@ struct RestTimerBar: View {
             onDismiss: {}
         )
     }
-    .background(Theme.background)
+    .background(AuroraBackground())
 }
 
 #Preview("Bar - Complete") {
@@ -262,5 +256,5 @@ struct RestTimerBar: View {
             onDismiss: {}
         )
     }
-    .background(Theme.background)
+    .background(AuroraBackground())
 }

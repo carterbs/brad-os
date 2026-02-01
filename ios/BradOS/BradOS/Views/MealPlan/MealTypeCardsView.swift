@@ -13,9 +13,9 @@ struct MealTypeCardsView: View {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .listRowInsets(EdgeInsets(
-                        top: Theme.Spacing.xs,
+                        top: Theme.Spacing.space1,
                         leading: 0,
-                        bottom: Theme.Spacing.xs,
+                        bottom: Theme.Spacing.space1,
                         trailing: 0
                     ))
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
@@ -38,6 +38,6 @@ struct MealTypeCardsView: View {
 
 #Preview("Breakfast Tab") {
     MealTypeCardsView(mealType: .breakfast, viewModel: .preview)
-        .background(Theme.background)
+        .background(AuroraBackground())
         .preferredColorScheme(.dark)
 }

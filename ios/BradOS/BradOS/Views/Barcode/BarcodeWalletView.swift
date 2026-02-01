@@ -9,7 +9,7 @@ struct BarcodeWalletView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: Theme.Spacing.md) {
+            VStack(spacing: Theme.Spacing.space4) {
                 if viewModel.isLoading {
                     loadingState
                 } else if let error = viewModel.error, viewModel.barcodes.isEmpty {
@@ -20,16 +20,16 @@ struct BarcodeWalletView: View {
                     barcodeList
                 }
             }
-            .padding(Theme.Spacing.md)
+            .padding(Theme.Spacing.space4)
         }
-        .background(Theme.background)
+        .background(AuroraBackground())
         .navigationTitle("Barcode Wallet")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingAddSheet = true }) {
                     Image(systemName: "plus")
-                        .foregroundColor(Theme.accent)
+                        .foregroundColor(Theme.interactivePrimary)
                 }
             }
         }
@@ -64,7 +64,7 @@ struct BarcodeWalletView: View {
 
     @ViewBuilder
     private var emptyState: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             Image(systemName: "barcode.viewfinder")
                 .font(.system(size: 48))
                 .foregroundColor(Theme.textSecondary)
@@ -83,31 +83,31 @@ struct BarcodeWalletView: View {
             }
             .buttonStyle(PrimaryButtonStyle())
         }
-        .padding(Theme.Spacing.xl)
+        .padding(Theme.Spacing.space7)
     }
 
     // MARK: - Loading State
 
     @ViewBuilder
     private var loadingState: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             ProgressView()
                 .tint(Theme.textSecondary)
             Text("Loading barcodes...")
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
         }
-        .padding(Theme.Spacing.xl)
+        .padding(Theme.Spacing.space7)
     }
 
     // MARK: - Error State
 
     @ViewBuilder
     private func errorState(_ error: String) -> some View {
-        VStack(spacing: Theme.Spacing.sm) {
+        VStack(spacing: Theme.Spacing.space2) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.largeTitle)
-                .foregroundColor(Theme.error)
+                .foregroundColor(Theme.destructive)
 
             Text(error)
                 .font(.subheadline)
@@ -117,9 +117,9 @@ struct BarcodeWalletView: View {
                 Task { await viewModel.loadBarcodes() }
             }
             .buttonStyle(.bordered)
-            .tint(Theme.accent)
+            .tint(Theme.interactivePrimary)
         }
-        .padding(Theme.Spacing.xl)
+        .padding(Theme.Spacing.space7)
     }
 }
 
@@ -135,11 +135,11 @@ struct BarcodeCardRow: View {
         VStack(alignment: .leading, spacing: 0) {
             // Barcode preview
             BarcodeImageView(value: barcode.value, barcodeType: barcode.barcodeType, height: 80)
-                .padding(Theme.Spacing.md)
+                .padding(Theme.Spacing.space4)
                 .background(Color.white)
-                .cornerRadius(Theme.CornerRadius.md)
-                .padding(.horizontal, Theme.Spacing.md)
-                .padding(.top, Theme.Spacing.md)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
+                .padding(.horizontal, Theme.Spacing.space4)
+                .padding(.top, Theme.Spacing.space4)
 
             // Info row
             HStack {
@@ -155,14 +155,9 @@ struct BarcodeCardRow: View {
 
                 Spacer()
             }
-            .padding(Theme.Spacing.md)
+            .padding(Theme.Spacing.space4)
         }
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.md)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                .stroke(Theme.border, lineWidth: 1)
-        )
+        .glassCard(padding: 0)
         .contextMenu {
             Button(action: onEdit) {
                 Label("Edit", systemImage: "pencil")

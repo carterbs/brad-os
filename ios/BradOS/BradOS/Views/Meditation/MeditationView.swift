@@ -105,8 +105,7 @@ struct MeditationView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Theme.background
-                    .ignoresSafeArea()
+                AuroraBackground()
 
                 switch sessionState {
                 case .setup:
@@ -165,7 +164,7 @@ struct MeditationView: View {
                                 Image(systemName: "chevron.left")
                                 Text("Back")
                             }
-                            .foregroundColor(Theme.accent)
+                            .foregroundColor(Theme.interactivePrimary)
                         }
                     }
                 }
@@ -243,7 +242,7 @@ struct MeditationSetupView: View {
     private let apiService = MeditationAPIService.shared
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.xl) {
+        VStack(spacing: Theme.Spacing.space7) {
             Spacer()
 
             // Icon
@@ -286,7 +285,7 @@ struct MeditationSetupView: View {
             }
             .buttonStyle(PrimaryButtonStyle())
         }
-        .padding(Theme.Spacing.md)
+        .padding(Theme.Spacing.space4)
         .onAppear {
             fetchLastSession()
         }
@@ -321,13 +320,13 @@ struct MeditationSetupView: View {
 
     @ViewBuilder
     private var durationSelectionSection: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             Text("Duration")
                 .font(.subheadline)
                 .fontWeight(.medium)
                 .foregroundColor(Theme.textSecondary)
 
-            HStack(spacing: Theme.Spacing.md) {
+            HStack(spacing: Theme.Spacing.space4) {
                 ForEach(MeditationDuration.allCases) { duration in
                     MeditationDurationOption(
                         duration: duration,
@@ -351,9 +350,7 @@ struct MeditationSetupView: View {
                 .font(.caption)
                 .foregroundColor(Theme.textSecondary)
         }
-        .padding(Theme.Spacing.md)
-        .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.md)
+        .glassCard()
     }
 
     private func formattedDate(_ date: Date) -> String {
@@ -382,12 +379,10 @@ struct MeditationDurationOption: View {
                     .foregroundColor(Theme.textSecondary)
             }
             .frame(maxWidth: .infinity)
-            .padding(Theme.Spacing.md)
-            .background(isSelected ? Theme.meditation.opacity(0.1) : Theme.backgroundSecondary)
-            .cornerRadius(Theme.CornerRadius.md)
+            .glassCard(.card, radius: Theme.CornerRadius.md)
             .overlay(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                    .stroke(isSelected ? Theme.meditation : Theme.border, lineWidth: 2)
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
+                    .stroke(isSelected ? Theme.meditation : Color.clear, lineWidth: 2)
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -465,7 +460,7 @@ struct MeditationActiveView: View {
     }
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.xl) {
+        VStack(spacing: Theme.Spacing.space7) {
             Spacer()
 
             // Timer
@@ -482,7 +477,7 @@ struct MeditationActiveView: View {
             // Controls
             controlsSection
         }
-        .padding(Theme.Spacing.md)
+        .padding(Theme.Spacing.space4)
         .onAppear {
             // Prepare haptic generators
             impactGenerator.prepare()
@@ -523,11 +518,11 @@ struct MeditationActiveView: View {
 
     @ViewBuilder
     private var timerSection: some View {
-        VStack(spacing: Theme.Spacing.sm) {
+        VStack(spacing: Theme.Spacing.space2) {
             Text(formattedTime)
-                .font(.system(size: Theme.Typography.timerSM, weight: .light, design: .rounded))
-                .foregroundColor(Theme.textPrimary)
+                .font(.system(size: 34, weight: .bold, design: .rounded))
                 .monospacedDigit()
+                .foregroundColor(Theme.textPrimary)
                 .minimumScaleFactor(0.5)
                 .lineLimit(1)
                 .accessibilityLabel("\(displayedTimeRemaining / 60) minutes and \(displayedTimeRemaining % 60) seconds remaining")
@@ -570,6 +565,7 @@ struct MeditationActiveView: View {
                 .fill(Theme.meditation)
                 .frame(width: 20, height: 20)
         }
+        .auroraGlow(Theme.meditation)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Breathing circle")
         .accessibilityValue(breathingPhase.accessibilityLabel)
@@ -591,7 +587,7 @@ struct MeditationActiveView: View {
 
     @ViewBuilder
     private var phaseSection: some View {
-        VStack(spacing: Theme.Spacing.sm) {
+        VStack(spacing: Theme.Spacing.space2) {
             Text(breathingPhase.rawValue)
                 .font(.title2)
                 .fontWeight(.medium)
@@ -625,7 +621,7 @@ struct MeditationActiveView: View {
 
     @ViewBuilder
     private var controlsSection: some View {
-        HStack(spacing: Theme.Spacing.xl) {
+        HStack(spacing: Theme.Spacing.space7) {
             // End button
             Button(action: endSession) {
                 VStack {
@@ -636,26 +632,22 @@ struct MeditationActiveView: View {
                 }
                 .foregroundColor(Theme.textSecondary)
             }
+            .buttonStyle(GlassCircleButtonStyle())
             .accessibilityLabel("End session early")
             .accessibilityHint("Shows confirmation before ending")
 
             // Pause/Resume button
             Button(action: togglePauseWithHaptic) {
-                ZStack {
-                    Circle()
-                        .fill(Theme.meditation)
-                        .frame(width: 80, height: 80)
-
-                    Image(systemName: isPaused ? "play.fill" : "pause.fill")
-                        .font(.title)
-                        .foregroundColor(Theme.textOnDark)
-                }
+                Image(systemName: isPaused ? "play.fill" : "pause.fill")
+                    .font(.title)
+                    .foregroundColor(Theme.textOnAccent)
             }
+            .buttonStyle(GlassPrimaryCircleButtonStyle(color: Theme.meditation))
             .accessibilityLabel(isPaused ? "Resume session" : "Pause session")
 
             // Placeholder for symmetry
             Color.clear
-                .frame(width: 60, height: 60)
+                .frame(width: Theme.Dimensions.circleButtonSM, height: Theme.Dimensions.circleButtonSM)
                 .accessibilityHidden(true)
         }
     }
@@ -1107,7 +1099,7 @@ struct MeditationCompleteView: View {
     let onRetrySync: () -> Void
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.xl) {
+        VStack(spacing: Theme.Spacing.space7) {
             Spacer()
 
             // Success icon
@@ -1128,13 +1120,12 @@ struct MeditationCompleteView: View {
                 .multilineTextAlignment(.center)
 
             // Stats
-            VStack(spacing: Theme.Spacing.md) {
+            VStack(spacing: Theme.Spacing.space4) {
                 StatRow(label: "Planned Duration", value: session.formattedPlannedDuration)
                 StatRow(label: "Actual Duration", value: session.formattedActualDuration)
                 StatRow(label: "Completed", value: session.completedFully ? "Yes" : "Ended Early")
             }
-            .padding(Theme.Spacing.md)
-            .cardStyle()
+            .glassCard()
 
             // Sync Status
             syncStatusView
@@ -1142,7 +1133,7 @@ struct MeditationCompleteView: View {
             Spacer()
 
             // Actions
-            VStack(spacing: Theme.Spacing.md) {
+            VStack(spacing: Theme.Spacing.space4) {
                 Button(action: onDone) {
                     Text("Done")
                         .frame(maxWidth: .infinity)
@@ -1156,14 +1147,14 @@ struct MeditationCompleteView: View {
                 .buttonStyle(SecondaryButtonStyle())
             }
         }
-        .padding(Theme.Spacing.md)
+        .padding(Theme.Spacing.space4)
     }
 
     // MARK: - Sync Status
 
     @ViewBuilder
     private var syncStatusView: some View {
-        HStack(spacing: Theme.Spacing.sm) {
+        HStack(spacing: Theme.Spacing.space2) {
             if isSaving {
                 ProgressView()
                     .tint(Theme.meditation)
@@ -1178,7 +1169,7 @@ struct MeditationCompleteView: View {
                     .foregroundColor(Theme.warning)
                 Button("Retry", action: onRetrySync)
                     .font(.caption)
-                    .foregroundColor(Theme.accent)
+                    .foregroundColor(Theme.interactivePrimary)
             } else {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundColor(Theme.success)
@@ -1187,7 +1178,7 @@ struct MeditationCompleteView: View {
                     .foregroundColor(Theme.textSecondary)
             }
         }
-        .padding(Theme.Spacing.sm)
+        .padding(Theme.Spacing.space2)
     }
 }
 

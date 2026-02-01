@@ -6,7 +6,7 @@ struct CritiqueInputView: View {
     @ObservedObject var viewModel: MealPlanViewModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             // Section header
             SectionHeader(title: "Refine Plan")
 
@@ -27,7 +27,7 @@ struct CritiqueInputView: View {
 
     @ViewBuilder
     private func conversationHistory(_ messages: [ConversationMessage]) -> some View {
-        VStack(spacing: Theme.Spacing.sm) {
+        VStack(spacing: Theme.Spacing.space2) {
             ForEach(messages) { message in
                 switch message.role {
                 case .user:
@@ -47,11 +47,11 @@ struct CritiqueInputView: View {
             Spacer(minLength: 40)
             Text(text)
                 .font(.subheadline)
-                .foregroundColor(Theme.textOnDark)
-                .padding(.horizontal, Theme.Spacing.md)
-                .padding(.vertical, Theme.Spacing.sm)
-                .background(Theme.accent)
-                .cornerRadius(Theme.CornerRadius.lg)
+                .foregroundColor(Theme.textOnAccent)
+                .padding(.horizontal, Theme.Spacing.space4)
+                .padding(.vertical, Theme.Spacing.space2)
+                .background(Theme.interactivePrimary)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous))
         }
     }
 
@@ -61,10 +61,10 @@ struct CritiqueInputView: View {
             Text(text)
                 .font(.subheadline)
                 .foregroundColor(Theme.textPrimary)
-                .padding(.horizontal, Theme.Spacing.md)
-                .padding(.vertical, Theme.Spacing.sm)
-                .background(Theme.backgroundTertiary)
-                .cornerRadius(Theme.CornerRadius.lg)
+                .padding(.horizontal, Theme.Spacing.space4)
+                .padding(.vertical, Theme.Spacing.space2)
+                .background(Theme.BG.surface)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous))
             Spacer(minLength: 40)
         }
     }
@@ -73,15 +73,17 @@ struct CritiqueInputView: View {
 
     @ViewBuilder
     private var inputRow: some View {
-        HStack(spacing: Theme.Spacing.sm) {
+        HStack(spacing: Theme.Spacing.space2) {
             TextField("Ask to swap meals, adjust effort...", text: $viewModel.critiqueText)
                 .textFieldStyle(.plain)
-                .padding(Theme.Spacing.sm)
-                .background(Theme.backgroundSecondary)
-                .cornerRadius(Theme.CornerRadius.md)
+                .padding(Theme.Spacing.space2)
+                .frame(height: Theme.Dimensions.inputHeight)
+                .background(.ultraThinMaterial)
+                .background(Theme.BG.surface.opacity(GlassLevel.card.fillOpacity))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
                 .overlay(
-                    RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                        .stroke(Theme.border, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
+                        .stroke(Theme.strokeSubtle, lineWidth: 1)
                 )
                 .submitLabel(.send)
                 .onSubmit {
@@ -92,7 +94,7 @@ struct CritiqueInputView: View {
                 Group {
                     if viewModel.isSending {
                         ProgressView()
-                            .tint(Theme.textOnDark)
+                            .tint(Theme.textOnAccent)
                     } else {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.title2)
@@ -103,8 +105,8 @@ struct CritiqueInputView: View {
             .disabled(viewModel.isSending || viewModel.critiqueText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             .foregroundColor(
                 viewModel.isSending || viewModel.critiqueText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    ? Theme.disabled
-                    : Theme.accent
+                    ? Theme.textDisabled
+                    : Theme.interactivePrimary
             )
         }
     }
@@ -121,6 +123,6 @@ struct CritiqueInputView: View {
         CritiqueInputView(viewModel: .preview)
     }
     .padding()
-    .background(Theme.background)
+    .background(AuroraBackground())
     .preferredColorScheme(.dark)
 }

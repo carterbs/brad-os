@@ -35,28 +35,28 @@ struct BarcodeFormView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: Theme.Spacing.xl) {
+                VStack(spacing: Theme.Spacing.space7) {
                     // Barcode preview
                     previewSection
 
                     // Form fields
                     formFields
                 }
-                .padding(Theme.Spacing.md)
+                .padding(Theme.Spacing.space4)
             }
-            .background(Theme.background)
+            .background(AuroraBackground())
             .navigationTitle(isEditing ? "Edit Barcode" : "Add Barcode")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
-                        .foregroundColor(Theme.accent)
+                        .foregroundColor(Theme.interactivePrimary)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button(isEditing ? "Save" : "Add") {
                         Task { await save() }
                     }
-                    .foregroundColor(isFormValid ? Theme.accent : Theme.disabled)
+                    .foregroundColor(isFormValid ? Theme.interactivePrimary : Theme.textDisabled)
                     .fontWeight(.semibold)
                     .disabled(!isFormValid || viewModel.isSaving)
                 }
@@ -76,17 +76,17 @@ struct BarcodeFormView: View {
 
     @ViewBuilder
     private var previewSection: some View {
-        VStack(spacing: Theme.Spacing.md) {
+        VStack(spacing: Theme.Spacing.space4) {
             SectionHeader(title: "Preview")
 
-            VStack(spacing: Theme.Spacing.sm) {
+            VStack(spacing: Theme.Spacing.space2) {
                 if !value.isEmpty {
                     BarcodeImageView(value: value, barcodeType: barcodeType, height: 100)
-                        .padding(Theme.Spacing.md)
+                        .padding(Theme.Spacing.space4)
                         .background(Color.white)
-                        .cornerRadius(Theme.CornerRadius.md)
-                        .padding(.horizontal, Theme.Spacing.md)
-                        .padding(.top, Theme.Spacing.md)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
+                        .padding(.horizontal, Theme.Spacing.space4)
+                        .padding(.top, Theme.Spacing.space4)
                 } else {
                     RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
                         .fill(Color.white.opacity(0.1))
@@ -96,8 +96,8 @@ struct BarcodeFormView: View {
                                 .font(.caption)
                                 .foregroundColor(Theme.textSecondary)
                         )
-                        .padding(.horizontal, Theme.Spacing.md)
-                        .padding(.top, Theme.Spacing.md)
+                        .padding(.horizontal, Theme.Spacing.space4)
+                        .padding(.top, Theme.Spacing.space4)
                 }
 
                 // Label area with selected color
@@ -105,18 +105,13 @@ struct BarcodeFormView: View {
                     .font(.headline)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding(Theme.Spacing.md)
+                    .padding(Theme.Spacing.space4)
                     .background(Color(hex: String(selectedColor.dropFirst())))
-                    .cornerRadius(Theme.CornerRadius.md)
-                    .padding(.horizontal, Theme.Spacing.md)
-                    .padding(.bottom, Theme.Spacing.md)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
+                    .padding(.horizontal, Theme.Spacing.space4)
+                    .padding(.bottom, Theme.Spacing.space4)
             }
-            .background(Theme.backgroundSecondary)
-            .cornerRadius(Theme.CornerRadius.md)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                    .stroke(Theme.border, lineWidth: 1)
-            )
+            .glassCard(padding: 0)
         }
     }
 
@@ -124,9 +119,9 @@ struct BarcodeFormView: View {
 
     @ViewBuilder
     private var formFields: some View {
-        VStack(spacing: Theme.Spacing.lg) {
+        VStack(spacing: Theme.Spacing.space6) {
             // Label field
-            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
                 Text("Label")
                     .font(.subheadline)
                     .fontWeight(.medium)
@@ -136,7 +131,7 @@ struct BarcodeFormView: View {
             }
 
             // Value field
-            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
                 Text("Barcode Value")
                     .font(.subheadline)
                     .fontWeight(.medium)
@@ -148,36 +143,41 @@ struct BarcodeFormView: View {
             }
 
             // Barcode type picker
-            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
                 Text("Barcode Type")
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundColor(Theme.textPrimary)
 
-                HStack(spacing: Theme.Spacing.sm) {
+                HStack(spacing: Theme.Spacing.space2) {
                     ForEach(BarcodeType.allCases, id: \.self) { type in
+                        let isSelected = barcodeType == type
                         Button(action: { barcodeType = type }) {
                             Text(type.displayName)
                                 .font(.caption)
                                 .fontWeight(.medium)
-                                .foregroundColor(barcodeType == type ? .white : Theme.textSecondary)
-                                .padding(.horizontal, Theme.Spacing.md)
-                                .padding(.vertical, Theme.Spacing.sm)
-                                .background(barcodeType == type ? Theme.accent : Theme.backgroundTertiary)
-                                .cornerRadius(Theme.CornerRadius.md)
+                                .foregroundColor(isSelected ? Theme.textOnAccent : Theme.textSecondary)
+                                .padding(.horizontal, Theme.Spacing.space4)
+                                .padding(.vertical, Theme.Spacing.space2)
+                                .background(isSelected ? AnyShapeStyle(Theme.interactivePrimary) : AnyShapeStyle(Color.white.opacity(0.06)))
+                                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
+                                        .stroke(isSelected ? Theme.interactivePrimary.opacity(0.5) : Theme.strokeSubtle, lineWidth: 1)
+                                )
                         }
                     }
                 }
             }
 
             // Color picker
-            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
+            VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
                 Text("Color")
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .foregroundColor(Theme.textPrimary)
 
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: Theme.Spacing.sm) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: Theme.Spacing.space2) {
                     ForEach(colorPresets, id: \.hex) { preset in
                         Button(action: { selectedColor = preset.hex }) {
                             Circle()
@@ -226,17 +226,20 @@ struct BarcodeFormView: View {
     }
 }
 
-/// Custom text field style matching the app theme
+/// Custom text field style matching the Aurora Glass design system
+/// H:52pt, R:12pt (Theme.CornerRadius.md), Glass L1 background
 struct BarcodeTextFieldStyle: TextFieldStyle {
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration
-            .padding(Theme.Spacing.md)
-            .background(Theme.backgroundTertiary)
-            .cornerRadius(Theme.CornerRadius.md)
+            .padding(.horizontal, Theme.Spacing.space4)
+            .frame(height: Theme.Dimensions.inputHeight)
+            .background(.ultraThinMaterial)
+            .background(Theme.BG.surface.opacity(GlassLevel.card.fillOpacity))
+            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
             .foregroundColor(Theme.textPrimary)
             .overlay(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                    .stroke(Theme.border, lineWidth: 1)
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
+                    .stroke(Theme.strokeSubtle, lineWidth: 1)
             )
     }
 }
