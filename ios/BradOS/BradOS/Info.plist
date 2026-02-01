@@ -22,6 +22,8 @@
 	<array>
 		<string>spotify</string>
 	</array>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>BradOS uses Reminders to export your weekly grocery shopping list.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>BradOS uses notifications to alert you when rest timers complete during workouts.</string>
 	<key>UIBackgroundModes</key>

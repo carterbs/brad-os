@@ -1,7 +1,4 @@
 import Foundation
-#if canImport(UIKit)
-import UIKit
-#endif
 
 /// ViewModel for the Meal Plan feature
 /// Manages plan generation, critique loop, and finalization
@@ -18,7 +15,9 @@ public class MealPlanViewModel: ObservableObject {
     @Published public var lastExplanation: String?
     @Published public var changedSlots: Set<String> = []
     @Published public var shoppingList: [ShoppingListSection] = []
-    @Published public var didCopyToClipboard = false
+    @Published public var isExportingToReminders = false
+    @Published public var remindersExportResult: RemindersExportResult?
+    @Published public var remindersError: String?
     @Published public var queuedActions = QueuedCritiqueActions()
     @Published public var isCritiqueExpanded = false
 
@@ -30,12 +29,18 @@ public class MealPlanViewModel: ObservableObject {
 
     private let apiClient: APIClientProtocol
     private let recipeCache: RecipeCacheService
+    private let remindersService: RemindersServiceProtocol
 
     // MARK: - Initialization
 
-    public init(apiClient: APIClientProtocol, recipeCache: RecipeCacheService = RecipeCacheService.shared) {
+    public init(
+        apiClient: APIClientProtocol,
+        recipeCache: RecipeCacheService = RecipeCacheService.shared,
+        remindersService: RemindersServiceProtocol = RemindersService()
+    ) {
         self.apiClient = apiClient
         self.recipeCache = recipeCache
+        self.remindersService = remindersService
     }
 
     // MARK: - Session Persistence
@@ -241,7 +246,9 @@ public class MealPlanViewModel: ObservableObject {
         critiqueText = ""
         changedSlots = []
         shoppingList = []
-        didCopyToClipboard = false
+        isExportingToReminders = false
+        remindersExportResult = nil
+        remindersError = nil
         queuedActions = QueuedCritiqueActions()
         isCritiqueExpanded = false
         error = nil
@@ -256,17 +263,34 @@ public class MealPlanViewModel: ObservableObject {
         shoppingList = ShoppingListBuilder.build(fromMealIds: mealIds, using: recipeCache)
     }
 
-    public func copyShoppingList() {
-        #if canImport(UIKit)
-        ShoppingListFormatter.copyToClipboard(shoppingList)
-        didCopyToClipboard = true
+    public func exportToReminders() async {
+        isExportingToReminders = true
+        remindersError = nil
+        remindersExportResult = nil
 
-        // Reset after 2 seconds
-        Task {
-            try? await Task.sleep(nanoseconds: 2_000_000_000)
-            didCopyToClipboard = false
+        do {
+            let result = try await remindersService.exportToReminders(shoppingList)
+            remindersExportResult = result
+
+            // Auto-clear success after 3 seconds
+            Task {
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                remindersExportResult = nil
+            }
+        } catch let error as RemindersError {
+            switch error {
+            case .accessDenied:
+                remindersError = "Reminders access denied. Check Settings > BradOS > Reminders."
+            case .listNotFound(let name):
+                remindersError = "List \"\(name)\" not found in Reminders."
+            case .exportFailed(let message):
+                remindersError = "Export failed: \(message)"
+            }
+        } catch {
+            remindersError = "Export failed: \(error.localizedDescription)"
         }
-        #endif
+
+        isExportingToReminders = false
     }
 }
 
@@ -275,7 +299,11 @@ public class MealPlanViewModel: ObservableObject {
 public extension MealPlanViewModel {
     static var preview: MealPlanViewModel {
         let mockClient = MockAPIClient()
-        let viewModel = MealPlanViewModel(apiClient: mockClient, recipeCache: RecipeCacheService(apiClient: mockClient))
+        let viewModel = MealPlanViewModel(
+            apiClient: mockClient,
+            recipeCache: RecipeCacheService(apiClient: mockClient),
+            remindersService: MockRemindersService()
+        )
         viewModel.session = MealPlanSession.mockSession
         viewModel.currentPlan = MealPlanSession.mockSession.plan
         return viewModel

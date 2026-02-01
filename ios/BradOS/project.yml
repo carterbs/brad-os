@@ -64,6 +64,7 @@ targets:
           - audio
         LSApplicationQueriesSchemes:
           - spotify
+        NSRemindersFullAccessUsageDescription: BradOS uses Reminders to export your weekly grocery shopping list.
         NSUserNotificationsUsageDescription: BradOS uses notifications to alert you when rest timers complete during workouts.
 
 schemes:

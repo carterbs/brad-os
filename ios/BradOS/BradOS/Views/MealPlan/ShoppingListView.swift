@@ -1,7 +1,7 @@
 import SwiftUI
 import BradOSCore
 
-/// Shopping list view with sectioned items and copy button
+/// Shopping list view with sectioned items and Reminders export
 struct ShoppingListView: View {
     @ObservedObject var viewModel: MealPlanViewModel
 
@@ -14,7 +14,15 @@ struct ShoppingListView: View {
                     sectionCard(section)
                 }
 
-                copyButton
+                remindersButton
+
+                if let errorMsg = viewModel.remindersError {
+                    Text(errorMsg)
+                        .font(.caption)
+                        .foregroundColor(.red)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, Theme.Spacing.md)
+                }
             }
         }
     }
@@ -88,20 +96,29 @@ struct ShoppingListView: View {
         )
     }
 
-    // MARK: - Copy Button
+    // MARK: - Reminders Button
 
     @ViewBuilder
-    private var copyButton: some View {
+    private var remindersButton: some View {
         Button(action: {
-            viewModel.copyShoppingList()
+            Task { await viewModel.exportToReminders() }
         }) {
             HStack {
-                Image(systemName: viewModel.didCopyToClipboard ? "checkmark" : "doc.on.doc")
-                Text(viewModel.didCopyToClipboard ? "Copied!" : "Copy to Clipboard")
+                if viewModel.isExportingToReminders {
+                    ProgressView()
+                        .tint(.white)
+                } else if viewModel.remindersExportResult != nil {
+                    Image(systemName: "checkmark")
+                    Text("Sent to Reminders!")
+                } else {
+                    Image(systemName: "checklist")
+                    Text("Send to Reminders")
+                }
             }
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(PrimaryButtonStyle())
+        .disabled(viewModel.isExportingToReminders)
         .padding(.top, Theme.Spacing.sm)
     }
 }
