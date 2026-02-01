@@ -156,4 +156,18 @@ public protocol APIClientProtocol: Sendable {
 
     /// Get all recipes
     func getRecipes() async throws -> [Recipe]
+
+    // MARK: - Meal Plans
+
+    /// Generate a new meal plan
+    func generateMealPlan() async throws -> GenerateMealPlanResponse
+
+    /// Get a meal plan session by ID
+    func getMealPlanSession(id: String) async throws -> MealPlanSession
+
+    /// Submit a critique to modify the meal plan
+    func critiqueMealPlan(sessionId: String, critique: String) async throws -> CritiqueMealPlanResponse
+
+    /// Finalize a meal plan session
+    func finalizeMealPlan(sessionId: String) async throws
 }

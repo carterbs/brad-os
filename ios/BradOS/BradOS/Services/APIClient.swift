@@ -532,6 +532,28 @@ final class APIClient: APIClientProtocol {
         try await get("/recipes")
     }
 
+    // MARK: - Meal Plans
+
+    func generateMealPlan() async throws -> GenerateMealPlanResponse {
+        struct EmptyBody: Encodable {}
+        return try await post("/mealplans/generate", body: EmptyBody())
+    }
+
+    func getMealPlanSession(id: String) async throws -> MealPlanSession {
+        try await get("/mealplans/\(id)")
+    }
+
+    func critiqueMealPlan(sessionId: String, critique: String) async throws -> CritiqueMealPlanResponse {
+        struct CritiqueBody: Encodable { let critique: String }
+        return try await post("/mealplans/\(sessionId)/critique", body: CritiqueBody(critique: critique))
+    }
+
+    func finalizeMealPlan(sessionId: String) async throws {
+        struct EmptyBody: Encodable {}
+        struct FinalizeResponse: Decodable { let finalized: Bool }
+        let _: FinalizeResponse = try await post("/mealplans/\(sessionId)/finalize", body: EmptyBody())
+    }
+
     // MARK: - Calendar
 
     func getCalendarData(year: Int, month: Int, timezoneOffset: Int? = nil) async throws -> CalendarData {

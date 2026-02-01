@@ -28,6 +28,9 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     public var mockBarcodes: [Barcode] = []
     public var mockIngredients: [Ingredient] = []
     public var mockRecipes: [Recipe] = []
+    public var mockMealPlanSession: MealPlanSession?
+    public var mockGenerateResponse: GenerateMealPlanResponse?
+    public var mockCritiqueResponse: CritiqueMealPlanResponse?
 
     // MARK: - Initialization
 
@@ -45,6 +48,7 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         mockBarcodes = Barcode.mockBarcodes
         mockIngredients = Ingredient.mockIngredients
         mockRecipes = Recipe.mockRecipes
+        mockMealPlanSession = MealPlanSession.mockSession
     }
 
     // MARK: - Helper Methods
@@ -549,6 +553,51 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         return mockRecipes
     }
 
+    // MARK: - Meal Plans
+
+    public func generateMealPlan() async throws -> GenerateMealPlanResponse {
+        await simulateDelay()
+        try checkForError()
+        if let response = mockGenerateResponse {
+            return response
+        }
+        guard let session = mockMealPlanSession else {
+            throw APIError.internalError("No mock meal plan session available")
+        }
+        return GenerateMealPlanResponse(sessionId: session.id, plan: session.plan)
+    }
+
+    public func getMealPlanSession(id: String) async throws -> MealPlanSession {
+        await simulateDelay()
+        try checkForError()
+        guard let session = mockMealPlanSession else {
+            throw APIError.notFound("Meal plan session \(id) not found")
+        }
+        return session
+    }
+
+    public func critiqueMealPlan(sessionId: String, critique: String) async throws -> CritiqueMealPlanResponse {
+        await simulateDelay()
+        try checkForError()
+        if let response = mockCritiqueResponse {
+            return response
+        }
+        guard let session = mockMealPlanSession else {
+            throw APIError.notFound("Meal plan session \(sessionId) not found")
+        }
+        return CritiqueMealPlanResponse(
+            plan: session.plan,
+            explanation: "Applied changes based on your feedback.",
+            operations: [],
+            errors: []
+        )
+    }
+
+    public func finalizeMealPlan(sessionId: String) async throws {
+        await simulateDelay()
+        try checkForError()
+    }
+
     // MARK: - Calendar
 
     public func getCalendarData(year: Int, month: Int, timezoneOffset: Int?) async throws -> CalendarData {
@@ -597,6 +646,9 @@ public extension MockAPIClient {
         client.mockBarcodes = []
         client.mockIngredients = []
         client.mockRecipes = []
+        client.mockMealPlanSession = nil
+        client.mockGenerateResponse = nil
+        client.mockCritiqueResponse = nil
         return client
     }
 }

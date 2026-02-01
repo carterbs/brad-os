@@ -239,4 +239,8 @@ private final class SpyAPIClient: APIClientProtocol, @unchecked Sendable {
     func createBarcode(_ dto: CreateBarcodeDTO) async throws -> Barcode { throw notImplemented() }
     func updateBarcode(id: String, dto: UpdateBarcodeDTO) async throws -> Barcode { throw notImplemented() }
     func deleteBarcode(id: String) async throws { throw notImplemented() }
+    func generateMealPlan() async throws -> GenerateMealPlanResponse { throw notImplemented() }
+    func getMealPlanSession(id: String) async throws -> MealPlanSession { throw notImplemented() }
+    func critiqueMealPlan(sessionId: String, critique: String) async throws -> CritiqueMealPlanResponse { throw notImplemented() }
+    func finalizeMealPlan(sessionId: String) async throws { throw notImplemented() }
 }
