@@ -41,7 +41,7 @@ struct ActivitiesView: View {
                         Button(action: { appState.isShowingMealPlan = true }) {
                             VStack(spacing: Theme.Spacing.md) {
                                 Image(systemName: "fork.knife")
-                                    .font(.system(size: 40))
+                                    .font(.system(size: Theme.Typography.iconMD))
                                     .foregroundColor(Theme.mealPlan)
 
                                 Text("Meal Plan")
@@ -115,18 +115,18 @@ struct RecentActivityRowPlaceholder: View {
                 .frame(width: 36, height: 36)
 
             VStack(alignment: .leading, spacing: 4) {
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.sm)
                     .fill(Theme.backgroundTertiary)
                     .frame(width: 100, height: 14)
 
-                RoundedRectangle(cornerRadius: 4)
+                RoundedRectangle(cornerRadius: Theme.CornerRadius.sm)
                     .fill(Theme.backgroundTertiary)
                     .frame(width: 60, height: 12)
             }
 
             Spacer()
 
-            RoundedRectangle(cornerRadius: 4)
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.sm)
                 .fill(Theme.backgroundTertiary)
                 .frame(width: 50, height: 12)
         }
@@ -144,7 +144,7 @@ struct RecentActivityRow: View {
         HStack(spacing: Theme.Spacing.md) {
             // Activity type icon
             Image(systemName: activity.type.iconName)
-                .font(.system(size: 20))
+                .font(.system(size: Theme.Typography.iconXS))
                 .foregroundColor(activity.type.color)
                 .frame(width: 36, height: 36)
                 .background(activity.type.color.opacity(0.2))

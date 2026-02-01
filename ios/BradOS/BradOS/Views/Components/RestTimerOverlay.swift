@@ -10,7 +10,7 @@ struct RestTimerOverlay: View {
     var body: some View {
         ZStack {
             // Semi-transparent background
-            Color.black.opacity(0.85)
+            Theme.overlayBackground
                 .ignoresSafeArea()
 
             VStack(spacing: Theme.Spacing.xl) {
@@ -21,7 +21,7 @@ struct RestTimerOverlay: View {
                     // Background circle
                     Circle()
                         .stroke(Theme.backgroundTertiary, lineWidth: 12)
-                        .frame(width: 220, height: 220)
+                        .frame(width: Theme.Dimensions.timerCircle, height: Theme.Dimensions.timerCircle)
 
                     // Progress arc
                     Circle()
@@ -30,14 +30,14 @@ struct RestTimerOverlay: View {
                             progressColor,
                             style: StrokeStyle(lineWidth: 12, lineCap: .round)
                         )
-                        .frame(width: 220, height: 220)
+                        .frame(width: Theme.Dimensions.timerCircle, height: Theme.Dimensions.timerCircle)
                         .rotationEffect(.degrees(-90))
                         .animation(.easeInOut(duration: 0.3), value: progress)
 
                     // Center content
                     VStack(spacing: Theme.Spacing.xs) {
                         Text(timeString)
-                            .font(.system(size: 56, weight: .bold, design: .monospaced))
+                            .font(.system(size: Theme.Typography.timerMD, weight: .bold, design: .monospaced))
                             .foregroundColor(isComplete ? Theme.success : Theme.textPrimary)
 
                         Text(statusText)
@@ -164,7 +164,7 @@ struct RestTimerBar: View {
                 ZStack {
                     Circle()
                         .stroke(Theme.backgroundTertiary, lineWidth: 3)
-                        .frame(width: 36, height: 36)
+                        .frame(width: Theme.Dimensions.progressRing, height: Theme.Dimensions.progressRing)
 
                     Circle()
                         .trim(from: 0, to: progress)
@@ -172,7 +172,7 @@ struct RestTimerBar: View {
                             isComplete ? Theme.success : Theme.accent,
                             style: StrokeStyle(lineWidth: 3, lineCap: .round)
                         )
-                        .frame(width: 36, height: 36)
+                        .frame(width: Theme.Dimensions.progressRing, height: Theme.Dimensions.progressRing)
                         .rotationEffect(.degrees(-90))
                 }
 
@@ -193,7 +193,7 @@ struct RestTimerBar: View {
         }
         .buttonStyle(PlainButtonStyle())
         .padding(.horizontal, Theme.Spacing.md)
-        .shadow(color: .black.opacity(0.3), radius: 10)
+        .shadow(color: Theme.shadowColor, radius: 10)
     }
 
     private var progress: Double {

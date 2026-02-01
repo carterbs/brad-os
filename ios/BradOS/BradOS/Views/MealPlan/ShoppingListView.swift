@@ -27,7 +27,7 @@ struct ShoppingListView: View {
             Spacer()
 
             Image(systemName: "cart")
-                .font(.system(size: 48))
+                .font(.system(size: Theme.Typography.iconLG))
                 .foregroundColor(Theme.textSecondary)
 
             Text("Generate a meal plan to see your shopping list")
@@ -111,7 +111,7 @@ struct SaveToGroceryListButton: View {
                 HStack(spacing: Theme.Spacing.sm) {
                     if viewModel.isExportingToReminders {
                         ProgressView()
-                            .tint(.white)
+                            .tint(Theme.textOnDark)
                     } else if viewModel.remindersExportResult != nil {
                         Image(systemName: "checkmark.circle.fill")
                         Text("Saved to Grocery List!")

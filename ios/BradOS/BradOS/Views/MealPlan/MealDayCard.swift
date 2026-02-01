@@ -49,7 +49,7 @@ struct MealDayCard: View {
                     .font(.caption2)
                     .monospaced()
                     .foregroundColor(Theme.textSecondary)
-                    .padding(4)
+                    .padding(Theme.Spacing.xs)
                     .background(Theme.mealPlan.opacity(0.2))
                     .cornerRadius(Theme.CornerRadius.sm)
             }

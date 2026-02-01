@@ -464,10 +464,10 @@ struct RegionToggleCard: View {
                         Text("\(durationSeconds / 60)m")
                             .font(.caption)
                             .fontWeight(.medium)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
+                            .padding(.horizontal, Theme.Spacing.sm)
+                            .padding(.vertical, Theme.Spacing.xs)
                             .background(Theme.stretch.opacity(0.2))
-                            .cornerRadius(4)
+                            .cornerRadius(Theme.CornerRadius.sm)
                             .foregroundColor(Theme.stretch)
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -508,12 +508,12 @@ struct ReorderableRegionRow: View {
             Text("\(index + 1)")
                 .font(.caption)
                 .foregroundColor(Theme.textSecondary)
-                .frame(width: 20)
+                .frame(width: Theme.Dimensions.iconFrameSM)
 
             // Region info
             Image(systemName: config.region.iconName)
                 .foregroundColor(config.enabled ? Theme.stretch : Theme.textSecondary)
-                .frame(width: 24)
+                .frame(width: Theme.Dimensions.iconFrameMD)
 
             Text(config.region.displayName)
                 .font(.subheadline)
@@ -527,7 +527,7 @@ struct ReorderableRegionRow: View {
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
                 .background(Theme.stretch.opacity(0.2))
-                .cornerRadius(4)
+                .cornerRadius(Theme.CornerRadius.sm)
                 .foregroundColor(Theme.stretch)
 
             // Enabled toggle
@@ -643,7 +643,7 @@ struct StretchActiveView: View {
                 ForEach(0..<sessionManager.totalStretches, id: \.self) { index in
                     Circle()
                         .fill(dotColor(for: index))
-                        .frame(width: 8, height: 8)
+                        .frame(width: Theme.Dimensions.dotMD, height: Theme.Dimensions.dotMD)
                 }
             }
         }
@@ -681,7 +681,7 @@ struct StretchActiveView: View {
                     .cornerRadius(Theme.CornerRadius.md)
             } else {
                 Image(systemName: region.iconName)
-                    .font(.system(size: 80))
+                    .font(.system(size: Theme.Typography.iconXXL))
                     .foregroundColor(Theme.stretch)
             }
 
@@ -776,7 +776,7 @@ struct StretchActiveView: View {
     private var timerSection: some View {
         VStack(spacing: Theme.Spacing.sm) {
             Text(formattedTime)
-                .font(.system(size: 64, weight: .bold, design: .rounded))
+                .font(.system(size: Theme.Typography.timerLG, weight: .bold, design: .rounded))
                 .foregroundColor(Theme.textPrimary)
                 .monospacedDigit()
                 .accessibilityLabel(timerAccessibilityLabel)
@@ -843,7 +843,7 @@ struct StretchActiveView: View {
                 }) {
                     Image(systemName: sessionManager.status == .paused ? "play.fill" : "pause.fill")
                         .font(.title)
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.textOnDark)
                 }
                 .buttonStyle(GlassPrimaryCircleButtonStyle(size: 80, color: Theme.stretch))
                 .accessibilityLabel(sessionManager.status == .paused ? "Resume" : "Pause")
@@ -905,7 +905,7 @@ struct StretchCompleteView: View {
                     // Success header with icon
                     VStack(spacing: Theme.Spacing.md) {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 80))
+                            .font(.system(size: Theme.Typography.iconXXL))
                             .foregroundColor(Theme.stretch)
                             .scaleEffect(showSuccessAnimation ? 1.0 : 0.5)
                             .opacity(showSuccessAnimation ? 1.0 : 0.0)
@@ -951,7 +951,7 @@ struct StretchCompleteView: View {
                                 HStack {
                                     Image(systemName: completed.region.iconName)
                                         .foregroundColor(Theme.stretch)
-                                        .frame(width: 24)
+                                        .frame(width: Theme.Dimensions.iconFrameMD)
                                         .accessibilityHidden(true)
 
                                     Text(completed.stretchName)
@@ -1117,7 +1117,7 @@ struct AppReturnWaitView: View {
 
             // Icon
             Image(systemName: hasSpotify ? "music.note.list" : "figure.flexibility")
-                .font(.system(size: 60))
+                .font(.system(size: Theme.Typography.iconXL))
                 .foregroundColor(Theme.stretch)
 
             Text(hasSpotify ? "Opening Spotify..." : "Get Ready!")

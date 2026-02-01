@@ -168,7 +168,7 @@ struct WorkoutView: View {
     private func errorContent(_ error: Error) -> some View {
         VStack(spacing: Theme.Spacing.md) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 48))
+                .font(.system(size: Theme.Typography.iconLG))
                 .foregroundColor(Theme.error)
 
             Text("Failed to load workout")
@@ -192,7 +192,7 @@ struct WorkoutView: View {
     private var emptyContent: some View {
         VStack(spacing: Theme.Spacing.md) {
             Image(systemName: "questionmark.circle")
-                .font(.system(size: 48))
+                .font(.system(size: Theme.Typography.iconLG))
                 .foregroundColor(Theme.textSecondary)
 
             Text("Workout not found")
@@ -283,7 +283,7 @@ struct WorkoutView: View {
                     HStack {
                         if isStarting {
                             ProgressView()
-                                .tint(.white)
+                                .tint(Theme.textOnDark)
                         } else {
                             Image(systemName: "play.fill")
                         }
@@ -312,7 +312,7 @@ struct WorkoutView: View {
                     HStack {
                         if isCompleting {
                             ProgressView()
-                                .tint(.white)
+                                .tint(Theme.textOnDark)
                         } else {
                             Image(systemName: "checkmark")
                         }
@@ -913,7 +913,7 @@ struct SetRow: View {
                 Text("\(workoutSet.setNumber)")
                     .font(.caption)
                     .fontWeight(.medium)
-                    .foregroundColor(workoutSet.status == .pending ? Theme.textPrimary : .white)
+                    .foregroundColor(workoutSet.status == .pending ? Theme.textPrimary : Theme.textOnDark)
             }
             .frame(width: 40)
 

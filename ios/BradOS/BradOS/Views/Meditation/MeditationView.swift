@@ -248,7 +248,7 @@ struct MeditationSetupView: View {
 
             // Icon
             Image(systemName: "brain.head.profile")
-                .font(.system(size: 60))
+                .font(.system(size: Theme.Typography.iconXL))
                 .foregroundColor(Theme.meditation)
 
             Text("Mindful Breathing")
@@ -525,7 +525,7 @@ struct MeditationActiveView: View {
     private var timerSection: some View {
         VStack(spacing: Theme.Spacing.sm) {
             Text(formattedTime)
-                .font(.system(size: 48, weight: .light, design: .rounded))
+                .font(.system(size: Theme.Typography.timerSM, weight: .light, design: .rounded))
                 .foregroundColor(Theme.textPrimary)
                 .monospacedDigit()
                 .minimumScaleFactor(0.5)
@@ -648,7 +648,7 @@ struct MeditationActiveView: View {
 
                     Image(systemName: isPaused ? "play.fill" : "pause.fill")
                         .font(.title)
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.textOnDark)
                 }
             }
             .accessibilityLabel(isPaused ? "Resume session" : "Pause session")
@@ -1112,7 +1112,7 @@ struct MeditationCompleteView: View {
 
             // Success icon
             Image(systemName: session.completedFully ? "checkmark.circle.fill" : "clock.badge.checkmark.fill")
-                .font(.system(size: 80))
+                .font(.system(size: Theme.Typography.iconXXL))
                 .foregroundColor(Theme.meditation)
 
             Text(session.completedFully ? "Well Done!" : "Session Ended")

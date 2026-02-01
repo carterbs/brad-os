@@ -99,7 +99,7 @@ struct ExercisesView: View {
                     HStack(spacing: 4) {
                         if viewModel.isCreating {
                             ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .progressViewStyle(CircularProgressViewStyle(tint: Theme.textOnDark))
                                 .scaleEffect(0.8)
                         }
                         Text(viewModel.isCreating ? "Adding..." : "Add Exercise")

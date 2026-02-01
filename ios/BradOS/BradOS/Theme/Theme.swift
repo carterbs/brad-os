@@ -38,6 +38,48 @@ struct Theme {
     static let success = Color(hex: "16a34a")
     static let warning = Color(hex: "ea580c")
 
+    // MARK: - Overlay & Shadow
+    static let overlayBackground = Color.black.opacity(0.85)
+    static let shadowColor = Color.black.opacity(0.3)
+    static let glassStroke = Color.white.opacity(0.2)
+    static let glassStrokeSubtle = Color.white.opacity(0.15)
+
+    // MARK: - Opacity
+    struct Opacity {
+        static let subtle: Double = 0.08
+        static let light: Double = 0.1
+        static let medium: Double = 0.2
+        static let strong: Double = 0.5
+        static let heavy: Double = 0.8
+        static let overlay: Double = 0.85
+    }
+
+    // MARK: - Typography
+    struct Typography {
+        static let iconXS: CGFloat = 20
+        static let iconSM: CGFloat = 32
+        static let iconMD: CGFloat = 40
+        static let iconLG: CGFloat = 48
+        static let iconXL: CGFloat = 60
+        static let iconXXL: CGFloat = 80
+        static let timerSM: CGFloat = 48
+        static let timerMD: CGFloat = 56
+        static let timerLG: CGFloat = 64
+    }
+
+    // MARK: - Dimensions
+    struct Dimensions {
+        static let dotSM: CGFloat = 6
+        static let dotMD: CGFloat = 8
+        static let iconFrameSM: CGFloat = 20
+        static let iconFrameMD: CGFloat = 24
+        static let iconFrameLG: CGFloat = 36
+        static let circleButtonSM: CGFloat = 56
+        static let circleButtonMD: CGFloat = 80
+        static let timerCircle: CGFloat = 220
+        static let progressRing: CGFloat = 36
+    }
+
     // MARK: - Spacing
     struct Spacing {
         static let xs: CGFloat = 4
@@ -139,7 +181,7 @@ struct GlassPrimaryButtonStyle: ButtonStyle {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                    .stroke(.white.opacity(0.2), lineWidth: 1)
+                    .stroke(Theme.glassStroke, lineWidth: 1)
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
@@ -157,7 +199,7 @@ struct GlassSecondaryButtonStyle: ButtonStyle {
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: Theme.CornerRadius.lg))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                    .stroke(.white.opacity(0.15), lineWidth: 1)
+                    .stroke(Theme.glassStrokeSubtle, lineWidth: 1)
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .opacity(configuration.isPressed ? 0.8 : 1.0)
@@ -179,10 +221,10 @@ struct GlassCircleButtonStyle: ButtonStyle {
             .background(.ultraThinMaterial, in: Circle())
             .overlay(
                 Circle()
-                    .stroke(.white.opacity(0.15), lineWidth: 1)
+                    .stroke(Theme.glassStrokeSubtle, lineWidth: 1)
             )
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-            .opacity(configuration.isPressed ? 0.8 : 1.0)
+            .opacity(configuration.isPressed ? Theme.Opacity.heavy : 1.0)
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)
     }
 }
@@ -207,7 +249,7 @@ struct GlassPrimaryCircleButtonStyle: ButtonStyle {
             )
             .overlay(
                 Circle()
-                    .stroke(.white.opacity(0.2), lineWidth: 1)
+                    .stroke(Theme.glassStroke, lineWidth: 1)
             )
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
             .animation(.easeInOut(duration: 0.1), value: configuration.isPressed)

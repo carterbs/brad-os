@@ -113,7 +113,7 @@ struct MesoView: View {
     private func errorCard(_ error: Error) -> some View {
         VStack(spacing: Theme.Spacing.md) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 32))
+                .font(.system(size: Theme.Typography.iconSM))
                 .foregroundColor(Theme.error)
 
             Text("Failed to load")
@@ -138,7 +138,7 @@ struct MesoView: View {
     private var noActiveMesocycleCard: some View {
         VStack(spacing: Theme.Spacing.md) {
             Image(systemName: "calendar.badge.plus")
-                .font(.system(size: 40))
+                .font(.system(size: Theme.Typography.iconMD))
                 .foregroundColor(Theme.textSecondary)
 
             Text("No Active Mesocycle")
@@ -329,11 +329,11 @@ struct WeekCard: View {
                     Text("Active")
                         .font(.caption2)
                         .fontWeight(.semibold)
-                        .foregroundColor(.white)
+                        .foregroundColor(Theme.textOnDark)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
                         .background(Theme.accent)
-                        .cornerRadius(4)
+                        .cornerRadius(Theme.CornerRadius.sm)
                 }
             }
 

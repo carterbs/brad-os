@@ -47,7 +47,7 @@ struct CritiqueInputView: View {
             Spacer(minLength: 40)
             Text(text)
                 .font(.subheadline)
-                .foregroundColor(.white)
+                .foregroundColor(Theme.textOnDark)
                 .padding(.horizontal, Theme.Spacing.md)
                 .padding(.vertical, Theme.Spacing.sm)
                 .background(Theme.accent)
@@ -92,7 +92,7 @@ struct CritiqueInputView: View {
                 Group {
                     if viewModel.isSending {
                         ProgressView()
-                            .tint(.white)
+                            .tint(Theme.textOnDark)
                     } else {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.title2)

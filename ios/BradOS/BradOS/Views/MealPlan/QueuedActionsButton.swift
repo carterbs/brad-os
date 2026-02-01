@@ -13,7 +13,7 @@ struct QueuedActionsButton: View {
                 HStack(spacing: Theme.Spacing.sm) {
                     if viewModel.isSending {
                         ProgressView()
-                            .tint(.white)
+                            .tint(Theme.textOnDark)
                     } else {
                         Image(systemName: "paperplane.fill")
                             .font(.subheadline)
@@ -22,7 +22,7 @@ struct QueuedActionsButton: View {
                         .font(.subheadline)
                         .fontWeight(.semibold)
                 }
-                .foregroundColor(.white)
+                .foregroundColor(Theme.textOnDark)
                 .padding(.horizontal, Theme.Spacing.lg)
                 .padding(.vertical, Theme.Spacing.sm + 2)
                 .background(Theme.mealPlan)

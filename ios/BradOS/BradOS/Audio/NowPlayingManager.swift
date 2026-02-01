@@ -39,7 +39,7 @@ final class NowPlayingManager {
                 let renderer = UIGraphicsImageRenderer(size: CGSize(width: 300, height: 300))
                 return renderer.image { context in
                     // Background
-                    UIColor(red: 0.6, green: 0.4, blue: 0.8, alpha: 1.0).setFill()
+                    UIColor(Theme.meditation).setFill()
                     context.fill(CGRect(x: 0, y: 0, width: 300, height: 300))
 
                     // Icon (centered)

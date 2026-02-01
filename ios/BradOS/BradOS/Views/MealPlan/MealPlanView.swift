@@ -54,7 +54,7 @@ struct MealPlanView: View {
             Spacer()
 
             Image(systemName: "fork.knife")
-                .font(.system(size: 60))
+                .font(.system(size: Theme.Typography.iconXL))
                 .foregroundColor(Theme.mealPlan)
 
             Text("Weekly Meal Plan")

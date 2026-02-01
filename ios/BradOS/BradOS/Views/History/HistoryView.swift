@@ -128,7 +128,7 @@ struct HistoryView: View {
                     HStack(spacing: Theme.Spacing.xs) {
                         Circle()
                             .fill(type.color)
-                            .frame(width: 8, height: 8)
+                            .frame(width: Theme.Dimensions.dotMD, height: Theme.Dimensions.dotMD)
                         Text(type.displayName)
                             .font(.caption)
                             .foregroundColor(Theme.textSecondary)
@@ -155,7 +155,7 @@ struct FilterChip: View {
             Text(title)
                 .font(.subheadline)
                 .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundColor(isSelected ? .white : Theme.textPrimary)
+                .foregroundColor(isSelected ? Theme.textOnDark : Theme.textPrimary)
                 .padding(.horizontal, Theme.Spacing.md)
                 .padding(.vertical, Theme.Spacing.sm)
                 .background(isSelected ? color : Theme.backgroundTertiary)
@@ -286,10 +286,10 @@ struct CalendarDayCell: View {
                     ForEach(activityTypes, id: \.self) { type in
                         Circle()
                             .fill(dotColor(for: type))
-                            .frame(width: 6, height: 6)
+                            .frame(width: Theme.Dimensions.dotSM, height: Theme.Dimensions.dotSM)
                     }
                 }
-                .frame(height: 6)
+                .frame(height: Theme.Dimensions.dotSM)
             }
             .frame(maxWidth: .infinity)
             .frame(height: 44)
@@ -302,14 +302,14 @@ struct CalendarDayCell: View {
     private func dotColor(for type: ActivityType) -> Color {
         // When selected, use white for dots that would blend with the accent background
         if isSelected && type.color == Theme.accent {
-            return .white
+            return Theme.textOnDark
         }
         return type.color
     }
 
     private var textColor: Color {
         if isSelected {
-            return .white
+            return Theme.textOnDark
         } else if isToday {
             return Theme.accent
         } else {

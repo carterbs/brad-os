@@ -32,7 +32,7 @@ struct WorkoutDashboardCard: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             HStack {
                 Image(systemName: "dumbbell.fill")
-                    .font(.system(size: 20))
+                    .font(.system(size: Theme.Typography.iconXS))
                     .foregroundColor(Theme.lifting)
                 Text("Lifting")
                     .font(.headline)
@@ -59,7 +59,7 @@ struct WorkoutDashboardCard: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             HStack {
                 Image(systemName: "dumbbell.fill")
-                    .font(.system(size: 20))
+                    .font(.system(size: Theme.Typography.iconXS))
                     .foregroundColor(Theme.textSecondary)
                 Text("Lifting")
                     .font(.headline)
@@ -88,7 +88,7 @@ struct WorkoutDashboardCard: View {
             // Header with badge
             HStack {
                 Image(systemName: "dumbbell.fill")
-                    .font(.system(size: 20))
+                    .font(.system(size: Theme.Typography.iconXS))
                     .foregroundColor(Theme.lifting)
                 Text("Lifting")
                     .font(.headline)

@@ -416,7 +416,7 @@ struct CreatePlanSheet: View {
                     Section {
                         Text(error)
                             .font(.caption)
-                            .foregroundColor(.red)
+                            .foregroundColor(Theme.error)
                     }
                 }
             }

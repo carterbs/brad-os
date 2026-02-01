@@ -29,7 +29,7 @@ struct MeditationDashboardCard: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             HStack {
                 Image(systemName: "brain.head.profile")
-                    .font(.system(size: 20))
+                    .font(.system(size: Theme.Typography.iconXS))
                     .foregroundColor(Theme.meditation)
                 Text("Meditation")
                     .font(.headline)
@@ -57,7 +57,7 @@ struct MeditationDashboardCard: View {
             // Header
             HStack {
                 Image(systemName: "brain.head.profile")
-                    .font(.system(size: 20))
+                    .font(.system(size: Theme.Typography.iconXS))
                     .foregroundColor(Theme.meditation)
                 Text("Meditation")
                     .font(.headline)

@@ -79,7 +79,7 @@ struct TodayFocusView: View {
 
             Spacer()
         }
-        .padding(.vertical, 10)
+        .padding(.vertical, Theme.Spacing.sm)
         .padding(.horizontal, Theme.Spacing.sm)
         .background(isChanged ? Theme.success.opacity(0.15) : Color.clear)
         .cornerRadius(Theme.CornerRadius.md)
@@ -132,7 +132,7 @@ struct TodayFocusView: View {
         }
         .frame(width: 90, alignment: .leading)
         .frame(minHeight: 72)
-        .padding(8)
+        .padding(Theme.Spacing.sm)
         .background(isSelected ? Theme.mealPlan.opacity(0.15) : Theme.backgroundSecondary)
         .cornerRadius(Theme.CornerRadius.lg)
         .overlay(

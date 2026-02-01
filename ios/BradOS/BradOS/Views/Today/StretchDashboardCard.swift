@@ -29,7 +29,7 @@ struct StretchDashboardCard: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             HStack {
                 Image(systemName: "figure.flexibility")
-                    .font(.system(size: 20))
+                    .font(.system(size: Theme.Typography.iconXS))
                     .foregroundColor(Theme.stretch)
                 Text("Stretch")
                     .font(.headline)
@@ -59,7 +59,7 @@ struct StretchDashboardCard: View {
             // Header
             HStack {
                 Image(systemName: "figure.flexibility")
-                    .font(.system(size: 20))
+                    .font(.system(size: Theme.Typography.iconXS))
                     .foregroundColor(Theme.stretch)
                 Text("Stretch")
                     .font(.headline)

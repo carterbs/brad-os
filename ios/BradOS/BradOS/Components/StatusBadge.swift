@@ -9,10 +9,10 @@ struct StatusBadge: View {
         Text(status.rawValue.capitalized.replacingOccurrences(of: "_", with: " "))
             .font(.caption)
             .fontWeight(.medium)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
+            .padding(.horizontal, Theme.Spacing.sm)
+            .padding(.vertical, Theme.Spacing.xs)
             .background(backgroundColor)
-            .foregroundColor(.white)
+            .foregroundColor(Theme.textOnDark)
             .cornerRadius(Theme.CornerRadius.sm)
     }
 

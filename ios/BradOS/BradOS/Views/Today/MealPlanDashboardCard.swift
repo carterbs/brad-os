@@ -29,7 +29,7 @@ struct MealPlanDashboardCard: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             HStack {
                 Image(systemName: "fork.knife")
-                    .font(.system(size: 20))
+                    .font(.system(size: Theme.Typography.iconXS))
                     .foregroundColor(Theme.mealPlan)
                 Text("Meal Plan")
                     .font(.headline)
@@ -57,7 +57,7 @@ struct MealPlanDashboardCard: View {
             // Header
             HStack {
                 Image(systemName: "fork.knife")
-                    .font(.system(size: 20))
+                    .font(.system(size: Theme.Typography.iconXS))
                     .foregroundColor(Theme.mealPlan)
                 Text("Meal Plan")
                     .font(.headline)
