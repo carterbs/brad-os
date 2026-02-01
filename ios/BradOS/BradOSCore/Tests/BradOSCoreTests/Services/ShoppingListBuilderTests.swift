@@ -241,4 +241,68 @@ struct ShoppingListBuilderTests {
         #expect(allItems.count == 1)
         #expect(allItems.first?.name == "Chicken")
     }
+
+    @Test("Same dinner every night for 7 days aggregates correctly")
+    @MainActor
+    func sameDinnerEveryNightAggregatesCorrectly() async {
+        let chicken = makeIngredient(id: "ing-chicken", name: "Chicken Breast", storeSection: "Meat & Seafood")
+        let rice = makeIngredient(id: "ing-rice", name: "Brown Rice", storeSection: "Pasta & Grains")
+        let broccoli = makeIngredient(id: "ing-broccoli", name: "Broccoli", storeSection: "Produce")
+        let olivoil = makeIngredient(id: "ing-oil", name: "Olive Oil", storeSection: "Pantry Staples")
+
+        let dinner = makeRecipe(mealId: "dinner", ingredients: [
+            RecipeIngredient(ingredientId: "ing-chicken", quantity: 8, unit: "oz"),
+            RecipeIngredient(ingredientId: "ing-rice", quantity: 1, unit: "cups"),
+            RecipeIngredient(ingredientId: "ing-broccoli", quantity: 2, unit: "cups"),
+            RecipeIngredient(ingredientId: "ing-oil", quantity: nil, unit: nil),
+        ])
+
+        let cache = makeCache(
+            ingredients: [chicken, rice, broccoli, olivoil],
+            recipes: [dinner]
+        )
+        await cache.loadIfNeeded()
+
+        // Same mealId repeated 7 times
+        let mealIds = Array(repeating: "dinner", count: 7)
+        let sections = ShoppingListBuilder.build(fromMealIds: mealIds, using: cache)
+
+        let allItems = sections.flatMap { $0.items }
+        #expect(allItems.count == 4)
+
+        // Quantities should be multiplied by 7
+        let chickenItem = allItems.first { $0.id == "ing-chicken" }
+        #expect(chickenItem?.totalQuantity == 56.0) // 8 oz * 7
+        #expect(chickenItem?.unit == "oz")
+        #expect(chickenItem?.mealCount == 7)
+        #expect(chickenItem?.displayText == "56 oz Chicken Breast")
+
+        let riceItem = allItems.first { $0.id == "ing-rice" }
+        #expect(riceItem?.totalQuantity == 7.0) // 1 cup * 7
+        #expect(riceItem?.unit == "cups")
+        #expect(riceItem?.mealCount == 7)
+
+        let broccoliItem = allItems.first { $0.id == "ing-broccoli" }
+        #expect(broccoliItem?.totalQuantity == 14.0) // 2 cups * 7
+        #expect(broccoliItem?.unit == "cups")
+        #expect(broccoliItem?.mealCount == 7)
+
+        // Nil-quantity ingredient stays nil, not summed
+        let oilItem = allItems.first { $0.id == "ing-oil" }
+        #expect(oilItem?.totalQuantity == nil)
+        #expect(oilItem?.unit == nil)
+        #expect(oilItem?.mealCount == 7)
+        #expect(oilItem?.displayText == "Olive Oil")
+
+        // Sections should still be sorted correctly
+        let sectionNames = sections.map { $0.name }
+        #expect(sectionNames.last == "Pantry Staples")
+
+        // Formatter should produce readable output
+        let formatted = ShoppingListFormatter.formatForClipboard(sections)
+        #expect(formatted.contains("56 oz Chicken Breast"))
+        #expect(formatted.contains("7 cups Brown Rice"))
+        #expect(formatted.contains("14 cups Broccoli"))
+        #expect(formatted.contains("Olive Oil"))
+    }
 }
