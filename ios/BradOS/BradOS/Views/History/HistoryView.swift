@@ -52,6 +52,7 @@ struct HistoryView: View {
             .background(AuroraBackground())
             .navigationTitle("History")
             .navigationBarTitleDisplayMode(.large)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .sheet(isPresented: $showingDayDetail) {
                 DayDetailSheet(
                     date: selectedDate,
@@ -389,6 +390,7 @@ struct DayDetailSheet: View {
             .background(AuroraBackground())
             .navigationTitle(formattedDate)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {

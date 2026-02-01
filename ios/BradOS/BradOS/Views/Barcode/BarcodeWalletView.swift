@@ -25,6 +25,7 @@ struct BarcodeWalletView: View {
         .background(AuroraBackground())
         .navigationTitle("Barcode Wallet")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingAddSheet = true }) {

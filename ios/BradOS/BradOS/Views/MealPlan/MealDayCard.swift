@@ -68,8 +68,8 @@ struct MealDayCard: View {
         }
         .padding(.horizontal, Theme.Spacing.space4)
         .padding(.vertical, 10)
-        .background(.ultraThinMaterial)
         .background(backgroundColor)
+        .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
@@ -97,7 +97,7 @@ struct MealDayCard: View {
         case .remove:
             return Theme.destructive.opacity(0.15)
         case nil:
-            return Theme.BG.surface.opacity(GlassLevel.card.fillOpacity)
+            return Color.white.opacity(0.06)
         }
     }
 

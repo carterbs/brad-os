@@ -35,6 +35,8 @@ struct LiftingTabView: View {
                     .tag(LiftingTab.exercises)
             }
             .tint(Theme.interactivePrimary)
+            .background(AuroraBackground())
+            .toolbarBackground(.hidden, for: .navigationBar)
             .navigationDestination(for: WorkoutDestination.self) { destination in
                 WorkoutView(workoutId: destination.workoutId)
             }

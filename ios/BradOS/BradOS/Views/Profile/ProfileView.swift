@@ -17,6 +17,7 @@ struct ProfileView: View {
             .background(AuroraBackground())
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.large)
+            .toolbarBackground(.hidden, for: .navigationBar)
         }
     }
 

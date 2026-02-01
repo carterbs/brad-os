@@ -28,8 +28,10 @@ struct TodayDashboardView: View {
                 }
                 .padding(Theme.Spacing.space4)
             }
+            .background(AuroraBackground())
             .navigationTitle("Today")
             .navigationBarTitleDisplayMode(.large)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .refreshable {
                 await viewModel.loadDashboard()
             }

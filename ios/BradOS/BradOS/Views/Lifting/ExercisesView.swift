@@ -29,8 +29,10 @@ struct ExercisesView: View {
                 contentView
             }
         }
+        .background(AuroraBackground())
         .navigationTitle("Exercises")
         .navigationBarTitleDisplayMode(.large)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .searchable(text: $searchText, prompt: "Search exercises")
         .task {
             await viewModel.loadExercises()
@@ -70,7 +72,7 @@ struct ExercisesView: View {
                 .textFieldStyle(.plain)
                 .padding(Theme.Spacing.space2)
                 .frame(height: Theme.Dimensions.inputHeight)
-                .background(Theme.BG.surface.opacity(0.35))
+                .background(Color.white.opacity(0.06))
                 .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
 
             HStack(spacing: Theme.Spacing.space2) {
@@ -89,7 +91,7 @@ struct ExercisesView: View {
                 }
                 .padding(Theme.Spacing.space2)
                 .frame(height: Theme.Dimensions.inputHeight)
-                .background(Theme.BG.surface.opacity(0.35))
+                .background(Color.white.opacity(0.06))
                 .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
 
                 Spacer()
@@ -287,8 +289,10 @@ struct ExerciseHistoryView: View {
                 contentView(history)
             }
         }
+        .background(AuroraBackground())
         .navigationTitle(viewModel.history?.exercise.name ?? exerciseName)
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: {
@@ -528,6 +532,7 @@ struct EditExerciseSheet: View {
             .background(AuroraBackground())
             .navigationTitle("Edit Exercise")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {

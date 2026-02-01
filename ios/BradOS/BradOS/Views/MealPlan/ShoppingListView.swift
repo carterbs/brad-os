@@ -61,7 +61,7 @@ struct ShoppingListView: View {
                     .foregroundColor(Theme.textSecondary)
                     .padding(.horizontal, Theme.Spacing.space2)
                     .padding(.vertical, 2)
-                    .background(Theme.BG.surface.opacity(0.55))
+                    .background(Color.white.opacity(0.06))
                     .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
             }
 

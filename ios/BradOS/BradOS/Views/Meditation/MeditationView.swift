@@ -154,6 +154,7 @@ struct MeditationView: View {
             }
             .navigationTitle("Meditation")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     if sessionState == .setup {

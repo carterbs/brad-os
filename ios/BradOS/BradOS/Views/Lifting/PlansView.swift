@@ -43,8 +43,10 @@ struct PlansView: View {
             }
             .padding(Theme.Spacing.space4)
         }
+        .background(AuroraBackground())
         .navigationTitle("Plans")
         .navigationBarTitleDisplayMode(.large)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: { showingNewPlanSheet = true }) {
@@ -176,8 +178,10 @@ struct PlanDetailView: View {
                 .padding(Theme.Spacing.space4)
             }
         }
+        .background(AuroraBackground())
         .navigationTitle(plan?.name ?? "Plan")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
@@ -418,6 +422,7 @@ struct CreatePlanSheet: View {
             .background(AuroraBackground())
             .navigationTitle("New Plan")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {

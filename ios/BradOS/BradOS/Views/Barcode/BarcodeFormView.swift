@@ -47,6 +47,7 @@ struct BarcodeFormView: View {
             .background(AuroraBackground())
             .navigationTitle(isEditing ? "Edit Barcode" : "Add Barcode")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
@@ -233,8 +234,8 @@ struct BarcodeTextFieldStyle: TextFieldStyle {
         configuration
             .padding(.horizontal, Theme.Spacing.space4)
             .frame(height: Theme.Dimensions.inputHeight)
+            .background(Color.white.opacity(0.06))
             .background(.ultraThinMaterial)
-            .background(Theme.BG.surface.opacity(GlassLevel.card.fillOpacity))
             .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
             .foregroundColor(Theme.textPrimary)
             .overlay(

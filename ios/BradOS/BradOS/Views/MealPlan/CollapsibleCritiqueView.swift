@@ -88,7 +88,7 @@ struct CollapsibleCritiqueView: View {
                 .foregroundColor(Theme.textPrimary)
                 .padding(.horizontal, Theme.Spacing.space4)
                 .padding(.vertical, Theme.Spacing.space2)
-                .background(Theme.BG.surface)
+                .background(Color.white.opacity(0.06))
                 .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous))
             Spacer(minLength: 40)
         }
@@ -103,8 +103,8 @@ struct CollapsibleCritiqueView: View {
                 .textFieldStyle(.plain)
                 .padding(Theme.Spacing.space2)
                 .frame(height: Theme.Dimensions.inputHeight)
+                .background(Color.white.opacity(0.06))
                 .background(.ultraThinMaterial)
-                .background(Theme.BG.surface.opacity(GlassLevel.card.fillOpacity))
                 .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)

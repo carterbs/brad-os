@@ -29,6 +29,7 @@ struct StretchSessionDetailView: View {
         .background(AuroraBackground())
         .navigationTitle("Stretch Session")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .task {
             await loadSession()
         }

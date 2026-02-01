@@ -88,8 +88,10 @@ struct WorkoutView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             restTimer.handleForeground()
         }
+        .background(AuroraBackground())
         .navigationTitle(workout?.planDayName ?? "Workout")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             if !walletBarcodes.isEmpty {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -981,12 +983,12 @@ struct SetRow: View {
         switch workoutSet.status {
         case .completed: return Theme.success
         case .skipped: return Theme.neutral
-        case .pending: return Theme.BG.surface.opacity(0.35)
+        case .pending: return Color.white.opacity(0.06)
         }
     }
 
     private var inputBackground: Color {
-        workoutSet.status == .pending ? Theme.BG.surface.opacity(0.35) : Color.clear
+        workoutSet.status == .pending ? Color.white.opacity(0.06) : Color.clear
     }
 
     private var canEdit: Bool {
@@ -1057,7 +1059,7 @@ struct WarmupSetRow: View {
             // "W" badge instead of set number
             ZStack {
                 Circle()
-                    .fill(Theme.BG.surface.opacity(0.35))
+                    .fill(Color.white.opacity(0.06))
                     .frame(width: 28, height: 28)
 
                 Text("W")

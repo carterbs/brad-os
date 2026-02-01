@@ -26,8 +26,10 @@ struct MesoView: View {
             }
             .padding(Theme.Spacing.space4)
         }
+        .background(AuroraBackground())
         .navigationTitle("Mesocycle")
         .navigationBarTitleDisplayMode(.large)
+        .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 if activeMesocycle == nil {
@@ -400,7 +402,7 @@ struct WeekCard: View {
         case .completed: return Theme.success
         case .skipped: return Theme.neutral
         case .inProgress: return Theme.warning
-        case .pending: return Theme.BG.surface.opacity(0.35)
+        case .pending: return Color.white.opacity(0.06)
         }
     }
 
@@ -489,6 +491,7 @@ struct NewMesocycleSheet: View {
             .background(AuroraBackground())
             .navigationTitle("New Mesocycle")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {

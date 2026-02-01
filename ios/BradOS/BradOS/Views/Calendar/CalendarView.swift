@@ -49,6 +49,7 @@ struct CalendarView: View {
             .background(AuroraBackground())
             .navigationTitle("Calendar")
             .navigationBarTitleDisplayMode(.large)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .sheet(isPresented: $showingDayDetail) {
                 DayDetailSheet(
                     date: selectedDate,

@@ -13,7 +13,7 @@ struct QueuedActionsButton: View {
                 HStack(spacing: Theme.Spacing.space2) {
                     if viewModel.isSending {
                         ProgressView()
-                            .tint(Theme.textOnAccent)
+                            .tint(Theme.textPrimary)
                     } else {
                         Image(systemName: "paperplane.fill")
                             .font(.subheadline)
@@ -27,13 +27,13 @@ struct QueuedActionsButton: View {
                         .fill(Theme.mealPlan)
                         .frame(width: Theme.Dimensions.dotMD, height: Theme.Dimensions.dotMD)
                 }
-                .foregroundColor(Theme.textOnAccent)
+                .foregroundColor(Theme.textPrimary)
                 .padding(.horizontal, Theme.Spacing.space6)
                 .padding(.vertical, Theme.Spacing.space2 + 2)
+                .background(Theme.mealPlan.opacity(0.25))
                 .background(.ultraThinMaterial)
-                .background(Theme.mealPlan.opacity(0.85))
                 .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.xl, style: .continuous))
-                .shadow(color: Theme.mealPlan.opacity(0.4), radius: 8, y: 4)
+                .shadow(color: Theme.mealPlan.opacity(0.25), radius: 8, y: 4)
             }
             .disabled(viewModel.isSending)
             .transition(.scale.combined(with: .opacity))

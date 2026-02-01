@@ -73,6 +73,7 @@ struct StretchView: View {
             }
             .navigationTitle("Stretch")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     if sessionManager.status == .idle {
@@ -398,8 +399,8 @@ struct StretchSetupView: View {
             TextField("Paste Spotify playlist URL", text: $spotifyUrl)
                 .textFieldStyle(.plain)
                 .padding(Theme.Spacing.space4)
+                .background(Color.white.opacity(0.06))
                 .background(.ultraThinMaterial)
-                .background(Theme.BG.surface.opacity(0.35))
                 .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)

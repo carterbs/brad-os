@@ -149,18 +149,19 @@ enum GlassLevel {
     var material: Material {
         switch self {
         case .card: return .ultraThinMaterial
-        case .elevated: return .thinMaterial
-        case .chrome: return .regularMaterial
-        case .overlay: return .thickMaterial
+        case .elevated: return .ultraThinMaterial
+        case .chrome: return .thinMaterial
+        case .overlay: return .regularMaterial
         }
     }
 
+    /// White tint opacity applied on top of material blur (matches HTML rgba(255,255,255,0.07) approach)
     var fillOpacity: Double {
         switch self {
-        case .card: return 0.35
-        case .elevated: return 0.42
-        case .chrome: return 0.55
-        case .overlay: return 0.65
+        case .card: return 0.06
+        case .elevated: return 0.08
+        case .chrome: return 0.06
+        case .overlay: return 0.12
         }
     }
 
@@ -199,8 +200,8 @@ struct GlassCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(cardPadding)
+            .background(Color.white.opacity(level.fillOpacity))
             .background(level.material)
-            .background(Theme.BG.surface.opacity(level.fillOpacity))
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -271,18 +272,18 @@ struct AuroraBackground: View {
             // Ambient aurora blob 1 — top-left, accent
             Circle()
                 .fill(Theme.interactivePrimary)
-                .frame(width: 300, height: 300)
-                .blur(radius: 90)
-                .opacity(0.07)
+                .frame(width: 340, height: 340)
+                .blur(radius: 80)
+                .opacity(0.14)
                 .blendMode(.plusLighter)
                 .offset(x: -80, y: -120)
 
             // Ambient aurora blob 2 — bottom-right, secondary
             Circle()
                 .fill(Theme.interactiveSecondary)
-                .frame(width: 280, height: 280)
-                .blur(radius: 85)
-                .opacity(0.06)
+                .frame(width: 300, height: 300)
+                .blur(radius: 75)
+                .opacity(0.10)
                 .blendMode(.plusLighter)
                 .offset(x: 100, y: 200)
         }
@@ -340,7 +341,7 @@ struct CardStyle: ViewModifier {
 
 // MARK: - Button Styles
 
-/// Glass-style primary button: H:48pt, R:12pt, ultraThinMaterial + accent @22%, accent stroke @45%
+/// Glass-style primary button: H:48pt, R:12pt, accent tint over material blur
 struct GlassPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -348,8 +349,8 @@ struct GlassPrimaryButtonStyle: ButtonStyle {
             .foregroundColor(Theme.textPrimary)
             .frame(height: Theme.Dimensions.buttonHeight)
             .padding(.horizontal, Theme.Spacing.space4)
+            .background(Theme.interactivePrimary.opacity(0.15))
             .background(.ultraThinMaterial)
-            .background(Theme.interactivePrimary.opacity(0.22))
             .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
@@ -360,7 +361,7 @@ struct GlassPrimaryButtonStyle: ButtonStyle {
     }
 }
 
-/// Glass-style secondary button: H:48pt, R:12pt, Glass L1, strokeMedium
+/// Glass-style secondary button: H:48pt, R:12pt, subtle white tint over material blur
 struct GlassSecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -368,8 +369,8 @@ struct GlassSecondaryButtonStyle: ButtonStyle {
             .foregroundColor(Theme.textPrimary)
             .frame(height: Theme.Dimensions.buttonHeight)
             .padding(.horizontal, Theme.Spacing.space4)
+            .background(Color.white.opacity(0.06))
             .background(.ultraThinMaterial)
-            .background(Theme.BG.surface.opacity(0.35))
             .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
@@ -440,8 +441,8 @@ struct GlassCircleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(width: size, height: size)
+            .background(Color.white.opacity(0.06), in: Circle())
             .background(.ultraThinMaterial, in: Circle())
-            .background(Theme.BG.surface.opacity(0.35), in: Circle())
             .overlay(
                 Circle()
                     .stroke(Color.white.opacity(configuration.isPressed ? 0.19 : 0.15), lineWidth: 1)
@@ -464,11 +465,11 @@ struct GlassPrimaryCircleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(width: size, height: size)
-            .background(.ultraThinMaterial, in: Circle())
             .background(
                 Circle()
-                    .fill(configuration.isPressed ? color.opacity(0.5) : color.opacity(0.6))
+                    .fill(configuration.isPressed ? color.opacity(0.30) : color.opacity(0.35))
             )
+            .background(.ultraThinMaterial, in: Circle())
             .overlay(
                 Circle()
                     .stroke(Color.white.opacity(configuration.isPressed ? 0.24 : 0.20), lineWidth: 1)
