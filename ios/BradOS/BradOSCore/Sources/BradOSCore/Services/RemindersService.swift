@@ -52,10 +52,8 @@ public final class RemindersService: RemindersServiceProtocol, @unchecked Sendab
 
         let targetName = Self.listName
 
-        // Wait for the store to finish loading sources after access is granted.
-        // EKEventStore.calendars(for:) can return empty immediately after access
-        // is first granted because sources haven't synced yet.
-        let list = try await findList(named: targetName, in: store)
+        // Find or create the target list
+        let list = try findOrCreateList(named: targetName, in: store)
 
         // Collect all items
         let items = sections.flatMap { $0.items }
@@ -81,29 +79,34 @@ public final class RemindersService: RemindersServiceProtocol, @unchecked Sendab
         return RemindersExportResult(itemCount: items.count, listName: targetName)
     }
 
-    /// Attempts to find the target reminder list, retrying briefly if the store
-    /// hasn't finished loading its sources yet.
-    private func findList(named targetName: String, in store: EKEventStore) async throws -> EKCalendar {
-        // Try up to 5 times with short delays to let the store populate
-        for attempt in 0..<5 {
-            store.refreshSourcesIfNecessary()
-            let calendars = store.calendars(for: .reminder)
-            if let list = calendars.first(where: { $0.title == targetName }) {
-                return list
-            }
-            // Don't sleep on the last attempt
-            if attempt < 4 {
-                try await Task.sleep(nanoseconds: 200_000_000) // 200ms
-            }
+    /// Finds the target reminder list, or creates it if it doesn't exist.
+    private func findOrCreateList(named targetName: String, in store: EKEventStore) throws -> EKCalendar {
+        store.refreshSourcesIfNecessary()
+
+        let calendars = store.calendars(for: .reminder)
+        if let existing = calendars.first(where: { $0.title == targetName }) {
+            return existing
         }
 
-        // Final attempt failed — build a diagnostic message
-        let calendars = store.calendars(for: .reminder)
-        let available = calendars.map { $0.title }.joined(separator: ", ")
-        let detail = available.isEmpty
-            ? "No reminder lists found. Check that Reminders is set up on this device."
-            : "Available lists: \(available)"
-        throw RemindersError.listNotFound("\(targetName)\" not found. \(detail)")
+        // List doesn't exist (common on simulator without iCloud) — create it
+        let newList = EKCalendar(for: .reminder, eventStore: store)
+        newList.title = targetName
+
+        // Pick the best available source: prefer local, fall back to any
+        if let local = store.sources.first(where: { $0.sourceType == .local }) {
+            newList.source = local
+        } else if let fallback = store.sources.first(where: {
+            $0.sourceType == .calDAV || $0.sourceType == .subscribed
+        }) {
+            newList.source = fallback
+        } else if let any = store.sources.first {
+            newList.source = any
+        } else {
+            throw RemindersError.exportFailed("No calendar sources available.")
+        }
+
+        try store.saveCalendar(newList, commit: true)
+        return newList
     }
 }
 
