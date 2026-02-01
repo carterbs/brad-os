@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { Meal } from '../shared.js';
-import { generateMealPlan, validatePlan, InsufficientMealsError } from './mealplan-generation.service.js';
+import { generateMealPlan, validatePlan } from './mealplan-generation.service.js';
 
 // Helper to create a test meal
 let mealCounter = 0;
