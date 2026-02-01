@@ -15,14 +15,6 @@ struct ShoppingListView: View {
                 }
 
                 remindersButton
-
-                if let errorMsg = viewModel.remindersError {
-                    Text(errorMsg)
-                        .font(.caption)
-                        .foregroundColor(Theme.error)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, Theme.Spacing.md)
-                }
             }
         }
     }
@@ -100,29 +92,50 @@ struct ShoppingListView: View {
 
     @ViewBuilder
     private var remindersButton: some View {
-        Button(action: {
-            Task { await viewModel.exportToReminders() }
-        }) {
-            HStack(spacing: Theme.Spacing.sm) {
-                if viewModel.isExportingToReminders {
-                    ProgressView()
-                        .tint(.white)
-                } else if viewModel.remindersExportResult != nil {
-                    Image(systemName: "checkmark.circle.fill")
-                    Text("Saved to Grocery List!")
-                } else {
-                    Image(systemName: "cart.badge.plus")
-                    Text("Save to Grocery List")
+        SaveToGroceryListButton(viewModel: viewModel)
+    }
+}
+
+// MARK: - Save to Grocery List Button (reusable)
+
+/// Standalone button for exporting the shopping list to Apple Reminders.
+/// Used in both the shopping list tab and the finalized plan view.
+struct SaveToGroceryListButton: View {
+    @ObservedObject var viewModel: MealPlanViewModel
+
+    var body: some View {
+        VStack(spacing: Theme.Spacing.sm) {
+            Button(action: {
+                Task { await viewModel.exportToReminders() }
+            }) {
+                HStack(spacing: Theme.Spacing.sm) {
+                    if viewModel.isExportingToReminders {
+                        ProgressView()
+                            .tint(.white)
+                    } else if viewModel.remindersExportResult != nil {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("Saved to Grocery List!")
+                    } else {
+                        Image(systemName: "cart.badge.plus")
+                        Text("Save to Grocery List")
+                    }
                 }
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, Theme.Spacing.sm)
             }
-            .font(.subheadline)
-            .fontWeight(.semibold)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, Theme.Spacing.sm)
+            .buttonStyle(PrimaryButtonStyle())
+            .disabled(viewModel.isExportingToReminders)
+
+            if let errorMsg = viewModel.remindersError {
+                Text(errorMsg)
+                    .font(.caption)
+                    .foregroundColor(Theme.error)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Theme.Spacing.md)
+            }
         }
-        .buttonStyle(PrimaryButtonStyle())
-        .disabled(viewModel.isExportingToReminders)
-        .padding(.top, Theme.Spacing.sm)
     }
 }
 

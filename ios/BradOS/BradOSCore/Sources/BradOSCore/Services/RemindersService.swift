@@ -38,11 +38,11 @@ public final class RemindersService: RemindersServiceProtocol {
         #endif
     }
 
+    private let store = EKEventStore()
+
     public init() {}
 
     public func exportToReminders(_ sections: [ShoppingListSection]) async throws -> RemindersExportResult {
-        let store = EKEventStore()
-
         // Request full access (iOS 17+)
         let granted = try await store.requestFullAccessToReminders()
         guard granted else {
@@ -50,6 +50,9 @@ public final class RemindersService: RemindersServiceProtocol {
         }
 
         let targetName = Self.listName
+
+        // Ensure the store has up-to-date calendar data
+        store.refreshSourcesIfNecessary()
 
         // Find the target list
         let calendars = store.calendars(for: .reminder)

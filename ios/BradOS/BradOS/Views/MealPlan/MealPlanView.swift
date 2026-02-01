@@ -131,7 +131,7 @@ struct MealPlanView: View {
                     changedSlots: viewModel.changedSlots
                 )
 
-                ShoppingListView(viewModel: viewModel)
+                SaveToGroceryListButton(viewModel: viewModel)
 
                 newPlanButton
             }
