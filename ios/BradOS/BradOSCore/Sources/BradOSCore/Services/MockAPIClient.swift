@@ -598,6 +598,12 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         try checkForError()
     }
 
+    public func getLatestMealPlanSession() async throws -> MealPlanSession? {
+        await simulateDelay()
+        try checkForError()
+        return mockMealPlanSession
+    }
+
     // MARK: - Calendar
 
     public func getCalendarData(year: Int, month: Int, timezoneOffset: Int?) async throws -> CalendarData {

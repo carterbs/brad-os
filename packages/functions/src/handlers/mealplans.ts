@@ -66,6 +66,17 @@ app.post('/generate', asyncHandler(async (_req: Request, res: Response, _next: N
   }
 }));
 
+// GET /mealplans/latest
+app.get('/latest', asyncHandler(async (_req: Request, res: Response, _next: NextFunction) => {
+  const sessions = await getSessionRepo().findAll(); // already ordered by created_at desc
+  const latest = sessions[0] ?? null;
+  if (latest === null) {
+    res.json({ success: true, data: null });
+    return;
+  }
+  res.json({ success: true, data: latest });
+}));
+
 // GET /mealplans/:sessionId
 app.get('/:sessionId', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
   const sessionId = req.params['sessionId'] ?? '';

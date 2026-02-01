@@ -563,6 +563,10 @@ final class APIClient: APIClientProtocol {
         let _: FinalizeResponse = try await post("/mealplans/\(sessionId)/finalize", body: EmptyBody())
     }
 
+    func getLatestMealPlanSession() async throws -> MealPlanSession? {
+        return try await get("/mealplans/latest")
+    }
+
     // MARK: - Calendar
 
     func getCalendarData(year: Int, month: Int, timezoneOffset: Int? = nil) async throws -> CalendarData {

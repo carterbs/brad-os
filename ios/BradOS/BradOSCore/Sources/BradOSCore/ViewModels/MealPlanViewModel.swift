@@ -76,27 +76,37 @@ public class MealPlanViewModel: ObservableObject {
     // MARK: - Load Existing Session
 
     public func loadExistingSession() async {
-        guard let sessionId = savedSessionId else { return }
-
         isLoading = true
         error = nil
 
-        do {
-            let fullSession = try await apiClient.getMealPlanSession(id: sessionId)
-            if fullSession.isFinalized {
-                // Finalized sessions should not be resumed
-                savedSessionId = nil
+        // Try loading saved session first
+        if let sessionId = savedSessionId {
+            do {
+                let fullSession = try await apiClient.getMealPlanSession(id: sessionId)
+                session = fullSession
+                currentPlan = fullSession.plan
+                await updateShoppingList()
                 isLoading = false
                 return
+            } catch {
+                // Session not found or expired, clear the saved ID
+                savedSessionId = nil
+                #if DEBUG
+                print("[MealPlanViewModel] Load saved session error: \(error)")
+                #endif
             }
-            session = fullSession
-            currentPlan = fullSession.plan
-            await updateShoppingList()
+        }
+
+        // No saved session - try loading the latest from backend
+        do {
+            if let latestSession = try await apiClient.getLatestMealPlanSession() {
+                session = latestSession
+                currentPlan = latestSession.plan
+                await updateShoppingList()
+            }
         } catch {
-            // Session not found or expired, clear the saved ID
-            savedSessionId = nil
             #if DEBUG
-            print("[MealPlanViewModel] Load session error: \(error)")
+            print("[MealPlanViewModel] Load latest session error: \(error)")
             #endif
         }
 

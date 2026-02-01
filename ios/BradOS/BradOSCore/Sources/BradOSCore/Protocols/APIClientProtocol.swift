@@ -170,4 +170,7 @@ public protocol APIClientProtocol: Sendable {
 
     /// Finalize a meal plan session
     func finalizeMealPlan(sessionId: String) async throws
+
+    /// Get the most recent meal plan session
+    func getLatestMealPlanSession() async throws -> MealPlanSession?
 }
