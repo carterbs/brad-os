@@ -1,17 +1,10 @@
 import SwiftUI
 import BradOSCore
 
-/// Tab options for switching between plan and shopping list
-private enum MealPlanTab: String, CaseIterable {
-    case plan = "Plan"
-    case shopping = "Shopping"
-}
-
 /// Main meal plan view managing generation, critique, and finalization
 struct MealPlanView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel: MealPlanViewModel
-    @State private var selectedTab: MealPlanTab = .plan
 
     init(apiClient: APIClientProtocol = APIClient.shared) {
         let recipeCache = RecipeCacheService(apiClient: apiClient)
@@ -118,65 +111,29 @@ struct MealPlanView: View {
 
     @ViewBuilder
     private func sessionContent(_ session: MealPlanSession) -> some View {
-        VStack(spacing: 0) {
-            // Segmented picker for Plan / Shopping
-            Picker("View", selection: $selectedTab) {
-                ForEach(MealPlanTab.allCases, id: \.self) { tab in
-                    Text(tab.rawValue).tag(tab)
-                }
+        if session.isFinalized {
+            finalizedContent(session)
+        } else {
+            MealPlanEditingView(viewModel: viewModel)
+        }
+    }
+
+    // MARK: - Finalized Content (read-only)
+
+    @ViewBuilder
+    private func finalizedContent(_ session: MealPlanSession) -> some View {
+        ScrollView {
+            VStack(spacing: Theme.Spacing.md) {
+                finalizedBadge
+
+                MealPlanGridView(
+                    plan: viewModel.currentPlan,
+                    changedSlots: viewModel.changedSlots
+                )
+
+                newPlanButton
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, Theme.Spacing.md)
-            .padding(.top, Theme.Spacing.sm)
-
-            ScrollView {
-                VStack(spacing: Theme.Spacing.md) {
-                    // Finalized badge
-                    if session.isFinalized {
-                        finalizedBadge
-                    }
-
-                    switch selectedTab {
-                    case .plan:
-                        // Meal plan grid
-                        MealPlanGridView(
-                            plan: viewModel.currentPlan,
-                            changedSlots: viewModel.changedSlots
-                        )
-
-                        // Error display
-                        if let error = viewModel.error {
-                            HStack(spacing: Theme.Spacing.sm) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(Theme.error)
-                                Text(error)
-                                    .font(.caption)
-                                    .foregroundColor(Theme.error)
-                            }
-                            .padding(Theme.Spacing.sm)
-                        }
-
-                        // Critique and finalize (only if not finalized)
-                        if !session.isFinalized {
-                            CritiqueInputView(viewModel: viewModel)
-
-                            finalizeButton
-                        } else {
-                            // Offer to start a new plan
-                            newPlanButton
-                        }
-
-                    case .shopping:
-                        ShoppingListView(viewModel: viewModel)
-
-                        // Offer to start a new plan when finalized
-                        if session.isFinalized {
-                            newPlanButton
-                        }
-                    }
-                }
-                .padding(Theme.Spacing.md)
-            }
+            .padding(Theme.Spacing.md)
         }
     }
 
@@ -196,23 +153,6 @@ struct MealPlanView: View {
         .padding(.vertical, Theme.Spacing.sm)
         .background(Theme.success.opacity(0.15))
         .cornerRadius(Theme.CornerRadius.md)
-    }
-
-    // MARK: - Finalize Button
-
-    @ViewBuilder
-    private var finalizeButton: some View {
-        Button(action: {
-            Task { await viewModel.finalize() }
-        }) {
-            HStack {
-                Image(systemName: "checkmark.seal")
-                Text("Finalize Plan")
-            }
-            .frame(maxWidth: .infinity)
-        }
-        .buttonStyle(PrimaryButtonStyle())
-        .padding(.top, Theme.Spacing.sm)
     }
 
     // MARK: - New Plan Button
