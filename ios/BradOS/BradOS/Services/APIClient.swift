@@ -564,7 +564,7 @@ final class APIClient: APIClientProtocol {
     }
 
     func getLatestMealPlanSession() async throws -> MealPlanSession? {
-        return try await get("/mealplans/latest")
+        return try await getOptional("/mealplans/latest")
     }
 
     // MARK: - Calendar
