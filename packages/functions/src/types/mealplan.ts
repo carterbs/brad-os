@@ -42,3 +42,8 @@ export interface UpdateMealPlanSessionDTO {
   history?: ConversationMessage[];
   is_finalized?: boolean;
 }
+
+export interface CritiqueResponse {
+  explanation: string;
+  operations: CritiqueOperation[];
+}

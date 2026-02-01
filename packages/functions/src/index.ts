@@ -1,4 +1,5 @@
 import { onRequest, type HttpsOptions } from 'firebase-functions/v2/https';
+import { defineSecret } from 'firebase-functions/params';
 import { initializeFirebase } from './firebase.js';
 
 // Initialize Firebase at cold start
@@ -20,11 +21,20 @@ import { mealplansApp } from './handlers/mealplans.js';
 import { ingredientsApp } from './handlers/ingredients.js';
 import { recipesApp } from './handlers/recipes.js';
 
+// Secrets
+const openaiApiKey = defineSecret('OPENAI_API_KEY');
+
 // Common options
 const defaultOptions: HttpsOptions = {
   region: 'us-central1',
   cors: true,
   invoker: 'public', // Allow unauthenticated access (App Check middleware handles auth)
+};
+
+// Options for functions that need the OpenAI API key
+const withOpenAiOptions: HttpsOptions = {
+  ...defaultOptions,
+  secrets: [openaiApiKey],
 };
 
 // ============ DEV Functions ============
@@ -39,7 +49,7 @@ export const devCalendar = onRequest(defaultOptions, calendarApp);
 export const devMesocycles = onRequest(defaultOptions, mesocyclesApp);
 export const devBarcodes = onRequest(defaultOptions, barcodesApp);
 export const devMeals = onRequest(defaultOptions, mealsApp);
-export const devMealplans = onRequest(defaultOptions, mealplansApp);
+export const devMealplans = onRequest(withOpenAiOptions, mealplansApp);
 export const devIngredients = onRequest(defaultOptions, ingredientsApp);
 export const devRecipes = onRequest(defaultOptions, recipesApp);
 
@@ -55,6 +65,13 @@ export const prodCalendar = onRequest(defaultOptions, calendarApp);
 export const prodMesocycles = onRequest(defaultOptions, mesocyclesApp);
 export const prodBarcodes = onRequest(defaultOptions, barcodesApp);
 export const prodMeals = onRequest(defaultOptions, mealsApp);
-export const prodMealplans = onRequest(defaultOptions, mealplansApp);
+export const prodMealplans = onRequest(withOpenAiOptions, mealplansApp);
 export const prodIngredients = onRequest(defaultOptions, ingredientsApp);
 export const prodRecipes = onRequest(defaultOptions, recipesApp);
+
+// ============ Debug Functions (emulator only) ============
+if (process.env['FUNCTIONS_EMULATOR'] !== undefined) {
+  void import('./handlers/mealplan-debug.js').then((mod) => {
+    (exports as Record<string, unknown>)['devMealplanDebug'] = onRequest(defaultOptions, mod.mealplanDebugApp);
+  });
+}
