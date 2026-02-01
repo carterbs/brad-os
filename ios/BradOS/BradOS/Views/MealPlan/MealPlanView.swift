@@ -1,13 +1,21 @@
 import SwiftUI
 import BradOSCore
 
+/// Tab options for switching between plan and shopping list
+private enum MealPlanTab: String, CaseIterable {
+    case plan = "Plan"
+    case shopping = "Shopping"
+}
+
 /// Main meal plan view managing generation, critique, and finalization
 struct MealPlanView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel: MealPlanViewModel
+    @State private var selectedTab: MealPlanTab = .plan
 
     init(apiClient: APIClientProtocol = APIClient.shared) {
-        _viewModel = StateObject(wrappedValue: MealPlanViewModel(apiClient: apiClient))
+        let recipeCache = RecipeCacheService(apiClient: apiClient)
+        _viewModel = StateObject(wrappedValue: MealPlanViewModel(apiClient: apiClient, recipeCache: recipeCache))
     }
 
     var body: some View {
@@ -111,6 +119,16 @@ struct MealPlanView: View {
     @ViewBuilder
     private func sessionContent(_ session: MealPlanSession) -> some View {
         VStack(spacing: 0) {
+            // Segmented picker for Plan / Shopping
+            Picker("View", selection: $selectedTab) {
+                ForEach(MealPlanTab.allCases, id: \.self) { tab in
+                    Text(tab.rawValue).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.top, Theme.Spacing.sm)
+
             ScrollView {
                 VStack(spacing: Theme.Spacing.md) {
                     // Finalized badge
@@ -118,32 +136,43 @@ struct MealPlanView: View {
                         finalizedBadge
                     }
 
-                    // Meal plan grid
-                    MealPlanGridView(
-                        plan: viewModel.currentPlan,
-                        changedSlots: viewModel.changedSlots
-                    )
+                    switch selectedTab {
+                    case .plan:
+                        // Meal plan grid
+                        MealPlanGridView(
+                            plan: viewModel.currentPlan,
+                            changedSlots: viewModel.changedSlots
+                        )
 
-                    // Error display
-                    if let error = viewModel.error {
-                        HStack(spacing: Theme.Spacing.sm) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .foregroundColor(Theme.error)
-                            Text(error)
-                                .font(.caption)
-                                .foregroundColor(Theme.error)
+                        // Error display
+                        if let error = viewModel.error {
+                            HStack(spacing: Theme.Spacing.sm) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundColor(Theme.error)
+                                Text(error)
+                                    .font(.caption)
+                                    .foregroundColor(Theme.error)
+                            }
+                            .padding(Theme.Spacing.sm)
                         }
-                        .padding(Theme.Spacing.sm)
-                    }
 
-                    // Critique and finalize (only if not finalized)
-                    if !session.isFinalized {
-                        CritiqueInputView(viewModel: viewModel)
+                        // Critique and finalize (only if not finalized)
+                        if !session.isFinalized {
+                            CritiqueInputView(viewModel: viewModel)
 
-                        finalizeButton
-                    } else {
-                        // Offer to start a new plan
-                        newPlanButton
+                            finalizeButton
+                        } else {
+                            // Offer to start a new plan
+                            newPlanButton
+                        }
+
+                    case .shopping:
+                        ShoppingListView(viewModel: viewModel)
+
+                        // Offer to start a new plan when finalized
+                        if session.isFinalized {
+                            newPlanButton
+                        }
                     }
                 }
                 .padding(Theme.Spacing.md)

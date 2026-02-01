@@ -1,4 +1,7 @@
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// ViewModel for the Meal Plan feature
 /// Manages plan generation, critique loop, and finalization
@@ -14,6 +17,8 @@ public class MealPlanViewModel: ObservableObject {
     @Published public var critiqueText = ""
     @Published public var lastExplanation: String?
     @Published public var changedSlots: Set<String> = []
+    @Published public var shoppingList: [ShoppingListSection] = []
+    @Published public var didCopyToClipboard = false
 
     // MARK: - Constants
 
@@ -22,11 +27,13 @@ public class MealPlanViewModel: ObservableObject {
     // MARK: - Dependencies
 
     private let apiClient: APIClientProtocol
+    private let recipeCache: RecipeCacheService
 
     // MARK: - Initialization
 
-    public init(apiClient: APIClientProtocol) {
+    public init(apiClient: APIClientProtocol, recipeCache: RecipeCacheService = RecipeCacheService.shared) {
         self.apiClient = apiClient
+        self.recipeCache = recipeCache
     }
 
     // MARK: - Session Persistence
@@ -55,6 +62,7 @@ public class MealPlanViewModel: ObservableObject {
             let fullSession = try await apiClient.getMealPlanSession(id: response.sessionId)
             session = fullSession
             currentPlan = fullSession.plan
+            await updateShoppingList()
         } catch {
             self.error = "Failed to generate meal plan"
             #if DEBUG
@@ -83,6 +91,7 @@ public class MealPlanViewModel: ObservableObject {
             }
             session = fullSession
             currentPlan = fullSession.plan
+            await updateShoppingList()
         } catch {
             // Session not found or expired, clear the saved ID
             savedSessionId = nil
@@ -117,6 +126,7 @@ public class MealPlanViewModel: ObservableObject {
             currentPlan = response.plan
             lastExplanation = response.explanation
             critiqueText = ""
+            await updateShoppingList()
 
             // Refetch full session for updated history
             let fullSession = try await apiClient.getMealPlanSession(id: sessionId)
@@ -171,8 +181,31 @@ public class MealPlanViewModel: ObservableObject {
         lastExplanation = nil
         critiqueText = ""
         changedSlots = []
+        shoppingList = []
+        didCopyToClipboard = false
         error = nil
         savedSessionId = nil
+    }
+
+    // MARK: - Shopping List
+
+    private func updateShoppingList() async {
+        await recipeCache.loadIfNeeded()
+        let mealIds = currentPlan.compactMap { $0.mealId }
+        shoppingList = ShoppingListBuilder.build(fromMealIds: mealIds, using: recipeCache)
+    }
+
+    public func copyShoppingList() {
+        #if canImport(UIKit)
+        ShoppingListFormatter.copyToClipboard(shoppingList)
+        didCopyToClipboard = true
+
+        // Reset after 2 seconds
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            didCopyToClipboard = false
+        }
+        #endif
     }
 }
 
@@ -180,13 +213,15 @@ public class MealPlanViewModel: ObservableObject {
 
 public extension MealPlanViewModel {
     static var preview: MealPlanViewModel {
-        let viewModel = MealPlanViewModel(apiClient: MockAPIClient())
+        let mockClient = MockAPIClient()
+        let viewModel = MealPlanViewModel(apiClient: mockClient, recipeCache: RecipeCacheService(apiClient: mockClient))
         viewModel.session = MealPlanSession.mockSession
         viewModel.currentPlan = MealPlanSession.mockSession.plan
         return viewModel
     }
 
     static var empty: MealPlanViewModel {
-        MealPlanViewModel(apiClient: MockAPIClient.empty)
+        let emptyClient = MockAPIClient.empty
+        return MealPlanViewModel(apiClient: emptyClient, recipeCache: RecipeCacheService(apiClient: emptyClient))
     }
 }
