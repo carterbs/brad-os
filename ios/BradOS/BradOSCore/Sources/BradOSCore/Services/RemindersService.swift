@@ -29,7 +29,7 @@ public protocol RemindersServiceProtocol: Sendable {
 
 // MARK: - Real Implementation
 
-public final class RemindersService: RemindersServiceProtocol {
+public final class RemindersService: RemindersServiceProtocol, @unchecked Sendable {
     public static var listName: String {
         #if DEBUG && targetEnvironment(simulator)
         return "Groceries-2"
@@ -38,11 +38,12 @@ public final class RemindersService: RemindersServiceProtocol {
         #endif
     }
 
-    private let store = EKEventStore()
-
     public init() {}
 
     public func exportToReminders(_ sections: [ShoppingListSection]) async throws -> RemindersExportResult {
+        // Create a fresh store each call so it picks up the latest sources
+        let store = EKEventStore()
+
         // Request full access (iOS 17+)
         let granted = try await store.requestFullAccessToReminders()
         guard granted else {
@@ -51,14 +52,10 @@ public final class RemindersService: RemindersServiceProtocol {
 
         let targetName = Self.listName
 
-        // Ensure the store has up-to-date calendar data
-        store.refreshSourcesIfNecessary()
-
-        // Find the target list
-        let calendars = store.calendars(for: .reminder)
-        guard let list = calendars.first(where: { $0.title == targetName }) else {
-            throw RemindersError.listNotFound(targetName)
-        }
+        // Wait for the store to finish loading sources after access is granted.
+        // EKEventStore.calendars(for:) can return empty immediately after access
+        // is first granted because sources haven't synced yet.
+        let list = try await findList(named: targetName, in: store)
 
         // Collect all items
         let items = sections.flatMap { $0.items }
@@ -82,6 +79,31 @@ public final class RemindersService: RemindersServiceProtocol {
         }
 
         return RemindersExportResult(itemCount: items.count, listName: targetName)
+    }
+
+    /// Attempts to find the target reminder list, retrying briefly if the store
+    /// hasn't finished loading its sources yet.
+    private func findList(named targetName: String, in store: EKEventStore) async throws -> EKCalendar {
+        // Try up to 5 times with short delays to let the store populate
+        for attempt in 0..<5 {
+            store.refreshSourcesIfNecessary()
+            let calendars = store.calendars(for: .reminder)
+            if let list = calendars.first(where: { $0.title == targetName }) {
+                return list
+            }
+            // Don't sleep on the last attempt
+            if attempt < 4 {
+                try await Task.sleep(nanoseconds: 200_000_000) // 200ms
+            }
+        }
+
+        // Final attempt failed — build a diagnostic message
+        let calendars = store.calendars(for: .reminder)
+        let available = calendars.map { $0.title }.joined(separator: ", ")
+        let detail = available.isEmpty
+            ? "No reminder lists found. Check that Reminders is set up on this device."
+            : "Available lists: \(available)"
+        throw RemindersError.listNotFound("\(targetName)\" not found. \(detail)")
     }
 }
 

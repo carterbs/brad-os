@@ -281,8 +281,8 @@ public class MealPlanViewModel: ObservableObject {
             switch error {
             case .accessDenied:
                 remindersError = "Reminders access denied. Check Settings > BradOS > Reminders."
-            case .listNotFound(let name):
-                remindersError = "List \"\(name)\" not found in Reminders."
+            case .listNotFound(let detail):
+                remindersError = detail
             case .exportFailed(let message):
                 remindersError = "Export failed: \(message)"
             }
