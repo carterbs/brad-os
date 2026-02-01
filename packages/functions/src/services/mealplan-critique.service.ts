@@ -24,12 +24,9 @@ export function buildSystemMessage(session: MealPlanSession): string {
     const lunch = session.plan.find((e) => e.day_index === day && e.meal_type === 'lunch');
     const dinner = session.plan.find((e) => e.day_index === day && e.meal_type === 'dinner');
 
-    const bStr = breakfast?.meal_name !== null && breakfast?.meal_name !== undefined
-      ? `${breakfast.meal_name} (${breakfast.meal_id ?? 'null'})` : 'Empty';
-    const lStr = lunch?.meal_name !== null && lunch?.meal_name !== undefined
-      ? `${lunch.meal_name} (${lunch.meal_id ?? 'null'})` : 'Empty';
-    const dStr = dinner?.meal_name !== null && dinner?.meal_name !== undefined
-      ? `${dinner.meal_name} (${dinner.meal_id ?? 'null'})` : 'Empty';
+    const bStr = breakfast?.meal_id != null ? `[${breakfast.meal_id}] ${breakfast.meal_name}` : 'Empty';
+    const lStr = lunch?.meal_id != null ? `[${lunch.meal_id}] ${lunch.meal_name}` : 'Empty';
+    const dStr = dinner?.meal_id != null ? `[${dinner.meal_id}] ${dinner.meal_name}` : dinner?.meal_name ?? 'Empty';
 
     planGridRows.push(`${dayName} | ${bStr} | ${lStr} | ${dStr}`);
   }
@@ -40,7 +37,7 @@ export function buildSystemMessage(session: MealPlanSession): string {
 Available meals:
 ${mealTable}
 
-Current plan:
+Current plan (already reflects ALL previous changes — do NOT re-apply past requests):
 ${planGrid}
 
 Constraints:
@@ -54,9 +51,14 @@ When the user asks for changes, respond with a JSON object containing:
 - "operations": An array of operations to apply. Each operation has:
   - "day_index": 0-6 (Monday=0, Sunday=6)
   - "meal_type": "breakfast", "lunch", or "dinner"
-  - "new_meal_id": The ID of the replacement meal (from the available meals list), or null to remove
+  - "new_meal_id": ONLY the raw meal ID string (e.g. "meal_30"), or null to remove a slot. The ID must exactly match an ID from the Available meals table above.
 
-Only include operations for slots that need to change. Respond ONLY with valid JSON.`;
+IMPORTANT: new_meal_id must be ONLY the ID like "meal_30". Do NOT include the meal name in the ID field.
+
+CRITICAL: The conversation history below shows previous requests and responses. Those changes have ALREADY been applied — the "Current plan" above is the up-to-date state. Only respond to the user's LATEST message. Do NOT re-apply or repeat operations from earlier turns. The history is there so you know what was already discussed (e.g. if the user said "no spaghetti" earlier, don't suggest spaghetti now).
+
+Only include operations for slots that actually need to change based on the latest message. If the user says the plan looks good or doesn't request changes, return empty operations.
+Respond ONLY with valid JSON.`;
 }
 
 /**
@@ -136,7 +138,7 @@ export async function processCritique(
   let responseContent: string;
   try {
     const response = await client.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-5-nano',
       response_format: { type: 'json_object' },
       messages,
     });

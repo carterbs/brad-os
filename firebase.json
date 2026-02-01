@@ -53,6 +53,16 @@
       { "source": "/api/dev/calendar/**", "function": "devCalendar" },
       { "source": "/api/dev/barcodes", "function": "devBarcodes" },
       { "source": "/api/dev/barcodes/**", "function": "devBarcodes" },
+      { "source": "/api/dev/meals", "function": "devMeals" },
+      { "source": "/api/dev/meals/**", "function": "devMeals" },
+      { "source": "/api/dev/mealplans", "function": "devMealplans" },
+      { "source": "/api/dev/mealplans/**", "function": "devMealplans" },
+      { "source": "/api/dev/ingredients", "function": "devIngredients" },
+      { "source": "/api/dev/ingredients/**", "function": "devIngredients" },
+      { "source": "/api/dev/recipes", "function": "devRecipes" },
+      { "source": "/api/dev/recipes/**", "function": "devRecipes" },
+      { "source": "/debug", "function": "devMealplanDebug" },
+      { "source": "/debug/**", "function": "devMealplanDebug" },
       { "source": "/api/prod/health", "function": "prodHealth" },
       { "source": "/api/prod/health/**", "function": "prodHealth" },
       { "source": "/api/prod/exercises", "function": "prodExercises" },
@@ -72,7 +82,15 @@
       { "source": "/api/prod/calendar", "function": "prodCalendar" },
       { "source": "/api/prod/calendar/**", "function": "prodCalendar" },
       { "source": "/api/prod/barcodes", "function": "prodBarcodes" },
-      { "source": "/api/prod/barcodes/**", "function": "prodBarcodes" }
+      { "source": "/api/prod/barcodes/**", "function": "prodBarcodes" },
+      { "source": "/api/prod/meals", "function": "prodMeals" },
+      { "source": "/api/prod/meals/**", "function": "prodMeals" },
+      { "source": "/api/prod/mealplans", "function": "prodMealplans" },
+      { "source": "/api/prod/mealplans/**", "function": "prodMealplans" },
+      { "source": "/api/prod/ingredients", "function": "prodIngredients" },
+      { "source": "/api/prod/ingredients/**", "function": "prodIngredients" },
+      { "source": "/api/prod/recipes", "function": "prodRecipes" },
+      { "source": "/api/prod/recipes/**", "function": "prodRecipes" }
     ]
   }
 }

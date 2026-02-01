@@ -20,6 +20,7 @@ import { mealsApp } from './handlers/meals.js';
 import { mealplansApp } from './handlers/mealplans.js';
 import { ingredientsApp } from './handlers/ingredients.js';
 import { recipesApp } from './handlers/recipes.js';
+import { mealplanDebugApp } from './handlers/mealplan-debug.js';
 
 // Secrets
 const openaiApiKey = defineSecret('OPENAI_API_KEY');
@@ -35,6 +36,7 @@ const defaultOptions: HttpsOptions = {
 const withOpenAiOptions: HttpsOptions = {
   ...defaultOptions,
   secrets: [openaiApiKey],
+  timeoutSeconds: 120,
 };
 
 // ============ DEV Functions ============
@@ -70,8 +72,4 @@ export const prodIngredients = onRequest(defaultOptions, ingredientsApp);
 export const prodRecipes = onRequest(defaultOptions, recipesApp);
 
 // ============ Debug Functions (emulator only) ============
-if (process.env['FUNCTIONS_EMULATOR'] !== undefined) {
-  void import('./handlers/mealplan-debug.js').then((mod) => {
-    (exports as Record<string, unknown>)['devMealplanDebug'] = onRequest(defaultOptions, mod.mealplanDebugApp);
-  });
-}
+export const devMealplanDebug = onRequest(defaultOptions, mealplanDebugApp);

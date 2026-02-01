@@ -74,7 +74,9 @@ const HTML_PAGE = `<!DOCTYPE html>
 </div>
 
 <script>
-const BASE_URL = window.location.origin + '/api/dev/mealplans';
+const BASE_URL = window.location.port === '5001'
+  ? 'http://localhost:5002/api/dev/mealplans'
+  : window.location.origin + '/api/dev/mealplans';
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 let sessionId = null;
 
