@@ -131,6 +131,8 @@ struct MealPlanView: View {
                     changedSlots: viewModel.changedSlots
                 )
 
+                ShoppingListView(viewModel: viewModel)
+
                 newPlanButton
             }
             .padding(Theme.Spacing.md)
