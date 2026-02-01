@@ -42,11 +42,11 @@ struct MealPlanDashboardCard: View {
                 .foregroundColor(Theme.textSecondary)
         }
         .padding(Theme.Spacing.md)
-        .background(Theme.mealPlan.opacity(0.1))
+        .background(Theme.mealPlan.opacity(0.08))
         .cornerRadius(Theme.CornerRadius.lg)
         .overlay(
             RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                .stroke(Theme.mealPlan.opacity(0.5), lineWidth: 1)
+                .stroke(Theme.mealPlan.opacity(0.3), lineWidth: 1)
         )
     }
 
@@ -92,11 +92,11 @@ struct MealPlanDashboardCard: View {
             }
         }
         .padding(Theme.Spacing.md)
-        .background(Theme.mealPlan.opacity(0.1))
+        .background(Theme.mealPlan.opacity(0.08))
         .cornerRadius(Theme.CornerRadius.lg)
         .overlay(
             RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
-                .stroke(Theme.mealPlan.opacity(0.5), lineWidth: 1)
+                .stroke(Theme.mealPlan.opacity(0.3), lineWidth: 1)
         )
     }
 

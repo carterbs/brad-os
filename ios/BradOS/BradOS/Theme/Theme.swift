@@ -25,7 +25,7 @@ struct Theme {
     static let lifting = Color(hex: "6366f1") // Indigo
     static let stretch = Color(hex: "14b8a6") // Teal
     static let meditation = Color(hex: "a855f7") // Purple
-    static let mealPlan = Color(hex: "f59e0b") // Amber
+    static let mealPlan = Color(hex: "E8889B") // Warm Pink
 
     // MARK: - Status Colors
     static let statusScheduled = Color(hex: "3b82f6") // Blue

@@ -81,10 +81,10 @@ struct ShoppingListView: View {
         }
         .padding(Theme.Spacing.md)
         .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.md)
+        .cornerRadius(Theme.CornerRadius.lg)
         .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                .stroke(Theme.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
+                .stroke(Theme.border.opacity(0.5), lineWidth: 1)
         )
     }
 

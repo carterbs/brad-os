@@ -33,7 +33,7 @@ struct MealDayCard: View {
                         .font(.body)
                         .foregroundColor(Theme.textPrimary)
                         .strikethrough(action == .remove, color: Theme.error)
-                        .lineLimit(1)
+                        .lineLimit(2)
                 } else {
                     Text("\u{2014}")
                         .font(.body)
@@ -66,11 +66,11 @@ struct MealDayCard: View {
             }
         }
         .padding(.horizontal, Theme.Spacing.md)
-        .padding(.vertical, Theme.Spacing.sm)
+        .padding(.vertical, 10)
         .background(backgroundColor)
-        .cornerRadius(Theme.CornerRadius.md)
+        .cornerRadius(Theme.CornerRadius.lg)
         .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
                 .stroke(borderColor, lineWidth: 1)
         )
         .opacity(isInteractive ? 1.0 : 0.5)
@@ -109,7 +109,7 @@ struct MealDayCard: View {
         case .remove:
             return Theme.error
         case nil:
-            return Theme.border
+            return Theme.border.opacity(0.5)
         }
     }
 }

@@ -15,7 +15,7 @@ struct CollapsibleCritiqueView: View {
                 }
             }) {
                 HStack {
-                    Text("Freeform Request")
+                    Text("Adjust Plan")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                         .foregroundColor(Theme.textPrimary)
@@ -27,10 +27,10 @@ struct CollapsibleCritiqueView: View {
                 .padding(.horizontal, Theme.Spacing.md)
                 .padding(.vertical, Theme.Spacing.sm)
                 .background(Theme.backgroundSecondary)
-                .cornerRadius(Theme.CornerRadius.md)
+                .cornerRadius(Theme.CornerRadius.lg)
                 .overlay(
-                    RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                        .stroke(Theme.border, lineWidth: 1)
+                    RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
+                        .stroke(Theme.border.opacity(0.5), lineWidth: 1)
                 )
             }
             .buttonStyle(PlainButtonStyle())
@@ -112,7 +112,7 @@ struct CollapsibleCritiqueView: View {
                 .cornerRadius(Theme.CornerRadius.md)
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                        .stroke(Theme.border, lineWidth: 1)
+                        .stroke(Theme.border.opacity(0.5), lineWidth: 1)
                 )
                 .submitLabel(.send)
                 .onSubmit {

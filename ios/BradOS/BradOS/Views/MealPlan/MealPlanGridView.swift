@@ -9,7 +9,7 @@ struct MealPlanGridView: View {
     private let dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
     var body: some View {
-        VStack(spacing: Theme.Spacing.sm) {
+        VStack(spacing: 12) {
             ForEach(0..<7, id: \.self) { dayIndex in
                 DayCard(
                     dayName: dayNames[dayIndex],
@@ -45,7 +45,7 @@ private struct DayCard: View {
         VStack(alignment: .leading, spacing: 0) {
             // Day header
             Text(dayName)
-                .font(.subheadline)
+                .font(.headline)
                 .fontWeight(.semibold)
                 .foregroundColor(Theme.mealPlan)
                 .padding(.horizontal, Theme.Spacing.md)
@@ -66,10 +66,10 @@ private struct DayCard: View {
             }
         }
         .background(Theme.backgroundSecondary)
-        .cornerRadius(Theme.CornerRadius.md)
+        .cornerRadius(Theme.CornerRadius.lg)
         .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                .stroke(Theme.border, lineWidth: 1)
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
+                .stroke(Theme.border.opacity(0.5), lineWidth: 1)
         )
     }
 }
@@ -96,19 +96,19 @@ private struct MealRow: View {
             // Meal name
             if let mealName = entry.mealName {
                 Text(mealName)
-                    .font(.subheadline)
+                    .font(.body)
                     .foregroundColor(Theme.textPrimary)
-                    .lineLimit(1)
+                    .lineLimit(2)
             } else {
                 Text("\u{2014}")
-                    .font(.subheadline)
+                    .font(.body)
                     .foregroundColor(Theme.textSecondary)
             }
 
             Spacer()
         }
         .padding(.horizontal, Theme.Spacing.md)
-        .padding(.vertical, Theme.Spacing.xs + 2)
+        .padding(.vertical, 10)
         .background(
             isHighlighted
                 ? Theme.success.opacity(0.3)

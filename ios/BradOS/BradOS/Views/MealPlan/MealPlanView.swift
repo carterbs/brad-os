@@ -123,10 +123,10 @@ struct MealPlanView: View {
     @ViewBuilder
     private func finalizedContent(_ session: MealPlanSession) -> some View {
         ScrollView {
-            VStack(spacing: Theme.Spacing.md) {
+            VStack(spacing: 20) {
                 finalizedBadge
 
-                MealPlanGridView(
+                TodayFocusView(
                     plan: viewModel.currentPlan,
                     changedSlots: viewModel.changedSlots
                 )
@@ -145,16 +145,17 @@ struct MealPlanView: View {
     private var finalizedBadge: some View {
         HStack(spacing: Theme.Spacing.sm) {
             Image(systemName: "checkmark.seal.fill")
-                .foregroundColor(Theme.success)
-            Text("Plan Finalized")
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundColor(Theme.success)
+                .font(.caption)
+                .foregroundColor(Theme.success.opacity(0.8))
+            Text("Finalized")
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(Theme.success.opacity(0.8))
         }
-        .padding(.horizontal, Theme.Spacing.md)
-        .padding(.vertical, Theme.Spacing.sm)
-        .background(Theme.success.opacity(0.15))
-        .cornerRadius(Theme.CornerRadius.md)
+        .padding(.horizontal, Theme.Spacing.sm)
+        .padding(.vertical, Theme.Spacing.xs)
+        .background(Theme.success.opacity(0.1))
+        .cornerRadius(Theme.CornerRadius.lg)
     }
 
     // MARK: - New Plan Button
