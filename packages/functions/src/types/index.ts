@@ -5,3 +5,5 @@ export * from './plan-modification.js';
 export * from './stretching.js';
 export * from './calendar.js';
 export * from './meditation.js';
+export * from './meal.js';
+export * from './mealplan.js';
