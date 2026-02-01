@@ -7,3 +7,5 @@ export * from './calendar.js';
 export * from './meditation.js';
 export * from './meal.js';
 export * from './mealplan.js';
+export * from './ingredient.js';
+export * from './recipe.js';

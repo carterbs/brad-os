@@ -7,3 +7,5 @@ export * from './meditation.schema.js';
 export * from './barcode.schema.js';
 export * from './meal.schema.js';
 export * from './mealplan.schema.js';
+export * from './ingredient.schema.js';
+export * from './recipe.schema.js';
