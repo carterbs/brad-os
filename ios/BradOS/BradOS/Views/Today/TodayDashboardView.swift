@@ -10,36 +10,20 @@ struct TodayDashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.lg) {
-                    // Workout Card
-                    WorkoutDashboardCard(
-                        workout: viewModel.workout,
-                        isLoading: viewModel.isLoadingWorkout
-                    ) {
-                        navigateToWorkout()
-                    }
-
-                    // Stretch Card
-                    StretchDashboardCard(
-                        lastSession: viewModel.latestStretchSession,
-                        isLoading: viewModel.isLoadingStretch
-                    ) {
-                        appState.isShowingStretch = true
-                    }
-
-                    // Meditation Card
-                    MeditationDashboardCard(
-                        lastSession: viewModel.latestMeditationSession,
-                        isLoading: viewModel.isLoadingMeditation
-                    ) {
-                        appState.isShowingMeditation = true
-                    }
-
                     // Meal Plan Card
                     MealPlanDashboardCard(
                         todayMeals: viewModel.todayMeals,
                         isLoading: viewModel.isLoadingMealPlan
                     ) {
                         appState.isShowingMealPlan = true
+                    }
+
+                    // Workout Card
+                    WorkoutDashboardCard(
+                        workout: viewModel.workout,
+                        isLoading: viewModel.isLoadingWorkout
+                    ) {
+                        navigateToWorkout()
                     }
                 }
                 .padding(Theme.Spacing.md)
