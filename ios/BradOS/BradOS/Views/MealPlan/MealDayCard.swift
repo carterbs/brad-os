@@ -114,14 +114,6 @@ struct MealDayCard: View {
     }
 }
 
-// MARK: - Array Safe Subscript
-
-private extension Array {
-    subscript(safe index: Index) -> Element? {
-        indices.contains(index) ? self[index] : nil
-    }
-}
-
 // MARK: - Previews
 
 #Preview("Normal") {
