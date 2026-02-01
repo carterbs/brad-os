@@ -242,7 +242,7 @@ struct RestTimerBar: View {
             onDismiss: {}
         )
     }
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
 }
 
 #Preview("Bar - Complete") {
@@ -256,5 +256,5 @@ struct RestTimerBar: View {
             onDismiss: {}
         )
     }
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
 }

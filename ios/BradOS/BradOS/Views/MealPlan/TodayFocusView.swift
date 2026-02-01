@@ -34,50 +34,15 @@ struct TodayFocusView: View {
     private var focusCard: some View {
         let entries = entriesForDay(selectedDayIndex)
 
-        VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
-            Text(fullDayNames[selectedDayIndex])
-                .font(.headline)
-                .fontWeight(.bold)
-                .foregroundColor(Theme.mealPlan)
-
-            ForEach(Array(MealType.allCases.enumerated()), id: \.element) { _, mealType in
-                let entry = entries.first { $0.mealType == mealType }
-                focusMealRow(mealType: mealType, entry: entry)
-            }
-        }
+        MealDayContent(
+            dayName: fullDayNames[selectedDayIndex],
+            meals: entries,
+            changedSlots: changedSlots
+        )
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard()
         .auroraGlow(Theme.mealPlan, intensity: .primary)
         .animation(.easeInOut(duration: 0.25), value: selectedDayIndex)
-    }
-
-    @ViewBuilder
-    private func focusMealRow(mealType: MealType, entry: MealPlanEntry?) -> some View {
-        let entryId = entry?.id ?? ""
-        let isChanged = changedSlots.contains(entryId)
-
-        HStack(spacing: Theme.Spacing.space2) {
-            Image(systemName: mealTypeIcon(mealType))
-                .font(.body)
-                .foregroundColor(Theme.mealPlan)
-                .frame(width: 24)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(mealTypeLabel(mealType))
-                    .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
-                Text(entry?.mealName ?? "\u{2014}")
-                    .font(.body)
-                    .foregroundColor(entry?.mealName != nil ? Theme.textPrimary : Theme.textSecondary)
-                    .lineLimit(2)
-            }
-
-            Spacer()
-        }
-        .padding(.vertical, Theme.Spacing.space2)
-        .padding(.horizontal, Theme.Spacing.space2)
-        .background(isChanged ? Theme.success.opacity(0.15) : Color.clear)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
     }
 
     // MARK: - Day Chip Scroller
@@ -164,21 +129,6 @@ struct TodayFocusView: View {
         }
     }
 
-    private func mealTypeIcon(_ type: MealType) -> String {
-        switch type {
-        case .breakfast: return "sunrise"
-        case .lunch: return "sun.max"
-        case .dinner: return "moon.stars"
-        }
-    }
-
-    private func mealTypeLabel(_ type: MealType) -> String {
-        switch type {
-        case .breakfast: return "Breakfast"
-        case .lunch: return "Lunch"
-        case .dinner: return "Dinner"
-        }
-    }
 }
 
 // MARK: - MealType CaseIterable
@@ -195,6 +145,6 @@ extension MealType: @retroactive CaseIterable {
         )
         .padding()
     }
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }

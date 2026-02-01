@@ -35,7 +35,7 @@ struct LiftingTabView: View {
                     .tag(LiftingTab.exercises)
             }
             .tint(Theme.interactivePrimary)
-            .background(AuroraBackground())
+            .background(AuroraBackground().ignoresSafeArea())
             .toolbarBackground(.hidden, for: .navigationBar)
             .navigationDestination(for: WorkoutDestination.self) { destination in
                 WorkoutView(workoutId: destination.workoutId)
@@ -88,5 +88,5 @@ struct ExerciseHistoryDestination: Hashable {
     LiftingTabView()
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
 }

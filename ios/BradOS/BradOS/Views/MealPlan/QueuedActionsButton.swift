@@ -61,6 +61,6 @@ struct QueuedActionsButton: View {
     // but the button won't show without actions queued
     QueuedActionsButton(viewModel: vm)
         .padding()
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
 }

@@ -191,7 +191,7 @@ struct WorkoutDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }
 
@@ -202,7 +202,7 @@ struct WorkoutDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }
 
@@ -213,7 +213,7 @@ struct WorkoutDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }
 
@@ -226,7 +226,7 @@ struct WorkoutDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }
 
@@ -239,6 +239,6 @@ struct WorkoutDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }

@@ -124,7 +124,7 @@ struct MealDayCard: View {
         viewModel: .preview
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }
 
@@ -134,6 +134,6 @@ struct MealDayCard: View {
         viewModel: .preview
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }

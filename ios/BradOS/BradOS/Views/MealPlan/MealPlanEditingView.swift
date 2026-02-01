@@ -93,6 +93,6 @@ struct MealPlanEditingView: View {
 
 #Preview("Editing View") {
     MealPlanEditingView(viewModel: .preview)
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
 }

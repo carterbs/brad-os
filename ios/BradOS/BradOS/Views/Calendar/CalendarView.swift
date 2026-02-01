@@ -46,7 +46,7 @@ struct CalendarView: View {
                 }
                 .padding(Theme.Spacing.space4)
             }
-            .background(AuroraBackground())
+            .background(AuroraBackground().ignoresSafeArea())
             .navigationTitle("Calendar")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -106,19 +106,19 @@ struct CalendarView: View {
     CalendarView(apiClient: MockAPIClient())
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
 }
 
 #Preview("Calendar View - Loading") {
     CalendarView(apiClient: MockAPIClient.withDelay(10.0))
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
 }
 
 #Preview("Calendar View - Error") {
     CalendarView(apiClient: MockAPIClient.failing())
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
 }

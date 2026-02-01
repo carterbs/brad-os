@@ -45,6 +45,6 @@ struct EmptyStateView: View {
         buttonTitle: "Start Mesocycle"
     ) {}
     .frame(maxWidth: .infinity, maxHeight: .infinity)
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }

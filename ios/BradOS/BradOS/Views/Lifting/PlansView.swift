@@ -43,7 +43,7 @@ struct PlansView: View {
             }
             .padding(Theme.Spacing.space4)
         }
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .navigationTitle("Plans")
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -178,7 +178,7 @@ struct PlanDetailView: View {
                 .padding(Theme.Spacing.space4)
             }
         }
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .navigationTitle(plan?.name ?? "Plan")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -419,7 +419,7 @@ struct CreatePlanSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(AuroraBackground())
+            .background(AuroraBackground().ignoresSafeArea())
             .navigationTitle("New Plan")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -465,5 +465,5 @@ struct CreatePlanSheet: View {
     }
     .environment(\.apiClient, MockAPIClient())
     .preferredColorScheme(.dark)
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
 }

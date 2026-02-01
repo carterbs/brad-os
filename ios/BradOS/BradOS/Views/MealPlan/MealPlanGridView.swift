@@ -137,6 +137,6 @@ private struct MealRow: View {
         )
         .padding()
     }
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }

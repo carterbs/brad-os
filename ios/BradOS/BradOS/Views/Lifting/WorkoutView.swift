@@ -88,7 +88,7 @@ struct WorkoutView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             restTimer.handleForeground()
         }
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .navigationTitle(workout?.planDayName ?? "Workout")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -1104,5 +1104,5 @@ struct WarmupSetRow: View {
     }
     .environment(\.apiClient, MockAPIClient())
     .preferredColorScheme(.dark)
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
 }

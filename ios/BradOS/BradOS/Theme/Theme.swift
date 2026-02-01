@@ -7,9 +7,9 @@ import SwiftUI
 struct Theme {
     // MARK: - Background Colors
     struct BG {
-        static let deep = Color(hex: "0A0D14")
-        static let base = Color(hex: "111827")
-        static let surface = Color(hex: "0B1116")
+        static let deep = Color(hex: "121826")
+        static let base = Color(hex: "1A2332")
+        static let surface = Color(hex: "151C2B")
     }
 
     // MARK: - Text Colors (white at fixed opacities)
@@ -20,8 +20,8 @@ struct Theme {
     static let textOnAccent = Color(hex: "061018").opacity(0.95)
 
     // MARK: - Strokes & Dividers
-    static let strokeSubtle = Color.white.opacity(0.10)
-    static let strokeMedium = Color.white.opacity(0.14)
+    static let strokeSubtle = Color.white.opacity(0.08)
+    static let strokeMedium = Color.white.opacity(0.11)
     static let strokeStrong = Color.white.opacity(0.18)
     static let divider = Color.white.opacity(0.08)
 
@@ -150,18 +150,18 @@ enum GlassLevel {
         switch self {
         case .card: return .ultraThinMaterial
         case .elevated: return .ultraThinMaterial
-        case .chrome: return .thinMaterial
-        case .overlay: return .regularMaterial
+        case .chrome: return .ultraThinMaterial
+        case .overlay: return .thinMaterial
         }
     }
 
-    /// White tint opacity applied on top of material blur (matches HTML rgba(255,255,255,0.07) approach)
+    /// White tint opacity applied on top of material blur
     var fillOpacity: Double {
         switch self {
-        case .card: return 0.06
-        case .elevated: return 0.08
-        case .chrome: return 0.06
-        case .overlay: return 0.12
+        case .card: return 0.02
+        case .elevated: return 0.03
+        case .chrome: return 0.02
+        case .overlay: return 0.05
         }
     }
 
@@ -269,23 +269,32 @@ struct AuroraBackground: View {
                 endPoint: .bottom
             )
 
-            // Ambient aurora blob 1 — top-left, accent
-            Circle()
-                .fill(Theme.interactivePrimary)
-                .frame(width: 340, height: 340)
-                .blur(radius: 80)
-                .opacity(0.14)
-                .blendMode(.plusLighter)
-                .offset(x: -80, y: -120)
-
-            // Ambient aurora blob 2 — bottom-right, secondary
+            // Ambient aurora blob 1 — top-left, cyan
             Circle()
                 .fill(Theme.interactiveSecondary)
                 .frame(width: 300, height: 300)
-                .blur(radius: 75)
-                .opacity(0.10)
+                .blur(radius: 140)
+                .opacity(0.50)
                 .blendMode(.plusLighter)
-                .offset(x: 100, y: 200)
+                .offset(x: -100, y: -160)
+
+            // Ambient aurora blob 2 — bottom-right, purple
+            Circle()
+                .fill(Theme.interactivePrimary)
+                .frame(width: 280, height: 280)
+                .blur(radius: 130)
+                .opacity(0.40)
+                .blendMode(.plusLighter)
+                .offset(x: 120, y: 240)
+
+            // Ambient aurora blob 3 — center-left, green
+            Circle()
+                .fill(Color(hex: "34D399"))
+                .frame(width: 260, height: 260)
+                .blur(radius: 130)
+                .opacity(0.38)
+                .blendMode(.plusLighter)
+                .offset(x: -60, y: 80)
         }
         .ignoresSafeArea()
     }
@@ -341,21 +350,32 @@ struct CardStyle: ViewModifier {
 
 // MARK: - Button Styles
 
-/// Glass-style primary button: H:48pt, R:12pt, accent tint over material blur
+/// Glass-style primary button: gradient stroke + glow over glass
 struct GlassPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
         configuration.label
             .font(.headline)
             .foregroundColor(Theme.textPrimary)
             .frame(height: Theme.Dimensions.buttonHeight)
             .padding(.horizontal, Theme.Spacing.space4)
-            .background(Theme.interactivePrimary.opacity(0.15))
+            .background(Color.white.opacity(0.06))
             .background(.ultraThinMaterial)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
+            .clipShape(shape)
             .overlay(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
-                    .stroke(Theme.interactivePrimary.opacity(configuration.isPressed ? 0.49 : 0.45), lineWidth: 1)
+                shape.stroke(
+                    LinearGradient(
+                        colors: [
+                            Theme.interactivePrimary.opacity(configuration.isPressed ? 0.65 : 0.55),
+                            Theme.interactiveSecondary.opacity(configuration.isPressed ? 0.50 : 0.40)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    lineWidth: 1.5
+                )
             )
+            .shadow(color: Theme.interactivePrimary.opacity(0.25), radius: 12, y: 2)
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .animation(.easeInOut(duration: Theme.Motion.micro), value: configuration.isPressed)
     }

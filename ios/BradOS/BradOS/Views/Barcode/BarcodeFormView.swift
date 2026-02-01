@@ -34,17 +34,21 @@ struct BarcodeFormView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: Theme.Spacing.space7) {
-                    // Barcode preview
-                    previewSection
+            ZStack {
+                AuroraBackground()
+                    .ignoresSafeArea()
 
-                    // Form fields
-                    formFields
+                ScrollView {
+                    VStack(spacing: Theme.Spacing.space7) {
+                        // Barcode preview
+                        previewSection
+
+                        // Form fields
+                        formFields
+                    }
+                    .padding(Theme.Spacing.space4)
                 }
-                .padding(Theme.Spacing.space4)
             }
-            .background(AuroraBackground())
             .navigationTitle(isEditing ? "Edit Barcode" : "Add Barcode")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)

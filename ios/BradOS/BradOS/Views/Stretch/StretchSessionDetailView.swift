@@ -26,7 +26,7 @@ struct StretchSessionDetailView: View {
                 sessionContent(session)
             }
         }
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .navigationTitle("Stretch Session")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -201,7 +201,7 @@ struct StretchSessionDetailView: View {
         StretchSessionDetailView(sessionId: "mock-session-id")
     }
     .environment(\.apiClient, MockAPIClient.withStretchSession())
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }
 
@@ -210,7 +210,7 @@ struct StretchSessionDetailView: View {
         StretchSessionDetailView(sessionId: "mock-session-id")
     }
     .environment(\.apiClient, MockAPIClient.withDelay(10.0))
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }
 

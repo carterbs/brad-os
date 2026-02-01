@@ -38,6 +38,6 @@ struct MealTypeCardsView: View {
 
 #Preview("Breakfast Tab") {
     MealTypeCardsView(mealType: .breakfast, viewModel: .preview)
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
 }

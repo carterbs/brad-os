@@ -1,6 +1,72 @@
 import SwiftUI
 import BradOSCore
 
+/// Shared meal day content — day name header + meal rows with icons and labels.
+/// Used in both the Today dashboard card and the Meal Plan focus card.
+struct MealDayContent: View {
+    let dayName: String
+    let meals: [MealPlanEntry]
+    var changedSlots: Set<String> = []
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
+            Text(dayName)
+                .font(.headline)
+                .fontWeight(.bold)
+                .foregroundColor(Theme.mealPlan)
+
+            ForEach(MealType.allCases, id: \.self) { mealType in
+                mealRow(mealType: mealType)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func mealRow(mealType: MealType) -> some View {
+        let entry = meals.first { $0.mealType == mealType }
+        let entryId = entry?.id ?? ""
+        let isChanged = changedSlots.contains(entryId)
+
+        HStack(spacing: Theme.Spacing.space3) {
+            Image(systemName: mealTypeIcon(mealType))
+                .font(.body)
+                .foregroundColor(Theme.mealPlan)
+                .frame(width: 24)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(mealTypeLabel(mealType))
+                    .font(.caption)
+                    .foregroundColor(Theme.textSecondary)
+                Text(entry?.mealName ?? "\u{2014}")
+                    .font(.body)
+                    .foregroundColor(entry?.mealName != nil ? Theme.textPrimary : Theme.textSecondary)
+                    .lineLimit(2)
+            }
+
+            Spacer()
+        }
+        .padding(.vertical, Theme.Spacing.space1)
+        .background(isChanged ? Theme.success.opacity(0.15) : Color.clear)
+        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+    }
+
+    private func mealTypeIcon(_ type: MealType) -> String {
+        switch type {
+        case .breakfast: return "sunrise"
+        case .lunch: return "sun.max"
+        case .dinner: return "moon.stars"
+        }
+    }
+
+    private func mealTypeLabel(_ type: MealType) -> String {
+        switch type {
+        case .breakfast: return "Breakfast"
+        case .lunch: return "Lunch"
+        case .dinner: return "Dinner"
+        }
+    }
+}
+
 /// Dashboard card displaying today's meals from a finalized meal plan
 struct MealPlanDashboardCard: View {
     let todayMeals: [MealPlanEntry]
@@ -27,98 +93,49 @@ struct MealPlanDashboardCard: View {
 
     private var loadingState: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
-            cardHeader
-
-            Text("Loading meal plan...")
-                .font(.subheadline)
+            Text("Meal Plan")
+                .font(.headline)
                 .foregroundColor(Theme.textSecondary)
+            Text("Loading...")
+                .font(.subheadline)
+                .foregroundColor(Theme.textTertiary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard()
     }
 
     // MARK: - Meal Content
 
     private var mealContent: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
-            // Header
-            cardHeader
-
+        VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
             if todayMeals.isEmpty {
                 Text("No finalized meal plan")
                     .font(.subheadline)
                     .foregroundColor(Theme.textSecondary)
             } else {
-                // Meal rows for breakfast, lunch, dinner
-                VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
-                    mealRow(for: .breakfast)
-                    mealRow(for: .lunch)
-                    mealRow(for: .dinner)
-                }
+                MealDayContent(dayName: todayDayName, meals: todayMeals)
             }
 
-            // Action link
             HStack {
                 Spacer()
-                actionLink
+                HStack(spacing: Theme.Spacing.space1) {
+                    Text("View Plan")
+                        .font(.callout.weight(.semibold))
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                }
+                .foregroundColor(Theme.mealPlan)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard()
+        .auroraGlow(Theme.mealPlan, intensity: .primary)
     }
 
-    // MARK: - Card Header
-
-    private var cardHeader: some View {
-        HStack {
-            cardHeaderIcon
-            Text("Meal Plan")
-                .font(.title3)
-                .foregroundColor(Theme.textPrimary)
-            Spacer()
-        }
-    }
-
-    private var cardHeaderIcon: some View {
-        Image(systemName: "fork.knife")
-            .font(.system(size: Theme.Typography.cardHeaderIcon))
-            .foregroundColor(Theme.mealPlan)
-            .frame(width: Theme.Dimensions.iconFrameMD, height: Theme.Dimensions.iconFrameMD)
-            .background(Theme.mealPlan.opacity(0.12))
-            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
-    }
-
-    // MARK: - Helpers
-
-    private var actionLink: some View {
-        HStack(spacing: Theme.Spacing.space1) {
-            Text("View Plan")
-                .font(.callout.weight(.semibold))
-            Image(systemName: "chevron.right")
-                .font(.caption)
-        }
-        .foregroundColor(Theme.mealPlan)
-    }
-
-    @ViewBuilder
-    private func mealRow(for mealType: MealType) -> some View {
-        let entry = todayMeals.first { $0.mealType == mealType }
-        HStack(spacing: Theme.Spacing.space2) {
-            Image(systemName: mealTypeIcon(mealType))
-                .font(.caption)
-                .foregroundColor(Theme.textSecondary)
-                .frame(width: 16)
-            Text(entry?.mealName ?? "\u{2014}")
-                .font(.subheadline)
-                .foregroundColor(entry?.mealName != nil ? Theme.textPrimary : Theme.textSecondary)
-                .lineLimit(1)
-        }
-    }
-
-    private func mealTypeIcon(_ mealType: MealType) -> String {
-        switch mealType {
-        case .breakfast: return "sunrise"
-        case .lunch: return "sun.max"
-        case .dinner: return "moon.stars"
-        }
+    private var todayDayName: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE"
+        return formatter.string(from: Date())
     }
 }
 
@@ -135,7 +152,7 @@ struct MealPlanDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }
 
@@ -146,7 +163,7 @@ struct MealPlanDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }
 
@@ -157,6 +174,6 @@ struct MealPlanDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }

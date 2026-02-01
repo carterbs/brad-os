@@ -129,6 +129,6 @@ enum TabItem: String, CaseIterable, Identifiable {
 #Preview {
     MainTabView()
         .environmentObject(AppState())
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
 }

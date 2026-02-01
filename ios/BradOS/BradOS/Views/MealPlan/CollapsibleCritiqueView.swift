@@ -146,6 +146,6 @@ struct CollapsibleCritiqueView: View {
 #Preview("Collapsed") {
     CollapsibleCritiqueView(viewModel: .preview)
         .padding()
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
 }

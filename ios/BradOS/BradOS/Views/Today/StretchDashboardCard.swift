@@ -129,7 +129,7 @@ struct StretchDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }
 
@@ -140,7 +140,7 @@ struct StretchDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }
 
@@ -158,7 +158,7 @@ struct StretchDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }
 
@@ -176,7 +176,7 @@ struct StretchDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }
 
@@ -194,6 +194,6 @@ struct StretchDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }

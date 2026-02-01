@@ -139,7 +139,7 @@ struct MeditationDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }
 
@@ -150,7 +150,7 @@ struct MeditationDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }
 
@@ -168,7 +168,7 @@ struct MeditationDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }
 
@@ -186,7 +186,7 @@ struct MeditationDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }
 
@@ -204,6 +204,6 @@ struct MeditationDashboardCard: View {
         onTap: {}
     )
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }

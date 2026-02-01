@@ -8,21 +8,25 @@ struct BarcodeWalletView: View {
     @State private var editingBarcode: Barcode?
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: Theme.Spacing.space4) {
-                if viewModel.isLoading {
-                    loadingState
-                } else if let error = viewModel.error, viewModel.barcodes.isEmpty {
-                    errorState(error)
-                } else if viewModel.barcodes.isEmpty {
-                    emptyState
-                } else {
-                    barcodeList
+        ZStack {
+            AuroraBackground()
+                .ignoresSafeArea()
+
+            ScrollView {
+                VStack(spacing: Theme.Spacing.space4) {
+                    if viewModel.isLoading {
+                        loadingState
+                    } else if let error = viewModel.error, viewModel.barcodes.isEmpty {
+                        errorState(error)
+                    } else if viewModel.barcodes.isEmpty {
+                        emptyState
+                    } else {
+                        barcodeList
+                    }
                 }
+                .padding(Theme.Spacing.space4)
             }
-            .padding(Theme.Spacing.space4)
         }
-        .background(AuroraBackground())
         .navigationTitle("Barcode Wallet")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)

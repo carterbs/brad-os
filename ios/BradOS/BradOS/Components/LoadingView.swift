@@ -20,6 +20,6 @@ struct LoadingView: View {
 
 #Preview {
     LoadingView()
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
 }

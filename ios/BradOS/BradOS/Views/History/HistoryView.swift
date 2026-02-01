@@ -49,7 +49,7 @@ struct HistoryView: View {
                 }
                 .padding(Theme.Spacing.space4)
             }
-            .background(AuroraBackground())
+            .background(AuroraBackground().ignoresSafeArea())
             .navigationTitle("History")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -387,7 +387,7 @@ struct DayDetailSheet: View {
                 }
                 .padding(Theme.Spacing.space4)
             }
-            .background(AuroraBackground())
+            .background(AuroraBackground().ignoresSafeArea())
             .navigationTitle(formattedDate)
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -535,19 +535,19 @@ struct DayActivityCard: View {
     HistoryView(apiClient: MockAPIClient())
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
 }
 
 #Preview("History View - Loading") {
     HistoryView(apiClient: MockAPIClient.withDelay(10.0))
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
 }
 
 #Preview("History View - Error") {
     HistoryView(apiClient: MockAPIClient.failing())
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
 }

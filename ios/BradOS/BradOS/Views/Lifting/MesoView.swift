@@ -26,7 +26,7 @@ struct MesoView: View {
             }
             .padding(Theme.Spacing.space4)
         }
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .navigationTitle("Mesocycle")
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -488,7 +488,7 @@ struct NewMesocycleSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(AuroraBackground())
+            .background(AuroraBackground().ignoresSafeArea())
             .navigationTitle("New Mesocycle")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -517,5 +517,5 @@ struct NewMesocycleSheet: View {
     }
     .environmentObject(AppState())
     .preferredColorScheme(.dark)
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
 }

@@ -31,6 +31,6 @@ struct ErrorStateView: View {
 #Preview {
     ErrorStateView(message: "Failed to load calendar data") {}
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
 }

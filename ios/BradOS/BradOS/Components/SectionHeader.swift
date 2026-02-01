@@ -31,6 +31,6 @@ struct SectionHeader: View {
         SectionHeader(title: "Plans", actionTitle: "See All") {}
     }
     .padding(Theme.Spacing.space5)
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }

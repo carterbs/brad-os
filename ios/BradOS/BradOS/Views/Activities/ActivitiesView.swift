@@ -63,7 +63,7 @@ struct ActivitiesView: View {
                 }
                 .padding(Theme.Spacing.space5)
             }
-            .background(AuroraBackground())
+            .background(AuroraBackground().ignoresSafeArea())
             .navigationTitle("Activities")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -215,20 +215,20 @@ struct RecentActivityRow: View {
 #Preview("Activities") {
     ActivitiesView(apiClient: MockAPIClient())
         .environmentObject(AppState())
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
 }
 
 #Preview("Activities - Loading") {
     ActivitiesView(apiClient: MockAPIClient.withDelay(10.0))
         .environmentObject(AppState())
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
 }
 
 #Preview("Activities - Empty") {
     ActivitiesView(apiClient: MockAPIClient.empty)
         .environmentObject(AppState())
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
 }

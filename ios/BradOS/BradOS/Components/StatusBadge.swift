@@ -60,6 +60,6 @@ struct GenericBadge: View {
         GenericBadge(text: "Deload", color: Theme.warning)
     }
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }

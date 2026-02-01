@@ -123,6 +123,6 @@ struct CritiqueInputView: View {
         CritiqueInputView(viewModel: .preview)
     }
     .padding()
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }

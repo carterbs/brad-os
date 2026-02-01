@@ -29,7 +29,7 @@ struct ExercisesView: View {
                 contentView
             }
         }
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .navigationTitle("Exercises")
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -289,7 +289,7 @@ struct ExerciseHistoryView: View {
                 contentView(history)
             }
         }
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .navigationTitle(viewModel.history?.exercise.name ?? exerciseName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -529,7 +529,7 @@ struct EditExerciseSheet: View {
                 }
             }
             .scrollContentBackground(.hidden)
-            .background(AuroraBackground())
+            .background(AuroraBackground().ignoresSafeArea())
             .navigationTitle("Edit Exercise")
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -564,5 +564,5 @@ struct EditExerciseSheet: View {
         ExercisesView()
     }
     .preferredColorScheme(.dark)
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
 }

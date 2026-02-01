@@ -181,12 +181,12 @@ struct MealPlanView: View {
     MealPlanView(apiClient: MockAPIClient.empty)
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
 }
 
 #Preview("Meal Plan - With Session") {
     MealPlanView(apiClient: MockAPIClient())
         .environmentObject(AppState())
         .preferredColorScheme(.dark)
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
 }

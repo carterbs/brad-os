@@ -14,7 +14,7 @@ struct ProfileView: View {
                 }
                 .padding(Theme.Spacing.space5)
             }
-            .background(AuroraBackground())
+            .background(AuroraBackground().ignoresSafeArea())
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)

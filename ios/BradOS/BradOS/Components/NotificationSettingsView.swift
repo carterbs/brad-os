@@ -261,6 +261,6 @@ struct NotificationSettingsView: View {
         NotificationSettingsView()
     }
     .padding(Theme.Spacing.space5)
-    .background(AuroraBackground())
+    .background(AuroraBackground().ignoresSafeArea())
     .preferredColorScheme(.dark)
 }

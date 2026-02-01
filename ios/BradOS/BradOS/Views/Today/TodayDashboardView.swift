@@ -28,7 +28,7 @@ struct TodayDashboardView: View {
                 }
                 .padding(Theme.Spacing.space4)
             }
-            .background(AuroraBackground())
+            .background(AuroraBackground().ignoresSafeArea())
             .navigationTitle("Today")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)

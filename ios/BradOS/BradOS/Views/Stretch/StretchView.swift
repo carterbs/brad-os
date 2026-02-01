@@ -463,8 +463,8 @@ struct RegionToggleCard: View {
                 Text(region.displayName)
                     .font(.subheadline)
                     .foregroundColor(isEnabled ? Theme.textPrimary : Theme.textSecondary)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
 
                 Spacer()
 
@@ -490,16 +490,12 @@ struct RegionToggleCard: View {
                     .accessibilityHidden(true)
             }
             .padding(Theme.Spacing.space4)
-            .background(
-                isEnabled
-                    ? AnyShapeStyle(.ultraThinMaterial)
-                    : AnyShapeStyle(Color.white.opacity(0.06))
-            )
-            .background(isEnabled ? Theme.interactivePrimary.opacity(0.18) : Color.clear)
+            .background(Color.white.opacity(0.06))
+            .background(.ultraThinMaterial)
             .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
-                    .stroke(isEnabled ? Theme.interactivePrimary.opacity(0.50) : Color.white.opacity(0.10), lineWidth: 1)
+                    .stroke(Theme.strokeSubtle, lineWidth: 1)
             )
         }
         .buttonStyle(PlainButtonStyle())
@@ -1234,6 +1230,6 @@ extension Array {
 #Preview {
     StretchView()
         .environmentObject(AppState())
-        .background(AuroraBackground())
+        .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
 }
