@@ -36,6 +36,28 @@ struct ActivitiesView: View {
                         ActivityCard(activityType: .meditation) {
                             appState.isShowingMeditation = true
                         }
+
+                        // Meal Plan (not an ActivityType — not tracked on calendar)
+                        Button(action: { appState.isShowingMealPlan = true }) {
+                            VStack(spacing: Theme.Spacing.md) {
+                                Image(systemName: "fork.knife")
+                                    .font(.system(size: 40))
+                                    .foregroundColor(Theme.mealPlan)
+
+                                Text("Meal Plan")
+                                    .font(.headline)
+                                    .foregroundColor(Theme.textPrimary)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 100)
+                            .padding(Theme.Spacing.lg)
+                            .background(Theme.backgroundSecondary)
+                            .cornerRadius(Theme.CornerRadius.lg)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: Theme.CornerRadius.lg)
+                                    .stroke(Theme.border, lineWidth: 1)
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
                     }
 
                     // Recent Activity Section

@@ -15,6 +15,8 @@ struct ContentView: View {
                 StretchView()
             } else if appState.isShowingMeditation {
                 MeditationView()
+            } else if appState.isShowingMealPlan {
+                MealPlanView()
             } else {
                 MainTabView()
             }

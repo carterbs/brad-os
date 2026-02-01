@@ -40,6 +40,7 @@ class AppState: ObservableObject {
     @Published var isShowingLiftingContext: Bool = false
     @Published var isShowingStretch: Bool = false
     @Published var isShowingMeditation: Bool = false
+    @Published var isShowingMealPlan: Bool = false
 
     /// Selected workout ID for navigation to workout detail
     @Published var selectedWorkoutId: String?
