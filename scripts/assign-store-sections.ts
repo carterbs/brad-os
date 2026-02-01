@@ -2,7 +2,7 @@
 /**
  * Assign Store Sections to Ingredients
  *
- * One-time script that adds a `storeSection` field to every ingredient
+ * One-time script that adds a `store_section` field to every ingredient
  * document in the Firestore emulator (or production).
  *
  * Usage:
@@ -367,7 +367,7 @@ async function main(): Promise<void> {
   }
 
   // Initialize Firebase
-  const app: App = initializeApp({ projectId: 'brad-os-app' });
+  const app: App = initializeApp({ projectId: 'brad-os' });
   const db: Firestore = getFirestore(app);
 
   // Read all ingredient documents
@@ -397,8 +397,8 @@ async function main(): Promise<void> {
     const data = doc.data();
     const name = data['name'] as string;
 
-    // Check if storeSection is already set
-    if (data['storeSection']) {
+    // Check if store_section is already set
+    if (data['store_section']) {
       alreadySet.push(name);
       skippedCount++;
       continue;
@@ -415,8 +415,8 @@ async function main(): Promise<void> {
 
     if (!isDryRun) {
       writer.update(doc.ref, {
-        storeSection: section,
-        updatedAt: new Date().toISOString(),
+        store_section: section,
+        updated_at: new Date().toISOString(),
       });
       await writer.flushIfNeeded();
     }
@@ -458,10 +458,10 @@ async function main(): Promise<void> {
 
   console.log('\n── Validation ──');
   if (hasUnmatched) {
-    console.log('  FAIL: Some ingredients have no storeSection assignment.');
+    console.log('  FAIL: Some ingredients have no store_section assignment.');
     process.exit(1);
   } else if (totalClassified === snapshot.size) {
-    console.log(`  PASS: All ${snapshot.size} ingredients have a storeSection.`);
+    console.log(`  PASS: All ${snapshot.size} ingredients have a store_section.`);
   } else {
     console.log(`  FAIL: ${totalClassified} classified but ${snapshot.size} documents exist.`);
     process.exit(1);

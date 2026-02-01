@@ -368,8 +368,8 @@ async function phase1BuildIngredients(
 
     writer.set(collRef.doc(slug), {
       name,
-      createdAt: now,
-      updatedAt: now,
+      created_at: now,
+      updated_at: now,
     });
     await writer.flushIfNeeded();
   }
@@ -453,14 +453,14 @@ async function phase3MigrateMealsAndRecipes(
     // Write meal document
     writer.set(mealsRef.doc(mealDocId), {
       name: meal.name,
-      mealType: meal.mealType,
+      meal_type: meal.mealType,
       effort: meal.effort,
-      redMeat: meal.redMeat,
+      has_red_meat: meal.redMeat,
       url: meal.url,
-      lastPlannedAt: lastPlanned,
-      recipeId: recipeDocId,
-      createdAt: now,
-      updatedAt: now,
+      last_planned: lastPlanned,
+      recipe_id: recipeDocId,
+      created_at: now,
+      updated_at: now,
     });
     await writer.flushIfNeeded();
 
@@ -470,7 +470,7 @@ async function phase3MigrateMealsAndRecipes(
     const cpMeal = checkpointMeals.get(meal.id);
 
     // Collect all raw ingredient names for this meal
-    const resolvedIngredients: Array<{ ingredientId: string }> = [];
+    const resolvedIngredients: Array<{ ingredient_id: string }> = [];
     const seenCanonicals = new Set<string>();
 
     // Helper to resolve a raw name to a canonical ingredient ID (no warnings)
@@ -498,7 +498,7 @@ async function phase3MigrateMealsAndRecipes(
       }
       if (ingredientId && !seenCanonicals.has(ingredientId)) {
         seenCanonicals.add(ingredientId);
-        resolvedIngredients.push({ ingredientId });
+        resolvedIngredients.push({ ingredient_id: ingredientId });
       }
     }
 
@@ -515,14 +515,14 @@ async function phase3MigrateMealsAndRecipes(
           const ingredientId = canonicalToId.get(deletedInfo.canonical);
           if (ingredientId && !seenCanonicals.has(ingredientId)) {
             seenCanonicals.add(ingredientId);
-            resolvedIngredients.push({ ingredientId });
+            resolvedIngredients.push({ ingredient_id: ingredientId });
           }
         } else {
           // Not in deleted map — try regular name mapping
           const ingredientId = resolveByName(cpIng.name);
           if (ingredientId && !seenCanonicals.has(ingredientId)) {
             seenCanonicals.add(ingredientId);
-            resolvedIngredients.push({ ingredientId });
+            resolvedIngredients.push({ ingredient_id: ingredientId });
           }
         }
       }
@@ -531,15 +531,15 @@ async function phase3MigrateMealsAndRecipes(
     // Build recipe steps (only meal 51 has any)
     const steps = (stepsByMeal.get(meal.id) || [])
       .sort((a, b) => a.stepNumber - b.stepNumber)
-      .map((s) => ({ stepNumber: s.stepNumber, instruction: s.instruction }));
+      .map((s) => ({ step_number: s.stepNumber, instruction: s.instruction }));
 
     // Write recipe document
     writer.set(recipesRef.doc(recipeDocId), {
-      mealId: mealDocId,
+      meal_id: mealDocId,
       ingredients: resolvedIngredients,
       steps: steps.length > 0 ? steps : null,
-      createdAt: now,
-      updatedAt: now,
+      created_at: now,
+      updated_at: now,
     });
     await writer.flushIfNeeded();
   }
@@ -581,10 +581,10 @@ async function phase4MigrateConversations(
     // Write conversation document
     writer.set(convRef.doc(threadId), {
       status: 'completed', // All historical conversations are completed
-      currentStep: null,
-      planId: null,
-      createdAt: firstMsg.createdAt,
-      updatedAt: lastMsg.createdAt,
+      current_step: null,
+      plan_id: null,
+      created_at: firstMsg.createdAt,
+      updated_at: lastMsg.createdAt,
     });
     await writer.flushIfNeeded();
 
@@ -594,7 +594,7 @@ async function phase4MigrateConversations(
       writer.set(msgsRef.doc(`msg_${msg.id}`), {
         sender: msg.sender,
         content: msg.content,
-        createdAt: msg.createdAt,
+        created_at: msg.createdAt,
       });
       await writer.flushIfNeeded();
       totalMessages++;
@@ -639,10 +639,10 @@ async function phase6Validate(
     return snap.size === expectedMeals;
   });
 
-  // Every meal has a recipeId
-  await check('Every meal has a recipeId', async () => {
+  // Every meal has a recipe_id
+  await check('Every meal has a recipe_id', async () => {
     const snap = await db.collection(`${prefix}meals`).get();
-    return snap.docs.every((doc) => doc.data()['recipeId']);
+    return snap.docs.every((doc) => doc.data()['recipe_id']);
   });
 
   // Count recipes
@@ -657,18 +657,18 @@ async function phase6Validate(
     return snap.docs.every((doc) => Array.isArray(doc.data()['ingredients']));
   });
 
-  // Recipe ingredientIds resolve to actual ingredients
-  await check('All recipe ingredientId refs resolve', async () => {
+  // Recipe ingredient_id refs resolve to actual ingredients
+  await check('All recipe ingredient_id refs resolve', async () => {
     const ingredientSnap = await db.collection(`${prefix}ingredients`).get();
     const ingredientIds = new Set(ingredientSnap.docs.map((d) => d.id));
     const recipeSnap = await db.collection(`${prefix}recipes`).get();
     let orphanCount = 0;
     for (const doc of recipeSnap.docs) {
-      const ingredients = doc.data()['ingredients'] as Array<{ ingredientId: string }>;
+      const ingredients = doc.data()['ingredients'] as Array<{ ingredient_id: string }>;
       for (const ing of ingredients) {
-        if (!ingredientIds.has(ing.ingredientId)) {
+        if (!ingredientIds.has(ing.ingredient_id)) {
           orphanCount++;
-          if (orphanCount <= 3) console.log(`    Orphan: recipe ${doc.id} → ingredient ${ing.ingredientId}`);
+          if (orphanCount <= 3) console.log(`    Orphan: recipe ${doc.id} → ingredient ${ing.ingredient_id}`);
         }
       }
     }
@@ -676,11 +676,11 @@ async function phase6Validate(
     return orphanCount === 0;
   });
 
-  // Meals with lastPlannedAt
-  await check(`${expectedMealsWithLastPlanned}+ meals have lastPlannedAt`, async () => {
+  // Meals with last_planned
+  await check(`${expectedMealsWithLastPlanned}+ meals have last_planned`, async () => {
     const snap = await db.collection(`${prefix}meals`).get();
-    const withDate = snap.docs.filter((d) => d.data()['lastPlannedAt'] !== null).length;
-    console.log(`    Meals with lastPlannedAt: ${withDate}`);
+    const withDate = snap.docs.filter((d) => d.data()['last_planned'] !== null).length;
+    console.log(`    Meals with last_planned: ${withDate}`);
     return withDate >= expectedMealsWithLastPlanned;
   });
 
@@ -707,7 +707,7 @@ async function phase6Validate(
     const doc = await db.collection(`${prefix}meals`).doc('meal_5').get();
     if (!doc.exists) return false;
     const data = doc.data()!;
-    return data['name'] === 'Beef Tacos, tortilla chips' && data['mealType'] === 'dinner' && data['redMeat'] === true;
+    return data['name'] === 'Beef Tacos, tortilla chips' && data['meal_type'] === 'dinner' && data['has_red_meat'] === true;
   });
 
   await check('Spot-check: Pizza Rolls recipe has steps (meal 51)', async () => {
@@ -739,7 +739,7 @@ async function main(): Promise<void> {
   console.log(`Emulator: ${process.env.FIRESTORE_EMULATOR_HOST}`);
 
   // Initialize Firebase
-  const app = initializeApp({ projectId: 'brad-os-app' });
+  const app = initializeApp({ projectId: 'brad-os' });
   const db = getFirestore(app);
 
   // Resolve paths — data files live in the main repo (not worktrees)
