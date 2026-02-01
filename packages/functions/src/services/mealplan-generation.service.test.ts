@@ -414,12 +414,12 @@ describe('MealPlan Generation Service', () => {
     });
   });
 
-  describe('insufficient meals', () => {
-    it('should throw InsufficientMealsError when not enough breakfasts', () => {
+  describe('insufficient meals (best-effort)', () => {
+    it('should reuse breakfasts when not enough unique ones', () => {
       mealCounter = 0;
       const meals: Meal[] = [];
 
-      // Only 3 breakfasts (need 7)
+      // Only 3 breakfasts (need 7) - should reuse
       for (let i = 0; i < 3; i++) {
         meals.push(createMeal({
           meal_type: 'breakfast',
@@ -435,10 +435,12 @@ describe('MealPlan Generation Service', () => {
         meals.push(createMeal({ meal_type: 'dinner', effort: 5 }));
       }
 
-      expect(() => generateMealPlan(meals)).toThrow(InsufficientMealsError);
+      const plan = generateMealPlan(meals);
+      const breakfasts = plan.filter((e) => e.meal_type === 'breakfast');
+      expect(breakfasts).toHaveLength(7);
     });
 
-    it('should throw InsufficientMealsError when not enough lunches', () => {
+    it('should reuse lunches when not enough unique ones', () => {
       mealCounter = 0;
       const meals: Meal[] = [];
 
@@ -447,7 +449,7 @@ describe('MealPlan Generation Service', () => {
         meals.push(createMeal({ meal_type: 'breakfast', effort: 1 }));
       }
 
-      // Only 3 lunches (need 7)
+      // Only 3 lunches (need 7) - should reuse
       for (let i = 0; i < 3; i++) {
         meals.push(createMeal({ meal_type: 'lunch', effort: 1 }));
       }
@@ -457,10 +459,12 @@ describe('MealPlan Generation Service', () => {
         meals.push(createMeal({ meal_type: 'dinner', effort: 5 }));
       }
 
-      expect(() => generateMealPlan(meals)).toThrow(InsufficientMealsError);
+      const plan = generateMealPlan(meals);
+      const lunches = plan.filter((e) => e.meal_type === 'lunch');
+      expect(lunches).toHaveLength(7);
     });
 
-    it('should throw InsufficientMealsError when not enough dinners', () => {
+    it('should reuse dinners when not enough unique ones', () => {
       mealCounter = 0;
       const meals: Meal[] = [];
 
@@ -472,10 +476,13 @@ describe('MealPlan Generation Service', () => {
         meals.push(createMeal({ meal_type: 'lunch', effort: 1 }));
       }
 
-      // Only 1 dinner (need 6)
+      // Only 1 dinner (need 6) - should reuse
       meals.push(createMeal({ meal_type: 'dinner', effort: 5 }));
 
-      expect(() => generateMealPlan(meals)).toThrow(InsufficientMealsError);
+      const plan = generateMealPlan(meals);
+      const dinners = plan.filter((e) => e.meal_type === 'dinner');
+      // 6 real dinners + 1 "Eating out" Friday = 7 dinner slots
+      expect(dinners).toHaveLength(7);
     });
   });
 

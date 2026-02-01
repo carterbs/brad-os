@@ -63,16 +63,37 @@ function filterByRecency(meals: Meal[], now: Date): Meal[] {
 }
 
 /**
- * Generates a complete 7-day meal plan following all constraints.
+ * Selects a meal from progressively relaxed candidate pools.
+ * Returns the first match, or undefined if nothing works.
+ */
+function selectFromPools(pools: Meal[][], usedMealIds: Set<string>): Meal | undefined {
+  for (const pool of pools) {
+    // Prefer unused meals
+    const unused = shuffle(pool.filter((m) => !usedMealIds.has(m.id)));
+    if (unused.length > 0 && unused[0] !== undefined) {
+      return unused[0];
+    }
+  }
+  // Last resort: allow reuse from the last (most relaxed) pool
+  const lastPool = pools[pools.length - 1];
+  if (lastPool !== undefined && lastPool.length > 0) {
+    const shuffled = shuffle([...lastPool]);
+    return shuffled[0];
+  }
+  return undefined;
+}
+
+/**
+ * Generates a complete 7-day meal plan using best-effort constraint satisfaction.
  *
- * Constraints:
+ * Constraints (applied in priority order, relaxed as needed):
  * 1. 7 days (Mon=0 .. Sun=6) x 3 meal types = 21 slots
- * 2. Breakfast/lunch: effort <= 2
- * 3. Dinner effort varies by day (see DINNER_EFFORT_BY_DAY)
+ * 2. Breakfast/lunch: prefer effort <= 2, fall back to any effort
+ * 3. Dinner effort varies by day (see DINNER_EFFORT_BY_DAY), relaxed if needed
  * 4. Friday dinner is always "Eating out" (null meal)
- * 5. Exclude meals planned within 3 weeks
- * 6. Red meat: non-consecutive dinner days AND max 2 per week
- * 7. No meal repeated (no meal ID appears twice in entire plan)
+ * 5. Prefer meals not planned within 3 weeks, fall back to recent meals
+ * 6. Red meat: prefer non-consecutive AND max 2/week, relaxed if needed
+ * 7. Prefer no repeated meals, allow reuse as last resort
  */
 export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
   const currentDate = now ?? new Date();
@@ -80,45 +101,36 @@ export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
   const plan: MealPlanEntry[] = [];
   const usedMealIds = new Set<string>();
 
-  // Track which dinner day indices have red meat (for consecutive check)
   const redMeatDinnerDays: number[] = [];
 
   // Step 1: Assign breakfast and lunch for all 7 days
   for (const mealType of ['breakfast', 'lunch'] as MealType[]) {
-    const candidates = eligibleMeals.filter(
-      (m) => m.meal_type === mealType && m.effort <= MAX_BREAKFAST_LUNCH_EFFORT
-    );
-
     for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-      const available = shuffle(
-        candidates.filter((m) => !usedMealIds.has(m.id))
-      );
+      // Build progressively relaxed candidate pools
+      const pools: Meal[][] = [
+        // Pool 1: recency-filtered + correct type + low effort
+        eligibleMeals.filter((m) => m.meal_type === mealType && m.effort <= MAX_BREAKFAST_LUNCH_EFFORT),
+        // Pool 2: all meals + correct type + low effort (skip recency)
+        meals.filter((m) => m.meal_type === mealType && m.effort <= MAX_BREAKFAST_LUNCH_EFFORT),
+        // Pool 3: all meals + correct type + any effort
+        meals.filter((m) => m.meal_type === mealType),
+      ];
 
-      if (available.length === 0) {
-        throw new InsufficientMealsError(
-          `Not enough ${mealType} meals with effort <= ${MAX_BREAKFAST_LUNCH_EFFORT} for day ${dayIndex}. Need more unique meals.`
-        );
+      const selected = selectFromPools(pools, usedMealIds);
+      if (selected !== undefined) {
+        usedMealIds.add(selected.id);
+        plan.push({
+          day_index: dayIndex,
+          meal_type: mealType,
+          meal_id: selected.id,
+          meal_name: selected.name,
+        });
       }
-
-      const selected = available[0];
-      if (selected === undefined) {
-        throw new InsufficientMealsError(
-          `Not enough ${mealType} meals with effort <= ${MAX_BREAKFAST_LUNCH_EFFORT} for day ${dayIndex}. Need more unique meals.`
-        );
-      }
-      usedMealIds.add(selected.id);
-      plan.push({
-        day_index: dayIndex,
-        meal_type: mealType,
-        meal_id: selected.id,
-        meal_name: selected.name,
-      });
     }
   }
 
   // Step 2: Assign dinners for each day
   for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-    // Friday = eating out
     if (dayIndex === 4) {
       plan.push({
         day_index: dayIndex,
@@ -134,61 +146,47 @@ export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
       continue;
     }
 
-    const candidates = eligibleMeals.filter(
-      (m) =>
-        m.meal_type === 'dinner' &&
-        m.effort >= effortRange.min &&
-        m.effort <= effortRange.max &&
-        !usedMealIds.has(m.id)
-    );
+    // Helper to filter by red meat constraints
+    const applyRedMeatFilter = (m: Meal): boolean => {
+      if (!m.has_red_meat) return true;
+      if (redMeatDinnerDays.length >= MAX_RED_MEAT_DINNERS) return false;
+      for (const rmDay of redMeatDinnerDays) {
+        if (Math.abs(rmDay - dayIndex) === 1) return false;
+      }
+      return true;
+    };
 
-    // Filter by red meat constraints
-    const validCandidates = shuffle(
-      candidates.filter((m) => {
-        if (!m.has_red_meat) {
-          return true;
-        }
+    // Build progressively relaxed candidate pools
+    const pools: Meal[][] = [
+      // Pool 1: recency-filtered + effort range + red meat constraints
+      eligibleMeals.filter(
+        (m) => m.meal_type === 'dinner' && m.effort >= effortRange.min && m.effort <= effortRange.max && applyRedMeatFilter(m)
+      ),
+      // Pool 2: recency-filtered + effort range + no red meat constraints
+      eligibleMeals.filter(
+        (m) => m.meal_type === 'dinner' && m.effort >= effortRange.min && m.effort <= effortRange.max
+      ),
+      // Pool 3: all meals + effort range
+      meals.filter(
+        (m) => m.meal_type === 'dinner' && m.effort >= effortRange.min && m.effort <= effortRange.max
+      ),
+      // Pool 4: all meals + any effort dinner
+      meals.filter((m) => m.meal_type === 'dinner'),
+    ];
 
-        // Check max 2 red meat dinners per week
-        if (redMeatDinnerDays.length >= MAX_RED_MEAT_DINNERS) {
-          return false;
-        }
-
-        // Check non-consecutive: no red meat on adjacent day
-        for (const rmDay of redMeatDinnerDays) {
-          if (Math.abs(rmDay - dayIndex) === 1) {
-            return false;
-          }
-        }
-
-        return true;
-      })
-    );
-
-    if (validCandidates.length === 0) {
-      throw new InsufficientMealsError(
-        `Not enough dinner meals for day ${dayIndex} (effort ${effortRange.min}-${effortRange.max}) after applying red meat and uniqueness constraints.`
-      );
+    const selected = selectFromPools(pools, usedMealIds);
+    if (selected !== undefined) {
+      usedMealIds.add(selected.id);
+      if (selected.has_red_meat) {
+        redMeatDinnerDays.push(dayIndex);
+      }
+      plan.push({
+        day_index: dayIndex,
+        meal_type: 'dinner',
+        meal_id: selected.id,
+        meal_name: selected.name,
+      });
     }
-
-    const selected = validCandidates[0];
-    if (selected === undefined) {
-      throw new InsufficientMealsError(
-        `Not enough dinner meals for day ${dayIndex} after applying constraints.`
-      );
-    }
-    usedMealIds.add(selected.id);
-
-    if (selected.has_red_meat) {
-      redMeatDinnerDays.push(dayIndex);
-    }
-
-    plan.push({
-      day_index: dayIndex,
-      meal_type: 'dinner',
-      meal_id: selected.id,
-      meal_name: selected.name,
-    });
   }
 
   // Sort plan by day_index, then by meal_type order (breakfast, lunch, dinner)
