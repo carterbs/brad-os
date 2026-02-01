@@ -73,6 +73,15 @@ final class APIClient: APIClientProtocol {
                 return date
             }
 
+            // Try space-separated datetime with fractional seconds (YYYY-MM-DD HH:mm:ss.SSSSSS)
+            let sqliteFractionalFormatter = DateFormatter()
+            sqliteFractionalFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSSSSS"
+            sqliteFractionalFormatter.locale = Locale(identifier: "en_US_POSIX")
+            sqliteFractionalFormatter.timeZone = TimeZone(identifier: "UTC")
+            if let date = sqliteFractionalFormatter.date(from: dateString) {
+                return date
+            }
+
             throw DecodingError.dataCorruptedError(
                 in: container,
                 debugDescription: "Cannot decode date from: \(dateString)"

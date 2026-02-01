@@ -18,7 +18,7 @@ struct APIConfiguration {
     private static let prodCloudFunctionsURL = "https://brad-os.web.app/api/prod"
 
     /// Firebase Emulator URL (hosting emulator serves at port 5002)
-    private static let emulatorURL = "http://localhost:5002/api/dev"
+    private static let emulatorURL = "http://127.0.0.1:5002/api/dev"
 
     /// Whether we're running on a physical device (not simulator)
     private static var isPhysicalDevice: Bool {
