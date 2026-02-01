@@ -16,8 +16,7 @@
  */
 
 import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { resolve } from 'path';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore, type Firestore, type WriteBatch } from 'firebase-admin/firestore';
 
@@ -97,15 +96,15 @@ function parseNull(val: string): string | null {
 function parseMeals(sql: string): PgMeal[] {
   const lines = extractCopyBlock(sql, 'meals');
   return lines.map((line) => {
-    const [id, name, effort, lastPlanned, redMeat, url, mealType] = line.split('\t');
+    const cols = line.split('\t');
     return {
-      id: parseInt(id, 10),
-      name,
-      effort: parseInt(effort, 10),
-      lastPlanned: parseNull(lastPlanned),
-      redMeat: redMeat === 't',
-      url: parseNull(url) || null,
-      mealType: mealType as 'breakfast' | 'lunch' | 'dinner',
+      id: parseInt(cols[0]!, 10),
+      name: cols[1]!,
+      effort: parseInt(cols[2]!, 10),
+      lastPlanned: parseNull(cols[3]!),
+      redMeat: cols[4] === 't',
+      url: parseNull(cols[5]!) || null,
+      mealType: cols[6]! as 'breakfast' | 'lunch' | 'dinner',
     };
   });
 }
@@ -117,9 +116,9 @@ function parseIngredients(sql: string): PgIngredient[] {
       const parts = line.split('\t');
       // Columns: id, meal_id, quantity, unit, name
       return {
-        id: parseInt(parts[0], 10),
-        mealId: parseInt(parts[1], 10),
-        name: parts[4] || '',
+        id: parseInt(parts[0]!, 10),
+        mealId: parseInt(parts[1]!, 10),
+        name: parts[4] ?? '',
       };
     })
     .filter((ing) => ing.name.length > 0);
@@ -128,11 +127,11 @@ function parseIngredients(sql: string): PgIngredient[] {
 function parseRecipeSteps(sql: string): PgRecipeStep[] {
   const lines = extractCopyBlock(sql, 'recipe_steps');
   return lines.map((line) => {
-    const [, mealId, stepNumber, instruction] = line.split('\t');
+    const cols = line.split('\t');
     return {
-      mealId: parseInt(mealId, 10),
-      stepNumber: parseInt(stepNumber, 10),
-      instruction,
+      mealId: parseInt(cols[1]!, 10),
+      stepNumber: parseInt(cols[2]!, 10),
+      instruction: cols[3]!,
     };
   });
 }
@@ -140,13 +139,13 @@ function parseRecipeSteps(sql: string): PgRecipeStep[] {
 function parseMessages(sql: string): PgMessage[] {
   const lines = extractCopyBlock(sql, 'messages');
   return lines.map((line) => {
-    const [id, threadId, sender, content, createdAt] = line.split('\t');
+    const cols = line.split('\t');
     return {
-      id: parseInt(id, 10),
-      threadId,
-      sender,
-      content,
-      createdAt,
+      id: parseInt(cols[0]!, 10),
+      threadId: cols[1]!,
+      sender: cols[2]!,
+      content: cols[3]!,
+      createdAt: cols[4]!,
     };
   });
 }
@@ -192,7 +191,7 @@ function parseCheckpointMeals(sql: string): Map<number, CheckpointMeal> {
       const existingTs = mealTimestamps.get(mealId);
 
       // Only keep the latest checkpoint data per meal
-      if (existingTs && existingTs > updatedAt) continue;
+      if (existingTs && updatedAt && existingTs > updatedAt) continue;
 
       const ingredients = (meal['ingredients'] as Array<Record<string, unknown>> || []).map((ing) => ({
         id: ing['id'] as number,
@@ -204,7 +203,7 @@ function parseCheckpointMeals(sql: string): Map<number, CheckpointMeal> {
       if (lastPlanned && lastPlanned.startsWith('1970-')) lastPlanned = null;
 
       mealMap.set(mealId, { mealId, ingredients, lastPlanned });
-      mealTimestamps.set(mealId, updatedAt);
+      if (updatedAt) mealTimestamps.set(mealId, updatedAt);
     }
   }
 
@@ -576,8 +575,8 @@ async function phase4MigrateConversations(
   for (const [threadId, messages] of threads) {
     messages.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
-    const firstMsg = messages[0];
-    const lastMsg = messages[messages.length - 1];
+    const firstMsg = messages[0]!;
+    const lastMsg = messages[messages.length - 1]!;
 
     // Write conversation document
     writer.set(convRef.doc(threadId), {
@@ -745,8 +744,6 @@ async function main(): Promise<void> {
 
   // Resolve paths — data files live in the main repo (not worktrees)
   const mainRepo = '/Users/bradcarter/Documents/Dev/brad-os';
-  const scriptDir = dirname(fileURLToPath(import.meta.url));
-  const projectRoot = resolve(scriptDir, '../../../..');
   const sqlPath = resolve(mainRepo, 'mealplanner.sql');
   const mappingPath = resolve(mainRepo, 'mealplanner-ingredient-mapping.json');
 
