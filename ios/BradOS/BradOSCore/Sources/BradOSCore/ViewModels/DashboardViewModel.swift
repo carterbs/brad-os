@@ -131,7 +131,8 @@ public class DashboardViewModel: ObservableObject {
         defer { isLoadingMealPlan = false }
 
         do {
-            if let session = try await apiClient.getLatestMealPlanSession(), session.isFinalized {
+            let session = try await apiClient.getLatestMealPlanSession()
+            if let session = session, session.isFinalized {
                 let todayDayIndex = Self.calendarWeekdayToDayIndex()
                 todayMeals = session.plan.filter { $0.dayIndex == todayDayIndex }
             } else {
@@ -140,9 +141,6 @@ public class DashboardViewModel: ObservableObject {
         } catch {
             // Meal plan loading is best-effort; don't set an error
             todayMeals = []
-            #if DEBUG
-            print("[DashboardViewModel] Load meal plan error: \(error)")
-            #endif
         }
     }
 

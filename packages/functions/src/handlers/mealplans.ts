@@ -18,6 +18,10 @@ app.use(cors({ origin: true }));
 app.use(express.json());
 app.use(stripPathPrefix('mealplans'));
 app.use(requireAppCheck);
+app.use((_req, res, next) => {
+  res.set('Cache-Control', 'private, no-store');
+  next();
+});
 
 // Lazy repository initialization
 let mealRepo: MealRepository | null = null;

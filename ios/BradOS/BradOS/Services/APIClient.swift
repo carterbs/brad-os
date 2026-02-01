@@ -29,6 +29,7 @@ final class APIClient: APIClientProtocol {
         } else {
             let config = URLSessionConfiguration.default
             config.connectionProxyDictionary = [:] // Disable proxies (including Private Relay)
+            config.requestCachePolicy = .reloadIgnoringLocalCacheData
             self.session = URLSession(configuration: config)
         }
 
