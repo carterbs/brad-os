@@ -26,6 +26,8 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     public var mockExerciseHistory: ExerciseHistory?
     public var mockCalendarData: CalendarData?
     public var mockBarcodes: [Barcode] = []
+    public var mockIngredients: [Ingredient] = []
+    public var mockRecipes: [Recipe] = []
 
     // MARK: - Initialization
 
@@ -41,6 +43,8 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         mockMeditationStats = MeditationStats.mockStats
         mockExerciseHistory = ExerciseHistory.mockHistory
         mockBarcodes = Barcode.mockBarcodes
+        mockIngredients = Ingredient.mockIngredients
+        mockRecipes = Recipe.mockRecipes
     }
 
     // MARK: - Helper Methods
@@ -529,6 +533,22 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         mockBarcodes.removeAll { $0.id == id }
     }
 
+    // MARK: - Ingredients
+
+    public func getIngredients() async throws -> [Ingredient] {
+        await simulateDelay()
+        try checkForError()
+        return mockIngredients
+    }
+
+    // MARK: - Recipes
+
+    public func getRecipes() async throws -> [Recipe] {
+        await simulateDelay()
+        try checkForError()
+        return mockRecipes
+    }
+
     // MARK: - Calendar
 
     public func getCalendarData(year: Int, month: Int, timezoneOffset: Int?) async throws -> CalendarData {
@@ -575,6 +595,8 @@ public extension MockAPIClient {
         client.mockMesocycles = []
         client.mockActiveMesocycle = nil
         client.mockBarcodes = []
+        client.mockIngredients = []
+        client.mockRecipes = []
         return client
     }
 }

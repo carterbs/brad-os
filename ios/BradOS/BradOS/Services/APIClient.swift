@@ -520,6 +520,18 @@ final class APIClient: APIClientProtocol {
         try await delete("/barcodes/\(id)")
     }
 
+    // MARK: - Ingredients
+
+    func getIngredients() async throws -> [Ingredient] {
+        try await get("/ingredients")
+    }
+
+    // MARK: - Recipes
+
+    func getRecipes() async throws -> [Recipe] {
+        try await get("/recipes")
+    }
+
     // MARK: - Calendar
 
     func getCalendarData(year: Int, month: Int, timezoneOffset: Int? = nil) async throws -> CalendarData {

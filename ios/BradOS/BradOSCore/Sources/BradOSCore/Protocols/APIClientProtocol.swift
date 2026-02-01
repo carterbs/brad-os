@@ -146,4 +146,14 @@ public protocol APIClientProtocol: Sendable {
 
     /// Delete a barcode
     func deleteBarcode(id: String) async throws
+
+    // MARK: - Ingredients
+
+    /// Get all ingredients
+    func getIngredients() async throws -> [Ingredient]
+
+    // MARK: - Recipes
+
+    /// Get all recipes
+    func getRecipes() async throws -> [Recipe]
 }
