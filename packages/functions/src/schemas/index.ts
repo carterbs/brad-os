@@ -5,3 +5,5 @@ export * from './workout.schema.js';
 export * from './stretching.schema.js';
 export * from './meditation.schema.js';
 export * from './barcode.schema.js';
+export * from './ingredient.schema.js';
+export * from './recipe.schema.js';

@@ -15,6 +15,8 @@ import { workoutSetsApp } from './handlers/workoutSets.js';
 import { calendarApp } from './handlers/calendar.js';
 import { mesocyclesApp } from './handlers/mesocycles.js';
 import { barcodesApp } from './handlers/barcodes.js';
+import { ingredientsApp } from './handlers/ingredients.js';
+import { recipesApp } from './handlers/recipes.js';
 
 // Common options
 const defaultOptions: HttpsOptions = {
@@ -34,6 +36,8 @@ export const devWorkoutSets = onRequest(defaultOptions, workoutSetsApp);
 export const devCalendar = onRequest(defaultOptions, calendarApp);
 export const devMesocycles = onRequest(defaultOptions, mesocyclesApp);
 export const devBarcodes = onRequest(defaultOptions, barcodesApp);
+export const devIngredients = onRequest(defaultOptions, ingredientsApp);
+export const devRecipes = onRequest(defaultOptions, recipesApp);
 
 // ============ PROD Functions ============
 export const prodHealth = onRequest(defaultOptions, healthApp);
@@ -46,3 +50,5 @@ export const prodWorkoutSets = onRequest(defaultOptions, workoutSetsApp);
 export const prodCalendar = onRequest(defaultOptions, calendarApp);
 export const prodMesocycles = onRequest(defaultOptions, mesocyclesApp);
 export const prodBarcodes = onRequest(defaultOptions, barcodesApp);
+export const prodIngredients = onRequest(defaultOptions, ingredientsApp);
+export const prodRecipes = onRequest(defaultOptions, recipesApp);
