@@ -227,11 +227,11 @@ Run the setup script to install dependencies for iOS Simulator testing:
 ### Building and Running
 
 ```bash
-# Build for simulator
-xcodebuild -workspace ios/BradOS/BradOS.xcworkspace \
+# Build for simulator (no workspace - use xcodeproj directly)
+xcodebuild -project ios/BradOS/BradOS.xcodeproj \
   -scheme BradOS \
   -sdk iphonesimulator \
-  -destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -derivedDataPath ./build/ios \
   build
 

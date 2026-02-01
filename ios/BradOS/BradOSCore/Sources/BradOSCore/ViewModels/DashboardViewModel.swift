@@ -9,11 +9,13 @@ public class DashboardViewModel: ObservableObject {
     @Published public var workout: Workout?
     @Published public var latestStretchSession: StretchSession?
     @Published public var latestMeditationSession: MeditationSession?
+    @Published public var todayMeals: [MealPlanEntry] = []
 
     // Independent loading states for each card
     @Published public var isLoadingWorkout = false
     @Published public var isLoadingStretch = false
     @Published public var isLoadingMeditation = false
+    @Published public var isLoadingMealPlan = false
 
     // Combined loading state for pull-to-refresh
     @Published public var isLoading = false
@@ -51,11 +53,13 @@ public class DashboardViewModel: ObservableObject {
         async let workoutTask = loadTodaysWorkout()
         async let stretchTask = loadLatestStretch()
         async let meditationTask = loadLatestMeditation()
+        async let mealPlanTask = loadMealPlan()
 
         // Await all tasks - errors are handled individually
         await workoutTask
         await stretchTask
         await meditationTask
+        await mealPlanTask
 
         isLoading = false
     }
@@ -120,6 +124,34 @@ public class DashboardViewModel: ObservableObject {
         } catch {
             meditationError = APIError.network(error)
         }
+    }
+
+    private func loadMealPlan() async {
+        isLoadingMealPlan = true
+        defer { isLoadingMealPlan = false }
+
+        do {
+            if let session = try await apiClient.getLatestMealPlanSession(), session.isFinalized {
+                let todayDayIndex = Self.calendarWeekdayToDayIndex()
+                todayMeals = session.plan.filter { $0.dayIndex == todayDayIndex }
+            } else {
+                todayMeals = []
+            }
+        } catch {
+            // Meal plan loading is best-effort; don't set an error
+            todayMeals = []
+            #if DEBUG
+            print("[DashboardViewModel] Load meal plan error: \(error)")
+            #endif
+        }
+    }
+
+    /// Convert Calendar weekday (1=Sun..7=Sat) to plan dayIndex (0=Mon..6=Sun)
+    static func calendarWeekdayToDayIndex(date: Date = Date()) -> Int {
+        let weekday = Calendar.current.component(.weekday, from: date)
+        // Calendar: 1=Sun, 2=Mon, 3=Tue, 4=Wed, 5=Thu, 6=Fri, 7=Sat
+        // DayIndex: 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
+        return weekday == 1 ? 6 : weekday - 2
     }
 
     // MARK: - Workout Actions
@@ -209,6 +241,11 @@ public extension DashboardViewModel {
         viewModel.workout = Workout.mockTodayWorkout
         viewModel.latestStretchSession = StretchSession.mockRecentSession
         viewModel.latestMeditationSession = MeditationSession.mockRecentSession
+        viewModel.todayMeals = [
+            MealPlanEntry(dayIndex: 0, mealType: .breakfast, mealId: "m1", mealName: "Scrambled Eggs"),
+            MealPlanEntry(dayIndex: 0, mealType: .lunch, mealId: "m2", mealName: "Chicken Caesar Salad"),
+            MealPlanEntry(dayIndex: 0, mealType: .dinner, mealId: "m3", mealName: "Salmon with Rice"),
+        ]
         return viewModel
     }
 

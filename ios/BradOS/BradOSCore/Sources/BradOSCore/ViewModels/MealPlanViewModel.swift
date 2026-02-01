@@ -19,6 +19,8 @@ public class MealPlanViewModel: ObservableObject {
     @Published public var changedSlots: Set<String> = []
     @Published public var shoppingList: [ShoppingListSection] = []
     @Published public var didCopyToClipboard = false
+    @Published public var queuedActions = QueuedCritiqueActions()
+    @Published public var isCritiqueExpanded = false
 
     // MARK: - Constants
 
@@ -183,6 +185,53 @@ public class MealPlanViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Queued Actions
+
+    private static let dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+    /// Get entries filtered and sorted for a specific meal type
+    public func entriesForMealType(_ mealType: MealType) -> [MealPlanEntry] {
+        currentPlan
+            .filter { $0.mealType == mealType }
+            .sorted { $0.dayIndex < $1.dayIndex }
+    }
+
+    /// Look up the effort level for an entry from the session's meals snapshot
+    public func effortForEntry(_ entry: MealPlanEntry) -> Int? {
+        guard let mealId = entry.mealId else { return nil }
+        return session?.mealsSnapshot.first { $0.id == mealId }?.effort
+    }
+
+    /// Whether a slot supports interaction (false for entries with no mealId, e.g. "Eating out")
+    public func isSlotInteractive(_ entry: MealPlanEntry) -> Bool {
+        entry.mealId != nil
+    }
+
+    /// Toggle swap for an entry's slot
+    public func toggleSwap(for entry: MealPlanEntry) {
+        guard isSlotInteractive(entry) else { return }
+        queuedActions.toggleSwap(slot: MealSlot(entry: entry))
+    }
+
+    /// Toggle remove for an entry's slot
+    public func toggleRemove(for entry: MealPlanEntry) {
+        guard isSlotInteractive(entry) else { return }
+        queuedActions.toggleRemove(slot: MealSlot(entry: entry))
+    }
+
+    /// Get the queued action for an entry, if any
+    public func actionForEntry(_ entry: MealPlanEntry) -> MealPlanAction? {
+        queuedActions.action(for: MealSlot(entry: entry))
+    }
+
+    /// Submit all queued actions as a natural language critique
+    public func submitQueuedActions() async {
+        guard !queuedActions.isEmpty else { return }
+        critiqueText = queuedActions.generateCritiqueText(plan: currentPlan)
+        queuedActions.clear()
+        await sendCritique()
+    }
+
     // MARK: - Start New Plan
 
     public func startNewPlan() {
@@ -193,6 +242,8 @@ public class MealPlanViewModel: ObservableObject {
         changedSlots = []
         shoppingList = []
         didCopyToClipboard = false
+        queuedActions = QueuedCritiqueActions()
+        isCritiqueExpanded = false
         error = nil
         savedSessionId = nil
     }

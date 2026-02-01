@@ -33,6 +33,14 @@ struct TodayDashboardView: View {
                     ) {
                         appState.isShowingMeditation = true
                     }
+
+                    // Meal Plan Card
+                    MealPlanDashboardCard(
+                        todayMeals: viewModel.todayMeals,
+                        isLoading: viewModel.isLoadingMealPlan
+                    ) {
+                        appState.isShowingMealPlan = true
+                    }
                 }
                 .padding(Theme.Spacing.md)
             }
