@@ -37,6 +37,12 @@ app.get('/', asyncHandler(async (_req: Request, res: Response, _next: NextFuncti
   res.json({ success: true, data: sessions });
 }));
 
+// GET /meditation-sessions/stats
+app.get('/stats', asyncHandler(async (_req: Request, res: Response, _next: NextFunction) => {
+  const stats = await getRepo().getStats();
+  res.json({ success: true, data: stats });
+}));
+
 // GET /meditation-sessions/latest
 app.get('/latest', asyncHandler(async (_req: Request, res: Response, _next: NextFunction) => {
   const session = await getRepo().findLatest();

@@ -29,6 +29,7 @@ const mockMeditationSessionRepo = {
   findById: vi.fn(),
   findLatest: vi.fn(),
   create: vi.fn(),
+  getStats: vi.fn(),
 };
 
 vi.mock('../repositories/meditationSession.repository.js', () => ({
@@ -289,6 +290,35 @@ describe('MeditationSessions Handler', () => {
       expect(response.body).toEqual({
         success: true,
         data: [],
+      });
+    });
+  });
+
+  describe('GET /meditation-sessions/stats', () => {
+    it('should return meditation statistics', async () => {
+      const stats = { totalSessions: 42, totalMinutes: 315 };
+      mockMeditationSessionRepo.getStats.mockResolvedValue(stats);
+
+      const response = await request(meditationSessionsApp).get('/stats');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        success: true,
+        data: stats,
+      });
+      expect(mockMeditationSessionRepo.getStats).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return zero stats when no sessions exist', async () => {
+      const stats = { totalSessions: 0, totalMinutes: 0 };
+      mockMeditationSessionRepo.getStats.mockResolvedValue(stats);
+
+      const response = await request(meditationSessionsApp).get('/stats');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        success: true,
+        data: stats,
       });
     });
   });
