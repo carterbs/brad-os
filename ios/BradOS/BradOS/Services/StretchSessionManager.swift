@@ -83,8 +83,7 @@ class StretchSessionManager: ObservableObject {
     // MARK: - Private Properties
 
     private var _sessionStartTime: Date?
-    private var segmentStartedAt: Date?
-    private var pausedElapsed: TimeInterval = 0
+    private var segmentEndTime: Date?  // Target end time for current segment (background-safe)
     private var pausedAt: Date?
     private var timer: DispatchSourceTimer?
     private let timerQueue = DispatchQueue(label: "com.bradcarter.brad-os.stretch-timer", qos: .userInteractive)
@@ -229,8 +228,8 @@ class StretchSessionManager: ObservableObject {
         audioManager.startKeepalive()
 
         // Start timer FIRST (matches PWA - timer runs during narration)
-        segmentStartedAt = Date()
-        pausedElapsed = 0
+        // Use target end time for background-safe timing
+        segmentEndTime = Date().addingTimeInterval(segmentDuration)
         segmentRemaining = segmentDuration
         status = .active
         startTimer()
@@ -253,10 +252,10 @@ class StretchSessionManager: ObservableObject {
         skippedSegments = state.skippedSegments
         _sessionStartTime = state.sessionStartTime
 
-        // Calculate remaining time
+        // Restore remaining time and pause state
         segmentRemaining = state.segmentRemaining
-        pausedElapsed = 0
         pausedAt = state.pausedAt
+        segmentEndTime = nil  // Will be set when resumed
         status = .paused
 
         // Re-activate audio session and keepalive
@@ -267,9 +266,12 @@ class StretchSessionManager: ObservableObject {
     /// Resume from paused state
     func resume() {
         guard status == .paused else { return }
+
+        // Set new end time based on remaining time
+        segmentEndTime = Date().addingTimeInterval(segmentRemaining)
         pausedAt = nil
-        segmentStartedAt = Date()
         status = .active
+
         startTimer()
         startNowPlayingUpdates()
         updateNowPlayingInfo()
@@ -278,9 +280,13 @@ class StretchSessionManager: ObservableObject {
 
     /// Pause the session
     func pause() {
-        guard status == .active else { return }
-        pausedElapsed = segmentElapsed
+        guard status == .active, let endTime = segmentEndTime else { return }
+
+        // Store remaining time when paused
+        segmentRemaining = max(0, endTime.timeIntervalSince(Date()))
         pausedAt = Date()
+        segmentEndTime = nil  // Clear end time while paused
+
         timer?.cancel()
         timer = nil
         nowPlayingUpdateTimer?.cancel()
@@ -373,8 +379,7 @@ class StretchSessionManager: ObservableObject {
         completedStretches = []
         skippedSegments = [:]
         _sessionStartTime = nil
-        segmentStartedAt = nil
-        pausedElapsed = 0
+        segmentEndTime = nil
         pausedAt = nil
         spotifyState = .idle
         isWaitingForSpotifyReturn = false
@@ -401,8 +406,7 @@ class StretchSessionManager: ObservableObject {
         completedStretches = []
         skippedSegments = [:]
         _sessionStartTime = nil
-        segmentStartedAt = nil
-        pausedElapsed = 0
+        segmentEndTime = nil
         pausedAt = nil
         spotifyState = .idle
         isWaitingForSpotifyReturn = false
@@ -442,10 +446,10 @@ class StretchSessionManager: ObservableObject {
     }
 
     private func updateTimer() {
-        guard status == .active, let startedAt = segmentStartedAt else { return }
+        guard status == .active, let endTime = segmentEndTime else { return }
 
-        let elapsed = Date().timeIntervalSince(startedAt) + pausedElapsed
-        let remaining = segmentDuration - elapsed
+        // Calculate remaining time based on target end time (background-safe)
+        let remaining = endTime.timeIntervalSince(Date())
 
         if remaining <= 0 {
             segmentRemaining = 0
@@ -464,8 +468,7 @@ class StretchSessionManager: ObservableObject {
         if currentSegment == 1 {
             // Advance to segment 2 FIRST (matches PWA - timer starts immediately)
             currentSegment = 2
-            segmentStartedAt = Date()
-            pausedElapsed = 0
+            segmentEndTime = Date().addingTimeInterval(segmentDuration)
             segmentRemaining = segmentDuration
 
             // Start timer BEFORE playing narration (timer runs during narration)
@@ -524,8 +527,7 @@ class StretchSessionManager: ObservableObject {
             // Advance to next stretch FIRST (matches PWA - timer starts immediately)
             currentStretchIndex += 1
             currentSegment = 1
-            segmentStartedAt = Date()
-            pausedElapsed = 0
+            segmentEndTime = Date().addingTimeInterval(segmentDuration)
             segmentRemaining = segmentDuration
 
             // Start timer BEFORE playing narration (timer runs during narration)
