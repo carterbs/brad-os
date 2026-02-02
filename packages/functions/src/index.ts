@@ -26,8 +26,6 @@ import { guidedMeditationsApp } from './handlers/guidedMeditations.js';
 
 // Secrets
 const openaiApiKey = defineSecret('OPENAI_API_KEY');
-const googleTtsApiKey = defineSecret('GOOGLE_TTS_API_KEY');
-
 // Common options
 const defaultOptions: HttpsOptions = {
   region: 'us-central1',
@@ -42,10 +40,9 @@ const withOpenAiOptions: HttpsOptions = {
   timeoutSeconds: 120,
 };
 
-// Options for functions that need the Google TTS API key
-const withGoogleTtsOptions: HttpsOptions = {
+// Options for TTS functions (uses ADC, no secret needed, shorter timeout)
+const withTtsOptions: HttpsOptions = {
   ...defaultOptions,
-  secrets: [googleTtsApiKey],
   timeoutSeconds: 30,
 };
 
@@ -64,7 +61,7 @@ export const devMeals = onRequest(defaultOptions, mealsApp);
 export const devMealplans = onRequest(withOpenAiOptions, mealplansApp);
 export const devIngredients = onRequest(defaultOptions, ingredientsApp);
 export const devRecipes = onRequest(defaultOptions, recipesApp);
-export const devTts = onRequest(withGoogleTtsOptions, ttsApp);
+export const devTts = onRequest(withTtsOptions, ttsApp);
 export const devGuidedMeditations = onRequest(defaultOptions, guidedMeditationsApp);
 
 // ============ PROD Functions ============
@@ -82,7 +79,7 @@ export const prodMeals = onRequest(defaultOptions, mealsApp);
 export const prodMealplans = onRequest(withOpenAiOptions, mealplansApp);
 export const prodIngredients = onRequest(defaultOptions, ingredientsApp);
 export const prodRecipes = onRequest(defaultOptions, recipesApp);
-export const prodTts = onRequest(withGoogleTtsOptions, ttsApp);
+export const prodTts = onRequest(withTtsOptions, ttsApp);
 export const prodGuidedMeditations = onRequest(defaultOptions, guidedMeditationsApp);
 
 // ============ Debug Functions (emulator only) ============

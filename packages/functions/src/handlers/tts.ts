@@ -1,5 +1,7 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import cors from 'cors';
+import { getApp } from 'firebase-admin/app';
+import { getRemoteConfig } from 'firebase-admin/remote-config';
 import { type SynthesizeRequest, synthesizeSchema } from '../shared.js';
 import { validate } from '../middleware/validate.js';
 import { errorHandler } from '../middleware/error-handler.js';
@@ -12,6 +14,8 @@ app.use(cors({ origin: true }));
 app.use(express.json());
 app.use(stripPathPrefix('tts'));
 app.use(requireAppCheck);
+
+const DEFAULT_VOICE = 'en-US-Chirp3-HD-Algenib';
 
 interface GoogleTtsResponse {
   audioContent: string;
@@ -26,27 +30,54 @@ function deriveLanguageCode(voiceName: string): string {
   return 'en-US';
 }
 
+async function getAccessToken(): Promise<string> {
+  const credential = getApp().options.credential;
+  if (credential === undefined) {
+    throw new Error('No credential available on Firebase app');
+  }
+  const token = await credential.getAccessToken();
+  return token.access_token;
+}
+
+async function getTtsVoice(): Promise<string> {
+  try {
+    const rc = getRemoteConfig();
+    const template = await rc.getServerTemplate({
+      defaultConfig: { TTS_VOICE: DEFAULT_VOICE },
+    });
+    const config = template.evaluate();
+    const voice = config.getString('TTS_VOICE');
+    return voice !== '' ? voice : DEFAULT_VOICE;
+  } catch (err) {
+    console.warn('Failed to fetch Remote Config, using default voice:', err);
+    return DEFAULT_VOICE;
+  }
+}
+
 // POST /tts/synthesize
 app.post('/synthesize', validate(synthesizeSchema), asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
   const { text } = req.body as SynthesizeRequest;
 
-  const apiKey = process.env['GOOGLE_TTS_API_KEY'] ?? '';
-  if (apiKey === '') {
+  const voice = await getTtsVoice();
+  const languageCode = deriveLanguageCode(voice);
+
+  let accessToken: string;
+  try {
+    accessToken = await getAccessToken();
+  } catch (err) {
+    console.error('Failed to get access token:', err);
     res.status(500).json({
       success: false,
-      error: { code: 'MISSING_SECRET', message: 'TTS API key not configured' },
+      error: { code: 'AUTH_ERROR', message: 'Failed to obtain credentials for TTS API' },
     });
     return;
   }
-
-  const voice = process.env['TTS_VOICE'] ?? 'en-US-Chirp3-HD-Algenib';
-  const languageCode = deriveLanguageCode(voice);
 
   const googleResponse = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-goog-api-key': apiKey,
+      'Authorization': `Bearer ${accessToken}`,
     },
     body: JSON.stringify({
       input: { text },
