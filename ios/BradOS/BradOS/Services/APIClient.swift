@@ -568,6 +568,26 @@ final class APIClient: APIClientProtocol {
         return try await getOptional("/mealplans/latest")
     }
 
+    // MARK: - Text to Speech
+
+    func synthesizeSpeech(text: String) async throws -> Data {
+        struct SynthesizeBody: Encodable {
+            let text: String
+        }
+
+        struct SynthesizeResponse: Decodable {
+            let audio: String
+        }
+
+        let response: SynthesizeResponse = try await post("/tts/synthesize", body: SynthesizeBody(text: text))
+
+        guard let audioData = Data(base64Encoded: response.audio) else {
+            throw APIError.unknown("Failed to decode base64 audio data")
+        }
+
+        return audioData
+    }
+
     // MARK: - Calendar
 
     func getCalendarData(year: Int, month: Int, timezoneOffset: Int? = nil) async throws -> CalendarData {
