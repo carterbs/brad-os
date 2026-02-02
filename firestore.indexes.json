@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "dev_guided_meditation_scripts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "orderIndex", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "guided_meditation_scripts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "orderIndex", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

@@ -33,68 +33,273 @@
       "**/node_modules/**"
     ],
     "rewrites": [
-      { "source": "/api/dev/health", "function": "devHealth" },
-      { "source": "/api/dev/health/**", "function": "devHealth" },
-      { "source": "/api/dev/exercises", "function": "devExercises" },
-      { "source": "/api/dev/exercises/**", "function": "devExercises" },
-      { "source": "/api/dev/plans", "function": "devPlans" },
-      { "source": "/api/dev/plans/**", "function": "devPlans" },
-      { "source": "/api/dev/mesocycles", "function": "devMesocycles" },
-      { "source": "/api/dev/mesocycles/**", "function": "devMesocycles" },
-      { "source": "/api/dev/workouts", "function": "devWorkouts" },
-      { "source": "/api/dev/workouts/**", "function": "devWorkouts" },
-      { "source": "/api/dev/workout-sets", "function": "devWorkoutSets" },
-      { "source": "/api/dev/workout-sets/**", "function": "devWorkoutSets" },
-      { "source": "/api/dev/stretch-sessions", "function": "devStretchSessions" },
-      { "source": "/api/dev/stretch-sessions/**", "function": "devStretchSessions" },
-      { "source": "/api/dev/meditation-sessions", "function": "devMeditationSessions" },
-      { "source": "/api/dev/meditation-sessions/**", "function": "devMeditationSessions" },
-      { "source": "/api/dev/calendar", "function": "devCalendar" },
-      { "source": "/api/dev/calendar/**", "function": "devCalendar" },
-      { "source": "/api/dev/barcodes", "function": "devBarcodes" },
-      { "source": "/api/dev/barcodes/**", "function": "devBarcodes" },
-      { "source": "/api/dev/meals", "function": "devMeals" },
-      { "source": "/api/dev/meals/**", "function": "devMeals" },
-      { "source": "/api/dev/mealplans", "function": "devMealplans" },
-      { "source": "/api/dev/mealplans/**", "function": "devMealplans" },
-      { "source": "/api/dev/ingredients", "function": "devIngredients" },
-      { "source": "/api/dev/ingredients/**", "function": "devIngredients" },
-      { "source": "/api/dev/recipes", "function": "devRecipes" },
-      { "source": "/api/dev/recipes/**", "function": "devRecipes" },
-      { "source": "/api/dev/tts", "function": "devTts" },
-      { "source": "/api/dev/tts/**", "function": "devTts" },
-      { "source": "/debug", "function": "devMealplanDebug" },
-      { "source": "/debug/**", "function": "devMealplanDebug" },
-      { "source": "/api/prod/health", "function": "prodHealth" },
-      { "source": "/api/prod/health/**", "function": "prodHealth" },
-      { "source": "/api/prod/exercises", "function": "prodExercises" },
-      { "source": "/api/prod/exercises/**", "function": "prodExercises" },
-      { "source": "/api/prod/plans", "function": "prodPlans" },
-      { "source": "/api/prod/plans/**", "function": "prodPlans" },
-      { "source": "/api/prod/mesocycles", "function": "prodMesocycles" },
-      { "source": "/api/prod/mesocycles/**", "function": "prodMesocycles" },
-      { "source": "/api/prod/workouts", "function": "prodWorkouts" },
-      { "source": "/api/prod/workouts/**", "function": "prodWorkouts" },
-      { "source": "/api/prod/workout-sets", "function": "prodWorkoutSets" },
-      { "source": "/api/prod/workout-sets/**", "function": "prodWorkoutSets" },
-      { "source": "/api/prod/stretch-sessions", "function": "prodStretchSessions" },
-      { "source": "/api/prod/stretch-sessions/**", "function": "prodStretchSessions" },
-      { "source": "/api/prod/meditation-sessions", "function": "prodMeditationSessions" },
-      { "source": "/api/prod/meditation-sessions/**", "function": "prodMeditationSessions" },
-      { "source": "/api/prod/calendar", "function": "prodCalendar" },
-      { "source": "/api/prod/calendar/**", "function": "prodCalendar" },
-      { "source": "/api/prod/barcodes", "function": "prodBarcodes" },
-      { "source": "/api/prod/barcodes/**", "function": "prodBarcodes" },
-      { "source": "/api/prod/meals", "function": "prodMeals" },
-      { "source": "/api/prod/meals/**", "function": "prodMeals" },
-      { "source": "/api/prod/mealplans", "function": "prodMealplans" },
-      { "source": "/api/prod/mealplans/**", "function": "prodMealplans" },
-      { "source": "/api/prod/ingredients", "function": "prodIngredients" },
-      { "source": "/api/prod/ingredients/**", "function": "prodIngredients" },
-      { "source": "/api/prod/recipes", "function": "prodRecipes" },
-      { "source": "/api/prod/recipes/**", "function": "prodRecipes" },
-      { "source": "/api/prod/tts", "function": "prodTts" },
-      { "source": "/api/prod/tts/**", "function": "prodTts" }
+      {
+        "source": "/api/dev/health",
+        "function": "devHealth"
+      },
+      {
+        "source": "/api/dev/health/**",
+        "function": "devHealth"
+      },
+      {
+        "source": "/api/dev/exercises",
+        "function": "devExercises"
+      },
+      {
+        "source": "/api/dev/exercises/**",
+        "function": "devExercises"
+      },
+      {
+        "source": "/api/dev/plans",
+        "function": "devPlans"
+      },
+      {
+        "source": "/api/dev/plans/**",
+        "function": "devPlans"
+      },
+      {
+        "source": "/api/dev/mesocycles",
+        "function": "devMesocycles"
+      },
+      {
+        "source": "/api/dev/mesocycles/**",
+        "function": "devMesocycles"
+      },
+      {
+        "source": "/api/dev/workouts",
+        "function": "devWorkouts"
+      },
+      {
+        "source": "/api/dev/workouts/**",
+        "function": "devWorkouts"
+      },
+      {
+        "source": "/api/dev/workout-sets",
+        "function": "devWorkoutSets"
+      },
+      {
+        "source": "/api/dev/workout-sets/**",
+        "function": "devWorkoutSets"
+      },
+      {
+        "source": "/api/dev/stretch-sessions",
+        "function": "devStretchSessions"
+      },
+      {
+        "source": "/api/dev/stretch-sessions/**",
+        "function": "devStretchSessions"
+      },
+      {
+        "source": "/api/dev/meditation-sessions",
+        "function": "devMeditationSessions"
+      },
+      {
+        "source": "/api/dev/meditation-sessions/**",
+        "function": "devMeditationSessions"
+      },
+      {
+        "source": "/api/dev/calendar",
+        "function": "devCalendar"
+      },
+      {
+        "source": "/api/dev/calendar/**",
+        "function": "devCalendar"
+      },
+      {
+        "source": "/api/dev/barcodes",
+        "function": "devBarcodes"
+      },
+      {
+        "source": "/api/dev/barcodes/**",
+        "function": "devBarcodes"
+      },
+      {
+        "source": "/api/dev/meals",
+        "function": "devMeals"
+      },
+      {
+        "source": "/api/dev/meals/**",
+        "function": "devMeals"
+      },
+      {
+        "source": "/api/dev/mealplans",
+        "function": "devMealplans"
+      },
+      {
+        "source": "/api/dev/mealplans/**",
+        "function": "devMealplans"
+      },
+      {
+        "source": "/api/dev/ingredients",
+        "function": "devIngredients"
+      },
+      {
+        "source": "/api/dev/ingredients/**",
+        "function": "devIngredients"
+      },
+      {
+        "source": "/api/dev/recipes",
+        "function": "devRecipes"
+      },
+      {
+        "source": "/api/dev/recipes/**",
+        "function": "devRecipes"
+      },
+      {
+        "source": "/api/dev/tts",
+        "function": "devTts"
+      },
+      {
+        "source": "/api/dev/tts/**",
+        "function": "devTts"
+      },
+      {
+        "source": "/api/dev/guidedMeditations",
+        "function": "devGuidedMeditations"
+      },
+      {
+        "source": "/api/dev/guidedMeditations/**",
+        "function": "devGuidedMeditations"
+      },
+      {
+        "source": "/debug",
+        "function": "devMealplanDebug"
+      },
+      {
+        "source": "/debug/**",
+        "function": "devMealplanDebug"
+      },
+      {
+        "source": "/api/prod/health",
+        "function": "prodHealth"
+      },
+      {
+        "source": "/api/prod/health/**",
+        "function": "prodHealth"
+      },
+      {
+        "source": "/api/prod/exercises",
+        "function": "prodExercises"
+      },
+      {
+        "source": "/api/prod/exercises/**",
+        "function": "prodExercises"
+      },
+      {
+        "source": "/api/prod/plans",
+        "function": "prodPlans"
+      },
+      {
+        "source": "/api/prod/plans/**",
+        "function": "prodPlans"
+      },
+      {
+        "source": "/api/prod/mesocycles",
+        "function": "prodMesocycles"
+      },
+      {
+        "source": "/api/prod/mesocycles/**",
+        "function": "prodMesocycles"
+      },
+      {
+        "source": "/api/prod/workouts",
+        "function": "prodWorkouts"
+      },
+      {
+        "source": "/api/prod/workouts/**",
+        "function": "prodWorkouts"
+      },
+      {
+        "source": "/api/prod/workout-sets",
+        "function": "prodWorkoutSets"
+      },
+      {
+        "source": "/api/prod/workout-sets/**",
+        "function": "prodWorkoutSets"
+      },
+      {
+        "source": "/api/prod/stretch-sessions",
+        "function": "prodStretchSessions"
+      },
+      {
+        "source": "/api/prod/stretch-sessions/**",
+        "function": "prodStretchSessions"
+      },
+      {
+        "source": "/api/prod/meditation-sessions",
+        "function": "prodMeditationSessions"
+      },
+      {
+        "source": "/api/prod/meditation-sessions/**",
+        "function": "prodMeditationSessions"
+      },
+      {
+        "source": "/api/prod/calendar",
+        "function": "prodCalendar"
+      },
+      {
+        "source": "/api/prod/calendar/**",
+        "function": "prodCalendar"
+      },
+      {
+        "source": "/api/prod/barcodes",
+        "function": "prodBarcodes"
+      },
+      {
+        "source": "/api/prod/barcodes/**",
+        "function": "prodBarcodes"
+      },
+      {
+        "source": "/api/prod/meals",
+        "function": "prodMeals"
+      },
+      {
+        "source": "/api/prod/meals/**",
+        "function": "prodMeals"
+      },
+      {
+        "source": "/api/prod/mealplans",
+        "function": "prodMealplans"
+      },
+      {
+        "source": "/api/prod/mealplans/**",
+        "function": "prodMealplans"
+      },
+      {
+        "source": "/api/prod/ingredients",
+        "function": "prodIngredients"
+      },
+      {
+        "source": "/api/prod/ingredients/**",
+        "function": "prodIngredients"
+      },
+      {
+        "source": "/api/prod/recipes",
+        "function": "prodRecipes"
+      },
+      {
+        "source": "/api/prod/recipes/**",
+        "function": "prodRecipes"
+      },
+      {
+        "source": "/api/prod/tts",
+        "function": "prodTts"
+      },
+      {
+        "source": "/api/prod/tts/**",
+        "function": "prodTts"
+      },
+      {
+        "source": "/api/prod/guidedMeditations",
+        "function": "prodGuidedMeditations"
+      },
+      {
+        "source": "/api/prod/guidedMeditations/**",
+        "function": "prodGuidedMeditations"
+      }
     ]
+  },
+  "firestore": {
+    "indexes": "firestore.indexes.json"
   }
 }

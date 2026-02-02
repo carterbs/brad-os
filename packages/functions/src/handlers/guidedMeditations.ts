@@ -22,8 +22,13 @@ function getRepo(): GuidedMeditationRepository {
   return guidedMeditationRepo;
 }
 
-// GET / — list categories
+// GET / — list categories (also handle /categories for iOS client compatibility)
 app.get('/', asyncHandler(async (_req: Request, res: Response, _next: NextFunction) => {
+  const categories = await getRepo().getCategories();
+  res.json({ success: true, data: categories });
+}));
+
+app.get('/categories', asyncHandler(async (_req: Request, res: Response, _next: NextFunction) => {
   const categories = await getRepo().getCategories();
   res.json({ success: true, data: categories });
 }));

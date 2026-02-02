@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import BradOSCore
 
 /// Service for loading guided meditation scripts and preparing audio
 @MainActor
