@@ -1,14 +1,42 @@
 # brad-os
 
-A personal operating system for tracking wellness and fitness. Built as a learning project that I actually use daily. Currently focused on workouts, stretching, and meditation—will expand as needed.
+A personal operating system for tracking wellness and fitness. Built as a learning project that I actually use daily. Currently focused on workouts, stretching, meditation, and meal planning—will expand as needed.
+
+## Screenshots
+
+<p align="center">
+  <img src="docs/meal-plan.png" width="250" alt="Weekly Meal Plan" />
+  <img src="docs/lifting.png" width="250" alt="Workout Session" />
+  <img src="docs/stretching.png" width="250" alt="Stretching Session" />
+</p>
 
 ## Features
 
-- **Workout Plans**: Build custom plans with exercises, sets, reps, and rest periods
-- **Progressive Overload**: Automatic weight/rep progression across 6-week mesocycles
-- **Stretch Routines**: Guided stretching sessions by body region
-- **Meditation Timer**: Simple meditation with configurable duration
-- **Activity Calendar**: Track all activities with visual history
+### 🍽️ Meal Planning
+- Weekly meal plans with breakfast, lunch, and dinner
+- Generate grocery lists from meal plans
+
+### 🏋️ Progressive Overload Lifting
+- 6-week mesocycle training with automatic progression
+- Track warmup sets and working sets
+- Real-time workout tracking with rest timers
+
+### 🧘 Guided Stretching
+- Target specific body regions (neck, shoulders, back, hip flexors, glutes, hamstrings, quads, calves)
+- Customizable duration per region (1-2 minutes)
+- Session timer with progress tracking
+- Optional Spotify playlist integration
+
+### 🧠 Meditation
+- Configurable meditation timer
+- Simple, distraction-free interface
+- Session history tracking
+
+### 📅 Activity Dashboard
+- Today view showing current meal plan and active workouts
+- Unified calendar of all activities
+- Quick access to all wellness features
+- Activity history and streaks
 
 ## Architecture
 
@@ -34,12 +62,6 @@ npm run test             # Unit tests
 xcodebuild -workspace ios/BradOS/BradOS.xcworkspace \
   -scheme BradOS \
   -sdk iphonesimulator \
-  -destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   build
-```
-
-## Deployment
-
-```bash
-./scripts/deploy.sh      # Build + deploy API to remote server
 ```
