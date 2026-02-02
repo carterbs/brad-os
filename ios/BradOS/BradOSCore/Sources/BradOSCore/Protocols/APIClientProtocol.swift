@@ -173,4 +173,9 @@ public protocol APIClientProtocol: Sendable {
 
     /// Get the most recent meal plan session
     func getLatestMealPlanSession() async throws -> MealPlanSession?
+
+    // MARK: - Text to Speech
+
+    /// Synthesize speech from text, returns MP3 audio data
+    func synthesizeSpeech(text: String) async throws -> Data
 }

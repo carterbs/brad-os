@@ -42,6 +42,23 @@ struct ProfileView: View {
                     }
                 }
                 .buttonStyle(.plain)
+
+                Divider()
+                    .background(Theme.strokeSubtle)
+
+                NavigationLink(destination: TextToSpeechView()) {
+                    SettingsRow(
+                        title: "Text to Speech",
+                        subtitle: "Speak text aloud",
+                        iconName: "waveform",
+                        iconColor: Theme.interactiveSecondary
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                }
+                .buttonStyle(.plain)
             }
             .glassCard(.card, padding: 0)
 
