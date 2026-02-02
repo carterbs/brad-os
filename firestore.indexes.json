@@ -15,6 +15,38 @@
         { "fieldPath": "category", "order": "ASCENDING" },
         { "fieldPath": "orderIndex", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "dev_mesocycles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "start_date", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "mesocycles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "start_date", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dev_mesocycles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "plan_id", "order": "ASCENDING" },
+        { "fieldPath": "start_date", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "mesocycles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "plan_id", "order": "ASCENDING" },
+        { "fieldPath": "start_date", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
