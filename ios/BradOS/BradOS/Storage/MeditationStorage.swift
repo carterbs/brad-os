@@ -88,6 +88,11 @@ final class MeditationStorage {
         return state
     }
 
+    /// Check if a persisted session is a guided meditation
+    func isGuidedSession(_ state: MeditationSessionPersisted) -> Bool {
+        return state.guidedScriptId != nil
+    }
+
     // MARK: - Configuration
 
     /// Save user's meditation preferences

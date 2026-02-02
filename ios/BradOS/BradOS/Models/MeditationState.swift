@@ -23,6 +23,11 @@ struct MeditationSessionPersisted: Codable {
     var scheduledCues: [ScheduledCue]
     var currentPhaseIndex: Int
 
+    // Guided meditation recovery fields
+    var guidedScriptId: String?
+    var guidedCategory: String?
+    var guidedElapsedSeconds: TimeInterval?  // Pipeline elapsed time for recovery
+
     /// Total duration in seconds
     var totalDurationSeconds: Int {
         durationMinutes * 60
@@ -67,8 +72,9 @@ struct ScheduledCue: Codable, Identifiable {
 /// User preferences for meditation
 struct MeditationConfig: Codable {
     var duration: Int  // 5, 10, or 20
+    var selectedCategory: String?  // "breathing" or "reactivity"
 
-    static let `default` = MeditationConfig(duration: 5)
+    static let `default` = MeditationConfig(duration: 5, selectedCategory: nil)
 }
 
 // MARK: - Constants

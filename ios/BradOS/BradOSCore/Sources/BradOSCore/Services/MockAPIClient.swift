@@ -604,6 +604,36 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         return mockMealPlanSession
     }
 
+    // MARK: - Guided Meditations
+
+    public var mockGuidedMeditationCategories: [GuidedMeditationCategoryResponse] = []
+    public var mockGuidedMeditationScripts: [GuidedMeditationScript] = []
+    public var mockGuidedMeditationScript: GuidedMeditationScript?
+
+    public func getGuidedMeditationCategories() async throws -> [GuidedMeditationCategoryResponse] {
+        await simulateDelay()
+        try checkForError()
+        return mockGuidedMeditationCategories
+    }
+
+    public func getGuidedMeditationScripts(category: String) async throws -> [GuidedMeditationScript] {
+        await simulateDelay()
+        try checkForError()
+        return mockGuidedMeditationScripts.filter { $0.category == category }
+    }
+
+    public func getGuidedMeditationScript(id: String) async throws -> GuidedMeditationScript {
+        await simulateDelay()
+        try checkForError()
+        if let script = mockGuidedMeditationScript {
+            return script
+        }
+        if let script = mockGuidedMeditationScripts.first(where: { $0.id == id }) {
+            return script
+        }
+        throw APIError.notFound("Guided meditation script \(id) not found")
+    }
+
     // MARK: - Text to Speech
 
     public func synthesizeSpeech(text: String) async throws -> Data {

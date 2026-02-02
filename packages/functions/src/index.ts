@@ -22,6 +22,7 @@ import { ingredientsApp } from './handlers/ingredients.js';
 import { recipesApp } from './handlers/recipes.js';
 import { mealplanDebugApp } from './handlers/mealplan-debug.js';
 import { ttsApp } from './handlers/tts.js';
+import { guidedMeditationsApp } from './handlers/guidedMeditations.js';
 
 // Secrets
 const openaiApiKey = defineSecret('OPENAI_API_KEY');
@@ -64,6 +65,7 @@ export const devMealplans = onRequest(withOpenAiOptions, mealplansApp);
 export const devIngredients = onRequest(defaultOptions, ingredientsApp);
 export const devRecipes = onRequest(defaultOptions, recipesApp);
 export const devTts = onRequest(withGoogleTtsOptions, ttsApp);
+export const devGuidedMeditations = onRequest(defaultOptions, guidedMeditationsApp);
 
 // ============ PROD Functions ============
 export const prodHealth = onRequest(defaultOptions, healthApp);
@@ -81,6 +83,7 @@ export const prodMealplans = onRequest(withOpenAiOptions, mealplansApp);
 export const prodIngredients = onRequest(defaultOptions, ingredientsApp);
 export const prodRecipes = onRequest(defaultOptions, recipesApp);
 export const prodTts = onRequest(withGoogleTtsOptions, ttsApp);
+export const prodGuidedMeditations = onRequest(defaultOptions, guidedMeditationsApp);
 
 // ============ Debug Functions (emulator only) ============
 export const devMealplanDebug = onRequest(defaultOptions, mealplanDebugApp);

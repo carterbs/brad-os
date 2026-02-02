@@ -174,6 +174,17 @@ public protocol APIClientProtocol: Sendable {
     /// Get the most recent meal plan session
     func getLatestMealPlanSession() async throws -> MealPlanSession?
 
+    // MARK: - Guided Meditations
+
+    /// Get all guided meditation categories
+    func getGuidedMeditationCategories() async throws -> [GuidedMeditationCategoryResponse]
+
+    /// Get scripts for a specific category
+    func getGuidedMeditationScripts(category: String) async throws -> [GuidedMeditationScript]
+
+    /// Get a full guided meditation script with segments and interjections
+    func getGuidedMeditationScript(id: String) async throws -> GuidedMeditationScript
+
     // MARK: - Text to Speech
 
     /// Synthesize speech from text, returns MP3 audio data

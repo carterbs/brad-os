@@ -588,6 +588,20 @@ final class APIClient: APIClientProtocol {
         return audioData
     }
 
+    // MARK: - Guided Meditations
+
+    func getGuidedMeditationCategories() async throws -> [GuidedMeditationCategoryResponse] {
+        try await get("/guidedMeditations/categories")
+    }
+
+    func getGuidedMeditationScripts(category: String) async throws -> [GuidedMeditationScript] {
+        try await get("/guidedMeditations/category/\(category)")
+    }
+
+    func getGuidedMeditationScript(id: String) async throws -> GuidedMeditationScript {
+        try await get("/guidedMeditations/\(id)")
+    }
+
     // MARK: - Calendar
 
     func getCalendarData(year: Int, month: Int, timezoneOffset: Int? = nil) async throws -> CalendarData {
