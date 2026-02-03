@@ -185,16 +185,8 @@ struct StretchView: View {
         // Save config before starting
         configStorage.save(config)
 
-        // Select stretches from data service, fall back to manifest loader
-        let stretches: [SelectedStretch]
-        if !dataService.regions.isEmpty {
-            stretches = dataService.selectStretches(for: config)
-        } else if let manifestStretches = try? StretchManifestLoader.shared.selectStretches(for: config) {
-            stretches = manifestStretches
-        } else {
-            return
-        }
-
+        // Select stretches from data service
+        let stretches = dataService.selectStretches(for: config)
         guard !stretches.isEmpty else { return }
 
         isPreparing = true
@@ -798,27 +790,6 @@ struct StretchActiveView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal)
         }
-    }
-
-    /// Load stretch image from bundle
-    /// Image paths are like "back/childs-pose.png", stored in Audio/stretching/
-    private func loadStretchImage(_ imagePath: String) -> UIImage? {
-        let components = imagePath.components(separatedBy: "/")
-        let filename = (components.last ?? imagePath) as NSString
-        let filenameWithoutExt = filename.deletingPathExtension
-        let ext = filename.pathExtension.isEmpty ? "png" : filename.pathExtension
-        let folder = components.count > 1 ? components.dropLast().joined(separator: "/") : ""
-        let subdirectory = folder.isEmpty ? "Audio/stretching" : "Audio/stretching/\(folder)"
-
-        guard let url = Bundle.main.url(
-            forResource: filenameWithoutExt,
-            withExtension: ext,
-            subdirectory: subdirectory
-        ) else {
-            return nil
-        }
-
-        return UIImage(contentsOfFile: url.path)
     }
 
     // MARK: - Segment Indicator
