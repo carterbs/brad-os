@@ -40,6 +40,40 @@ public enum BodyRegion: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
+// MARK: - Server-backed stretch models
+
+/// Individual stretch definition from Firestore
+public struct StretchDefinition: Codable, Identifiable, Hashable, Sendable {
+    public let id: String
+    public let name: String
+    public let description: String
+    public let bilateral: Bool
+
+    public init(id: String, name: String, description: String, bilateral: Bool) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.bilateral = bilateral
+    }
+}
+
+/// Region with embedded stretch definitions from Firestore
+public struct StretchRegionData: Codable, Identifiable, Hashable, Sendable {
+    public let id: String
+    public let region: BodyRegion
+    public let displayName: String
+    public let iconName: String
+    public let stretches: [StretchDefinition]
+
+    public init(id: String, region: BodyRegion, displayName: String, iconName: String, stretches: [StretchDefinition]) {
+        self.id = id
+        self.region = region
+        self.displayName = displayName
+        self.iconName = iconName
+        self.stretches = stretches
+    }
+}
+
 /// Configuration for a stretch region
 public struct StretchRegionConfig: Codable, Hashable, Identifiable, Sendable {
     public var id: String { region.rawValue }

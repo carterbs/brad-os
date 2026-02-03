@@ -58,7 +58,7 @@ class StretchSessionStorage {
         let progress = "\(state.currentStretchIndex + 1) of \(state.selectedStretches.count)"
 
         return (
-            stretchName: currentStretch.stretch.name,
+            stretchName: currentStretch.definition.name,
             regionName: currentStretch.region.displayName,
             progress: progress
         )

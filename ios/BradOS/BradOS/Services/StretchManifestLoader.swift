@@ -82,7 +82,12 @@ class StretchManifestLoader {
             let stretch = try selectRandomStretch(for: regionConfig.region)
             let selected = SelectedStretch(
                 region: regionConfig.region,
-                stretch: stretch,
+                definition: StretchDefinition(
+                    id: stretch.id,
+                    name: stretch.name,
+                    description: stretch.description,
+                    bilateral: stretch.bilateral
+                ),
                 durationSeconds: regionConfig.durationSeconds
             )
             selectedStretches.append(selected)

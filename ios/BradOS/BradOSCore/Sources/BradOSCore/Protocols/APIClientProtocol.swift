@@ -185,6 +185,11 @@ public protocol APIClientProtocol: Sendable {
     /// Get a full guided meditation script with segments and interjections
     func getGuidedMeditationScript(id: String) async throws -> GuidedMeditationScript
 
+    // MARK: - Stretches
+
+    /// Get all stretch regions with embedded stretch definitions
+    func getStretches() async throws -> [StretchRegionData]
+
     // MARK: - Text to Speech
 
     /// Synthesize speech from text, returns MP3 audio data

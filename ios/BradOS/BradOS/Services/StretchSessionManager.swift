@@ -40,8 +40,8 @@ class StretchSessionManager: ObservableObject {
         return selectedStretches[currentStretchIndex]
     }
 
-    var currentStretch: Stretch? {
-        currentSelectedStretch?.stretch
+    var currentStretch: StretchDefinition? {
+        currentSelectedStretch?.definition
     }
 
     var currentRegion: BodyRegion? {
@@ -240,7 +240,7 @@ class StretchSessionManager: ObservableObject {
 
         // Play first stretch narration ASYNCHRONOUSLY (timer continues during playback)
         let firstStretch = selectedStretches[0]
-        audioManager.playNarrationAsync(firstStretch.stretch.audioFiles.begin)
+        audioManager.playNarrationAsync(firstStretch.definition.id)
     }
 
     /// Restore a session from saved state
@@ -502,8 +502,8 @@ class StretchSessionManager: ObservableObject {
             let skipped = skippedSegments[selected.id] ?? 0
             let completed = CompletedStretch(
                 region: selected.region,
-                stretchId: selected.stretch.id,
-                stretchName: selected.stretch.name,
+                stretchId: selected.definition.id,
+                stretchName: selected.definition.name,
                 durationSeconds: selected.durationSeconds,
                 skippedSegments: skipped
             )
@@ -539,7 +539,7 @@ class StretchSessionManager: ObservableObject {
 
             // Play next stretch narration ASYNCHRONOUSLY (timer continues during playback)
             if let nextStretch = currentStretch {
-                audioManager.playNarrationAsync(nextStretch.audioFiles.begin)
+                audioManager.playNarrationAsync(nextStretch.id)
             }
         }
     }
@@ -552,8 +552,8 @@ class StretchSessionManager: ObservableObject {
             let skipped = skippedSegments[selected.id] ?? 0
             let completed = CompletedStretch(
                 region: selected.region,
-                stretchId: selected.stretch.id,
-                stretchName: selected.stretch.name,
+                stretchId: selected.definition.id,
+                stretchName: selected.definition.name,
                 durationSeconds: selected.durationSeconds,
                 skippedSegments: max(skipped, currentSegment == 1 ? 2 : 1)
             )
@@ -653,10 +653,10 @@ extension StretchSessionManager {
         var info = [String: Any]()
 
         // Title: stretch name
-        info[MPMediaItemPropertyTitle] = selected.stretch.name
+        info[MPMediaItemPropertyTitle] = selected.definition.name
 
         // Artist: region and segment info
-        let segmentLabel = selected.stretch.bilateral
+        let segmentLabel = selected.definition.bilateral
             ? (currentSegment == 1 ? "Left Side" : "Right Side")
             : (currentSegment == 1 ? "First Half" : "Second Half")
         info[MPMediaItemPropertyArtist] = "\(selected.region.displayName) - \(segmentLabel)"

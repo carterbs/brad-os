@@ -568,6 +568,12 @@ final class APIClient: APIClientProtocol {
         return try await getOptional("/mealplans/latest")
     }
 
+    // MARK: - Stretches
+
+    func getStretches() async throws -> [StretchRegionData] {
+        try await get("/stretches")
+    }
+
     // MARK: - Text to Speech
 
     func synthesizeSpeech(text: String) async throws -> Data {

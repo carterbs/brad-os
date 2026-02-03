@@ -634,6 +634,16 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         throw APIError.notFound("Guided meditation script \(id) not found")
     }
 
+    // MARK: - Stretches
+
+    public var mockStretchRegions: [StretchRegionData] = []
+
+    public func getStretches() async throws -> [StretchRegionData] {
+        await simulateDelay()
+        try checkForError()
+        return mockStretchRegions
+    }
+
     // MARK: - Text to Speech
 
     public func synthesizeSpeech(text: String) async throws -> Data {

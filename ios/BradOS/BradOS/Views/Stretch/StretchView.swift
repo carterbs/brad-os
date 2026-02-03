@@ -694,21 +694,12 @@ struct StretchActiveView: View {
     // MARK: - Current Stretch Section
 
     @ViewBuilder
-    private func currentStretchSection(stretch: Stretch, region: BodyRegion) -> some View {
+    private func currentStretchSection(stretch: StretchDefinition, region: BodyRegion) -> some View {
         VStack(spacing: Theme.Spacing.space2) {
-            // Show stretch image if available, otherwise show icon
-            if let imagePath = stretch.image,
-               let uiImage = loadStretchImage(imagePath) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: .infinity, maxHeight: 280)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
-            } else {
-                Image(systemName: region.iconName)
-                    .font(.system(size: Theme.Typography.iconXXL))
-                    .foregroundColor(Theme.stretch)
-            }
+            // Show region icon
+            Image(systemName: region.iconName)
+                .font(.system(size: Theme.Typography.iconXXL))
+                .foregroundColor(Theme.stretch)
 
             Text(stretch.name)
                 .font(.title2)
