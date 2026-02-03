@@ -16,7 +16,7 @@ A personal operating system for tracking wellness and fitness. Built as a learni
 - Weekly meal plans with breakfast, lunch, and dinner
 - Generate grocery lists from meal plans
 
-### 🏋️ Progressive Overload Lifting
+### 🏋️ Weightlifting
 - 6-week mesocycle training with automatic progression
 - Track warmup sets and working sets
 - Real-time workout tracking with rest timers

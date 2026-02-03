@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 63;
 	objects = {
 
 /* Begin PBXBuildFile section */
@@ -20,7 +20,6 @@
 		18709989938802F8B0B43D0C /* MealPlanGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 511B89B20EB43811B7882699 /* MealPlanGridView.swift */; };
 		18E106E25E357B27F73E53B1 /* MealTypeCardsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16E883DB1640507676F4611E /* MealTypeCardsView.swift */; };
 		190DE96CCF907ECA009B31C4 /* APIConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96E8D3B865B339056854BB2E /* APIConfiguration.swift */; };
-
 		1FEB0DA2D4D27545C69B6DBA /* SilenceGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAED63E66BC5988EFD25B8AD /* SilenceGenerator.swift */; };
 		20CB765E5282630D3D7BA92B /* BradOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A394104666E96EB79B89DD0 /* BradOSApp.swift */; };
 		229EACA75C114A6B9D41C633 /* MeditationManifestService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 287EDC2B2F8BEE19E85C3B29 /* MeditationManifestService.swift */; };
@@ -33,7 +32,6 @@
 		3930C0FF9E4EF7421AD44DA2 /* MealPlanDashboardCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A5A2096504176F249FB0B8 /* MealPlanDashboardCard.swift */; };
 		3F8B2D0D489CF878DEB33BB7 /* BarcodeFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AE87A13F207E1549739EDF4 /* BarcodeFormView.swift */; };
 		40BF5CFDA965A67F71B85DDE /* MeditationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97BC3FD39CD95DA799E37E3C /* MeditationState.swift */; };
-
 		42EE5173C656ADF9C1C695BE /* MealDayCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB12AF8EB986F19AD034CB01 /* MealDayCard.swift */; };
 		431CE65223D5711937A751A4 /* StatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F6E117271DD3981B357748D /* StatusBadge.swift */; };
 		48B95D8E70ABEBCB27F73477 /* ShoppingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91979ABDCADC3D6A75458062 /* ShoppingListView.swift */; };
@@ -151,7 +149,7 @@
 		A64B7BD5B76D30A1DF886966 /* PlansView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlansView.swift; sourceTree = "<group>"; };
 		A6AD230687CA2537122F156C /* QueuedActionsButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueuedActionsButton.swift; sourceTree = "<group>"; };
 		A797E97052E245F39E1948F9 /* MealPlanEditingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealPlanEditingView.swift; sourceTree = "<group>"; };
-		A7D525D24C778DAE1CFDEA08 /* BradOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BradOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A7D525D24C778DAE1CFDEA08 /* Brad OS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Brad OS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAED63E66BC5988EFD25B8AD /* SilenceGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SilenceGenerator.swift; sourceTree = "<group>"; };
 		ABECD316D7BC15DD0A15ED2B /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		B267E058272122577A0D35D9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -169,16 +167,14 @@
 		CA5622DD239A1E87AD387720 /* APIResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIResponse.swift; sourceTree = "<group>"; };
 		CAB73F3D9DD5B217641D6828 /* GuidedMeditation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidedMeditation.swift; sourceTree = "<group>"; };
 		CB12AF8EB986F19AD034CB01 /* MealDayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealDayCard.swift; sourceTree = "<group>"; };
-
 		CE93789A2229F32CC25BE1E2 /* SectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionHeader.swift; sourceTree = "<group>"; };
 		D1FD886F6F9131804F710038 /* LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
 		D4643A92CCBE1B9470038D7D /* GuidedMeditationPreparingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidedMeditationPreparingView.swift; sourceTree = "<group>"; };
-
 		DA31BBE648C1B13E904E7BB4 /* StretchDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchDataService.swift; sourceTree = "<group>"; };
 		E0541AD3BB9C7C96E443092E /* NowPlayingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingManager.swift; sourceTree = "<group>"; };
 		E96A553EE3FD3DE973EC3975 /* GuidedMeditationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidedMeditationService.swift; sourceTree = "<group>"; };
 		EAEBDA3BC95C3B29BEE3EFB7 /* RestTimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerManager.swift; sourceTree = "<group>"; };
-		EB1DDB717DF3EAB6E8F0B2E8 /* BradOSCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = BradOSCore; path = BradOSCore; sourceTree = SOURCE_ROOT; };
+		EB1DDB717DF3EAB6E8F0B2E8 /* BradOSCore */ = {isa = PBXFileReference; lastKnownFileType = folder; path = BradOSCore; sourceTree = SOURCE_ROOT; };
 		EBA2C21147E61C0F1E7FAD9D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		EEF0E53C0457422A3740718E /* StretchSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchSessionManager.swift; sourceTree = "<group>"; };
 		F2A81A4BB6E628562A8FAB14 /* StretchSessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchSessionDetailView.swift; sourceTree = "<group>"; };
@@ -263,7 +259,6 @@
 				9FC92309C729E7A7C24BF90A /* StretchAudioPreparer.swift */,
 				9FB88344A783C75DD135E054 /* StretchConfigStorage.swift */,
 				DA31BBE648C1B13E904E7BB4 /* StretchDataService.swift */,
-
 				EEF0E53C0457422A3740718E /* StretchSessionManager.swift */,
 				49FF31397C3FAAB4210662D7 /* StretchSessionStorage.swift */,
 				BC98A389A8A8FFCA71333DEB /* TTSAudioCache.swift */,
@@ -354,7 +349,7 @@
 		60AD03F12C3F2069BE2C86A6 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A7D525D24C778DAE1CFDEA08 /* BradOS.app */,
+				A7D525D24C778DAE1CFDEA08 /* Brad OS.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -441,7 +436,6 @@
 		B8EA6F5B47966CB1D265358B /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -520,7 +514,7 @@
 				795777073D266F0F0EDA709F /* FirebaseAppCheck */,
 			);
 			productName = BradOS;
-			productReference = A7D525D24C778DAE1CFDEA08 /* BradOS.app */;
+			productReference = A7D525D24C778DAE1CFDEA08 /* Brad OS.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -533,7 +527,6 @@
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
 					2AA2633E5BF785D602CA3892 = {
-						DevelopmentTeam = 6Q7R3U43ZD;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -552,7 +545,6 @@
 				7E4620193E8C2A93E0489FFA /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				058D18E7D1EC3F6995E80819 /* XCLocalSwiftPackageReference "BradOSCore" */,
 			);
-			preferredProjectObjectVersion = 77;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -569,7 +561,6 @@
 				9A364E6CD87C76886D6799D7 /* Assets.xcassets in Resources */,
 				71F7E5CAE4CE0D1208A6EA4E /* Audio in Resources */,
 				D873679D0D7A20D49B66CB08 /* GoogleService-Info.plist in Resources */,
-
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -646,7 +637,6 @@
 				2B7A995C7F72131C635567AA /* StretchConfigStorage.swift in Sources */,
 				8712E5B4CE8F878A87F4EFD9 /* StretchDashboardCard.swift in Sources */,
 				FD1BD932914A3DA70FBB91BA /* StretchDataService.swift in Sources */,
-
 				B481692B4F423807DB18DF1D /* StretchSessionDetailView.swift in Sources */,
 				5156479059476325EBC7F199 /* StretchSessionManager.swift in Sources */,
 				CCC8ADA904A7E1616B6AC3DA /* StretchSessionStorage.swift in Sources */,
@@ -805,6 +795,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = TWWJ3E2WLY;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BradOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -825,6 +816,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = TWWJ3E2WLY;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BradOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
