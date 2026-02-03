@@ -4,6 +4,7 @@ import BradOSCore
 /// Main stretch view managing session lifecycle
 struct StretchView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var sessionManager = StretchSessionManager()
     @StateObject private var dataService = StretchDataService()
     @StateObject private var audioPreparer = StretchAudioPreparer()
@@ -148,6 +149,13 @@ struct StretchView: View {
             }
             .onChange(of: sessionManager.currentSegment) { _, _ in
                 if sessionManager.status == .active || sessionManager.status == .paused {
+                    saveSessionState()
+                }
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                guard sessionManager.status == .active || sessionManager.status == .paused else { return }
+                if newPhase == .background {
+                    // Persist session state so it can be recovered if the app is terminated
                     saveSessionState()
                 }
             }
