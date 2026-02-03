@@ -768,10 +768,19 @@ struct StretchActiveView: View {
     @ViewBuilder
     private func currentStretchSection(stretch: StretchDefinition, region: BodyRegion) -> some View {
         VStack(spacing: Theme.Spacing.space2) {
-            // Show region icon
-            Image(systemName: region.iconName)
-                .font(.system(size: Theme.Typography.iconXXL))
-                .foregroundColor(Theme.stretch)
+            // Show stretch image if available, otherwise show icon
+            if let imagePath = stretch.image,
+               let uiImage = loadStretchImage(imagePath) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(maxWidth: .infinity, maxHeight: 280)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
+            } else {
+                Image(systemName: region.iconName)
+                    .font(.system(size: Theme.Typography.iconXXL))
+                    .foregroundColor(Theme.stretch)
+            }
 
             Text(stretch.name)
                 .font(.title2)
@@ -790,6 +799,27 @@ struct StretchActiveView: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal)
         }
+    }
+
+    /// Load stretch image from bundle
+    /// Image paths are like "back/childs-pose.png", stored in Audio/stretching/
+    private func loadStretchImage(_ imagePath: String) -> UIImage? {
+        let components = imagePath.components(separatedBy: "/")
+        let filename = (components.last ?? imagePath) as NSString
+        let filenameWithoutExt = filename.deletingPathExtension
+        let ext = filename.pathExtension.isEmpty ? "png" : filename.pathExtension
+        let folder = components.count > 1 ? components.dropLast().joined(separator: "/") : ""
+        let subdirectory = folder.isEmpty ? "Audio/stretching" : "Audio/stretching/\(folder)"
+
+        guard let url = Bundle.main.url(
+            forResource: filenameWithoutExt,
+            withExtension: ext,
+            subdirectory: subdirectory
+        ) else {
+            return nil
+        }
+
+        return UIImage(contentsOfFile: url.path)
     }
 
     // MARK: - Segment Indicator

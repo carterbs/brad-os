@@ -48,12 +48,14 @@ public struct StretchDefinition: Codable, Identifiable, Hashable, Sendable {
     public let name: String
     public let description: String
     public let bilateral: Bool
+    public let image: String?
 
-    public init(id: String, name: String, description: String, bilateral: Bool) {
+    public init(id: String, name: String, description: String, bilateral: Bool, image: String? = nil) {
         self.id = id
         self.name = name
         self.description = description
         self.bilateral = bilateral
+        self.image = image
     }
 }
 

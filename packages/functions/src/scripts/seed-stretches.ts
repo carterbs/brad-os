@@ -3,7 +3,8 @@
  *
  * Reads the existing stretches.json manifest and creates Firestore documents
  * for all stretch regions with their embedded stretch definitions.
- * Drops image and audioFiles fields (no longer needed — description text is the TTS source).
+ * Drops audioFiles fields (no longer needed — description text is the TTS source).
+ * Preserves image paths for bundled stretch illustration PNGs.
  *
  * Usage:
  *   npx tsx packages/functions/src/scripts/seed-stretches.ts          # dev
@@ -75,6 +76,7 @@ function parseManifest(filePath: string): CreateStretchRegionDTO[] {
       name: s.name,
       description: s.description,
       bilateral: s.bilateral,
+      image: s.image,
     }));
 
     regions.push({

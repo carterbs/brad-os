@@ -16,6 +16,7 @@ export const stretchDefinitionSchema = z.object({
   name: z.string().min(1).max(100),
   description: z.string().min(1).max(1000),
   bilateral: z.boolean(),
+  image: z.string().max(200).optional(),
 });
 
 export const stretchRegionSchema = z.object({

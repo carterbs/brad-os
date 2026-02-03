@@ -12,6 +12,7 @@ export interface StretchDefinition {
   name: string; // e.g., "Child's Pose"
   description: string; // Full instruction text (TTS source)
   bilateral: boolean; // true = stretch both sides
+  image?: string; // e.g., "back/childs-pose.png" (bundled asset path)
 }
 
 export interface StretchRegion {
