@@ -154,6 +154,14 @@
         "function": "devTts"
       },
       {
+        "source": "/api/dev/stretches",
+        "function": "devStretches"
+      },
+      {
+        "source": "/api/dev/stretches/**",
+        "function": "devStretches"
+      },
+      {
         "source": "/api/dev/guidedMeditations",
         "function": "devGuidedMeditations"
       },
@@ -288,6 +296,14 @@
       {
         "source": "/api/prod/tts/**",
         "function": "prodTts"
+      },
+      {
+        "source": "/api/prod/stretches",
+        "function": "prodStretches"
+      },
+      {
+        "source": "/api/prod/stretches/**",
+        "function": "prodStretches"
       },
       {
         "source": "/api/prod/guidedMeditations",
