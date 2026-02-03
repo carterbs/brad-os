@@ -10,3 +10,4 @@ export * from './mealplan.js';
 export * from './ingredient.js';
 export * from './recipe.js';
 export * from './guided-meditation.js';
+export * from './stretch.js';

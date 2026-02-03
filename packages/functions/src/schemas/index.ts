@@ -10,3 +10,4 @@ export * from './mealplan.schema.js';
 export * from './ingredient.schema.js';
 export * from './recipe.schema.js';
 export * from './tts.schema.js';
+export * from './stretch.schema.js';
