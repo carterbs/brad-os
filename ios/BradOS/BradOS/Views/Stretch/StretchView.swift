@@ -152,6 +152,10 @@ struct StretchView: View {
                     saveSessionState()
                 }
             }
+            .onChange(of: sessionManager.isReadyForAudioPrep) { _, isReady in
+                guard isReady else { return }
+                prepareAudioAndStart()
+            }
             .onChange(of: scenePhase) { _, newPhase in
                 guard sessionManager.status == .active || sessionManager.status == .paused else { return }
                 if newPhase == .background {
@@ -197,10 +201,18 @@ struct StretchView: View {
         let stretches = dataService.selectStretches(for: config)
         guard !stretches.isEmpty else { return }
 
+        // Open Spotify and wait for user to return before prepping audio
+        Task {
+            await sessionManager.start(with: config, stretches: stretches)
+        }
+    }
+
+    /// Called after Spotify wait ends — prep TTS audio then start the session
+    private func prepareAudioAndStart() {
         isPreparing = true
 
         preparationTask = Task {
-            let audio = (try? await audioPreparer.prepareAudio(for: stretches)) ?? PreparedStretchAudio(
+            let audio = (try? await audioPreparer.prepareAudio(for: sessionManager.selectedStretches)) ?? PreparedStretchAudio(
                 stretchAudio: [:],
                 switchSidesURL: URL(fileURLWithPath: ""),
                 halfwayURL: URL(fileURLWithPath: ""),
@@ -210,7 +222,7 @@ struct StretchView: View {
             guard !Task.isCancelled else { return }
 
             isPreparing = false
-            await sessionManager.start(with: config, stretches: stretches, audio: audio)
+            await sessionManager.beginSession(audio: audio)
         }
     }
 

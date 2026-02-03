@@ -33,6 +33,9 @@ class StretchSessionManager: ObservableObject {
     /// Whether we're waiting for the user to return from Spotify
     @Published private(set) var isWaitingForSpotifyReturn: Bool = false
 
+    /// Set to true when Spotify wait ends, signaling the view to start audio prep
+    @Published private(set) var isReadyForAudioPrep: Bool = false
+
     // MARK: - Computed Properties
 
     var currentSelectedStretch: SelectedStretch? {
@@ -136,28 +139,22 @@ class StretchSessionManager: ObservableObject {
 
         switch spotifyState {
         case .waitingForVisible:
-            // User returned from Spotify, now start the session
+            // User returned from Spotify — signal the view to start audio prep
             spotifyState = .idle
             isWaitingForSpotifyReturn = false
-            if pendingConfig != nil {
-                pendingConfig = nil
-                Task {
-                    await startSessionInternal()
-                }
-            }
+            pendingConfig = nil
+            isReadyForAudioPrep = true
         case .waitingForHide:
             // App became active before losing focus - Spotify may have failed to open
-            // Give a short delay then fall through to start
+            // Give a short delay then fall through
             Task {
                 try? await Task.sleep(nanoseconds: 500_000_000)  // 0.5 seconds
                 if self.spotifyState == .waitingForHide {
-                    // Still waiting, Spotify didn't open, start anyway
+                    // Still waiting, Spotify didn't open, proceed anyway
                     self.spotifyState = .idle
                     self.isWaitingForSpotifyReturn = false
-                    if self.pendingConfig != nil {
-                        self.pendingConfig = nil
-                        await self.startSessionInternal()
-                    }
+                    self.pendingConfig = nil
+                    self.isReadyForAudioPrep = true
                 }
             }
         case .idle:
@@ -167,11 +164,12 @@ class StretchSessionManager: ObservableObject {
 
     // MARK: - Session Control
 
-    /// Start a new stretch session with pre-selected stretches and pre-cached audio
-    /// Always waits for user to background and return to the app before starting timer/narration
-    func start(with config: StretchSessionConfig, stretches: [SelectedStretch], audio: PreparedStretchAudio) async {
+    /// Start a new stretch session: opens Spotify, waits for user to return.
+    /// After return, sets `isReadyForAudioPrep = true` so the view can prep TTS audio,
+    /// then call `beginSession(audio:)` to kick off the timer.
+    func start(with config: StretchSessionConfig, stretches: [SelectedStretch]) async {
         selectedStretches = stretches
-        audioManager.setAudioSources(audio)
+        isReadyForAudioPrep = false
 
         guard !selectedStretches.isEmpty else {
             print("No stretches selected")
@@ -208,6 +206,13 @@ class StretchSessionManager: ObservableObject {
 
         // Note: No timeout - user must explicitly come back or tap "Start Now"
         // This matches the expected behavior where timer only starts after refocus
+    }
+
+    /// Called by the view after audio prep completes. Sets audio sources and starts the session.
+    func beginSession(audio: PreparedStretchAudio) async {
+        audioManager.setAudioSources(audio)
+        isReadyForAudioPrep = false
+        await startSessionInternal()
     }
 
     /// Internal method to actually start the session (called after Spotify return or immediately)
@@ -380,6 +385,7 @@ class StretchSessionManager: ObservableObject {
         pausedAt = nil
         spotifyState = .idle
         isWaitingForSpotifyReturn = false
+        isReadyForAudioPrep = false
         pendingConfig = nil
     }
 
@@ -407,6 +413,7 @@ class StretchSessionManager: ObservableObject {
         pausedAt = nil
         spotifyState = .idle
         isWaitingForSpotifyReturn = false
+        isReadyForAudioPrep = false
         pendingConfig = nil
     }
 
@@ -560,16 +567,12 @@ class StretchSessionManager: ObservableObject {
         status = .complete
     }
 
-    /// Cancel any pending Spotify wait (user can manually start)
+    /// Cancel any pending Spotify wait (user tapped "Start Now")
     func cancelSpotifyWait() {
         spotifyState = .idle
         isWaitingForSpotifyReturn = false
-        if pendingConfig != nil {
-            pendingConfig = nil
-            Task {
-                await startSessionInternal()
-            }
-        }
+        pendingConfig = nil
+        isReadyForAudioPrep = true
     }
 }
 

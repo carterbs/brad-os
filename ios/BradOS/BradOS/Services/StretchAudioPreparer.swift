@@ -55,8 +55,9 @@ final class StretchAudioPreparer: ObservableObject {
 
         for stretch in stretches {
             do {
+                let narrationText = "\(stretch.definition.name). \(stretch.region.displayName). \(stretch.definition.description)"
                 let url = try await cache.getOrFetch(
-                    text: stretch.definition.description,
+                    text: narrationText,
                     using: apiClient
                 )
                 stretchAudio[stretch.definition.id] = url
