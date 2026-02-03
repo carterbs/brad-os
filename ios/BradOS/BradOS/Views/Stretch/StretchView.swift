@@ -5,11 +5,15 @@ import BradOSCore
 struct StretchView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var sessionManager = StretchSessionManager()
+    @StateObject private var dataService = StretchDataService()
+    @StateObject private var audioPreparer = StretchAudioPreparer()
 
     @State private var config: StretchSessionConfig = StretchConfigStorage.shared.load()
     @State private var showCancelConfirmation = false
     @State private var showRecoveryPrompt = false
     @State private var recoveryInfo: (stretchName: String, regionName: String, progress: String)?
+    @State private var isPreparing = false
+    @State private var preparationTask: Task<Void, Never>?
 
     // Session saving state (managed at parent level like MeditationView)
     @State private var isSavingSession = false
@@ -27,7 +31,12 @@ struct StretchView: View {
 
                 switch sessionManager.status {
                 case .idle:
-                    if sessionManager.isWaitingForSpotifyReturn {
+                    if isPreparing {
+                        StretchPreparationView(
+                            audioPreparer: audioPreparer,
+                            onCancel: cancelPreparation
+                        )
+                    } else if sessionManager.isWaitingForSpotifyReturn {
                         // Waiting for user to return to the app
                         AppReturnWaitView(
                             hasSpotify: config.spotifyPlaylistUrl?.isEmpty == false,
@@ -38,8 +47,11 @@ struct StretchView: View {
                     } else {
                         StretchSetupView(
                             config: $config,
+                            isLoadingData: dataService.isLoading,
+                            hasDataError: dataService.error != nil,
                             onStart: startSession,
-                            onConfigChange: saveConfig
+                            onConfigChange: saveConfig,
+                            onRetryLoad: { Task { await dataService.refresh() } }
                         )
                     }
 
@@ -92,6 +104,9 @@ struct StretchView: View {
             .onAppear {
                 checkForRecoverableSession()
             }
+            .task {
+                await dataService.loadRegions()
+            }
             .alert("End Session?", isPresented: $showCancelConfirmation) {
                 Button("Continue Stretching", role: .cancel) {}
                 Button("End Session", role: .destructive) {
@@ -143,6 +158,7 @@ struct StretchView: View {
                 // StretchCompleteView) while the view is being dismissed. This race condition
                 // prevents navigation from completing properly.
                 guard sessionManager.status != .complete else { return }
+                cancelPreparation()
                 sessionManager.reset()
             }
         }
@@ -169,25 +185,39 @@ struct StretchView: View {
         // Save config before starting
         configStorage.save(config)
 
-        Task {
-            // Select stretches from manifest (Phase 4 replaces with StretchDataService)
-            guard let stretches = try? StretchManifestLoader.shared.selectStretches(for: config),
-                  !stretches.isEmpty else {
-                print("Failed to select stretches")
-                return
-            }
+        // Select stretches from data service, fall back to manifest loader
+        let stretches: [SelectedStretch]
+        if !dataService.regions.isEmpty {
+            stretches = dataService.selectStretches(for: config)
+        } else if let manifestStretches = try? StretchManifestLoader.shared.selectStretches(for: config) {
+            stretches = manifestStretches
+        } else {
+            return
+        }
 
-            // Prepare TTS audio (Phase 4 adds progress UI)
-            let preparer = StretchAudioPreparer(apiClient: apiClient)
-            let audio = (try? await preparer.prepareAudio(for: stretches)) ?? PreparedStretchAudio(
+        guard !stretches.isEmpty else { return }
+
+        isPreparing = true
+
+        preparationTask = Task {
+            let audio = (try? await audioPreparer.prepareAudio(for: stretches)) ?? PreparedStretchAudio(
                 stretchAudio: [:],
                 switchSidesURL: URL(fileURLWithPath: ""),
                 halfwayURL: URL(fileURLWithPath: ""),
                 sessionCompleteURL: URL(fileURLWithPath: "")
             )
 
+            guard !Task.isCancelled else { return }
+
+            isPreparing = false
             await sessionManager.start(with: config, stretches: stretches, audio: audio)
         }
+    }
+
+    private func cancelPreparation() {
+        preparationTask?.cancel()
+        preparationTask = nil
+        isPreparing = false
     }
 
     private func saveConfig() {
@@ -248,8 +278,11 @@ struct StretchView: View {
 /// Setup view for configuring stretch session
 struct StretchSetupView: View {
     @Binding var config: StretchSessionConfig
+    var isLoadingData: Bool = false
+    var hasDataError: Bool = false
     let onStart: () -> Void
     var onConfigChange: (() -> Void)? = nil
+    var onRetryLoad: (() -> Void)? = nil
 
     @State private var spotifyUrl: String = ""
     @State private var editMode: EditMode = .inactive
@@ -258,6 +291,37 @@ struct StretchSetupView: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(spacing: Theme.Spacing.space6) {
+                    // Data loading status
+                    if isLoadingData {
+                        HStack(spacing: Theme.Spacing.space2) {
+                            ProgressView()
+                                .tint(Theme.stretch)
+                            Text("Loading stretch data...")
+                                .font(.caption)
+                                .foregroundColor(Theme.textSecondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(Theme.Spacing.space3)
+                        .glassCard()
+                    } else if hasDataError {
+                        HStack(spacing: Theme.Spacing.space2) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(Theme.warning)
+                            Text("Could not load stretch data")
+                                .font(.caption)
+                                .foregroundColor(Theme.warning)
+                            Spacer()
+                            if let onRetryLoad {
+                                Button("Retry", action: onRetryLoad)
+                                    .font(.caption)
+                                    .foregroundColor(Theme.interactivePrimary)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(Theme.Spacing.space3)
+                        .glassCard()
+                    }
+
                     // Region Selection with reordering
                     regionSelectionSection
 
@@ -1231,6 +1295,59 @@ struct AppReturnWaitView: View {
 extension Array {
     subscript(safe index: Index) -> Element? {
         indices.contains(index) ? self[index] : nil
+    }
+}
+
+// MARK: - Preparation View
+
+/// View shown while TTS audio is being prepared before session starts
+struct StretchPreparationView: View {
+    @ObservedObject var audioPreparer: StretchAudioPreparer
+    let onCancel: () -> Void
+
+    var body: some View {
+        VStack(spacing: Theme.Spacing.space7) {
+            Spacer()
+
+            Image(systemName: "waveform")
+                .font(.system(size: Theme.Typography.iconXL))
+                .foregroundColor(Theme.stretch)
+
+            Text("Preparing Audio...")
+                .font(.title3)
+                .fontWeight(.semibold)
+                .foregroundColor(Theme.textPrimary)
+
+            VStack(spacing: Theme.Spacing.space2) {
+                ProgressView(value: audioPreparer.progress)
+                    .tint(Theme.stretch)
+                    .padding(.horizontal, Theme.Spacing.space7)
+
+                Text("\(Int(audioPreparer.progress * 100))%")
+                    .font(.caption)
+                    .foregroundColor(Theme.textSecondary)
+                    .monospacedDigit()
+            }
+
+            if audioPreparer.error != nil {
+                Text("Some audio could not be prepared. The session will continue without those cues.")
+                    .font(.caption)
+                    .foregroundColor(Theme.warning)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+            }
+
+            Spacer()
+
+            Button(action: onCancel) {
+                Text("Cancel")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .padding(.horizontal, Theme.Spacing.space4)
+            .padding(.bottom, Theme.Spacing.space7)
+        }
+        .padding(Theme.Spacing.space4)
     }
 }
 
