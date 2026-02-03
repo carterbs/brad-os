@@ -90,7 +90,6 @@ class StretchSessionManager: ObservableObject {
     private var skippedSegments: [String: Int] = [:]  // stretchId -> skipped count
 
     private let audioManager: StretchAudioManager
-    private let manifestLoader: StretchManifestLoader
     private var nowPlayingUpdateTimer: AnyCancellable?
     private var pauseTimeoutTimer: AnyCancellable?
 
@@ -109,12 +108,8 @@ class StretchSessionManager: ObservableObject {
 
     // MARK: - Initialization
 
-    init(
-        audioManager: StretchAudioManager? = nil,
-        manifestLoader: StretchManifestLoader = .shared
-    ) {
+    init(audioManager: StretchAudioManager? = nil) {
         self.audioManager = audioManager ?? StretchAudioManager()
-        self.manifestLoader = manifestLoader
         setupRemoteCommandCenter()
         setupAppStateObserver()
     }
@@ -137,10 +132,10 @@ class StretchSessionManager: ObservableObject {
             // User returned from Spotify, now start the session
             spotifyState = .idle
             isWaitingForSpotifyReturn = false
-            if let config = pendingConfig {
+            if pendingConfig != nil {
                 pendingConfig = nil
                 Task {
-                    await startSessionInternal(with: config)
+                    await startSessionInternal()
                 }
             }
         case .waitingForHide:
@@ -152,9 +147,9 @@ class StretchSessionManager: ObservableObject {
                     // Still waiting, Spotify didn't open, start anyway
                     self.spotifyState = .idle
                     self.isWaitingForSpotifyReturn = false
-                    if let config = self.pendingConfig {
+                    if self.pendingConfig != nil {
                         self.pendingConfig = nil
-                        await self.startSessionInternal(with: config)
+                        await self.startSessionInternal()
                     }
                 }
             }
@@ -165,16 +160,11 @@ class StretchSessionManager: ObservableObject {
 
     // MARK: - Session Control
 
-    /// Start a new stretch session with the given configuration
+    /// Start a new stretch session with pre-selected stretches and pre-cached audio
     /// Always waits for user to background and return to the app before starting timer/narration
-    func start(with config: StretchSessionConfig) async {
-        // Select random stretches for each enabled region
-        do {
-            selectedStretches = try manifestLoader.selectStretches(for: config)
-        } catch {
-            print("Failed to select stretches: \(error)")
-            return
-        }
+    func start(with config: StretchSessionConfig, stretches: [SelectedStretch], audio: PreparedStretchAudio) async {
+        selectedStretches = stretches
+        audioManager.setAudioSources(audio)
 
         guard !selectedStretches.isEmpty else {
             print("No stretches selected")
@@ -214,7 +204,7 @@ class StretchSessionManager: ObservableObject {
     }
 
     /// Internal method to actually start the session (called after Spotify return or immediately)
-    private func startSessionInternal(with config: StretchSessionConfig) async {
+    private func startSessionInternal() async {
         // Reset state
         currentStretchIndex = 0
         currentSegment = 1
@@ -240,7 +230,7 @@ class StretchSessionManager: ObservableObject {
 
         // Play first stretch narration ASYNCHRONOUSLY (timer continues during playback)
         let firstStretch = selectedStretches[0]
-        audioManager.playNarrationAsync(firstStretch.definition.id)
+        audioManager.playNarrationAsync(audioManager.audioURL(for: firstStretch.definition.id))
     }
 
     /// Restore a session from saved state
@@ -480,12 +470,8 @@ class StretchSessionManager: ObservableObject {
 
             // Play transition narration ASYNCHRONOUSLY (timer continues during playback)
             if let stretch = currentStretch {
-                let sharedAudio = try? manifestLoader.getSharedAudio()
-                let clipPath = stretch.bilateral
-                    ? (sharedAudio?.switchSides ?? "shared/switch-sides.wav")
-                    : (sharedAudio?.halfway ?? "shared/halfway.wav")
-
-                audioManager.playNarrationAsync(clipPath)
+                let cue: SharedStretchCue = stretch.bilateral ? .switchSides : .halfway
+                audioManager.playNarrationAsync(audioManager.sharedAudioURL(for: cue))
             }
         } else {
             // Segment 2 complete - record and advance
@@ -515,10 +501,9 @@ class StretchSessionManager: ObservableObject {
             audioManager.stopKeepalive()
 
             // Session complete - play completion narration
-            let sharedAudio = try? manifestLoader.getSharedAudio()
-            try? await audioManager.playNarration(
-                sharedAudio?.sessionComplete ?? "shared/session-complete.wav"
-            )
+            if let url = audioManager.sharedAudioURL(for: .sessionComplete) {
+                try? await audioManager.playNarration(url)
+            }
 
             // Now deactivate audio session
             audioManager.deactivateSession()
@@ -539,7 +524,7 @@ class StretchSessionManager: ObservableObject {
 
             // Play next stretch narration ASYNCHRONOUSLY (timer continues during playback)
             if let nextStretch = currentStretch {
-                audioManager.playNarrationAsync(nextStretch.id)
+                audioManager.playNarrationAsync(audioManager.audioURL(for: nextStretch.id))
             }
         }
     }
@@ -572,10 +557,10 @@ class StretchSessionManager: ObservableObject {
     func cancelSpotifyWait() {
         spotifyState = .idle
         isWaitingForSpotifyReturn = false
-        if let config = pendingConfig {
+        if pendingConfig != nil {
             pendingConfig = nil
             Task {
-                await startSessionInternal(with: config)
+                await startSessionInternal()
             }
         }
     }

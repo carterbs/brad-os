@@ -170,7 +170,23 @@ struct StretchView: View {
         configStorage.save(config)
 
         Task {
-            await sessionManager.start(with: config)
+            // Select stretches from manifest (Phase 4 replaces with StretchDataService)
+            guard let stretches = try? StretchManifestLoader.shared.selectStretches(for: config),
+                  !stretches.isEmpty else {
+                print("Failed to select stretches")
+                return
+            }
+
+            // Prepare TTS audio (Phase 4 adds progress UI)
+            let preparer = StretchAudioPreparer(apiClient: apiClient)
+            let audio = (try? await preparer.prepareAudio(for: stretches)) ?? PreparedStretchAudio(
+                stretchAudio: [:],
+                switchSidesURL: URL(fileURLWithPath: ""),
+                halfwayURL: URL(fileURLWithPath: ""),
+                sessionCompleteURL: URL(fileURLWithPath: "")
+            )
+
+            await sessionManager.start(with: config, stretches: stretches, audio: audio)
         }
     }
 

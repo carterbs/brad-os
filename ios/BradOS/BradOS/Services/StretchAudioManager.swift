@@ -38,11 +38,11 @@ class StretchAudioManager: ObservableObject {
     private var keepaliveObserver: NSObjectProtocol?
     private var isKeepaliveRunning = false
 
-    /// Base path for stretch audio files in bundle
-    private let audioBasePath = "Audio/stretching"
-
     /// Keepalive volume (matches PWA's 1% / 0.01)
     private let keepaliveVolume: Float = 0.01
+
+    /// Pre-fetched audio URLs from TTS cache
+    private var preparedAudio: PreparedStretchAudio?
 
     init() {}
 
@@ -58,6 +58,30 @@ class StretchAudioManager: ObservableObject {
         }
         narrationPlayer?.pause()
         keepalivePlayer?.pause()
+    }
+
+    // MARK: - Audio Sources
+
+    /// Set the prepared audio sources for the current session
+    func setAudioSources(_ prepared: PreparedStretchAudio) {
+        self.preparedAudio = prepared
+    }
+
+    /// Get cached audio URL for a specific stretch
+    func audioURL(for stretchId: String) -> URL? {
+        preparedAudio?.stretchAudio[stretchId]
+    }
+
+    /// Get cached audio URL for a shared cue
+    func sharedAudioURL(for cue: SharedStretchCue) -> URL? {
+        guard let prepared = preparedAudio else { return nil }
+        let url: URL
+        switch cue {
+        case .switchSides: url = prepared.switchSidesURL
+        case .halfway: url = prepared.halfwayURL
+        case .sessionComplete: url = prepared.sessionCompleteURL
+        }
+        return FileManager.default.fileExists(atPath: url.path) ? url : nil
     }
 
     // MARK: - Session Lifecycle
@@ -83,6 +107,7 @@ class StretchAudioManager: ObservableObject {
     /// Deactivate the audio session when ending a stretch session
     func deactivateSession() {
         stopAllAudio()
+        preparedAudio = nil
         try? AVAudioSession.sharedInstance().setActive(
             false,
             options: .notifyOthersOnDeactivation
@@ -202,21 +227,18 @@ class StretchAudioManager: ObservableObject {
 
     // MARK: - Narration Playback
 
-    /// Plays narration audio. Returns when clip finishes.
+    /// Plays narration audio from a URL. Returns when clip finishes.
     /// Keepalive continues running during narration (matching PWA behavior).
     /// Other audio (Spotify) is ducked (lowered) during narration via .duckOthers.
-    /// - Parameter clipPath: Relative path to audio file (e.g., "back/childs-pose-begin.wav")
-    func playNarration(_ clipPath: String) async throws {
+    /// - Parameter url: File URL to the audio file (from TTS cache or bundle)
+    func playNarration(_ url: URL) async throws {
         // Stop any existing narration (but not keepalive)
         stopNarration()
 
-        // Build full path and find in bundle
-        let url = findAudioFile(clipPath)
-        guard let audioURL = url else {
-            // Silently skip missing audio files - this allows the app to work
-            // even if audio files haven't been bundled yet
+        // Verify file exists before attempting playback
+        guard FileManager.default.fileExists(atPath: url.path) else {
             #if DEBUG
-            print("[StretchAudioManager] Audio file not found, skipping: \(clipPath)")
+            print("[StretchAudioManager] Audio file not found, skipping: \(url.path)")
             #endif
             return
         }
@@ -227,7 +249,7 @@ class StretchAudioManager: ObservableObject {
         try? AVAudioSession.sharedInstance().setActive(true, options: [])
 
         // Create player
-        let playerItem = AVPlayerItem(url: audioURL)
+        let playerItem = AVPlayerItem(url: url)
         narrationPlayer = AVPlayer(playerItem: playerItem)
 
         // Wait for playback to complete
@@ -249,10 +271,11 @@ class StretchAudioManager: ObservableObject {
 
     /// Plays narration without waiting for completion (fire-and-forget)
     /// Timer should NOT wait for this - it runs in parallel.
-    /// - Parameter clipPath: Relative path to audio file
-    func playNarrationAsync(_ clipPath: String) {
+    /// - Parameter url: File URL to the audio file, or nil to skip
+    func playNarrationAsync(_ url: URL?) {
+        guard let url else { return }
         Task {
-            try? await playNarration(clipPath)
+            try? await playNarration(url)
         }
     }
 
@@ -282,9 +305,7 @@ class StretchAudioManager: ObservableObject {
         }
     }
 
-    /// Find audio file in bundle
-    /// Paths come from manifest like "back/childs-pose-begin.wav" or "shared/switch-sides.wav"
-    /// Files are stored in Audio/stretching/...
+    /// Find audio file in bundle (used only for keepalive silence)
     private func findAudioFile(_ clipPath: String) -> URL? {
         let components = clipPath.components(separatedBy: "/")
         let filename = components.last ?? clipPath
