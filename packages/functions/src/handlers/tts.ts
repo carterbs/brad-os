@@ -82,7 +82,7 @@ app.post('/synthesize', validate(synthesizeSchema), asyncHandler(async (req: Req
     body: JSON.stringify({
       input: { text },
       voice: { languageCode, name: voice },
-      audioConfig: { audioEncoding: 'MP3' },
+      audioConfig: { audioEncoding: 'MP3', sampleRateHertz: 48000 },
     }),
   });
 
