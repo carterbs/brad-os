@@ -40,6 +40,22 @@ export class PlanDayRepository extends BaseRepository<
     return { id: doc.id, ...doc.data() } as PlanDay;
   }
 
+  async findByIds(ids: string[]): Promise<Map<string, PlanDay>> {
+    if (ids.length === 0) {
+      return new Map();
+    }
+
+    const refs = ids.map((id) => this.collection.doc(id));
+    const docs = await this.db.getAll(...refs);
+    const result = new Map<string, PlanDay>();
+    for (const doc of docs) {
+      if (doc.exists) {
+        result.set(doc.id, { id: doc.id, ...doc.data() } as PlanDay);
+      }
+    }
+    return result;
+  }
+
   async findByPlanId(planId: string): Promise<PlanDay[]> {
     const snapshot = await this.collection
       .where('plan_id', '==', planId)

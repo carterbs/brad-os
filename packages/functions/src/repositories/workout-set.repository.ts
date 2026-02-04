@@ -67,6 +67,36 @@ export class WorkoutSetRepository extends BaseRepository<
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as WorkoutSet);
   }
 
+  async findByWorkoutIds(workoutIds: string[]): Promise<Map<string, WorkoutSet[]>> {
+    const result = new Map<string, WorkoutSet[]>();
+    if (workoutIds.length === 0) {
+      return result;
+    }
+
+    // Firestore 'in' queries are limited to 30 values per query
+    const CHUNK_SIZE = 30;
+    for (let i = 0; i < workoutIds.length; i += CHUNK_SIZE) {
+      const chunk = workoutIds.slice(i, i + CHUNK_SIZE);
+      const snapshot = await this.collection
+        .where('workout_id', 'in', chunk)
+        .orderBy('exercise_id')
+        .orderBy('set_number')
+        .get();
+
+      for (const doc of snapshot.docs) {
+        const set = { id: doc.id, ...doc.data() } as WorkoutSet;
+        const existing = result.get(set.workout_id);
+        if (existing !== undefined) {
+          existing.push(set);
+        } else {
+          result.set(set.workout_id, [set]);
+        }
+      }
+    }
+
+    return result;
+  }
+
   async findByWorkoutAndExercise(
     workoutId: string,
     exerciseId: string

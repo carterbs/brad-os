@@ -28,10 +28,10 @@ describe('CalendarService', () => {
     findCompletedInDateRange: Mock;
   };
   let mockWorkoutSetRepo: {
-    findByWorkoutId: Mock;
+    findByWorkoutIds: Mock;
   };
   let mockPlanDayRepo: {
-    findById: Mock;
+    findByIds: Mock;
   };
   let mockStretchSessionRepo: {
     findInDateRange: Mock;
@@ -102,11 +102,11 @@ describe('CalendarService', () => {
     };
 
     mockWorkoutSetRepo = {
-      findByWorkoutId: vi.fn(),
+      findByWorkoutIds: vi.fn(),
     };
 
     mockPlanDayRepo = {
-      findById: vi.fn(),
+      findByIds: vi.fn(),
     };
 
     mockStretchSessionRepo = {
@@ -186,8 +186,8 @@ describe('CalendarService', () => {
       const meditationSession = createMockMeditationSession();
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
-      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
-      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockWorkoutSetRepo.findByWorkoutIds.mockResolvedValue(new Map([['workout-1', sets]]));
+      mockPlanDayRepo.findByIds.mockResolvedValue(new Map([['plan-day-1', mockPlanDay]]));
       mockStretchSessionRepo.findInDateRange.mockResolvedValue([stretchSession]);
       mockMeditationSessionRepo.findInDateRange.mockResolvedValue([meditationSession]);
 
@@ -206,8 +206,8 @@ describe('CalendarService', () => {
       ];
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
-      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
-      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockWorkoutSetRepo.findByWorkoutIds.mockResolvedValue(new Map([['workout-1', sets]]));
+      mockPlanDayRepo.findByIds.mockResolvedValue(new Map([['plan-day-1', mockPlanDay]]));
       mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
       mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
 
@@ -283,8 +283,8 @@ describe('CalendarService', () => {
       const meditationSession = createMockMeditationSession();
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
-      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
-      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockWorkoutSetRepo.findByWorkoutIds.mockResolvedValue(new Map([['workout-1', sets]]));
+      mockPlanDayRepo.findByIds.mockResolvedValue(new Map([['plan-day-1', mockPlanDay]]));
       mockStretchSessionRepo.findInDateRange.mockResolvedValue([stretchSession]);
       mockMeditationSessionRepo.findInDateRange.mockResolvedValue([meditationSession]);
 
@@ -304,8 +304,8 @@ describe('CalendarService', () => {
       const sets = [createMockWorkoutSet()];
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout1, workout2]);
-      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
-      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockWorkoutSetRepo.findByWorkoutIds.mockResolvedValue(new Map([['w1', sets], ['w2', sets]]));
+      mockPlanDayRepo.findByIds.mockResolvedValue(new Map([['plan-day-1', mockPlanDay]]));
       mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
       mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
 
@@ -321,8 +321,8 @@ describe('CalendarService', () => {
       const meditationSession = createMockMeditationSession({ completedAt: '2024-01-15T07:00:00Z' });
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
-      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
-      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockWorkoutSetRepo.findByWorkoutIds.mockResolvedValue(new Map([['workout-1', sets]]));
+      mockPlanDayRepo.findByIds.mockResolvedValue(new Map([['plan-day-1', mockPlanDay]]));
       mockStretchSessionRepo.findInDateRange.mockResolvedValue([stretchSession]);
       mockMeditationSessionRepo.findInDateRange.mockResolvedValue([meditationSession]);
 
@@ -386,8 +386,8 @@ describe('CalendarService', () => {
       const sets = [createMockWorkoutSet()];
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
-      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
-      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockWorkoutSetRepo.findByWorkoutIds.mockResolvedValue(new Map([['workout-1', sets]]));
+      mockPlanDayRepo.findByIds.mockResolvedValue(new Map([['plan-day-1', mockPlanDay]]));
       mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
       mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
 
@@ -435,8 +435,8 @@ describe('CalendarService', () => {
       const sets = [createMockWorkoutSet()];
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([deloadWorkout]);
-      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
-      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockWorkoutSetRepo.findByWorkoutIds.mockResolvedValue(new Map([['workout-1', sets]]));
+      mockPlanDayRepo.findByIds.mockResolvedValue(new Map([['plan-day-1', mockPlanDay]]));
       mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
       mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
 
@@ -473,8 +473,8 @@ describe('CalendarService', () => {
       const sets = [createMockWorkoutSet()];
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
-      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
-      mockPlanDayRepo.findById.mockResolvedValue(null);
+      mockWorkoutSetRepo.findByWorkoutIds.mockResolvedValue(new Map([['workout-1', sets]]));
+      mockPlanDayRepo.findByIds.mockResolvedValue(new Map());
       mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
       mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
 

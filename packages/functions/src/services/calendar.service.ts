@@ -70,10 +70,19 @@ export class CalendarService {
     // Transform to CalendarActivity[]
     const activities: CalendarActivity[] = [];
 
-    // Transform workouts
+    // Batch-fetch plan days and workout sets to avoid N+1 queries
+    const uniquePlanDayIds = [...new Set(workouts.map((w) => w.plan_day_id))];
+    const workoutIds = workouts.map((w) => w.id);
+
+    const [planDayMap, workoutSetsMap] = await Promise.all([
+      this.planDayRepo.findByIds(uniquePlanDayIds),
+      this.workoutSetRepo.findByWorkoutIds(workoutIds),
+    ]);
+
+    // Transform workouts using pre-fetched data
     for (const workout of workouts) {
-      const planDay = await this.planDayRepo.findById(workout.plan_day_id);
-      const sets = await this.workoutSetRepo.findByWorkoutId(workout.id);
+      const planDay = planDayMap.get(workout.plan_day_id) ?? null;
+      const sets = workoutSetsMap.get(workout.id) ?? [];
 
       // Count unique exercises
       const uniqueExerciseIds = new Set(sets.map((s) => s.exercise_id));
