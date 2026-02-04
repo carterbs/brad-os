@@ -183,11 +183,6 @@ class StretchAudioManager: ObservableObject {
 
             // Reactivate with new category
             try AVAudioSession.sharedInstance().setActive(true)
-
-            // Restart keepalive - setActive(false) stops all audio players,
-            // so the keepalive loop must be re-triggered to prevent iOS from
-            // suspending the app while the screen is locked
-            resumeKeepalivePlayback()
         } catch {
             #if DEBUG
             print("[StretchAudioManager] Failed to enable ducking: \(error)")
