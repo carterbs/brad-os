@@ -44,11 +44,16 @@ class StretchAudioManager: ObservableObject {
     /// Pre-fetched audio URLs from TTS cache
     private var preparedAudio: PreparedStretchAudio?
 
-    /// Observer for audio session interruptions (phone calls, Siri, etc.)
-    private var interruptionObserver: NSObjectProtocol?
+    /// Shared audio session manager (handles ducking, interruptions centrally)
+    private let audioSession = AudioSessionManager.shared
 
     init() {
-        setupInterruptionObserver()
+        audioSession.onInterruption = { [weak self] type in
+            guard type == .ended else { return }
+            Task { @MainActor [weak self] in
+                self?.resumeKeepalivePlayback()
+            }
+        }
     }
 
     deinit {
@@ -61,53 +66,8 @@ class StretchAudioManager: ObservableObject {
         if let observer = keepaliveObserver {
             NotificationCenter.default.removeObserver(observer)
         }
-        if let observer = interruptionObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
         narrationPlayer?.pause()
         keepalivePlayer?.pause()
-    }
-
-    // MARK: - Audio Interruption Handling
-
-    private func setupInterruptionObserver() {
-        interruptionObserver = NotificationCenter.default.addObserver(
-            forName: AVAudioSession.interruptionNotification,
-            object: AVAudioSession.sharedInstance(),
-            queue: .main
-        ) { [weak self] notification in
-            self?.handleInterruption(notification)
-        }
-    }
-
-    private func handleInterruption(_ notification: Notification) {
-        guard let userInfo = notification.userInfo,
-              let typeValue = userInfo[AVAudioSessionInterruptionTypeKey] as? UInt,
-              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else {
-            return
-        }
-
-        switch type {
-        case .began:
-            #if DEBUG
-            print("[StretchAudioManager] Audio interruption began (e.g. phone call)")
-            #endif
-
-        case .ended:
-            #if DEBUG
-            print("[StretchAudioManager] Audio interruption ended")
-            #endif
-            if let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt {
-                let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
-                if options.contains(.shouldResume) {
-                    try? AVAudioSession.sharedInstance().setActive(true)
-                    resumeKeepalivePlayback()
-                }
-            }
-
-        @unknown default:
-            break
-        }
     }
 
     // MARK: - Audio Sources
@@ -139,86 +99,14 @@ class StretchAudioManager: ObservableObject {
     /// Configure and activate the audio session for stretching
     /// Call this when starting a stretch session
     func activateSession() throws {
-        do {
-            // Use .playback to allow background audio
-            // Use .mixWithOthers to let Spotify continue playing at full volume
-            // Ducking is enabled only during narration via enableDucking()
-            try AVAudioSession.sharedInstance().setCategory(
-                .playback,
-                mode: .default,
-                options: [.mixWithOthers]
-            )
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch {
-            throw StretchAudioError.sessionConfigurationFailed(error)
-        }
+        try audioSession.activate()
     }
 
     /// Deactivate the audio session when ending a stretch session
     func deactivateSession() {
         stopAllAudio()
         preparedAudio = nil
-        try? AVAudioSession.sharedInstance().setActive(
-            false,
-            options: .notifyOthersOnDeactivation
-        )
-    }
-
-    /// Enable audio ducking before narration
-    /// This lowers Spotify/other audio volume while our narration plays
-    private func enableDucking() {
-        do {
-            // Deactivate first to cleanly change category - this is key for
-            // triggering ducking instead of pausing in apps like Spotify
-            try AVAudioSession.sharedInstance().setActive(false)
-
-            // Navigation app pattern: .voicePrompt mode with ducking options
-            // .duckOthers lowers other audio volume
-            // .interruptSpokenAudioAndMixWithOthers allows mixing with music
-            try AVAudioSession.sharedInstance().setCategory(
-                .playback,
-                mode: .voicePrompt,
-                options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
-            )
-
-            // Reactivate with new category
-            try AVAudioSession.sharedInstance().setActive(true)
-        } catch {
-            #if DEBUG
-            print("[StretchAudioManager] Failed to enable ducking: \(error)")
-            #endif
-        }
-    }
-
-    /// Restore audio after narration completes
-    /// This removes ducking so Spotify/other audio returns to normal volume
-    private func restoreAudioAfterDucking() {
-        do {
-            // Deactivate with notification to tell other apps (Spotify) to resume
-            try AVAudioSession.sharedInstance().setActive(
-                false,
-                options: .notifyOthersOnDeactivation
-            )
-
-            // Switch back to non-ducking category
-            try AVAudioSession.sharedInstance().setCategory(
-                .playback,
-                mode: .default,
-                options: [.mixWithOthers]
-            )
-
-            // Reactivate our session for keepalive
-            try AVAudioSession.sharedInstance().setActive(true)
-
-            // Restart keepalive - setActive(false) stops all audio players,
-            // so the keepalive loop must be re-triggered to prevent iOS from
-            // suspending the app while the screen is locked
-            resumeKeepalivePlayback()
-        } catch {
-            #if DEBUG
-            print("[StretchAudioManager] Failed to restore audio: \(error)")
-            #endif
-        }
+        audioSession.deactivate()
     }
 
     // MARK: - Keepalive Loop
@@ -285,7 +173,7 @@ class StretchAudioManager: ObservableObject {
     /// to guarantee the audio session stays alive and iOS doesn't suspend the app.
     func ensureKeepaliveActive() {
         guard isKeepaliveRunning else { return }
-        try? AVAudioSession.sharedInstance().setActive(true)
+        try? audioSession.activate()
         resumeKeepalivePlayback()
     }
 
@@ -317,12 +205,8 @@ class StretchAudioManager: ObservableObject {
             return
         }
 
-        // Enable ducking before narration plays
-        // This lowers Spotify/other audio volume during our narration
-        enableDucking()
-        try? AVAudioSession.sharedInstance().setActive(true, options: [])
-
-        // Create player
+        // Create player — AudioSessionManager.shared handles ducking via
+        // .duckOthers category option, no per-narration session toggling needed
         let playerItem = AVPlayerItem(url: url)
         narrationPlayer = AVPlayer(playerItem: playerItem)
 
@@ -334,8 +218,6 @@ class StretchAudioManager: ObservableObject {
                 queue: .main
             ) { [weak self] _ in
                 self?.removeNarrationObserver()
-                // Restore audio so Spotify/other audio returns to normal volume
-                self?.restoreAudioAfterDucking()
                 continuation.resume()
             }
 
@@ -359,8 +241,6 @@ class StretchAudioManager: ObservableObject {
         if narrationPlayer != nil {
             narrationPlayer?.pause()
             narrationPlayer = nil
-            // Restore audio so Spotify/other audio returns to normal volume
-            restoreAudioAfterDucking()
         }
     }
 
