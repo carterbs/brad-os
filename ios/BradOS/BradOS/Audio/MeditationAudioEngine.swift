@@ -1,8 +1,9 @@
 import AVFoundation
 import Combine
+import Foundation
 
 /// Audio engine for meditation playback managing narration, bell, and keepalive
-final class MeditationAudioEngine: NSObject, ObservableObject {
+final class MeditationAudioEngine: ObservableObject {
     static let shared = MeditationAudioEngine()
 
     // MARK: - Published State
@@ -12,19 +13,21 @@ final class MeditationAudioEngine: NSObject, ObservableObject {
 
     // MARK: - Audio Players
 
-    private var narrationPlayer: AVAudioPlayer?
-    private var bellPlayer: AVAudioPlayer?
     private var keepalivePlayer: AVAudioPlayer?
 
     // MARK: - State
 
     private var isInitialized = false
     private let audioSession = AudioSessionManager.shared
+    private static let logFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
 
     // MARK: - Initialization
 
-    override init() {
-        super.init()
+    init() {
         setupInterruptionHandler()
     }
 
@@ -46,14 +49,8 @@ final class MeditationAudioEngine: NSObject, ObservableObject {
     func initialize() async throws {
         guard !isInitialized else { return }
 
-        // Activate audio session
-        try audioSession.activate()
-
-        // Pre-load bell sound for quick playback
-        if let bellURL = getAudioURL(for: "shared/bell.wav") {
-            bellPlayer = try AVAudioPlayer(contentsOf: bellURL)
-            bellPlayer?.prepareToPlay()
-        }
+        // Activate audio session for mixing (ducking happens per-narration)
+        try audioSession.activateForMixing()
 
         // Setup keepalive with silence
         try setupKeepalive()
@@ -83,7 +80,7 @@ final class MeditationAudioEngine: NSObject, ObservableObject {
             subdirectory: subdirectory
         ) {
             #if DEBUG
-            print("[MeditationAudioEngine] Found audio: \(path) at \(url.path)")
+            log("[MeditationAudioEngine] Found audio: \(path) at \(url.path)")
             #endif
             return url
         }
@@ -91,66 +88,64 @@ final class MeditationAudioEngine: NSObject, ObservableObject {
         // Fallback: Try just the filename anywhere in bundle
         if let url = Bundle.main.url(forResource: filenameWithoutExt, withExtension: ext) {
             #if DEBUG
-            print("[MeditationAudioEngine] Found audio (fallback): \(path) at \(url.path)")
+            log("[MeditationAudioEngine] Found audio (fallback): \(path) at \(url.path)")
             #endif
             return url
         }
 
         #if DEBUG
-        print("[MeditationAudioEngine] Audio file not found: \(path) (looked in \(subdirectory))")
+        log("[MeditationAudioEngine] Audio file not found: \(path) (looked in \(subdirectory))")
         #endif
         return nil
     }
 
     // MARK: - Narration Playback
 
-    /// Play a narration audio file
+    /// Play a narration audio file (ducking handled by AudioSessionManager)
     func playNarration(file: String) async throws {
-        stopNarration()
-
         guard let url = getAudioURL(for: file) else {
-            // Audio file not available - this is expected until API phase
-            // In production, this would trigger a download
-            print("Audio file not found: \(file)")
+            log("[MeditationAudioEngine] Audio file not found: \(file)")
             return
         }
 
-        do {
-            narrationPlayer = try AVAudioPlayer(contentsOf: url)
-            narrationPlayer?.delegate = self
-            narrationPlayer?.prepareToPlay()
-            narrationPlayer?.play()
-            isPlaying = true
-        } catch {
-            audioError = error
-            throw error
+        let shouldPauseKeepalive = (keepalivePlayer?.isPlaying ?? false) && audioSession.isOtherAudioPlaying
+        if shouldPauseKeepalive {
+            stopKeepalive()
         }
+        defer {
+            if shouldPauseKeepalive {
+                startKeepalive()
+            }
+        }
+
+        isPlaying = true
+        defer { isPlaying = false }
+        try await audioSession.playNarration(url: url)
     }
 
     /// Stop any playing narration
     func stopNarration() {
-        narrationPlayer?.stop()
-        narrationPlayer = nil
+        audioSession.stopNarration()
     }
 
     // MARK: - Bell Sound
 
-    /// Play the meditation bell
+    /// Play the meditation bell (ducking handled by AudioSessionManager)
     func playBell() async throws {
-        guard let player = bellPlayer else {
-            // Try to load bell if not already loaded
-            if let bellURL = getAudioURL(for: "shared/bell.wav") {
-                bellPlayer = try AVAudioPlayer(contentsOf: bellURL)
-                bellPlayer?.prepareToPlay()
-            } else {
-                print("Bell sound not available")
-                return
-            }
-            return try await playBell()
+        guard let bellURL = getAudioURL(for: "shared/bell.wav") else {
+            log("[MeditationAudioEngine] Bell sound not available")
+            return
         }
-
-        player.currentTime = 0
-        player.play()
+        let shouldPauseKeepalive = (keepalivePlayer?.isPlaying ?? false) && audioSession.isOtherAudioPlaying
+        if shouldPauseKeepalive {
+            stopKeepalive()
+        }
+        defer {
+            if shouldPauseKeepalive {
+                startKeepalive()
+            }
+        }
+        try await audioSession.playNarration(url: bellURL)
     }
 
     // MARK: - Keepalive
@@ -214,7 +209,7 @@ final class MeditationAudioEngine: NSObject, ObservableObject {
 
     /// Pause all audio playback
     func pause() {
-        narrationPlayer?.pause()
+        audioSession.stopNarration()
         keepalivePlayer?.pause()
         isPlaying = false
     }
@@ -232,7 +227,6 @@ final class MeditationAudioEngine: NSObject, ObservableObject {
     func teardown() {
         stopNarration()
         stopKeepalive()
-        bellPlayer?.stop()
         audioSession.deactivate()
         isInitialized = false
         isPlaying = false
@@ -240,30 +234,13 @@ final class MeditationAudioEngine: NSObject, ObservableObject {
 
     /// Stop all audio immediately (for early session end)
     func stopAll() {
-        narrationPlayer?.stop()
-        bellPlayer?.stop()
-        keepalivePlayer?.stop()
+        stopNarration()
+        stopKeepalive()
         isPlaying = false
     }
-}
 
-// MARK: - AVAudioPlayerDelegate
-
-extension MeditationAudioEngine: AVAudioPlayerDelegate {
-    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        if player === narrationPlayer {
-            // Narration finished
-            DispatchQueue.main.async {
-                self.narrationPlayer = nil
-            }
-        }
-    }
-
-    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
-        if let error = error {
-            DispatchQueue.main.async {
-                self.audioError = error
-            }
-        }
+    private func log(_ message: String) {
+        let timestamp = Self.logFormatter.string(from: Date())
+        print("\(timestamp) \(message)")
     }
 }

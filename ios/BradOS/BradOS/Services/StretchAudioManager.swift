@@ -29,10 +29,6 @@ enum StretchAudioError: Error, LocalizedError {
 /// 4. Plays narration audio on top of the keepalive without pausing it
 @MainActor
 class StretchAudioManager: ObservableObject {
-    /// Player for narration audio clips
-    private var narrationPlayer: AVPlayer?
-    private var narrationObserver: NSObjectProtocol?
-
     /// Player for silent keepalive loop
     private var keepalivePlayer: AVPlayer?
     private var keepaliveObserver: NSObjectProtocol?
@@ -56,17 +52,23 @@ class StretchAudioManager: ObservableObject {
         }
     }
 
+    #if DEBUG
+    private static let logFormatter: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter
+    }()
+
+    private func log(_ message: String) {
+        let timestamp = Self.logFormatter.string(from: Date())
+        print("\(timestamp) \(message)")
+    }
+    #endif
+
     deinit {
-        // Clean up observers synchronously - do NOT create a Task here
-        // as it would capture self after deallocation begins, causing
-        // "deallocated with non-zero retain count" crash
-        if let observer = narrationObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
         if let observer = keepaliveObserver {
             NotificationCenter.default.removeObserver(observer)
         }
-        narrationPlayer?.pause()
         keepalivePlayer?.pause()
     }
 
@@ -99,7 +101,7 @@ class StretchAudioManager: ObservableObject {
     /// Configure and activate the audio session for stretching
     /// Call this when starting a stretch session
     func activateSession() throws {
-        try audioSession.activate()
+        try audioSession.activateForMixing()
     }
 
     /// Deactivate the audio session when ending a stretch session
@@ -119,7 +121,7 @@ class StretchAudioManager: ObservableObject {
         // Find silence audio file
         guard let silenceURL = findAudioFile("shared/silence-1s.wav") else {
             #if DEBUG
-            print("[StretchAudioManager] Silence file not found, skipping keepalive")
+            log("[StretchAudioManager] Silence file not found, skipping keepalive")
             #endif
             return
         }
@@ -144,7 +146,7 @@ class StretchAudioManager: ObservableObject {
         isKeepaliveRunning = true
 
         #if DEBUG
-        print("[StretchAudioManager] Keepalive started")
+        log("[StretchAudioManager] Keepalive started")
         #endif
     }
 
@@ -159,7 +161,7 @@ class StretchAudioManager: ObservableObject {
         isKeepaliveRunning = false
 
         #if DEBUG
-        print("[StretchAudioManager] Keepalive stopped")
+        log("[StretchAudioManager] Keepalive stopped")
         #endif
     }
 
@@ -173,7 +175,7 @@ class StretchAudioManager: ObservableObject {
     /// to guarantee the audio session stays alive and iOS doesn't suspend the app.
     func ensureKeepaliveActive() {
         guard isKeepaliveRunning else { return }
-        try? audioSession.activate()
+        try? audioSession.activateForMixing()
         resumeKeepalivePlayback()
     }
 
@@ -191,38 +193,21 @@ class StretchAudioManager: ObservableObject {
 
     /// Plays narration audio from a URL. Returns when clip finishes.
     /// Keepalive continues running during narration (matching PWA behavior).
-    /// Other audio (Spotify) is ducked (lowered) during narration via .duckOthers.
+    /// Other audio (Spotify) is ducked (lowered) during narration when it was already playing.
     /// - Parameter url: File URL to the audio file (from TTS cache or bundle)
     func playNarration(_ url: URL) async throws {
-        // Stop any existing narration (but not keepalive)
-        stopNarration()
-
-        // Verify file exists before attempting playback
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            #if DEBUG
-            print("[StretchAudioManager] Audio file not found, skipping: \(url.path)")
-            #endif
-            return
+        let shouldPauseKeepalive = isKeepaliveRunning && audioSession.isOtherAudioPlaying
+        if shouldPauseKeepalive {
+            stopKeepalive()
         }
-
-        // Create player — AudioSessionManager.shared handles ducking via
-        // .duckOthers category option, no per-narration session toggling needed
-        let playerItem = AVPlayerItem(url: url)
-        narrationPlayer = AVPlayer(playerItem: playerItem)
-
-        // Wait for playback to complete
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            narrationObserver = NotificationCenter.default.addObserver(
-                forName: .AVPlayerItemDidPlayToEndTime,
-                object: playerItem,
-                queue: .main
-            ) { [weak self] _ in
-                self?.removeNarrationObserver()
-                continuation.resume()
+        defer {
+            if shouldPauseKeepalive {
+                startKeepalive()
             }
-
-            narrationPlayer?.play()
         }
+        try await audioSession.playNarration(url: url)
+        // Resume keepalive after ducking restore (session deactivate may have paused it)
+        resumeKeepalivePlayback()
     }
 
     /// Plays narration without waiting for completion (fire-and-forget)
@@ -237,11 +222,7 @@ class StretchAudioManager: ObservableObject {
 
     /// Stop any currently playing narration (but not keepalive)
     func stopNarration() {
-        removeNarrationObserver()
-        if narrationPlayer != nil {
-            narrationPlayer?.pause()
-            narrationPlayer = nil
-        }
+        audioSession.stopNarration()
     }
 
     /// Stop all audio including keepalive
@@ -251,13 +232,6 @@ class StretchAudioManager: ObservableObject {
     }
 
     // MARK: - Private Helpers
-
-    private func removeNarrationObserver() {
-        if let observer = narrationObserver {
-            NotificationCenter.default.removeObserver(observer)
-            narrationObserver = nil
-        }
-    }
 
     /// Find audio file in bundle (used only for keepalive silence)
     private func findAudioFile(_ clipPath: String) -> URL? {
@@ -277,7 +251,7 @@ class StretchAudioManager: ObservableObject {
             subdirectory: subdirectory
         ) {
             #if DEBUG
-            print("[StretchAudioManager] Found audio: \(clipPath) at \(url.path)")
+            log("[StretchAudioManager] Found audio: \(clipPath) at \(url.path)")
             #endif
             return url
         }
@@ -285,13 +259,13 @@ class StretchAudioManager: ObservableObject {
         // Fallback: Try just the filename anywhere in bundle
         if let url = Bundle.main.url(forResource: filenameWithoutExt, withExtension: ext) {
             #if DEBUG
-            print("[StretchAudioManager] Found audio (fallback): \(clipPath) at \(url.path)")
+            log("[StretchAudioManager] Found audio (fallback): \(clipPath) at \(url.path)")
             #endif
             return url
         }
 
         #if DEBUG
-        print("[StretchAudioManager] Audio file not found: \(clipPath) (looked in \(subdirectory))")
+        log("[StretchAudioManager] Audio file not found: \(clipPath) (looked in \(subdirectory))")
         #endif
         return nil
     }
