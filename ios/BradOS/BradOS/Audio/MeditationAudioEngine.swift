@@ -49,7 +49,7 @@ final class MeditationAudioEngine: ObservableObject {
     func initialize() async throws {
         guard !isInitialized else { return }
 
-        // Activate audio session for mixing (ducking happens per-narration)
+        // Activate audio session for mixing (interruption/ducking happens per narration)
         try audioSession.activateForMixing()
 
         // Setup keepalive with silence
@@ -101,7 +101,7 @@ final class MeditationAudioEngine: ObservableObject {
 
     // MARK: - Narration Playback
 
-    /// Play a narration audio file (ducking handled by AudioSessionManager)
+    /// Play a narration audio file (interruption/ducking handled by AudioSessionManager)
     func playNarration(file: String) async throws {
         guard let url = getAudioURL(for: file) else {
             log("[MeditationAudioEngine] Audio file not found: \(file)")
@@ -130,7 +130,7 @@ final class MeditationAudioEngine: ObservableObject {
 
     // MARK: - Bell Sound
 
-    /// Play the meditation bell (ducking handled by AudioSessionManager)
+    /// Play the meditation bell (interruption/ducking handled by AudioSessionManager)
     func playBell() async throws {
         guard let bellURL = getAudioURL(for: "shared/bell.wav") else {
             log("[MeditationAudioEngine] Bell sound not available")

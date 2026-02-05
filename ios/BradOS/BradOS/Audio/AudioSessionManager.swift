@@ -1,9 +1,10 @@
 import AVFoundation
 import Foundation
 
-/// Centralized audio session manager handling ducking, narration playback, and session lifecycle.
-/// All narration playback across the app goes through `playNarration`, which ducks background
-/// audio only when other audio is already playing, and restores volume afterward.
+/// Centralized audio session manager handling narration playback, other-audio interruption,
+/// and session lifecycle. All narration playback across the app goes through `playNarration`,
+/// which requests ducking/interrupt for other audio when it was already playing and restores
+/// afterward (some apps pause instead of ducking).
 final class AudioSessionManager {
     static let shared = AudioSessionManager()
 
@@ -43,8 +44,8 @@ final class AudioSessionManager {
 
     // MARK: - Configuration
 
-    /// Configure audio session for background playback with mixing (no ducking).
-    /// Ducking is applied only during narration via `playNarration`.
+    /// Configure audio session for background playback with mixing (no interruption).
+    /// Temporary interruption/ducking is applied only during narration via `playNarration`.
     func configure() throws {
         guard !isConfigured else { return }
         try session.setCategory(
@@ -55,14 +56,14 @@ final class AudioSessionManager {
         isConfigured = true
     }
 
-    /// Activate the audio session for mixing (no ducking)
+    /// Activate the audio session for mixing (no interruption)
     func activate() throws {
         try configure()
         try session.setActive(true)
     }
 
-    /// Activate session for mixing without ducking.
-    /// Between narration clips, background audio plays at full volume.
+    /// Activate session for mixing without interruption.
+    /// Between narration clips, background audio can play at full volume.
     func activateForMixing() throws {
         log("[AudioSession] Activating for mixing (.mixWithOthers, no ducking)")
         try session.setCategory(
@@ -83,10 +84,10 @@ final class AudioSessionManager {
         }
     }
 
-    // MARK: - Narration Playback (with automatic ducking)
+    // MARK: - Narration Playback (with automatic interruption/ducking)
 
-    /// Play narration audio from a URL with automatic ducking.
-    /// Ducks background audio only if other audio was already playing,
+    /// Play narration audio from a URL with automatic interruption/ducking.
+    /// Requests ducking/interrupt only if other audio was already playing,
     /// and restores only in that case.
     /// This is the single entry point for all narration across the app.
     func playNarration(url: URL) async throws {
@@ -154,7 +155,7 @@ final class AudioSessionManager {
         }
     }
 
-    /// Play narration audio from data (e.g. TTS API response) with automatic ducking.
+    /// Play narration audio from data (e.g. TTS API response) with automatic interruption/ducking.
     func playNarration(data: Data) async throws {
         let tempURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
@@ -184,8 +185,8 @@ final class AudioSessionManager {
 
     // MARK: - Ducking (private)
 
-    /// Enable audio ducking before narration.
-    /// Use voice prompt mode with ducking and mixing to lower other audio.
+    /// Enable other-audio interruption/ducking before narration.
+    /// Uses voice prompt mode with ducking and mixing. Some apps pause instead of ducking.
     private func enableDucking() throws {
         log("[AudioSession] ENABLING ducking")
         try session.setCategory(
@@ -197,7 +198,7 @@ final class AudioSessionManager {
         log("[AudioSession] Ducking ENABLED - Spotify should lower volume now")
     }
 
-    /// Restore audio after narration, removing ducking.
+    /// Restore other audio after narration, removing interruption/ducking.
     private func restoreAfterDucking() async throws {
         log("[AudioSession] RESTORING after ducking - deactivating with notification")
         try session.setActive(false, options: .notifyOthersOnDeactivation)

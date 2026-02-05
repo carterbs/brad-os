@@ -24,7 +24,7 @@ enum StretchAudioError: Error, LocalizedError {
 ///
 /// Uses a keepalive audio loop pattern (matching PWA) that:
 /// 1. Plays silent audio at low volume to maintain the audio session
-/// 2. Allows Spotify to continue playing alongside stretching
+/// 2. Allows other audio to play between narrations (may pause during narration)
 /// 3. Keeps the app alive when the screen is locked
 /// 4. Plays narration audio on top of the keepalive without pausing it
 @MainActor
@@ -40,7 +40,7 @@ class StretchAudioManager: ObservableObject {
     /// Pre-fetched audio URLs from TTS cache
     private var preparedAudio: PreparedStretchAudio?
 
-    /// Shared audio session manager (handles ducking, interruptions centrally)
+    /// Shared audio session manager (handles interruption/ducking centrally)
     private let audioSession = AudioSessionManager.shared
 
     init() {
@@ -193,7 +193,7 @@ class StretchAudioManager: ObservableObject {
 
     /// Plays narration audio from a URL. Returns when clip finishes.
     /// Keepalive continues running during narration (matching PWA behavior).
-    /// Other audio (Spotify) is ducked (lowered) during narration when it was already playing.
+    /// Other audio may be interrupted/paused during narration when it was already playing.
     /// - Parameter url: File URL to the audio file (from TTS cache or bundle)
     func playNarration(_ url: URL) async throws {
         let shouldPauseKeepalive = isKeepaliveRunning && audioSession.isOtherAudioPlaying
@@ -206,7 +206,7 @@ class StretchAudioManager: ObservableObject {
             }
         }
         try await audioSession.playNarration(url: url)
-        // Resume keepalive after ducking restore (session deactivate may have paused it)
+        // Resume keepalive after interruption restore (session deactivate may have paused it)
         resumeKeepalivePlayback()
     }
 
