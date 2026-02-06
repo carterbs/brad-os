@@ -7,12 +7,12 @@
  * Usage: npx tsx packages/functions/src/scripts/seed-reactivity-meditations.ts
  */
 
+import { randomUUID } from 'crypto';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import type { CreateGuidedMeditationScriptDTO, GuidedMeditationInterjection } from '../shared.js';
-import { GuidedMeditationRepository } from '../repositories/guided-meditation.repository.js';
 
 // Table of contents mapping: meditation number -> title
 const MEDITATION_TITLES: Record<number, string> = {
@@ -357,6 +357,52 @@ function toScriptDTOs(meditations: ParsedMeditation[]): CreateGuidedMeditationSc
   });
 }
 
+/**
+ * Delete all documents in a Firestore collection.
+ */
+async function clearCollection(db: ReturnType<typeof getFirestore>, collectionName: string): Promise<number> {
+  const docs = await db.collection(collectionName).listDocuments();
+  if (docs.length === 0) return 0;
+
+  const batch = db.batch();
+  for (const doc of docs) {
+    batch.delete(doc);
+  }
+  await batch.commit();
+  return docs.length;
+}
+
+/**
+ * Seed a single Firestore collection with meditation scripts.
+ */
+async function seedCollection(
+  db: ReturnType<typeof getFirestore>,
+  collectionName: string,
+  dtos: CreateGuidedMeditationScriptDTO[]
+): Promise<void> {
+  const batch = db.batch();
+  const now = new Date().toISOString();
+
+  for (const dto of dtos) {
+    const segments = dto.segments.map((seg) => ({ ...seg, id: randomUUID() }));
+    const scriptData = {
+      category: dto.category,
+      title: dto.title,
+      subtitle: dto.subtitle,
+      orderIndex: dto.orderIndex,
+      durationSeconds: dto.durationSeconds,
+      segments,
+      interjections: dto.interjections,
+      created_at: now,
+      updated_at: now,
+    };
+    const docRef = db.collection(collectionName).doc();
+    batch.set(docRef, scriptData);
+  }
+
+  await batch.commit();
+}
+
 async function main(): Promise<void> {
   // Read and parse the meditations file
   const filePath = resolve(process.cwd(), 'meditations.md');
@@ -380,18 +426,21 @@ async function main(): Promise<void> {
 
   // Initialize Firebase
   if (getApps().length === 0) {
-    initializeApp();
+    initializeApp({ projectId: 'brad-os' });
   }
   const db = getFirestore();
-  const repo = new GuidedMeditationRepository(db);
 
-  // Seed the data
-  console.log('Seeding scripts to Firestore...');
-  const results = await repo.seed(dtos);
-  console.log(`Successfully seeded ${results.length} guided meditation scripts`);
+  // Clear and re-seed both prod and dev collections
+  const collections = ['guided_meditation_scripts', 'dev_guided_meditation_scripts'];
 
-  for (const script of results) {
-    console.log(`  [${script.orderIndex}] ${script.title} - ${script.subtitle} (${script.id})`);
+  for (const collectionName of collections) {
+    const deleted = await clearCollection(db, collectionName);
+    if (deleted > 0) {
+      console.log(`Cleared ${deleted} docs from ${collectionName}`);
+    }
+
+    await seedCollection(db, collectionName, dtos);
+    console.log(`Seeded ${dtos.length} scripts to ${collectionName}`);
   }
 }
 

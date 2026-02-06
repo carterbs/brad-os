@@ -175,7 +175,7 @@ final class GuidedMeditationPipeline: ObservableObject {
     // MARK: - Playback Controls
 
     func play() {
-        try? audioSession.activate()
+        try? audioSession.activateForMixing()
         queuePlayer?.play()
         keepalivePlayer?.play()
         isPlaying = true

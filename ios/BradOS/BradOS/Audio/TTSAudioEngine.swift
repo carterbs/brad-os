@@ -2,54 +2,22 @@ import AVFoundation
 import Combine
 
 /// Plays MP3 audio data from TTS API responses
-final class TTSAudioEngine: NSObject, ObservableObject {
+final class TTSAudioEngine: ObservableObject {
     @Published var isPlaying: Bool = false
 
-    private var player: AVAudioPlayer?
     private let audioSession = AudioSessionManager.shared
 
-    override init() {
-        super.init()
-    }
-
-    /// Play MP3 data received from the TTS API
-    func play(data: Data) throws {
+    /// Play MP3 data received from the TTS API (ducking handled by AudioSessionManager)
+    func play(data: Data) async throws {
         stop()
-
-        try audioSession.activate()
-
-        player = try AVAudioPlayer(data: data)
-        player?.delegate = self
-        player?.prepareToPlay()
-        player?.play()
         isPlaying = true
+        defer { isPlaying = false }
+        try await audioSession.playNarration(data: data)
     }
 
     /// Stop current playback
     func stop() {
-        player?.stop()
-        player = nil
+        audioSession.stopNarration()
         isPlaying = false
-    }
-}
-
-// MARK: - AVAudioPlayerDelegate
-
-extension TTSAudioEngine: AVAudioPlayerDelegate {
-    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        DispatchQueue.main.async { [weak self] in
-            self?.isPlaying = false
-            self?.player = nil
-        }
-    }
-
-    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
-        DispatchQueue.main.async { [weak self] in
-            self?.isPlaying = false
-            self?.player = nil
-            if let error = error {
-                print("[TTSAudioEngine] Decode error: \(error.localizedDescription)")
-            }
-        }
     }
 }

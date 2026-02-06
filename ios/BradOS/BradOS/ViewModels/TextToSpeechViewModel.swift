@@ -47,7 +47,7 @@ final class TextToSpeechViewModel: ObservableObject {
         Task {
             do {
                 let audioData = try await apiClient.synthesizeSpeech(text: text)
-                try audioEngine.play(data: audioData)
+                try await audioEngine.play(data: audioData)
                 state = .playing
             } catch {
                 state = .idle
