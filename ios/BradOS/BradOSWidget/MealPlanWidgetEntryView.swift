@@ -70,7 +70,7 @@ struct MealPlanWidgetEntryView: View {
     // MARK: - Helpers
 
     private var mealPlanColor: Color {
-        Color(red: 1.0, green: 0.478, blue: 0.682) // #FF7AAE
+        ThemeColors.mealPlan
     }
 
     private func mealTypeIcon(_ type: MealType) -> String {

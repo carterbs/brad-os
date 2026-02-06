@@ -8,6 +8,7 @@ A personal operating system for tracking wellness and fitness. Built as a learni
   <img src="docs/meal-plan.png" width="250" alt="Weekly Meal Plan" />
   <img src="docs/lifting.png" width="250" alt="Workout Session" />
   <img src="docs/stretching.png" width="250" alt="Stretching Session" />
+  <img src="docs/meal-plan-widget.png" width="250" alt="Meal Plan Widget" />
 </p>
 
 ## Features
@@ -15,6 +16,8 @@ A personal operating system for tracking wellness and fitness. Built as a learni
 ### 🍽️ Meal Planning
 - Weekly meal plans with breakfast, lunch, and dinner
 - Generate grocery lists from meal plans
+- Home screen widget showing today's meals at a glance
+- Disk cache with App Group sharing for instant widget updates
 
 ### 🏋️ Weightlifting
 - 6-week mesocycle training with automatic progression

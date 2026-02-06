@@ -8,7 +8,10 @@ struct MealPlanWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: MealPlanTimelineProvider()) { entry in
             MealPlanWidgetEntryView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .environment(\.colorScheme, .dark)
+                .containerBackground(for: .widget) {
+                    ThemeColors.bgDeep
+                }
         }
         .configurationDisplayName("Meal Plan")
         .description("Today's breakfast, lunch, and dinner.")
