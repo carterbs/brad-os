@@ -72,12 +72,18 @@ struct MealPlanDashboardCard: View {
     let todayMeals: [MealPlanEntry]
     let isLoading: Bool
     let onTap: () -> Void
+    var onLongPress: (() -> Void)?
 
     var body: some View {
         Button(action: onTap) {
             cardContent
         }
         .buttonStyle(PlainButtonStyle())
+        .onLongPressGesture {
+            let impact = UIImpactFeedbackGenerator(style: .medium)
+            impact.impactOccurred()
+            onLongPress?()
+        }
     }
 
     @ViewBuilder

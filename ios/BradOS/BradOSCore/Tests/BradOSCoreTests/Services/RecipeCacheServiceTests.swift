@@ -244,4 +244,9 @@ private final class SpyAPIClient: APIClientProtocol, @unchecked Sendable {
     func getLatestMealPlanSession() async throws -> MealPlanSession? { throw notImplemented() }
     func critiqueMealPlan(sessionId: String, critique: String) async throws -> CritiqueMealPlanResponse { throw notImplemented() }
     func finalizeMealPlan(sessionId: String) async throws { throw notImplemented() }
+    func getGuidedMeditationCategories() async throws -> [GuidedMeditationCategoryResponse] { throw notImplemented() }
+    func getGuidedMeditationScripts(category: String) async throws -> [GuidedMeditationScript] { throw notImplemented() }
+    func getGuidedMeditationScript(id: String) async throws -> GuidedMeditationScript { throw notImplemented() }
+    func getStretches() async throws -> [StretchRegionData] { throw notImplemented() }
+    func synthesizeSpeech(text: String) async throws -> Data { throw notImplemented() }
 }

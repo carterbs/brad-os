@@ -131,12 +131,6 @@ struct TodayFocusView: View {
 
 }
 
-// MARK: - MealType CaseIterable
-
-extension MealType: @retroactive CaseIterable {
-    public static var allCases: [MealType] { [.breakfast, .lunch, .dinner] }
-}
-
 #Preview("Today Focus") {
     ScrollView {
         TodayFocusView(

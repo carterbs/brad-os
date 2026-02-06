@@ -1,7 +1,7 @@
 import Foundation
 
 /// Type of meal in a day
-public enum MealType: String, Codable, Sendable {
+public enum MealType: String, Codable, Sendable, CaseIterable {
     case breakfast
     case lunch
     case dinner

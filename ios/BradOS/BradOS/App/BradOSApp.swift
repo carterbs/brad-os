@@ -1,4 +1,5 @@
 import SwiftUI
+import WidgetKit
 import BradOSCore
 import FirebaseCore
 import FirebaseAppCheck
@@ -30,6 +31,22 @@ struct BradOSApp: App {
                     // Request notification permission for rest timer
                     RestTimerManager.requestNotificationPermission()
                 }
+                .onOpenURL { url in
+                    handleDeepLink(url)
+                }
+                .onReceive(NotificationCenter.default.publisher(for: MealPlanCacheService.cacheDidChangeNotification)) { _ in
+                    WidgetCenter.shared.reloadAllTimelines()
+                }
+        }
+    }
+
+    private func handleDeepLink(_ url: URL) {
+        guard url.scheme == "brados" else { return }
+        switch url.host {
+        case "mealplan":
+            appState.isShowingMealPlan = true
+        default:
+            break
         }
     }
 }

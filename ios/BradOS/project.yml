@@ -44,6 +44,7 @@ targets:
       - package: BradOSCore
       - package: Firebase
         product: FirebaseAppCheck
+      - target: BradOSWidget
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bradcarter.brad-os
@@ -52,6 +53,7 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         GENERATE_INFOPLIST_FILE: false
         INFOPLIST_FILE: BradOS/Info.plist
+        CODE_SIGN_ENTITLEMENTS: BradOS/BradOS.entitlements
     info:
       path: BradOS/Info.plist
       properties:
@@ -66,12 +68,39 @@ targets:
           - spotify
         NSRemindersFullAccessUsageDescription: BradOS uses Reminders to export your weekly grocery shopping list.
         NSUserNotificationsUsageDescription: BradOS uses notifications to alert you when rest timers complete during workouts.
+        CFBundleURLTypes:
+          - CFBundleURLName: com.bradcarter.brad-os
+            CFBundleURLSchemes:
+              - brados
+
+  BradOSWidget:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: BradOSWidget
+        excludes:
+          - "*.entitlements"
+    dependencies:
+      - package: BradOSCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bradcarter.brad-os.widget
+        CODE_SIGN_ENTITLEMENTS: BradOSWidget/BradOSWidget.entitlements
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: false
+        INFOPLIST_FILE: BradOSWidget/Info.plist
+    info:
+      path: BradOSWidget/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
 
 schemes:
   BradOS:
     build:
       targets:
         BradOS: all
+        BradOSWidget: all
     run:
       config: Debug
     profile:

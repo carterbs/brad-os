@@ -13,10 +13,16 @@ struct TodayDashboardView: View {
                     // Meal Plan Card
                     MealPlanDashboardCard(
                         todayMeals: viewModel.todayMeals,
-                        isLoading: viewModel.isLoadingMealPlan
-                    ) {
-                        appState.isShowingMealPlan = true
-                    }
+                        isLoading: viewModel.isLoadingMealPlan,
+                        onTap: {
+                            appState.isShowingMealPlan = true
+                        },
+                        onLongPress: {
+                            Task {
+                                await viewModel.refreshMealPlan(forceRefresh: true)
+                            }
+                        }
+                    )
 
                     // Workout Card
                     WorkoutDashboardCard(

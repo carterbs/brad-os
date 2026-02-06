@@ -31,11 +31,13 @@ public class DashboardViewModel: ObservableObject {
     // MARK: - Dependencies
 
     private let apiClient: APIClientProtocol
+    private let cacheService: MealPlanCacheServiceProtocol
 
     // MARK: - Initialization
 
-    public init(apiClient: APIClientProtocol) {
+    public init(apiClient: APIClientProtocol, cacheService: MealPlanCacheServiceProtocol = MealPlanCacheService.shared) {
         self.apiClient = apiClient
+        self.cacheService = cacheService
     }
 
     // MARK: - Data Loading
@@ -77,6 +79,14 @@ public class DashboardViewModel: ObservableObject {
     /// Refresh just the meditation data
     public func refreshMeditation() async {
         await loadLatestMeditation()
+    }
+
+    /// Refresh meal plan data, optionally bypassing cache
+    public func refreshMealPlan(forceRefresh: Bool = false) async {
+        if forceRefresh {
+            cacheService.invalidate()
+        }
+        await loadMealPlan()
     }
 
     // MARK: - Private Loading Methods
@@ -130,11 +140,20 @@ public class DashboardViewModel: ObservableObject {
         isLoadingMealPlan = true
         defer { isLoadingMealPlan = false }
 
+        // Check disk cache first
+        if let cached = cacheService.getCachedSession(), cached.isFinalized {
+            let todayDayIndex = Self.calendarWeekdayToDayIndex()
+            todayMeals = cached.plan.filter { $0.dayIndex == todayDayIndex }
+            return
+        }
+
+        // Fall through to API
         do {
             let session = try await apiClient.getLatestMealPlanSession()
             if let session = session, session.isFinalized {
                 let todayDayIndex = Self.calendarWeekdayToDayIndex()
                 todayMeals = session.plan.filter { $0.dayIndex == todayDayIndex }
+                cacheService.cache(session)
             } else {
                 todayMeals = []
             }

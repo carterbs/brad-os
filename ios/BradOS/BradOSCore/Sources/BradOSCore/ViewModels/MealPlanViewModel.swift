@@ -30,17 +30,20 @@ public class MealPlanViewModel: ObservableObject {
     private let apiClient: APIClientProtocol
     private let recipeCache: RecipeCacheService
     private let remindersService: RemindersServiceProtocol
+    private let cacheService: MealPlanCacheServiceProtocol
 
     // MARK: - Initialization
 
     public init(
         apiClient: APIClientProtocol,
         recipeCache: RecipeCacheService = RecipeCacheService.shared,
-        remindersService: RemindersServiceProtocol = RemindersService()
+        remindersService: RemindersServiceProtocol = RemindersService(),
+        cacheService: MealPlanCacheServiceProtocol = MealPlanCacheService.shared
     ) {
         self.apiClient = apiClient
         self.recipeCache = recipeCache
         self.remindersService = remindersService
+        self.cacheService = cacheService
     }
 
     // MARK: - Session Persistence
@@ -86,6 +89,15 @@ public class MealPlanViewModel: ObservableObject {
         isLoading = true
         error = nil
 
+        // Check disk cache first (instant load for finalized sessions)
+        if let cached = cacheService.getCachedSession(), cached.isFinalized {
+            session = cached
+            currentPlan = cached.plan
+            await updateShoppingList()
+            isLoading = false
+            return
+        }
+
         // Try loading saved session first
         if let sessionId = savedSessionId {
             do {
@@ -93,6 +105,9 @@ public class MealPlanViewModel: ObservableObject {
                 session = fullSession
                 currentPlan = fullSession.plan
                 await updateShoppingList()
+                if fullSession.isFinalized {
+                    cacheService.cache(fullSession)
+                }
                 isLoading = false
                 return
             } catch {
@@ -110,6 +125,9 @@ public class MealPlanViewModel: ObservableObject {
                 session = latestSession
                 currentPlan = latestSession.plan
                 await updateShoppingList()
+                if latestSession.isFinalized {
+                    cacheService.cache(latestSession)
+                }
             }
         } catch {
             #if DEBUG
@@ -179,6 +197,9 @@ public class MealPlanViewModel: ObservableObject {
             let fullSession = try await apiClient.getMealPlanSession(id: sessionId)
             session = fullSession
             currentPlan = fullSession.plan
+
+            // Cache the finalized session
+            cacheService.cache(fullSession)
 
             // Clear saved session ID since it's finalized
             savedSessionId = nil
@@ -252,7 +273,15 @@ public class MealPlanViewModel: ObservableObject {
         queuedActions = QueuedCritiqueActions()
         isCritiqueExpanded = false
         error = nil
+        cacheService.invalidate()
         savedSessionId = nil
+    }
+
+    // MARK: - Force Refresh
+
+    public func forceRefresh() async {
+        cacheService.invalidate()
+        await loadExistingSession()
     }
 
     // MARK: - Shopping List
