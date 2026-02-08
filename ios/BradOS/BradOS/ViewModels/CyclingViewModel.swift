@@ -35,169 +35,148 @@ class CyclingViewModel: ObservableObject {
 
     // MARK: - Private Properties
 
-    private let apiClient: APIClientProtocol
+    private let apiClient: APIClient
 
     // MARK: - Initialization
 
-    init(apiClient: APIClientProtocol = APIClient.shared) {
+    init(apiClient: APIClient = .shared) {
         self.apiClient = apiClient
     }
 
     // MARK: - Data Loading
 
-    /// Load all cycling data
+    /// Load all cycling data from the API
     func loadData() async {
         isLoading = true
         defer { isLoading = false }
 
-        // TODO: Implement API calls when backend is ready
-        // For now, load mock data for UI development
+        // Fetch all data concurrently
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.fetchActivities() }
+            group.addTask { await self.fetchTrainingLoad() }
+            group.addTask { await self.fetchFTP() }
+            group.addTask { await self.fetchBlock() }
+            group.addTask { await self.fetchVO2Max() }
+            group.addTask { await self.fetchEFHistory() }
+        }
 
-        // Simulate network delay
-        try? await Task.sleep(nanoseconds: 500_000_000)
-
-        // Mock training load
-        trainingLoad = TrainingLoadModel(
-            atl: 65,
-            ctl: 48,
-            tsb: -17
-        )
-
-        // Mock FTP
-        currentFTP = 195
-        ftpLastTested = Calendar.current.date(byAdding: .weekOfYear, value: -3, to: Date())
-
-        // Mock current block
-        currentBlock = TrainingBlockModel(
-            id: "block-1",
-            startDate: Calendar.current.date(byAdding: .weekOfYear, value: -3, to: Date()) ?? Date(),
-            endDate: Calendar.current.date(byAdding: .weekOfYear, value: 5, to: Date()) ?? Date(),
-            currentWeek: 4,
-            goals: [.regainFitness, .loseWeight],
-            status: .active
-        )
-
-        // Mock activities
-        activities = [
-            CyclingActivityModel(
-                id: "ride-1",
-                stravaId: 12345,
-                date: Date(),
-                durationMinutes: 45,
-                avgPower: 165,
-                normalizedPower: 178,
-                maxPower: 312,
-                avgHeartRate: 142,
-                maxHeartRate: 168,
-                tss: 52,
-                intensityFactor: 0.91,
-                type: .threshold,
-                ef: 1.25,
-                hrCompleteness: 95
-            ),
-            CyclingActivityModel(
-                id: "ride-2",
-                stravaId: 12344,
-                date: Calendar.current.date(byAdding: .day, value: -2, to: Date()) ?? Date(),
-                durationMinutes: 30,
-                avgPower: 138,
-                normalizedPower: 145,
-                maxPower: 245,
-                avgHeartRate: 125,
-                maxHeartRate: 142,
-                tss: 28,
-                intensityFactor: 0.74,
-                type: .recovery,
-                ef: 1.16,
-                hrCompleteness: 72
-            ),
-            CyclingActivityModel(
-                id: "ride-3",
-                stravaId: 12343,
-                date: Calendar.current.date(byAdding: .day, value: -4, to: Date()) ?? Date(),
-                durationMinutes: 60,
-                avgPower: 155,
-                normalizedPower: 168,
-                maxPower: 385,
-                avgHeartRate: 152,
-                maxHeartRate: 182,
-                tss: 75,
-                intensityFactor: 0.86,
-                type: .vo2max,
-                ef: 1.11,
-                peak5MinPower: 245,
-                hrCompleteness: 98
-            )
-        ]
-
-        // Mock VO2 max data
-        vo2maxEstimate = VO2MaxEstimateModel(
-            id: "vo2-1",
-            date: "2026-02-08",
-            value: 42.8,
-            method: "ftp_derived",
-            sourcePower: 195,
-            sourceWeight: 79.4,
-            category: "fair"
-        )
-
-        vo2maxHistory = [
-            VO2MaxEstimateModel(id: "vo2-1", date: "2026-02-08", value: 42.8, method: "ftp_derived", sourcePower: 195, sourceWeight: 79.4, category: "fair"),
-            VO2MaxEstimateModel(id: "vo2-2", date: "2026-01-25", value: 41.2, method: "ftp_derived", sourcePower: 190, sourceWeight: 80.3, category: "fair"),
-            VO2MaxEstimateModel(id: "vo2-3", date: "2026-01-11", value: 39.5, method: "ftp_derived", sourcePower: 182, sourceWeight: 81.0, category: "fair"),
-        ]
-
-        // Mock EF history (steady rides only)
-        efHistory = [
-            EFDataPoint(activityId: "ride-2", date: "2026-02-06", ef: 1.16, normalizedPower: 145, avgHeartRate: 125),
-            EFDataPoint(activityId: "ride-5", date: "2026-02-01", ef: 1.12, normalizedPower: 140, avgHeartRate: 125),
-            EFDataPoint(activityId: "ride-8", date: "2026-01-27", ef: 1.08, normalizedPower: 135, avgHeartRate: 125),
-            EFDataPoint(activityId: "ride-11", date: "2026-01-22", ef: 1.05, normalizedPower: 130, avgHeartRate: 124),
-        ]
-
-        // Load chart data
         loadChartData()
     }
 
-    /// Load chart data for TSS and training load trends
-    private func loadChartData() {
-        // Mock TSS history (last 8 weeks)
-        tssHistory = [
-            TSSDataPoint(weekLabel: "W1", tss: 180),
-            TSSDataPoint(weekLabel: "W2", tss: 220),
-            TSSDataPoint(weekLabel: "W3", tss: 195),
-            TSSDataPoint(weekLabel: "W4", tss: 240),
-            TSSDataPoint(weekLabel: "W5", tss: 120), // Recovery week
-            TSSDataPoint(weekLabel: "W6", tss: 210),
-            TSSDataPoint(weekLabel: "W7", tss: 255),
-            TSSDataPoint(weekLabel: "W8", tss: 175)
-        ]
+    private func fetchActivities() async {
+        do {
+            activities = try await apiClient.getCyclingActivities(limit: 30)
+        } catch {
+            print("[CyclingVM] Failed to fetch activities: \(error)")
+        }
+    }
 
-        // Mock training load history (last 4 weeks)
-        let calendar = Calendar.current
-        loadHistory = (0..<28).compactMap { daysAgo -> TrainingLoadDataPoint? in
-            guard let date = calendar.date(byAdding: .day, value: -daysAgo, to: Date()) else {
-                return nil
+    private func fetchTrainingLoad() async {
+        do {
+            let response = try await apiClient.getCyclingTrainingLoad()
+            trainingLoad = TrainingLoadModel(atl: response.atl, ctl: response.ctl, tsb: response.tsb)
+        } catch {
+            print("[CyclingVM] Failed to fetch training load: \(error)")
+        }
+    }
+
+    private func fetchFTP() async {
+        do {
+            if let ftp = try await apiClient.getCurrentFTP() {
+                currentFTP = ftp.value
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd"
+                ftpLastTested = formatter.date(from: ftp.date)
             }
+        } catch {
+            print("[CyclingVM] Failed to fetch FTP: \(error)")
+        }
+    }
 
-            // Simulate gradual CTL build and ATL fluctuation
-            let baseCTL = 45.0 + Double(28 - daysAgo) * 0.3
-            let baseATL = 50.0 + sin(Double(daysAgo) * 0.5) * 20
-            let ctl = baseCTL + Double.random(in: -2...2)
-            let atl = baseATL + Double.random(in: -5...5)
+    private func fetchBlock() async {
+        do {
+            if let block = try await apiClient.getCurrentBlock() {
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd"
+                let startDate = dateFormatter.date(from: block.startDate) ?? Date()
+                let endDate = dateFormatter.date(from: block.endDate) ?? Date()
+                let goals = block.goals.compactMap { TrainingBlockModel.TrainingGoal(rawValue: $0) }
 
-            return TrainingLoadDataPoint(
-                date: date,
-                ctl: ctl,
-                atl: atl,
-                tsb: ctl - atl
-            )
+                currentBlock = TrainingBlockModel(
+                    id: block.id,
+                    startDate: startDate,
+                    endDate: endDate,
+                    currentWeek: block.currentWeek,
+                    goals: goals,
+                    status: block.status == "completed" ? .completed : .active
+                )
+            }
+        } catch {
+            print("[CyclingVM] Failed to fetch block: \(error)")
+        }
+    }
+
+    private func fetchVO2Max() async {
+        do {
+            let response = try await apiClient.getVO2Max()
+            vo2maxEstimate = response.latest
+            vo2maxHistory = response.history
+        } catch {
+            print("[CyclingVM] Failed to fetch VO2 max: \(error)")
+        }
+    }
+
+    private func fetchEFHistory() async {
+        do {
+            efHistory = try await apiClient.getEFHistory()
+        } catch {
+            print("[CyclingVM] Failed to fetch EF history: \(error)")
+        }
+    }
+
+    /// Build chart data from loaded activities
+    private func loadChartData() {
+        // Build TSS history by week from real activities
+        let calendar = Calendar.current
+        var weeklyTSS: [String: Int] = [:]
+        for activity in activities {
+            let weekOfYear = calendar.component(.weekOfYear, from: activity.date)
+            let label = "W\(weekOfYear)"
+            weeklyTSS[label, default: 0] += activity.tss
+        }
+        tssHistory = weeklyTSS.sorted { $0.key < $1.key }
+            .suffix(8)
+            .map { TSSDataPoint(weekLabel: $0.key, tss: $0.value) }
+
+        // Build training load history from activities (simplified daily TSS)
+        let thirtyDaysAgo = calendar.date(byAdding: .day, value: -28, to: Date()) ?? Date()
+        let recentActivities = activities.filter { $0.date >= thirtyDaysAgo }
+
+        // Group by day
+        var dailyTSS: [Date: Int] = [:]
+        for activity in recentActivities {
+            let day = calendar.startOfDay(for: activity.date)
+            dailyTSS[day, default: 0] += activity.tss
+        }
+
+        // Generate load history points
+        var runningATL = trainingLoad?.atl ?? 0
+        var runningCTL = trainingLoad?.ctl ?? 0
+        loadHistory = (0..<28).compactMap { daysAgo -> TrainingLoadDataPoint? in
+            guard let date = calendar.date(byAdding: .day, value: -daysAgo, to: Date()) else { return nil }
+            let day = calendar.startOfDay(for: date)
+            let tss = Double(dailyTSS[day] ?? 0)
+
+            // Simplified exponential decay
+            runningATL = runningATL + (tss - runningATL) / 7
+            runningCTL = runningCTL + (tss - runningCTL) / 42
+
+            return TrainingLoadDataPoint(date: date, ctl: runningCTL, atl: runningATL, tsb: runningCTL - runningATL)
         }.reversed()
     }
 
     /// Refresh activities from the server
     func refreshActivities() async {
-        // TODO: Implement when backend is ready
         await loadData()
     }
 
@@ -247,7 +226,6 @@ class CyclingViewModel: ObservableObject {
 
     /// Update FTP value
     func updateFTP(_ value: Int, testDate: Date = Date()) async {
-        // TODO: Implement API call to save FTP
         currentFTP = value
         ftpLastTested = testDate
     }

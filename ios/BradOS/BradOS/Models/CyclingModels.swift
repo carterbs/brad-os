@@ -108,3 +108,36 @@ struct EFDataPoint: Identifiable, Codable {
     let normalizedPower: Int
     let avgHeartRate: Int
 }
+
+// MARK: - API Response Models
+
+/// Response from GET /cycling/vo2max
+struct VO2MaxResponse: Codable {
+    let latest: VO2MaxEstimateModel?
+    let history: [VO2MaxEstimateModel]
+}
+
+/// Response from GET /cycling/training-load
+struct CyclingTrainingLoadResponse: Codable {
+    let atl: Double
+    let ctl: Double
+    let tsb: Double
+}
+
+/// Response from GET /cycling/ftp
+struct FTPEntryResponse: Codable {
+    let id: String
+    let value: Int
+    let date: String
+    let source: String
+}
+
+/// Response from GET /cycling/block
+struct TrainingBlockResponse: Codable {
+    let id: String
+    let startDate: String
+    let endDate: String
+    let currentWeek: Int
+    let goals: [String]
+    let status: String
+}

@@ -13,6 +13,9 @@ import cors from 'cors';
 import { stravaWebhookEventSchema } from '../shared.js';
 import * as stravaService from '../services/strava.service.js';
 import * as cyclingService from '../services/firestore-cycling.service.js';
+import {
+  estimateVO2MaxFromPeakPower,
+} from '../services/vo2max.service.js';
 import { errorHandler } from '../middleware/error-handler.js';
 import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
 
@@ -226,8 +229,97 @@ async function handleActivityCreate(
     userId
   );
 
-  await cyclingService.createCyclingActivity(userId, processedActivity);
+  const savedActivity = await cyclingService.createCyclingActivity(userId, processedActivity);
   console.log(`[Strava Webhook] Created activity ${activityId} for user ${userId}`);
+
+  // Enrich with streams data (peak power, HR completeness, auto VO2 max)
+  await enrichActivityWithStreams(userId, savedActivity.id, activityId, accessToken);
+}
+
+/**
+ * Fetch Strava streams for an activity and enrich it with peak power,
+ * HR completeness, and auto-estimated VO2 max.
+ */
+async function enrichActivityWithStreams(
+  userId: string,
+  activityDocId: string,
+  stravaActivityId: number,
+  accessToken: string
+): Promise<void> {
+  try {
+    const streams = await stravaService.fetchActivityStreams(
+      accessToken,
+      stravaActivityId
+    );
+
+    const updates: Parameters<typeof cyclingService.updateCyclingActivity>[2] = {};
+
+    // Calculate peak power from watts stream
+    if (streams.watts && streams.time) {
+      const peak5 = stravaService.calculatePeakPower(
+        streams.watts.data,
+        streams.time.data,
+        300
+      );
+      if (peak5 > 0) updates.peak5MinPower = peak5;
+
+      const peak20 = stravaService.calculatePeakPower(
+        streams.watts.data,
+        streams.time.data,
+        1200
+      );
+      if (peak20 > 0) updates.peak20MinPower = peak20;
+    }
+
+    // Calculate HR completeness
+    if (streams.heartrate) {
+      updates.hrCompleteness = stravaService.calculateHRCompleteness(
+        streams.heartrate.data
+      );
+    }
+
+    // Update the activity with streams-derived data
+    if (Object.keys(updates).length > 0) {
+      await cyclingService.updateCyclingActivity(userId, activityDocId, updates);
+      console.log(
+        `[Strava Webhook] Enriched activity ${stravaActivityId} with streams data:`,
+        updates
+      );
+    }
+
+    // Auto-estimate VO2 max from peak 5-min power if we have weight
+    if (updates.peak5MinPower !== undefined && updates.peak5MinPower > 0) {
+      const profile = await cyclingService.getCyclingProfile(userId);
+      if (profile && profile.weightKg > 0) {
+        const vo2max = estimateVO2MaxFromPeakPower(
+          updates.peak5MinPower,
+          profile.weightKg,
+          'peak_5min'
+        );
+        if (vo2max !== null) {
+          await cyclingService.saveVO2MaxEstimate(userId, {
+            userId,
+            date: new Date().toISOString().split('T')[0] ?? new Date().toISOString(),
+            value: vo2max,
+            method: 'peak_5min',
+            sourcePower: updates.peak5MinPower,
+            sourceWeight: profile.weightKg,
+            activityId: activityDocId,
+            createdAt: new Date().toISOString(),
+          });
+          console.log(
+            `[Strava Webhook] Auto-estimated VO2 max: ${vo2max} mL/kg/min from peak 5-min power ${updates.peak5MinPower}W`
+          );
+        }
+      }
+    }
+  } catch (error) {
+    // Streams enrichment is best-effort; don't fail the whole webhook
+    console.warn(
+      `[Strava Webhook] Failed to enrich activity ${stravaActivityId} with streams:`,
+      error
+    );
+  }
 }
 
 /**

@@ -608,6 +608,36 @@ final class APIClient: APIClientProtocol {
         try await get("/guidedMeditations/\(id)")
     }
 
+    // MARK: - Cycling
+
+    func getCyclingActivities(limit: Int? = nil) async throws -> [CyclingActivityModel] {
+        var queryItems: [URLQueryItem]? = nil
+        if let limit = limit {
+            queryItems = [URLQueryItem(name: "limit", value: String(limit))]
+        }
+        return try await get("/cycling/activities", queryItems: queryItems)
+    }
+
+    func getCyclingTrainingLoad() async throws -> CyclingTrainingLoadResponse {
+        try await get("/cycling/training-load")
+    }
+
+    func getCurrentFTP() async throws -> FTPEntryResponse? {
+        try await getOptional("/cycling/ftp")
+    }
+
+    func getCurrentBlock() async throws -> TrainingBlockResponse? {
+        try await getOptional("/cycling/block")
+    }
+
+    func getVO2Max() async throws -> VO2MaxResponse {
+        try await get("/cycling/vo2max")
+    }
+
+    func getEFHistory() async throws -> [EFDataPoint] {
+        try await get("/cycling/ef")
+    }
+
     // MARK: - Calendar
 
     func getCalendarData(year: Int, month: Int, timezoneOffset: Int? = nil) async throws -> CalendarData {
