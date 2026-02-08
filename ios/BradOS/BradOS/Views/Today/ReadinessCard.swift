@@ -3,15 +3,23 @@ import SwiftUI
 /// Dashboard card displaying recovery/readiness status from HealthKit
 struct ReadinessCard: View {
     @EnvironmentObject var healthKit: HealthKitManager
+    @State private var isShowingDetail = false
 
     var body: some View {
         Button(action: {
-            // TODO: Navigate to detailed recovery view
+            if healthKit.latestRecovery != nil {
+                isShowingDetail = true
+            }
         }) {
             cardContent
         }
         .buttonStyle(PlainButtonStyle())
         .disabled(healthKit.isLoading && healthKit.latestRecovery == nil)
+        .sheet(isPresented: $isShowingDetail) {
+            if let recovery = healthKit.latestRecovery {
+                RecoveryDetailView(recovery: recovery)
+            }
+        }
     }
 
     @ViewBuilder
