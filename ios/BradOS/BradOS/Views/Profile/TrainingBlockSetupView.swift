@@ -1,10 +1,11 @@
 import SwiftUI
 
 struct TrainingBlockSetupView: View {
+    @EnvironmentObject var cyclingVM: CyclingViewModel
+
     @State private var startDate = Date()
     @State private var selectedGoals: Set<TrainingBlockModel.TrainingGoal> = []
     @State private var isSaving = false
-    @State private var currentBlock: TrainingBlockModel?
 
     var endDate: Date {
         Calendar.current.date(byAdding: .weekOfYear, value: 8, to: startDate) ?? startDate
@@ -13,7 +14,7 @@ struct TrainingBlockSetupView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.space6) {
-                if let block = currentBlock, block.status == .active {
+                if let block = cyclingVM.currentBlock, block.status == .active {
                     // Active Block Section
                     activeBlockSection(block: block)
                 } else {
@@ -226,53 +227,18 @@ struct TrainingBlockSetupView: View {
 
     private func startBlock() {
         isSaving = true
-        let goalStrings = selectedGoals.map { $0.rawValue }
-
         Task {
-            do {
-                let response = try await APIClient.shared.createTrainingBlock(
-                    startDate: startDate,
-                    endDate: endDate,
-                    goals: goalStrings
-                )
-                let dateFormatter = DateFormatter()
-                dateFormatter.dateFormat = "yyyy-MM-dd"
-                let responseStart = dateFormatter.date(from: response.startDate) ?? startDate
-                let responseEnd = dateFormatter.date(from: response.endDate) ?? endDate
-                let goals = response.goals.compactMap { TrainingBlockModel.TrainingGoal(rawValue: $0) }
-
-                currentBlock = TrainingBlockModel(
-                    id: response.id,
-                    startDate: responseStart,
-                    endDate: responseEnd,
-                    currentWeek: response.currentWeek,
-                    goals: goals,
-                    status: response.status == "completed" ? .completed : .active
-                )
-            } catch {
-                print("[TrainingBlockSetup] Failed to start block: \(error)")
-            }
+            await cyclingVM.startNewBlock(
+                goals: Array(selectedGoals),
+                startDate: startDate
+            )
             isSaving = false
         }
     }
 
     private func completeBlockEarly() {
-        guard let block = currentBlock else { return }
-
         Task {
-            do {
-                _ = try await APIClient.shared.completeTrainingBlock(id: block.id)
-                currentBlock = TrainingBlockModel(
-                    id: block.id,
-                    startDate: block.startDate,
-                    endDate: block.endDate,
-                    currentWeek: block.currentWeek,
-                    goals: block.goals,
-                    status: .completed
-                )
-            } catch {
-                print("[TrainingBlockSetup] Failed to complete block: \(error)")
-            }
+            await cyclingVM.completeCurrentBlock()
         }
     }
 }
@@ -308,6 +274,7 @@ struct ScheduleRow: View {
 #Preview {
     NavigationStack {
         TrainingBlockSetupView()
+            .environmentObject(CyclingViewModel())
     }
     .preferredColorScheme(.dark)
 }

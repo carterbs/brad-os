@@ -16,7 +16,7 @@ struct CyclingTabView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var healthKit: HealthKitManager
     @EnvironmentObject var stravaAuth: StravaAuthManager
-    @StateObject private var viewModel = CyclingViewModel()
+    @EnvironmentObject var viewModel: CyclingViewModel
     @State private var selectedTab: CyclingTab = .today
 
     var body: some View {
@@ -46,7 +46,6 @@ struct CyclingTabView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
             }
-            .environmentObject(viewModel)
             .background(AuroraBackground().ignoresSafeArea())
             .navigationTitle("Cycling")
             .navigationBarTitleDisplayMode(.large)
@@ -78,5 +77,6 @@ struct CyclingTabView: View {
         .environmentObject(AppState())
         .environmentObject(HealthKitManager())
         .environmentObject(StravaAuthManager())
+        .environmentObject(CyclingViewModel())
         .preferredColorScheme(.dark)
 }

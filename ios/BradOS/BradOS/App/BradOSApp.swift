@@ -11,6 +11,7 @@ struct BradOSApp: App {
     @StateObject private var stravaAuthManager = StravaAuthManager()
     @StateObject private var healthKitManager = HealthKitManager()
     @StateObject private var healthKitSyncService: HealthKitSyncService
+    @StateObject private var cyclingViewModel = CyclingViewModel()
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -51,6 +52,7 @@ struct BradOSApp: App {
                 .environmentObject(stravaAuthManager)
                 .environmentObject(healthKitManager)
                 .environmentObject(healthKitSyncService)
+                .environmentObject(cyclingViewModel)
                 .environment(\.apiClient, APIClient.shared)
                 .preferredColorScheme(.dark)
                 .onAppear {

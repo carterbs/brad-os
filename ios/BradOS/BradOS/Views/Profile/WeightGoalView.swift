@@ -343,31 +343,29 @@ struct WeightGoalView: View {
     }
 
     private func loadWeightHistory() async throws -> [WeightDataPoint] {
-        // Try to fetch from HealthKit - for now return mock data
-        // TODO: Implement actual HealthKit weight history query
-        let calendar = Calendar.current
-
-        // Generate sample data for the last 8 weeks
-        var points: [WeightDataPoint] = []
-        let baseWeight = currentWeight ?? 175.0
-
-        for week in 0..<8 {
-            if let date = calendar.date(byAdding: .weekOfYear, value: -week, to: Date()) {
-                // Add some variation to simulate real data
-                let variation = Double.random(in: -3...3)
-                let trendWeight = baseWeight + (Double(week) * 0.5) + variation
-                points.append(WeightDataPoint(date: date, weight: trendWeight))
-            }
-        }
-
-        return points.sorted { $0.date < $1.date }
+        let readings = try await healthKit.fetchWeightHistory(days: 56) // 8 weeks
+        return readings.map { WeightDataPoint(date: $0.date, weight: $0.valueLbs) }
     }
 
     private func saveGoal() {
-        // Save to backend
+        guard let target = Double(targetWeight), target > 0 else { return }
+        guard let startWeight = currentWeight else { return }
         isSaving = true
-        // TODO: Implement API call to save weight goal
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+
+        Task {
+            do {
+                _ = try await APIClient.shared.saveWeightGoal(
+                    targetWeightLbs: target,
+                    targetDate: dateFormatter.string(from: targetDate),
+                    startWeightLbs: startWeight,
+                    startDate: dateFormatter.string(from: Date())
+                )
+            } catch {
+                print("Failed to save weight goal: \(error)")
+            }
             isSaving = false
         }
     }

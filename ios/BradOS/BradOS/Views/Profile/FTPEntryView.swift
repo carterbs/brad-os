@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct FTPEntryView: View {
+    @EnvironmentObject var cyclingVM: CyclingViewModel
+
     @State private var ftpValue: String = ""
     @State private var testDate = Date()
     @State private var source: FTPSource = .manual
@@ -10,6 +12,13 @@ struct FTPEntryView: View {
     enum FTPSource: String, CaseIterable {
         case manual = "Manual Entry"
         case test = "FTP Test"
+
+        var apiValue: String {
+            switch self {
+            case .manual: return "manual"
+            case .test: return "test"
+            }
+        }
     }
 
     struct FTPEntry: Identifiable {
@@ -37,7 +46,9 @@ struct FTPEntryView: View {
         .navigationTitle("FTP")
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .onAppear { loadHistory() }
+        .task {
+            await loadFTPData()
+        }
     }
 
     // MARK: - Current FTP Section
@@ -165,30 +176,39 @@ struct FTPEntryView: View {
 
     // MARK: - Actions
 
+    private func loadFTPData() async {
+        // Pre-fill current FTP if available
+        if let currentFTP = cyclingVM.currentFTP {
+            ftpValue = "\(currentFTP)"
+        }
+
+        // Load history
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+
+        let history = await cyclingVM.loadFTPHistory()
+        ftpHistory = history.map { entry in
+            FTPEntry(
+                id: entry.id,
+                value: entry.value,
+                date: dateFormatter.date(from: entry.date) ?? Date(),
+                source: entry.source == "test" ? .test : .manual
+            )
+        }
+    }
+
     private func saveFTP() {
-        guard let watts = Int(ftpValue) else { return }
+        guard let value = Int(ftpValue), value > 0 else { return }
         isSaving = true
-        let sourceValue = source == .test ? "test" : "manual"
 
         Task {
-            do {
-                let response = try await APIClient.shared.createFTPEntry(value: watts, date: testDate, source: sourceValue)
-                let history = try await APIClient.shared.getFTPHistory()
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd"
-                ftpHistory = history.map { entry in
-                    FTPEntry(
-                        id: entry.id,
-                        value: entry.value,
-                        date: formatter.date(from: entry.date) ?? Date(),
-                        source: entry.source == "test" ? .test : .manual
-                    )
-                }
-                ftpValue = ""
-            } catch {
-                print("[FTPEntryView] Failed to save FTP: \(error)")
-            }
+            let success = await cyclingVM.saveFTP(value, date: testDate, source: source.apiValue)
             isSaving = false
+
+            if success {
+                // Reload history to show the new entry
+                await loadFTPData()
+            }
         }
     }
 
@@ -216,6 +236,7 @@ struct FTPEntryView: View {
 #Preview {
     NavigationStack {
         FTPEntryView()
+            .environmentObject(CyclingViewModel())
     }
     .preferredColorScheme(.dark)
 }

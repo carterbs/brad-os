@@ -142,7 +142,10 @@ struct TrainingBlockResponse: Codable {
     let status: String
 }
 
-/// Response from PUT /cycling/block/:id/complete
-struct CompletedResponse: Codable {
-    let completed: Bool
+/// Response from POST /cycling/weight-goal
+struct WeightGoalResponse: Codable {
+    let targetWeightLbs: Double
+    let targetDate: String
+    let startWeightLbs: Double
+    let startDate: String
 }

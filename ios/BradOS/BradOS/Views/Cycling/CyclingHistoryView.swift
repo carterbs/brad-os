@@ -187,9 +187,7 @@ struct EmptyHistoryCard: View {
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
 
-            Button(action: {
-                onConnectStrava?()
-            }) {
+            NavigationLink(destination: StravaConnectionView()) {
                 Text("Connect Strava")
             }
             .buttonStyle(GlassPrimaryButtonStyle())
