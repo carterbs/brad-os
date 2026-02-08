@@ -4,63 +4,43 @@ import Charts
 struct WeightGoalView: View {
     @EnvironmentObject var healthKit: HealthKitManager
 
-    @State private var targetWeight: String = ""
-    @State private var targetDate = Date().addingTimeInterval(60 * 60 * 24 * 56) // 8 weeks
-    @State private var isSaving = false
-    @State private var currentWeight: Double?
-    @State private var weightHistory: [WeightDataPoint] = []
-
-    var weeklyRate: Double? {
-        guard let current = currentWeight,
-              let target = Double(targetWeight) else { return nil }
-
-        let weeks = Calendar.current.dateComponents([.weekOfYear], from: Date(), to: targetDate).weekOfYear ?? 1
-        return (current - target) / Double(max(weeks, 1))
-    }
-
-    var rateLabel: String {
-        guard let rate = weeklyRate else { return "" }
-        let absRate = abs(rate)
-        if absRate > 2 {
-            return "Aggressive"
-        } else if absRate > 1 {
-            return "Moderate"
-        } else {
-            return "Conservative"
-        }
-    }
-
-    var rateColor: Color {
-        guard let rate = weeklyRate else { return Theme.textSecondary }
-        let absRate = abs(rate)
-        if absRate > 2 {
-            return Theme.warning
-        } else {
-            return Theme.success
-        }
-    }
+    @State private var viewModel = WeightGoalViewModel()
 
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.space6) {
-                // Current Weight Section
-                currentWeightSection
+                if viewModel.isLoading && viewModel.weightHistory.isEmpty {
+                    loadingState
+                } else {
+                    // Current Weight
+                    currentWeightSection
 
-                // Weight Trend Chart
-                if !weightHistory.isEmpty {
-                    weightTrendChart
+                    // Weight Trend Chart
+                    if !viewModel.weightHistory.isEmpty {
+                        weightTrendChart
+                    }
+
+                    // Prediction
+                    if let prediction = viewModel.prediction {
+                        predictionSection(prediction)
+                    }
+
+                    // Goal Input
+                    goalSection
+
+                    // Projected Rate
+                    if viewModel.weeklyRate != nil {
+                        projectedRateSection
+                    }
+
+                    // Save Button
+                    saveButtonSection
+
+                    // Success Banner
+                    if viewModel.saveSuccess {
+                        successBanner
+                    }
                 }
-
-                // Goal Section
-                goalSection
-
-                // Projected Rate Section
-                if weeklyRate != nil {
-                    projectedRateSection
-                }
-
-                // Save Button Section
-                saveButtonSection
             }
             .padding(Theme.Spacing.space5)
         }
@@ -69,8 +49,26 @@ struct WeightGoalView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)
         .task {
-            await loadWeightData()
+            await viewModel.loadData(healthKit: healthKit)
         }
+        .onChange(of: viewModel.targetWeight) {
+            viewModel.updatePrediction()
+        }
+    }
+
+    // MARK: - Loading State
+
+    @ViewBuilder
+    private var loadingState: some View {
+        VStack(spacing: Theme.Spacing.space4) {
+            ProgressView()
+                .tint(Theme.textSecondary)
+            Text("Loading weight data...")
+                .font(.subheadline)
+                .foregroundStyle(Theme.textSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.top, Theme.Spacing.space8)
     }
 
     // MARK: - Current Weight Section
@@ -80,23 +78,38 @@ struct WeightGoalView: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             SectionHeader(title: "Current Weight")
 
-            VStack(spacing: 0) {
-                HStack {
-                    if let weight = currentWeight {
-                        Text("\(Int(weight))")
-                            .font(.system(size: 32, weight: .bold, design: .rounded))
-                            .foregroundColor(Theme.textPrimary)
-                        Text("lbs")
-                            .foregroundStyle(Theme.textSecondary)
-                    } else {
-                        Text("No weight data from HealthKit")
-                            .foregroundStyle(Theme.textSecondary)
-                    }
-                    Spacer()
+            HStack {
+                if let weight = viewModel.currentWeight {
+                    Text("\(Int(weight))")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("lbs")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.textSecondary)
+                } else if !viewModel.weightHistory.isEmpty, let latest = viewModel.weightHistory.last {
+                    Text("\(Int(latest.weight))")
+                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.textPrimary)
+                    Text("lbs")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.textSecondary)
+                    Text("(from sync)")
+                        .font(.caption)
+                        .foregroundStyle(Theme.textTertiary)
+                } else {
+                    Image(systemName: "scalemass")
+                        .font(.title3)
+                        .foregroundStyle(Theme.textTertiary)
+                    Text("No weight data")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.textSecondary)
                 }
-                .padding(Theme.Spacing.space4)
-                .frame(minHeight: Theme.Dimensions.listRowMinHeight)
+                Spacer()
             }
+            .padding(Theme.Spacing.space4)
+            .frame(minHeight: Theme.Dimensions.listRowMinHeight)
             .glassCard(.card, padding: 0)
         }
     }
@@ -110,36 +123,41 @@ struct WeightGoalView: View {
 
             VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
                 Chart {
-                    // Weight data points
-                    ForEach(weightHistory) { point in
+                    // Actual weight points
+                    ForEach(viewModel.weightHistory) { point in
+                        PointMark(
+                            x: .value("Date", point.date),
+                            y: .value("Weight", point.weight)
+                        )
+                        .foregroundStyle(Theme.interactivePrimary.opacity(0.5))
+                        .symbolSize(20)
+                    }
+
+                    // 7-day smoothed average line
+                    ForEach(viewModel.smoothedHistory) { point in
                         LineMark(
                             x: .value("Date", point.date),
                             y: .value("Weight", point.weight)
                         )
                         .foregroundStyle(Theme.interactivePrimary)
                         .interpolationMethod(.catmullRom)
-
-                        PointMark(
-                            x: .value("Date", point.date),
-                            y: .value("Weight", point.weight)
-                        )
-                        .foregroundStyle(Theme.interactivePrimary)
-                        .symbolSize(30)
+                        .lineStyle(StrokeStyle(lineWidth: 2))
                     }
 
-                    // Goal line (if set)
-                    if let target = Double(targetWeight), target > 0 {
+                    // Goal line
+                    if let target = Double(viewModel.targetWeight), target > 0 {
                         RuleMark(y: .value("Goal", target))
                             .foregroundStyle(Theme.success)
-                            .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
+                            .lineStyle(StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
                             .annotation(position: .trailing, alignment: .leading) {
                                 Text("Goal")
                                     .font(.caption2)
+                                    .fontWeight(.medium)
                                     .foregroundStyle(Theme.success)
                             }
                     }
                 }
-                .chartYScale(domain: chartYDomain)
+                .chartYScale(domain: viewModel.chartYDomain)
                 .chartYAxis {
                     AxisMarks(position: .leading) { _ in
                         AxisValueLabel()
@@ -149,7 +167,7 @@ struct WeightGoalView: View {
                 .chartXAxis {
                     AxisMarks(values: .stride(by: .day, count: 7)) { _ in
                         AxisValueLabel(format: .dateTime.month(.abbreviated).day())
-                            .foregroundStyle(Theme.textSecondary)
+                            .foregroundStyle(Theme.textTertiary)
                     }
                 }
                 .frame(height: 200)
@@ -158,21 +176,30 @@ struct WeightGoalView: View {
                 HStack(spacing: Theme.Spacing.space4) {
                     HStack(spacing: Theme.Spacing.space1) {
                         Circle()
-                            .fill(Theme.interactivePrimary)
-                            .frame(width: 8, height: 8)
-                        Text("Weight")
+                            .fill(Theme.interactivePrimary.opacity(0.5))
+                            .frame(width: 6, height: 6)
+                        Text("Daily")
                             .font(.caption)
-                            .foregroundStyle(Theme.textSecondary)
+                            .foregroundStyle(Theme.textTertiary)
                     }
 
-                    if Double(targetWeight) != nil {
+                    HStack(spacing: Theme.Spacing.space1) {
+                        RoundedRectangle(cornerRadius: 1)
+                            .fill(Theme.interactivePrimary)
+                            .frame(width: 16, height: 2)
+                        Text("7-Day Avg")
+                            .font(.caption)
+                            .foregroundStyle(Theme.textTertiary)
+                    }
+
+                    if Double(viewModel.targetWeight) != nil {
                         HStack(spacing: Theme.Spacing.space1) {
-                            Rectangle()
+                            RoundedRectangle(cornerRadius: 1)
                                 .fill(Theme.success)
                                 .frame(width: 16, height: 2)
                             Text("Goal")
                                 .font(.caption)
-                                .foregroundStyle(Theme.textSecondary)
+                                .foregroundStyle(Theme.textTertiary)
                         }
                     }
                 }
@@ -181,20 +208,112 @@ struct WeightGoalView: View {
         }
     }
 
-    private var chartYDomain: ClosedRange<Double> {
-        let weights = weightHistory.map(\.weight)
-        var minWeight = weights.min() ?? 150
-        var maxWeight = weights.max() ?? 200
+    // MARK: - Prediction Section
 
-        // Include goal in domain if set
-        if let target = Double(targetWeight) {
-            minWeight = min(minWeight, target)
-            maxWeight = max(maxWeight, target)
+    @ViewBuilder
+    private func predictionSection(_ prediction: WeightPrediction) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
+            SectionHeader(title: "Trend Prediction")
+
+            VStack(spacing: 0) {
+                // Weekly rate
+                HStack {
+                    Image(systemName: "chart.line.downtrend.xyaxis")
+                        .font(.system(size: Theme.Typography.iconMD))
+                        .foregroundStyle(prediction.isOnTrack ? Theme.success : Theme.warning)
+                        .frame(width: Theme.Dimensions.iconFrameMD, height: Theme.Dimensions.iconFrameMD)
+                        .background(
+                            (prediction.isOnTrack ? Theme.success : Theme.warning).opacity(0.12)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: Theme.Spacing.space1) {
+                        Text("Current Rate")
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.textPrimary)
+                        Text(String(format: "%.1f lbs/week", abs(prediction.weeklyRateLbs)))
+                            .font(.caption)
+                            .monospacedDigit()
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    Spacer()
+                }
+                .padding(Theme.Spacing.space4)
+                .frame(minHeight: Theme.Dimensions.listRowMinHeight)
+
+                Divider().background(Theme.divider)
+
+                // Predicted date
+                HStack {
+                    Image(systemName: prediction.isOnTrack ? "calendar.badge.checkmark" : "calendar.badge.exclamationmark")
+                        .font(.system(size: Theme.Typography.iconMD))
+                        .foregroundStyle(prediction.isOnTrack ? Theme.success : Theme.warning)
+                        .frame(width: Theme.Dimensions.iconFrameMD, height: Theme.Dimensions.iconFrameMD)
+                        .background(
+                            (prediction.isOnTrack ? Theme.success : Theme.warning).opacity(0.12)
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: Theme.Spacing.space1) {
+                        if let date = prediction.predictedDate {
+                            Text("Predicted to reach goal")
+                                .font(.subheadline)
+                                .foregroundStyle(Theme.textPrimary)
+                            Text(date, style: .date)
+                                .font(.caption)
+                                .monospacedDigit()
+                                .foregroundStyle(Theme.textSecondary)
+                            if let days = prediction.daysRemaining {
+                                Text("~\(days) days")
+                                    .font(.caption)
+                                    .monospacedDigit()
+                                    .foregroundStyle(Theme.textTertiary)
+                            }
+                        } else {
+                            Text("Not on track")
+                                .font(.subheadline)
+                                .foregroundStyle(Theme.textPrimary)
+                            Text("Current trend is moving away from goal")
+                                .font(.caption)
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                    Spacer()
+                }
+                .padding(Theme.Spacing.space4)
+                .frame(minHeight: Theme.Dimensions.listRowMinHeight)
+
+                // On track / off track banner
+                if prediction.isOnTrack {
+                    Divider().background(Theme.divider)
+                    HStack(spacing: Theme.Spacing.space2) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(Theme.success)
+                        Text("On track to reach your goal by target date")
+                            .font(.caption)
+                            .foregroundStyle(Theme.success)
+                        Spacer()
+                    }
+                    .padding(Theme.Spacing.space4)
+                    .background(Theme.success.opacity(0.08))
+                } else if prediction.predictedDate != nil {
+                    Divider().background(Theme.divider)
+                    HStack(spacing: Theme.Spacing.space2) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundStyle(Theme.warning)
+                        Text("At current rate, you'll miss your target date. Consider adjusting.")
+                            .font(.caption)
+                            .foregroundStyle(Theme.warning)
+                        Spacer()
+                    }
+                    .padding(Theme.Spacing.space4)
+                    .background(Theme.warning.opacity(0.08))
+                }
+            }
+            .glassCard(.card, padding: 0)
         }
-
-        // Add some padding
-        let padding = (maxWeight - minWeight) * 0.1
-        return (minWeight - padding)...(maxWeight + padding)
     }
 
     // MARK: - Goal Section
@@ -208,27 +327,30 @@ struct WeightGoalView: View {
                 // Target Weight Input
                 HStack {
                     Text("Target Weight (lbs)")
-                        .foregroundColor(Theme.textSecondary)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.textSecondary)
                     Spacer()
-                    TextField("Enter weight", text: $targetWeight)
+                    TextField("Enter weight", text: $viewModel.targetWeight)
                         .keyboardType(.decimalPad)
                         .multilineTextAlignment(.trailing)
-                        .foregroundColor(Theme.textPrimary)
+                        .font(.body)
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.textPrimary)
                 }
                 .padding(Theme.Spacing.space4)
                 .frame(minHeight: Theme.Dimensions.listRowMinHeight)
 
-                Divider()
-                    .background(Theme.strokeSubtle)
+                Divider().background(Theme.divider)
 
                 // Target Date Picker
                 DatePicker(
                     "Target Date",
-                    selection: $targetDate,
+                    selection: $viewModel.targetDate,
                     in: Date()...,
                     displayedComponents: .date
                 )
-                .foregroundColor(Theme.textPrimary)
+                .font(.subheadline)
+                .foregroundStyle(Theme.textSecondary)
                 .tint(Theme.interactivePrimary)
                 .padding(Theme.Spacing.space4)
                 .frame(minHeight: Theme.Dimensions.listRowMinHeight)
@@ -242,38 +364,37 @@ struct WeightGoalView: View {
     @ViewBuilder
     private var projectedRateSection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
-            SectionHeader(title: "Projected Rate")
+            SectionHeader(title: "Goal Rate")
 
             VStack(spacing: 0) {
                 HStack {
-                    if let rate = weeklyRate {
+                    if let rate = viewModel.weeklyRate {
                         Text(String(format: "%.1f lbs/week", abs(rate)))
                             .font(.headline)
-                            .foregroundColor(Theme.textPrimary)
+                            .monospacedDigit()
+                            .foregroundStyle(Theme.textPrimary)
                     }
                     Spacer()
-                    Text(rateLabel)
+                    Text(viewModel.rateLabel)
                         .font(.caption)
                         .fontWeight(.medium)
                         .padding(.horizontal, Theme.Spacing.space2)
                         .padding(.vertical, Theme.Spacing.space1)
-                        .background(rateColor.opacity(0.2))
-                        .foregroundStyle(rateColor)
+                        .background(viewModel.rateColor.opacity(0.15))
+                        .foregroundStyle(viewModel.rateColor)
                         .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
                 }
                 .padding(Theme.Spacing.space4)
                 .frame(minHeight: Theme.Dimensions.listRowMinHeight)
 
-                // Rate guidance
-                if let rate = weeklyRate {
-                    Divider()
-                        .background(Theme.strokeSubtle)
+                if let rate = viewModel.weeklyRate {
+                    Divider().background(Theme.divider)
 
                     HStack(alignment: .top, spacing: Theme.Spacing.space2) {
-                        Image(systemName: rateGuidanceIcon(rate: rate))
+                        Image(systemName: viewModel.rateGuidanceIcon(rate: rate))
                             .font(.caption)
-                            .foregroundStyle(rateColor)
-                        Text(rateGuidanceMessage(rate: rate))
+                            .foregroundStyle(viewModel.rateColor)
+                        Text(viewModel.rateGuidanceMessage(rate: rate))
                             .font(.caption)
                             .foregroundStyle(Theme.textSecondary)
                         Spacer()
@@ -285,37 +406,15 @@ struct WeightGoalView: View {
         }
     }
 
-    private func rateGuidanceIcon(rate: Double) -> String {
-        let absRate = abs(rate)
-        if absRate > 2 {
-            return "exclamationmark.triangle.fill"
-        } else if absRate > 1 {
-            return "info.circle.fill"
-        } else {
-            return "checkmark.circle.fill"
-        }
-    }
-
-    private func rateGuidanceMessage(rate: Double) -> String {
-        let absRate = abs(rate)
-        let direction = rate > 0 ? "loss" : "gain"
-
-        if absRate > 2 {
-            return "This rate of \(direction) may be too aggressive. Consider extending your target date for sustainable results."
-        } else if absRate > 1 {
-            return "A moderate rate of \(direction). Make sure to maintain adequate nutrition for recovery."
-        } else {
-            return "A conservative and sustainable rate of \(direction). Great for long-term success!"
-        }
-    }
-
-    // MARK: - Save Button Section
+    // MARK: - Save Button
 
     @ViewBuilder
     private var saveButtonSection: some View {
-        Button(action: saveGoal) {
+        Button {
+            Task { await viewModel.saveGoal() }
+        } label: {
             HStack {
-                if isSaving {
+                if viewModel.isSaving {
                     ProgressView()
                         .tint(Theme.textPrimary)
                 } else {
@@ -325,60 +424,32 @@ struct WeightGoalView: View {
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(GlassPrimaryButtonStyle())
-        .disabled(targetWeight.isEmpty || isSaving)
-        .opacity(targetWeight.isEmpty ? 0.5 : 1.0)
+        .disabled(viewModel.targetWeight.isEmpty || viewModel.isSaving)
+        .opacity(viewModel.targetWeight.isEmpty ? 0.5 : 1.0)
     }
 
-    // MARK: - Actions
+    // MARK: - Success Banner
 
-    private func loadWeightData() async {
-        do {
-            currentWeight = try await healthKit.fetchLatestWeight()
-
-            // Load weight history (last 8 weeks)
-            weightHistory = try await loadWeightHistory()
-        } catch {
-            print("Failed to load weight: \(error)")
+    @ViewBuilder
+    private var successBanner: some View {
+        HStack(spacing: Theme.Spacing.space2) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(Theme.success)
+            Text("Goal saved")
+                .font(.subheadline)
+                .foregroundStyle(Theme.success)
+            Spacer()
         }
-    }
-
-    private func loadWeightHistory() async throws -> [WeightDataPoint] {
-        // Try to fetch from HealthKit - for now return mock data
-        // TODO: Implement actual HealthKit weight history query
-        let calendar = Calendar.current
-
-        // Generate sample data for the last 8 weeks
-        var points: [WeightDataPoint] = []
-        let baseWeight = currentWeight ?? 175.0
-
-        for week in 0..<8 {
-            if let date = calendar.date(byAdding: .weekOfYear, value: -week, to: Date()) {
-                // Add some variation to simulate real data
-                let variation = Double.random(in: -3...3)
-                let trendWeight = baseWeight + (Double(week) * 0.5) + variation
-                points.append(WeightDataPoint(date: date, weight: trendWeight))
+        .padding(Theme.Spacing.space4)
+        .background(Theme.success.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                withAnimation { viewModel.saveSuccess = false }
             }
         }
-
-        return points.sorted { $0.date < $1.date }
     }
-
-    private func saveGoal() {
-        // Save to backend
-        isSaving = true
-        // TODO: Implement API call to save weight goal
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            isSaving = false
-        }
-    }
-}
-
-// MARK: - Weight Data Point
-
-struct WeightDataPoint: Identifiable {
-    let id = UUID()
-    let date: Date
-    let weight: Double
 }
 
 // MARK: - Preview

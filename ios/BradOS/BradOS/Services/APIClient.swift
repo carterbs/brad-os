@@ -638,6 +638,31 @@ final class APIClient: APIClientProtocol {
         try await get("/cycling/ef")
     }
 
+    // MARK: - Weight
+
+    func getWeightHistory(days: Int) async throws -> [WeightHistoryEntry] {
+        try await get("/health-sync/weight", queryItems: [URLQueryItem(name: "days", value: String(days))])
+    }
+
+    func getWeightGoal() async throws -> WeightGoalResponse? {
+        try await getOptional("/cycling/weight-goal")
+    }
+
+    func saveWeightGoal(targetWeightLbs: Double, targetDate: String, startWeightLbs: Double, startDate: String) async throws -> WeightGoalResponse {
+        struct SaveWeightGoalBody: Encodable {
+            let targetWeightLbs: Double
+            let targetDate: String
+            let startWeightLbs: Double
+            let startDate: String
+        }
+        return try await post("/cycling/weight-goal", body: SaveWeightGoalBody(
+            targetWeightLbs: targetWeightLbs,
+            targetDate: targetDate,
+            startWeightLbs: startWeightLbs,
+            startDate: startDate
+        ))
+    }
+
     // MARK: - Calendar
 
     func getCalendarData(year: Int, month: Int, timezoneOffset: Int? = nil) async throws -> CalendarData {
