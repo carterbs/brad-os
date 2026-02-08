@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let timingLog = Logger(subsystem: "com.bradcarter.brad-os", category: "timing")
 
 /// ViewModel for the Meal Plan feature
 /// Manages plan generation, critique loop, and finalization
@@ -147,8 +150,12 @@ public class MealPlanViewModel: ObservableObject {
         isSending = true
         error = nil
 
+        let totalStart = CFAbsoluteTimeGetCurrent()
         do {
+            let critiqueStart = CFAbsoluteTimeGetCurrent()
             let response = try await apiClient.critiqueMealPlan(sessionId: sessionId, critique: text)
+            let critiqueMs = Int((CFAbsoluteTimeGetCurrent() - critiqueStart) * 1000)
+            timingLog.notice("[TIMING] critiqueMealPlan: \(critiqueMs)ms")
 
             // Track changed slots from operations
             var changed = Set<String>()
@@ -162,13 +169,23 @@ public class MealPlanViewModel: ObservableObject {
             lastExplanation = response.explanation
             critiqueText = ""
             queuedActions.clear()
+
+            let shoppingStart = CFAbsoluteTimeGetCurrent()
             await updateShoppingList()
+            let shoppingMs = Int((CFAbsoluteTimeGetCurrent() - shoppingStart) * 1000)
+            timingLog.notice("[TIMING] updateShoppingList: \(shoppingMs)ms")
 
             // Refetch full session for updated history
+            let refetchStart = CFAbsoluteTimeGetCurrent()
             let fullSession = try await apiClient.getMealPlanSession(id: sessionId)
+            let refetchMs = Int((CFAbsoluteTimeGetCurrent() - refetchStart) * 1000)
+            timingLog.notice("[TIMING] getMealPlanSession: \(refetchMs)ms")
+
             session = fullSession
 
             isSending = false
+            let totalMs = Int((CFAbsoluteTimeGetCurrent() - totalStart) * 1000)
+            timingLog.notice("[TIMING] sendCritique total: \(totalMs)ms (critique=\(critiqueMs) shopping=\(shoppingMs) refetch=\(refetchMs))")
 
             // Clear highlight after 2 seconds
             Task {
@@ -176,11 +193,10 @@ public class MealPlanViewModel: ObservableObject {
                 changedSlots = []
             }
         } catch {
+            let totalMs = Int((CFAbsoluteTimeGetCurrent() - totalStart) * 1000)
+            timingLog.notice("[TIMING] sendCritique FAILED after \(totalMs)ms: \(error)")
             self.error = "Failed to send critique"
             isSending = false
-            #if DEBUG
-            print("[MealPlanViewModel] Critique error: \(error)")
-            #endif
         }
     }
 
