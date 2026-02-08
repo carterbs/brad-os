@@ -3,6 +3,15 @@ import SwiftUI
 struct StravaConnectionView: View {
     @EnvironmentObject var stravaAuth: StravaAuthManager
 
+    #if DEBUG
+    @State private var showDebugTokenEntry = false
+    @State private var debugAccessToken = ""
+    @State private var debugRefreshToken = ""
+    @State private var debugAthleteId = ""
+    @State private var debugError: String?
+    @State private var debugSuccess = false
+    #endif
+
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.space6) {
@@ -21,6 +30,11 @@ struct StravaConnectionView: View {
 
                     // Features Section
                     featuresSection
+
+                    #if DEBUG
+                    // Debug Token Entry Section
+                    debugTokenSection
+                    #endif
                 }
             }
             .padding(Theme.Spacing.space5)
@@ -166,6 +180,107 @@ struct StravaConnectionView: View {
             .glassCard(.card, padding: 0)
         }
     }
+
+    // MARK: - Debug Token Section
+
+    #if DEBUG
+    @ViewBuilder
+    private var debugTokenSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
+            Button {
+                showDebugTokenEntry.toggle()
+            } label: {
+                HStack {
+                    Image(systemName: "wrench.and.screwdriver")
+                    Text("Developer: Inject Tokens")
+                    Spacer()
+                    Image(systemName: showDebugTokenEntry ? "chevron.up" : "chevron.down")
+                }
+                .foregroundColor(Theme.textSecondary)
+                .padding(Theme.Spacing.space4)
+            }
+            .glassCard(.card, padding: 0)
+
+            if showDebugTokenEntry {
+                VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
+                    Text("Get tokens from strava.com/settings/api")
+                        .font(.caption)
+                        .foregroundStyle(Theme.textSecondary)
+
+                    TextField("Access Token", text: $debugAccessToken)
+                        .textFieldStyle(.roundedBorder)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+
+                    TextField("Refresh Token", text: $debugRefreshToken)
+                        .textFieldStyle(.roundedBorder)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+
+                    TextField("Athlete ID (from profile URL)", text: $debugAthleteId)
+                        .textFieldStyle(.roundedBorder)
+                        .keyboardType(.numberPad)
+
+                    Button {
+                        injectDebugTokens()
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text("Inject Tokens")
+                            Spacer()
+                        }
+                        .padding()
+                        .background(Theme.primaryBlue)
+                        .foregroundStyle(.white)
+                        .cornerRadius(Theme.CornerRadius.md)
+                    }
+                    .disabled(debugAccessToken.isEmpty || debugRefreshToken.isEmpty || debugAthleteId.isEmpty)
+
+                    if let error = debugError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(Theme.destructive)
+                    }
+
+                    if debugSuccess {
+                        Text("Tokens injected! Restart the view to see connection.")
+                            .font(.caption)
+                            .foregroundColor(Theme.success)
+                    }
+                }
+                .padding(Theme.Spacing.space4)
+                .glassCard(.card, padding: 0)
+            }
+        }
+    }
+
+    private func injectDebugTokens() {
+        guard let athleteId = Int(debugAthleteId) else {
+            debugError = "Athlete ID must be a number"
+            return
+        }
+
+        do {
+            try KeychainService.shared.injectStravaTokens(
+                accessToken: debugAccessToken,
+                refreshToken: debugRefreshToken,
+                athleteId: athleteId
+            )
+            debugError = nil
+            debugSuccess = true
+
+            // Reload auth state
+            Task { @MainActor in
+                // Force the auth manager to reload
+                stravaAuth.isConnected = true
+                stravaAuth.athleteId = athleteId
+            }
+        } catch {
+            debugError = error.localizedDescription
+            debugSuccess = false
+        }
+    }
+    #endif
 
     // MARK: - Features Section
 

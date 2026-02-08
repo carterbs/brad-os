@@ -160,4 +160,29 @@ final class KeychainService {
         try delete(key: stravaTokensKey)
         print("[KeychainService] Deleted Strava tokens")
     }
+
+    // MARK: - Debug Token Injection
+
+    #if DEBUG
+    /// Inject Strava tokens directly (for development/testing)
+    /// Get these from https://www.strava.com/settings/api
+    /// - Parameters:
+    ///   - accessToken: Your Access Token from Strava API settings
+    ///   - refreshToken: Your Refresh Token from Strava API settings
+    ///   - athleteId: Your Strava athlete ID (shown in your profile URL)
+    func injectStravaTokens(accessToken: String, refreshToken: String, athleteId: Int) throws {
+        // Set expiration far in the future (tokens from API page are long-lived)
+        let expiresAt = Int(Date().addingTimeInterval(30 * 24 * 60 * 60).timeIntervalSince1970)
+
+        let tokens = StravaTokens(
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            expiresAt: expiresAt,
+            athleteId: athleteId
+        )
+
+        try saveStravaTokens(tokens)
+        print("[KeychainService] DEBUG: Injected Strava tokens for athlete: \(athleteId)")
+    }
+    #endif
 }
