@@ -117,14 +117,38 @@ describe('MealPlan Critique Service', () => {
       expect(result.operations).toEqual([]);
     });
 
-    it('should throw descriptive error when OpenAI API call fails', async () => {
+    it('should throw descriptive error when OpenAI API call fails after retries', async () => {
       const session = createTestSession();
 
       mockCreate.mockRejectedValue(new Error('Rate limit exceeded'));
 
       await expect(
         processCritique(session, 'Do something', 'test-api-key')
-      ).rejects.toThrow('OpenAI API call failed: Rate limit exceeded');
+      ).rejects.toThrow('OpenAI API call failed after 3 attempts: Rate limit exceeded');
+
+      // Should have retried 3 times
+      expect(mockCreate).toHaveBeenCalledTimes(3);
+    });
+
+    it('should succeed on retry after transient failure', async () => {
+      const session = createTestSession();
+      const responseJson = {
+        explanation: 'Done.',
+        operations: [],
+      };
+
+      mockCreate
+        .mockRejectedValueOnce(new Error('Connection reset'))
+        .mockResolvedValueOnce({
+          choices: [{ message: { content: JSON.stringify(responseJson) } }],
+          usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+        });
+
+      const result = await processCritique(session, 'Looks good', 'test-api-key');
+
+      expect(result.explanation).toBe('Done.');
+      expect(result.operations).toEqual([]);
+      expect(mockCreate).toHaveBeenCalledTimes(2);
     });
 
     it('should return fallback when response content is empty', async () => {

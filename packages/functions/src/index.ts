@@ -38,7 +38,7 @@ const defaultOptions: HttpsOptions = {
 const withOpenAiOptions: HttpsOptions = {
   ...defaultOptions,
   secrets: [openaiApiKey],
-  timeoutSeconds: 120,
+  timeoutSeconds: 180,
 };
 
 // Options for TTS functions (uses ADC, no secret needed, shorter timeout)

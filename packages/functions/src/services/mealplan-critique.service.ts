@@ -5,6 +5,10 @@ import type { MealType } from '../shared.js';
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+const OPENAI_MODEL = 'gpt-5.3';
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 1000;
+
 /**
  * Builds the system message for the OpenAI API call.
  * Contains the meal table, current plan grid, constraints, and output format.
@@ -124,6 +128,61 @@ function isValidCritiqueResponse(data: unknown): data is CritiqueResponse {
 }
 
 /**
+ * Sleep for a given number of milliseconds.
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Calls the OpenAI API with retry and exponential backoff.
+ */
+async function callOpenAIWithRetry(
+  client: OpenAI,
+  messages: ChatCompletionMessageParam[]
+): Promise<string> {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const start = Date.now();
+      const response = await client.chat.completions.create({
+        model: OPENAI_MODEL,
+        response_format: { type: 'json_object' },
+        messages,
+      });
+      const elapsed = Date.now() - start;
+
+      const choice = response.choices[0];
+      const content = choice?.message?.content ?? '';
+      const usage = response.usage;
+
+      console.log(`[critique] OpenAI call succeeded in ${elapsed}ms (attempt ${attempt}/${MAX_RETRIES})`, {
+        model: OPENAI_MODEL,
+        elapsed_ms: elapsed,
+        prompt_tokens: usage?.prompt_tokens,
+        completion_tokens: usage?.completion_tokens,
+        total_tokens: usage?.total_tokens,
+        message_count: messages.length,
+      });
+
+      return content;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[critique] OpenAI call failed (attempt ${attempt}/${MAX_RETRIES}): ${message}`);
+
+      if (attempt === MAX_RETRIES) {
+        throw new Error(`OpenAI API call failed after ${MAX_RETRIES} attempts: ${message}`);
+      }
+
+      const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      console.log(`[critique] Retrying in ${delay}ms...`);
+      await sleep(delay);
+    }
+  }
+
+  throw new Error('OpenAI API call failed: exhausted retries');
+}
+
+/**
  * Processes a user critique by sending it to OpenAI and returning
  * the structured response with explanation and operations.
  */
@@ -135,20 +194,10 @@ export async function processCritique(
   const client = new OpenAI({ apiKey });
   const messages = buildMessages(session, critique);
 
-  let responseContent: string;
-  try {
-    const response = await client.chat.completions.create({
-      model: 'gpt-5-nano',
-      response_format: { type: 'json_object' },
-      messages,
-    });
+  const totalChars = messages.reduce((sum, m) => sum + (typeof m.content === 'string' ? m.content.length : 0), 0);
+  console.log(`[critique] Starting critique: ${messages.length} messages, ${totalChars} chars, model=${OPENAI_MODEL}`);
 
-    const choice = response.choices[0];
-    responseContent = choice?.message?.content ?? '';
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`OpenAI API call failed: ${message}`);
-  }
+  const responseContent = await callOpenAIWithRetry(client, messages);
 
   try {
     const parsed: unknown = JSON.parse(responseContent);
@@ -163,11 +212,13 @@ export async function processCritique(
       };
     }
 
+    console.error('[critique] Invalid response shape from OpenAI:', responseContent.substring(0, 500));
     return {
       explanation: "I couldn't process that request. Please try again.",
       operations: [],
     };
   } catch {
+    console.error('[critique] Failed to parse OpenAI response as JSON:', responseContent.substring(0, 500));
     return {
       explanation: "I couldn't process that request. Please try again.",
       operations: [],

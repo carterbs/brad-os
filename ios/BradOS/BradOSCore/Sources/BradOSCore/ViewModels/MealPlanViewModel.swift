@@ -161,6 +161,7 @@ public class MealPlanViewModel: ObservableObject {
             currentPlan = response.plan
             lastExplanation = response.explanation
             critiqueText = ""
+            queuedActions.clear()
             await updateShoppingList()
 
             // Refetch full session for updated history
@@ -254,7 +255,6 @@ public class MealPlanViewModel: ObservableObject {
     public func submitQueuedActions() async {
         guard !queuedActions.isEmpty else { return }
         critiqueText = queuedActions.generateCritiqueText(plan: currentPlan)
-        queuedActions.clear()
         await sendCritique()
     }
 
