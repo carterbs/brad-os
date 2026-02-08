@@ -44,6 +44,7 @@ public enum ThemeColors {
     public static let stretch = Color(hex: "21D6C2")
     public static let meditation = Color(hex: "B26BFF")
     public static let mealPlan = Color(hex: "FF7AAE")
+    public static let cycling = Color(hex: "FF9500")  // Orange for cycling
 
     // Text
     public static let textPrimary = Color.white.opacity(0.92)

@@ -17,12 +17,16 @@
 		0CC331E8CEA078DD28719AA9 /* WorkoutDashboardCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60811224B9F92689C02CFB3D /* WorkoutDashboardCard.swift */; };
 		0DB7A1A824E9F05B1A3FA0C0 /* QueuedActionsButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6AD230687CA2537122F156C /* QueuedActionsButton.swift */; };
 		1259C6E662B064549437CA75 /* BarcodeWalletView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44CA545D816A69914CAA801D /* BarcodeWalletView.swift */; };
+		12FFC4D283D2EFCFE77D8A8A /* CyclingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA13B528976D6158FAD1396F /* CyclingViewModel.swift */; };
 		18709989938802F8B0B43D0C /* MealPlanGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 511B89B20EB43811B7882699 /* MealPlanGridView.swift */; };
 		18E106E25E357B27F73E53B1 /* MealTypeCardsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16E883DB1640507676F4611E /* MealTypeCardsView.swift */; };
 		190DE96CCF907ECA009B31C4 /* APIConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96E8D3B865B339056854BB2E /* APIConfiguration.swift */; };
+		1C6D78344669756397DAB573 /* CyclingModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 291611BD7E1315D2A2F4A174 /* CyclingModels.swift */; };
 		1FEB0DA2D4D27545C69B6DBA /* SilenceGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAED63E66BC5988EFD25B8AD /* SilenceGenerator.swift */; };
+		200749D46EBD0700568B698B /* WorkoutManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6217335B37E06D06CD8A4B61 /* WorkoutManager.swift */; };
 		20CB765E5282630D3D7BA92B /* BradOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A394104666E96EB79B89DD0 /* BradOSApp.swift */; };
 		229EACA75C114A6B9D41C633 /* MeditationManifestService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 287EDC2B2F8BEE19E85C3B29 /* MeditationManifestService.swift */; };
+		277E8DD8472DE83B491C51DF /* BradOSWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0BFBFD3296A7EF54F103BCC /* BradOSWatchApp.swift */; };
 		2B7A995C7F72131C635567AA /* StretchConfigStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FB88344A783C75DD135E054 /* StretchConfigStorage.swift */; };
 		2C3D8133245B8A8DB43C7C93 /* MeditationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4147461B2761A49BD4CBFF26 /* MeditationView.swift */; };
 		2C5A9FE65C0BE4FE03BAB6E4 /* StretchAudioPreparer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FC92309C729E7A7C24BF90A /* StretchAudioPreparer.swift */; };
@@ -41,14 +45,19 @@
 		4FC24427E23484BFB0EFC406 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 790EDD2DC8055ECD51D01B37 /* Theme.swift */; };
 		50150160D92E0DDE3DC350A0 /* MeditationCategoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B37E86AF5C7D66DFC52BB9D /* MeditationCategoryView.swift */; };
 		5156479059476325EBC7F199 /* StretchSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEF0E53C0457422A3740718E /* StretchSessionManager.swift */; };
+		51826CCA127A3AB946135BD5 /* WatchWorkoutController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAD57049D63F2DE8E959543A /* WatchWorkoutController.swift */; };
+		5539B1EC2F3741A9884A4B9D /* RecoveryData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B494AA7B99F9AA28F1AA4778 /* RecoveryData.swift */; };
+		5A68965C044E0FAEB179839A /* WorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28D0646C1AC2CDBFAA9B5C48 /* WorkoutView.swift */; };
 		5BFC07B87B0651B487E308F2 /* CollapsibleCritiqueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E8CCBA16EB6E3B89313519E /* CollapsibleCritiqueView.swift */; };
 		5D1E29AAE0F9402749492A0E /* BradOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9212B9164743CD23CA9B7BBF /* BradOSCore */; };
 		5DBD6ED9E515440B32826C1C /* ExerciseHistoryViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = B29D099388BDDA017AB4947D /* ExerciseHistoryViewModel.swift */; };
 		603E13D858099C5C42152EF6 /* NotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95A2DE32A58E6CAD1F228067 /* NotificationSettingsView.swift */; };
 		6093FE9E0095500FF6EB1233 /* StretchAudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C086BBC4D5541722D70764B8 /* StretchAudioManager.swift */; };
 		66BF73D8C1F9ECAD0ECB1803 /* BradOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = C03A3C5C8EF08F559DF7034E /* BradOSCore */; };
+		687ED813020B272B9D6301A0 /* CyclingBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7FCEDB90BAB32E3A739521 /* CyclingBlockView.swift */; };
 		7086760953A967D06F2BAF10 /* GuidedMeditation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAB73F3D9DD5B217641D6828 /* GuidedMeditation.swift */; };
 		71F7E5CAE4CE0D1208A6EA4E /* Audio in Resources */ = {isa = PBXBuildFile; fileRef = 527CD29BA4D349413A9C8DCB /* Audio */; };
+		7A56E933CA16841AB5FD4EF7 /* CyclingTodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F592A2134BA93D5BC9EC1A1E /* CyclingTodayView.swift */; };
 		7B8201A2E04A9138838B59DC /* Stretch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 673839CCDD11228DB4DB6D4E /* Stretch.swift */; };
 		81D9012E4C17A37A13242656 /* RestTimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAEBDA3BC95C3B29BEE3EFB7 /* RestTimerManager.swift */; };
 		8385E116770F8D25309EF643 /* MealPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ED2476A259A66F0FE6C7082 /* MealPlanView.swift */; };
@@ -63,19 +72,24 @@
 		9A364E6CD87C76886D6799D7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B2BEAB98C6649A276F959270 /* Assets.xcassets */; };
 		9BD4493B10DD79146E0CA8DB /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBF372123F55E659888F52D6 /* NotificationManager.swift */; };
 		9DAA5CC8E064CDCD5FA4000E /* BarcodeRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 460D19A4C8322DAEFB0E907F /* BarcodeRenderer.swift */; };
+		A118C6D9A1D3F23E197395BD /* StravaClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C56853B8332CDD2806D4C210 /* StravaClient.swift */; };
 		A32F36B56C6FC05C45681DB3 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABECD316D7BC15DD0A15ED2B /* MainTabView.swift */; };
 		A397B3DA95F1A0DC9A40CE99 /* CritiqueInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B354AFB2BE0336D3A833D326 /* CritiqueInputView.swift */; };
 		A3A4FE87341AEDE6F7B75BAD /* MesoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61C6634C0A76C0DD68C01A0E /* MesoView.swift */; };
 		A4A68A7A9A8808841592FDD8 /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB25381B345B2FF366770B4F /* CalendarView.swift */; };
 		A6E15E924330849C5AF86348 /* WidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE6BEDED51B57B28D925208E /* WidgetBundle.swift */; };
+		A789B0443A126E93F89A03F2 /* CyclingHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B32C19CB0A73AE82221F6B2B /* CyclingHistoryView.swift */; };
+		AE472A35366FB9B9F1BEC079 /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C474DBAD9A28EC53239DD31D /* HealthKitManager.swift */; };
 		B3768B832B5376CB69E944D6 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD7FBB792EDF2A2AED223945 /* APIClient.swift */; };
 		B481692B4F423807DB18DF1D /* StretchSessionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A81A4BB6E628562A8FAB14 /* StretchSessionDetailView.swift */; };
 		B68F0268014E38BCCBFEDE4B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C23F6F8043584A903D01FF2C /* ProfileView.swift */; };
 		B767E7F26F638C903401A1A5 /* TodayDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33EA5122074F1AC3438C0B15 /* TodayDashboardView.swift */; };
 		B8629E664B4B6BBF3D6C54F0 /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1FD886F6F9131804F710038 /* LoadingView.swift */; };
+		BA425F4FAA16BC31E251E506 /* StravaAuthManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5772DDAD04489B4098A5A803 /* StravaAuthManager.swift */; };
 		BD21F274DA2235C0EAD93573 /* StretchAudioCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7BB22A3D8B0F4806B6C120D8 /* StretchAudioCache.swift */; };
 		C12CDD97E3F85F15FA91CBC1 /* TodayFocusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C4BE480C3B4B0393423F9DF /* TodayFocusView.swift */; };
 		C25E9E4FFD21AD710D825C09 /* TTSAudioCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC98A389A8A8FFCA71333DEB /* TTSAudioCache.swift */; };
+		C32B53A1CC22EBE561E97766 /* ReadinessCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1242FA62054836D545BA364 /* ReadinessCard.swift */; };
 		CC7E90C261523A92636E54B6 /* NowPlayingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0541AD3BB9C7C96E443092E /* NowPlayingManager.swift */; };
 		CCC8ADA904A7E1616B6AC3DA /* StretchSessionStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FF31397C3FAAB4210662D7 /* StretchSessionStorage.swift */; };
 		CEF1A7E4407C16D76610AA2D /* GuidedMeditationPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EBDFB83BF274462D7A35F27 /* GuidedMeditationPipeline.swift */; };
@@ -89,14 +103,20 @@
 		DE8D731276860F8A088742B1 /* GuidedMeditationBrowserView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AF65E610B77AA6D4EF92D7F /* GuidedMeditationBrowserView.swift */; };
 		E491404ABE9A78157B1B6BCD /* SectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE93789A2229F32CC25BE1E2 /* SectionHeader.swift */; };
 		E7B6E4C82CD2069428B57207 /* GuidedMeditationActiveView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 036F3271B04DC3280015ECBB /* GuidedMeditationActiveView.swift */; };
+		EA6DB5F838F769ECDD5B890D /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12AABD055BCAFEA6814C7072 /* KeychainService.swift */; };
 		EAE47A314B154F1F9097C133 /* ErrorStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EB7D67BFCEA76962684150F /* ErrorStateView.swift */; };
 		EC7591E3411226C8D20A3626 /* MeditationAudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3632F53BAD9FA7932DF09C40 /* MeditationAudioEngine.swift */; };
 		EF3DE62491AFC6D450158AD6 /* ExercisesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E92BC114936240705F847D /* ExercisesView.swift */; };
+		F0A25A5AED65D236A6CDC460 /* CyclingTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0644C85B66D9537DDF00FEE /* CyclingTabView.swift */; };
 		F1CA155CCE43823E7A2DE27A /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = 795777073D266F0F0EDA709F /* FirebaseAppCheck */; };
 		F5DD9416FDD7CBF256A32510 /* BarcodeImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6278C739A47C0BD6899B3431 /* BarcodeImageView.swift */; };
 		F7E73D097F3A08BEDF56B266 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 037EFD3F8FC7EB77BA0867F9 /* HistoryView.swift */; };
 		F96867D0D15F6B08F57BE63D /* ActivityCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 014DCF40F81D11A32F788B9D /* ActivityCard.swift */; };
 		FD1BD932914A3DA70FBB91BA /* StretchDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA31BBE648C1B13E904E7BB4 /* StretchDataService.swift */; };
+		FTPENTRY01A2B3C4D5E6F7890 /* FTPEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FTPENTRY11A2B3C4D5E6F7890 /* FTPEntryView.swift */; };
+		WEIGHTGO01A2B3C4D5E6F7891 /* WeightGoalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = WEIGHTGO11A2B3C4D5E6F7891 /* WeightGoalView.swift */; };
+		TRAINBLK01A2B3C4D5E6F7892 /* TrainingBlockSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TRAINBLK11A2B3C4D5E6F7892 /* TrainingBlockSetupView.swift */; };
+		STRAVACC01A2B3C4D5E6F7893 /* StravaConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = STRAVACC11A2B3C4D5E6F7893 /* StravaConnectionView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -133,11 +153,15 @@
 		0A394104666E96EB79B89DD0 /* BradOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BradOSApp.swift; sourceTree = "<group>"; };
 		0DB434B1537A42F6188E662B /* MeditationStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationStorage.swift; sourceTree = "<group>"; };
 		0F6E117271DD3981B357748D /* StatusBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatusBadge.swift; sourceTree = "<group>"; };
+		12AABD055BCAFEA6814C7072 /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
 		16E883DB1640507676F4611E /* MealTypeCardsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealTypeCardsView.swift; sourceTree = "<group>"; };
 		17EE8DDE72557ED06FDF728C /* MeditationManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationManifest.swift; sourceTree = "<group>"; };
 		1AE87A13F207E1549739EDF4 /* BarcodeFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeFormView.swift; sourceTree = "<group>"; };
+		2759D836A83D7DACF70D51D5 /* BradOSWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BradOSWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		27BED3BA6FD7C7868A10B390 /* BradOSWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = BradOSWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		287EDC2B2F8BEE19E85C3B29 /* MeditationManifestService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationManifestService.swift; sourceTree = "<group>"; };
+		28D0646C1AC2CDBFAA9B5C48 /* WorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutView.swift; sourceTree = "<group>"; };
+		291611BD7E1315D2A2F4A174 /* CyclingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingModels.swift; sourceTree = "<group>"; };
 		2EB7D67BFCEA76962684150F /* ErrorStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorStateView.swift; sourceTree = "<group>"; };
 		31C0E1D71C97F2B7F0D33ADC /* WorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutView.swift; sourceTree = "<group>"; };
 		33EA5122074F1AC3438C0B15 /* TodayDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayDashboardView.swift; sourceTree = "<group>"; };
@@ -149,11 +173,13 @@
 		49FF31397C3FAAB4210662D7 /* StretchSessionStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchSessionStorage.swift; sourceTree = "<group>"; };
 		511B89B20EB43811B7882699 /* MealPlanGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealPlanGridView.swift; sourceTree = "<group>"; };
 		527CD29BA4D349413A9C8DCB /* Audio */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Audio; path = BradOS/Resources/Audio; sourceTree = SOURCE_ROOT; };
+		5772DDAD04489B4098A5A803 /* StravaAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StravaAuthManager.swift; sourceTree = "<group>"; };
 		5B37E86AF5C7D66DFC52BB9D /* MeditationCategoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationCategoryView.swift; sourceTree = "<group>"; };
 		5ED2476A259A66F0FE6C7082 /* MealPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealPlanView.swift; sourceTree = "<group>"; };
 		5F3D18814CDDE99C1B9E404F /* MeditationAPIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationAPIService.swift; sourceTree = "<group>"; };
 		60811224B9F92689C02CFB3D /* WorkoutDashboardCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDashboardCard.swift; sourceTree = "<group>"; };
 		61C6634C0A76C0DD68C01A0E /* MesoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MesoView.swift; sourceTree = "<group>"; };
+		6217335B37E06D06CD8A4B61 /* WorkoutManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutManager.swift; sourceTree = "<group>"; };
 		6278C739A47C0BD6899B3431 /* BarcodeImageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeImageView.swift; sourceTree = "<group>"; };
 		673839CCDD11228DB4DB6D4E /* Stretch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Stretch.swift; sourceTree = "<group>"; };
 		790EDD2DC8055ECD51D01B37 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
@@ -183,13 +209,17 @@
 		A6AD230687CA2537122F156C /* QueuedActionsButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueuedActionsButton.swift; sourceTree = "<group>"; };
 		A797E97052E245F39E1948F9 /* MealPlanEditingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealPlanEditingView.swift; sourceTree = "<group>"; };
 		A7D525D24C778DAE1CFDEA08 /* BradOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BradOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AAD57049D63F2DE8E959543A /* WatchWorkoutController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchWorkoutController.swift; sourceTree = "<group>"; };
 		AAED63E66BC5988EFD25B8AD /* SilenceGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SilenceGenerator.swift; sourceTree = "<group>"; };
 		ABECD316D7BC15DD0A15ED2B /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
 		AF0B56B9D6B807E2A68BA84C /* BradOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BradOS.entitlements; sourceTree = "<group>"; };
+		B0BFBFD3296A7EF54F103BCC /* BradOSWatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BradOSWatchApp.swift; sourceTree = "<group>"; };
 		B267E058272122577A0D35D9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		B29D099388BDDA017AB4947D /* ExerciseHistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseHistoryViewModel.swift; sourceTree = "<group>"; };
 		B2BEAB98C6649A276F959270 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B32C19CB0A73AE82221F6B2B /* CyclingHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingHistoryView.swift; sourceTree = "<group>"; };
 		B354AFB2BE0336D3A833D326 /* CritiqueInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CritiqueInputView.swift; sourceTree = "<group>"; };
+		B494AA7B99F9AA28F1AA4778 /* RecoveryData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryData.swift; sourceTree = "<group>"; };
 		B56D40A2CFF8BE7D734D6938 /* BarcodeDisplaySheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeDisplaySheet.swift; sourceTree = "<group>"; };
 		BB25381B345B2FF366770B4F /* CalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarView.swift; sourceTree = "<group>"; };
 		BBF372123F55E659888F52D6 /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
@@ -199,6 +229,9 @@
 		C159B8B81190EC9E4AFAD81D /* MealPlanWidgetEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealPlanWidgetEntryView.swift; sourceTree = "<group>"; };
 		C23F6F8043584A903D01FF2C /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
 		C314C4B07F71DEAD03ABE429 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
+		C33D52B0396ACA302C69E801 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		C474DBAD9A28EC53239DD31D /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
+		C56853B8332CDD2806D4C210 /* StravaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StravaClient.swift; sourceTree = "<group>"; };
 		CA5622DD239A1E87AD387720 /* APIResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIResponse.swift; sourceTree = "<group>"; };
 		CAB73F3D9DD5B217641D6828 /* GuidedMeditation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidedMeditation.swift; sourceTree = "<group>"; };
 		CB12AF8EB986F19AD034CB01 /* MealDayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealDayCard.swift; sourceTree = "<group>"; };
@@ -214,9 +247,18 @@
 		EBA2C21147E61C0F1E7FAD9D /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		EE4F30088B971D6D23220920 /* BradOSDebug.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BradOSDebug.entitlements; sourceTree = "<group>"; };
 		EEF0E53C0457422A3740718E /* StretchSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchSessionManager.swift; sourceTree = "<group>"; };
+		F0644C85B66D9537DDF00FEE /* CyclingTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingTabView.swift; sourceTree = "<group>"; };
+		F1242FA62054836D545BA364 /* ReadinessCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessCard.swift; sourceTree = "<group>"; };
 		F2A81A4BB6E628562A8FAB14 /* StretchSessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchSessionDetailView.swift; sourceTree = "<group>"; };
+		F592A2134BA93D5BC9EC1A1E /* CyclingTodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingTodayView.swift; sourceTree = "<group>"; };
+		FA13B528976D6158FAD1396F /* CyclingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingViewModel.swift; sourceTree = "<group>"; };
 		FD45B75A479093507100918B /* LiftingTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiftingTabView.swift; sourceTree = "<group>"; };
 		FE6BEDED51B57B28D925208E /* WidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBundle.swift; sourceTree = "<group>"; };
+		FF7FCEDB90BAB32E3A739521 /* CyclingBlockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingBlockView.swift; sourceTree = "<group>"; };
+		FTPENTRY11A2B3C4D5E6F7890 /* FTPEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FTPEntryView.swift; sourceTree = "<group>"; };
+		WEIGHTGO11A2B3C4D5E6F7891 /* WeightGoalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightGoalView.swift; sourceTree = "<group>"; };
+		TRAINBLK11A2B3C4D5E6F7892 /* TrainingBlockSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingBlockSetupView.swift; sourceTree = "<group>"; };
+		STRAVACC11A2B3C4D5E6F7893 /* StravaConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StravaConnectionView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -296,10 +338,14 @@
 				96E8D3B865B339056854BB2E /* APIConfiguration.swift */,
 				CA5622DD239A1E87AD387720 /* APIResponse.swift */,
 				E96A553EE3FD3DE973EC3975 /* GuidedMeditationService.swift */,
+				C474DBAD9A28EC53239DD31D /* HealthKitManager.swift */,
+				12AABD055BCAFEA6814C7072 /* KeychainService.swift */,
 				5F3D18814CDDE99C1B9E404F /* MeditationAPIService.swift */,
 				287EDC2B2F8BEE19E85C3B29 /* MeditationManifestService.swift */,
 				BBF372123F55E659888F52D6 /* NotificationManager.swift */,
 				EAEBDA3BC95C3B29BEE3EFB7 /* RestTimerManager.swift */,
+				5772DDAD04489B4098A5A803 /* StravaAuthManager.swift */,
+				C56853B8332CDD2806D4C210 /* StravaClient.swift */,
 				7BB22A3D8B0F4806B6C120D8 /* StretchAudioCache.swift */,
 				C086BBC4D5541722D70764B8 /* StretchAudioManager.swift */,
 				9FC92309C729E7A7C24BF90A /* StretchAudioPreparer.swift */,
@@ -308,6 +354,7 @@
 				EEF0E53C0457422A3740718E /* StretchSessionManager.swift */,
 				49FF31397C3FAAB4210662D7 /* StretchSessionStorage.swift */,
 				BC98A389A8A8FFCA71333DEB /* TTSAudioCache.swift */,
+				AAD57049D63F2DE8E959543A /* WatchWorkoutController.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -329,6 +376,7 @@
 			isa = PBXGroup;
 			children = (
 				D3DDCD6E1BDB40C320EF6EBF /* BradOS */,
+				B49E9686920EAEBED52375B5 /* BradOSWatch */,
 				DF67809BDF71A9DE79422010 /* BradOSWidget */,
 				79841D9405C70C89B8C62F46 /* Packages */,
 				527CD29BA4D349413A9C8DCB /* Audio */,
@@ -351,8 +399,12 @@
 		44459151F9276D8E826962C3 /* Profile */ = {
 			isa = PBXGroup;
 			children = (
+				FTPENTRY11A2B3C4D5E6F7890 /* FTPEntryView.swift */,
 				C23F6F8043584A903D01FF2C /* ProfileView.swift */,
+				STRAVACC11A2B3C4D5E6F7893 /* StravaConnectionView.swift */,
 				05EB9A11EE216DA0027D5C09 /* TextToSpeechView.swift */,
+				TRAINBLK11A2B3C4D5E6F7892 /* TrainingBlockSetupView.swift */,
+				WEIGHTGO11A2B3C4D5E6F7891 /* WeightGoalView.swift */,
 			);
 			path = Profile;
 			sourceTree = "<group>";
@@ -362,6 +414,7 @@
 			children = (
 				A0A5A2096504176F249FB0B8 /* MealPlanDashboardCard.swift */,
 				A375E7313BF426DC8D3506CC /* MeditationDashboardCard.swift */,
+				F1242FA62054836D545BA364 /* ReadinessCard.swift */,
 				97E88619DBC43B75F597D422 /* StretchDashboardCard.swift */,
 				33EA5122074F1AC3438C0B15 /* TodayDashboardView.swift */,
 				60811224B9F92689C02CFB3D /* WorkoutDashboardCard.swift */,
@@ -397,6 +450,7 @@
 			isa = PBXGroup;
 			children = (
 				A7D525D24C778DAE1CFDEA08 /* BradOS.app */,
+				2759D836A83D7DACF70D51D5 /* BradOSWatch.app */,
 				27BED3BA6FD7C7868A10B390 /* BradOSWidget.appex */,
 			);
 			name = Products;
@@ -405,10 +459,22 @@
 		69AE22000851473FC098C62B /* ViewModels */ = {
 			isa = PBXGroup;
 			children = (
+				FA13B528976D6158FAD1396F /* CyclingViewModel.swift */,
 				B29D099388BDDA017AB4947D /* ExerciseHistoryViewModel.swift */,
 				860F464B6153DE259CA15B43 /* TextToSpeechViewModel.swift */,
 			);
 			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		6BE366FC1514FE0AFABD8E17 /* Cycling */ = {
+			isa = PBXGroup;
+			children = (
+				FF7FCEDB90BAB32E3A739521 /* CyclingBlockView.swift */,
+				B32C19CB0A73AE82221F6B2B /* CyclingHistoryView.swift */,
+				F0644C85B66D9537DDF00FEE /* CyclingTabView.swift */,
+				F592A2134BA93D5BC9EC1A1E /* CyclingTodayView.swift */,
+			);
+			path = Cycling;
 			sourceTree = "<group>";
 		};
 		79841D9405C70C89B8C62F46 /* Packages */ = {
@@ -426,6 +492,7 @@
 				0227672F60D6846EBE3D4F93 /* Barcode */,
 				A7E064897A7CD5D2D2AFBCCA /* Calendar */,
 				12CEF3E4A18655A1D2821D97 /* Components */,
+				6BE366FC1514FE0AFABD8E17 /* Cycling */,
 				584BF955F976A64CB5B650E8 /* History */,
 				E8DFE299BADECE756B6092C2 /* Lifting */,
 				B85D8085AF0A4EA5C0BAD64A /* MealPlan */,
@@ -464,6 +531,17 @@
 			path = Stretch;
 			sourceTree = "<group>";
 		};
+		B49E9686920EAEBED52375B5 /* BradOSWatch */ = {
+			isa = PBXGroup;
+			children = (
+				B0BFBFD3296A7EF54F103BCC /* BradOSWatchApp.swift */,
+				C33D52B0396ACA302C69E801 /* Info.plist */,
+				6217335B37E06D06CD8A4B61 /* WorkoutManager.swift */,
+				28D0646C1AC2CDBFAA9B5C48 /* WorkoutView.swift */,
+			);
+			path = BradOSWatch;
+			sourceTree = "<group>";
+		};
 		B85D8085AF0A4EA5C0BAD64A /* MealPlan */ = {
 			isa = PBXGroup;
 			children = (
@@ -484,9 +562,11 @@
 		BB6728928AF4A316229CFE13 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				291611BD7E1315D2A2F4A174 /* CyclingModels.swift */,
 				CAB73F3D9DD5B217641D6828 /* GuidedMeditation.swift */,
 				17EE8DDE72557ED06FDF728C /* MeditationManifest.swift */,
 				97BC3FD39CD95DA799E37E3C /* MeditationState.swift */,
+				B494AA7B99F9AA28F1AA4778 /* RecoveryData.swift */,
 				673839CCDD11228DB4DB6D4E /* Stretch.swift */,
 			);
 			path = Models;
@@ -547,7 +627,7 @@
 			path = Lifting;
 			sourceTree = "<group>";
 		};
-		"TEMP_8E7A4715-DC26-4457-968C-E958BE1FBF04" /* Resources */ = {
+		"TEMP_6F5F2BBC-C4CF-475F-84FB-605AC450BA6C" /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -578,6 +658,23 @@
 			);
 			productName = BradOS;
 			productReference = A7D525D24C778DAE1CFDEA08 /* BradOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		67BC99C8C48B6DC4F03F699D /* BradOSWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6B84D4CB8708579B21F47718 /* Build configuration list for PBXNativeTarget "BradOSWatch" */;
+			buildPhases = (
+				A59A623461F956C1B55787DA /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BradOSWatch;
+			packageProductDependencies = (
+			);
+			productName = BradOSWatch;
+			productReference = 2759D836A83D7DACF70D51D5 /* BradOSWatch.app */;
 			productType = "com.apple.product-type.application";
 		};
 		8A7135F3BB1083CFAEC8256F /* BradOSWidget */ = {
@@ -612,6 +709,10 @@
 						DevelopmentTeam = 6Q7R3U43ZD;
 						ProvisioningStyle = Automatic;
 					};
+					67BC99C8C48B6DC4F03F699D = {
+						DevelopmentTeam = 6Q7R3U43ZD;
+						ProvisioningStyle = Automatic;
+					};
 					8A7135F3BB1083CFAEC8256F = {
 						DevelopmentTeam = 6Q7R3U43ZD;
 						ProvisioningStyle = Automatic;
@@ -637,6 +738,7 @@
 			projectRoot = "";
 			targets = (
 				2AA2633E5BF785D602CA3892 /* BradOS */,
+				67BC99C8C48B6DC4F03F699D /* BradOSWatch */,
 				8A7135F3BB1083CFAEC8256F /* BradOSWidget */,
 			);
 		};
@@ -677,6 +779,12 @@
 				5BFC07B87B0651B487E308F2 /* CollapsibleCritiqueView.swift in Sources */,
 				066415228315231B0DA4DF30 /* ContentView.swift in Sources */,
 				A397B3DA95F1A0DC9A40CE99 /* CritiqueInputView.swift in Sources */,
+				687ED813020B272B9D6301A0 /* CyclingBlockView.swift in Sources */,
+				A789B0443A126E93F89A03F2 /* CyclingHistoryView.swift in Sources */,
+				1C6D78344669756397DAB573 /* CyclingModels.swift in Sources */,
+				F0A25A5AED65D236A6CDC460 /* CyclingTabView.swift in Sources */,
+				7A56E933CA16841AB5FD4EF7 /* CyclingTodayView.swift in Sources */,
+				12FFC4D283D2EFCFE77D8A8A /* CyclingViewModel.swift in Sources */,
 				90ABB2C6223CBAEA233D2853 /* EmptyStateView.swift in Sources */,
 				EAE47A314B154F1F9097C133 /* ErrorStateView.swift in Sources */,
 				5DBD6ED9E515440B32826C1C /* ExerciseHistoryViewModel.swift in Sources */,
@@ -687,7 +795,9 @@
 				CEF1A7E4407C16D76610AA2D /* GuidedMeditationPipeline.swift in Sources */,
 				493F8544615F1805E8F33A78 /* GuidedMeditationPreparingView.swift in Sources */,
 				D23E0FD74C1866E30F778DF5 /* GuidedMeditationService.swift in Sources */,
+				AE472A35366FB9B9F1BEC079 /* HealthKitManager.swift in Sources */,
 				F7E73D097F3A08BEDF56B266 /* HistoryView.swift in Sources */,
+				EA6DB5F838F769ECDD5B890D /* KeychainService.swift in Sources */,
 				0C2035D397B4383A35E1E100 /* LiftingTabView.swift in Sources */,
 				B8629E664B4B6BBF3D6C54F0 /* LoadingView.swift in Sources */,
 				A32F36B56C6FC05C45681DB3 /* MainTabView.swift in Sources */,
@@ -712,13 +822,21 @@
 				CC7E90C261523A92636E54B6 /* NowPlayingManager.swift in Sources */,
 				D01F69DE098368C41F701D4E /* PlansView.swift in Sources */,
 				B68F0268014E38BCCBFEDE4B /* ProfileView.swift in Sources */,
+				FTPENTRY01A2B3C4D5E6F7890 /* FTPEntryView.swift in Sources */,
+				WEIGHTGO01A2B3C4D5E6F7891 /* WeightGoalView.swift in Sources */,
+				TRAINBLK01A2B3C4D5E6F7892 /* TrainingBlockSetupView.swift in Sources */,
+				STRAVACC01A2B3C4D5E6F7893 /* StravaConnectionView.swift in Sources */,
 				0DB7A1A824E9F05B1A3FA0C0 /* QueuedActionsButton.swift in Sources */,
+				C32B53A1CC22EBE561E97766 /* ReadinessCard.swift in Sources */,
+				5539B1EC2F3741A9884A4B9D /* RecoveryData.swift in Sources */,
 				81D9012E4C17A37A13242656 /* RestTimerManager.swift in Sources */,
 				970799BA999AF27D517F7C57 /* RestTimerOverlay.swift in Sources */,
 				E491404ABE9A78157B1B6BCD /* SectionHeader.swift in Sources */,
 				48B95D8E70ABEBCB27F73477 /* ShoppingListView.swift in Sources */,
 				1FEB0DA2D4D27545C69B6DBA /* SilenceGenerator.swift in Sources */,
 				431CE65223D5711937A751A4 /* StatusBadge.swift in Sources */,
+				BA425F4FAA16BC31E251E506 /* StravaAuthManager.swift in Sources */,
+				A118C6D9A1D3F23E197395BD /* StravaClient.swift in Sources */,
 				7B8201A2E04A9138838B59DC /* Stretch.swift in Sources */,
 				BD21F274DA2235C0EAD93573 /* StretchAudioCache.swift in Sources */,
 				6093FE9E0095500FF6EB1233 /* StretchAudioManager.swift in Sources */,
@@ -737,8 +855,19 @@
 				4FC24427E23484BFB0EFC406 /* Theme.swift in Sources */,
 				B767E7F26F638C903401A1A5 /* TodayDashboardView.swift in Sources */,
 				C12CDD97E3F85F15FA91CBC1 /* TodayFocusView.swift in Sources */,
+				51826CCA127A3AB946135BD5 /* WatchWorkoutController.swift in Sources */,
 				0CC331E8CEA078DD28719AA9 /* WorkoutDashboardCard.swift in Sources */,
 				96B70BD1912096BAC4535C24 /* WorkoutView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A59A623461F956C1B55787DA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				277E8DD8472DE83B491C51DF /* BradOSWatchApp.swift in Sources */,
+				200749D46EBD0700568B698B /* WorkoutManager.swift in Sources */,
+				5A68965C044E0FAEB179839A /* WorkoutView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -764,6 +893,25 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		12AD317FA56EF8FFCA5A2A6A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BradOSWatch/BradOSWatch.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = BradOSWatch/Info.plist;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.bradcarter.brad-os.watchkitapp";
+				PRODUCT_NAME = "Brad OS Watch";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Release;
+		};
 		363EFD4BBAEEE5655B28BEC8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -843,11 +991,11 @@
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = 1;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Debug;
 		};
@@ -923,11 +1071,11 @@
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = 1;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
 			};
 			name = Release;
 		};
@@ -973,6 +1121,25 @@
 			};
 			name = Release;
 		};
+		F70AFD249B8231B17BBFA1DB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BradOSWatch/BradOSWatch.entitlements;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = BradOSWatch/Info.plist;
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.bradcarter.brad-os.watchkitapp";
+				PRODUCT_NAME = "Brad OS Watch";
+				SDKROOT = watchos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = 4;
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -990,6 +1157,15 @@
 			buildConfigurations = (
 				4AAC61572F1FA128338B0B7E /* Debug */,
 				363EFD4BBAEEE5655B28BEC8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6B84D4CB8708579B21F47718 /* Build configuration list for PBXNativeTarget "BradOSWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F70AFD249B8231B17BBFA1DB /* Debug */,
+				12AD317FA56EF8FFCA5A2A6A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

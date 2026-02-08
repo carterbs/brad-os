@@ -24,6 +24,9 @@ import { mealplanDebugApp } from './handlers/mealplan-debug.js';
 import { ttsApp } from './handlers/tts.js';
 import { guidedMeditationsApp } from './handlers/guidedMeditations.js';
 import { stretchesApp } from './handlers/stretches.js';
+import { cyclingApp } from './handlers/cycling.js';
+import { stravaWebhookApp } from './handlers/strava-webhook.js';
+import { cyclingCoachApp } from './handlers/cycling-coach.js';
 
 // Secrets
 const openaiApiKey = defineSecret('OPENAI_API_KEY');
@@ -65,6 +68,9 @@ export const devRecipes = onRequest(defaultOptions, recipesApp);
 export const devTts = onRequest(withTtsOptions, ttsApp);
 export const devGuidedMeditations = onRequest(defaultOptions, guidedMeditationsApp);
 export const devStretches = onRequest(defaultOptions, stretchesApp);
+export const devCycling = onRequest(defaultOptions, cyclingApp);
+export const devStrava = onRequest(defaultOptions, stravaWebhookApp);
+export const devCyclingCoach = onRequest(withOpenAiOptions, cyclingCoachApp);
 
 // ============ PROD Functions ============
 export const prodHealth = onRequest(defaultOptions, healthApp);
@@ -84,6 +90,9 @@ export const prodRecipes = onRequest(defaultOptions, recipesApp);
 export const prodTts = onRequest(withTtsOptions, ttsApp);
 export const prodGuidedMeditations = onRequest(defaultOptions, guidedMeditationsApp);
 export const prodStretches = onRequest(defaultOptions, stretchesApp);
+export const prodCycling = onRequest(defaultOptions, cyclingApp);
+export const prodStrava = onRequest(defaultOptions, stravaWebhookApp);
+export const prodCyclingCoach = onRequest(withOpenAiOptions, cyclingCoachApp);
 
 // ============ Debug Functions (emulator only) ============
 export const devMealplanDebug = onRequest(defaultOptions, mealplanDebugApp);

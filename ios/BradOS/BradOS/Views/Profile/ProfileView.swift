@@ -6,6 +6,9 @@ struct ProfileView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.space6) {
+                    // Cycling Section
+                    cyclingSection
+
                     // Settings Section
                     settingsSection
 
@@ -18,6 +21,83 @@ struct ProfileView: View {
             .navigationTitle("Profile")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
+        }
+    }
+
+    // MARK: - Cycling Section
+
+    @ViewBuilder
+    private var cyclingSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
+            SectionHeader(title: "Cycling")
+
+            VStack(spacing: 0) {
+                NavigationLink(destination: FTPEntryView()) {
+                    SettingsRow(
+                        title: "FTP",
+                        subtitle: "Functional Threshold Power",
+                        iconName: "bolt.fill",
+                        iconColor: Theme.cycling
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                }
+                .buttonStyle(.plain)
+
+                Divider()
+                    .background(Theme.strokeSubtle)
+
+                NavigationLink(destination: TrainingBlockSetupView()) {
+                    SettingsRow(
+                        title: "Training Block",
+                        subtitle: "8-week training plan",
+                        iconName: "calendar",
+                        iconColor: Theme.cycling
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                }
+                .buttonStyle(.plain)
+
+                Divider()
+                    .background(Theme.strokeSubtle)
+
+                NavigationLink(destination: WeightGoalView()) {
+                    SettingsRow(
+                        title: "Weight Goal",
+                        subtitle: "Track weight targets",
+                        iconName: "scalemass.fill",
+                        iconColor: Theme.cycling
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                }
+                .buttonStyle(.plain)
+
+                Divider()
+                    .background(Theme.strokeSubtle)
+
+                NavigationLink(destination: StravaConnectionView()) {
+                    SettingsRow(
+                        title: "Strava",
+                        subtitle: "Connect to sync rides",
+                        iconName: "figure.outdoor.cycle",
+                        iconColor: Color.orange
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .glassCard(.card, padding: 0)
         }
     }
 

@@ -7,6 +7,8 @@ import FirebaseAppCheck
 @main
 struct BradOSApp: App {
     @StateObject private var appState = AppState()
+    @StateObject private var stravaAuthManager = StravaAuthManager()
+    @StateObject private var healthKitManager = HealthKitManager()
 
     init() {
         // Configure App Check BEFORE FirebaseApp.configure()
@@ -25,6 +27,8 @@ struct BradOSApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(appState)
+                .environmentObject(stravaAuthManager)
+                .environmentObject(healthKitManager)
                 .environment(\.apiClient, APIClient.shared)
                 .preferredColorScheme(.dark)
                 .onAppear {
@@ -41,6 +45,13 @@ struct BradOSApp: App {
     }
 
     private func handleDeepLink(_ url: URL) {
+        // Handle Strava OAuth callback
+        if url.scheme == "bradosapp" && url.host == "strava-callback" {
+            stravaAuthManager.handleCallbackURL(url)
+            return
+        }
+
+        // Handle other deep links
         guard url.scheme == "brados" else { return }
         switch url.host {
         case "mealplan":
@@ -58,6 +69,7 @@ class AppState: ObservableObject {
     @Published var isShowingStretch: Bool = false
     @Published var isShowingMeditation: Bool = false
     @Published var isShowingMealPlan: Bool = false
+    @Published var isShowingCycling: Bool = false
 
     /// Selected workout ID for navigation to workout detail
     @Published var selectedWorkoutId: String?

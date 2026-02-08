@@ -37,6 +37,7 @@ struct Theme {
     static let stretch = ThemeColors.stretch
     static let meditation = ThemeColors.meditation
     static let mealPlan = ThemeColors.mealPlan
+    static let cycling = ThemeColors.cycling
 
     // MARK: - Status Colors
     static let success = Color(hex: "34D399")
