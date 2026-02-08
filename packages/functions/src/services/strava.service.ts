@@ -305,3 +305,148 @@ export function areTokensExpired(tokens: StravaTokens): boolean {
   const now = Math.floor(Date.now() / 1000);
   return now >= tokens.expiresAt - bufferSeconds;
 }
+
+// --- Strava Streams ---
+
+/**
+ * A single data stream from the Strava Streams API.
+ */
+export interface StravaStream {
+  data: number[];
+  series_type: string;
+  original_size: number;
+  resolution: string;
+}
+
+/**
+ * Combined activity streams from Strava.
+ */
+export interface ActivityStreams {
+  watts?: StravaStream;
+  heartrate?: StravaStream;
+  time?: StravaStream;
+  cadence?: StravaStream;
+}
+
+/**
+ * Fetch time-series streams for a Strava activity.
+ *
+ * @param accessToken - Valid Strava access token
+ * @param activityId - Strava activity ID
+ * @param keys - Stream types to fetch (default: watts, heartrate, time)
+ * @returns Activity streams
+ * @throws StravaApiError if the API call fails
+ */
+export async function fetchActivityStreams(
+  accessToken: string,
+  activityId: number,
+  keys: string[] = ['watts', 'heartrate', 'time']
+): Promise<ActivityStreams> {
+  const url = new URL(
+    `${STRAVA_API_BASE}/activities/${activityId}/streams`
+  );
+  url.searchParams.set('keys', keys.join(','));
+  url.searchParams.set('key_by_type', 'true');
+
+  const response = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!response.ok) {
+    throw new StravaApiError(
+      `Strava Streams API error: ${response.status}`,
+      response.status
+    );
+  }
+
+  const data = (await response.json()) as ActivityStreams;
+  return data;
+}
+
+/**
+ * Calculate peak (best) average power over a rolling window.
+ *
+ * Uses a sliding window over the watts stream to find the highest
+ * average power for the given duration.
+ *
+ * @param wattsStream - Array of per-second power values
+ * @param timeStream - Array of per-second elapsed time values
+ * @param windowSeconds - Duration of the window (300 for 5-min, 1200 for 20-min)
+ * @returns Peak average power for the window, or 0 if data is too short
+ */
+export function calculatePeakPower(
+  wattsStream: number[],
+  timeStream: number[],
+  windowSeconds: number
+): number {
+  if (wattsStream.length === 0 || timeStream.length === 0) {
+    return 0;
+  }
+
+  // Find indices that span the window duration
+  let maxAvg = 0;
+
+  for (let startIdx = 0; startIdx < wattsStream.length; startIdx++) {
+    const startTime = timeStream[startIdx];
+    if (startTime === undefined) continue;
+
+    // Find the end index for this window
+    let endIdx = startIdx;
+    while (
+      endIdx < timeStream.length - 1 &&
+      (timeStream[endIdx + 1] ?? 0) - startTime < windowSeconds
+    ) {
+      endIdx++;
+    }
+
+    const endTime = timeStream[endIdx];
+    if (endTime === undefined) continue;
+
+    const duration = endTime - startTime;
+
+    // Only consider windows that are at least the requested duration
+    if (duration < windowSeconds - 1) continue; // Allow 1s tolerance
+
+    // Calculate average power for this window
+    let sum = 0;
+    let count = 0;
+    for (let i = startIdx; i <= endIdx; i++) {
+      const w = wattsStream[i];
+      if (w !== undefined) {
+        sum += w;
+        count++;
+      }
+    }
+
+    if (count > 0) {
+      const avg = sum / count;
+      if (avg > maxAvg) {
+        maxAvg = avg;
+      }
+    }
+  }
+
+  return Math.round(maxAvg);
+}
+
+/**
+ * Calculate HR data completeness from a heart rate stream.
+ *
+ * Counts non-zero HR samples as a percentage of total samples.
+ * < 80% indicates significant HR data gaps (common with Peloton).
+ *
+ * @param heartRateStream - Array of HR values (bpm)
+ * @returns Completeness percentage (0-100)
+ */
+export function calculateHRCompleteness(
+  heartRateStream: number[]
+): number {
+  if (heartRateStream.length === 0) {
+    return 0;
+  }
+
+  const nonZero = heartRateStream.filter((hr) => hr > 0).length;
+  const completeness = (nonZero / heartRateStream.length) * 100;
+
+  return Math.round(completeness);
+}

@@ -96,6 +96,9 @@ function mapActivityDoc(
     type: data['type'] as CyclingActivity['type'],
     source: data['source'] as CyclingActivity['source'],
     ef: data['ef'] as number | undefined,
+    peak5MinPower: data['peak5MinPower'] as number | undefined,
+    peak20MinPower: data['peak20MinPower'] as number | undefined,
+    hrCompleteness: data['hrCompleteness'] as number | undefined,
     createdAt: data['createdAt'] as string,
   };
 }
@@ -191,6 +194,15 @@ export async function createCyclingActivity(
   if (activity.ef !== undefined) {
     activityData['ef'] = activity.ef;
   }
+  if (activity.peak5MinPower !== undefined) {
+    activityData['peak5MinPower'] = activity.peak5MinPower;
+  }
+  if (activity.peak20MinPower !== undefined) {
+    activityData['peak20MinPower'] = activity.peak20MinPower;
+  }
+  if (activity.hrCompleteness !== undefined) {
+    activityData['hrCompleteness'] = activity.hrCompleteness;
+  }
 
   await userDoc.collection('cyclingActivities').doc(id).set(activityData);
 
@@ -210,6 +222,9 @@ export async function createCyclingActivity(
     type: activity.type,
     source: activity.source,
     ef: activity.ef,
+    peak5MinPower: activity.peak5MinPower,
+    peak20MinPower: activity.peak20MinPower,
+    hrCompleteness: activity.hrCompleteness,
     createdAt: activity.createdAt,
   };
 }
@@ -791,7 +806,7 @@ export async function setCyclingProfile(
 export async function updateCyclingActivity(
   userId: string,
   activityId: string,
-  updates: Partial<Pick<CyclingActivity, 'ef'>>
+  updates: Partial<Pick<CyclingActivity, 'ef' | 'peak5MinPower' | 'peak20MinPower' | 'hrCompleteness'>>
 ): Promise<boolean> {
   const userDoc = getUserDoc(userId);
   const docRef = userDoc.collection('cyclingActivities').doc(activityId);

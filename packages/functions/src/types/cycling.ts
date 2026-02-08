@@ -40,6 +40,9 @@ export interface CyclingActivity {
   type: CyclingActivityType;
   source: CyclingActivitySource;
   ef?: number; // Efficiency Factor (NP / avg_HR)
+  peak5MinPower?: number; // Best 5-minute average power
+  peak20MinPower?: number; // Best 20-minute average power
+  hrCompleteness?: number; // 0-100, percentage of time with HR data
   createdAt: string; // ISO 8601 timestamp
 }
 

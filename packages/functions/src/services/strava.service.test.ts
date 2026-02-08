@@ -2,11 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   fetchStravaActivity,
   fetchStravaActivities,
+  fetchActivityStreams,
   refreshStravaTokens,
   processStravaActivity,
   classifyWorkoutType,
   calculateTSS,
   calculateIntensityFactor,
+  calculatePeakPower,
+  calculateHRCompleteness,
   filterCyclingActivities,
   areTokensExpired,
   StravaApiError,
@@ -370,6 +373,126 @@ describe('Strava Service', () => {
       const result = filterCyclingActivities(activities);
 
       expect(result).toHaveLength(0);
+    });
+  });
+
+  describe('fetchActivityStreams', () => {
+    it('should fetch streams for an activity', async () => {
+      const mockStreams = {
+        watts: { data: [150, 160, 170], series_type: 'distance', original_size: 3, resolution: 'high' },
+        heartrate: { data: [120, 125, 130], series_type: 'distance', original_size: 3, resolution: 'high' },
+        time: { data: [0, 1, 2], series_type: 'distance', original_size: 3, resolution: 'high' },
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockStreams),
+      });
+
+      const result = await fetchActivityStreams('test-token', 12345);
+
+      expect(result.watts?.data).toEqual([150, 160, 170]);
+      expect(result.heartrate?.data).toEqual([120, 125, 130]);
+      expect(result.time?.data).toEqual([0, 1, 2]);
+    });
+
+    it('should throw StravaApiError on failure', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+      });
+
+      await expect(fetchActivityStreams('test-token', 99999)).rejects.toThrow(
+        StravaApiError
+      );
+    });
+  });
+
+  describe('calculatePeakPower', () => {
+    it('should find the best 5-minute power', () => {
+      // Create a 10-minute ride: first 5 min at 200W, last 5 min at 250W
+      const watts: number[] = [];
+      const time: number[] = [];
+
+      for (let i = 0; i < 600; i++) {
+        time.push(i);
+        watts.push(i < 300 ? 200 : 250);
+      }
+
+      const peak = calculatePeakPower(watts, time, 300);
+      expect(peak).toBe(250); // Best 5-min window is the last 300 seconds at 250W
+    });
+
+    it('should return 0 for empty streams', () => {
+      expect(calculatePeakPower([], [], 300)).toBe(0);
+    });
+
+    it('should return 0 if ride is shorter than window', () => {
+      // 3-minute ride trying to find 5-minute peak
+      const watts = Array(180).fill(200) as number[];
+      const time = Array.from({ length: 180 }, (_, i) => i);
+
+      expect(calculatePeakPower(watts, time, 300)).toBe(0);
+    });
+
+    it('should handle constant power correctly', () => {
+      // 10-minute ride at constant 200W
+      const watts = Array(600).fill(200) as number[];
+      const time = Array.from({ length: 600 }, (_, i) => i);
+
+      expect(calculatePeakPower(watts, time, 300)).toBe(200);
+    });
+
+    it('should find peak in the middle of a ride', () => {
+      // 15-min ride: 5 min @ 150W, 5 min @ 300W, 5 min @ 180W
+      const watts: number[] = [];
+      const time: number[] = [];
+
+      for (let i = 0; i < 900; i++) {
+        time.push(i);
+        if (i < 300) watts.push(150);
+        else if (i < 600) watts.push(300);
+        else watts.push(180);
+      }
+
+      const peak = calculatePeakPower(watts, time, 300);
+      expect(peak).toBe(300);
+    });
+  });
+
+  describe('calculateHRCompleteness', () => {
+    it('should return 100 for complete HR data', () => {
+      expect(calculateHRCompleteness([120, 130, 140, 150])).toBe(100);
+    });
+
+    it('should return 0 for all-zero HR data', () => {
+      expect(calculateHRCompleteness([0, 0, 0, 0])).toBe(0);
+    });
+
+    it('should return 0 for empty array', () => {
+      expect(calculateHRCompleteness([])).toBe(0);
+    });
+
+    it('should calculate percentage correctly', () => {
+      // 3 out of 4 samples have HR data = 75%
+      expect(calculateHRCompleteness([120, 0, 130, 140])).toBe(75);
+    });
+
+    it('should handle sparse Peloton-style data', () => {
+      // Simulate 50% data loss (every other sample is 0)
+      const hrData: number[] = [];
+      for (let i = 0; i < 100; i++) {
+        hrData.push(i % 2 === 0 ? 140 : 0);
+      }
+      expect(calculateHRCompleteness(hrData)).toBe(50);
+    });
+
+    it('should handle mostly complete data', () => {
+      // 98 out of 100 have data = 98%
+      const hrData = Array(100).fill(130) as number[];
+      hrData[50] = 0;
+      hrData[75] = 0;
+      expect(calculateHRCompleteness(hrData)).toBe(98);
     });
   });
 
