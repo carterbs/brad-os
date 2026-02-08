@@ -10,6 +10,8 @@ import {
   createFTPEntrySchema,
   createTrainingBlockSchema,
   createWeightGoalSchema,
+  calculateVO2MaxSchema,
+  updateCyclingProfileSchema,
   type CyclingActivity,
 } from '../shared.js';
 import { validate } from '../middleware/validate.js';
@@ -24,6 +26,10 @@ import {
   getWeekInBlock,
   type DailyTSS,
 } from '../services/training-load.service.js';
+import {
+  estimateVO2MaxFromFTP,
+  categorizeVO2Max,
+} from '../services/vo2max.service.js';
 
 const app = express();
 app.use(cors({ origin: true }));
@@ -417,6 +423,136 @@ app.post(
         message: `Imported ${imported} activities, skipped ${skipped} (already synced or no power data).`,
       },
     });
+  })
+);
+
+// ============ VO2 Max ============
+
+// GET /cycling/vo2max
+app.get(
+  '/vo2max',
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const userId = getUserId(req);
+
+    const latest = await cyclingService.getLatestVO2Max(userId);
+    const history = await cyclingService.getVO2MaxHistory(userId);
+
+    res.json({
+      success: true,
+      data: {
+        latest: latest
+          ? { ...latest, category: categorizeVO2Max(latest.value) }
+          : null,
+        history,
+      },
+    });
+  })
+);
+
+// POST /cycling/vo2max/calculate
+app.post(
+  '/vo2max/calculate',
+  validate(calculateVO2MaxSchema),
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const userId = getUserId(req);
+    const { weightKg } = req.body as { weightKg: number };
+
+    // Get current FTP
+    const ftpEntry = await cyclingService.getCurrentFTP(userId);
+    if (ftpEntry === null) {
+      res.status(400).json({
+        success: false,
+        error: 'No FTP set. Please set your FTP first.',
+      });
+      return;
+    }
+
+    // Calculate VO2 max from FTP
+    const vo2max = estimateVO2MaxFromFTP(ftpEntry.value, weightKg);
+    if (vo2max === null) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid FTP or weight values.',
+      });
+      return;
+    }
+
+    // Save the estimate
+    const estimate = await cyclingService.saveVO2MaxEstimate(userId, {
+      userId,
+      date: new Date().toISOString().split('T')[0] ?? new Date().toISOString(),
+      value: vo2max,
+      method: 'ftp_derived',
+      sourcePower: ftpEntry.value,
+      sourceWeight: weightKg,
+      createdAt: new Date().toISOString(),
+    });
+
+    // Also save weight to cycling profile
+    await cyclingService.setCyclingProfile(userId, { weightKg });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        ...estimate,
+        category: categorizeVO2Max(vo2max),
+      },
+    });
+  })
+);
+
+// ============ Cycling Profile ============
+
+// GET /cycling/profile
+app.get(
+  '/profile',
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const userId = getUserId(req);
+
+    const profile = await cyclingService.getCyclingProfile(userId);
+
+    res.json({ success: true, data: profile });
+  })
+);
+
+// PUT /cycling/profile
+app.put(
+  '/profile',
+  validate(updateCyclingProfileSchema),
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const userId = getUserId(req);
+    const body = req.body as { weightKg: number; maxHR?: number; restingHR?: number };
+
+    const profile = await cyclingService.setCyclingProfile(userId, body);
+
+    res.json({ success: true, data: profile });
+  })
+);
+
+// ============ Efficiency Factor ============
+
+// GET /cycling/ef
+app.get(
+  '/ef',
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const userId = getUserId(req);
+
+    // Get activities with EF data
+    const activities = await cyclingService.getCyclingActivities(userId);
+
+    // Filter to activities with EF data and steady rides (IF < 0.88)
+    const efHistory = activities
+      .filter((a) => a.ef !== undefined && a.ef > 0 && a.intensityFactor < 0.88)
+      .map((a) => ({
+        activityId: a.id,
+        date: a.date,
+        ef: a.ef ?? 0,
+        normalizedPower: a.normalizedPower,
+        avgHeartRate: a.avgHeartRate,
+        activityType: a.type,
+      }));
+
+    res.json({ success: true, data: efHistory });
   })
 );
 

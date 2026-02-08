@@ -39,6 +39,7 @@ export interface CyclingActivity {
   intensityFactor: number;
   type: CyclingActivityType;
   source: CyclingActivitySource;
+  ef?: number; // Efficiency Factor (NP / avg_HR)
   createdAt: string; // ISO 8601 timestamp
 }
 
@@ -74,6 +75,52 @@ export interface FTPEntry {
   value: number; // Watts
   date: string; // ISO 8601 date
   source: FTPSource;
+}
+
+// --- VO2 Max Estimation Types ---
+
+export type VO2MaxMethod = 'ftp_derived' | 'peak_5min' | 'peak_20min';
+
+/**
+ * An estimated VO2 max entry.
+ */
+export interface VO2MaxEstimate {
+  id: string;
+  userId: string;
+  date: string; // ISO 8601
+  value: number; // mL/kg/min
+  method: VO2MaxMethod;
+  sourcePower: number; // watts used for calculation
+  sourceWeight: number; // kg used for calculation
+  activityId?: string; // Strava activity that produced peak power
+  createdAt: string; // ISO 8601
+}
+
+// --- Efficiency Factor Types ---
+
+/**
+ * Efficiency Factor entry for a cycling activity.
+ * EF = Normalized Power / Average Heart Rate
+ */
+export interface EfficiencyFactorEntry {
+  activityId: string;
+  date: string; // ISO 8601
+  ef: number; // NP / avg_HR
+  normalizedPower: number;
+  avgHeartRate: number;
+  activityType: CyclingActivityType;
+}
+
+// --- Cycling Profile Types ---
+
+/**
+ * User cycling profile with weight and HR data for VO2 max calculation.
+ */
+export interface CyclingProfile {
+  userId: string;
+  weightKg: number;
+  maxHR?: number;
+  restingHR?: number;
 }
 
 // --- Weight Goal Types ---

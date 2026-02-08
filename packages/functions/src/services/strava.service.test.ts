@@ -278,6 +278,7 @@ describe('Strava Service', () => {
       expect(result.tss).toBeGreaterThan(0);
       expect(result.intensityFactor).toBe(0.84);
       expect(result.type).toBe('fun'); // 0.84 IF = fun ride
+      expect(result.ef).toBe(1.45); // 210 / 145 = 1.448... -> 1.45
       expect(result.createdAt).toBeDefined();
     });
 
@@ -312,6 +313,7 @@ describe('Strava Service', () => {
       expect(result.normalizedPower).toBe(0);
       expect(result.tss).toBe(0);
       expect(result.type).toBe('unknown');
+      expect(result.ef).toBeUndefined(); // No power = no EF
     });
   });
 

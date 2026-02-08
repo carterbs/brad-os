@@ -106,3 +106,27 @@ export const stravaWebhookSchema = z.union([
 ]);
 
 export type StravaWebhookInput = z.infer<typeof stravaWebhookSchema>;
+
+// --- VO2 Max Schemas ---
+
+/**
+ * Schema for triggering VO2 max calculation.
+ */
+export const calculateVO2MaxSchema = z.object({
+  weightKg: z.number().positive().max(300),
+});
+
+export type CalculateVO2MaxInput = z.infer<typeof calculateVO2MaxSchema>;
+
+// --- Cycling Profile Schema ---
+
+/**
+ * Schema for updating the cycling profile.
+ */
+export const updateCyclingProfileSchema = z.object({
+  weightKg: z.number().positive().max(300),
+  maxHR: z.number().int().positive().max(250).optional(),
+  restingHR: z.number().int().positive().max(150).optional(),
+});
+
+export type UpdateCyclingProfileInput = z.infer<typeof updateCyclingProfileSchema>;

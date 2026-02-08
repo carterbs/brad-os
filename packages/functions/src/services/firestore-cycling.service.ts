@@ -20,6 +20,8 @@ import type {
   FTPEntry,
   WeightGoal,
   StravaTokens,
+  VO2MaxEstimate,
+  CyclingProfile,
   CreateFTPEntryInput,
   CreateTrainingBlockInput,
   CreateWeightGoalInput,
@@ -67,24 +69,35 @@ export async function getCyclingActivities(
 
   return snapshot.docs.map((doc) => {
     const data = doc.data();
-    return {
-      id: doc.id,
-      stravaId: data['stravaId'] as number,
-      userId: data['userId'] as string,
-      date: data['date'] as string,
-      durationMinutes: data['durationMinutes'] as number,
-      avgPower: data['avgPower'] as number,
-      normalizedPower: data['normalizedPower'] as number,
-      maxPower: data['maxPower'] as number,
-      avgHeartRate: data['avgHeartRate'] as number,
-      maxHeartRate: data['maxHeartRate'] as number,
-      tss: data['tss'] as number,
-      intensityFactor: data['intensityFactor'] as number,
-      type: data['type'] as CyclingActivity['type'],
-      source: data['source'] as CyclingActivity['source'],
-      createdAt: data['createdAt'] as string,
-    };
+    return mapActivityDoc(doc.id, data);
   });
+}
+
+/**
+ * Map a Firestore document to a CyclingActivity.
+ */
+function mapActivityDoc(
+  id: string,
+  data: FirebaseFirestore.DocumentData
+): CyclingActivity {
+  return {
+    id,
+    stravaId: data['stravaId'] as number,
+    userId: data['userId'] as string,
+    date: data['date'] as string,
+    durationMinutes: data['durationMinutes'] as number,
+    avgPower: data['avgPower'] as number,
+    normalizedPower: data['normalizedPower'] as number,
+    maxPower: data['maxPower'] as number,
+    avgHeartRate: data['avgHeartRate'] as number,
+    maxHeartRate: data['maxHeartRate'] as number,
+    tss: data['tss'] as number,
+    intensityFactor: data['intensityFactor'] as number,
+    type: data['type'] as CyclingActivity['type'],
+    source: data['source'] as CyclingActivity['source'],
+    ef: data['ef'] as number | undefined,
+    createdAt: data['createdAt'] as string,
+  };
 }
 
 /**
@@ -110,23 +123,7 @@ export async function getCyclingActivityById(
     return null;
   }
 
-  return {
-    id: doc.id,
-    stravaId: data['stravaId'] as number,
-    userId: data['userId'] as string,
-    date: data['date'] as string,
-    durationMinutes: data['durationMinutes'] as number,
-    avgPower: data['avgPower'] as number,
-    normalizedPower: data['normalizedPower'] as number,
-    maxPower: data['maxPower'] as number,
-    avgHeartRate: data['avgHeartRate'] as number,
-    maxHeartRate: data['maxHeartRate'] as number,
-    tss: data['tss'] as number,
-    intensityFactor: data['intensityFactor'] as number,
-    type: data['type'] as CyclingActivity['type'],
-    source: data['source'] as CyclingActivity['source'],
-    createdAt: data['createdAt'] as string,
-  };
+  return mapActivityDoc(doc.id, data);
 }
 
 /**
@@ -157,23 +154,7 @@ export async function getCyclingActivityByStravaId(
   }
 
   const data = doc.data();
-  return {
-    id: doc.id,
-    stravaId: data['stravaId'] as number,
-    userId: data['userId'] as string,
-    date: data['date'] as string,
-    durationMinutes: data['durationMinutes'] as number,
-    avgPower: data['avgPower'] as number,
-    normalizedPower: data['normalizedPower'] as number,
-    maxPower: data['maxPower'] as number,
-    avgHeartRate: data['avgHeartRate'] as number,
-    maxHeartRate: data['maxHeartRate'] as number,
-    tss: data['tss'] as number,
-    intensityFactor: data['intensityFactor'] as number,
-    type: data['type'] as CyclingActivity['type'],
-    source: data['source'] as CyclingActivity['source'],
-    createdAt: data['createdAt'] as string,
-  };
+  return mapActivityDoc(doc.id, data);
 }
 
 /**
@@ -190,7 +171,7 @@ export async function createCyclingActivity(
   const userDoc = getUserDoc(userId);
   const id = randomUUID();
 
-  const activityData = {
+  const activityData: Record<string, unknown> = {
     stravaId: activity.stravaId,
     userId: activity.userId,
     date: activity.date,
@@ -207,11 +188,29 @@ export async function createCyclingActivity(
     createdAt: activity.createdAt,
   };
 
+  if (activity.ef !== undefined) {
+    activityData['ef'] = activity.ef;
+  }
+
   await userDoc.collection('cyclingActivities').doc(id).set(activityData);
 
   return {
     id,
-    ...activityData,
+    stravaId: activity.stravaId,
+    userId: activity.userId,
+    date: activity.date,
+    durationMinutes: activity.durationMinutes,
+    avgPower: activity.avgPower,
+    normalizedPower: activity.normalizedPower,
+    maxPower: activity.maxPower,
+    avgHeartRate: activity.avgHeartRate,
+    maxHeartRate: activity.maxHeartRate,
+    tss: activity.tss,
+    intensityFactor: activity.intensityFactor,
+    type: activity.type,
+    source: activity.source,
+    ef: activity.ef,
+    createdAt: activity.createdAt,
   };
 }
 
@@ -601,5 +600,207 @@ export async function deleteStravaTokens(userId: string): Promise<boolean> {
   }
 
   await docRef.delete();
+  return true;
+}
+
+// ============ VO2 Max Estimates ============
+
+/**
+ * Save a VO2 max estimate.
+ *
+ * @param userId - The user ID
+ * @param estimate - The VO2 max estimate data (without id)
+ * @returns The created estimate with ID
+ */
+export async function saveVO2MaxEstimate(
+  userId: string,
+  estimate: Omit<VO2MaxEstimate, 'id'>
+): Promise<VO2MaxEstimate> {
+  const userDoc = getUserDoc(userId);
+  const id = randomUUID();
+
+  const estimateData: Record<string, unknown> = {
+    userId: estimate.userId,
+    date: estimate.date,
+    value: estimate.value,
+    method: estimate.method,
+    sourcePower: estimate.sourcePower,
+    sourceWeight: estimate.sourceWeight,
+    createdAt: estimate.createdAt,
+  };
+
+  if (estimate.activityId !== undefined) {
+    estimateData['activityId'] = estimate.activityId;
+  }
+
+  await userDoc.collection('vo2maxEstimates').doc(id).set(estimateData);
+
+  return {
+    id,
+    ...estimate,
+  };
+}
+
+/**
+ * Get the latest VO2 max estimate for a user.
+ *
+ * @param userId - The user ID
+ * @returns The most recent VO2 max estimate or null
+ */
+export async function getLatestVO2Max(
+  userId: string
+): Promise<VO2MaxEstimate | null> {
+  const userDoc = getUserDoc(userId);
+  const snapshot = await userDoc
+    .collection('vo2maxEstimates')
+    .orderBy('date', 'desc')
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  const doc = snapshot.docs[0];
+  if (!doc) {
+    return null;
+  }
+
+  const data = doc.data();
+  return {
+    id: doc.id,
+    userId: data['userId'] as string,
+    date: data['date'] as string,
+    value: data['value'] as number,
+    method: data['method'] as VO2MaxEstimate['method'],
+    sourcePower: data['sourcePower'] as number,
+    sourceWeight: data['sourceWeight'] as number,
+    activityId: data['activityId'] as string | undefined,
+    createdAt: data['createdAt'] as string,
+  };
+}
+
+/**
+ * Get VO2 max history for a user, most recent first.
+ *
+ * @param userId - The user ID
+ * @param limit - Max number of results (default 10)
+ * @returns Array of VO2 max estimates
+ */
+export async function getVO2MaxHistory(
+  userId: string,
+  limit: number = 10
+): Promise<VO2MaxEstimate[]> {
+  const userDoc = getUserDoc(userId);
+  const snapshot = await userDoc
+    .collection('vo2maxEstimates')
+    .orderBy('date', 'desc')
+    .limit(limit)
+    .get();
+
+  return snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      userId: data['userId'] as string,
+      date: data['date'] as string,
+      value: data['value'] as number,
+      method: data['method'] as VO2MaxEstimate['method'],
+      sourcePower: data['sourcePower'] as number,
+      sourceWeight: data['sourceWeight'] as number,
+      activityId: data['activityId'] as string | undefined,
+      createdAt: data['createdAt'] as string,
+    };
+  });
+}
+
+// ============ Cycling Profile ============
+
+/**
+ * Get the cycling profile for a user.
+ *
+ * @param userId - The user ID
+ * @returns The cycling profile or null
+ */
+export async function getCyclingProfile(
+  userId: string
+): Promise<CyclingProfile | null> {
+  const userDoc = getUserDoc(userId);
+  const doc = await userDoc.collection('settings').doc('cyclingProfile').get();
+
+  if (!doc.exists) {
+    return null;
+  }
+
+  const data = doc.data();
+  if (!data) {
+    return null;
+  }
+
+  return {
+    userId: data['userId'] as string,
+    weightKg: data['weightKg'] as number,
+    maxHR: data['maxHR'] as number | undefined,
+    restingHR: data['restingHR'] as number | undefined,
+  };
+}
+
+/**
+ * Set or update the cycling profile for a user.
+ *
+ * @param userId - The user ID
+ * @param profile - The profile data
+ * @returns The saved profile
+ */
+export async function setCyclingProfile(
+  userId: string,
+  profile: Omit<CyclingProfile, 'userId'>
+): Promise<CyclingProfile> {
+  const userDoc = getUserDoc(userId);
+
+  const profileData: Record<string, unknown> = {
+    userId,
+    weightKg: profile.weightKg,
+  };
+
+  if (profile.maxHR !== undefined) {
+    profileData['maxHR'] = profile.maxHR;
+  }
+  if (profile.restingHR !== undefined) {
+    profileData['restingHR'] = profile.restingHR;
+  }
+
+  await userDoc.collection('settings').doc('cyclingProfile').set(profileData, { merge: true });
+
+  return {
+    userId,
+    ...profile,
+  };
+}
+
+// ============ Activity Update ============
+
+/**
+ * Update specific fields on a cycling activity.
+ *
+ * @param userId - The user ID
+ * @param activityId - The activity ID
+ * @param updates - Fields to update
+ * @returns True if updated, false if not found
+ */
+export async function updateCyclingActivity(
+  userId: string,
+  activityId: string,
+  updates: Partial<Pick<CyclingActivity, 'ef'>>
+): Promise<boolean> {
+  const userDoc = getUserDoc(userId);
+  const docRef = userDoc.collection('cyclingActivities').doc(activityId);
+  const doc = await docRef.get();
+
+  if (!doc.exists) {
+    return false;
+  }
+
+  await docRef.update(updates);
   return true;
 }

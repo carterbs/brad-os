@@ -12,6 +12,7 @@ import type {
   CyclingActivity,
   CyclingActivityType,
 } from '../shared.js';
+import { calculateEF } from './efficiency-factor.service.js';
 
 const STRAVA_API_BASE = 'https://www.strava.com/api/v3';
 const STRAVA_OAUTH_URL = 'https://www.strava.com/oauth/token';
@@ -254,6 +255,9 @@ export function processStravaActivity(
   const tss = calculateTSS(durationSeconds, normalizedPower, ftp);
   const type = classifyWorkoutType(intensityFactor);
 
+  const avgHeartRate = stravaActivity.average_heartrate ?? 0;
+  const ef = calculateEF(normalizedPower, avgHeartRate) ?? undefined;
+
   return {
     stravaId: stravaActivity.id,
     userId,
@@ -262,12 +266,13 @@ export function processStravaActivity(
     avgPower,
     normalizedPower,
     maxPower: stravaActivity.max_watts ?? 0,
-    avgHeartRate: stravaActivity.average_heartrate ?? 0,
+    avgHeartRate,
     maxHeartRate: stravaActivity.max_heartrate ?? 0,
     tss,
     intensityFactor,
     type,
     source: 'strava',
+    ef,
     createdAt: new Date().toISOString(),
   };
 }
