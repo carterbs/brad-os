@@ -37,6 +37,7 @@ struct FTPEntryView: View {
         .navigationTitle("FTP")
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .onAppear { loadHistory() }
     }
 
     // MARK: - Current FTP Section
@@ -165,11 +166,49 @@ struct FTPEntryView: View {
     // MARK: - Actions
 
     private func saveFTP() {
-        // Save to backend
+        guard let watts = Int(ftpValue) else { return }
         isSaving = true
-        // TODO: Implement API call to save FTP
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+        let sourceValue = source == .test ? "test" : "manual"
+
+        Task {
+            do {
+                let response = try await APIClient.shared.createFTPEntry(value: watts, date: testDate, source: sourceValue)
+                let history = try await APIClient.shared.getFTPHistory()
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd"
+                ftpHistory = history.map { entry in
+                    FTPEntry(
+                        id: entry.id,
+                        value: entry.value,
+                        date: formatter.date(from: entry.date) ?? Date(),
+                        source: entry.source == "test" ? .test : .manual
+                    )
+                }
+                ftpValue = ""
+            } catch {
+                print("[FTPEntryView] Failed to save FTP: \(error)")
+            }
             isSaving = false
+        }
+    }
+
+    private func loadHistory() {
+        Task {
+            do {
+                let history = try await APIClient.shared.getFTPHistory()
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd"
+                ftpHistory = history.map { entry in
+                    FTPEntry(
+                        id: entry.id,
+                        value: entry.value,
+                        date: formatter.date(from: entry.date) ?? Date(),
+                        source: entry.source == "test" ? .test : .manual
+                    )
+                }
+            } catch {
+                print("[FTPEntryView] Failed to load FTP history: \(error)")
+            }
         }
     }
 }

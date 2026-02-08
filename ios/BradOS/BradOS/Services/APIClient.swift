@@ -638,6 +638,40 @@ final class APIClient: APIClientProtocol {
         try await get("/cycling/ef")
     }
 
+    func createFTPEntry(value: Int, date: Date, source: String) async throws -> FTPEntryResponse {
+        struct CreateFTPBody: Encodable {
+            let value: Int
+            let date: String
+            let source: String
+        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return try await post("/cycling/ftp", body: CreateFTPBody(value: value, date: formatter.string(from: date), source: source))
+    }
+
+    func getFTPHistory() async throws -> [FTPEntryResponse] {
+        try await get("/cycling/ftp/history")
+    }
+
+    func createTrainingBlock(startDate: Date, endDate: Date, goals: [String]) async throws -> TrainingBlockResponse {
+        struct CreateBlockBody: Encodable {
+            let startDate: String
+            let endDate: String
+            let goals: [String]
+        }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return try await post("/cycling/block", body: CreateBlockBody(
+            startDate: formatter.string(from: startDate),
+            endDate: formatter.string(from: endDate),
+            goals: goals
+        ))
+    }
+
+    func completeTrainingBlock(id: String) async throws -> CompletedResponse {
+        try await put("/cycling/block/\(id)/complete")
+    }
+
     // MARK: - Calendar
 
     func getCalendarData(year: Int, month: Int, timezoneOffset: Int? = nil) async throws -> CalendarData {

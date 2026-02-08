@@ -141,3 +141,8 @@ struct TrainingBlockResponse: Codable {
     let goals: [String]
     let status: String
 }
+
+/// Response from PUT /cycling/block/:id/complete
+struct CompletedResponse: Codable {
+    let completed: Bool
+}

@@ -225,17 +225,55 @@ struct TrainingBlockSetupView: View {
     // MARK: - Actions
 
     private func startBlock() {
-        // Save to backend
         isSaving = true
-        // TODO: Implement API call to start training block
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+        let goalStrings = selectedGoals.map { $0.rawValue }
+
+        Task {
+            do {
+                let response = try await APIClient.shared.createTrainingBlock(
+                    startDate: startDate,
+                    endDate: endDate,
+                    goals: goalStrings
+                )
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd"
+                let responseStart = dateFormatter.date(from: response.startDate) ?? startDate
+                let responseEnd = dateFormatter.date(from: response.endDate) ?? endDate
+                let goals = response.goals.compactMap { TrainingBlockModel.TrainingGoal(rawValue: $0) }
+
+                currentBlock = TrainingBlockModel(
+                    id: response.id,
+                    startDate: responseStart,
+                    endDate: responseEnd,
+                    currentWeek: response.currentWeek,
+                    goals: goals,
+                    status: response.status == "completed" ? .completed : .active
+                )
+            } catch {
+                print("[TrainingBlockSetup] Failed to start block: \(error)")
+            }
             isSaving = false
         }
     }
 
     private func completeBlockEarly() {
-        // Complete block early
-        // TODO: Implement API call to complete block
+        guard let block = currentBlock else { return }
+
+        Task {
+            do {
+                _ = try await APIClient.shared.completeTrainingBlock(id: block.id)
+                currentBlock = TrainingBlockModel(
+                    id: block.id,
+                    startDate: block.startDate,
+                    endDate: block.endDate,
+                    currentWeek: block.currentWeek,
+                    goals: block.goals,
+                    status: .completed
+                )
+            } catch {
+                print("[TrainingBlockSetup] Failed to complete block: \(error)")
+            }
+        }
     }
 }
 

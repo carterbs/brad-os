@@ -5,12 +5,21 @@ import SwiftUI
 /// History of cycling activities
 struct CyclingHistoryView: View {
     @EnvironmentObject var viewModel: CyclingViewModel
+    @EnvironmentObject var stravaAuth: StravaAuthManager
 
     var body: some View {
         ScrollView {
             LazyVStack(spacing: Theme.Spacing.space3) {
                 if viewModel.activities.isEmpty {
-                    EmptyHistoryCard()
+                    EmptyHistoryCard(onConnectStrava: {
+                        Task {
+                            do {
+                                try await stravaAuth.startOAuthFlow()
+                            } catch {
+                                print("[CyclingHistory] Strava connect failed: \(error)")
+                            }
+                        }
+                    })
                 } else {
                     ForEach(viewModel.activities) { activity in
                         RideCard(activity: activity)
@@ -160,6 +169,8 @@ struct WorkoutTypeBadge: View {
 
 /// Empty state when no rides recorded
 struct EmptyHistoryCard: View {
+    var onConnectStrava: (() -> Void)?
+
     var body: some View {
         VStack(spacing: Theme.Spacing.space3) {
             Image(systemName: "bicycle")
@@ -177,7 +188,7 @@ struct EmptyHistoryCard: View {
                 .multilineTextAlignment(.center)
 
             Button(action: {
-                // TODO: Connect Strava flow
+                onConnectStrava?()
             }) {
                 Text("Connect Strava")
             }

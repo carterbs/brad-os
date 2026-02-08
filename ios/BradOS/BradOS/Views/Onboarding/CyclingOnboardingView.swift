@@ -535,9 +535,26 @@ struct CyclingOnboardingView: View {
     private func finishOnboarding() {
         isSaving = true
 
-        // TODO: Save FTP and training block to backend
-        // For now, just complete onboarding
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+        Task {
+            do {
+                // Save FTP if entered
+                if let watts = Int(ftpValue), watts > 0 {
+                    _ = try await APIClient.shared.createFTPEntry(value: watts, date: Date(), source: "manual")
+                }
+
+                // Create training block if goals selected
+                if !selectedGoals.isEmpty {
+                    let goalStrings = selectedGoals.map { $0.rawValue }
+                    _ = try await APIClient.shared.createTrainingBlock(
+                        startDate: startDate,
+                        endDate: endDate,
+                        goals: goalStrings
+                    )
+                }
+            } catch {
+                print("[CyclingOnboarding] Failed to save: \(error)")
+            }
+
             isSaving = false
             onComplete?()
             dismiss()

@@ -187,46 +187,65 @@ class CyclingViewModel: ObservableObject {
         isLoading = true
         defer { isLoading = false }
 
-        // TODO: Implement API call to create new block
-        // For now, create mock block locally
-
         let endDate = Calendar.current.date(byAdding: .weekOfYear, value: 8, to: startDate) ?? startDate
+        let goalStrings = goals.map { $0.rawValue }
 
-        currentBlock = TrainingBlockModel(
-            id: UUID().uuidString,
-            startDate: startDate,
-            endDate: endDate,
-            currentWeek: 1,
-            goals: goals,
-            status: .active
-        )
+        do {
+            let response = try await apiClient.createTrainingBlock(startDate: startDate, endDate: endDate, goals: goalStrings)
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            let responseStart = dateFormatter.date(from: response.startDate) ?? startDate
+            let responseEnd = dateFormatter.date(from: response.endDate) ?? endDate
+            let responseGoals = response.goals.compactMap { TrainingBlockModel.TrainingGoal(rawValue: $0) }
 
-        // Reload chart data for new block
-        loadChartData()
+            currentBlock = TrainingBlockModel(
+                id: response.id,
+                startDate: responseStart,
+                endDate: responseEnd,
+                currentWeek: response.currentWeek,
+                goals: responseGoals,
+                status: response.status == "completed" ? .completed : .active
+            )
+            loadChartData()
+        } catch {
+            self.error = "Failed to create training block: \(error.localizedDescription)"
+            print("[CyclingVM] Failed to create block: \(error)")
+        }
     }
 
     /// Complete the current training block
     func completeCurrentBlock() async {
         guard let block = currentBlock else { return }
 
-        // TODO: Implement API call to mark block as completed
-
-        // Update local state
-        currentBlock = TrainingBlockModel(
-            id: block.id,
-            startDate: block.startDate,
-            endDate: block.endDate,
-            currentWeek: block.currentWeek,
-            goals: block.goals,
-            status: .completed
-        )
+        do {
+            _ = try await apiClient.completeTrainingBlock(id: block.id)
+            currentBlock = TrainingBlockModel(
+                id: block.id,
+                startDate: block.startDate,
+                endDate: block.endDate,
+                currentWeek: block.currentWeek,
+                goals: block.goals,
+                status: .completed
+            )
+        } catch {
+            self.error = "Failed to complete block: \(error.localizedDescription)"
+            print("[CyclingVM] Failed to complete block: \(error)")
+        }
     }
 
     // MARK: - FTP Management
 
-    /// Update FTP value
-    func updateFTP(_ value: Int, testDate: Date = Date()) async {
-        currentFTP = value
-        ftpLastTested = testDate
+    /// Save FTP value to backend
+    func saveFTP(_ value: Int, date: Date = Date(), source: String = "manual") async {
+        do {
+            let response = try await apiClient.createFTPEntry(value: value, date: date, source: source)
+            currentFTP = response.value
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            ftpLastTested = formatter.date(from: response.date)
+        } catch {
+            self.error = "Failed to save FTP: \(error.localizedDescription)"
+            print("[CyclingVM] Failed to save FTP: \(error)")
+        }
     }
 }
