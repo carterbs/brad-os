@@ -56,6 +56,7 @@ const mockSessionRepo = {
   delete: vi.fn(),
   appendHistory: vi.fn(),
   updatePlan: vi.fn(),
+  applyCritiqueUpdates: vi.fn(),
 };
 
 vi.mock('../repositories/meal.repository.js', () => ({
@@ -243,8 +244,7 @@ describe('Mealplans Handler', () => {
         updatedPlan,
         errors: [],
       });
-      mockSessionRepo.appendHistory.mockResolvedValue(session);
-      mockSessionRepo.updatePlan.mockResolvedValue(session);
+      mockSessionRepo.applyCritiqueUpdates.mockResolvedValue(undefined);
 
       const response = await request(mealplansApp)
         .post('/session-1/critique')

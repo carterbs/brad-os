@@ -118,21 +118,13 @@ app.post('/:sessionId/critique', validate(critiqueInputSchema), asyncHandler(asy
     session.meals_snapshot
   );
 
-  // Append user message to history
-  await getSessionRepo().appendHistory(sessionId, {
-    role: 'user',
-    content: critique,
-  });
-
-  // Append assistant message to history
-  await getSessionRepo().appendHistory(sessionId, {
-    role: 'assistant',
-    content: critiqueResponse.explanation,
-    operations: critiqueResponse.operations,
-  });
-
-  // Update the plan
-  await getSessionRepo().updatePlan(sessionId, updatedPlan);
+  // Batch update: append both messages and update plan in a single Firestore write
+  await getSessionRepo().applyCritiqueUpdates(
+    sessionId,
+    { role: 'user', content: critique },
+    { role: 'assistant', content: critiqueResponse.explanation, operations: critiqueResponse.operations },
+    updatedPlan,
+  );
 
   res.json({
     success: true,

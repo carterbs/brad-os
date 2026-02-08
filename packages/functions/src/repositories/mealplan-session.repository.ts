@@ -112,6 +112,19 @@ export class MealPlanSessionRepository extends BaseRepository<
     return this.findById(sessionId);
   }
 
+  async applyCritiqueUpdates(
+    sessionId: string,
+    userMessage: ConversationMessage,
+    assistantMessage: ConversationMessage,
+    updatedPlan: MealPlanEntry[],
+  ): Promise<void> {
+    await this.collection.doc(sessionId).update({
+      history: FieldValue.arrayUnion(userMessage, assistantMessage),
+      plan: updatedPlan,
+      updated_at: this.updateTimestamp(),
+    });
+  }
+
   async delete(id: string): Promise<boolean> {
     const existing = await this.findById(id);
     if (!existing) {
