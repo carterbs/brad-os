@@ -18,6 +18,7 @@ import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
 import { requireAppCheck } from '../middleware/app-check.js';
 import { asyncHandler } from '../middleware/async-handler.js';
 import * as cyclingService from '../services/firestore-cycling.service.js';
+import * as stravaService from '../services/strava.service.js';
 import {
   calculateTrainingLoadMetrics,
   getWeekInBlock,
@@ -311,6 +312,109 @@ app.post(
     const goal = await cyclingService.setWeightGoal(userId, body);
 
     res.status(201).json({ success: true, data: goal });
+  })
+);
+
+// ============ Strava Sync ============
+
+// POST /cycling/sync
+// Sync historical activities from Strava
+app.post(
+  '/sync',
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const userId = getUserId(req);
+
+    // Get user's Strava tokens
+    const tokens = await cyclingService.getStravaTokens(userId);
+    if (tokens === null) {
+      res.status(400).json({
+        success: false,
+        error: 'Strava not connected. Please connect Strava first.',
+      });
+      return;
+    }
+
+    // Get user's current FTP for TSS calculation
+    const ftpEntry = await cyclingService.getCurrentFTP(userId);
+    const ftp = ftpEntry?.value ?? 200; // Default to 200 if not set
+
+    // Refresh tokens if needed
+    let accessToken = tokens.accessToken;
+    if (stravaService.areTokensExpired(tokens)) {
+      const clientId = process.env['STRAVA_CLIENT_ID'] ?? '';
+      const clientSecret = process.env['STRAVA_CLIENT_SECRET'] ?? '';
+
+      if (!clientId || !clientSecret) {
+        res.status(500).json({
+          success: false,
+          error: 'Strava credentials not configured on server.',
+        });
+        return;
+      }
+
+      const newTokens = await stravaService.refreshStravaTokens(
+        clientId,
+        clientSecret,
+        tokens.refreshToken
+      );
+      await cyclingService.setStravaTokens(userId, newTokens);
+      accessToken = newTokens.accessToken;
+    }
+
+    // Fetch activities (up to 200 per page, get 2 pages = 400 activities)
+    const allActivities: stravaService.StravaActivity[] = [];
+    for (let page = 1; page <= 2; page++) {
+      const activities = await stravaService.fetchStravaActivities(
+        accessToken,
+        page,
+        200
+      );
+      if (activities.length === 0) break;
+      allActivities.push(...activities);
+    }
+
+    // Filter to cycling activities only
+    const cyclingActivities = stravaService.filterCyclingActivities(allActivities);
+
+    // Get existing activity Strava IDs to avoid duplicates
+    const existingActivities = await cyclingService.getCyclingActivities(userId);
+    const existingStravaIds = new Set(existingActivities.map((a) => a.stravaId));
+
+    // Process and save new activities
+    let imported = 0;
+    let skipped = 0;
+
+    for (const stravaActivity of cyclingActivities) {
+      if (existingStravaIds.has(stravaActivity.id)) {
+        skipped++;
+        continue;
+      }
+
+      // Only process activities with power data
+      if (!stravaActivity.weighted_average_watts && !stravaActivity.average_watts) {
+        skipped++;
+        continue;
+      }
+
+      const processedActivity = stravaService.processStravaActivity(
+        stravaActivity,
+        ftp,
+        userId
+      );
+
+      await cyclingService.createCyclingActivity(userId, processedActivity);
+      imported++;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        total: cyclingActivities.length,
+        imported,
+        skipped,
+        message: `Imported ${imported} activities, skipped ${skipped} (already synced or no power data).`,
+      },
+    });
   })
 );
 

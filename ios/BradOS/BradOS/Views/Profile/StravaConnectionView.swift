@@ -1,7 +1,13 @@
 import SwiftUI
+import BradOSCore
 
 struct StravaConnectionView: View {
     @EnvironmentObject var stravaAuth: StravaAuthManager
+    @Environment(\.apiClient) private var apiClient: any APIClientProtocol
+
+    @State private var isSyncing = false
+    @State private var syncResult: SyncResult?
+    @State private var syncError: String?
 
     #if DEBUG
     @State private var showDebugTokenEntry = false
@@ -11,6 +17,12 @@ struct StravaConnectionView: View {
     @State private var debugError: String?
     @State private var debugSuccess = false
     #endif
+
+    struct SyncResult {
+        let imported: Int
+        let skipped: Int
+        let message: String
+    }
 
     var body: some View {
         ScrollView {
@@ -107,9 +119,124 @@ struct StravaConnectionView: View {
                     Spacer()
                 }
                 .padding(Theme.Spacing.space4)
+
+                Divider()
+                    .background(Theme.strokeSubtle)
+
+                // Sync Now Button
+                Button {
+                    Task {
+                        await syncHistoricalActivities()
+                    }
+                } label: {
+                    HStack {
+                        if isSyncing {
+                            ProgressView()
+                                .tint(Theme.textPrimary)
+                                .scaleEffect(0.8)
+                        } else {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                        }
+                        Text(isSyncing ? "Syncing..." : "Sync Historical Rides")
+                        Spacer()
+                    }
+                    .foregroundColor(isSyncing ? Theme.textSecondary : Color.orange)
+                    .padding(Theme.Spacing.space4)
+                    .frame(minHeight: Theme.Dimensions.listRowMinHeight)
+                }
+                .disabled(isSyncing)
+
+                // Sync Result
+                if let result = syncResult {
+                    Divider()
+                        .background(Theme.strokeSubtle)
+
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(Theme.success)
+                        Text(result.message)
+                            .font(.caption)
+                            .foregroundStyle(Theme.textSecondary)
+                        Spacer()
+                    }
+                    .padding(Theme.Spacing.space4)
+                }
+
+                if let error = syncError {
+                    Divider()
+                        .background(Theme.strokeSubtle)
+
+                    HStack {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .foregroundStyle(Theme.destructive)
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(Theme.destructive)
+                        Spacer()
+                    }
+                    .padding(Theme.Spacing.space4)
+                }
             }
             .glassCard(.card, padding: 0)
         }
+    }
+
+    private func syncHistoricalActivities() async {
+        isSyncing = true
+        syncResult = nil
+        syncError = nil
+
+        do {
+            let response = try await syncStravaActivities()
+            syncResult = SyncResult(
+                imported: response.imported,
+                skipped: response.skipped,
+                message: response.message
+            )
+        } catch {
+            syncError = error.localizedDescription
+        }
+
+        isSyncing = false
+    }
+
+    private func syncStravaActivities() async throws -> (imported: Int, skipped: Int, message: String) {
+        // Call the backend sync endpoint
+        let url = APIConfiguration.default.baseURL.appendingPathComponent("cycling/sync")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("default-user", forHTTPHeaderField: "X-User-Id")
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw URLError(.badServerResponse)
+        }
+
+        if httpResponse.statusCode != 200 {
+            struct ErrorResponse: Decodable {
+                let error: String?
+            }
+            if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
+                throw NSError(domain: "Strava", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: errorResponse.error ?? "Sync failed"])
+            }
+            throw URLError(.badServerResponse)
+        }
+
+        struct SyncResponse: Decodable {
+            let success: Bool
+            let data: SyncData
+
+            struct SyncData: Decodable {
+                let imported: Int
+                let skipped: Int
+                let message: String
+            }
+        }
+
+        let syncResponse = try JSONDecoder().decode(SyncResponse.self, from: data)
+        return (syncResponse.data.imported, syncResponse.data.skipped, syncResponse.data.message)
     }
 
     // MARK: - Disconnect Section
