@@ -37,6 +37,19 @@ struct CyclingBlockView: View {
                             TrainingLoadCard(load: load)
                         }
 
+                        // VO2 Max estimate
+                        if let vo2max = viewModel.vo2maxEstimate {
+                            VO2MaxCard(
+                                estimate: vo2max,
+                                history: viewModel.vo2maxHistory
+                            )
+                        }
+
+                        // Efficiency Factor trend
+                        if !viewModel.efHistory.isEmpty {
+                            EfficiencyFactorChart(data: viewModel.efHistory)
+                        }
+
                         // TSS history chart
                         if let tssHistory = viewModel.tssHistory, !tssHistory.isEmpty {
                             TSSHistoryChart(data: tssHistory)

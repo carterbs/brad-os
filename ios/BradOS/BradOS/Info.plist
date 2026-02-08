@@ -39,14 +39,9 @@
 	<string>BradOS uses Reminders to export your weekly grocery shopping list.</string>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>BradOS uses notifications to alert you when rest timers complete during workouts.</string>
-	<key>BGTaskSchedulerPermittedIdentifiers</key>
-	<array>
-		<string>com.bradcarter.brad-os.healthkit-sync</string>
-	</array>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>audio</string>
-		<string>fetch</string>
 	</array>
 	<key>UILaunchScreen</key>
 	<dict>

@@ -35,6 +35,12 @@ struct RideCard: View {
                 Text(activity.date, style: .date)
                     .font(.subheadline)
                     .foregroundStyle(Theme.textSecondary)
+
+                // HR completeness indicator
+                if let completeness = activity.hrCompleteness {
+                    HRCompletenessIndicator(completeness: completeness)
+                }
+
                 Spacer()
                 WorkoutTypeBadge(type: activity.type)
             }
@@ -47,8 +53,57 @@ struct RideCard: View {
                 StatColumn(value: "\(activity.avgHeartRate)", label: "HR")
             }
             .frame(maxWidth: .infinity)
+
+            // Extra metrics row (EF, peak power)
+            if activity.ef != nil || activity.peak5MinPower != nil {
+                Divider()
+                    .overlay(Theme.divider)
+
+                HStack(spacing: Theme.Spacing.space4) {
+                    if let ef = activity.ef {
+                        StatColumn(value: String(format: "%.2f", ef), label: "EF")
+                    }
+                    if let peak = activity.peak5MinPower {
+                        StatColumn(value: "\(peak)", label: "5m pk")
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            }
         }
         .glassCard()
+    }
+}
+
+// MARK: - HR Completeness Indicator
+
+/// Shows HR data quality with a color-coded icon
+struct HRCompletenessIndicator: View {
+    let completeness: Int
+
+    private var color: Color {
+        if completeness >= 80 {
+            return Theme.success
+        } else if completeness >= 50 {
+            return Theme.warning
+        } else {
+            return Theme.destructive
+        }
+    }
+
+    private var iconName: String {
+        completeness >= 80 ? "heart.fill" : "heart.slash.fill"
+    }
+
+    var body: some View {
+        HStack(spacing: 2) {
+            Image(systemName: iconName)
+                .font(.caption2)
+            Text("\(completeness)%")
+                .font(.caption2)
+                .fontWeight(.medium)
+                .monospacedDigit()
+        }
+        .foregroundStyle(color)
     }
 }
 

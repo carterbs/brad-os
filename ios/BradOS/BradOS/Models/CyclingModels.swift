@@ -16,6 +16,10 @@ struct CyclingActivityModel: Identifiable, Codable {
     let tss: Int
     let intensityFactor: Double
     let type: CyclingWorkoutType
+    var ef: Double?
+    var peak5MinPower: Int?
+    var peak20MinPower: Int?
+    var hrCompleteness: Int?
 
     enum CyclingWorkoutType: String, Codable {
         case vo2max
@@ -56,4 +60,51 @@ struct TrainingLoadModel: Codable {
     let atl: Double  // Acute Training Load (7-day)
     let ctl: Double  // Chronic Training Load (42-day)
     let tsb: Double  // Training Stress Balance (Form)
+}
+
+// MARK: - VO2 Max Estimate Model
+
+/// An estimated VO2 max entry
+struct VO2MaxEstimateModel: Identifiable, Codable {
+    let id: String
+    let date: String
+    let value: Double // mL/kg/min
+    let method: String // ftp_derived, peak_5min, peak_20min
+    let sourcePower: Double
+    let sourceWeight: Double
+    var category: String? // poor, fair, good, excellent, elite
+
+    var fitnessCategory: String {
+        category ?? categorizeVO2Max(value)
+    }
+
+    private func categorizeVO2Max(_ vo2max: Double) -> String {
+        if vo2max >= 65 { return "elite" }
+        if vo2max >= 55 { return "excellent" }
+        if vo2max >= 45 { return "good" }
+        if vo2max >= 35 { return "fair" }
+        return "poor"
+    }
+
+    var fitnessCategoryColor: String {
+        switch fitnessCategory {
+        case "elite": return "purple"
+        case "excellent": return "blue"
+        case "good": return "green"
+        case "fair": return "yellow"
+        default: return "red"
+        }
+    }
+}
+
+// MARK: - Efficiency Factor Data Point
+
+/// Data point for EF trend chart
+struct EFDataPoint: Identifiable, Codable {
+    var id: String { activityId }
+    let activityId: String
+    let date: String
+    let ef: Double
+    let normalizedPower: Int
+    let avgHeartRate: Int
 }

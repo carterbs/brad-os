@@ -44,6 +44,7 @@ class HealthKitManager: ObservableObject {
         HKQuantityType(.heartRateVariabilitySDNN),
         HKQuantityType(.bodyMass),
         HKQuantityType(.restingHeartRate),
+        HKQuantityType(.heartRate),
         HKCategoryType(.sleepAnalysis)
     ]
 
@@ -192,6 +193,62 @@ class HealthKitManager: ObservableObject {
         } catch {
             throw HealthKitError.queryFailed(error)
         }
+    }
+
+    // MARK: - Workout Heart Rate Queries
+
+    /// A single heart rate sample
+    struct HeartRateSample: Equatable {
+        let date: Date
+        let bpm: Double
+    }
+
+    /// Fetch heart rate samples during a workout time window
+    func fetchWorkoutHeartRate(
+        startDate: Date,
+        endDate: Date
+    ) async throws -> [HeartRateSample] {
+        let hrType = HKQuantityType(.heartRate)
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate)
+
+        let descriptor = HKSampleQueryDescriptor(
+            predicates: [.quantitySample(type: hrType, predicate: predicate)],
+            sortDescriptors: [SortDescriptor(\.startDate)]
+        )
+
+        do {
+            let results = try await descriptor.result(for: healthStore)
+            return results.map { sample in
+                HeartRateSample(
+                    date: sample.startDate,
+                    bpm: sample.quantity.doubleValue(for: HKUnit.count().unitDivided(by: .minute()))
+                )
+            }
+        } catch {
+            throw HealthKitError.queryFailed(error)
+        }
+    }
+
+    /// Calculate average and max HR from HealthKit samples for a time window
+    func calculateWorkoutHR(
+        startDate: Date,
+        endDate: Date
+    ) async throws -> (avgHR: Double, maxHR: Double, sampleCount: Int)? {
+        let samples = try await fetchWorkoutHeartRate(startDate: startDate, endDate: endDate)
+
+        guard !samples.isEmpty else { return nil }
+
+        let totalBpm = samples.reduce(0.0) { $0 + $1.bpm }
+        let avgHR = totalBpm / Double(samples.count)
+        let maxHR = samples.max(by: { $0.bpm < $1.bpm })?.bpm ?? avgHR
+
+        return (avgHR: avgHR, maxHR: maxHR, sampleCount: samples.count)
+    }
+
+    /// Fetch the latest body weight in kilograms
+    func fetchLatestWeightKg() async throws -> Double? {
+        guard let lbs = try await fetchLatestWeight() else { return nil }
+        return lbs * 0.453592
     }
 
     // MARK: - Sleep Queries

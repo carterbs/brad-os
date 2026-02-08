@@ -21,6 +21,13 @@ class CyclingViewModel: ObservableObject {
     @Published var tssHistory: [TSSDataPoint]?
     @Published var loadHistory: [TrainingLoadDataPoint]?
 
+    // VO2 Max data
+    @Published var vo2maxEstimate: VO2MaxEstimateModel?
+    @Published var vo2maxHistory: [VO2MaxEstimateModel] = []
+
+    // Efficiency Factor data
+    @Published var efHistory: [EFDataPoint] = []
+
     /// Whether FTP has been set
     var hasFTP: Bool {
         currentFTP != nil
@@ -84,7 +91,9 @@ class CyclingViewModel: ObservableObject {
                 maxHeartRate: 168,
                 tss: 52,
                 intensityFactor: 0.91,
-                type: .threshold
+                type: .threshold,
+                ef: 1.25,
+                hrCompleteness: 95
             ),
             CyclingActivityModel(
                 id: "ride-2",
@@ -98,7 +107,9 @@ class CyclingViewModel: ObservableObject {
                 maxHeartRate: 142,
                 tss: 28,
                 intensityFactor: 0.74,
-                type: .recovery
+                type: .recovery,
+                ef: 1.16,
+                hrCompleteness: 72
             ),
             CyclingActivityModel(
                 id: "ride-3",
@@ -112,8 +123,36 @@ class CyclingViewModel: ObservableObject {
                 maxHeartRate: 182,
                 tss: 75,
                 intensityFactor: 0.86,
-                type: .vo2max
+                type: .vo2max,
+                ef: 1.11,
+                peak5MinPower: 245,
+                hrCompleteness: 98
             )
+        ]
+
+        // Mock VO2 max data
+        vo2maxEstimate = VO2MaxEstimateModel(
+            id: "vo2-1",
+            date: "2026-02-08",
+            value: 42.8,
+            method: "ftp_derived",
+            sourcePower: 195,
+            sourceWeight: 79.4,
+            category: "fair"
+        )
+
+        vo2maxHistory = [
+            VO2MaxEstimateModel(id: "vo2-1", date: "2026-02-08", value: 42.8, method: "ftp_derived", sourcePower: 195, sourceWeight: 79.4, category: "fair"),
+            VO2MaxEstimateModel(id: "vo2-2", date: "2026-01-25", value: 41.2, method: "ftp_derived", sourcePower: 190, sourceWeight: 80.3, category: "fair"),
+            VO2MaxEstimateModel(id: "vo2-3", date: "2026-01-11", value: 39.5, method: "ftp_derived", sourcePower: 182, sourceWeight: 81.0, category: "fair"),
+        ]
+
+        // Mock EF history (steady rides only)
+        efHistory = [
+            EFDataPoint(activityId: "ride-2", date: "2026-02-06", ef: 1.16, normalizedPower: 145, avgHeartRate: 125),
+            EFDataPoint(activityId: "ride-5", date: "2026-02-01", ef: 1.12, normalizedPower: 140, avgHeartRate: 125),
+            EFDataPoint(activityId: "ride-8", date: "2026-01-27", ef: 1.08, normalizedPower: 135, avgHeartRate: 125),
+            EFDataPoint(activityId: "ride-11", date: "2026-01-22", ef: 1.05, normalizedPower: 130, avgHeartRate: 124),
         ]
 
         // Load chart data
