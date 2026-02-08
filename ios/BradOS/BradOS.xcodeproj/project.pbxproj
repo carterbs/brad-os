@@ -63,9 +63,11 @@
 		71F7E5CAE4CE0D1208A6EA4E /* Audio in Resources */ = {isa = PBXBuildFile; fileRef = 527CD29BA4D349413A9C8DCB /* Audio */; };
 		7A56E933CA16841AB5FD4EF7 /* CyclingTodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F592A2134BA93D5BC9EC1A1E /* CyclingTodayView.swift */; };
 		7B8201A2E04A9138838B59DC /* Stretch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 673839CCDD11228DB4DB6D4E /* Stretch.swift */; };
+		7DF6FB84198CA880C28A959A /* WeightGoalViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F15EAA6FE7C3883A879E6F3 /* WeightGoalViewModel.swift */; };
 		7EBF20874CDA10719B2D920B /* CyclingOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368F67AF57E7D859C0A95A2E /* CyclingOnboardingView.swift */; };
 		81D9012E4C17A37A13242656 /* RestTimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAEBDA3BC95C3B29BEE3EFB7 /* RestTimerManager.swift */; };
 		8385E116770F8D25309EF643 /* MealPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5ED2476A259A66F0FE6C7082 /* MealPlanView.swift */; };
+		867384E4C4F940594740E290 /* WeightModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8090949DCAEDF346741B4D5E /* WeightModels.swift */; };
 		8712E5B4CE8F878A87F4EFD9 /* StretchDashboardCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97E88619DBC43B75F597D422 /* StretchDashboardCard.swift */; };
 		8B0EFF5B6B13B2AE74F0F115 /* BradOSWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 27BED3BA6FD7C7868A10B390 /* BradOSWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		8E87E5CF4DE20231944CFC7F /* MealPlanEditingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A797E97052E245F39E1948F9 /* MealPlanEditingView.swift */; };
@@ -180,6 +182,7 @@
 		36761A1FC08D5813476E0958 /* HealthKitSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSyncService.swift; sourceTree = "<group>"; };
 		368F67AF57E7D859C0A95A2E /* CyclingOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingOnboardingView.swift; sourceTree = "<group>"; };
 		38D5EE1C5FCDACE62D3C9D36 /* StravaConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StravaConnectionView.swift; sourceTree = "<group>"; };
+		3F15EAA6FE7C3883A879E6F3 /* WeightGoalViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightGoalViewModel.swift; sourceTree = "<group>"; };
 		4147461B2761A49BD4CBFF26 /* MeditationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationView.swift; sourceTree = "<group>"; };
 		44CA545D816A69914CAA801D /* BarcodeWalletView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeWalletView.swift; sourceTree = "<group>"; };
 		460D19A4C8322DAEFB0E907F /* BarcodeRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeRenderer.swift; sourceTree = "<group>"; };
@@ -201,6 +204,7 @@
 		79E92BC114936240705F847D /* ExercisesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExercisesView.swift; sourceTree = "<group>"; };
 		7BB22A3D8B0F4806B6C120D8 /* StretchAudioCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchAudioCache.swift; sourceTree = "<group>"; };
 		7EBDFB83BF274462D7A35F27 /* GuidedMeditationPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidedMeditationPipeline.swift; sourceTree = "<group>"; };
+		8090949DCAEDF346741B4D5E /* WeightModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightModels.swift; sourceTree = "<group>"; };
 		860F464B6153DE259CA15B43 /* TextToSpeechViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextToSpeechViewModel.swift; sourceTree = "<group>"; };
 		8616F79EF7F50CF746815E39 /* AudioSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionManager.swift; sourceTree = "<group>"; };
 		8AF65E610B77AA6D4EF92D7F /* GuidedMeditationBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidedMeditationBrowserView.swift; sourceTree = "<group>"; };
@@ -487,6 +491,7 @@
 				FA13B528976D6158FAD1396F /* CyclingViewModel.swift */,
 				B29D099388BDDA017AB4947D /* ExerciseHistoryViewModel.swift */,
 				860F464B6153DE259CA15B43 /* TextToSpeechViewModel.swift */,
+				3F15EAA6FE7C3883A879E6F3 /* WeightGoalViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -597,6 +602,7 @@
 				97BC3FD39CD95DA799E37E3C /* MeditationState.swift */,
 				B494AA7B99F9AA28F1AA4778 /* RecoveryData.swift */,
 				673839CCDD11228DB4DB6D4E /* Stretch.swift */,
+				8090949DCAEDF346741B4D5E /* WeightModels.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -656,7 +662,7 @@
 			path = Lifting;
 			sourceTree = "<group>";
 		};
-		"TEMP_9B58C8CF-0881-402C-8A4E-F5BE290E4178" /* Resources */ = {
+		"TEMP_A0FB9396-548F-4027-974A-1E5FB99E3A9E" /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -892,6 +898,8 @@
 				9C1BA7AA05CF5FDD8F66ACF6 /* VO2MaxCard.swift in Sources */,
 				51826CCA127A3AB946135BD5 /* WatchWorkoutController.swift in Sources */,
 				AE1BA3C27DA0767CAEEE5181 /* WeightGoalView.swift in Sources */,
+				7DF6FB84198CA880C28A959A /* WeightGoalViewModel.swift in Sources */,
+				867384E4C4F940594740E290 /* WeightModels.swift in Sources */,
 				0CC331E8CEA078DD28719AA9 /* WorkoutDashboardCard.swift in Sources */,
 				96B70BD1912096BAC4535C24 /* WorkoutView.swift in Sources */,
 			);
