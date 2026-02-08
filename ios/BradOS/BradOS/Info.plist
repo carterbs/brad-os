@@ -24,15 +24,22 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>brados</string>
+				<string>bradosapp</string>
 			</array>
 		</dict>
 	</array>
+	<key>StravaClientID</key>
+	<string>YOUR_STRAVA_CLIENT_ID</string>
+	<key>StravaClientSecret</key>
+	<string>YOUR_STRAVA_CLIENT_SECRET</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>spotify</string>
 	</array>
+	<key>NSHealthShareUsageDescription</key>
+	<string>We use your HRV, sleep, and weight data to track recovery and provide personalized cycling training recommendations.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>BradOS uses Reminders to export your weekly grocery shopping list.</string>
 	<key>NSUserNotificationsUsageDescription</key>
