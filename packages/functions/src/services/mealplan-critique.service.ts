@@ -1,11 +1,12 @@
 import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions.js';
+import { info, warn, error as logError } from 'firebase-functions/logger';
 import type { MealPlanSession, CritiqueResponse, CritiqueOperation } from '../shared.js';
 import type { MealType } from '../shared.js';
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const OPENAI_MODEL = 'gpt-5.3';
+const OPENAI_MODEL = 'gpt-4o';
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 
@@ -155,9 +156,11 @@ async function callOpenAIWithRetry(
       const content = choice?.message?.content ?? '';
       const usage = response.usage;
 
-      console.log(`[critique] OpenAI call succeeded in ${elapsed}ms (attempt ${attempt}/${MAX_RETRIES})`, {
-        model: OPENAI_MODEL,
+      info('critique:openai_call', {
+        phase: 'openai_call',
         elapsed_ms: elapsed,
+        attempt,
+        model: OPENAI_MODEL,
         prompt_tokens: usage?.prompt_tokens,
         completion_tokens: usage?.completion_tokens,
         total_tokens: usage?.total_tokens,
@@ -167,14 +170,18 @@ async function callOpenAIWithRetry(
       return content;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`[critique] OpenAI call failed (attempt ${attempt}/${MAX_RETRIES}): ${message}`);
+      warn('critique:openai_retry', {
+        phase: 'openai_call',
+        attempt,
+        max_retries: MAX_RETRIES,
+        error_message: message,
+      });
 
       if (attempt === MAX_RETRIES) {
         throw new Error(`OpenAI API call failed after ${MAX_RETRIES} attempts: ${message}`);
       }
 
       const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
-      console.log(`[critique] Retrying in ${delay}ms...`);
       await sleep(delay);
     }
   }
@@ -195,13 +202,24 @@ export async function processCritique(
   const messages = buildMessages(session, critique);
 
   const totalChars = messages.reduce((sum, m) => sum + (typeof m.content === 'string' ? m.content.length : 0), 0);
-  console.log(`[critique] Starting critique: ${messages.length} messages, ${totalChars} chars, model=${OPENAI_MODEL}`);
+  info('critique:messages_built', {
+    phase: 'build_messages',
+    message_count: messages.length,
+    total_chars: totalChars,
+    history_entries: session.history.length,
+    meals_in_snapshot: session.meals_snapshot.length,
+    model: OPENAI_MODEL,
+  });
 
   const responseContent = await callOpenAIWithRetry(client, messages);
 
   try {
     const parsed: unknown = JSON.parse(responseContent);
     if (isValidCritiqueResponse(parsed)) {
+      info('critique:parsed_ok', {
+        phase: 'parse_response',
+        operation_count: parsed.operations.length,
+      });
       return {
         explanation: parsed.explanation,
         operations: parsed.operations.map((op: CritiqueOperation) => ({
@@ -212,13 +230,19 @@ export async function processCritique(
       };
     }
 
-    console.error('[critique] Invalid response shape from OpenAI:', responseContent.substring(0, 500));
+    logError('critique:invalid_shape', {
+      phase: 'parse_response',
+      response_preview: responseContent.substring(0, 500),
+    });
     return {
       explanation: "I couldn't process that request. Please try again.",
       operations: [],
     };
   } catch {
-    console.error('[critique] Failed to parse OpenAI response as JSON:', responseContent.substring(0, 500));
+    logError('critique:json_parse_failed', {
+      phase: 'parse_response',
+      response_preview: responseContent.substring(0, 500),
+    });
     return {
       explanation: "I couldn't process that request. Please try again.",
       operations: [],

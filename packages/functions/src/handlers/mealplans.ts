@@ -1,5 +1,6 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import cors from 'cors';
+import { info } from 'firebase-functions/logger';
 import { errorHandler, NotFoundError, AppError } from '../middleware/error-handler.js';
 import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
 import { requireAppCheck } from '../middleware/app-check.js';
@@ -94,8 +95,15 @@ app.get('/:sessionId', asyncHandler(async (req: Request, res: Response, next: Ne
 
 // POST /mealplans/:sessionId/critique
 app.post('/:sessionId/critique', validate(critiqueInputSchema), asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const requestStart = Date.now();
   const sessionId = req.params['sessionId'] ?? '';
+
+  // Phase 1: Firestore read
+  const firestoreReadStart = Date.now();
   const session = await getSessionRepo().findById(sessionId);
+  const firestoreReadMs = Date.now() - firestoreReadStart;
+  info('critique:firestore_read', { phase: 'firestore_read', elapsed_ms: firestoreReadMs, sessionId });
+
   if (session === null) {
     next(new NotFoundError('MealPlanSession', sessionId));
     return;
@@ -111,20 +119,43 @@ app.post('/:sessionId/critique', validate(critiqueInputSchema), asyncHandler(asy
     throw new AppError(500, 'MISSING_API_KEY', 'OpenAI API key is not configured');
   }
 
+  // Phase 2: OpenAI (message building + API call + parsing all logged inside processCritique)
+  const openaiStart = Date.now();
   const critiqueResponse = await processCritique(session, critique, apiKey);
+  const openaiMs = Date.now() - openaiStart;
+  info('critique:openai_total', { phase: 'openai_total', elapsed_ms: openaiMs });
+
+  // Phase 3: Apply operations
+  const opsStart = Date.now();
   const { updatedPlan, errors: operationErrors } = applyOperations(
     session.plan,
     critiqueResponse.operations,
     session.meals_snapshot
   );
+  const opsMs = Date.now() - opsStart;
+  info('critique:apply_ops', { phase: 'apply_ops', elapsed_ms: opsMs, operation_count: critiqueResponse.operations.length });
 
-  // Batch update: append both messages and update plan in a single Firestore write
+  // Phase 4: Firestore write
+  const firestoreWriteStart = Date.now();
   await getSessionRepo().applyCritiqueUpdates(
     sessionId,
     { role: 'user', content: critique },
     { role: 'assistant', content: critiqueResponse.explanation, operations: critiqueResponse.operations },
     updatedPlan,
   );
+  const firestoreWriteMs = Date.now() - firestoreWriteStart;
+  info('critique:firestore_write', { phase: 'firestore_write', elapsed_ms: firestoreWriteMs });
+
+  const totalMs = Date.now() - requestStart;
+  info('critique:complete', {
+    phase: 'total',
+    total_ms: totalMs,
+    firestore_read_ms: firestoreReadMs,
+    openai_ms: openaiMs,
+    apply_ops_ms: opsMs,
+    firestore_write_ms: firestoreWriteMs,
+    sessionId,
+  });
 
   res.json({
     success: true,
