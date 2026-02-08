@@ -24,14 +24,9 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>brados</string>
-				<string>bradosapp</string>
 			</array>
 		</dict>
 	</array>
-	<key>StravaClientID</key>
-	<string>YOUR_STRAVA_CLIENT_ID</string>
-	<key>StravaClientSecret</key>
-	<string>YOUR_STRAVA_CLIENT_SECRET</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>LSApplicationQueriesSchemes</key>

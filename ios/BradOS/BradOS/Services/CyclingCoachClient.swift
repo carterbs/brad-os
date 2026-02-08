@@ -1,4 +1,5 @@
 import Foundation
+import BradOSCore
 
 // MARK: - Cycling Coach Response Models
 

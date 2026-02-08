@@ -228,7 +228,7 @@ final class StravaClient: ObservableObject {
     /// Sync activities to the backend.
     /// This fetches activities from Strava and posts them to our API.
     /// - Parameter apiClient: The API client to use for backend requests
-    func syncActivitiesToBackend<T: APIClientProtocol>(apiClient: T) async throws where T.Response == APIResponse<CyclingActivityResponse> {
+    func syncActivitiesToBackend<T: CyclingAPIClient>(apiClient: T) async throws where T.Response == APIResponse<CyclingActivityResponse> {
         guard stravaAuthManager.isConnected else {
             throw StravaClientError.notAuthenticated
         }
@@ -298,11 +298,11 @@ struct CyclingActivityResponse: Decodable {
     let createdAt: String
 }
 
-// MARK: - API Client Protocol Extension
+// MARK: - Cycling API Client Protocol
 
 /// Protocol for API clients that can sync cycling activities.
 /// This allows for dependency injection in tests.
-protocol APIClientProtocol {
+protocol CyclingAPIClient {
     associatedtype Response: Decodable
 
     func post<T: Encodable>(path: String, body: T) async throws -> Response

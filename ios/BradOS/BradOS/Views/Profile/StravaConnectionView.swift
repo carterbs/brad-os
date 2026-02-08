@@ -230,7 +230,7 @@ struct StravaConnectionView: View {
                             Spacer()
                         }
                         .padding()
-                        .background(Theme.primaryBlue)
+                        .background(Theme.interactivePrimary)
                         .foregroundStyle(.white)
                         .cornerRadius(Theme.CornerRadius.md)
                     }

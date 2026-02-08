@@ -670,22 +670,15 @@ struct TrainingLoadDataPoint: Identifiable {
 // MARK: - Previews
 
 #Preview("With Block") {
-    let viewModel = CyclingViewModel()
-
-    return CyclingBlockView()
-        .environmentObject(viewModel)
+    CyclingBlockView()
+        .environmentObject(CyclingViewModel())
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
-        .task {
-            await viewModel.loadData()
-        }
 }
 
 #Preview("Without Block") {
-    let viewModel = CyclingViewModel()
-
-    return CyclingBlockView()
-        .environmentObject(viewModel)
+    CyclingBlockView()
+        .environmentObject(CyclingViewModel())
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
 }

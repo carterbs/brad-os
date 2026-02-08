@@ -10,7 +10,7 @@ enum WorkoutCommand: String, Codable {
     case end
 }
 
-struct WorkoutSummary: Codable {
+struct WatchWorkoutSummary: Codable {
     let avgHeartRate: Double
     let maxHeartRate: Double
     let activeCalories: Double
@@ -178,7 +178,7 @@ class WorkoutManager: NSObject, ObservableObject {
     }
 
     /// End the workout and send summary back to iOS
-    func endWorkout() async throws -> WorkoutSummary {
+    func endWorkout() async throws -> WatchWorkoutSummary {
         guard let builder = builder,
               let session = session else {
             throw WorkoutError.noActiveWorkout
@@ -194,7 +194,7 @@ class WorkoutManager: NSObject, ObservableObject {
         _ = try await builder.finishWorkout()
 
         // Calculate summary
-        let summary = WorkoutSummary(
+        let summary = WatchWorkoutSummary(
             avgHeartRate: heartRate,
             maxHeartRate: maxHeartRate,
             activeCalories: activeCalories,
@@ -274,7 +274,7 @@ class WorkoutManager: NSObject, ObservableObject {
         })
     }
 
-    private func sendSummaryToiPhone(_ summary: WorkoutSummary) {
+    private func sendSummaryToiPhone(_ summary: WatchWorkoutSummary) {
         guard let session = wcSession else { return }
 
         do {

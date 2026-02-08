@@ -9,7 +9,7 @@ enum WorkoutCommand: String, Codable {
     case end
 }
 
-struct WorkoutSummary: Codable {
+struct WatchWorkoutSummary: Codable {
     let avgHeartRate: Double
     let maxHeartRate: Double
     let activeCalories: Double
@@ -27,7 +27,7 @@ class WatchWorkoutController: NSObject, ObservableObject {
     // MARK: - Published Properties
 
     @Published var isWorkoutActive = false
-    @Published var workoutSummary: WorkoutSummary?
+    @Published var workoutSummary: WatchWorkoutSummary?
     @Published var currentHeartRate: Double = 0
     @Published var error: Error?
     @Published var isWatchReachable = false
@@ -165,7 +165,7 @@ class WatchWorkoutController: NSObject, ObservableObject {
 
                 // Parse summary from reply
                 if let summaryData = reply["summary"] as? Data,
-                   let summary = try? JSONDecoder().decode(WorkoutSummary.self, from: summaryData) {
+                   let summary = try? JSONDecoder().decode(WatchWorkoutSummary.self, from: summaryData) {
                     workoutSummary = summary
                     isWorkoutActive = false
 
@@ -285,7 +285,7 @@ extension WatchWorkoutController: WCSessionDelegate {
 
         // Handle workout summary
         if let summaryData = message["summary"] as? Data,
-           let summary = try? JSONDecoder().decode(WorkoutSummary.self, from: summaryData) {
+           let summary = try? JSONDecoder().decode(WatchWorkoutSummary.self, from: summaryData) {
             workoutSummary = summary
             isWorkoutActive = false
 

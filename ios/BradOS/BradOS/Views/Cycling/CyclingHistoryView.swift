@@ -137,22 +137,15 @@ struct EmptyHistoryCard: View {
 // MARK: - Previews
 
 #Preview("With Rides") {
-    let viewModel = CyclingViewModel()
-
-    return CyclingHistoryView()
-        .environmentObject(viewModel)
+    CyclingHistoryView()
+        .environmentObject(CyclingViewModel())
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
-        .task {
-            await viewModel.loadData()
-        }
 }
 
 #Preview("Empty State") {
-    let viewModel = CyclingViewModel()
-
-    return CyclingHistoryView()
-        .environmentObject(viewModel)
+    CyclingHistoryView()
+        .environmentObject(CyclingViewModel())
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
 }

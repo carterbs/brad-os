@@ -332,48 +332,21 @@ struct LoadMetric: View {
 // MARK: - Previews
 
 #Preview("With Recovery Data") {
-    let healthKit = HealthKitManager()
-    let viewModel = CyclingViewModel()
-    let stravaAuth = StravaAuthManager()
-
-    return CyclingTodayView()
-        .environmentObject(viewModel)
-        .environmentObject(healthKit)
-        .environmentObject(stravaAuth)
+    CyclingTodayView()
+        .environmentObject(CyclingViewModel())
+        .environmentObject(HealthKitManager())
+        .environmentObject(StravaAuthManager())
         .padding(Theme.Spacing.space5)
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
-        .task {
-            healthKit.isAuthorized = true
-            healthKit.latestRecovery = RecoveryData(
-                date: Date(),
-                hrvMs: 42,
-                hrvVsBaseline: 16.7,
-                rhrBpm: 52,
-                rhrVsBaseline: -3,
-                sleepHours: 7.8,
-                sleepEfficiency: 92,
-                deepSleepPercent: 18,
-                score: 78,
-                state: .ready
-            )
-            await viewModel.loadData()
-        }
 }
 
 #Preview("Without Recovery Data") {
-    let healthKit = HealthKitManager()
-    let viewModel = CyclingViewModel()
-    let stravaAuth = StravaAuthManager()
-
-    return CyclingTodayView()
-        .environmentObject(viewModel)
-        .environmentObject(healthKit)
-        .environmentObject(stravaAuth)
+    CyclingTodayView()
+        .environmentObject(CyclingViewModel())
+        .environmentObject(HealthKitManager())
+        .environmentObject(StravaAuthManager())
         .padding(Theme.Spacing.space5)
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
-        .task {
-            await viewModel.loadData()
-        }
 }
