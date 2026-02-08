@@ -1,5 +1,6 @@
 import SwiftUI
 import WidgetKit
+import BackgroundTasks
 import BradOSCore
 import FirebaseCore
 import FirebaseAppCheck
@@ -9,6 +10,12 @@ struct BradOSApp: App {
     @StateObject private var appState = AppState()
     @StateObject private var stravaAuthManager = StravaAuthManager()
     @StateObject private var healthKitManager = HealthKitManager()
+    @StateObject private var healthKitSyncService: HealthKitSyncService
+
+    @Environment(\.scenePhase) private var scenePhase
+
+    /// Background task identifier for HealthKit sync
+    private static let healthKitSyncTaskId = "com.bradcarter.brad-os.healthkit-sync"
 
     init() {
         // Configure App Check BEFORE FirebaseApp.configure()
@@ -21,6 +28,20 @@ struct BradOSApp: App {
 
         AppCheck.setAppCheckProviderFactory(providerFactory)
         FirebaseApp.configure()
+
+        // Initialize sync service with shared HealthKitManager
+        let hkManager = HealthKitManager()
+        _healthKitManager = StateObject(wrappedValue: hkManager)
+        _healthKitSyncService = StateObject(wrappedValue: HealthKitSyncService(healthKitManager: hkManager))
+
+        // Register background task
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: Self.healthKitSyncTaskId,
+            using: nil
+        ) { task in
+            guard let bgTask = task as? BGAppRefreshTask else { return }
+            Self.handleBackgroundSync(bgTask, healthKitManager: hkManager)
+        }
     }
 
     var body: some Scene {
@@ -29,6 +50,7 @@ struct BradOSApp: App {
                 .environmentObject(appState)
                 .environmentObject(stravaAuthManager)
                 .environmentObject(healthKitManager)
+                .environmentObject(healthKitSyncService)
                 .environment(\.apiClient, APIClient.shared)
                 .preferredColorScheme(.dark)
                 .onAppear {
@@ -40,6 +62,9 @@ struct BradOSApp: App {
                 }
                 .onReceive(NotificationCenter.default.publisher(for: MealPlanCacheService.cacheDidChangeNotification)) { _ in
                     WidgetCenter.shared.reloadAllTimelines()
+                }
+                .onChange(of: scenePhase) { oldPhase, newPhase in
+                    handleScenePhaseChange(from: oldPhase, to: newPhase)
                 }
         }
     }
@@ -58,6 +83,55 @@ struct BradOSApp: App {
             appState.isShowingMealPlan = true
         default:
             break
+        }
+    }
+
+    private func handleScenePhaseChange(from oldPhase: ScenePhase, to newPhase: ScenePhase) {
+        switch newPhase {
+        case .active:
+            // App came to foreground - sync if needed
+            Task {
+                await healthKitSyncService.syncIfNeeded()
+            }
+        case .background:
+            // Schedule background refresh when going to background
+            scheduleBackgroundSync()
+        case .inactive:
+            break
+        @unknown default:
+            break
+        }
+    }
+
+    private func scheduleBackgroundSync() {
+        let request = BGAppRefreshTaskRequest(identifier: Self.healthKitSyncTaskId)
+        // Request earliest time: 4 hours from now (system may delay further)
+        request.earliestBeginDate = Date(timeIntervalSinceNow: 4 * 60 * 60)
+
+        do {
+            try BGTaskScheduler.shared.submit(request)
+            print("[BradOSApp] Scheduled background HealthKit sync")
+        } catch {
+            print("[BradOSApp] Failed to schedule background sync: \(error)")
+        }
+    }
+
+    @MainActor
+    private static func handleBackgroundSync(_ task: BGAppRefreshTask, healthKitManager: HealthKitManager) {
+        // Create a new sync service for background execution
+        let syncService = HealthKitSyncService(healthKitManager: healthKitManager)
+
+        // Set up expiration handler
+        task.expirationHandler = {
+            print("[BradOSApp] Background sync expired")
+            task.setTaskCompleted(success: false)
+        }
+
+        // Perform sync
+        Task {
+            await syncService.sync()
+            task.setTaskCompleted(success: true)
+            print("[BradOSApp] Background sync completed")
         }
     }
 }

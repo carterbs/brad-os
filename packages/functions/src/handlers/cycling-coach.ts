@@ -12,6 +12,7 @@ import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
 import { requireAppCheck } from '../middleware/app-check.js';
 import { asyncHandler } from '../middleware/async-handler.js';
 import * as cyclingService from '../services/firestore-cycling.service.js';
+import * as recoveryService from '../services/firestore-recovery.service.js';
 import { getCyclingRecommendation } from '../services/cycling-coach.service.js';
 import {
   calculateTrainingLoadMetrics,
@@ -117,14 +118,24 @@ app.post(
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     const userId = getUserId(req);
 
-    // Recovery data comes from iOS (HealthKit)
-    const { recovery } = req.body as { recovery?: RecoverySnapshot };
+    // Recovery data: prefer from request body (iOS-provided), fallback to Firestore
+    const requestBody = req.body as { recovery?: RecoverySnapshot };
+    let recovery: RecoverySnapshot | undefined = requestBody.recovery;
+
     if (!recovery) {
-      res.status(400).json({
-        success: false,
-        error: { code: 'RECOVERY_REQUIRED', message: 'Recovery data required' },
-      });
-      return;
+      // Fetch from Firestore if not provided in request
+      const storedRecovery = await recoveryService.getLatestRecoverySnapshot(userId);
+      if (!storedRecovery) {
+        res.status(400).json({
+          success: false,
+          error: {
+            code: 'RECOVERY_NOT_SYNCED',
+            message: 'No recovery data available. Enable HealthKit sync in the app.'
+          },
+        });
+        return;
+      }
+      recovery = storedRecovery;
     }
 
     // Fetch data from Firestore in parallel

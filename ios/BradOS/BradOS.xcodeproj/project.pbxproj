@@ -85,6 +85,7 @@
 		A9CBFED4F42EFDDF2C0C6B24 /* TrainingBlockSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 233426DF2BD48E5CB18E73F3 /* TrainingBlockSetupView.swift */; };
 		AE1BA3C27DA0767CAEEE5181 /* WeightGoalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8A6CA9426DF17ABB0A447EC /* WeightGoalView.swift */; };
 		AE472A35366FB9B9F1BEC079 /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C474DBAD9A28EC53239DD31D /* HealthKitManager.swift */; };
+		AE472A35366FB9B9F1BEC080 /* HealthKitSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C474DBAD9A28EC53239DD31E /* HealthKitSyncService.swift */; };
 		B3768B832B5376CB69E944D6 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD7FBB792EDF2A2AED223945 /* APIClient.swift */; };
 		B481692B4F423807DB18DF1D /* StretchSessionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A81A4BB6E628562A8FAB14 /* StretchSessionDetailView.swift */; };
 		B68F0268014E38BCCBFEDE4B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C23F6F8043584A903D01FF2C /* ProfileView.swift */; };
@@ -240,6 +241,7 @@
 		C314C4B07F71DEAD03ABE429 /* EmptyStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmptyStateView.swift; sourceTree = "<group>"; };
 		C33D52B0396ACA302C69E801 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C474DBAD9A28EC53239DD31D /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
+		C474DBAD9A28EC53239DD31E /* HealthKitSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSyncService.swift; sourceTree = "<group>"; };
 		C56853B8332CDD2806D4C210 /* StravaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StravaClient.swift; sourceTree = "<group>"; };
 		CA5622DD239A1E87AD387720 /* APIResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIResponse.swift; sourceTree = "<group>"; };
 		CAB73F3D9DD5B217641D6828 /* GuidedMeditation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidedMeditation.swift; sourceTree = "<group>"; };
@@ -354,6 +356,7 @@
 				5D5A0886950E7BADC2693752 /* CyclingCoachClient.swift */,
 				E96A553EE3FD3DE973EC3975 /* GuidedMeditationService.swift */,
 				C474DBAD9A28EC53239DD31D /* HealthKitManager.swift */,
+				C474DBAD9A28EC53239DD31E /* HealthKitSyncService.swift */,
 				12AABD055BCAFEA6814C7072 /* KeychainService.swift */,
 				5F3D18814CDDE99C1B9E404F /* MeditationAPIService.swift */,
 				287EDC2B2F8BEE19E85C3B29 /* MeditationManifestService.swift */,
@@ -817,6 +820,7 @@
 				493F8544615F1805E8F33A78 /* GuidedMeditationPreparingView.swift in Sources */,
 				D23E0FD74C1866E30F778DF5 /* GuidedMeditationService.swift in Sources */,
 				AE472A35366FB9B9F1BEC079 /* HealthKitManager.swift in Sources */,
+				AE472A35366FB9B9F1BEC080 /* HealthKitSyncService.swift in Sources */,
 				F7E73D097F3A08BEDF56B266 /* HistoryView.swift in Sources */,
 				EA6DB5F838F769ECDD5B890D /* KeychainService.swift in Sources */,
 				0C2035D397B4383A35E1E100 /* LiftingTabView.swift in Sources */,

@@ -391,7 +391,9 @@ app.post(
       }
 
       // Only process activities with power data
-      if (!stravaActivity.weighted_average_watts && !stravaActivity.average_watts) {
+      const hasWeightedPower = stravaActivity.weighted_average_watts !== undefined && stravaActivity.weighted_average_watts !== null && stravaActivity.weighted_average_watts > 0;
+      const hasAvgPower = stravaActivity.average_watts !== undefined && stravaActivity.average_watts !== null && stravaActivity.average_watts > 0;
+      if (!hasWeightedPower && !hasAvgPower) {
         skipped++;
         continue;
       }

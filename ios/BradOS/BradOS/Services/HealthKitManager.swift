@@ -51,6 +51,18 @@ class HealthKitManager: ObservableObject {
     private var cachedBaseline: RecoveryBaseline?
     private var baselineLastUpdated: Date?
 
+    // MARK: - Public Accessors
+
+    /// Get cached baseline for sync (returns nil if not yet calculated)
+    func getCachedBaseline() async -> RecoveryBaseline? {
+        // If we have a recent cached baseline, return it
+        if let cached = cachedBaseline {
+            return cached
+        }
+        // Otherwise try to calculate it
+        return try? await getOrUpdateBaseline()
+    }
+
     // MARK: - Authorization
 
     /// Check if HealthKit is available on this device

@@ -170,6 +170,38 @@
         "function": "devGuidedMeditations"
       },
       {
+        "source": "/api/dev/cycling",
+        "function": "devCycling"
+      },
+      {
+        "source": "/api/dev/cycling/**",
+        "function": "devCycling"
+      },
+      {
+        "source": "/api/dev/strava",
+        "function": "devStrava"
+      },
+      {
+        "source": "/api/dev/strava/**",
+        "function": "devStrava"
+      },
+      {
+        "source": "/api/dev/cycling-coach",
+        "function": "devCyclingCoach"
+      },
+      {
+        "source": "/api/dev/cycling-coach/**",
+        "function": "devCyclingCoach"
+      },
+      {
+        "source": "/api/dev/health-sync",
+        "function": "devHealthSync"
+      },
+      {
+        "source": "/api/dev/health-sync/**",
+        "function": "devHealthSync"
+      },
+      {
         "source": "/debug",
         "function": "devMealplanDebug"
       },
@@ -312,6 +344,38 @@
       {
         "source": "/api/prod/guidedMeditations/**",
         "function": "prodGuidedMeditations"
+      },
+      {
+        "source": "/api/prod/cycling",
+        "function": "prodCycling"
+      },
+      {
+        "source": "/api/prod/cycling/**",
+        "function": "prodCycling"
+      },
+      {
+        "source": "/api/prod/strava",
+        "function": "prodStrava"
+      },
+      {
+        "source": "/api/prod/strava/**",
+        "function": "prodStrava"
+      },
+      {
+        "source": "/api/prod/cycling-coach",
+        "function": "prodCyclingCoach"
+      },
+      {
+        "source": "/api/prod/cycling-coach/**",
+        "function": "prodCyclingCoach"
+      },
+      {
+        "source": "/api/prod/health-sync",
+        "function": "prodHealthSync"
+      },
+      {
+        "source": "/api/prod/health-sync/**",
+        "function": "prodHealthSync"
       }
     ]
   },

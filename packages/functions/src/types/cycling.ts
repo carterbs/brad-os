@@ -5,6 +5,11 @@
  * FTP tracking, recovery metrics, and coach request/response interfaces.
  */
 
+// Import recovery types - RecoverySnapshot is used in CyclingCoachRequest
+import type { RecoverySnapshot } from './recovery.js';
+// Re-export recovery types used by cycling coach
+export type { RecoveryState, RecoverySnapshot } from './recovery.js';
+
 // --- Cycling Activity Types ---
 
 export type CyclingActivityType =
@@ -82,26 +87,6 @@ export interface WeightGoal {
   targetDate: string; // ISO 8601 date
   startWeightLbs: number;
   startDate: string; // ISO 8601 date
-}
-
-// --- Recovery Types ---
-
-export type RecoveryState = 'ready' | 'moderate' | 'recover';
-
-/**
- * A snapshot of recovery metrics for a given day.
- */
-export interface RecoverySnapshot {
-  date: string; // ISO 8601 date
-  hrvMs: number; // Heart Rate Variability in milliseconds
-  hrvVsBaseline: number; // Percentage vs baseline
-  rhrBpm: number; // Resting Heart Rate in BPM
-  rhrVsBaseline: number; // Percentage vs baseline
-  sleepHours: number;
-  sleepEfficiency: number; // 0-1
-  deepSleepPercent: number; // 0-1
-  score: number; // Overall recovery score
-  state: RecoveryState;
 }
 
 // --- Lifting Workout Summary ---

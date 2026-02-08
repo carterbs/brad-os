@@ -27,6 +27,7 @@ import { stretchesApp } from './handlers/stretches.js';
 import { cyclingApp } from './handlers/cycling.js';
 import { stravaWebhookApp } from './handlers/strava-webhook.js';
 import { cyclingCoachApp } from './handlers/cycling-coach.js';
+import { healthSyncApp } from './handlers/health-sync.js';
 
 // Secrets
 const openaiApiKey = defineSecret('OPENAI_API_KEY');
@@ -71,6 +72,7 @@ export const devStretches = onRequest(defaultOptions, stretchesApp);
 export const devCycling = onRequest(defaultOptions, cyclingApp);
 export const devStrava = onRequest(defaultOptions, stravaWebhookApp);
 export const devCyclingCoach = onRequest(withOpenAiOptions, cyclingCoachApp);
+export const devHealthSync = onRequest(defaultOptions, healthSyncApp);
 
 // ============ PROD Functions ============
 export const prodHealth = onRequest(defaultOptions, healthApp);
@@ -93,6 +95,7 @@ export const prodStretches = onRequest(defaultOptions, stretchesApp);
 export const prodCycling = onRequest(defaultOptions, cyclingApp);
 export const prodStrava = onRequest(defaultOptions, stravaWebhookApp);
 export const prodCyclingCoach = onRequest(withOpenAiOptions, cyclingCoachApp);
+export const prodHealthSync = onRequest(defaultOptions, healthSyncApp);
 
 // ============ Debug Functions (emulator only) ============
 export const devMealplanDebug = onRequest(defaultOptions, mealplanDebugApp);
