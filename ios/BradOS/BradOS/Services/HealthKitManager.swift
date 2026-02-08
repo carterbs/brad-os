@@ -251,6 +251,36 @@ class HealthKitManager: ObservableObject {
         return lbs * 0.453592
     }
 
+    /// A single weight reading
+    struct WeightReading {
+        let date: Date
+        let valueLbs: Double
+    }
+
+    /// Fetch weight history for a given number of days
+    func fetchWeightHistory(days: Int) async throws -> [WeightReading] {
+        let weightType = HKQuantityType(.bodyMass)
+        let startDate = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: Date())
+        let descriptor = HKSampleQueryDescriptor(
+            predicates: [.quantitySample(type: weightType, predicate: predicate)],
+            sortDescriptors: [SortDescriptor(\.endDate)]
+        )
+
+        do {
+            let results = try await descriptor.result(for: healthStore)
+            return results.map { sample in
+                WeightReading(
+                    date: sample.endDate,
+                    valueLbs: sample.quantity.doubleValue(for: .pound())
+                )
+            }
+        } catch {
+            throw HealthKitError.queryFailed(error)
+        }
+    }
+
     // MARK: - Sleep Queries
 
     /// Fetch sleep data for a specific date (looks at previous night's sleep)

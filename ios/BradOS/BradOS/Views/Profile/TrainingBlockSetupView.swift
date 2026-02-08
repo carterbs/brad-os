@@ -1,10 +1,11 @@
 import SwiftUI
 
 struct TrainingBlockSetupView: View {
+    @EnvironmentObject var cyclingVM: CyclingViewModel
+
     @State private var startDate = Date()
     @State private var selectedGoals: Set<TrainingBlockModel.TrainingGoal> = []
     @State private var isSaving = false
-    @State private var currentBlock: TrainingBlockModel?
 
     var endDate: Date {
         Calendar.current.date(byAdding: .weekOfYear, value: 8, to: startDate) ?? startDate
@@ -13,7 +14,7 @@ struct TrainingBlockSetupView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.space6) {
-                if let block = currentBlock, block.status == .active {
+                if let block = cyclingVM.currentBlock, block.status == .active {
                     // Active Block Section
                     activeBlockSection(block: block)
                 } else {
@@ -225,17 +226,20 @@ struct TrainingBlockSetupView: View {
     // MARK: - Actions
 
     private func startBlock() {
-        // Save to backend
         isSaving = true
-        // TODO: Implement API call to start training block
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+        Task {
+            await cyclingVM.startNewBlock(
+                goals: Array(selectedGoals),
+                startDate: startDate
+            )
             isSaving = false
         }
     }
 
     private func completeBlockEarly() {
-        // Complete block early
-        // TODO: Implement API call to complete block
+        Task {
+            await cyclingVM.completeCurrentBlock()
+        }
     }
 }
 
@@ -270,6 +274,7 @@ struct ScheduleRow: View {
 #Preview {
     NavigationStack {
         TrainingBlockSetupView()
+            .environmentObject(CyclingViewModel())
     }
     .preferredColorScheme(.dark)
 }

@@ -141,3 +141,11 @@ struct TrainingBlockResponse: Codable {
     let goals: [String]
     let status: String
 }
+
+/// Response from POST /cycling/weight-goal
+struct WeightGoalResponse: Codable {
+    let targetWeightLbs: Double
+    let targetDate: String
+    let startWeightLbs: Double
+    let startDate: String
+}

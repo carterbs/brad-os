@@ -39,6 +39,7 @@ enum CyclingOnboardingStep: Int, CaseIterable {
 struct CyclingOnboardingView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var stravaAuth: StravaAuthManager
+    @EnvironmentObject var cyclingVM: CyclingViewModel
 
     @State private var currentStep: CyclingOnboardingStep = .strava
     @State private var ftpValue: String = ""
@@ -535,9 +536,20 @@ struct CyclingOnboardingView: View {
     private func finishOnboarding() {
         isSaving = true
 
-        // TODO: Save FTP and training block to backend
-        // For now, just complete onboarding
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+        Task {
+            // Save FTP if provided
+            if let ftp = Int(ftpValue), ftp > 0 {
+                _ = await cyclingVM.saveFTP(ftp)
+            }
+
+            // Create training block if goals selected
+            if !selectedGoals.isEmpty {
+                await cyclingVM.startNewBlock(
+                    goals: Array(selectedGoals),
+                    startDate: startDate
+                )
+            }
+
             isSaving = false
             onComplete?()
             dismiss()
@@ -635,5 +647,6 @@ struct SchedulePreviewRow: View {
 #Preview {
     CyclingOnboardingView()
         .environmentObject(StravaAuthManager())
+        .environmentObject(CyclingViewModel())
         .preferredColorScheme(.dark)
 }

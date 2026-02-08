@@ -13,6 +13,7 @@
 		06C14303485106D69DB83F81 /* MeditationDashboardCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A375E7313BF426DC8D3506CC /* MeditationDashboardCard.swift */; };
 		06FFD7FF6AFE94A655464CFC /* ActivitiesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B56EFF002A58FE0F269792 /* ActivitiesView.swift */; };
 		08557693D39217D58F0AAB7C /* MeditationAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F3D18814CDDE99C1B9E404F /* MeditationAPIService.swift */; };
+		0A48470668E9BCD8CA7FF527 /* RecoveryDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 251081EFEE5E1CEC90CB5B2C /* RecoveryDetailView.swift */; };
 		0C2035D397B4383A35E1E100 /* LiftingTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD45B75A479093507100918B /* LiftingTabView.swift */; };
 		0CC331E8CEA078DD28719AA9 /* WorkoutDashboardCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60811224B9F92689C02CFB3D /* WorkoutDashboardCard.swift */; };
 		0DB7A1A824E9F05B1A3FA0C0 /* QueuedActionsButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6AD230687CA2537122F156C /* QueuedActionsButton.swift */; };
@@ -166,6 +167,7 @@
 		1AE87A13F207E1549739EDF4 /* BarcodeFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeFormView.swift; sourceTree = "<group>"; };
 		1F7282E428085A0EEE9FDABE /* EfficiencyFactorChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EfficiencyFactorChart.swift; sourceTree = "<group>"; };
 		233426DF2BD48E5CB18E73F3 /* TrainingBlockSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingBlockSetupView.swift; sourceTree = "<group>"; };
+		251081EFEE5E1CEC90CB5B2C /* RecoveryDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryDetailView.swift; sourceTree = "<group>"; };
 		2759D836A83D7DACF70D51D5 /* BradOSWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BradOSWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		27BED3BA6FD7C7868A10B390 /* BradOSWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = BradOSWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		287EDC2B2F8BEE19E85C3B29 /* MeditationManifestService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationManifestService.swift; sourceTree = "<group>"; };
@@ -437,6 +439,7 @@
 				A0A5A2096504176F249FB0B8 /* MealPlanDashboardCard.swift */,
 				A375E7313BF426DC8D3506CC /* MeditationDashboardCard.swift */,
 				F1242FA62054836D545BA364 /* ReadinessCard.swift */,
+				251081EFEE5E1CEC90CB5B2C /* RecoveryDetailView.swift */,
 				97E88619DBC43B75F597D422 /* StretchDashboardCard.swift */,
 				33EA5122074F1AC3438C0B15 /* TodayDashboardView.swift */,
 				60811224B9F92689C02CFB3D /* WorkoutDashboardCard.swift */,
@@ -653,7 +656,7 @@
 			path = Lifting;
 			sourceTree = "<group>";
 		};
-		"TEMP_750853CA-1A31-420F-B39B-CAAFEBA2F31D" /* Resources */ = {
+		"TEMP_9B58C8CF-0881-402C-8A4E-F5BE290E4178" /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -857,6 +860,7 @@
 				0DB7A1A824E9F05B1A3FA0C0 /* QueuedActionsButton.swift in Sources */,
 				C32B53A1CC22EBE561E97766 /* ReadinessCard.swift in Sources */,
 				5539B1EC2F3741A9884A4B9D /* RecoveryData.swift in Sources */,
+				0A48470668E9BCD8CA7FF527 /* RecoveryDetailView.swift in Sources */,
 				81D9012E4C17A37A13242656 /* RestTimerManager.swift in Sources */,
 				970799BA999AF27D517F7C57 /* RestTimerOverlay.swift in Sources */,
 				E491404ABE9A78157B1B6BCD /* SectionHeader.swift in Sources */,

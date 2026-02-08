@@ -638,6 +638,48 @@ final class APIClient: APIClientProtocol {
         try await get("/cycling/ef")
     }
 
+    func createFTP(value: Int, date: String, source: String = "manual") async throws -> FTPEntryResponse {
+        struct CreateFTPBody: Encodable {
+            let value: Int
+            let date: String
+            let source: String
+        }
+        return try await post("/cycling/ftp", body: CreateFTPBody(value: value, date: date, source: source))
+    }
+
+    func getFTPHistory() async throws -> [FTPEntryResponse] {
+        try await get("/cycling/ftp/history")
+    }
+
+    func createBlock(startDate: String, endDate: String, goals: [String]) async throws -> TrainingBlockResponse {
+        struct CreateBlockBody: Encodable {
+            let startDate: String
+            let endDate: String
+            let goals: [String]
+        }
+        return try await post("/cycling/block", body: CreateBlockBody(startDate: startDate, endDate: endDate, goals: goals))
+    }
+
+    func completeBlock(id: String) async throws {
+        struct CompleteResponse: Decodable { let completed: Bool }
+        let _: CompleteResponse = try await put("/cycling/block/\(id)/complete")
+    }
+
+    func saveWeightGoal(targetWeightLbs: Double, targetDate: String, startWeightLbs: Double, startDate: String) async throws -> WeightGoalResponse {
+        struct WeightGoalBody: Encodable {
+            let targetWeightLbs: Double
+            let targetDate: String
+            let startWeightLbs: Double
+            let startDate: String
+        }
+        return try await post("/cycling/weight-goal", body: WeightGoalBody(
+            targetWeightLbs: targetWeightLbs,
+            targetDate: targetDate,
+            startWeightLbs: startWeightLbs,
+            startDate: startDate
+        ))
+    }
+
     // MARK: - Calendar
 
     func getCalendarData(year: Int, month: Int, timezoneOffset: Int? = nil) async throws -> CalendarData {
