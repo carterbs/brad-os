@@ -436,6 +436,14 @@ struct WorkoutView: View {
                         // No local state but workout is in progress - initialize fresh
                         stateManager.initializeForWorkout(workoutId: workoutId)
                     }
+
+                    // Resync Watch with in-progress workout context
+                    if watchWorkoutController.canSendToWatch {
+                        if !watchWorkoutController.isWorkoutActive {
+                            try? await watchWorkoutController.startMirroredWorkout()
+                        }
+                        watchWorkoutController.sendWorkoutContext(from: workout)
+                    }
                 } else if workout.status == .completed || workout.status == .skipped {
                     // Workout is finished - clear any stale local state
                     if stateManager.hasStateForWorkout(workoutId: workoutId) {
