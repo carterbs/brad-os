@@ -2,6 +2,25 @@ import Foundation
 import SwiftUI
 import BradOSCore
 
+/// Time range for the weight chart
+enum WeightChartRange: String, CaseIterable {
+    case oneWeek = "1W"
+    case twoWeeks = "2W"
+    case oneMonth = "1M"
+    case sixMonths = "6M"
+    case oneYear = "1Y"
+
+    var days: Int {
+        switch self {
+        case .oneWeek: return 7
+        case .twoWeeks: return 14
+        case .oneMonth: return 30
+        case .sixMonths: return 180
+        case .oneYear: return 365
+        }
+    }
+}
+
 /// Data point for the weight chart (actual or smoothed)
 struct WeightChartPoint: Identifiable {
     let id = UUID()
@@ -24,8 +43,9 @@ class WeightGoalViewModel {
 
     // MARK: - State
 
-    var weightHistory: [WeightChartPoint] = []
-    var smoothedHistory: [WeightChartPoint] = []
+    var allWeightHistory: [WeightChartPoint] = []
+    var allSmoothedHistory: [WeightChartPoint] = []
+    var selectedRange: WeightChartRange = .sixMonths
     var currentWeight: Double?
     var targetWeight: String = ""
     var targetDate = Date().addingTimeInterval(60 * 60 * 24 * 56) // 8 weeks default
@@ -39,6 +59,16 @@ class WeightGoalViewModel {
     private let apiClient = APIClient.shared
 
     // MARK: - Computed
+
+    var weightHistory: [WeightChartPoint] {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -selectedRange.days, to: Date()) ?? Date()
+        return allWeightHistory.filter { $0.date >= cutoff }
+    }
+
+    var smoothedHistory: [WeightChartPoint] {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -selectedRange.days, to: Date()) ?? Date()
+        return allSmoothedHistory.filter { $0.date >= cutoff }
+    }
 
     var hasGoal: Bool {
         Double(targetWeight) != nil
@@ -98,7 +128,7 @@ class WeightGoalViewModel {
 
     private func loadWeightHistory() async {
         do {
-            let entries = try await apiClient.getWeightHistory(days: 90)
+            let entries = try await apiClient.getWeightHistory(days: 365)
             let points = entries.compactMap { entry -> WeightChartPoint? in
                 guard let date = entry.parsedDate else { return nil }
                 return WeightChartPoint(date: date, weight: entry.weightLbs)
@@ -116,14 +146,14 @@ class WeightGoalViewModel {
                     deduped.append(point)
                 }
             }
-            weightHistory = deduped.reversed()
+            allWeightHistory = deduped.reversed()
 
-            // Calculate 7-day SMA
-            smoothedHistory = calculateSMA(points: weightHistory, window: 7)
+            // Calculate 7-day SMA on full history
+            allSmoothedHistory = calculateSMA(points: allWeightHistory, window: 7)
         } catch let apiError as APIError where apiError.code == .notFound {
             // No weight data yet — treat as empty
-            weightHistory = []
-            smoothedHistory = []
+            allWeightHistory = []
+            allSmoothedHistory = []
         } catch {
             self.error = "Failed to load weight history"
             print("[WeightGoalVM] Error loading history: \(error)")

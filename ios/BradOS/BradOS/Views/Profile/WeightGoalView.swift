@@ -3,11 +3,12 @@ import Charts
 
 struct WeightGoalView: View {
     @State private var viewModel = WeightGoalViewModel()
+    @State private var selectedDate: Date?
 
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.space6) {
-                if viewModel.isLoading && viewModel.weightHistory.isEmpty {
+                if viewModel.isLoading && viewModel.allWeightHistory.isEmpty {
                     loadingState
                 } else {
                     // Current Weight
@@ -117,9 +118,40 @@ struct WeightGoalView: View {
     @ViewBuilder
     private var weightTrendChart: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
-            SectionHeader(title: "Weight Trend")
+            HStack {
+                SectionHeader(title: "Weight Trend")
+                Spacer()
+                HStack(spacing: Theme.Spacing.space1) {
+                    ForEach(WeightChartRange.allCases, id: \.self) { range in
+                        FilterChip(
+                            title: range.rawValue,
+                            isSelected: viewModel.selectedRange == range
+                        ) {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                viewModel.selectedRange = range
+                            }
+                        }
+                    }
+                }
+            }
 
             VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
+                // Selected point detail
+                if let selectedDate,
+                   let nearest = nearestPoint(to: selectedDate) {
+                    HStack(spacing: Theme.Spacing.space2) {
+                        Text(nearest.date, format: .dateTime.month(.abbreviated).day())
+                            .font(.caption)
+                            .foregroundStyle(Theme.textSecondary)
+                        Text(String(format: "%.1f lbs", nearest.weight))
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .monospacedDigit()
+                            .foregroundStyle(Theme.interactivePrimary)
+                    }
+                    .transition(.opacity)
+                }
+
                 Chart {
                     // Actual weight points
                     ForEach(viewModel.weightHistory) { point in
@@ -154,6 +186,28 @@ struct WeightGoalView: View {
                                     .foregroundStyle(Theme.success)
                             }
                     }
+
+                    // Selection indicator
+                    if let selectedDate,
+                       let nearest = nearestPoint(to: selectedDate) {
+                        RuleMark(x: .value("Selected", nearest.date))
+                            .foregroundStyle(Theme.textSecondary.opacity(0.4))
+                            .lineStyle(StrokeStyle(lineWidth: 1))
+
+                        PointMark(
+                            x: .value("Selected", nearest.date),
+                            y: .value("Weight", nearest.weight)
+                        )
+                        .foregroundStyle(Theme.interactivePrimary)
+                        .symbolSize(50)
+
+                        PointMark(
+                            x: .value("Selected", nearest.date),
+                            y: .value("Weight", nearest.weight)
+                        )
+                        .foregroundStyle(.white)
+                        .symbolSize(20)
+                    }
                 }
                 .chartYScale(domain: viewModel.chartYDomain)
                 .chartYAxis {
@@ -170,6 +224,26 @@ struct WeightGoalView: View {
                     }
                 }
                 .frame(height: 200)
+                .chartOverlay { chart in
+                    GeometryReader { geo in
+                        Rectangle()
+                            .fill(.clear)
+                            .contentShape(Rectangle())
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { value in
+                                        let origin = geo[chart.plotFrame!].origin
+                                        let x = value.location.x - origin.x
+                                        if let date: Date = chart.value(atX: x) {
+                                            selectedDate = date
+                                        }
+                                    }
+                                    .onEnded { _ in
+                                        selectedDate = nil
+                                    }
+                            )
+                    }
+                }
 
                 // Legend
                 HStack(spacing: Theme.Spacing.space4) {
@@ -448,6 +522,14 @@ struct WeightGoalView: View {
                 withAnimation { viewModel.saveSuccess = false }
             }
         }
+    }
+
+    // MARK: - Helpers
+
+    private func nearestPoint(to date: Date) -> WeightChartPoint? {
+        viewModel.weightHistory.min(by: {
+            abs($0.date.timeIntervalSince(date)) < abs($1.date.timeIntervalSince(date))
+        })
     }
 }
 
