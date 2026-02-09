@@ -66,6 +66,20 @@ export const weightEntrySchema = z.object({
 
 export type WeightEntryInput = z.infer<typeof weightEntrySchema>;
 
+// --- Bulk Weight Sync Schema ---
+
+/**
+ * Schema for bulk weight sync request body.
+ * Used by the iOS app to sync HealthKit weight history to Firebase.
+ */
+export const bulkWeightSyncSchema = z.object({
+  weights: z.array(weightEntrySchema.extend({
+    source: weightSourceSchema.optional(),
+  })).min(1).max(500),
+});
+
+export type BulkWeightSyncInput = z.infer<typeof bulkWeightSyncSchema>;
+
 // --- Sync Health Data Schema ---
 
 /**

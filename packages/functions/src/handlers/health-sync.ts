@@ -14,6 +14,7 @@ import * as recoveryService from '../services/firestore-recovery.service.js';
 import {
   syncHealthDataSchema,
   getRecoveryQuerySchema,
+  bulkWeightSyncSchema,
 } from '../shared.js';
 
 const app = express();
@@ -176,6 +177,36 @@ app.get(
     res.json({
       success: true,
       data: baseline,
+    });
+  })
+);
+
+// POST /health/weight/bulk
+// Bulk sync weight entries from HealthKit
+app.post(
+  '/weight/bulk',
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const userId = getUserId(req);
+
+    const parseResult = bulkWeightSyncSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid request body',
+          details: parseResult.error.errors,
+        },
+      });
+      return;
+    }
+
+    const { weights } = parseResult.data;
+    const added = await recoveryService.addWeightEntries(userId, weights);
+
+    res.json({
+      success: true,
+      data: { added },
     });
   })
 );

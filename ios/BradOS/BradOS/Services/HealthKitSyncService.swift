@@ -13,7 +13,11 @@ private struct SyncResponse: Decodable {
 
 // MARK: - HealthKitSyncService
 
-/// Service for syncing HealthKit data to Firebase
+/// Service for syncing HealthKit data to Firebase.
+///
+/// Architecture: HealthKit → Firebase → App
+/// - This service is the ONLY place that reads from HealthKit
+/// - All views/viewmodels read from Firebase via APIClient
 @MainActor
 class HealthKitSyncService: ObservableObject {
 
@@ -85,11 +89,11 @@ class HealthKitSyncService: ObservableObject {
             // Get baseline if available
             let baseline = await healthKitManager.getCachedBaseline()
 
-            // Get latest weight
-            let weight = try? await healthKitManager.fetchLatestWeight()
+            // Sync recovery snapshot to Firebase (no weight — weight syncs separately in bulk)
+            try await sendSyncRequest(recovery: recovery, baseline: baseline)
 
-            // Build and send sync request
-            try await sendSyncRequest(recovery: recovery, baseline: baseline, weight: weight)
+            // Sync weight history in bulk (HealthKit → Firebase)
+            await syncWeightHistory()
 
             // Update last sync date
             lastSyncDate = Date()
@@ -104,10 +108,52 @@ class HealthKitSyncService: ObservableObject {
 
     // MARK: - Private Methods
 
+    /// Sync weight history from HealthKit to Firebase in bulk.
+    /// Fetches 90 days from HealthKit, diffs against Firebase, sends only new entries.
+    private func syncWeightHistory() async {
+        do {
+            // Fetch weight history from HealthKit (90 days)
+            let hkWeights = try await healthKitManager.fetchWeightHistory(days: 90)
+            guard !hkWeights.isEmpty else {
+                print("[HealthKitSyncService] No HealthKit weight data to sync")
+                return
+            }
+
+            // Fetch existing weight data from Firebase (90 days)
+            let existingEntries = try await APIClient.shared.getWeightHistory(days: 90)
+            let existingDates = Set(existingEntries.map(\.date))
+
+            // Find HealthKit entries not yet in Firebase
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+
+            let newEntries = hkWeights.compactMap { reading -> WeightSyncEntry? in
+                let dateStr = dateFormatter.string(from: reading.date)
+                guard !existingDates.contains(dateStr) else { return nil }
+                return WeightSyncEntry(
+                    weightLbs: reading.valueLbs,
+                    date: dateStr,
+                    source: "healthkit"
+                )
+            }
+
+            guard !newEntries.isEmpty else {
+                print("[HealthKitSyncService] Weight data already up to date")
+                return
+            }
+
+            let added = try await APIClient.shared.syncWeightBulk(weights: newEntries)
+            print("[HealthKitSyncService] Synced \(added) new weight entries to Firebase")
+        } catch {
+            // Don't fail the overall sync if weight sync fails
+            print("[HealthKitSyncService] Weight sync failed (non-fatal): \(error)")
+        }
+    }
+
     private func sendSyncRequest(
         recovery: RecoveryData,
-        baseline: RecoveryBaseline?,
-        weight: Double?
+        baseline: RecoveryBaseline?
     ) async throws {
         let baseURL = APIConfiguration.default.baseURL
         var request = URLRequest(url: baseURL.appendingPathComponent("/health-sync/sync"))
@@ -115,7 +161,7 @@ class HealthKitSyncService: ObservableObject {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        // Build request body
+        // Build request body — recovery only (weight syncs separately via bulk)
         var body: [String: Any] = [
             "recovery": recovery.toAPIFormat()
         ]
@@ -126,15 +172,6 @@ class HealthKitSyncService: ObservableObject {
                 "hrvStdDev": baseline.hrvStdDev,
                 "rhrMedian": baseline.rhrMedian,
                 "sampleCount": 60 // Approximate - we use 60-day baseline
-            ]
-        }
-
-        if let weight = weight {
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd"
-            body["weight"] = [
-                "weightLbs": weight,
-                "date": formatter.string(from: Date())
             ]
         }
 

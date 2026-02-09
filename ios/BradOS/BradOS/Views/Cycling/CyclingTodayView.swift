@@ -5,12 +5,12 @@ import SwiftUI
 /// Today's cycling dashboard with recovery and coach recommendations
 struct CyclingTodayView: View {
     @EnvironmentObject var viewModel: CyclingViewModel
-    @EnvironmentObject var healthKit: HealthKitManager
     @EnvironmentObject var stravaAuth: StravaAuthManager
     @StateObject private var coachClient = CyclingCoachClient()
 
     @State private var showOnboarding = false
     @State private var showSetupOnboarding = false
+    @State private var recovery: RecoveryData?
 
     private var needsOnboarding: Bool {
         // Show onboarding if:
@@ -31,8 +31,8 @@ struct CyclingTodayView: View {
                     TodayNextUpCard(session: nextSession, weekProgress: "\(viewModel.sessionsCompletedThisWeek + 1) of \(viewModel.weeklySessionsTotal)")
                 }
 
-                // Recovery summary from HealthKit
-                if let recovery = healthKit.latestRecovery {
+                // Recovery summary from Firebase
+                if let recovery = recovery {
                     RecoverySummaryCard(recovery: recovery)
                 }
 
@@ -55,7 +55,7 @@ struct CyclingTodayView: View {
             .padding(Theme.Spacing.space5)
         }
         .task {
-            await loadCoachRecommendation()
+            await loadRecoveryAndCoach()
         }
         .onAppear {
             checkOnboarding()
@@ -122,7 +122,7 @@ struct CyclingTodayView: View {
             // Error state
             CoachRecommendationErrorCard(error: error) {
                 Task {
-                    await loadCoachRecommendation()
+                    await loadRecoveryAndCoach()
                 }
             }
         } else if let recommendation = coachClient.recommendation {
@@ -131,7 +131,7 @@ struct CyclingTodayView: View {
                 recommendation: recommendation,
                 ftp: viewModel.currentFTP
             )
-        } else if healthKit.latestRecovery == nil {
+        } else if recovery == nil {
             // No recovery data
             CoachSetupRecoveryCard()
         } else {
@@ -142,11 +142,17 @@ struct CyclingTodayView: View {
 
     // MARK: - Load Recommendation
 
-    private func loadCoachRecommendation() async {
-        guard viewModel.hasFTP,
-              let recovery = healthKit.latestRecovery else {
-            return
+    private func loadRecoveryAndCoach() async {
+        // Load recovery from Firebase
+        do {
+            let snapshot = try await APIClient.shared.getLatestRecovery()
+            recovery = snapshot?.toRecoveryData()
+        } catch {
+            print("[CyclingTodayView] Failed to load recovery: \(error)")
         }
+
+        // Load coach recommendation using Firebase recovery
+        guard viewModel.hasFTP, let recovery = recovery else { return }
 
         do {
             _ = try await coachClient.getRecommendation(recovery: recovery)

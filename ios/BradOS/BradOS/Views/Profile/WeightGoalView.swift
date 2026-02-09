@@ -2,8 +2,6 @@ import SwiftUI
 import Charts
 
 struct WeightGoalView: View {
-    @EnvironmentObject var healthKit: HealthKitManager
-
     @State private var viewModel = WeightGoalViewModel()
 
     var body: some View {
@@ -49,7 +47,7 @@ struct WeightGoalView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)
         .task {
-            await viewModel.loadData(healthKit: healthKit)
+            await viewModel.loadData()
         }
         .onChange(of: viewModel.targetWeight) {
             viewModel.updatePrediction()
@@ -457,7 +455,6 @@ struct WeightGoalView: View {
 #Preview {
     NavigationStack {
         WeightGoalView()
-            .environmentObject(HealthKitManager())
     }
     .preferredColorScheme(.dark)
 }

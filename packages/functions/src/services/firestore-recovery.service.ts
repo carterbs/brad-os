@@ -6,11 +6,10 @@
  * Collections structure:
  * - /users/{userId}/recoverySnapshots/{YYYY-MM-DD}  (date as doc ID for upsert)
  * - /users/{userId}/recoveryBaseline               (single doc)
- * - /users/{userId}/weightHistory/{entryId}
+ * - /users/{userId}/weightHistory/{YYYY-MM-DD}  (date as doc ID for upsert)
  */
 
 import type { Firestore } from 'firebase-admin/firestore';
-import { randomUUID } from 'node:crypto';
 import { getFirestoreDb, getCollectionName } from '../firebase.js';
 import type {
   RecoverySnapshot,
@@ -265,7 +264,7 @@ export async function addWeightEntry(
   weight: { weightLbs: number; date: string; source?: WeightEntry['source'] }
 ): Promise<WeightEntry> {
   const userDoc = getUserDoc(userId);
-  const id = randomUUID();
+  const id = weight.date; // Use date as doc ID for idempotent upserts
   const syncedAt = new Date().toISOString();
 
   const weightData: Omit<WeightEntry, 'id'> = {
@@ -281,6 +280,48 @@ export async function addWeightEntry(
     id,
     ...weightData,
   };
+}
+
+/**
+ * Add multiple weight entries in bulk using batched writes.
+ * Uses date as document ID for idempotent upserts.
+ *
+ * @param userId - The user ID
+ * @param weights - Array of weight entries to add
+ * @returns The number of entries written
+ */
+export async function addWeightEntries(
+  userId: string,
+  weights: Array<{ weightLbs: number; date: string; source?: WeightEntry['source'] }>
+): Promise<number> {
+  const db = getDb();
+  const userDoc = getUserDoc(userId);
+  const syncedAt = new Date().toISOString();
+  const collection = userDoc.collection('weightHistory');
+
+  // Firestore batches support max 500 operations
+  const batchSize = 500;
+  let written = 0;
+
+  for (let i = 0; i < weights.length; i += batchSize) {
+    const chunk = weights.slice(i, i + batchSize);
+    const batch = db.batch();
+
+    for (const weight of chunk) {
+      const docRef = collection.doc(weight.date);
+      batch.set(docRef, {
+        date: weight.date,
+        weightLbs: weight.weightLbs,
+        source: weight.source ?? 'healthkit',
+        syncedAt,
+      });
+    }
+
+    await batch.commit();
+    written += chunk.length;
+  }
+
+  return written;
 }
 
 /**

@@ -68,17 +68,17 @@ class WeightGoalViewModel {
 
     // MARK: - Loading
 
-    func loadData(healthKit: HealthKitManager) async {
+    func loadData() async {
         isLoading = true
         error = nil
         defer { isLoading = false }
 
-        // Fetch current weight from HealthKit + history from API + goal in parallel
-        async let hkWeight = loadHealthKitWeight(healthKit: healthKit)
+        // Fetch current weight + history + goal from Firebase in parallel
+        async let latestWeight = loadLatestWeight()
         async let apiHistory = loadWeightHistory()
         async let apiGoal = loadWeightGoal()
 
-        currentWeight = await hkWeight
+        currentWeight = await latestWeight
         await apiHistory
         await apiGoal
 
@@ -86,8 +86,14 @@ class WeightGoalViewModel {
         updatePrediction()
     }
 
-    private func loadHealthKitWeight(healthKit: HealthKitManager) async -> Double? {
-        try? await healthKit.fetchLatestWeight()
+    private func loadLatestWeight() async -> Double? {
+        do {
+            let entry = try await apiClient.getLatestWeight()
+            return entry?.weightLbs
+        } catch {
+            print("[WeightGoalVM] Error loading latest weight: \(error)")
+            return nil
+        }
     }
 
     private func loadWeightHistory() async {

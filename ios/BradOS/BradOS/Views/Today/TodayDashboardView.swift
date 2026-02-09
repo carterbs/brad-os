@@ -11,7 +11,7 @@ struct TodayDashboardView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.space6) {
-                    // Readiness Card (Recovery from HealthKit)
+                    // Readiness Card (Recovery from Firebase)
                     ReadinessCard()
 
                     // Meal Plan Card

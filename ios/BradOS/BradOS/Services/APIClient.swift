@@ -716,10 +716,29 @@ final class APIClient: APIClientProtocol {
         let _: CompleteResponse = try await put("/cycling/block/\(id)/complete")
     }
 
-    // MARK: - Weight
+    // MARK: - Weight & Health Sync
 
     func getWeightHistory(days: Int) async throws -> [WeightHistoryEntry] {
         try await get("/health-sync/weight", queryItems: [URLQueryItem(name: "days", value: String(days))])
+    }
+
+    func getLatestWeight() async throws -> WeightHistoryEntry? {
+        try await getOptional("/health-sync/weight")
+    }
+
+    func syncWeightBulk(weights: [WeightSyncEntry]) async throws -> Int {
+        struct BulkWeightBody: Encodable {
+            let weights: [WeightSyncEntry]
+        }
+        struct BulkWeightResponse: Decodable {
+            let added: Int
+        }
+        let response: BulkWeightResponse = try await post("/health-sync/weight/bulk", body: BulkWeightBody(weights: weights))
+        return response.added
+    }
+
+    func getLatestRecovery() async throws -> RecoverySnapshotResponse? {
+        try await getOptional("/health-sync/recovery")
     }
 
     func getWeightGoal() async throws -> WeightGoalResponse? {

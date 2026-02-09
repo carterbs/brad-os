@@ -195,17 +195,20 @@ class CyclingCoachClient: ObservableObject {
         }
     }
 
-    /// Refresh recommendation using latest recovery data
-    func refresh(healthKit: HealthKitManager) async {
-        guard let recovery = healthKit.latestRecovery else {
-            error = "No recovery data available"
-            return
-        }
-
+    /// Refresh recommendation using latest recovery data from Firebase
+    func refresh() async {
         do {
+            guard let snapshot = try await apiClient.getLatestRecovery(),
+                  let recovery = snapshot.toRecoveryData() else {
+                error = "No recovery data available"
+                return
+            }
             _ = try await getRecommendation(recovery: recovery)
         } catch {
-            // Error already set in getRecommendation
+            // Error already set in getRecommendation (if it was an API error)
+            if self.error == nil {
+                self.error = error.localizedDescription
+            }
         }
     }
 

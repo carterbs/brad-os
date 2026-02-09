@@ -17,3 +17,49 @@ struct WeightHistoryEntry: Codable, Identifiable {
         return formatter.date(from: date)
     }
 }
+
+/// A weight entry for bulk sync to the backend
+struct WeightSyncEntry: Encodable {
+    let weightLbs: Double
+    let date: String       // YYYY-MM-DD
+    let source: String     // "healthkit" or "manual"
+}
+
+/// Recovery snapshot from the backend (stored in Firebase)
+struct RecoverySnapshotResponse: Decodable {
+    let date: String           // YYYY-MM-DD
+    let hrvMs: Double
+    let hrvVsBaseline: Double
+    let rhrBpm: Double
+    let rhrVsBaseline: Double
+    let sleepHours: Double
+    let sleepEfficiency: Double
+    let deepSleepPercent: Double
+    let score: Int
+    let state: String          // "ready", "moderate", "recover"
+    let source: String
+    let syncedAt: String
+
+    /// Convert to the app's RecoveryData model
+    func toRecoveryData() -> RecoveryData? {
+        guard let recoveryState = RecoveryState(rawValue: state) else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        guard let parsedDate = formatter.date(from: date) else { return nil }
+
+        return RecoveryData(
+            date: parsedDate,
+            hrvMs: hrvMs,
+            hrvVsBaseline: hrvVsBaseline,
+            rhrBpm: rhrBpm,
+            rhrVsBaseline: rhrVsBaseline,
+            sleepHours: sleepHours,
+            sleepEfficiency: sleepEfficiency,
+            deepSleepPercent: deepSleepPercent,
+            score: score,
+            state: recoveryState
+        )
+    }
+}

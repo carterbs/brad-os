@@ -1,38 +1,68 @@
 import SwiftUI
 
-/// Dashboard card displaying recovery/readiness status from HealthKit
+/// Dashboard card displaying recovery/readiness status from Firebase.
+///
+/// Architecture: HealthKit → Firebase → App
+/// - HealthKitSyncService pushes recovery data to Firebase
+/// - This card reads recovery from Firebase via APIClient
+/// - HealthKit is only used for auth prompts (to enable the sync)
 struct ReadinessCard: View {
     @EnvironmentObject var healthKit: HealthKitManager
     @State private var isShowingDetail = false
+    @State private var recovery: RecoveryData?
+    @State private var isLoading = false
 
     var body: some View {
         Button(action: {
-            if healthKit.latestRecovery != nil {
+            if recovery != nil {
                 isShowingDetail = true
             }
         }) {
             cardContent
         }
         .buttonStyle(PlainButtonStyle())
-        .disabled(healthKit.isLoading && healthKit.latestRecovery == nil)
+        .disabled(isLoading && recovery == nil)
         .sheet(isPresented: $isShowingDetail) {
-            if let recovery = healthKit.latestRecovery {
+            if let recovery = recovery {
                 RecoveryDetailView(recovery: recovery)
             }
+        }
+        .task {
+            await loadRecovery()
         }
     }
 
     @ViewBuilder
     private var cardContent: some View {
-        if healthKit.isLoading && healthKit.latestRecovery == nil {
+        if isLoading && recovery == nil {
             loadingState
+        } else if let recovery = recovery {
+            recoveryContent(recovery)
         } else if !healthKit.isAuthorized {
             notAuthorizedState
-        } else if let recovery = healthKit.latestRecovery {
-            recoveryContent(recovery)
         } else {
             noDataState
         }
+    }
+
+    // MARK: - Data Loading
+
+    private func loadRecovery() async {
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let snapshot = try await APIClient.shared.getLatestRecovery()
+            recovery = snapshot?.toRecoveryData()
+        } catch {
+            print("[ReadinessCard] Failed to load recovery from API: \(error)")
+            recovery = nil
+        }
+    }
+
+    /// Reload recovery data (called from parent on refresh)
+    func refresh() async {
+        await loadRecovery()
     }
 
     // MARK: - Loading State
@@ -281,84 +311,6 @@ struct ReadinessCard: View {
         .background(AuroraBackground().ignoresSafeArea())
         .environmentObject(manager)
         .preferredColorScheme(.dark)
-        .task {
-            manager.isAuthorized = true
-            manager.latestRecovery = RecoveryData(
-                date: Date(),
-                hrvMs: 42,
-                hrvVsBaseline: 16.7,
-                rhrBpm: 52,
-                rhrVsBaseline: -3,
-                sleepHours: 7.8,
-                sleepEfficiency: 92,
-                deepSleepPercent: 18,
-                score: 78,
-                state: .ready
-            )
-        }
-}
-
-#Preview("Moderate State") {
-    let manager = HealthKitManager()
-
-    return ReadinessCard()
-        .padding()
-        .background(AuroraBackground().ignoresSafeArea())
-        .environmentObject(manager)
-        .preferredColorScheme(.dark)
-        .task {
-            manager.isAuthorized = true
-            manager.latestRecovery = RecoveryData(
-                date: Date(),
-                hrvMs: 32,
-                hrvVsBaseline: -11.1,
-                rhrBpm: 58,
-                rhrVsBaseline: 3,
-                sleepHours: 6.2,
-                sleepEfficiency: 78,
-                deepSleepPercent: 12,
-                score: 58,
-                state: .moderate
-            )
-        }
-}
-
-#Preview("Recover State") {
-    let manager = HealthKitManager()
-
-    return ReadinessCard()
-        .padding()
-        .background(AuroraBackground().ignoresSafeArea())
-        .environmentObject(manager)
-        .preferredColorScheme(.dark)
-        .task {
-            manager.isAuthorized = true
-            manager.latestRecovery = RecoveryData(
-                date: Date(),
-                hrvMs: 24,
-                hrvVsBaseline: -33.3,
-                rhrBpm: 65,
-                rhrVsBaseline: 10,
-                sleepHours: 5.1,
-                sleepEfficiency: 65,
-                deepSleepPercent: 8,
-                score: 35,
-                state: .recover
-            )
-        }
-}
-
-#Preview("Loading State") {
-    let manager = HealthKitManager()
-
-    return ReadinessCard()
-        .padding()
-        .background(AuroraBackground().ignoresSafeArea())
-        .environmentObject(manager)
-        .preferredColorScheme(.dark)
-        .task {
-            manager.isLoading = true
-        }
 }
 
 #Preview("Not Authorized") {
