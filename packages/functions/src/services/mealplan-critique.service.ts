@@ -6,7 +6,7 @@ import type { MealType } from '../shared.js';
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const OPENAI_MODEL = 'gpt-4o';
+const OPENAI_MODEL = 'gpt-5.2';
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 

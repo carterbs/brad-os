@@ -61,6 +61,10 @@ The app uses separate SQLite databases based on `NODE_ENV`:
 
 **Never make direct API calls to test or manipulate data on the dev server.**
 
+## Debugging Guidelines
+
+When debugging issues, check logs and deployed state FIRST before reading source code. Verify that deployed code matches local code, check Firebase/Cloud Function logs, and confirm the environment (dev vs prod) before diving into code-level debugging.
+
 ## Project Overview
 
 A personal wellness tracking system with a native iOS app and Express API backend. Users create workout plans, run 6-week mesocycles with progressive overload, track stretching sessions, and log meditation.
@@ -113,6 +117,10 @@ export const createExerciseSchema = z.object({
 // packages/functions/src/handlers/exercises.ts
 import { createExerciseSchema } from '../shared.js';
 ```
+
+### Shared APIClient (iOS)
+
+This project uses a shared APIClient with App Check for all HTTP requests. Never create separate HTTP layers or bypass the shared APIClient. When wiring new features, always use the existing APIClient pattern.
 
 ### API Patterns
 
@@ -185,6 +193,10 @@ workout.service.test.ts
 exercise.routes.test.ts
 ```
 
+### Type Deduplication
+
+When creating new types or models, ALWAYS search the entire codebase for existing types with the same or similar names first. Avoid creating duplicate types that conflict with existing domain models.
+
 ## When Implementing Features
 
 1. Read the relevant plan in `plans/phase-XX-*.md` first
@@ -252,12 +264,28 @@ Use `/explore-ios` to run exploratory QA testing on the iOS app. This uses:
 | `ui_type` | Text input |
 | `screenshot` | Capture visual state |
 
+### UI / SwiftUI Conventions
+
+Always use the app's shared Theme/color system for UI components. Never hardcode colors. Check for existing design tokens before creating new ones. Dark mode is the default theme.
+
 ### iOS App Details
 
 - **Bundle ID:** `com.bradcarter.brad-os`
 - **Workspace:** `ios/BradOS/BradOS.xcworkspace`
 - **Scheme:** `BradOS`
 - **Features:** Workouts, Stretching, Meditation, Calendar, Profile
+
+## Environment / Deployment
+
+The iOS simulator hits DEV Firebase functions, not production. When testing or debugging cloud functions, always verify which environment the simulator is targeting. Use `firebase deploy` to ensure dev functions are up to date before testing.
+
+## Data Architecture
+
+User health/fitness data (weight, lifting plans, cycling data) is stored in Firebase/Firestore, NOT local SQLite. HealthKit is used for Apple Watch workout data and health metrics. The app reads from Firebase as the source of truth, not directly from HealthKit for display.
+
+## QA / Testing
+
+When asked to QA on a simulator, always validate the feature END-TO-END in the simulator using the MCP iOS simulator tools. Don't just verify the build passes — actually tap through the UI and confirm the feature works.
 
 ## Test Policy (CRITICAL)
 

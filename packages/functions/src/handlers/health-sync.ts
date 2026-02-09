@@ -20,7 +20,7 @@ import {
 const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
-app.use(stripPathPrefix('health'));
+app.use(stripPathPrefix('health-sync'));
 app.use(requireAppCheck);
 
 /**

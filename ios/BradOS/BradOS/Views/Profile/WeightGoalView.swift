@@ -163,8 +163,9 @@ struct WeightGoalView: View {
                     }
                 }
                 .chartXAxis {
-                    AxisMarks(values: .stride(by: .day, count: 7)) { _ in
-                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                    AxisMarks(values: .stride(by: .month, count: 2)) { _ in
+                        AxisValueLabel(format: .dateTime.month(.abbreviated))
+                            .font(.caption2)
                             .foregroundStyle(Theme.textTertiary)
                     }
                 }
