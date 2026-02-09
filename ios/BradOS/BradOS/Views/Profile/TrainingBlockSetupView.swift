@@ -583,38 +583,37 @@ struct TrainingBlockSetupView: View {
 
     @ViewBuilder
     private func activeBlockSection(block: TrainingBlockModel) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
-            SectionHeader(title: "Active Block")
+        VStack(spacing: Theme.Spacing.space4) {
+            // Week indicator with progress bar and phase
+            WeekIndicatorCard(block: block)
 
-            VStack(spacing: 0) {
-                HStack {
-                    Text("Week \(block.currentWeek) of 8")
-                        .font(.headline)
-                        .foregroundColor(Theme.textPrimary)
-                    Spacer()
-                    Text("Ends \(block.endDate, style: .date)")
-                        .foregroundStyle(Theme.textSecondary)
+            // Session queue (if weekly sessions available)
+            if block.weeklySessions != nil {
+                SessionQueueCard(
+                    block: block,
+                    sessionsCompleted: cyclingVM.sessionsCompletedThisWeek,
+                    activities: cyclingVM.activities
+                )
+
+                // Next Up card
+                if let nextSession = cyclingVM.nextSession {
+                    NextUpCard(
+                        session: nextSession,
+                        weekProgress: "\(cyclingVM.sessionsCompletedThisWeek + 1) of \(cyclingVM.weeklySessionsTotal)"
+                    )
+                } else if cyclingVM.sessionsCompletedThisWeek >= cyclingVM.weeklySessionsTotal && cyclingVM.weeklySessionsTotal > 0 {
+                    WeekCompleteCard(sessionsTotal: cyclingVM.weeklySessionsTotal)
                 }
-                .padding(Theme.Spacing.space4)
-                .frame(minHeight: Theme.Dimensions.listRowMinHeight)
-
-                Divider()
-                    .background(Theme.strokeSubtle)
-
-                Button(role: .destructive) {
-                    completeBlockEarly()
-                } label: {
-                    HStack {
-                        Spacer()
-                        Text("Complete Block Early")
-                            .foregroundColor(Theme.destructive)
-                        Spacer()
-                    }
-                }
-                .padding(Theme.Spacing.space4)
-                .frame(minHeight: Theme.Dimensions.listRowMinHeight)
             }
-            .glassCard(.card, padding: 0)
+
+            // Complete block early
+            Button(role: .destructive) {
+                completeBlockEarly()
+            } label: {
+                Text("Complete Block Early")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(GlassSecondaryButtonStyle())
         }
     }
 
