@@ -7,6 +7,7 @@ struct FTPEntryView: View {
     @State private var testDate = Date()
     @State private var source: FTPSource = .manual
     @State private var isSaving = false
+    @State private var saveSuccess = false
     @State private var ftpHistory: [FTPEntry] = []
 
     enum FTPSource: String, CaseIterable {
@@ -36,6 +37,11 @@ struct FTPEntryView: View {
 
                 // Save Button Section
                 saveButtonSection
+
+                // Success Banner
+                if saveSuccess {
+                    ftpSuccessBanner
+                }
 
                 // History Section
                 historySection
@@ -129,6 +135,29 @@ struct FTPEntryView: View {
         .opacity(ftpValue.isEmpty ? 0.5 : 1.0)
     }
 
+    // MARK: - Success Banner
+
+    @ViewBuilder
+    private var ftpSuccessBanner: some View {
+        HStack(spacing: Theme.Spacing.space2) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(Theme.success)
+            Text("FTP saved")
+                .font(.subheadline)
+                .foregroundStyle(Theme.success)
+            Spacer()
+        }
+        .padding(Theme.Spacing.space4)
+        .background(Theme.success.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                withAnimation { saveSuccess = false }
+            }
+        }
+    }
+
     // MARK: - History Section
 
     @ViewBuilder
@@ -206,6 +235,7 @@ struct FTPEntryView: View {
             isSaving = false
 
             if success {
+                withAnimation { saveSuccess = true }
                 // Reload history to show the new entry
                 await loadFTPData()
             }

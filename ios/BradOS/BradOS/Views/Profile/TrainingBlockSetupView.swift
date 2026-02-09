@@ -6,6 +6,7 @@ struct TrainingBlockSetupView: View {
     @State private var startDate = Date()
     @State private var selectedGoals: Set<TrainingBlockModel.TrainingGoal> = []
     @State private var isSaving = false
+    @State private var saveSuccess = false
 
     var endDate: Date {
         Calendar.current.date(byAdding: .weekOfYear, value: 8, to: startDate) ?? startDate
@@ -29,6 +30,11 @@ struct TrainingBlockSetupView: View {
 
                     // Start Button Section
                     startButtonSection
+
+                    // Success Banner
+                    if saveSuccess {
+                        blockSuccessBanner
+                    }
                 }
             }
             .padding(Theme.Spacing.space5)
@@ -205,6 +211,29 @@ struct TrainingBlockSetupView: View {
         .opacity(selectedGoals.isEmpty ? 0.5 : 1.0)
     }
 
+    // MARK: - Success Banner
+
+    @ViewBuilder
+    private var blockSuccessBanner: some View {
+        HStack(spacing: Theme.Spacing.space2) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(Theme.success)
+            Text("Training block started")
+                .font(.subheadline)
+                .foregroundStyle(Theme.success)
+            Spacer()
+        }
+        .padding(Theme.Spacing.space4)
+        .background(Theme.success.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                withAnimation { saveSuccess = false }
+            }
+        }
+    }
+
     // MARK: - Helper Functions
 
     private func iconForGoal(_ goal: TrainingBlockModel.TrainingGoal) -> String {
@@ -233,6 +262,7 @@ struct TrainingBlockSetupView: View {
                 startDate: startDate
             )
             isSaving = false
+            withAnimation { saveSuccess = true }
         }
     }
 

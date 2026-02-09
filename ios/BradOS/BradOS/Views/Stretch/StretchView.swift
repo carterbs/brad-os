@@ -553,10 +553,10 @@ struct RegionToggleCard: View {
                     .accessibilityHidden(true)
 
                 Text(region.displayName)
-                    .font(.subheadline)
+                    .font(.footnote)
                     .foregroundColor(isEnabled ? Theme.textPrimary : Theme.textSecondary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.65)
+                    .minimumScaleFactor(0.8)
 
                 Spacer()
 
