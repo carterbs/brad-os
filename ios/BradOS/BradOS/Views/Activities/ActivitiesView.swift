@@ -193,6 +193,9 @@ struct RecentActivityRow: View {
         case .stretch:
             return "Stretch Session"
         case .meditation:
+            if let meditationType = activity.summary.meditationType {
+                return DayActivityCard.formatMeditationType(meditationType)
+            }
             return "Meditation"
         }
     }
@@ -205,13 +208,14 @@ struct RecentActivityRow: View {
             }
             return ""
         case .stretch:
-            if let completed = activity.summary.regionsCompleted {
-                return "\(completed) regions"
+            if let completed = activity.summary.regionsCompleted, completed > 0 {
+                return "\(completed) \(completed == 1 ? "region" : "regions")"
             }
             return ""
         case .meditation:
-            if let duration = activity.summary.durationSeconds {
-                return "\(duration / 60) minutes"
+            if let duration = activity.summary.durationSeconds, duration > 0 {
+                let minutes = duration / 60
+                return "\(minutes) \(minutes == 1 ? "minute" : "minutes")"
             }
             return ""
         }
