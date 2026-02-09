@@ -120,9 +120,12 @@ targets:
       path: BradOSWatch/Info.plist
       properties:
         WKCompanionAppBundleIdentifier: com.bradcarter.brad-os
+        WKApplication: true
         WKRunsIndependentlyOfCompanionApp: false
         UIBackgroundModes:
           - workout-processing
+        NSHealthShareUsageDescription: Brad OS reads your heart rate during workouts to display real-time metrics.
+        NSHealthUpdateUsageDescription: Brad OS records workout sessions and calories burned to Apple Health.
 
 schemes:
   BradOS:

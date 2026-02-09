@@ -22,9 +22,15 @@
 	<array>
 		<string>workout-processing</string>
 	</array>
+	<key>WKApplication</key>
+	<true/>
 	<key>WKCompanionAppBundleIdentifier</key>
 	<string>com.bradcarter.brad-os</string>
 	<key>WKRunsIndependentlyOfCompanionApp</key>
 	<false/>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Brad OS reads your heart rate during workouts to display real-time metrics.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Brad OS records workout sessions and calories burned to Apple Health.</string>
 </dict>
 </plist>
