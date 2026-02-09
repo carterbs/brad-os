@@ -50,11 +50,18 @@ struct MeditationDashboardCard: View {
                         .font(.subheadline)
                         .foregroundColor(Theme.textSecondary)
 
-                    let minutes = session.actualDurationSeconds / 60
-                    Text("Last session: \(minutes) min")
-                        .font(.caption)
-                        .foregroundColor(Theme.textSecondary)
-                        .monospacedDigit()
+                    if session.actualDurationSeconds < 60 {
+                        Text("Last session: < 1 min")
+                            .font(.caption)
+                            .foregroundColor(Theme.textSecondary)
+                            .monospacedDigit()
+                    } else {
+                        let minutes = session.actualDurationSeconds / 60
+                        Text("Last session: \(minutes) min")
+                            .font(.caption)
+                            .foregroundColor(Theme.textSecondary)
+                            .monospacedDigit()
+                    }
                 }
             } else {
                 Text("No meditation sessions yet")

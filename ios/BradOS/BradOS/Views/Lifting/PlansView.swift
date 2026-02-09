@@ -73,8 +73,12 @@ struct PlansView: View {
             var fetchedPlans = try await apiClient.getPlans()
             // Enrich each plan with its days so the card can show day count
             for i in fetchedPlans.indices {
-                let days = try await apiClient.getPlanDays(planId: fetchedPlans[i].id)
-                fetchedPlans[i].days = days
+                do {
+                    let days = try await apiClient.getPlanDays(planId: fetchedPlans[i].id)
+                    fetchedPlans[i].days = days
+                } catch {
+                    print("[PlansView] Failed to load days for plan \(fetchedPlans[i].id): \(error)")
+                }
             }
             plans = fetchedPlans
             isLoading = false

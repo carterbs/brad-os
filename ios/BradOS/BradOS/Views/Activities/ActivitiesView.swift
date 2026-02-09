@@ -214,8 +214,12 @@ struct RecentActivityRow: View {
             return ""
         case .meditation:
             if let duration = activity.summary.durationSeconds, duration > 0 {
-                let minutes = duration / 60
-                return "\(minutes) \(minutes == 1 ? "minute" : "minutes")"
+                if duration < 60 {
+                    return "< 1 minute"
+                } else {
+                    let minutes = duration / 60
+                    return "\(minutes) \(minutes == 1 ? "minute" : "minutes")"
+                }
             }
             return ""
         }

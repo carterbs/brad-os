@@ -505,11 +505,18 @@ struct DayActivityCard: View {
                         .foregroundColor(Theme.textPrimary)
                 }
                 if let duration = activity.summary.totalDurationSeconds, duration > 0 {
-                    let minutes = duration / 60
-                    Text("\(minutes) \(minutes == 1 ? "minute" : "minutes")")
-                        .font(.caption)
-                        .monospacedDigit()
-                        .foregroundColor(Theme.textSecondary)
+                    if duration < 60 {
+                        Text("< 1 minute")
+                            .font(.caption)
+                            .monospacedDigit()
+                            .foregroundColor(Theme.textSecondary)
+                    } else {
+                        let minutes = duration / 60
+                        Text("\(minutes) \(minutes == 1 ? "minute" : "minutes")")
+                            .font(.caption)
+                            .monospacedDigit()
+                            .foregroundColor(Theme.textSecondary)
+                    }
                 }
             }
 
@@ -521,11 +528,18 @@ struct DayActivityCard: View {
                         .foregroundColor(Theme.textPrimary)
                 }
                 if let duration = activity.summary.durationSeconds, duration > 0 {
-                    let minutes = duration / 60
-                    Text("\(minutes) \(minutes == 1 ? "minute" : "minutes")")
-                        .font(.caption)
-                        .monospacedDigit()
-                        .foregroundColor(Theme.textSecondary)
+                    if duration < 60 {
+                        Text("< 1 minute")
+                            .font(.caption)
+                            .monospacedDigit()
+                            .foregroundColor(Theme.textSecondary)
+                    } else {
+                        let minutes = duration / 60
+                        Text("\(minutes) \(minutes == 1 ? "minute" : "minutes")")
+                            .font(.caption)
+                            .monospacedDigit()
+                            .foregroundColor(Theme.textSecondary)
+                    }
                 }
             }
         }
