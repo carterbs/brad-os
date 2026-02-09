@@ -6,7 +6,7 @@
  */
 
 import OpenAI from 'openai';
-import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions.js';
+import type { ChatCompletionMessageParam, ChatCompletionCreateParamsNonStreaming } from 'openai/resources/chat/completions.js';
 import { info, warn, error as logError } from 'firebase-functions/logger';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
@@ -170,14 +170,15 @@ function isValidCoachResponse(data: unknown): data is CyclingCoachResponse {
  */
 async function callOpenAIWithRetry(
   client: OpenAI,
-  messages: ChatCompletionMessageParam[]
+  messages: ChatCompletionMessageParam[],
+  responseFormat?: ChatCompletionCreateParamsNonStreaming['response_format'],
 ): Promise<string> {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       const start = Date.now();
       const response = await client.chat.completions.create({
         model: OPENAI_MODEL,
-        response_format: { type: 'json_object' },
+        response_format: responseFormat ?? { type: 'json_object' },
         messages,
       });
       const elapsed = Date.now() - start;
@@ -367,9 +368,11 @@ Generate an ordered list of weekly sessions. Sessions are a queue — hardest/mo
 The user trains on Peloton, so recommend Peloton class types (Power Zone Max, Power Zone, Power Zone Endurance, HIIT & Hills, Sweat Steady, Climb, Low Impact, Recovery, Music/Theme rides).
 Do NOT prescribe specific interval protocols — the Peloton instructor handles that.
 
+sessionType MUST be one of these exact strings: "vo2max", "threshold", "endurance", "tempo", "fun", "recovery".
+
 Respond with valid JSON matching this schema:
 {
-  "sessions": [{ "order": number, "sessionType": string, "pelotonClassTypes": string[], "suggestedDurationMinutes": number, "description": string }],
+  "sessions": [{ "order": number, "sessionType": "vo2max"|"threshold"|"endurance"|"tempo"|"fun"|"recovery", "pelotonClassTypes": string[], "suggestedDurationMinutes": number, "description": string }],
   "weeklyPlan": { "totalEstimatedHours": number, "phases": [{ "name": string, "weeks": string, "description": string }] },
   "rationale": string
 }`;
@@ -476,6 +479,59 @@ function createFallbackSchedule(request: GenerateScheduleRequest): GenerateSched
   };
 }
 
+/** Structured output schema for schedule generation — enforces sessionType enum at API level. */
+const SCHEDULE_RESPONSE_FORMAT: ChatCompletionCreateParamsNonStreaming['response_format'] = {
+  type: 'json_schema',
+  json_schema: {
+    name: 'schedule_response',
+    strict: true,
+    schema: {
+      type: 'object',
+      properties: {
+        sessions: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              order: { type: 'number' },
+              sessionType: { type: 'string', enum: ['vo2max', 'threshold', 'endurance', 'tempo', 'fun', 'recovery'] },
+              pelotonClassTypes: { type: 'array', items: { type: 'string' } },
+              suggestedDurationMinutes: { type: 'number' },
+              description: { type: 'string' },
+            },
+            required: ['order', 'sessionType', 'pelotonClassTypes', 'suggestedDurationMinutes', 'description'],
+            additionalProperties: false,
+          },
+        },
+        weeklyPlan: {
+          type: 'object',
+          properties: {
+            totalEstimatedHours: { type: 'number' },
+            phases: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string' },
+                  weeks: { type: 'string' },
+                  description: { type: 'string' },
+                },
+                required: ['name', 'weeks', 'description'],
+                additionalProperties: false,
+              },
+            },
+          },
+          required: ['totalEstimatedHours', 'phases'],
+          additionalProperties: false,
+        },
+        rationale: { type: 'string' },
+      },
+      required: ['sessions', 'weeklyPlan', 'rationale'],
+      additionalProperties: false,
+    },
+  },
+};
+
 /**
  * Generate a weekly training schedule using AI.
  *
@@ -506,7 +562,7 @@ export async function generateSchedule(
   });
 
   try {
-    const responseContent = await callOpenAIWithRetry(client, messages);
+    const responseContent = await callOpenAIWithRetry(client, messages, SCHEDULE_RESPONSE_FORMAT);
     const parsed: unknown = JSON.parse(responseContent);
 
     if (isValidScheduleResponse(parsed, request.sessionsPerWeek)) {

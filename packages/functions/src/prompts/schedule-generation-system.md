@@ -93,11 +93,18 @@ Respond with a valid JSON object matching this exact schema:
 }
 ```
 
-Important:
-- You MUST return exactly `sessionsPerWeek` sessions in the `sessions` array. No more, no less. If the input says `sessionsPerWeek: 2`, return exactly 2 sessions. If it says `sessionsPerWeek: 4`, return exactly 4 sessions.
-- `sessionType` must be one of: vo2max, threshold, endurance, tempo, fun, recovery
-- `pelotonClassTypes` should list 2-3 Peloton class types that match the session intent
-- `description` should be a short, friendly instruction for finding the right class
-- `suggestedDurationMinutes` should be 20, 30, 45, or 60
-- Phases should be Peloton-framed (reference class durations, not interval protocols)
-- `rationale` should explain why you chose this arrangement
+## Rules (CRITICAL)
+
+1. Return exactly `sessionsPerWeek` sessions. No more, no less.
+2. `sessionType` MUST be one of these exact lowercase strings — no variations, no synonyms:
+   - `"vo2max"` — for VO2max / high-intensity work
+   - `"threshold"` — for threshold / sweet spot work
+   - `"endurance"` — for aerobic base / low intensity
+   - `"tempo"` — for tempo / moderate intensity
+   - `"fun"` — for motivation / enjoyment rides
+   - `"recovery"` — for active recovery
+3. `pelotonClassTypes` — list 2-3 Peloton class types from the reference table above.
+4. `description` — short, friendly instruction for finding the right class.
+5. `suggestedDurationMinutes` — must be 20, 30, 45, or 60.
+6. Phases should be Peloton-framed (reference class durations, not interval protocols).
+7. `rationale` — explain why you chose this arrangement for this athlete.

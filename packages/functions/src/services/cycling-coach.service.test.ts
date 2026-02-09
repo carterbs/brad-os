@@ -248,7 +248,7 @@ describe('CyclingCoachService', () => {
     it('should include explicit session count instruction', () => {
       const prompt = buildScheduleGenerationPrompt();
 
-      expect(prompt).toContain('MUST return exactly');
+      expect(prompt).toContain('Return exactly');
       expect(prompt).toContain('sessionsPerWeek');
       expect(prompt).toContain('No more, no less');
     });
