@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildSystemPrompt } from './cycling-coach.service.js';
+import { buildSystemPrompt, buildScheduleGenerationPrompt } from './cycling-coach.service.js';
 
 describe('CyclingCoachService', () => {
   describe('buildSystemPrompt', () => {
@@ -8,33 +8,45 @@ describe('CyclingCoachService', () => {
       const prompt = buildSystemPrompt(philosophy);
 
       expect(prompt).toContain('Test philosophy content');
-      expect(prompt).toContain('AI cycling coach');
+      expect(prompt).toContain('cycling coach');
     });
 
-    it('should include power zones in system prompt', () => {
+    it('should reference Peloton class types', () => {
       const prompt = buildSystemPrompt('');
 
-      expect(prompt).toContain('Z1 Active Recovery');
-      expect(prompt).toContain('Z5 VO2max');
-      expect(prompt).toContain('106-120%');
+      expect(prompt).toContain('Power Zone Max');
+      expect(prompt).toContain('HIIT & Hills');
+      expect(prompt).toContain('Sweat Steady');
+      expect(prompt).toContain('Power Zone Endurance');
+      expect(prompt).toContain('Recovery Ride');
     });
 
-    it('should include session types in response format', () => {
+    it('should include expanded session types in response format', () => {
       const prompt = buildSystemPrompt('');
 
       expect(prompt).toContain('"vo2max"');
       expect(prompt).toContain('"threshold"');
+      expect(prompt).toContain('"endurance"');
+      expect(prompt).toContain('"tempo"');
       expect(prompt).toContain('"fun"');
       expect(prompt).toContain('"recovery"');
       expect(prompt).toContain('"off"');
+    });
+
+    it('should include Peloton-aware response format', () => {
+      const prompt = buildSystemPrompt('');
+
+      expect(prompt).toContain('pelotonClassTypes');
+      expect(prompt).toContain('pelotonTip');
+      expect(prompt).not.toContain('"intervals"');
     });
 
     it('should include decision framework', () => {
       const prompt = buildSystemPrompt('');
 
       expect(prompt).toContain('Decision Framework');
-      expect(prompt).toContain('Check session type');
-      expect(prompt).toContain('Assess recovery state');
+      expect(prompt).toContain('next session');
+      expect(prompt).toContain('recovery state');
     });
 
     it('should include JSON response format instructions', () => {
@@ -48,15 +60,51 @@ describe('CyclingCoachService', () => {
       expect(prompt).toContain('suggestFTPTest');
     });
 
-    it('should mention specific days for session types', () => {
+    it('should include recovery-based Peloton adjustments', () => {
       const prompt = buildSystemPrompt('');
 
-      expect(prompt).toContain('Tuesday');
-      expect(prompt).toContain('Thursday');
-      expect(prompt).toContain('Saturday');
-      expect(prompt).toContain('VO2max intervals');
-      expect(prompt).toContain('Threshold');
-      expect(prompt).toContain('fun');
+      expect(prompt).toContain('Recovery-Based Adjustments');
+      expect(prompt).toContain('Low Impact');
+      expect(prompt).toContain('Recovery Ride');
+    });
+
+    it('should not reference specific interval protocols', () => {
+      const prompt = buildSystemPrompt('');
+
+      expect(prompt).not.toContain('30/30 Billat');
+      expect(prompt).not.toContain('30/120 intervals');
+      expect(prompt).not.toContain('40/20 intervals');
+    });
+
+    it('should reference lifting interference with Peloton class swaps', () => {
+      const prompt = buildSystemPrompt('');
+
+      expect(prompt).toContain('lifting');
+      expect(prompt).toContain('Low Impact');
+    });
+  });
+
+  describe('buildScheduleGenerationPrompt', () => {
+    it('should return a non-empty string', () => {
+      const prompt = buildScheduleGenerationPrompt();
+      expect(prompt.length).toBeGreaterThan(100);
+    });
+
+    it('should reference Peloton class types', () => {
+      const prompt = buildScheduleGenerationPrompt();
+
+      expect(prompt).toContain('Power Zone Max');
+      expect(prompt).toContain('Peloton');
+      expect(prompt).toContain('sessions');
+    });
+
+    it('should include response format with required fields', () => {
+      const prompt = buildScheduleGenerationPrompt();
+
+      expect(prompt).toContain('sessionType');
+      expect(prompt).toContain('pelotonClassTypes');
+      expect(prompt).toContain('suggestedDurationMinutes');
+      expect(prompt).toContain('rationale');
     });
   });
 });

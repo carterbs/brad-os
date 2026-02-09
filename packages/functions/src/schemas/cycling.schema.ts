@@ -14,6 +14,12 @@ export const trainingGoalSchema = z.enum([
   'lose_weight',
 ]);
 
+export const experienceLevelSchema = z.enum([
+  'beginner',
+  'intermediate',
+  'advanced',
+]);
+
 export const ftpSourceSchema = z.enum(['manual', 'test']);
 
 // --- FTP Entry Schema ---
@@ -31,6 +37,17 @@ export type CreateFTPEntryInput = z.infer<typeof createFTPEntrySchema>;
 
 // --- Training Block Schema ---
 
+// --- Weekly Session Schema ---
+
+const weeklySessionSchema = z.object({
+  order: z.number().int().positive(),
+  sessionType: z.enum(['vo2max', 'threshold', 'endurance', 'tempo', 'fun', 'recovery', 'off']),
+  pelotonClassTypes: z.array(z.string()),
+  suggestedDurationMinutes: z.number().positive(),
+  description: z.string(),
+  preferredDay: z.number().int().min(0).max(6).optional(),
+});
+
 /**
  * Schema for creating a new training block.
  */
@@ -38,9 +55,30 @@ export const createTrainingBlockSchema = z.object({
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
   endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
   goals: z.array(trainingGoalSchema).min(1).max(3),
+  daysPerWeek: z.number().int().min(2).max(5).optional(),
+  weeklySessions: z.array(weeklySessionSchema).optional(),
+  preferredDays: z.array(z.number().int().min(0).max(6)).optional(),
+  experienceLevel: experienceLevelSchema.optional(),
+  weeklyHoursAvailable: z.number().min(1).max(20).optional(),
 });
 
 export type CreateTrainingBlockInput = z.infer<typeof createTrainingBlockSchema>;
+
+// --- Generate Schedule Schema ---
+
+/**
+ * Schema for the schedule generation endpoint request.
+ */
+export const generateScheduleSchema = z.object({
+  sessionsPerWeek: z.number().int().min(2).max(5),
+  preferredDays: z.array(z.number().int().min(0).max(6)),
+  goals: z.array(trainingGoalSchema).min(1).max(3),
+  experienceLevel: experienceLevelSchema,
+  weeklyHoursAvailable: z.number().min(1).max(20),
+  ftp: z.number().positive().max(500).optional(),
+});
+
+export type GenerateScheduleInput = z.infer<typeof generateScheduleSchema>;
 
 // --- Weight Goal Schema ---
 

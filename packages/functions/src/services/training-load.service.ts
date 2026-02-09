@@ -5,6 +5,8 @@
  * (ATL, CTL, TSB) for cycling activities.
  */
 
+import type { WeeklySession, SessionType } from '../shared.js';
+
 /**
  * Daily TSS entry for training load calculations.
  */
@@ -284,4 +286,102 @@ export function calculateTrainingLoadMetrics(
   const tsb = calculateTSB(ctl, atl);
 
   return { atl, ctl, tsb };
+}
+
+/**
+ * Get the Monday-Sunday boundaries for the week containing the given date.
+ *
+ * @param date - The date to get boundaries for (defaults to today)
+ * @returns Start (Monday) and end (Sunday) dates in YYYY-MM-DD format
+ */
+export function getWeekBoundaries(date?: Date): { start: string; end: string } {
+  const d = date ? new Date(date) : new Date();
+  d.setHours(0, 0, 0, 0);
+
+  // getDay() returns 0 for Sunday, 1 for Monday, etc.
+  const dayOfWeek = d.getDay();
+  // Calculate offset to Monday: Sunday (0) -> -6, Monday (1) -> 0, Tue (2) -> -1, etc.
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + mondayOffset);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const formatDate = (dt: Date): string => {
+    const year = dt.getFullYear();
+    const month = String(dt.getMonth() + 1).padStart(2, '0');
+    const day = String(dt.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  return { start: formatDate(monday), end: formatDate(sunday) };
+}
+
+/**
+ * Map a cycling activity type to a session type for matching.
+ * Used when matching Strava activities against the weekly session queue.
+ */
+function activityTypeToSessionType(activityType: string): SessionType | null {
+  switch (activityType) {
+    case 'vo2max':
+      return 'vo2max';
+    case 'threshold':
+      return 'threshold';
+    case 'fun':
+      return 'fun';
+    case 'recovery':
+      return 'recovery';
+    default:
+      return null;
+  }
+}
+
+/**
+ * Determine which session is next in the weekly queue.
+ *
+ * Walks the session queue in order and tries to match each session against
+ * completed activities by session type. Each activity can only match one
+ * session (consumed in order). Returns the first unmatched session, or null
+ * if all sessions have been completed this week.
+ *
+ * @param weeklySessions - The ordered list of sessions for the week
+ * @param completedActivities - This week's completed cycling activities
+ * @returns The next incomplete session, or null if all done
+ */
+export function determineNextSession(
+  weeklySessions: WeeklySession[],
+  completedActivities: { type: string }[]
+): WeeklySession | null {
+  if (weeklySessions.length === 0) {
+    return null;
+  }
+
+  // Build a pool of available activity types (can be consumed)
+  const availableActivities = completedActivities
+    .map((a) => activityTypeToSessionType(a.type))
+    .filter((t): t is SessionType => t !== null);
+
+  // Track which activities have been consumed
+  const consumed = new Array<boolean>(availableActivities.length).fill(false);
+
+  for (const session of weeklySessions) {
+    // Try to find a matching activity for this session
+    let matched = false;
+    for (let i = 0; i < availableActivities.length; i++) {
+      if (consumed[i] !== true && availableActivities[i] === session.sessionType) {
+        consumed[i] = true;
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) {
+      return session;
+    }
+  }
+
+  // All sessions matched - week is complete
+  return null;
 }

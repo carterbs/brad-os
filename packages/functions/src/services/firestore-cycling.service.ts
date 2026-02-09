@@ -17,6 +17,7 @@ import { getFirestoreDb, getCollectionName } from '../firebase.js';
 import type {
   CyclingActivity,
   TrainingBlock,
+  WeeklySession,
   FTPEntry,
   WeightGoal,
   StravaTokens,
@@ -369,6 +370,32 @@ export async function getCurrentTrainingBlock(
   }
 
   const data = doc.data();
+
+  // Backward compat: blocks without weeklySessions get default 3-session queue
+  const defaultSessions: WeeklySession[] = [
+    {
+      order: 1,
+      sessionType: 'vo2max',
+      pelotonClassTypes: ['Power Zone Max', 'HIIT & Hills'],
+      suggestedDurationMinutes: 30,
+      description: 'High-intensity — search for a PZ Max or HIIT class',
+    },
+    {
+      order: 2,
+      sessionType: 'threshold',
+      pelotonClassTypes: ['Power Zone', 'Sweat Steady'],
+      suggestedDurationMinutes: 45,
+      description: 'Sustained effort — search for a Power Zone or Sweat Steady class',
+    },
+    {
+      order: 3,
+      sessionType: 'fun',
+      pelotonClassTypes: ['Music', 'Theme', 'Scenic'],
+      suggestedDurationMinutes: 30,
+      description: 'Fun ride — whatever you enjoy',
+    },
+  ];
+
   return {
     id: doc.id,
     userId: data['userId'] as string,
@@ -377,6 +404,11 @@ export async function getCurrentTrainingBlock(
     currentWeek: data['currentWeek'] as number,
     goals: data['goals'] as TrainingBlock['goals'],
     status: data['status'] as TrainingBlock['status'],
+    daysPerWeek: (data['daysPerWeek'] as number | undefined) ?? undefined,
+    weeklySessions: (data['weeklySessions'] as WeeklySession[] | undefined) ?? defaultSessions,
+    preferredDays: (data['preferredDays'] as number[] | undefined) ?? undefined,
+    experienceLevel: (data['experienceLevel'] as TrainingBlock['experienceLevel']) ?? undefined,
+    weeklyHoursAvailable: (data['weeklyHoursAvailable'] as number | undefined) ?? undefined,
   };
 }
 
@@ -426,20 +458,46 @@ export async function createTrainingBlock(
   const userDoc = getUserDoc(userId);
   const id = randomUUID();
 
-  const blockData = {
+  const blockData: Record<string, unknown> = {
     userId,
     startDate: block.startDate,
     endDate: block.endDate,
-    currentWeek: 1, // Always starts at week 1
+    currentWeek: 1,
     goals: block.goals,
     status: 'active' as const,
   };
+
+  if (block.daysPerWeek !== undefined) {
+    blockData['daysPerWeek'] = block.daysPerWeek;
+  }
+  if (block.weeklySessions !== undefined) {
+    blockData['weeklySessions'] = block.weeklySessions;
+  }
+  if (block.preferredDays !== undefined) {
+    blockData['preferredDays'] = block.preferredDays;
+  }
+  if (block.experienceLevel !== undefined) {
+    blockData['experienceLevel'] = block.experienceLevel;
+  }
+  if (block.weeklyHoursAvailable !== undefined) {
+    blockData['weeklyHoursAvailable'] = block.weeklyHoursAvailable;
+  }
 
   await userDoc.collection('trainingBlocks').doc(id).set(blockData);
 
   return {
     id,
-    ...blockData,
+    userId,
+    startDate: block.startDate,
+    endDate: block.endDate,
+    currentWeek: 1,
+    goals: block.goals,
+    status: 'active',
+    daysPerWeek: block.daysPerWeek,
+    weeklySessions: block.weeklySessions,
+    preferredDays: block.preferredDays,
+    experienceLevel: block.experienceLevel,
+    weeklyHoursAvailable: block.weeklyHoursAvailable,
   };
 }
 

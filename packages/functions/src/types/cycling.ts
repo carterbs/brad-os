@@ -63,6 +63,11 @@ export interface TrainingBlock {
   currentWeek: number;
   goals: TrainingGoal[];
   status: TrainingBlockStatus;
+  daysPerWeek?: number;
+  weeklySessions?: WeeklySession[];
+  preferredDays?: number[];
+  experienceLevel?: ExperienceLevel;
+  weeklyHoursAvailable?: number;
 }
 
 // --- FTP Types ---
@@ -153,6 +158,7 @@ export interface LiftingWorkoutSummary {
   workoutDayName: string;
   setsCompleted: number;
   totalVolume: number; // Total weight moved (lbs)
+  isLowerBody?: boolean;
 }
 
 // --- Strava Integration Types ---
@@ -169,7 +175,60 @@ export interface StravaTokens {
 
 // --- Cycling Coach Request/Response Types ---
 
-export type SessionType = 'vo2max' | 'threshold' | 'fun' | 'recovery' | 'off';
+export type SessionType = 'vo2max' | 'threshold' | 'endurance' | 'tempo' | 'fun' | 'recovery' | 'off';
+
+export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
+
+/**
+ * A session in the weekly training queue.
+ * Sessions are ordered by priority (hardest first, fun last).
+ */
+export interface WeeklySession {
+  order: number;
+  sessionType: SessionType;
+  pelotonClassTypes: string[];
+  suggestedDurationMinutes: number;
+  description: string;
+  preferredDay?: number; // 0-6 (Sun-Sat), hint only
+}
+
+/**
+ * Request to generate a weekly schedule via AI.
+ */
+export interface GenerateScheduleRequest {
+  sessionsPerWeek: number;
+  preferredDays: number[];
+  goals: TrainingGoal[];
+  experienceLevel: ExperienceLevel;
+  weeklyHoursAvailable: number;
+  ftp?: number;
+}
+
+/**
+ * Phase summary within the 8-week block.
+ */
+export interface PhaseSummary {
+  name: string;
+  weeks: string;
+  description: string;
+}
+
+/**
+ * Weekly plan summary returned by schedule generation.
+ */
+export interface WeeklyPlanSummary {
+  totalEstimatedHours: number;
+  phases: PhaseSummary[];
+}
+
+/**
+ * Response from the schedule generation endpoint.
+ */
+export interface GenerateScheduleResponse {
+  sessions: WeeklySession[];
+  weeklyPlan: WeeklyPlanSummary;
+  rationale: string;
+}
 
 /**
  * Training load metrics for the cycling coach.
@@ -206,9 +265,9 @@ export interface WeightMetrics {
  * Lifting schedule context for the cycling coach.
  */
 export interface LiftingScheduleContext {
-  today: { planned: boolean; workoutName?: string };
-  tomorrow: { planned: boolean; workoutName?: string };
-  yesterday: { completed: boolean; workoutName?: string };
+  today: { planned: boolean; workoutName?: string; isLowerBody?: boolean };
+  tomorrow: { planned: boolean; workoutName?: string; isLowerBody?: boolean };
+  yesterday: { completed: boolean; workoutName?: string; isLowerBody?: boolean };
 }
 
 /**
@@ -217,6 +276,10 @@ export interface LiftingScheduleContext {
 export interface ScheduleContext {
   dayOfWeek: string;
   sessionType: 'vo2max' | 'threshold' | 'fun';
+  nextSession: WeeklySession | null;
+  sessionsCompletedThisWeek: number;
+  totalSessionsThisWeek: number;
+  weeklySessionQueue: WeeklySession[];
   liftingSchedule: LiftingScheduleContext;
 }
 
@@ -257,7 +320,8 @@ export interface TargetTSSRange {
 export interface SessionRecommendation {
   type: SessionType;
   durationMinutes: number;
-  intervals?: IntervalWorkout;
+  pelotonClassTypes: string[];
+  pelotonTip: string;
   targetTSS: TargetTSSRange;
   targetZones: string;
 }

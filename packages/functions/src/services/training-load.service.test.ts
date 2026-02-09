@@ -8,8 +8,11 @@ import {
   getWeekInBlock,
   buildDailyTSSArray,
   calculateTrainingLoadMetrics,
+  determineNextSession,
+  getWeekBoundaries,
   type DailyTSS,
 } from './training-load.service.js';
+import type { WeeklySession } from '../shared.js';
 
 describe('Training Load Service', () => {
   describe('calculateTSS', () => {
@@ -307,6 +310,150 @@ describe('Training Load Service', () => {
       // resulting in a lower CTL. However, due to EMA math, the difference
       // might be subtle. At minimum, longMetrics should not be higher.
       expect(shortMetrics.ctl).toBeGreaterThanOrEqual(longMetrics.ctl);
+    });
+  });
+
+  describe('determineNextSession', () => {
+    const threeSessions: WeeklySession[] = [
+      {
+        order: 1,
+        sessionType: 'vo2max',
+        pelotonClassTypes: ['Power Zone Max', 'HIIT & Hills'],
+        suggestedDurationMinutes: 30,
+        description: 'High-intensity',
+      },
+      {
+        order: 2,
+        sessionType: 'threshold',
+        pelotonClassTypes: ['Power Zone', 'Sweat Steady'],
+        suggestedDurationMinutes: 45,
+        description: 'Sustained effort',
+      },
+      {
+        order: 3,
+        sessionType: 'fun',
+        pelotonClassTypes: ['Music', 'Theme'],
+        suggestedDurationMinutes: 30,
+        description: 'Fun ride',
+      },
+    ];
+
+    it('should return the first session when no activities completed', () => {
+      const result = determineNextSession(threeSessions, []);
+      expect(result).toEqual(expect.objectContaining({ order: 1, sessionType: 'vo2max' }));
+    });
+
+    it('should return the second session after first is completed', () => {
+      const activities = [{ type: 'vo2max' }];
+      const result = determineNextSession(threeSessions, activities);
+      expect(result).toEqual(expect.objectContaining({ order: 2, sessionType: 'threshold' }));
+    });
+
+    it('should return the third session after first two are completed', () => {
+      const activities = [{ type: 'vo2max' }, { type: 'threshold' }];
+      const result = determineNextSession(threeSessions, activities);
+      expect(result).toEqual(expect.objectContaining({ order: 3, sessionType: 'fun' }));
+    });
+
+    it('should return null when all sessions are completed', () => {
+      const activities = [{ type: 'vo2max' }, { type: 'threshold' }, { type: 'fun' }];
+      const result = determineNextSession(threeSessions, activities);
+      expect(result).toBeNull();
+    });
+
+    it('should handle activities in any order', () => {
+      const activities = [{ type: 'threshold' }, { type: 'vo2max' }];
+      const result = determineNextSession(threeSessions, activities);
+      expect(result).toEqual(expect.objectContaining({ order: 3, sessionType: 'fun' }));
+    });
+
+    it('should not double-count a single activity for two sessions', () => {
+      const vo2maxSession = threeSessions[0] as WeeklySession;
+      const funSession = threeSessions[2] as WeeklySession;
+      const sessions: WeeklySession[] = [
+        { ...vo2maxSession },
+        { ...vo2maxSession, order: 2 },
+        { ...funSession, order: 3 },
+      ];
+      const activities = [{ type: 'vo2max' }];
+      const result = determineNextSession(sessions, activities);
+      expect(result).toEqual(expect.objectContaining({ order: 2 }));
+    });
+
+    it('should return null for empty session list', () => {
+      const result = determineNextSession([], []);
+      expect(result).toBeNull();
+    });
+
+    it('should ignore unrecognized activity types', () => {
+      const activities = [{ type: 'unknown' }];
+      const result = determineNextSession(threeSessions, activities);
+      expect(result).toEqual(expect.objectContaining({ order: 1 }));
+    });
+
+    it('should handle recovery activity type matching', () => {
+      const sessions: WeeklySession[] = [
+        {
+          order: 1,
+          sessionType: 'recovery',
+          pelotonClassTypes: ['Low Impact', 'Recovery Ride'],
+          suggestedDurationMinutes: 20,
+          description: 'Easy ride',
+        },
+      ];
+      const activities = [{ type: 'recovery' }];
+      const result = determineNextSession(sessions, activities);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getWeekBoundaries', () => {
+    it('should return Monday to Sunday for a Wednesday', () => {
+      // Feb 5, 2025 is a Wednesday
+      const date = new Date(2025, 1, 5);
+      const { start, end } = getWeekBoundaries(date);
+      expect(start).toBe('2025-02-03');
+      expect(end).toBe('2025-02-09');
+    });
+
+    it('should return correct boundaries for Monday', () => {
+      // Feb 3, 2025 is a Monday
+      const date = new Date(2025, 1, 3);
+      const { start, end } = getWeekBoundaries(date);
+      expect(start).toBe('2025-02-03');
+      expect(end).toBe('2025-02-09');
+    });
+
+    it('should return correct boundaries for Sunday', () => {
+      // Feb 9, 2025 is a Sunday
+      const date = new Date(2025, 1, 9);
+      const { start, end } = getWeekBoundaries(date);
+      expect(start).toBe('2025-02-03');
+      expect(end).toBe('2025-02-09');
+    });
+
+    it('should return correct boundaries for Saturday', () => {
+      // Feb 8, 2025 is a Saturday
+      const date = new Date(2025, 1, 8);
+      const { start, end } = getWeekBoundaries(date);
+      expect(start).toBe('2025-02-03');
+      expect(end).toBe('2025-02-09');
+    });
+
+    it('should handle week boundary across months', () => {
+      // Jan 31, 2025 is a Friday
+      const date = new Date(2025, 0, 31);
+      const { start, end } = getWeekBoundaries(date);
+      expect(start).toBe('2025-01-27');
+      expect(end).toBe('2025-02-02');
+    });
+
+    it('should handle week boundary across years', () => {
+      // Dec 31, 2024 is a Tuesday
+      const date = new Date(2024, 11, 31);
+      const { start, end } = getWeekBoundaries(date);
+      expect(start).toBe('2024-12-30');
+      expect(end).toBe('2025-01-05');
     });
   });
 });
