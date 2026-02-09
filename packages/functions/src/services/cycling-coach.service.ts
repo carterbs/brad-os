@@ -110,6 +110,15 @@ Respond with a valid JSON object matching this exact schema:
 - maxHR/restingHR: use for HR zone guidance when provided.
 - ftpHistory: if FTP has plateaued for 3+ tests, suggest changing training stimulus.
 
+### Efficiency Factor (EF) Trend
+- efTrend compares recent 4-week avg EF to previous 4-week avg. "improving" = aerobic fitness gains. "declining" = possible fatigue or detraining.
+- Declining EF with high training load → suggest reducing volume.
+
+### Mesocycle Context
+- mesocycleContext shows the current lifting mesocycle week and plan name.
+- Deload week (week 7): lifting volume is halved — the athlete can push harder on the bike.
+- Heavy lifting weeks (weeks 2, 4, 6): be conservative with cycling intensity, especially after lower body days.
+
 Important notes:
 - pelotonClassTypes should list 2-3 Peloton class types that match the session intent
 - pelotonTip should be a short, friendly instruction for finding and riding the right class

@@ -312,6 +312,30 @@ export interface RecoveryHistoryEntry {
   sleepHours: number;
 }
 
+// --- EF Trend Summary ---
+
+export type EFTrend = 'improving' | 'stable' | 'declining';
+
+/**
+ * Efficiency Factor trend over recent weeks.
+ */
+export interface EFTrendSummary {
+  recent4WeekAvg: number;
+  previous4WeekAvg: number;
+  trend: EFTrend;
+}
+
+// --- Mesocycle Context for Coach ---
+
+/**
+ * Context about the current lifting mesocycle for the cycling coach.
+ */
+export interface MesocycleContext {
+  currentWeek: number; // 1-7
+  isDeloadWeek: boolean;
+  planName: string;
+}
+
 /**
  * Request payload for the cycling coach AI.
  */
@@ -324,6 +348,8 @@ export interface CyclingCoachRequest {
   schedule: ScheduleContext;
   recoveryHistory?: RecoveryHistoryEntry[];
   vo2max?: VO2MaxContext;
+  efTrend?: EFTrendSummary;
+  mesocycleContext?: MesocycleContext;
 }
 
 /**

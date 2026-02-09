@@ -126,6 +126,24 @@ describe('CyclingCoachService', () => {
       expect(prompt).toContain('plateaued');
       expect(prompt).toContain('training stimulus');
     });
+
+    it('should include EF trend interpretation guidance', () => {
+      const prompt = buildSystemPrompt('');
+
+      expect(prompt).toContain('Efficiency Factor');
+      expect(prompt).toContain('efTrend');
+      expect(prompt).toContain('aerobic fitness');
+      expect(prompt).toContain('declining');
+    });
+
+    it('should include mesocycle context guidance', () => {
+      const prompt = buildSystemPrompt('');
+
+      expect(prompt).toContain('Mesocycle Context');
+      expect(prompt).toContain('mesocycleContext');
+      expect(prompt).toContain('Deload week');
+      expect(prompt).toContain('push harder on the bike');
+    });
   });
 
   describe('isValidScheduleResponse', () => {

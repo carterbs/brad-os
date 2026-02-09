@@ -27,9 +27,12 @@ import {
   getPlanDayRepository,
   getWorkoutSetRepository,
 } from '../repositories/index.js';
+import { MesocycleService } from '../services/mesocycle.service.js';
+import { getFirestoreDb } from '../firebase.js';
 import type {
   RecoverySnapshot,
   CyclingCoachRequest,
+  CyclingActivity,
   GenerateScheduleRequest,
   WeeklySession,
   LiftingWorkoutSummary,
@@ -40,6 +43,9 @@ import type {
   WeightMetrics,
   VO2MaxContext,
   RecoveryHistoryEntry,
+  EFTrendSummary,
+  EFTrend,
+  MesocycleContext,
 } from '../shared.js';
 
 // Define secret for OpenAI API key
@@ -171,6 +177,80 @@ function computeWeightMetrics(
     trend7DayLbs,
     trend30DayLbs,
     goal: weightGoal ?? undefined,
+  };
+}
+
+/**
+ * Compute EF trend from cycling activities that have valid EF values.
+ * Compares recent 4-week avg to previous 4-week avg.
+ * >3% change = improving/declining, otherwise stable.
+ */
+function computeEFTrend(activities: CyclingActivity[]): EFTrendSummary | undefined {
+  const withEF = activities.filter((a) => a.ef !== undefined && a.ef > 0);
+  if (withEF.length < 4) {
+    return undefined;
+  }
+
+  const now = new Date();
+  const fourWeeksAgo = new Date(now);
+  fourWeeksAgo.setDate(now.getDate() - 28);
+  const eightWeeksAgo = new Date(now);
+  eightWeeksAgo.setDate(now.getDate() - 56);
+
+  const fourWeeksAgoStr = formatDate(fourWeeksAgo);
+  const eightWeeksAgoStr = formatDate(eightWeeksAgo);
+
+  const recent = withEF.filter((a) => {
+    const d = a.date.split('T')[0] ?? a.date;
+    return d >= fourWeeksAgoStr;
+  });
+  const previous = withEF.filter((a) => {
+    const d = a.date.split('T')[0] ?? a.date;
+    return d >= eightWeeksAgoStr && d < fourWeeksAgoStr;
+  });
+
+  if (recent.length === 0 || previous.length === 0) {
+    return undefined;
+  }
+
+  const recentAvg = recent.reduce((sum, a) => sum + (a.ef ?? 0), 0) / recent.length;
+  const previousAvg = previous.reduce((sum, a) => sum + (a.ef ?? 0), 0) / previous.length;
+
+  const changePercent = ((recentAvg - previousAvg) / previousAvg) * 100;
+  let trend: EFTrend = 'stable';
+  if (changePercent > 3) trend = 'improving';
+  else if (changePercent < -3) trend = 'declining';
+
+  return {
+    recent4WeekAvg: Math.round(recentAvg * 100) / 100,
+    previous4WeekAvg: Math.round(previousAvg * 100) / 100,
+    trend,
+  };
+}
+
+// Lazy MesocycleService initialization (same pattern as mesocycles handler)
+let mesocycleServiceInstance: MesocycleService | null = null;
+function getMesocycleServiceInstance(): MesocycleService {
+  if (mesocycleServiceInstance === null) {
+    mesocycleServiceInstance = new MesocycleService(getFirestoreDb());
+  }
+  return mesocycleServiceInstance;
+}
+
+/**
+ * Build mesocycle context for the cycling coach.
+ */
+async function buildMesocycleContext(): Promise<MesocycleContext | undefined> {
+  const service = getMesocycleServiceInstance();
+  const active = await service.getActive();
+  if (!active) {
+    return undefined;
+  }
+
+  return {
+    currentWeek: active.current_week,
+    isDeloadWeek: active.current_week === 7,
+    planName: active.plan_name,
   };
 }
 
@@ -428,12 +508,16 @@ app.post(
       ? weeklySessions.filter((s) => s.order >= nextSession.order).length
       : 0);
 
-    // Build lifting context in parallel
+    // Build lifting context, mesocycle context in parallel
     const timezoneOffset = parseInt(req.headers['x-timezone-offset'] as string, 10) || 0;
-    const [recentLiftingWorkouts, liftingSchedule] = await Promise.all([
+    const [recentLiftingWorkouts, liftingSchedule, mesocycleContext] = await Promise.all([
       buildLiftingContext(timezoneOffset),
       buildLiftingSchedule(),
+      buildMesocycleContext(),
     ]);
+
+    // Compute EF trend from the 60-day activities (no extra Firestore reads)
+    const efTrend = computeEFTrend(activities);
 
     // Build VO2 max context if available
     const vo2max: VO2MaxContext | undefined = latestVO2Max
@@ -493,6 +577,8 @@ app.post(
       },
       recoveryHistory: recoveryHistoryEntries.length > 0 ? recoveryHistoryEntries : undefined,
       vo2max,
+      efTrend,
+      mesocycleContext,
     };
 
     // Get OpenAI API key
