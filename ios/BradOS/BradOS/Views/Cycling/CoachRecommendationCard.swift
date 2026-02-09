@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Coach Recommendation Card
 
-/// Displays the AI coach's training recommendation using Aurora Glass design
+/// Displays the AI coach's training recommendation with Peloton-oriented display
 struct CoachRecommendationCard: View {
     let recommendation: CyclingCoachRecommendation
     let ftp: Int?
@@ -13,6 +13,11 @@ struct CoachRecommendationCard: View {
 
     private var isRestDay: Bool {
         recommendation.session.sessionType == .off
+    }
+
+    private var hasPelotonClasses: Bool {
+        guard let types = recommendation.session.pelotonClassTypes else { return false }
+        return !types.isEmpty
     }
 
     var body: some View {
@@ -28,6 +33,11 @@ struct CoachRecommendationCard: View {
             } else {
                 // Regular session display
                 regularSessionSection
+            }
+
+            // Peloton tip
+            if let tip = recommendation.session.pelotonTip, !tip.isEmpty {
+                pelotonTipSection(tip)
             }
 
             // Reasoning
@@ -99,7 +109,7 @@ struct CoachRecommendationCard: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, Theme.Spacing.space4)
 
-            // Still show duration and TSS target
+            // Duration and TSS
             HStack(spacing: Theme.Spacing.space6) {
                 VStack(spacing: 4) {
                     Text("\(recommendation.session.durationMinutes)")
@@ -125,6 +135,11 @@ struct CoachRecommendationCard: View {
             .padding(Theme.Spacing.space3)
             .background(Color.white.opacity(0.04))
             .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+
+            // Peloton class suggestions for fun day
+            if hasPelotonClasses {
+                pelotonAlternatives
+            }
         }
     }
 
@@ -132,7 +147,6 @@ struct CoachRecommendationCard: View {
 
     private var restDaySection: some View {
         VStack(spacing: Theme.Spacing.space4) {
-            // Rest day hero
             VStack(spacing: Theme.Spacing.space3) {
                 Image(systemName: "moon.fill")
                     .font(.system(size: 48))
@@ -157,16 +171,16 @@ struct CoachRecommendationCard: View {
 
     private var regularSessionSection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
-            // Session type badge and duration
+            // Session type prominently displayed
             sessionOverview
 
-            // Target zones and TSS
-            targetMetrics
-
-            // Intervals (if applicable)
-            if let intervals = recommendation.session.intervals {
-                intervalsSection(intervals)
+            // Peloton class types
+            if hasPelotonClasses {
+                pelotonAlternatives
             }
+
+            // Target TSS
+            targetMetrics
         }
     }
 
@@ -174,19 +188,22 @@ struct CoachRecommendationCard: View {
 
     private var sessionOverview: some View {
         HStack(spacing: Theme.Spacing.space3) {
-            // Session type badge
-            HStack(spacing: Theme.Spacing.space1) {
-                Image(systemName: recommendation.session.sessionType.systemImage)
-                    .font(.caption)
+            // Session type icon
+            Image(systemName: recommendation.session.sessionType.systemImage)
+                .font(.title2)
+                .foregroundStyle(sessionTypeColor)
+
+            VStack(alignment: .leading, spacing: 2) {
                 Text(recommendation.session.sessionType.displayName)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
+                    .font(.headline)
+                    .foregroundColor(Theme.textPrimary)
+
+                if hasPelotonClasses, let primary = recommendation.session.pelotonClassTypes?.first {
+                    Text(primary)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.textSecondary)
+                }
             }
-            .padding(.horizontal, Theme.Spacing.space3)
-            .padding(.vertical, Theme.Spacing.space2)
-            .background(sessionTypeColor.opacity(0.2))
-            .foregroundStyle(sessionTypeColor)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
 
             Spacer()
 
@@ -201,6 +218,41 @@ struct CoachRecommendationCard: View {
                     .foregroundStyle(Theme.textSecondary)
             }
         }
+    }
+
+    // MARK: - Peloton Alternatives
+
+    private var pelotonAlternatives: some View {
+        Group {
+            if let types = recommendation.session.pelotonClassTypes, types.count > 1 {
+                HStack(alignment: .top, spacing: Theme.Spacing.space2) {
+                    Text("Also works:")
+                        .font(.caption)
+                        .foregroundStyle(Theme.textTertiary)
+
+                    Text(types.dropFirst().joined(separator: ", "))
+                        .font(.caption)
+                        .foregroundStyle(Theme.textSecondary)
+                }
+            }
+        }
+    }
+
+    // MARK: - Peloton Tip Section
+
+    private func pelotonTipSection(_ tip: String) -> some View {
+        HStack(alignment: .top, spacing: Theme.Spacing.space2) {
+            Image(systemName: "lightbulb.fill")
+                .font(.caption)
+                .foregroundStyle(Theme.interactivePrimary)
+            Text(tip)
+                .font(.footnote)
+                .foregroundStyle(Theme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(Theme.Spacing.space3)
+        .background(Theme.interactivePrimary.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
     }
 
     // MARK: - Target Metrics
@@ -228,74 +280,6 @@ struct CoachRecommendationCard: View {
                     .monospacedDigit()
                     .foregroundStyle(Theme.textPrimary)
             }
-        }
-    }
-
-    // MARK: - Intervals Section
-
-    private func intervalsSection(_ intervals: CyclingCoachRecommendation.IntervalProtocol) -> some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
-            Text("Intervals")
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundStyle(Theme.textPrimary)
-
-            HStack(spacing: Theme.Spacing.space4) {
-                // Protocol name
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(intervals.protocolName)
-                        .font(.footnote)
-                        .fontWeight(.medium)
-                        .foregroundStyle(Theme.interactivePrimary)
-                    Text("\(intervals.count) reps")
-                        .font(.caption)
-                        .foregroundStyle(Theme.textSecondary)
-                }
-
-                Spacer()
-
-                // Work/rest
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text("\(intervals.workSeconds)s / \(intervals.restSeconds)s")
-                        .font(.footnote)
-                        .fontWeight(.medium)
-                        .monospacedDigit()
-                        .foregroundStyle(Theme.textPrimary)
-                    Text("work / rest")
-                        .font(.caption)
-                        .foregroundStyle(Theme.textSecondary)
-                }
-
-                // Power target
-                if let ftp = ftp {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        let minWatts = Int(Double(ftp) * Double(intervals.targetPowerPercent.min) / 100)
-                        let maxWatts = Int(Double(ftp) * Double(intervals.targetPowerPercent.max) / 100)
-                        Text("\(minWatts)-\(maxWatts)W")
-                            .font(.footnote)
-                            .fontWeight(.medium)
-                            .monospacedDigit()
-                            .foregroundStyle(Theme.textPrimary)
-                        Text("\(intervals.targetPowerPercent.min)-\(intervals.targetPowerPercent.max)%")
-                            .font(.caption)
-                            .foregroundStyle(Theme.textSecondary)
-                    }
-                } else {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("\(intervals.targetPowerPercent.min)-\(intervals.targetPowerPercent.max)%")
-                            .font(.footnote)
-                            .fontWeight(.medium)
-                            .monospacedDigit()
-                            .foregroundStyle(Theme.textPrimary)
-                        Text("of FTP")
-                            .font(.caption)
-                            .foregroundStyle(Theme.textSecondary)
-                    }
-                }
-            }
-            .padding(Theme.Spacing.space3)
-            .background(Theme.surfaceSecondary.opacity(0.5))
-            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
         }
     }
 
@@ -384,6 +368,10 @@ struct CoachRecommendationCard: View {
             return Theme.destructive
         case .threshold:
             return Theme.warning
+        case .endurance:
+            return Theme.info
+        case .tempo:
+            return Color.orange
         case .fun:
             return Theme.success
         case .recovery:
@@ -391,11 +379,6 @@ struct CoachRecommendationCard: View {
         case .off:
             return Theme.textSecondary
         }
-    }
-
-    // Surface secondary for interval background
-    private var surfaceSecondary: Color {
-        Color.white.opacity(0.04)
     }
 }
 
@@ -489,20 +472,16 @@ struct CoachRecommendationErrorCard: View {
 
 // MARK: - Previews
 
-#Preview("With Intervals") {
+#Preview("Peloton-Oriented") {
     let recommendation = CyclingCoachRecommendation(
         session: CyclingCoachRecommendation.SessionRecommendation(
             type: "vo2max",
             durationMinutes: 45,
-            intervals: CyclingCoachRecommendation.IntervalProtocol(
-                protocolName: "30/30 Billat",
-                count: 12,
-                workSeconds: 30,
-                restSeconds: 30,
-                targetPowerPercent: CyclingCoachRecommendation.PowerRange(min: 110, max: 120)
-            ),
+            intervals: nil,
             targetTSS: CyclingCoachRecommendation.TSSRange(min: 45, max: 60),
-            targetZones: "Z5-Z6 for work, Z1-Z2 for recovery"
+            targetZones: "Z5-Z6 for work, Z1-Z2 for recovery",
+            pelotonClassTypes: ["Power Zone Max", "HIIT & Hills", "Tabata"],
+            pelotonTip: "You're well recovered today. Go for a 45-min PZ Max class and push the effort."
         ),
         reasoning: "Your recovery score is 78 (Ready), and it's Tuesday - the optimal day for VO2max work. With your current TSB of +12, you're in good form for high-intensity intervals.",
         coachingTips: [
@@ -526,7 +505,9 @@ struct CoachRecommendationErrorCard: View {
             durationMinutes: 60,
             intervals: nil,
             targetTSS: CyclingCoachRecommendation.TSSRange(min: 30, max: 80),
-            targetZones: "Whatever feels good - Z2-Z4"
+            targetZones: "Whatever feels good - Z2-Z4",
+            pelotonClassTypes: ["Scenic Ride", "Music Ride", "Live DJ Ride"],
+            pelotonTip: nil
         ),
         reasoning: "It's Saturday - your fun day! No structure required. Just get out and enjoy the ride.",
         coachingTips: [
@@ -550,7 +531,9 @@ struct CoachRecommendationErrorCard: View {
             durationMinutes: 0,
             intervals: nil,
             targetTSS: CyclingCoachRecommendation.TSSRange(min: 0, max: 0),
-            targetZones: "None"
+            targetZones: "None",
+            pelotonClassTypes: nil,
+            pelotonTip: nil
         ),
         reasoning: "Your recovery score is very low and you've had a heavy training week. Your body needs complete rest today.",
         coachingTips: [
@@ -572,27 +555,30 @@ struct CoachRecommendationErrorCard: View {
         .preferredColorScheme(.dark)
 }
 
-#Preview("With Warnings") {
+#Preview("Legacy - No Peloton") {
     let recommendation = CyclingCoachRecommendation(
         session: CyclingCoachRecommendation.SessionRecommendation(
-            type: "recovery",
-            durationMinutes: 30,
-            intervals: nil,
-            targetTSS: CyclingCoachRecommendation.TSSRange(min: 15, max: 25),
-            targetZones: "Z1-Z2 only"
+            type: "threshold",
+            durationMinutes: 60,
+            intervals: CyclingCoachRecommendation.IntervalProtocol(
+                protocolName: "2x20",
+                count: 2,
+                workSeconds: 1200,
+                restSeconds: 300,
+                targetPowerPercent: CyclingCoachRecommendation.PowerRange(min: 95, max: 105)
+            ),
+            targetTSS: CyclingCoachRecommendation.TSSRange(min: 60, max: 80),
+            targetZones: "Z4 threshold",
+            pelotonClassTypes: nil,
+            pelotonTip: nil
         ),
-        reasoning: "Your recovery score is 42 (Recover state). Your body needs rest today.",
-        coachingTips: ["Keep intensity very low", "Focus on spinning easy"],
-        warnings: [
-            CyclingCoachRecommendation.CoachWarning(
-                type: "low_recovery",
-                message: "Your HRV is 25% below baseline. Consider taking the day completely off."
-            )
-        ],
+        reasoning: "Threshold work to build FTP. Good recovery allows for a solid effort today.",
+        coachingTips: nil,
+        warnings: nil,
         suggestFTPTest: false
     )
 
-    return CoachRecommendationCard(recommendation: recommendation, ftp: nil)
+    return CoachRecommendationCard(recommendation: recommendation, ftp: 280)
         .padding()
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)

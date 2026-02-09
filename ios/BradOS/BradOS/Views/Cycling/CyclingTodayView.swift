@@ -26,6 +26,11 @@ struct CyclingTodayView: View {
                     FTPWarningBanner(message: warning)
                 }
 
+                // Next Up session from block queue
+                if let nextSession = viewModel.nextSession {
+                    TodayNextUpCard(session: nextSession, weekProgress: "\(viewModel.sessionsCompletedThisWeek + 1) of \(viewModel.weeklySessionsTotal)")
+                }
+
                 // Recovery summary from HealthKit
                 if let recovery = healthKit.latestRecovery {
                     RecoverySummaryCard(recovery: recovery)
@@ -349,6 +354,64 @@ struct LoadMetric: View {
                 .foregroundStyle(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+// MARK: - Today Next Up Card
+
+/// Shows the next session from the training block queue on the Today tab
+struct TodayNextUpCard: View {
+    let session: WeeklySessionModel
+    let weekProgress: String
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.space3) {
+            Image(systemName: session.systemImage)
+                .font(.title3)
+                .foregroundStyle(sessionColor)
+                .frame(width: Theme.Dimensions.iconFrameMD, height: Theme.Dimensions.iconFrameMD)
+                .background(sessionColor.opacity(0.15))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Next Up: \(session.displayName)")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(Theme.textPrimary)
+
+                HStack(spacing: Theme.Spacing.space2) {
+                    Text("\(session.suggestedDurationMinutes) min")
+                        .font(.caption)
+                        .foregroundStyle(Theme.textSecondary)
+
+                    if !session.pelotonClassTypes.isEmpty {
+                        Text(session.pelotonClassTypes.first ?? "")
+                            .font(.caption)
+                            .foregroundStyle(Theme.textTertiary)
+                    }
+                }
+            }
+
+            Spacer()
+
+            Text("Session \(weekProgress)")
+                .font(.caption)
+                .foregroundStyle(Theme.textTertiary)
+        }
+        .glassCard()
+        .auroraGlow(sessionColor, intensity: .secondary)
+    }
+
+    private var sessionColor: Color {
+        switch SessionType(rawValue: session.sessionType) {
+        case .vo2max: return Theme.destructive
+        case .threshold: return Theme.warning
+        case .endurance: return Theme.info
+        case .tempo: return Color.orange
+        case .fun: return Theme.success
+        case .recovery: return Theme.info
+        default: return Theme.interactivePrimary
+        }
     }
 }
 

@@ -662,13 +662,40 @@ final class APIClient: APIClientProtocol {
         try await get("/cycling/ftp/history")
     }
 
-    func createBlock(startDate: String, endDate: String, goals: [String]) async throws -> TrainingBlockResponse {
+    func createBlock(
+        startDate: String,
+        endDate: String,
+        goals: [String],
+        daysPerWeek: Int? = nil,
+        weeklySessions: [WeeklySessionModel]? = nil,
+        preferredDays: [Int]? = nil,
+        experienceLevel: ExperienceLevel? = nil,
+        weeklyHoursAvailable: Double? = nil
+    ) async throws -> TrainingBlockResponse {
         struct CreateBlockBody: Encodable {
             let startDate: String
             let endDate: String
             let goals: [String]
+            let daysPerWeek: Int?
+            let weeklySessions: [WeeklySessionModel]?
+            let preferredDays: [Int]?
+            let experienceLevel: String?
+            let weeklyHoursAvailable: Double?
         }
-        return try await post("/cycling/block", body: CreateBlockBody(startDate: startDate, endDate: endDate, goals: goals))
+        return try await post("/cycling/block", body: CreateBlockBody(
+            startDate: startDate,
+            endDate: endDate,
+            goals: goals,
+            daysPerWeek: daysPerWeek,
+            weeklySessions: weeklySessions,
+            preferredDays: preferredDays,
+            experienceLevel: experienceLevel?.rawValue,
+            weeklyHoursAvailable: weeklyHoursAvailable
+        ))
+    }
+
+    func generateSchedule(_ request: GenerateScheduleRequest) async throws -> GenerateScheduleResponse {
+        try await post("/cycling-coach/generate-schedule", body: request)
     }
 
     func completeBlock(id: String) async throws {

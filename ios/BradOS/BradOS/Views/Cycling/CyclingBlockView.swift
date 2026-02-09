@@ -24,6 +24,22 @@ struct CyclingBlockView: View {
                         // Week indicator
                         WeekIndicatorCard(block: block)
 
+                        // Session queue (if weekly sessions available)
+                        if block.weeklySessions != nil {
+                            SessionQueueCard(
+                                block: block,
+                                sessionsCompleted: viewModel.sessionsCompletedThisWeek,
+                                activities: viewModel.activities
+                            )
+
+                            // Next Up card
+                            if let nextSession = viewModel.nextSession {
+                                NextUpCard(session: nextSession, weekProgress: "\(viewModel.sessionsCompletedThisWeek + 1) of \(viewModel.weeklySessionsTotal)")
+                            } else if viewModel.sessionsCompletedThisWeek >= viewModel.weeklySessionsTotal && viewModel.weeklySessionsTotal > 0 {
+                                WeekCompleteCard(sessionsTotal: viewModel.weeklySessionsTotal)
+                            }
+                        }
+
                         // FTP card with staleness warning
                         if let ftp = viewModel.currentFTP {
                             FTPCardWithWarning(
@@ -69,20 +85,21 @@ struct CyclingBlockView: View {
             .padding(Theme.Spacing.space5)
         }
         .sheet(isPresented: $showNewBlockSheet) {
-            NewBlockSheet(
-                previousGoals: viewModel.currentBlock?.goals ?? [],
-                onComplete: { goals, startDate in
-                    Task {
-                        await viewModel.startNewBlock(goals: goals, startDate: startDate)
-                        if viewModel.currentBlock != nil {
-                            showNewBlockSheet = false
-                        } else {
-                            showNewBlockSheet = false
-                            showBlockError = true
+            NavigationStack {
+                TrainingBlockSetupView()
+                    .environmentObject(viewModel)
+                    .navigationTitle("New Block")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbarBackground(.hidden, for: .navigationBar)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button("Cancel") {
+                                showNewBlockSheet = false
+                            }
+                            .foregroundColor(Theme.textSecondary)
                         }
                     }
-                }
-            )
+            }
         }
         .alert("Error", isPresented: $showBlockError) {
             Button("OK", role: .cancel) {}
@@ -92,22 +109,215 @@ struct CyclingBlockView: View {
         .onAppear {
             checkBlockCompletion()
         }
+        .onChange(of: viewModel.currentBlock?.id) { _, _ in
+            if viewModel.currentBlock != nil {
+                showNewBlockSheet = false
+            }
+        }
     }
 
     // MARK: - Block Completion Check
 
     private func shouldShowBlockCompletion(block: TrainingBlockModel) -> Bool {
-        // Block is complete if we've passed week 8 or the end date
         return block.currentWeek > 8 || Date() > block.endDate
     }
 
     private func checkBlockCompletion() {
         if let block = viewModel.currentBlock, shouldShowBlockCompletion(block: block) {
-            // Auto-complete the block if needed
             Task {
                 await viewModel.completeCurrentBlock()
             }
         }
+    }
+}
+
+// MARK: - Session Queue Card
+
+/// Shows this week's session queue with completion status
+struct SessionQueueCard: View {
+    let block: TrainingBlockModel
+    let sessionsCompleted: Int
+    let activities: [CyclingActivityModel]
+
+    var sessions: [WeeklySessionModel] {
+        block.weeklySessions ?? []
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
+            HStack {
+                Text("This Week")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                    .foregroundColor(Theme.textPrimary)
+
+                Spacer()
+
+                Text("\(sessionsCompleted) of \(sessions.count) done")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+
+            VStack(spacing: Theme.Spacing.space2) {
+                ForEach(Array(sessions.enumerated()), id: \.element.id) { index, session in
+                    let isCompleted = index < sessionsCompleted
+                    let isNext = index == sessionsCompleted
+
+                    HStack(spacing: Theme.Spacing.space3) {
+                        if isCompleted {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.subheadline)
+                                .foregroundStyle(Theme.success)
+                        } else {
+                            Circle()
+                                .strokeBorder(isNext ? Theme.interactivePrimary : Theme.textTertiary, lineWidth: 1.5)
+                                .frame(width: 18, height: 18)
+                        }
+
+                        Image(systemName: session.systemImage)
+                            .font(.caption)
+                            .foregroundStyle(colorForSessionType(session.sessionType))
+                            .frame(width: 16)
+
+                        Text(session.displayName)
+                            .font(.subheadline)
+                            .fontWeight(isNext ? .semibold : .regular)
+                            .foregroundColor(isCompleted ? Theme.textSecondary : Theme.textPrimary)
+
+                        Spacer()
+
+                        if isCompleted {
+                            Text(completedDayLabel(for: index))
+                                .font(.caption)
+                                .foregroundStyle(Theme.textTertiary)
+                        } else if isNext {
+                            Text("Up next")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundStyle(Theme.interactivePrimary)
+                        }
+                    }
+                    .padding(.vertical, Theme.Spacing.space1)
+                    .opacity(isCompleted ? 0.7 : (isNext ? 1.0 : 0.5))
+                }
+            }
+        }
+        .glassCard()
+    }
+
+    private func completedDayLabel(for index: Int) -> String {
+        let calendar = Calendar.current
+        let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
+        let thisWeekActivities = activities.filter { $0.date >= startOfWeek }.sorted { $0.date < $1.date }
+
+        guard index < thisWeekActivities.count else { return "Done" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEE"
+        return "Done \(formatter.string(from: thisWeekActivities[index].date))"
+    }
+
+    private func colorForSessionType(_ type: String) -> Color {
+        switch SessionType(rawValue: type) {
+        case .vo2max: return Theme.destructive
+        case .threshold: return Theme.warning
+        case .endurance: return Theme.info
+        case .tempo: return Color.orange
+        case .fun: return Theme.success
+        case .recovery: return Theme.info
+        case .off: return Theme.textSecondary
+        case .none: return Theme.textSecondary
+        }
+    }
+}
+
+// MARK: - Next Up Card
+
+/// Prominent card for the next incomplete session
+struct NextUpCard: View {
+    let session: WeeklySessionModel
+    let weekProgress: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
+            HStack {
+                Text("Next Up")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Theme.interactivePrimary)
+                Spacer()
+                Text("Session \(weekProgress)")
+                    .font(.caption)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+
+            HStack(spacing: Theme.Spacing.space3) {
+                Image(systemName: session.systemImage)
+                    .font(.title2)
+                    .foregroundStyle(sessionColor)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(session.displayName)
+                        .font(.headline)
+                        .foregroundColor(Theme.textPrimary)
+
+                    Text(session.pelotonClassTypes.joined(separator: ", "))
+                        .font(.caption)
+                        .foregroundStyle(Theme.textSecondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                Text("\(session.suggestedDurationMinutes) min")
+                    .font(.subheadline)
+                    .fontWeight(.medium)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+
+            if !session.description.isEmpty {
+                Text(session.description)
+                    .font(.caption)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+        }
+        .glassCard()
+        .auroraGlow(sessionColor)
+    }
+
+    private var sessionColor: Color {
+        switch SessionType(rawValue: session.sessionType) {
+        case .vo2max: return Theme.destructive
+        case .threshold: return Theme.warning
+        case .endurance: return Theme.info
+        case .tempo: return Color.orange
+        case .fun: return Theme.success
+        case .recovery: return Theme.info
+        default: return Theme.interactivePrimary
+        }
+    }
+}
+
+// MARK: - Week Complete Card
+
+/// Shown when all weekly sessions are done
+struct WeekCompleteCard: View {
+    let sessionsTotal: Int
+
+    var body: some View {
+        HStack(spacing: Theme.Spacing.space3) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.title2)
+                .foregroundStyle(Theme.success)
+
+            Text("All \(sessionsTotal) sessions done this week. Nice work.")
+                .font(.subheadline)
+                .foregroundColor(Theme.textPrimary)
+
+            Spacer()
+        }
+        .glassCard()
+        .auroraGlow(Theme.success)
     }
 }
 
@@ -549,127 +759,6 @@ struct TrainingLoadTrendChart: View {
             }
         }
         .glassCard()
-    }
-}
-
-// MARK: - New Block Sheet
-
-/// Sheet for starting a new training block
-struct NewBlockSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    let previousGoals: [TrainingBlockModel.TrainingGoal]
-    let onComplete: ([TrainingBlockModel.TrainingGoal], Date) -> Void
-
-    @State private var selectedGoals: Set<TrainingBlockModel.TrainingGoal> = []
-    @State private var startDate = Date()
-
-    var endDate: Date {
-        Calendar.current.date(byAdding: .weekOfYear, value: 8, to: startDate) ?? startDate
-    }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: Theme.Spacing.space6) {
-                    // Goals section
-                    VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
-                        Text("Goals")
-                            .font(.headline)
-                            .foregroundColor(Theme.textPrimary)
-
-                        VStack(spacing: 0) {
-                            ForEach(Array(TrainingBlockModel.TrainingGoal.allCases.enumerated()), id: \.element) { index, goal in
-                                if index > 0 {
-                                    Divider()
-                                        .background(Theme.strokeSubtle)
-                                }
-
-                                Button {
-                                    if selectedGoals.contains(goal) {
-                                        selectedGoals.remove(goal)
-                                    } else {
-                                        selectedGoals.insert(goal)
-                                    }
-                                } label: {
-                                    HStack {
-                                        Text(goal.displayName)
-                                            .foregroundColor(Theme.textPrimary)
-                                        Spacer()
-                                        if selectedGoals.contains(goal) {
-                                            Image(systemName: "checkmark")
-                                                .foregroundStyle(Theme.interactivePrimary)
-                                        }
-                                    }
-                                    .padding(Theme.Spacing.space4)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .glassCard(.card, padding: 0)
-                    }
-
-                    // Date section
-                    VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
-                        Text("Schedule")
-                            .font(.headline)
-                            .foregroundColor(Theme.textPrimary)
-
-                        VStack(spacing: 0) {
-                            DatePicker(
-                                "Start Date",
-                                selection: $startDate,
-                                in: Date()...,
-                                displayedComponents: .date
-                            )
-                            .foregroundColor(Theme.textPrimary)
-                            .tint(Theme.interactivePrimary)
-                            .padding(Theme.Spacing.space4)
-
-                            Divider()
-                                .background(Theme.strokeSubtle)
-
-                            HStack {
-                                Text("End Date")
-                                    .foregroundColor(Theme.textSecondary)
-                                Spacer()
-                                Text(endDate, style: .date)
-                                    .foregroundStyle(Theme.textSecondary)
-                            }
-                            .padding(Theme.Spacing.space4)
-                        }
-                        .glassCard(.card, padding: 0)
-                    }
-
-                    // Start button
-                    Button {
-                        onComplete(Array(selectedGoals), startDate)
-                    } label: {
-                        Text("Start Training Block")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(GlassPrimaryButtonStyle())
-                    .disabled(selectedGoals.isEmpty)
-                    .opacity(selectedGoals.isEmpty ? 0.5 : 1.0)
-                }
-                .padding(Theme.Spacing.space5)
-            }
-            .background(AuroraBackground().ignoresSafeArea())
-            .navigationTitle("New Block")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                    .foregroundColor(Theme.textSecondary)
-                }
-            }
-            .onAppear {
-                // Pre-populate with previous goals
-                selectedGoals = Set(previousGoals)
-            }
-        }
     }
 }
 

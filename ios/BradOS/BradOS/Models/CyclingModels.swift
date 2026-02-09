@@ -24,10 +24,98 @@ struct CyclingActivityModel: Identifiable, Codable {
     enum CyclingWorkoutType: String, Codable {
         case vo2max
         case threshold
+        case endurance
+        case tempo
         case fun
         case recovery
         case unknown
     }
+}
+
+// MARK: - Experience Level
+
+enum ExperienceLevel: String, Codable, CaseIterable {
+    case beginner
+    case intermediate
+    case advanced
+
+    var displayName: String {
+        switch self {
+        case .beginner: return "Beginner"
+        case .intermediate: return "Intermediate"
+        case .advanced: return "Advanced"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .beginner: return "New to structured cycling or returning after a long break"
+        case .intermediate: return "Comfortable with intervals and zone training"
+        case .advanced: return "Experienced with periodization and power-based training"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .beginner: return "bicycle"
+        case .intermediate: return "figure.outdoor.cycle"
+        case .advanced: return "flame.fill"
+        }
+    }
+}
+
+// MARK: - Weekly Session Model
+
+/// A single session in the weekly training schedule
+struct WeeklySessionModel: Codable, Identifiable {
+    var id: Int { order }
+    let order: Int
+    let sessionType: String
+    let pelotonClassTypes: [String]
+    let suggestedDurationMinutes: Int
+    let description: String
+    let preferredDay: Int?
+
+    var sessionTypeEnum: SessionType {
+        SessionType(rawValue: sessionType) ?? .fun
+    }
+
+    var systemImage: String {
+        sessionTypeEnum.systemImage
+    }
+
+    var displayName: String {
+        sessionTypeEnum.displayName
+    }
+}
+
+// MARK: - Generate Schedule Request/Response
+
+struct GenerateScheduleRequest: Codable {
+    let sessionsPerWeek: Int
+    let preferredDays: [Int]
+    let goals: [TrainingBlockModel.TrainingGoal]
+    let experienceLevel: ExperienceLevel
+    let weeklyHoursAvailable: Double
+    let ftp: Int?
+}
+
+struct GenerateScheduleResponse: Codable {
+    let sessions: [WeeklySessionModel]
+    let weeklyPlan: WeeklyPlanSummary
+    let rationale: String
+}
+
+struct WeeklyPlanSummary: Codable {
+    let totalEstimatedHours: Double
+    let phases: [PhaseSummary]
+}
+
+struct PhaseSummary: Codable, Identifiable {
+    var id: String { name }
+    let name: String
+    let weeks: String
+    let description: String
 }
 
 // MARK: - Training Block Model
@@ -40,6 +128,11 @@ struct TrainingBlockModel: Identifiable, Codable {
     let currentWeek: Int
     let goals: [TrainingGoal]
     let status: BlockStatus
+    let daysPerWeek: Int?
+    let weeklySessions: [WeeklySessionModel]?
+    let preferredDays: [Int]?
+    let experienceLevel: ExperienceLevel?
+    let weeklyHoursAvailable: Double?
 
     enum TrainingGoal: String, Codable, CaseIterable {
         case regainFitness = "regain_fitness"
@@ -140,6 +233,11 @@ struct TrainingBlockResponse: Codable {
     let currentWeek: Int
     let goals: [String]
     let status: String
+    let daysPerWeek: Int?
+    let weeklySessions: [WeeklySessionModel]?
+    let preferredDays: [Int]?
+    let experienceLevel: String?
+    let weeklyHoursAvailable: Double?
 }
 
 /// Response from POST /cycling/weight-goal

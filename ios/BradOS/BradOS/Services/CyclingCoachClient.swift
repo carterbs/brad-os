@@ -18,6 +18,8 @@ struct CyclingCoachRecommendation: Codable, Equatable {
         let intervals: IntervalProtocol?
         let targetTSS: TSSRange
         let targetZones: String
+        let pelotonClassTypes: [String]?
+        let pelotonTip: String?
 
         /// Session type as an enum for easier use
         var sessionType: SessionType {
@@ -62,6 +64,8 @@ struct CyclingCoachRecommendation: Codable, Equatable {
 enum SessionType: String, Codable {
     case vo2max
     case threshold
+    case endurance
+    case tempo
     case fun
     case recovery
     case off
@@ -70,6 +74,8 @@ enum SessionType: String, Codable {
         switch self {
         case .vo2max: return "VO2max Intervals"
         case .threshold: return "Threshold"
+        case .endurance: return "Endurance"
+        case .tempo: return "Tempo"
         case .fun: return "Fun Ride"
         case .recovery: return "Recovery"
         case .off: return "Rest Day"
@@ -80,6 +86,8 @@ enum SessionType: String, Codable {
         switch self {
         case .vo2max: return "flame.fill"
         case .threshold: return "bolt.fill"
+        case .endurance: return "figure.outdoor.cycle"
+        case .tempo: return "speedometer"
         case .fun: return "face.smiling.fill"
         case .recovery: return "heart.fill"
         case .off: return "moon.fill"
@@ -162,6 +170,27 @@ class CyclingCoachClient: ObservableObject {
                 body: requestBody
             )
             recommendation = response
+            return response
+        } catch let apiError as APIError {
+            error = apiError.localizedDescription
+            throw apiError
+        } catch {
+            self.error = error.localizedDescription
+            throw error
+        }
+    }
+
+    /// Generate a weekly schedule from the AI coach
+    func generateSchedule(request: GenerateScheduleRequest) async throws -> GenerateScheduleResponse {
+        isLoading = true
+        error = nil
+        defer { isLoading = false }
+
+        do {
+            let response: GenerateScheduleResponse = try await post(
+                "/cycling-coach/generate-schedule",
+                body: request
+            )
             return response
         } catch let apiError as APIError {
             error = apiError.localizedDescription

@@ -147,6 +147,8 @@ struct WorkoutTypeBadge: View {
         switch type {
         case .vo2max: return Theme.destructive
         case .threshold: return Theme.warning
+        case .endurance: return Theme.info
+        case .tempo: return Color.orange
         case .fun: return Theme.success
         case .recovery: return Theme.info
         case .unknown: return Theme.textSecondary

@@ -28,9 +28,63 @@ class CyclingViewModel: ObservableObject {
     // Efficiency Factor data
     @Published var efHistory: [EFDataPoint] = []
 
+    // Schedule generation
+    @Published var generatedSchedule: GenerateScheduleResponse?
+    @Published var isGeneratingSchedule = false
+
     /// Whether FTP has been set
     var hasFTP: Bool {
         currentFTP != nil
+    }
+
+    /// The next incomplete session in this week's queue
+    var nextSession: WeeklySessionModel? {
+        guard let sessions = currentBlock?.weeklySessions else { return nil }
+        let completed = sessionsCompletedThisWeek
+        guard completed < sessions.count else { return nil }
+        return sessions[completed]
+    }
+
+    /// Number of sessions completed this week (matched against Strava activities)
+    var sessionsCompletedThisWeek: Int {
+        guard let sessions = currentBlock?.weeklySessions else { return 0 }
+        let calendar = Calendar.current
+        let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
+        let thisWeekActivities = activities.filter { $0.date >= startOfWeek }
+
+        var matchedCount = 0
+        var usedActivityIds: Set<String> = []
+
+        for session in sessions {
+            let sessionType = SessionType(rawValue: session.sessionType)
+            let matched = thisWeekActivities.first { activity in
+                !usedActivityIds.contains(activity.id) && activityMatchesSession(activity, sessionType: sessionType)
+            }
+            if let matched = matched {
+                usedActivityIds.insert(matched.id)
+                matchedCount += 1
+            } else {
+                break
+            }
+        }
+
+        return matchedCount
+    }
+
+    /// Total weekly sessions in current block
+    var weeklySessionsTotal: Int {
+        currentBlock?.weeklySessions?.count ?? 0
+    }
+
+    private func activityMatchesSession(_ activity: CyclingActivityModel, sessionType: SessionType?) -> Bool {
+        guard let sessionType = sessionType else { return true }
+        switch sessionType {
+        case .vo2max: return activity.type == .vo2max
+        case .threshold: return activity.type == .threshold
+        case .endurance, .tempo, .fun: return activity.type == .fun || activity.type == .unknown
+        case .recovery: return activity.type == .recovery
+        case .off: return false
+        }
     }
 
     // MARK: - Private Properties
@@ -108,7 +162,12 @@ class CyclingViewModel: ObservableObject {
                     endDate: endDate,
                     currentWeek: block.currentWeek,
                     goals: goals,
-                    status: block.status == "completed" ? .completed : .active
+                    status: block.status == "completed" ? .completed : .active,
+                    daysPerWeek: block.daysPerWeek,
+                    weeklySessions: block.weeklySessions,
+                    preferredDays: block.preferredDays,
+                    experienceLevel: ExperienceLevel(rawValue: block.experienceLevel ?? ""),
+                    weeklyHoursAvailable: block.weeklyHoursAvailable
                 )
             }
         } catch {
@@ -180,10 +239,34 @@ class CyclingViewModel: ObservableObject {
         await loadData()
     }
 
+    // MARK: - Schedule Generation
+
+    /// Generate a weekly schedule from the AI coach
+    func generateSchedule(request: GenerateScheduleRequest) async {
+        isGeneratingSchedule = true
+        error = nil
+        defer { isGeneratingSchedule = false }
+
+        do {
+            generatedSchedule = try await apiClient.generateSchedule(request)
+        } catch {
+            self.error = "Failed to generate schedule: \(error.localizedDescription)"
+            print("[CyclingVM] Failed to generate schedule: \(error)")
+        }
+    }
+
     // MARK: - Block Management
 
     /// Start a new training block
-    func startNewBlock(goals: [TrainingBlockModel.TrainingGoal], startDate: Date) async {
+    func startNewBlock(
+        goals: [TrainingBlockModel.TrainingGoal],
+        startDate: Date,
+        daysPerWeek: Int? = nil,
+        weeklySessions: [WeeklySessionModel]? = nil,
+        preferredDays: [Int]? = nil,
+        experienceLevel: ExperienceLevel? = nil,
+        weeklyHoursAvailable: Double? = nil
+    ) async {
         isLoading = true
         error = nil
         defer { isLoading = false }
@@ -196,7 +279,12 @@ class CyclingViewModel: ObservableObject {
             let response = try await apiClient.createBlock(
                 startDate: dateFormatter.string(from: startDate),
                 endDate: dateFormatter.string(from: endDate),
-                goals: goals.map(\.rawValue)
+                goals: goals.map(\.rawValue),
+                daysPerWeek: daysPerWeek,
+                weeklySessions: weeklySessions,
+                preferredDays: preferredDays,
+                experienceLevel: experienceLevel,
+                weeklyHoursAvailable: weeklyHoursAvailable
             )
 
             currentBlock = TrainingBlockModel(
@@ -205,7 +293,12 @@ class CyclingViewModel: ObservableObject {
                 endDate: endDate,
                 currentWeek: response.currentWeek,
                 goals: goals,
-                status: .active
+                status: .active,
+                daysPerWeek: daysPerWeek,
+                weeklySessions: response.weeklySessions ?? weeklySessions,
+                preferredDays: response.preferredDays ?? preferredDays,
+                experienceLevel: ExperienceLevel(rawValue: response.experienceLevel ?? "") ?? experienceLevel,
+                weeklyHoursAvailable: response.weeklyHoursAvailable ?? weeklyHoursAvailable
             )
 
             loadChartData()
@@ -228,7 +321,12 @@ class CyclingViewModel: ObservableObject {
                 endDate: block.endDate,
                 currentWeek: block.currentWeek,
                 goals: block.goals,
-                status: .completed
+                status: .completed,
+                daysPerWeek: block.daysPerWeek,
+                weeklySessions: block.weeklySessions,
+                preferredDays: block.preferredDays,
+                experienceLevel: block.experienceLevel,
+                weeklyHoursAvailable: block.weeklyHoursAvailable
             )
         } catch {
             self.error = "Failed to complete block: \(error.localizedDescription)"

@@ -6,13 +6,19 @@ import SwiftUI
 enum CyclingOnboardingStep: Int, CaseIterable {
     case strava = 0
     case ftp = 1
-    case trainingBlock = 2
+    case experience = 2
+    case sessions = 3
+    case goals = 4
+    case preview = 5
 
     var title: String {
         switch self {
         case .strava: return "Connect Strava"
         case .ftp: return "Set Your FTP"
-        case .trainingBlock: return "Start Training"
+        case .experience: return "Experience"
+        case .sessions: return "Sessions"
+        case .goals: return "Goals"
+        case .preview: return "Your Plan"
         }
     }
 
@@ -20,7 +26,10 @@ enum CyclingOnboardingStep: Int, CaseIterable {
         switch self {
         case .strava: return "Sync your Peloton rides automatically"
         case .ftp: return "Your Functional Threshold Power"
-        case .trainingBlock: return "Create your 8-week training block"
+        case .experience: return "Help the AI tailor your plan"
+        case .sessions: return "How often do you want to ride?"
+        case .goals: return "What are you working toward?"
+        case .preview: return "AI-generated training schedule"
         }
     }
 
@@ -28,7 +37,28 @@ enum CyclingOnboardingStep: Int, CaseIterable {
         switch self {
         case .strava: return "figure.outdoor.cycle"
         case .ftp: return "bolt.fill"
-        case .trainingBlock: return "calendar"
+        case .experience: return "person.fill"
+        case .sessions: return "calendar"
+        case .goals: return "target"
+        case .preview: return "brain.head.profile"
+        }
+    }
+}
+
+// MARK: - Onboarding Hours Option
+
+private enum OnboardingHoursOption: String, CaseIterable {
+    case twoToThree = "2-3h"
+    case fourToFive = "4-5h"
+    case sixToEight = "6-8h"
+    case eightToTen = "8-10h"
+
+    var midpoint: Double {
+        switch self {
+        case .twoToThree: return 2.5
+        case .fourToFive: return 4.5
+        case .sixToEight: return 7.0
+        case .eightToTen: return 9.0
         }
     }
 }
@@ -40,14 +70,22 @@ struct CyclingOnboardingView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var stravaAuth: StravaAuthManager
     @EnvironmentObject var cyclingVM: CyclingViewModel
+    @StateObject private var coachClient = CyclingCoachClient()
 
     @State private var currentStep: CyclingOnboardingStep = .strava
     @State private var ftpValue: String = ""
+    @State private var experienceLevel: ExperienceLevel = .intermediate
+    @State private var hoursOption: OnboardingHoursOption = .fourToFive
+    @State private var sessionsPerWeek = 3
+    @State private var preferredDays: Set<Int> = [2, 4, 6]
     @State private var selectedGoals: Set<TrainingBlockModel.TrainingGoal> = []
     @State private var startDate = Date()
     @State private var isSaving = false
     @State private var showError = false
     @State private var errorMessage = ""
+    @State private var generatedSchedule: GenerateScheduleResponse?
+    @State private var isGenerating = false
+    @State private var generateError: String?
 
     // Callback when onboarding is complete
     var onComplete: (() -> Void)?
@@ -68,8 +106,17 @@ struct CyclingOnboardingView: View {
                     ftpStep
                         .tag(CyclingOnboardingStep.ftp)
 
-                    trainingBlockStep
-                        .tag(CyclingOnboardingStep.trainingBlock)
+                    experienceStep
+                        .tag(CyclingOnboardingStep.experience)
+
+                    sessionsStep
+                        .tag(CyclingOnboardingStep.sessions)
+
+                    goalsStep
+                        .tag(CyclingOnboardingStep.goals)
+
+                    previewStep
+                        .tag(CyclingOnboardingStep.preview)
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .animation(.easeInOut, value: currentStep)
@@ -121,7 +168,6 @@ struct CyclingOnboardingView: View {
                 Spacer()
                     .frame(height: Theme.Spacing.space8)
 
-                // Icon
                 Image(systemName: CyclingOnboardingStep.strava.systemImage)
                     .font(.system(size: 64))
                     .foregroundStyle(Color.orange)
@@ -129,7 +175,6 @@ struct CyclingOnboardingView: View {
                     .background(Color.orange.opacity(0.15))
                     .clipShape(Circle())
 
-                // Title & subtitle
                 VStack(spacing: Theme.Spacing.space2) {
                     Text(CyclingOnboardingStep.strava.title)
                         .font(.title2)
@@ -142,14 +187,12 @@ struct CyclingOnboardingView: View {
                         .multilineTextAlignment(.center)
                 }
 
-                // Status or connect button
                 if stravaAuth.isConnected {
                     connectedStravaCard
                 } else {
                     connectStravaCard
                 }
 
-                // Features list
                 featuresList
 
                 Spacer()
@@ -239,7 +282,6 @@ struct CyclingOnboardingView: View {
                 Spacer()
                     .frame(height: Theme.Spacing.space8)
 
-                // Icon
                 Image(systemName: CyclingOnboardingStep.ftp.systemImage)
                     .font(.system(size: 64))
                     .foregroundStyle(.yellow)
@@ -247,7 +289,6 @@ struct CyclingOnboardingView: View {
                     .background(Color.yellow.opacity(0.15))
                     .clipShape(Circle())
 
-                // Title & subtitle
                 VStack(spacing: Theme.Spacing.space2) {
                     Text(CyclingOnboardingStep.ftp.title)
                         .font(.title2)
@@ -260,7 +301,6 @@ struct CyclingOnboardingView: View {
                         .multilineTextAlignment(.center)
                 }
 
-                // FTP input card
                 VStack(spacing: 0) {
                     HStack {
                         Text("FTP (watts)")
@@ -277,12 +317,10 @@ struct CyclingOnboardingView: View {
                 }
                 .glassCard(.card, padding: 0)
 
-                // Power zones preview
                 if let ftp = Int(ftpValue), ftp > 0 {
                     powerZonesPreview(ftp: ftp)
                 }
 
-                // Info card
                 VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
                     HStack(spacing: Theme.Spacing.space2) {
                         Image(systemName: "info.circle.fill")
@@ -324,43 +362,91 @@ struct CyclingOnboardingView: View {
         .glassCard()
     }
 
-    // MARK: - Training Block Step
+    // MARK: - Experience Step
 
-    private var trainingBlockStep: some View {
+    private var experienceStep: some View {
         ScrollView {
             VStack(spacing: Theme.Spacing.space6) {
                 Spacer()
                     .frame(height: Theme.Spacing.space4)
 
-                // Icon
-                Image(systemName: CyclingOnboardingStep.trainingBlock.systemImage)
-                    .font(.system(size: 64))
-                    .foregroundStyle(Theme.cycling)
-                    .frame(width: 120, height: 120)
-                    .background(Theme.cycling.opacity(0.15))
-                    .clipShape(Circle())
-
-                // Title & subtitle
                 VStack(spacing: Theme.Spacing.space2) {
-                    Text(CyclingOnboardingStep.trainingBlock.title)
+                    Text("Experience Level")
                         .font(.title2)
                         .fontWeight(.bold)
                         .foregroundColor(Theme.textPrimary)
 
-                    Text("An 8-week structured training block with progressive overload and recovery weeks.")
+                    Text("This helps the AI coach tailor your plan")
                         .font(.subheadline)
                         .foregroundStyle(Theme.textSecondary)
-                        .multilineTextAlignment(.center)
                 }
 
-                // Goals selection
-                goalsSelectionCard
+                VStack(spacing: Theme.Spacing.space3) {
+                    ForEach(ExperienceLevel.allCases, id: \.self) { level in
+                        Button {
+                            experienceLevel = level
+                        } label: {
+                            HStack(spacing: Theme.Spacing.space3) {
+                                Image(systemName: level.systemImage)
+                                    .font(.title3)
+                                    .foregroundStyle(experienceLevel == level ? Theme.interactivePrimary : Theme.textSecondary)
+                                    .frame(width: 32)
 
-                // Date selection
-                dateSelectionCard
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(level.displayName)
+                                        .font(.headline)
+                                        .foregroundColor(Theme.textPrimary)
+                                    Text(level.description)
+                                        .font(.caption)
+                                        .foregroundStyle(Theme.textSecondary)
+                                        .lineLimit(2)
+                                }
 
-                // Schedule preview
-                schedulePreviewCard
+                                Spacer()
+
+                                if experienceLevel == level {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(Theme.interactivePrimary)
+                                }
+                            }
+                            .padding(Theme.Spacing.space4)
+                        }
+                        .buttonStyle(.plain)
+                        .glassCard(.card, padding: 0)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
+                                .stroke(experienceLevel == level ? Theme.interactivePrimary.opacity(0.5) : Color.clear, lineWidth: 1.5)
+                        )
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
+                    Text("Weekly Hours Available")
+                        .font(.headline)
+                        .foregroundColor(Theme.textPrimary)
+
+                    HStack(spacing: Theme.Spacing.space2) {
+                        ForEach(OnboardingHoursOption.allCases, id: \.self) { option in
+                            Button {
+                                hoursOption = option
+                            } label: {
+                                Text(option.rawValue)
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(hoursOption == option ? Theme.textPrimary : Theme.textSecondary)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, Theme.Spacing.space3)
+                                    .background(hoursOption == option ? Theme.interactivePrimary.opacity(0.2) : Color.white.opacity(0.04))
+                                    .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous)
+                                            .stroke(hoursOption == option ? Theme.interactivePrimary.opacity(0.5) : Theme.strokeSubtle, lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
 
                 Spacer()
             }
@@ -368,103 +454,274 @@ struct CyclingOnboardingView: View {
         }
     }
 
-    private var goalsSelectionCard: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
-            Text("Goals")
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundColor(Theme.textPrimary)
+    // MARK: - Sessions Step
 
-            VStack(spacing: 0) {
-                ForEach(Array(TrainingBlockModel.TrainingGoal.allCases.enumerated()), id: \.element) { index, goal in
-                    if index > 0 {
-                        Divider()
-                            .background(Theme.strokeSubtle)
-                    }
+    private var sessionsStep: some View {
+        ScrollView {
+            VStack(spacing: Theme.Spacing.space6) {
+                Spacer()
+                    .frame(height: Theme.Spacing.space4)
 
-                    Button {
-                        if selectedGoals.contains(goal) {
-                            selectedGoals.remove(goal)
-                        } else {
-                            selectedGoals.insert(goal)
-                        }
-                    } label: {
-                        HStack(spacing: Theme.Spacing.space3) {
-                            Image(systemName: iconForGoal(goal))
-                                .foregroundColor(Theme.cycling)
-                                .frame(width: 24)
-
-                            Text(displayNameForGoal(goal))
-                                .foregroundColor(Theme.textPrimary)
-
-                            Spacer()
-
-                            if selectedGoals.contains(goal) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(Theme.interactivePrimary)
-                            } else {
-                                Image(systemName: "circle")
-                                    .foregroundStyle(Theme.textTertiary)
-                            }
-                        }
-                        .padding(Theme.Spacing.space3)
-                    }
-                    .buttonStyle(.plain)
+                VStack(spacing: Theme.Spacing.space2) {
+                    Text("Sessions Per Week")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(Theme.textPrimary)
                 }
+
+                HStack(spacing: Theme.Spacing.space2) {
+                    ForEach([2, 3, 4, 5], id: \.self) { count in
+                        Button {
+                            sessionsPerWeek = count
+                            updatePreferredDays(for: count)
+                        } label: {
+                            Text("\(count)")
+                                .font(.title3)
+                                .fontWeight(.semibold)
+                                .foregroundColor(sessionsPerWeek == count ? Theme.textPrimary : Theme.textSecondary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, Theme.Spacing.space4)
+                                .background(sessionsPerWeek == count ? Theme.interactivePrimary.opacity(0.2) : Color.white.opacity(0.04))
+                                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
+                                        .stroke(sessionsPerWeek == count ? Theme.interactivePrimary.opacity(0.5) : Theme.strokeSubtle, lineWidth: 1)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
+                    Text("Preferred Days")
+                        .font(.headline)
+                        .foregroundColor(Theme.textPrimary)
+
+                    Text("These are suggestions \u{2014} ride whenever works for you")
+                        .font(.caption)
+                        .foregroundStyle(Theme.textSecondary)
+
+                    HStack(spacing: Theme.Spacing.space2) {
+                        ForEach(dayOptions, id: \.number) { day in
+                            Button {
+                                if preferredDays.contains(day.number) {
+                                    preferredDays.remove(day.number)
+                                } else {
+                                    preferredDays.insert(day.number)
+                                }
+                            } label: {
+                                Text(day.short)
+                                    .font(.subheadline)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(preferredDays.contains(day.number) ? Theme.textPrimary : Theme.textTertiary)
+                                    .frame(width: 42, height: 42)
+                                    .background(preferredDays.contains(day.number) ? Theme.interactivePrimary.opacity(0.25) : Color.white.opacity(0.04))
+                                    .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous)
+                                            .stroke(preferredDays.contains(day.number) ? Theme.interactivePrimary.opacity(0.5) : Theme.strokeSubtle, lineWidth: 1)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+
+                Spacer()
             }
-            .glassCard(.card, padding: 0)
+            .padding(Theme.Spacing.space5)
         }
     }
 
-    private var dateSelectionCard: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
-            Text("Schedule")
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundColor(Theme.textPrimary)
+    // MARK: - Goals Step
 
-            VStack(spacing: 0) {
-                DatePicker(
-                    "Start Date",
-                    selection: $startDate,
-                    in: Date()...,
-                    displayedComponents: .date
-                )
-                .foregroundColor(Theme.textPrimary)
-                .tint(Theme.interactivePrimary)
-                .padding(Theme.Spacing.space3)
+    private var goalsStep: some View {
+        ScrollView {
+            VStack(spacing: Theme.Spacing.space6) {
+                Spacer()
+                    .frame(height: Theme.Spacing.space4)
 
-                Divider()
-                    .background(Theme.strokeSubtle)
+                VStack(spacing: Theme.Spacing.space2) {
+                    Text("Training Goals")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(Theme.textPrimary)
 
-                HStack {
-                    Text("End Date")
-                        .foregroundColor(Theme.textSecondary)
-                    Spacer()
-                    Text(endDate, style: .date)
+                    Text("Select all that apply")
+                        .font(.subheadline)
                         .foregroundStyle(Theme.textSecondary)
                 }
-                .padding(Theme.Spacing.space3)
+
+                VStack(spacing: 0) {
+                    ForEach(Array(TrainingBlockModel.TrainingGoal.allCases.enumerated()), id: \.element) { index, goal in
+                        if index > 0 {
+                            Divider()
+                                .background(Theme.strokeSubtle)
+                        }
+
+                        Button {
+                            if selectedGoals.contains(goal) {
+                                selectedGoals.remove(goal)
+                            } else {
+                                selectedGoals.insert(goal)
+                            }
+                        } label: {
+                            HStack(spacing: Theme.Spacing.space3) {
+                                Image(systemName: iconForGoal(goal))
+                                    .foregroundColor(Theme.cycling)
+                                    .frame(width: 24)
+
+                                Text(displayNameForGoal(goal))
+                                    .foregroundColor(Theme.textPrimary)
+
+                                Spacer()
+
+                                if selectedGoals.contains(goal) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(Theme.interactivePrimary)
+                                } else {
+                                    Image(systemName: "circle")
+                                        .foregroundStyle(Theme.textTertiary)
+                                }
+                            }
+                            .padding(Theme.Spacing.space3)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .glassCard(.card, padding: 0)
+
+                Spacer()
             }
-            .glassCard(.card, padding: 0)
+            .padding(Theme.Spacing.space5)
         }
     }
 
-    private var schedulePreviewCard: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
-            Text("Weekly Structure")
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundColor(Theme.textPrimary)
+    // MARK: - Preview Step
 
-            VStack(spacing: 0) {
-                SchedulePreviewRow(day: "Tuesday", session: "VO2max Intervals", icon: "flame.fill", color: Theme.destructive)
-                Divider().background(Theme.strokeSubtle)
-                SchedulePreviewRow(day: "Thursday", session: "Threshold", icon: "bolt.fill", color: Theme.warning)
-                Divider().background(Theme.strokeSubtle)
-                SchedulePreviewRow(day: "Saturday", session: "Fun Ride", icon: "face.smiling.fill", color: Theme.success)
+    private var previewStep: some View {
+        ScrollView {
+            VStack(spacing: Theme.Spacing.space6) {
+                Spacer()
+                    .frame(height: Theme.Spacing.space4)
+
+                VStack(spacing: Theme.Spacing.space2) {
+                    Text("Your AI-Generated Plan")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(Theme.textPrimary)
+                }
+
+                if isGenerating {
+                    VStack(spacing: Theme.Spacing.space4) {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: Theme.interactivePrimary))
+                            .scaleEffect(1.2)
+                        Text("Generating your training plan...")
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Theme.Spacing.space8)
+                    .glassCard()
+                } else if let schedule = generatedSchedule {
+                    VStack(spacing: Theme.Spacing.space3) {
+                        ForEach(Array(schedule.sessions.enumerated()), id: \.element.id) { index, session in
+                            HStack(spacing: Theme.Spacing.space3) {
+                                Text("\(index + 1)")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(Theme.interactivePrimary)
+                                    .frame(width: 24, height: 24)
+                                    .background(Theme.interactivePrimary.opacity(0.15))
+                                    .clipShape(Circle())
+
+                                Image(systemName: session.systemImage)
+                                    .font(.subheadline)
+                                    .foregroundStyle(colorForSessionType(session.sessionType))
+                                    .frame(width: 20)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(session.displayName)
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(Theme.textPrimary)
+
+                                    Text(session.pelotonClassTypes.joined(separator: ", "))
+                                        .font(.caption)
+                                        .foregroundStyle(Theme.textSecondary)
+                                        .lineLimit(1)
+                                }
+
+                                Spacer()
+
+                                Text("\(session.suggestedDurationMinutes) min")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundStyle(Theme.textSecondary)
+                            }
+                            .padding(Theme.Spacing.space3)
+                            .glassCard(.card, padding: 0)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
+                        HStack(spacing: Theme.Spacing.space2) {
+                            Image(systemName: "brain.head.profile")
+                                .font(.caption)
+                                .foregroundStyle(Theme.interactivePrimary)
+                            Text("Coach's Rationale")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                                .foregroundColor(Theme.textPrimary)
+                        }
+                        Text(schedule.rationale)
+                            .font(.caption)
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    .padding(Theme.Spacing.space4)
+                    .glassCard()
+
+                    Button {
+                        Task { await generateScheduleAction() }
+                    } label: {
+                        HStack {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Regenerate")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(GlassSecondaryButtonStyle())
+                } else if let error = generateError {
+                    VStack(spacing: Theme.Spacing.space3) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .font(.title2)
+                            .foregroundStyle(Theme.warning)
+                        Text(error)
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.textSecondary)
+                            .multilineTextAlignment(.center)
+                        Button {
+                            Task { await generateScheduleAction() }
+                        } label: {
+                            Text("Try Again")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(GlassSecondaryButtonStyle())
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, Theme.Spacing.space4)
+                    .glassCard()
+                }
+
+                Spacer()
             }
-            .glassCard(.card, padding: 0)
+            .padding(Theme.Spacing.space5)
+        }
+        .task {
+            if generatedSchedule == nil && !isGenerating {
+                await generateScheduleAction()
+            }
         }
     }
 
@@ -504,8 +761,8 @@ struct CyclingOnboardingView: View {
                         ProgressView()
                             .tint(Theme.textPrimary)
                     } else {
-                        Text(currentStep == .trainingBlock ? "Start Training" : "Continue")
-                        if currentStep != .trainingBlock {
+                        Text(nextButtonTitle)
+                        if currentStep != .preview {
                             Image(systemName: "chevron.right")
                         }
                     }
@@ -513,8 +770,26 @@ struct CyclingOnboardingView: View {
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(GlassPrimaryButtonStyle())
-            .disabled(isSaving || (currentStep == .trainingBlock && selectedGoals.isEmpty))
-            .opacity((currentStep == .trainingBlock && selectedGoals.isEmpty) ? 0.5 : 1.0)
+            .disabled(isSaving || !canAdvance)
+            .opacity(canAdvance ? 1.0 : 0.5)
+        }
+    }
+
+    private var nextButtonTitle: String {
+        if currentStep == .preview {
+            return generatedSchedule != nil ? "Start Training" : "Continue"
+        }
+        return "Continue"
+    }
+
+    private var canAdvance: Bool {
+        switch currentStep {
+        case .strava: return true
+        case .ftp: return true
+        case .experience: return true
+        case .sessions: return !preferredDays.isEmpty
+        case .goals: return !selectedGoals.isEmpty
+        case .preview: return generatedSchedule != nil && !isGenerating
         }
     }
 
@@ -526,8 +801,14 @@ struct CyclingOnboardingView: View {
             case .strava:
                 currentStep = .ftp
             case .ftp:
-                currentStep = .trainingBlock
-            case .trainingBlock:
+                currentStep = .experience
+            case .experience:
+                currentStep = .sessions
+            case .sessions:
+                currentStep = .goals
+            case .goals:
+                currentStep = .preview
+            case .preview:
                 finishOnboarding()
             }
         }
@@ -551,7 +832,12 @@ struct CyclingOnboardingView: View {
             if !selectedGoals.isEmpty {
                 await cyclingVM.startNewBlock(
                     goals: Array(selectedGoals),
-                    startDate: startDate
+                    startDate: startDate,
+                    daysPerWeek: sessionsPerWeek,
+                    weeklySessions: generatedSchedule?.sessions,
+                    preferredDays: Array(preferredDays).sorted(),
+                    experienceLevel: experienceLevel,
+                    weeklyHoursAvailable: hoursOption.midpoint
                 )
                 if cyclingVM.currentBlock == nil {
                     hasError = true
@@ -570,6 +856,28 @@ struct CyclingOnboardingView: View {
         }
     }
 
+    private func generateScheduleAction() async {
+        isGenerating = true
+        generateError = nil
+
+        let request = GenerateScheduleRequest(
+            sessionsPerWeek: sessionsPerWeek,
+            preferredDays: Array(preferredDays).sorted(),
+            goals: Array(selectedGoals),
+            experienceLevel: experienceLevel,
+            weeklyHoursAvailable: hoursOption.midpoint,
+            ftp: cyclingVM.currentFTP ?? Int(ftpValue)
+        )
+
+        do {
+            generatedSchedule = try await coachClient.generateSchedule(request: request)
+        } catch {
+            generateError = "Could not generate schedule. Please try again."
+        }
+
+        isGenerating = false
+    }
+
     // MARK: - Helpers
 
     private func iconForGoal(_ goal: TrainingBlockModel.TrainingGoal) -> String {
@@ -585,6 +893,46 @@ struct CyclingOnboardingView: View {
         case .regainFitness: return "Regain Fitness"
         case .maintainMuscle: return "Maintain Muscle"
         case .loseWeight: return "Lose Weight"
+        }
+    }
+
+    private func colorForSessionType(_ type: String) -> Color {
+        switch SessionType(rawValue: type) {
+        case .vo2max: return Theme.destructive
+        case .threshold: return Theme.warning
+        case .endurance: return Theme.info
+        case .tempo: return Color.orange
+        case .fun: return Theme.success
+        case .recovery: return Theme.info
+        case .off: return Theme.textSecondary
+        case .none: return Theme.textSecondary
+        }
+    }
+
+    private struct DayOption {
+        let number: Int
+        let short: String
+    }
+
+    private var dayOptions: [DayOption] {
+        [
+            DayOption(number: 1, short: "Mon"),
+            DayOption(number: 2, short: "Tue"),
+            DayOption(number: 3, short: "Wed"),
+            DayOption(number: 4, short: "Thu"),
+            DayOption(number: 5, short: "Fri"),
+            DayOption(number: 6, short: "Sat"),
+            DayOption(number: 7, short: "Sun"),
+        ]
+    }
+
+    private func updatePreferredDays(for count: Int) {
+        switch count {
+        case 2: preferredDays = [2, 6]
+        case 3: preferredDays = [2, 4, 6]
+        case 4: preferredDays = [2, 4, 6, 7]
+        case 5: preferredDays = [1, 2, 4, 6, 7]
+        default: break
         }
     }
 }
@@ -627,32 +975,6 @@ struct PowerZoneRow: View {
                 .monospacedDigit()
                 .foregroundStyle(Theme.textSecondary)
         }
-    }
-}
-
-struct SchedulePreviewRow: View {
-    let day: String
-    let session: String
-    let icon: String
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: Theme.Spacing.space3) {
-            Image(systemName: icon)
-                .foregroundStyle(color)
-                .frame(width: 24)
-
-            Text(day)
-                .fontWeight(.medium)
-                .foregroundColor(Theme.textPrimary)
-
-            Spacer()
-
-            Text(session)
-                .font(.subheadline)
-                .foregroundStyle(Theme.textSecondary)
-        }
-        .padding(Theme.Spacing.space3)
     }
 }
 
