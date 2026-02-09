@@ -378,11 +378,20 @@ final class APIClient: APIClientProtocol {
     }
 
     func getPlanDays(planId: String) async throws -> [PlanDay] {
+        print("[APIClient] getPlanDays: fetching days for plan \(planId)")
         let days: [PlanDay] = try await get("/plans/\(planId)/days")
+        print("[APIClient] getPlanDays: got \(days.count) days for plan \(planId)")
         var enrichedDays: [PlanDay] = []
         for var day in days {
-            let exercises: [PlanDayExercise] = try await get("/plans/\(planId)/days/\(day.id)/exercises")
-            day.exercises = exercises
+            do {
+                let exercises: [PlanDayExercise] = try await get("/plans/\(planId)/days/\(day.id)/exercises")
+                day.exercises = exercises
+                print("[APIClient] getPlanDays: day \(day.id) has \(exercises.count) exercises")
+            } catch {
+                print("[APIClient] getPlanDays: FAILED to decode exercises for day \(day.id): \(error)")
+                // Continue with empty exercises rather than failing the entire plan
+                day.exercises = []
+            }
             enrichedDays.append(day)
         }
         return enrichedDays

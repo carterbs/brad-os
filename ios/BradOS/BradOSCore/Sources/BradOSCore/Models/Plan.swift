@@ -86,7 +86,9 @@ public struct PlanDayExercise: Identifiable, Codable, Hashable, Sendable {
     public var weight: Double
     public var restSeconds: Int
     public var sortOrder: Int
+    /// Minimum reps in the rep range. Defaults to 8 if missing from backend (legacy data).
     public var minReps: Int
+    /// Maximum reps in the rep range. Defaults to 12 if missing from backend (legacy data).
     public var maxReps: Int
     public var exerciseName: String?
 
@@ -113,8 +115,8 @@ public struct PlanDayExercise: Identifiable, Codable, Hashable, Sendable {
         weight: Double,
         restSeconds: Int,
         sortOrder: Int,
-        minReps: Int,
-        maxReps: Int,
+        minReps: Int = 8,
+        maxReps: Int = 12,
         exerciseName: String? = nil
     ) {
         self.id = id
@@ -128,6 +130,22 @@ public struct PlanDayExercise: Identifiable, Codable, Hashable, Sendable {
         self.minReps = minReps
         self.maxReps = maxReps
         self.exerciseName = exerciseName
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        planDayId = try container.decode(String.self, forKey: .planDayId)
+        exerciseId = try container.decode(String.self, forKey: .exerciseId)
+        sets = try container.decode(Int.self, forKey: .sets)
+        reps = try container.decode(Int.self, forKey: .reps)
+        weight = try container.decode(Double.self, forKey: .weight)
+        restSeconds = try container.decode(Int.self, forKey: .restSeconds)
+        sortOrder = try container.decode(Int.self, forKey: .sortOrder)
+        // min_reps/max_reps may be missing from legacy Firestore documents
+        minReps = try container.decodeIfPresent(Int.self, forKey: .minReps) ?? 8
+        maxReps = try container.decodeIfPresent(Int.self, forKey: .maxReps) ?? 12
+        exerciseName = try container.decodeIfPresent(String.self, forKey: .exerciseName)
     }
 }
 
