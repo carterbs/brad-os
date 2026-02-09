@@ -12,6 +12,8 @@ import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
 import { requireAppCheck } from '../middleware/app-check.js';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { ExerciseRepository } from '../repositories/exercise.repository.js';
+import { WorkoutSetRepository } from '../repositories/workout-set.repository.js';
+import type { ExerciseHistory, ExerciseHistoryEntry } from '../shared.js';
 import { getFirestoreDb } from '../firebase.js';
 
 const app = express();
@@ -27,6 +29,14 @@ function getRepo(): ExerciseRepository {
     exerciseRepo = new ExerciseRepository(getFirestoreDb());
   }
   return exerciseRepo;
+}
+
+let workoutSetRepo: WorkoutSetRepository | null = null;
+function getWorkoutSetRepo(): WorkoutSetRepository {
+  if (workoutSetRepo === null) {
+    workoutSetRepo = new WorkoutSetRepository(getFirestoreDb());
+  }
+  return workoutSetRepo;
 }
 
 // GET /exercises
@@ -45,6 +55,70 @@ app.get('/default', asyncHandler(async (_req: Request, res: Response, _next: Nex
 app.get('/custom', asyncHandler(async (_req: Request, res: Response, _next: NextFunction) => {
   const exercises = await getRepo().findCustomExercises();
   res.json({ success: true, data: exercises });
+}));
+
+// GET /exercises/:id/history
+app.get('/:id/history', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const id = req.params['id'] ?? '';
+  const exercise = await getRepo().findById(id);
+  if (exercise === null) {
+    next(new NotFoundError('Exercise', id));
+    return;
+  }
+
+  const completedSets = await getWorkoutSetRepo().findCompletedByExerciseId(id);
+
+  // Group sets by workout_id to create entries
+  const workoutGroups = new Map<string, typeof completedSets>();
+  for (const set of completedSets) {
+    const existing = workoutGroups.get(set.workout_id) ?? [];
+    existing.push(set);
+    workoutGroups.set(set.workout_id, existing);
+  }
+
+  const entries: ExerciseHistoryEntry[] = [];
+  let personalRecord: ExerciseHistory['personal_record'] = null;
+
+  for (const [workoutId, sets] of workoutGroups) {
+    const firstSet = sets[0];
+    if (!firstSet) continue;
+
+    const bestWeight = Math.max(...sets.map(s => s.actual_weight));
+    const bestWeightSet = sets.find(s => s.actual_weight === bestWeight);
+    const bestSetReps = bestWeightSet?.actual_reps ?? 0;
+
+    entries.push({
+      workout_id: workoutId,
+      date: firstSet.completed_at ?? firstSet.scheduled_date,
+      week_number: firstSet.week_number,
+      mesocycle_id: firstSet.mesocycle_id,
+      sets: sets.map(s => ({
+        set_number: s.set_number,
+        weight: s.actual_weight,
+        reps: s.actual_reps,
+      })),
+      best_weight: bestWeight,
+      best_set_reps: bestSetReps,
+    });
+
+    // Track personal record (highest weight)
+    if (personalRecord === null || bestWeight > personalRecord.weight) {
+      personalRecord = {
+        weight: bestWeight,
+        reps: bestSetReps,
+        date: firstSet.completed_at ?? firstSet.scheduled_date,
+      };
+    }
+  }
+
+  const history: ExerciseHistory = {
+    exercise_id: id,
+    exercise_name: exercise.name,
+    entries,
+    personal_record: personalRecord,
+  };
+
+  res.json({ success: true, data: history });
 }));
 
 // GET /exercises/:id

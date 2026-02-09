@@ -23,7 +23,7 @@ vi.mock('../middleware/app-check.js', () => ({
   requireAppCheck: (_req: unknown, _res: unknown, next: () => void): void => next(),
 }));
 
-// Mock the repository
+// Mock the repositories
 const mockExerciseRepo = {
   findAll: vi.fn(),
   findDefaultExercises: vi.fn(),
@@ -35,8 +35,16 @@ const mockExerciseRepo = {
   isInUse: vi.fn(),
 };
 
+const mockWorkoutSetRepo = {
+  findCompletedByExerciseId: vi.fn(),
+};
+
 vi.mock('../repositories/exercise.repository.js', () => ({
   ExerciseRepository: vi.fn().mockImplementation(() => mockExerciseRepo),
+}));
+
+vi.mock('../repositories/workout-set.repository.js', () => ({
+  WorkoutSetRepository: vi.fn().mockImplementation(() => mockWorkoutSetRepo),
 }));
 
 // Import after mocks
@@ -369,6 +377,82 @@ describe('Exercises Handler', () => {
       expect(response.status).toBe(400);
       expect(body.success).toBe(false);
       expect(body.error?.code).toBe('VALIDATION_ERROR');
+    });
+  });
+
+  describe('GET /exercises/:id/history', () => {
+    it('should return exercise history with entries and personal record', async () => {
+      const exercise = createTestExercise({ id: 'exercise-123', name: 'Bench Press' });
+      mockExerciseRepo.findById.mockResolvedValue(exercise);
+      mockWorkoutSetRepo.findCompletedByExerciseId.mockResolvedValue([
+        {
+          workout_id: 'workout-1',
+          exercise_id: 'exercise-123',
+          set_number: 1,
+          actual_weight: 135,
+          actual_reps: 8,
+          scheduled_date: '2024-01-15',
+          completed_at: '2024-01-15T10:00:00Z',
+          week_number: 1,
+          mesocycle_id: 'meso-1',
+        },
+        {
+          workout_id: 'workout-1',
+          exercise_id: 'exercise-123',
+          set_number: 2,
+          actual_weight: 135,
+          actual_reps: 7,
+          scheduled_date: '2024-01-15',
+          completed_at: '2024-01-15T10:05:00Z',
+          week_number: 1,
+          mesocycle_id: 'meso-1',
+        },
+        {
+          workout_id: 'workout-2',
+          exercise_id: 'exercise-123',
+          set_number: 1,
+          actual_weight: 140,
+          actual_reps: 8,
+          scheduled_date: '2024-01-22',
+          completed_at: '2024-01-22T10:00:00Z',
+          week_number: 2,
+          mesocycle_id: 'meso-1',
+        },
+      ]);
+
+      const response = await request(exercisesApp).get('/exercise-123/history');
+
+      expect(response.status).toBe(200);
+      const body = response.body as ApiResponse<{ exercise_id: string; entries: unknown[]; personal_record: unknown }>;
+      expect(body.success).toBe(true);
+      expect(body.data?.exercise_id).toBe('exercise-123');
+      expect(body.data?.entries).toHaveLength(2);
+      expect(body.data?.personal_record).toEqual({
+        weight: 140,
+        reps: 8,
+        date: '2024-01-22T10:00:00Z',
+      });
+    });
+
+    it('should return empty history when no completed sets', async () => {
+      const exercise = createTestExercise({ id: 'exercise-123' });
+      mockExerciseRepo.findById.mockResolvedValue(exercise);
+      mockWorkoutSetRepo.findCompletedByExerciseId.mockResolvedValue([]);
+
+      const response = await request(exercisesApp).get('/exercise-123/history');
+
+      expect(response.status).toBe(200);
+      const body = response.body as ApiResponse<{ entries: unknown[]; personal_record: unknown }>;
+      expect(body.data?.entries).toHaveLength(0);
+      expect(body.data?.personal_record).toBeNull();
+    });
+
+    it('should return 404 when exercise not found', async () => {
+      mockExerciseRepo.findById.mockResolvedValue(null);
+
+      const response = await request(exercisesApp).get('/non-existent-id/history');
+
+      expect(response.status).toBe(404);
     });
   });
 

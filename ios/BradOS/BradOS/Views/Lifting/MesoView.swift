@@ -185,6 +185,14 @@ struct ActiveMesocycleCard: View {
     @State private var showingCancelAlert: Bool = false
     @State private var isCancelling = false
 
+    /// Whether any workout across all weeks is currently in progress
+    private var hasAnyInProgressWorkout: Bool {
+        guard let weeks = mesocycle.weeks else { return false }
+        return weeks.contains { week in
+            week.workouts.contains { $0.status == .inProgress }
+        }
+    }
+
     /// The active week is the first week that has an incomplete workout
     private var activeWeekNumber: Int? {
         guard let weeks = mesocycle.weeks else { return nil }
@@ -207,6 +215,7 @@ struct ActiveMesocycleCard: View {
                     WeekCard(
                         week: week,
                         isActiveWeek: week.weekNumber == activeWeekNumber,
+                        hasInProgressWorkout: hasAnyInProgressWorkout,
                         navigationPath: $navigationPath
                     )
                 }
@@ -313,6 +322,7 @@ struct ActiveMesocycleCard: View {
 struct WeekCard: View {
     let week: WeekSummary
     let isActiveWeek: Bool
+    let hasInProgressWorkout: Bool
     @Binding var navigationPath: NavigationPath
 
     var body: some View {
@@ -359,8 +369,8 @@ struct WeekCard: View {
 
     @ViewBuilder
     private func workoutRow(_ workout: WorkoutSummary) -> some View {
-        let isPending = workout.status == .pending
-        let isInProgress = workout.status == .inProgress
+        let canStart = canStartWorkout(workout)
+        let isTappable = workout.status == .inProgress || workout.status == .completed || (workout.status == .pending && canStart)
 
         HStack {
             Circle()
@@ -382,7 +392,7 @@ struct WeekCard: View {
                 .foregroundColor(statusColor(for: workout.status))
                 .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
 
-            if isPending || isInProgress {
+            if isTappable {
                 Image(systemName: "chevron.right")
                     .font(.caption)
                     .foregroundColor(Theme.textSecondary)
@@ -390,11 +400,18 @@ struct WeekCard: View {
         }
         .padding(.vertical, 4)
         .contentShape(Rectangle())
+        .opacity(workout.status == .pending && !canStart ? 0.5 : 1.0)
         .onTapGesture {
-            if isPending || isInProgress {
+            if isTappable {
                 navigationPath.append(WorkoutDestination(workoutId: workout.id))
             }
         }
+    }
+
+    /// Determines if a pending workout can be started (no in-progress workouts exist anywhere in the mesocycle)
+    private func canStartWorkout(_ workout: WorkoutSummary) -> Bool {
+        guard workout.status == .pending else { return true }
+        return !hasInProgressWorkout
     }
 
     private func statusColor(for status: WorkoutStatus) -> Color {
