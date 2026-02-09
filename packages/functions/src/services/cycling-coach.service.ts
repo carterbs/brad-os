@@ -24,7 +24,7 @@ import type {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const OPENAI_MODEL = 'gpt-4o';
+const OPENAI_MODEL = 'gpt-5.2';
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 
