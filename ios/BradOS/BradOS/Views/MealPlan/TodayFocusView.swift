@@ -49,18 +49,24 @@ struct TodayFocusView: View {
 
     @ViewBuilder
     private var dayChipScroller: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(0..<7, id: \.self) { dayIndex in
-                    dayChip(dayIndex)
-                        .onTapGesture {
-                            withAnimation(.easeInOut(duration: 0.25)) {
-                                selectedDayIndex = dayIndex
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(0..<7, id: \.self) { dayIndex in
+                        dayChip(dayIndex)
+                            .id(dayIndex)
+                            .onTapGesture {
+                                withAnimation(.easeInOut(duration: 0.25)) {
+                                    selectedDayIndex = dayIndex
+                                }
                             }
-                        }
+                    }
                 }
+                .padding(.horizontal, 2)
             }
-            .padding(.horizontal, 2)
+            .onAppear {
+                proxy.scrollTo(currentDayIndex, anchor: .center)
+            }
         }
     }
 

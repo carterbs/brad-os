@@ -161,10 +161,12 @@ struct MealPlanView: View {
 
     // MARK: - New Plan Button
 
+    @State private var showNewPlanConfirmation = false
+
     @ViewBuilder
     private var newPlanButton: some View {
         Button(action: {
-            viewModel.startNewPlan()
+            showNewPlanConfirmation = true
         }) {
             HStack {
                 Image(systemName: "arrow.counterclockwise")
@@ -174,6 +176,14 @@ struct MealPlanView: View {
         }
         .buttonStyle(SecondaryButtonStyle())
         .padding(.top, Theme.Spacing.space2)
+        .alert("Start New Plan?", isPresented: $showNewPlanConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Start Fresh", role: .destructive) {
+                viewModel.startNewPlan()
+            }
+        } message: {
+            Text("Are you sure? This will start a fresh meal plan.")
+        }
     }
 }
 

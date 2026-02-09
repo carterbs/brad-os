@@ -52,13 +52,29 @@ struct CollapsibleCritiqueView: View {
 
     @ViewBuilder
     private func conversationHistory(_ messages: [ConversationMessage]) -> some View {
-        VStack(spacing: Theme.Spacing.space2) {
-            ForEach(messages) { message in
-                switch message.role {
-                case .user:
-                    userBubble(message.content)
-                case .assistant:
-                    assistantBubble(message.content)
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: Theme.Spacing.space2) {
+                    ForEach(messages) { message in
+                        switch message.role {
+                        case .user:
+                            userBubble(message.content)
+                        case .assistant:
+                            assistantBubble(message.content)
+                        }
+                    }
+                    Color.clear
+                        .frame(height: 1)
+                        .id("conversationBottom")
+                }
+            }
+            .frame(maxHeight: 300)
+            .onAppear {
+                proxy.scrollTo("conversationBottom", anchor: .bottom)
+            }
+            .onChange(of: messages.count) { _ in
+                withAnimation {
+                    proxy.scrollTo("conversationBottom", anchor: .bottom)
                 }
             }
         }

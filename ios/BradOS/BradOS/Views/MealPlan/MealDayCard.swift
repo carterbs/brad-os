@@ -45,14 +45,18 @@ struct MealDayCard: View {
 
             // Effort badge
             if let effort = viewModel.effortForEntry(entry) {
-                Text("\(effort)")
-                    .font(.caption2)
-                    .monospaced()
-                    .monospacedDigit()
-                    .foregroundColor(Theme.textSecondary)
-                    .padding(Theme.Spacing.space1)
-                    .background(Theme.mealPlan.opacity(0.2))
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+                HStack(spacing: 2) {
+                    Text("\(effort)")
+                        .font(.caption2)
+                        .monospaced()
+                        .monospacedDigit()
+                    Text("effort")
+                        .font(.system(size: 9))
+                }
+                .foregroundColor(Theme.textSecondary)
+                .padding(Theme.Spacing.space1)
+                .background(Theme.mealPlan.opacity(0.2))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
             }
 
             // Action badge
