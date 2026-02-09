@@ -8,6 +8,7 @@ struct CyclingBlockView: View {
     @EnvironmentObject var viewModel: CyclingViewModel
     @State private var showNewBlockSheet = false
     @State private var showBlockCompletedSheet = false
+    @State private var showBlockError = false
 
     var body: some View {
         ScrollView {
@@ -73,10 +74,20 @@ struct CyclingBlockView: View {
                 onComplete: { goals, startDate in
                     Task {
                         await viewModel.startNewBlock(goals: goals, startDate: startDate)
+                        if viewModel.currentBlock != nil {
+                            showNewBlockSheet = false
+                        } else {
+                            showNewBlockSheet = false
+                            showBlockError = true
+                        }
                     }
-                    showNewBlockSheet = false
                 }
             )
+        }
+        .alert("Error", isPresented: $showBlockError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(viewModel.error ?? "Failed to create training block. Please try again.")
         }
         .onAppear {
             checkBlockCompletion()
@@ -195,9 +206,9 @@ struct WeekIndicatorCard: View {
 extension TrainingBlockModel.TrainingGoal {
     var displayName: String {
         switch self {
-        case .regainFitness: return "Fitness"
-        case .maintainMuscle: return "Muscle"
-        case .loseWeight: return "Weight Loss"
+        case .regainFitness: return "Regain Fitness"
+        case .maintainMuscle: return "Maintain Muscle"
+        case .loseWeight: return "Lose Weight"
         }
     }
 }

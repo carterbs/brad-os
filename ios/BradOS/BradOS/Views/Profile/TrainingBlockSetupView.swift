@@ -6,7 +6,8 @@ struct TrainingBlockSetupView: View {
     @State private var startDate = Date()
     @State private var selectedGoals: Set<TrainingBlockModel.TrainingGoal> = []
     @State private var isSaving = false
-    @State private var saveSuccess = false
+    @State private var showSuccess = false
+    @State private var showError = false
 
     var endDate: Date {
         Calendar.current.date(byAdding: .weekOfYear, value: 8, to: startDate) ?? startDate
@@ -31,10 +32,6 @@ struct TrainingBlockSetupView: View {
                     // Start Button Section
                     startButtonSection
 
-                    // Success Banner
-                    if saveSuccess {
-                        blockSuccessBanner
-                    }
                 }
             }
             .padding(Theme.Spacing.space5)
@@ -43,6 +40,16 @@ struct TrainingBlockSetupView: View {
         .navigationTitle("Training Block")
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .alert("Block Created", isPresented: $showSuccess) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Your 8-week training block has been created.")
+        }
+        .alert("Error", isPresented: $showError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(cyclingVM.error ?? "Failed to create training block. Please try again.")
+        }
     }
 
     // MARK: - Active Block Section
@@ -211,29 +218,6 @@ struct TrainingBlockSetupView: View {
         .opacity(selectedGoals.isEmpty ? 0.5 : 1.0)
     }
 
-    // MARK: - Success Banner
-
-    @ViewBuilder
-    private var blockSuccessBanner: some View {
-        HStack(spacing: Theme.Spacing.space2) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(Theme.success)
-            Text("Training block started")
-                .font(.subheadline)
-                .foregroundStyle(Theme.success)
-            Spacer()
-        }
-        .padding(Theme.Spacing.space4)
-        .background(Theme.success.opacity(0.08))
-        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                withAnimation { saveSuccess = false }
-            }
-        }
-    }
-
     // MARK: - Helper Functions
 
     private func iconForGoal(_ goal: TrainingBlockModel.TrainingGoal) -> String {
@@ -262,7 +246,12 @@ struct TrainingBlockSetupView: View {
                 startDate: startDate
             )
             isSaving = false
-            withAnimation { saveSuccess = true }
+
+            if cyclingVM.currentBlock != nil {
+                showSuccess = true
+            } else {
+                showError = true
+            }
         }
     }
 
