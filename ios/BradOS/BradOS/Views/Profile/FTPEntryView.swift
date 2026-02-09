@@ -8,6 +8,8 @@ struct FTPEntryView: View {
     @State private var source: FTPSource = .manual
     @State private var isSaving = false
     @State private var ftpHistory: [FTPEntry] = []
+    @State private var showSaveSuccess = false
+    @State private var showSaveError = false
 
     enum FTPSource: String, CaseIterable {
         case manual = "Manual Entry"
@@ -48,6 +50,18 @@ struct FTPEntryView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .task {
             await loadFTPData()
+        }
+        .alert("FTP Saved", isPresented: $showSaveSuccess) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            if let ftp = cyclingVM.currentFTP {
+                Text("Your FTP has been updated to \(ftp)W.")
+            }
+        }
+        .alert("Error", isPresented: $showSaveError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(cyclingVM.error ?? "Failed to save FTP. Please try again.")
         }
     }
 
@@ -206,8 +220,10 @@ struct FTPEntryView: View {
             isSaving = false
 
             if success {
-                // Reload history to show the new entry
+                showSaveSuccess = true
                 await loadFTPData()
+            } else {
+                showSaveError = true
             }
         }
     }

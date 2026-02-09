@@ -357,6 +357,12 @@ class HealthKitManager: ObservableObject {
         let rhr = try await rhrTask
         let sleep = try await sleepTask
 
+        // If we have no real HRV or RHR data, don't show a fake score
+        guard hrv != nil || rhr != nil else {
+            latestRecovery = nil
+            throw HealthKitError.noData
+        }
+
         // Get or update baseline
         let baseline = try await getOrUpdateBaseline()
 

@@ -185,6 +185,7 @@ class CyclingViewModel: ObservableObject {
     /// Start a new training block
     func startNewBlock(goals: [TrainingBlockModel.TrainingGoal], startDate: Date) async {
         isLoading = true
+        error = nil
         defer { isLoading = false }
 
         let endDate = Calendar.current.date(byAdding: .weekOfYear, value: 8, to: startDate) ?? startDate
@@ -239,6 +240,7 @@ class CyclingViewModel: ObservableObject {
 
     /// Save FTP value to backend
     func saveFTP(_ value: Int, date: Date = Date(), source: String = "manual") async -> Bool {
+        error = nil
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy-MM-dd"
 

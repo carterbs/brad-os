@@ -10,6 +10,7 @@ struct CyclingTodayView: View {
     @StateObject private var coachClient = CyclingCoachClient()
 
     @State private var showOnboarding = false
+    @State private var showSetupOnboarding = false
 
     private var needsOnboarding: Bool {
         // Show onboarding if:
@@ -55,6 +56,14 @@ struct CyclingTodayView: View {
             }
             .environmentObject(stravaAuth)
         }
+        .sheet(isPresented: $showSetupOnboarding) {
+            CyclingOnboardingView {
+                Task {
+                    await viewModel.loadData()
+                }
+            }
+            .environmentObject(stravaAuth)
+        }
     }
 
     // MARK: - FTP Warning
@@ -92,7 +101,7 @@ struct CyclingTodayView: View {
     private var coachSection: some View {
         if !viewModel.hasFTP {
             // No FTP set - show setup card
-            CoachPlaceholderCard()
+            CoachPlaceholderCard(onSetUp: { showSetupOnboarding = true })
         } else if coachClient.isLoading {
             // Loading state
             CoachRecommendationLoadingCard()
@@ -237,6 +246,8 @@ struct RecoverySummaryCard: View {
 
 /// Placeholder for AI coach recommendations
 struct CoachPlaceholderCard: View {
+    var onSetUp: (() -> Void)?
+
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
             HStack(spacing: Theme.Spacing.space2) {
@@ -259,13 +270,17 @@ struct CoachPlaceholderCard: View {
 
             HStack {
                 Spacer()
-                HStack(spacing: Theme.Spacing.space1) {
-                    Text("Set Up")
-                        .font(.callout.weight(.semibold))
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
+                Button {
+                    onSetUp?()
+                } label: {
+                    HStack(spacing: Theme.Spacing.space1) {
+                        Text("Set Up")
+                            .font(.callout.weight(.semibold))
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                    }
+                    .foregroundColor(Theme.interactivePrimary)
                 }
-                .foregroundColor(Theme.interactivePrimary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

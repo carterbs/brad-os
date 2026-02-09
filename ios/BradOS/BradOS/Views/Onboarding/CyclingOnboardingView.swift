@@ -537,9 +537,14 @@ struct CyclingOnboardingView: View {
         isSaving = true
 
         Task {
+            var hasError = false
+
             // Save FTP if provided
             if let ftp = Int(ftpValue), ftp > 0 {
-                _ = await cyclingVM.saveFTP(ftp)
+                let ftpSuccess = await cyclingVM.saveFTP(ftp)
+                if !ftpSuccess {
+                    hasError = true
+                }
             }
 
             // Create training block if goals selected
@@ -548,11 +553,20 @@ struct CyclingOnboardingView: View {
                     goals: Array(selectedGoals),
                     startDate: startDate
                 )
+                if cyclingVM.currentBlock == nil {
+                    hasError = true
+                }
             }
 
             isSaving = false
-            onComplete?()
-            dismiss()
+
+            if hasError {
+                errorMessage = cyclingVM.error ?? "Failed to save settings. Please try again."
+                showError = true
+            } else {
+                onComplete?()
+                dismiss()
+            }
         }
     }
 

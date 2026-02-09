@@ -2,6 +2,8 @@ import SwiftUI
 
 /// User profile and settings view
 struct ProfileView: View {
+    @EnvironmentObject var cyclingVM: CyclingViewModel
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -39,9 +41,16 @@ struct ProfileView: View {
                         iconName: "bolt.fill",
                         iconColor: Theme.cycling
                     ) {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Theme.textTertiary)
+                        HStack(spacing: Theme.Spacing.space2) {
+                            if let ftp = cyclingVM.currentFTP {
+                                Text("\(ftp)W")
+                                    .font(.subheadline)
+                                    .foregroundColor(Theme.textSecondary)
+                            }
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(Theme.textTertiary)
+                        }
                     }
                 }
                 .buttonStyle(.plain)
@@ -207,5 +216,6 @@ struct SettingsRow<Accessory: View>: View {
 
 #Preview {
     ProfileView()
+        .environmentObject(CyclingViewModel())
         .preferredColorScheme(.dark)
 }

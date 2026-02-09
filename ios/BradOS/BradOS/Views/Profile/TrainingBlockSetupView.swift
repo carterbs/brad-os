@@ -6,6 +6,8 @@ struct TrainingBlockSetupView: View {
     @State private var startDate = Date()
     @State private var selectedGoals: Set<TrainingBlockModel.TrainingGoal> = []
     @State private var isSaving = false
+    @State private var showSuccess = false
+    @State private var showError = false
 
     var endDate: Date {
         Calendar.current.date(byAdding: .weekOfYear, value: 8, to: startDate) ?? startDate
@@ -37,6 +39,16 @@ struct TrainingBlockSetupView: View {
         .navigationTitle("Training Block")
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .alert("Block Created", isPresented: $showSuccess) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Your 8-week training block has been created.")
+        }
+        .alert("Error", isPresented: $showError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(cyclingVM.error ?? "Failed to create training block. Please try again.")
+        }
     }
 
     // MARK: - Active Block Section
@@ -233,6 +245,12 @@ struct TrainingBlockSetupView: View {
                 startDate: startDate
             )
             isSaving = false
+
+            if cyclingVM.currentBlock != nil {
+                showSuccess = true
+            } else {
+                showError = true
+            }
         }
     }
 
