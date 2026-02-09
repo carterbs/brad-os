@@ -218,6 +218,7 @@ private final class SpyAPIClient: APIClientProtocol, @unchecked Sendable {
     func createPlan(name: String, durationWeeks: Int) async throws -> Plan { throw notImplemented() }
     func updatePlan(id: String, name: String?, durationWeeks: Int?) async throws -> Plan { throw notImplemented() }
     func deletePlan(id: String) async throws { throw notImplemented() }
+    func getPlanDays(planId: String) async throws -> [PlanDay] { throw notImplemented() }
     func getMesocycles() async throws -> [Mesocycle] { throw notImplemented() }
     func getActiveMesocycle() async throws -> Mesocycle? { throw notImplemented() }
     func getMesocycle(id: String) async throws -> Mesocycle { throw notImplemented() }
