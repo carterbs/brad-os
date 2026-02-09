@@ -13,6 +13,7 @@ import {
   calculateVO2MaxSchema,
   updateCyclingProfileSchema,
   type CyclingActivity,
+  type CreateTrainingBlockInput,
 } from '../shared.js';
 import { validate } from '../middleware/validate.js';
 import { errorHandler, NotFoundError } from '../middleware/error-handler.js';
@@ -253,11 +254,7 @@ app.post(
   validate(createTrainingBlockSchema),
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     const userId = getUserId(req);
-    const body = req.body as {
-      startDate: string;
-      endDate: string;
-      goals: ('regain_fitness' | 'maintain_muscle' | 'lose_weight')[];
-    };
+    const body = req.body as CreateTrainingBlockInput;
 
     // Complete any existing active block first
     const currentBlock = await cyclingService.getCurrentTrainingBlock(userId);

@@ -185,7 +185,7 @@ export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
  */
 export interface WeeklySession {
   order: number;
-  sessionType: SessionType;
+  sessionType: string;
   pelotonClassTypes: string[];
   suggestedDurationMinutes: number;
   description: string;

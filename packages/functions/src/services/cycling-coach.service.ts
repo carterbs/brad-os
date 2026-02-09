@@ -441,7 +441,7 @@ function createFallbackSchedule(request: GenerateScheduleRequest): GenerateSched
     const template = sessionTemplates[type] ?? funTemplate;
     return {
       order: index + 1,
-      sessionType: template.sessionType as WeeklySession['sessionType'],
+      sessionType: template.sessionType,
       pelotonClassTypes: template.pelotonClassTypes,
       suggestedDurationMinutes: template.duration,
       description: template.description,

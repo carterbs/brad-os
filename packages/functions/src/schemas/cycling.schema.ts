@@ -41,7 +41,7 @@ export type CreateFTPEntryInput = z.infer<typeof createFTPEntrySchema>;
 
 const weeklySessionSchema = z.object({
   order: z.number().int().positive(),
-  sessionType: z.enum(['vo2max', 'threshold', 'endurance', 'tempo', 'fun', 'recovery', 'off']),
+  sessionType: z.string().min(1),
   pelotonClassTypes: z.array(z.string()),
   suggestedDurationMinutes: z.number().positive(),
   description: z.string(),

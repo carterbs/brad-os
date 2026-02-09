@@ -443,6 +443,56 @@ describe('Cycling Handler', () => {
       );
     });
 
+    it('should create training block with weeklySessions from iOS', async () => {
+      const block = createTestTrainingBlock();
+      mockCyclingService.getCurrentTrainingBlock.mockResolvedValue(null);
+      mockCyclingService.createTrainingBlock.mockResolvedValue(block);
+
+      const response = await request(cyclingApp).post('/block').send({
+        startDate: '2024-01-01',
+        endDate: '2024-02-25',
+        goals: ['regain_fitness'],
+        daysPerWeek: 3,
+        weeklySessions: [
+          { order: 1, sessionType: 'vo2max', pelotonClassTypes: ['Power Zone Max', 'HIIT & Hills'], suggestedDurationMinutes: 30, description: 'High-intensity session' },
+          { order: 2, sessionType: 'threshold', pelotonClassTypes: ['Power Zone', 'Sweat Steady'], suggestedDurationMinutes: 45, description: 'Threshold session' },
+          { order: 3, sessionType: 'fun', pelotonClassTypes: ['Music', 'Theme'], suggestedDurationMinutes: 30, description: 'Fun ride' },
+        ],
+        preferredDays: [2, 4, 6],
+        experienceLevel: 'intermediate',
+        weeklyHoursAvailable: 4.5,
+      });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toEqual({
+        success: true,
+        data: block,
+      });
+    });
+
+    it('should accept weeklySessions with AI-generated sessionType strings', async () => {
+      const block = createTestTrainingBlock();
+      mockCyclingService.getCurrentTrainingBlock.mockResolvedValue(null);
+      mockCyclingService.createTrainingBlock.mockResolvedValue(block);
+
+      const response = await request(cyclingApp).post('/block').send({
+        startDate: '2024-01-01',
+        endDate: '2024-02-25',
+        goals: ['regain_fitness'],
+        daysPerWeek: 3,
+        weeklySessions: [
+          { order: 1, sessionType: 'sweet_spot', pelotonClassTypes: ['Power Zone'], suggestedDurationMinutes: 45, description: 'Sweet spot session' },
+          { order: 2, sessionType: 'base', pelotonClassTypes: ['PZ Endurance'], suggestedDurationMinutes: 60, description: 'Base building' },
+        ],
+      });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toEqual({
+        success: true,
+        data: block,
+      });
+    });
+
     it('should return 400 for invalid goals', async () => {
       const response: Response = await request(cyclingApp).post('/block').send({
         startDate: '2024-01-01',
