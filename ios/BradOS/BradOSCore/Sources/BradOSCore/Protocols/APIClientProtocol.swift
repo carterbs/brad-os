@@ -74,6 +74,9 @@ public protocol APIClientProtocol: Sendable {
     /// Delete a plan
     func deletePlan(id: String) async throws
 
+    /// Get days for a plan (with exercises populated)
+    func getPlanDays(planId: String) async throws -> [PlanDay]
+
     // MARK: - Mesocycles
 
     /// Get all mesocycles

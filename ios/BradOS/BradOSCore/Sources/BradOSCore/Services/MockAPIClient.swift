@@ -321,6 +321,15 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         mockPlans.removeAll { $0.id == id }
     }
 
+    public func getPlanDays(planId: String) async throws -> [PlanDay] {
+        await simulateDelay()
+        try checkForError()
+        guard let plan = mockPlans.first(where: { $0.id == planId }) else {
+            throw APIError.notFound("Plan \(planId) not found")
+        }
+        return plan.days ?? []
+    }
+
     // MARK: - Mesocycles
 
     public func getMesocycles() async throws -> [Mesocycle] {
