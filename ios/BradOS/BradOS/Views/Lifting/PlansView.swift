@@ -70,7 +70,13 @@ struct PlansView: View {
         isLoading = true
         error = nil
         do {
-            plans = try await apiClient.getPlans()
+            var fetchedPlans = try await apiClient.getPlans()
+            // Enrich each plan with its days so the card can show day count
+            for i in fetchedPlans.indices {
+                let days = try await apiClient.getPlanDays(planId: fetchedPlans[i].id)
+                fetchedPlans[i].days = days
+            }
+            plans = fetchedPlans
             isLoading = false
         } catch {
             self.error = "Failed to load plans: \(error.localizedDescription)"
@@ -147,9 +153,10 @@ struct PlanDetailView: View {
     @State private var plan: Plan?
     @State private var isLoading: Bool = true
     @State private var error: String?
-    @State private var showingEditSheet: Bool = false
     @State private var showingDeleteAlert: Bool = false
+    @State private var showingEditComingSoon: Bool = false
     @State private var isDeleting: Bool = false
+    @State private var hasActiveMesocycle: Bool = false
 
     var body: some View {
         ScrollView {
@@ -185,7 +192,7 @@ struct PlanDetailView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
-                    Button(action: { showingEditSheet = true }) {
+                    Button(action: { showingEditComingSoon = true }) {
                         Label("Edit Plan", systemImage: "pencil")
                     }
                     Button(role: .destructive, action: { showingDeleteAlert = true }) {
@@ -205,6 +212,11 @@ struct PlanDetailView: View {
         } message: {
             Text("This will permanently delete this plan. Any mesocycles using this plan will not be affected.")
         }
+        .alert("Coming Soon", isPresented: $showingEditComingSoon) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Plan editing is not yet available. This feature is coming in a future update.")
+        }
         .task {
             await loadPlan()
         }
@@ -214,7 +226,14 @@ struct PlanDetailView: View {
         isLoading = true
         error = nil
         do {
-            plan = try await apiClient.getPlan(id: planId)
+            var fetchedPlan = try await apiClient.getPlan(id: planId)
+            // Fetch days with exercises populated
+            let days = try await apiClient.getPlanDays(planId: planId)
+            fetchedPlan.days = days
+            plan = fetchedPlan
+            // Check for active mesocycle using this plan
+            let activeMeso = try? await apiClient.getActiveMesocycle()
+            hasActiveMesocycle = activeMeso?.planId == planId
             isLoading = false
         } catch {
             self.error = "Failed to load plan: \(error.localizedDescription)"
@@ -303,14 +322,25 @@ struct PlanDetailView: View {
     @ViewBuilder
     private var actionsSection: some View {
         VStack(spacing: Theme.Spacing.space4) {
-            Button(action: { /* Start mesocycle with this plan */ }) {
+            if hasActiveMesocycle {
                 HStack {
-                    Image(systemName: "play.fill")
-                    Text("Start Mesocycle")
+                    Image(systemName: "info.circle")
+                    Text("A mesocycle is already active for this plan.")
                 }
+                .font(.subheadline)
+                .foregroundColor(Theme.textSecondary)
                 .frame(maxWidth: .infinity)
+                .glassCard()
+            } else {
+                Button(action: { /* Start mesocycle with this plan */ }) {
+                    HStack {
+                        Image(systemName: "play.fill")
+                        Text("Start Mesocycle")
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(PrimaryButtonStyle())
             }
-            .buttonStyle(PrimaryButtonStyle())
         }
     }
 }

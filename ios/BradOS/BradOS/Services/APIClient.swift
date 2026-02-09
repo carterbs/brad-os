@@ -377,6 +377,17 @@ final class APIClient: APIClientProtocol {
         try await delete("/plans/\(id)")
     }
 
+    func getPlanDays(planId: String) async throws -> [PlanDay] {
+        let days: [PlanDay] = try await get("/plans/\(planId)/days")
+        var enrichedDays: [PlanDay] = []
+        for var day in days {
+            let exercises: [PlanDayExercise] = try await get("/plans/\(planId)/days/\(day.id)/exercises")
+            day.exercises = exercises
+            enrichedDays.append(day)
+        }
+        return enrichedDays
+    }
+
     // MARK: - Mesocycles
 
     func getMesocycles() async throws -> [Mesocycle] {
