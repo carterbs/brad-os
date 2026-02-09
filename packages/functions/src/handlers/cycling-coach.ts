@@ -35,6 +35,11 @@ import type {
   LiftingWorkoutSummary,
   LiftingScheduleContext,
   Workout,
+  WeightEntry,
+  WeightGoal,
+  WeightMetrics,
+  VO2MaxContext,
+  RecoveryHistoryEntry,
 } from '../shared.js';
 
 // Define secret for OpenAI API key
@@ -135,6 +140,38 @@ function isLowerBodyWorkout(planDayName: string): boolean {
     lower.includes('squat') ||
     lower.includes('deadlift')
   );
+}
+
+/**
+ * Compute weight metrics from weight history entries.
+ * Returns actual weight data instead of hardcoded zeros.
+ */
+function computeWeightMetrics(
+  weightHistory: WeightEntry[],
+  weightGoal: WeightGoal | null
+): WeightMetrics {
+  if (weightHistory.length === 0) {
+    return { currentLbs: 0, trend7DayLbs: 0, trend30DayLbs: 0 };
+  }
+
+  // weightHistory is sorted most recent first
+  const currentLbs = weightHistory[0]?.weightLbs ?? 0;
+
+  // 7-day average: entries within first 7 entries (already sorted by date desc)
+  const recent7 = weightHistory.slice(0, 7);
+  const avg7 = recent7.reduce((sum, e) => sum + e.weightLbs, 0) / recent7.length;
+  const trend7DayLbs = Math.round((currentLbs - avg7) * 10) / 10;
+
+  // 30-day average: all entries (fetched with 30-day limit)
+  const avg30 = weightHistory.reduce((sum, e) => sum + e.weightLbs, 0) / weightHistory.length;
+  const trend30DayLbs = Math.round((currentLbs - avg30) * 10) / 10;
+
+  return {
+    currentLbs,
+    trend7DayLbs,
+    trend30DayLbs,
+    goal: weightGoal ?? undefined,
+  };
 }
 
 /**
@@ -333,10 +370,28 @@ app.post(
     }
 
     // Fetch data from Firestore in parallel
-    const [activities, ftp, block] = await Promise.all([
+    const [
+      activities,
+      ftp,
+      block,
+      weightHistory,
+      weightGoal,
+      latestVO2Max,
+      vo2maxHistory,
+      cyclingProfile,
+      ftpHistory,
+      recoveryHistory,
+    ] = await Promise.all([
       cyclingService.getCyclingActivities(userId, 60), // Last 60 days for CTL
       cyclingService.getCurrentFTP(userId),
       cyclingService.getCurrentTrainingBlock(userId),
+      recoveryService.getWeightHistory(userId, 30),
+      cyclingService.getWeightGoal(userId),
+      cyclingService.getLatestVO2Max(userId),
+      cyclingService.getVO2MaxHistory(userId, 5),
+      cyclingService.getCyclingProfile(userId),
+      cyclingService.getFTPHistory(userId),
+      recoveryService.getRecoveryHistory(userId, 7),
     ]);
 
     if (!ftp) {
@@ -380,6 +435,32 @@ app.post(
       buildLiftingSchedule(),
     ]);
 
+    // Build VO2 max context if available
+    const vo2max: VO2MaxContext | undefined = latestVO2Max
+      ? {
+          current: latestVO2Max.value,
+          date: latestVO2Max.date,
+          method: latestVO2Max.method,
+          history: vo2maxHistory.map((e) => ({ date: e.date, value: e.value })),
+        }
+      : undefined;
+
+    // Build recovery history (trimmed fields for token efficiency)
+    const recoveryHistoryEntries: RecoveryHistoryEntry[] = recoveryHistory.map((r) => ({
+      date: r.date,
+      score: r.score,
+      state: r.state,
+      hrvMs: r.hrvMs,
+      sleepHours: r.sleepHours,
+    }));
+
+    // Build FTP history (last 5 entries)
+    const ftpHistoryTrimmed = ftpHistory.slice(0, 5).map((e) => ({
+      date: e.date,
+      value: e.value,
+      source: e.source,
+    }));
+
     const coachRequest: CyclingCoachRequest = {
       recovery,
       trainingLoad: {
@@ -395,12 +476,12 @@ app.post(
         goals: block?.goals ?? [],
         weekInBlock,
         blockStartDate: block?.startDate ?? (now.toISOString().split('T')[0] ?? ''),
+        experienceLevel: block?.experienceLevel,
+        maxHR: cyclingProfile?.maxHR,
+        restingHR: cyclingProfile?.restingHR,
+        ftpHistory: ftpHistoryTrimmed.length > 0 ? ftpHistoryTrimmed : undefined,
       },
-      weight: {
-        currentLbs: 0,
-        trend7DayLbs: 0,
-        trend30DayLbs: 0,
-      },
+      weight: computeWeightMetrics(weightHistory, weightGoal),
       schedule: {
         dayOfWeek: now.toLocaleDateString('en-US', { weekday: 'long' }),
         sessionType: getSessionType(now),
@@ -410,6 +491,8 @@ app.post(
         weeklySessionQueue: weeklySessions,
         liftingSchedule,
       },
+      recoveryHistory: recoveryHistoryEntries.length > 0 ? recoveryHistoryEntries : undefined,
+      vo2max,
     };
 
     // Get OpenAI API key

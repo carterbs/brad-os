@@ -82,6 +82,50 @@ describe('CyclingCoachService', () => {
       expect(prompt).toContain('lifting');
       expect(prompt).toContain('Low Impact');
     });
+
+    it('should include weight and body composition guidance', () => {
+      const prompt = buildSystemPrompt('');
+
+      expect(prompt).toContain('Weight & Body Composition');
+      expect(prompt).toContain('currentLbs');
+      expect(prompt).toContain('trend7DayLbs');
+      expect(prompt).toContain('weight goal');
+      expect(prompt).toContain('under-fueling');
+    });
+
+    it('should include VO2 max interpretation guidance', () => {
+      const prompt = buildSystemPrompt('');
+
+      expect(prompt).toContain('VO2 Max');
+      expect(prompt).toContain('overtraining');
+      expect(prompt).toContain('recovery week');
+    });
+
+    it('should include recovery trend guidance', () => {
+      const prompt = buildSystemPrompt('');
+
+      expect(prompt).toContain('Recovery Trend');
+      expect(prompt).toContain('recoveryHistory');
+      expect(prompt).toContain('consecutive');
+      expect(prompt).toContain('accumulated fatigue');
+    });
+
+    it('should include athlete profile guidance for experience level and HR', () => {
+      const prompt = buildSystemPrompt('');
+
+      expect(prompt).toContain('experienceLevel');
+      expect(prompt).toContain('beginners');
+      expect(prompt).toContain('maxHR');
+      expect(prompt).toContain('restingHR');
+    });
+
+    it('should include FTP history plateau detection guidance', () => {
+      const prompt = buildSystemPrompt('');
+
+      expect(prompt).toContain('ftpHistory');
+      expect(prompt).toContain('plateaued');
+      expect(prompt).toContain('training stimulus');
+    });
   });
 
   describe('isValidScheduleResponse', () => {

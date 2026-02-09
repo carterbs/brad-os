@@ -5,8 +5,8 @@
  * FTP tracking, recovery metrics, and coach request/response interfaces.
  */
 
-// Import recovery types - RecoverySnapshot is used in CyclingCoachRequest
-import type { RecoverySnapshot } from './recovery.js';
+// Import recovery types used in this file
+import type { RecoverySnapshot, RecoveryState } from './recovery.js';
 // Re-export recovery types used by cycling coach
 export type { RecoveryState, RecoverySnapshot } from './recovery.js';
 
@@ -249,6 +249,10 @@ export interface AthleteProfile {
   goals: string[];
   weekInBlock: number;
   blockStartDate: string; // ISO 8601 date
+  experienceLevel?: ExperienceLevel;
+  maxHR?: number;
+  restingHR?: number;
+  ftpHistory?: Array<{ date: string; value: number; source: FTPSource }>;
 }
 
 /**
@@ -283,6 +287,31 @@ export interface ScheduleContext {
   liftingSchedule: LiftingScheduleContext;
 }
 
+// --- VO2 Max Context for Coach ---
+
+/**
+ * VO2 max context with current value and trend history for the cycling coach.
+ */
+export interface VO2MaxContext {
+  current: number; // mL/kg/min
+  date: string;
+  method: VO2MaxMethod;
+  history: Array<{ date: string; value: number }>;
+}
+
+// --- Recovery History for Coach ---
+
+/**
+ * A trimmed recovery entry for multi-day trend analysis.
+ */
+export interface RecoveryHistoryEntry {
+  date: string;
+  score: number;
+  state: RecoveryState;
+  hrvMs: number;
+  sleepHours: number;
+}
+
 /**
  * Request payload for the cycling coach AI.
  */
@@ -293,6 +322,8 @@ export interface CyclingCoachRequest {
   athlete: AthleteProfile;
   weight: WeightMetrics;
   schedule: ScheduleContext;
+  recoveryHistory?: RecoveryHistoryEntry[];
+  vo2max?: VO2MaxContext;
 }
 
 /**

@@ -89,6 +89,27 @@ Respond with a valid JSON object matching this exact schema:
   "suggestFTPTest": boolean
 }
 
+## Available Data
+
+### Weight & Body Composition
+- currentLbs: latest weight reading. trend7DayLbs/trend30DayLbs: positive = gaining, negative = losing.
+- If athlete has a weight goal, factor calorie burn into session duration/intensity recommendations.
+- Weight loss trend + high training load = risk of under-fueling — warn and suggest easier session.
+
+### VO2 Max
+- Provided as current value + recent history. Rising = fitness improving. Declining may signal overtraining or detraining.
+- A drop of >2 mL/kg/min over 4 weeks alongside high fatigue → suggest recovery week.
+
+### Recovery Trend
+- recoveryHistory shows the last 7 days of recovery scores/states.
+- 3+ consecutive "recover" days = accumulated fatigue — recommend rest or very easy ride regardless of schedule.
+- Rising HRV trend with "ready" states = green light for hard sessions.
+
+### Athlete Profile
+- experienceLevel: beginners need longer warm-ups and shorter high-intensity efforts.
+- maxHR/restingHR: use for HR zone guidance when provided.
+- ftpHistory: if FTP has plateaued for 3+ tests, suggest changing training stimulus.
+
 Important notes:
 - pelotonClassTypes should list 2-3 Peloton class types that match the session intent
 - pelotonTip should be a short, friendly instruction for finding and riding the right class
