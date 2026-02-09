@@ -66,7 +66,7 @@ struct HistoryView: View {
                         showingDayDetail = false
                     }
                 )
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.medium, .large], selection: .constant(.large))
                 .presentationDragIndicator(.visible)
             }
             .navigationDestination(isPresented: Binding(
@@ -498,14 +498,15 @@ struct DayActivityCard: View {
 
         case .stretch:
             VStack(alignment: .leading, spacing: 4) {
-                if let regions = activity.summary.regionsCompleted {
-                    Text("\(regions) regions stretched")
+                if let regions = activity.summary.regionsCompleted, regions > 0 {
+                    Text("\(regions) \(regions == 1 ? "region" : "regions") stretched")
                         .font(.subheadline)
                         .monospacedDigit()
                         .foregroundColor(Theme.textPrimary)
                 }
-                if let duration = activity.summary.totalDurationSeconds {
-                    Text("\(duration / 60) minutes")
+                if let duration = activity.summary.totalDurationSeconds, duration > 0 {
+                    let minutes = duration / 60
+                    Text("\(minutes) \(minutes == 1 ? "minute" : "minutes")")
                         .font(.caption)
                         .monospacedDigit()
                         .foregroundColor(Theme.textSecondary)
@@ -514,14 +515,29 @@ struct DayActivityCard: View {
 
         case .meditation:
             VStack(alignment: .leading, spacing: 4) {
-                if let duration = activity.summary.durationSeconds {
-                    Text("\(duration / 60) minute session")
+                if let meditationType = activity.summary.meditationType {
+                    Text(Self.formatMeditationType(meditationType))
                         .font(.subheadline)
-                        .monospacedDigit()
                         .foregroundColor(Theme.textPrimary)
+                }
+                if let duration = activity.summary.durationSeconds, duration > 0 {
+                    let minutes = duration / 60
+                    Text("\(minutes) \(minutes == 1 ? "minute" : "minutes")")
+                        .font(.caption)
+                        .monospacedDigit()
+                        .foregroundColor(Theme.textSecondary)
                 }
             }
         }
+    }
+
+    static func formatMeditationType(_ sessionType: String) -> String {
+        if sessionType == "basic-breathing" {
+            return "Breathing"
+        } else if sessionType.hasPrefix("reactivity-") {
+            return "Reactivity Series"
+        }
+        return "Meditation"
     }
 
     private func formatTime(_ date: Date) -> String {

@@ -203,6 +203,7 @@ struct MeditationView: View {
                     if let session = completedSession {
                         MeditationCompleteView(
                             session: session,
+                            meditationTitle: completedMeditationTitle,
                             isSaving: isSavingSession,
                             saveError: saveError,
                             onDone: {
@@ -290,6 +291,16 @@ struct MeditationView: View {
                 Text("You have an unfinished meditation session. Would you like to resume?")
             }
         }
+    }
+
+    private var completedMeditationTitle: String {
+        if let script = selectedScript {
+            return script.title
+        }
+        if selectedCategory == .breathing {
+            return "Mindful Breathing"
+        }
+        return "Meditation"
     }
 
     private func loadSavedPreferences() {
@@ -1206,6 +1217,7 @@ struct MeditationActiveView: View {
 /// Meditation session completion view
 struct MeditationCompleteView: View {
     let session: MeditationSession
+    var meditationTitle: String = "Meditation"
     let isSaving: Bool
     let saveError: Error?
     let onDone: () -> Void
@@ -1226,6 +1238,10 @@ struct MeditationCompleteView: View {
                 .fontWeight(.bold)
                 .foregroundColor(Theme.textPrimary)
 
+            Text(meditationTitle)
+                .font(.headline)
+                .foregroundColor(Theme.meditation)
+
             Text(session.completedFully
                  ? "You completed your meditation session."
                  : "You meditated for \(session.formattedActualDuration).")
@@ -1235,6 +1251,7 @@ struct MeditationCompleteView: View {
 
             // Stats
             VStack(spacing: Theme.Spacing.space4) {
+                StatRow(label: "Session", value: meditationTitle)
                 StatRow(label: "Planned Duration", value: session.formattedPlannedDuration)
                 StatRow(label: "Actual Duration", value: session.formattedActualDuration)
                 StatRow(label: "Completed", value: session.completedFully ? "Yes" : "Ended Early")
