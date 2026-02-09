@@ -32,6 +32,7 @@ class WatchWorkoutController: NSObject, ObservableObject {
     @Published var currentHeartRate: Double = 0
     @Published var error: Error?
     @Published var isWatchReachable = false
+    @Published var isWatchPairedButUnreachable = false
 
     // MARK: - Private Properties
 
@@ -331,6 +332,7 @@ extension WatchWorkoutController: WCSessionDelegate {
             }
 
             self.isWatchReachable = session.isReachable
+            self.isWatchPairedButUnreachable = session.isPaired && !session.isReachable
 
             #if DEBUG
             print("[WatchWorkoutController] WCSession activated:")
@@ -358,6 +360,7 @@ extension WatchWorkoutController: WCSessionDelegate {
     nonisolated func sessionReachabilityDidChange(_ session: WCSession) {
         Task { @MainActor in
             self.isWatchReachable = session.isReachable
+            self.isWatchPairedButUnreachable = session.isPaired && !session.isReachable
             #if DEBUG
             print("[WatchWorkoutController] Watch reachability changed: \(session.isReachable)")
             #endif

@@ -218,6 +218,19 @@ struct WorkoutView: View {
             // Header
             workoutHeader(workout)
 
+            // Watch not connected hint
+            if watchWorkoutController.isWatchPairedButUnreachable {
+                HStack(spacing: 6) {
+                    Image(systemName: "applewatch.slash")
+                        .font(.caption2)
+                    Text("Apple Watch not connected")
+                        .font(.caption)
+                }
+                .foregroundColor(Theme.textTertiary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, Theme.Spacing.space2)
+            }
+
             // Exercises
             if let exercises = workout.exercises {
                 exercisesSection(exercises, workoutStatus: workout.status)
