@@ -165,10 +165,7 @@ class CyclingCoachClient: ObservableObject {
         )
 
         do {
-            let response: CyclingCoachRecommendation = try await post(
-                "/cycling-coach/recommend",
-                body: requestBody
-            )
+            let response = try await apiClient.getCoachRecommendation(requestBody)
             recommendation = response
             return response
         } catch let apiError as APIError {
@@ -187,10 +184,7 @@ class CyclingCoachClient: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let response: GenerateScheduleResponse = try await post(
-                "/cycling-coach/generate-schedule",
-                body: request
-            )
+            let response = try await apiClient.generateSchedule(request)
             return response
         } catch let apiError as APIError {
             error = apiError.localizedDescription
@@ -215,50 +209,5 @@ class CyclingCoachClient: ObservableObject {
         }
     }
 
-    // MARK: - Private Methods
-
-    /// Perform POST request with body and decode response
-    private func post<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
-        // Get base URL from API configuration
-        let baseURL = APIConfiguration.default.baseURL
-        var request = URLRequest(url: baseURL.appendingPathComponent(path))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        let encoder = JSONEncoder()
-        request.httpBody = try encoder.encode(body)
-
-        // Perform request through a custom session (matching APIClient's setup)
-        let config = URLSessionConfiguration.default
-        config.connectionProxyDictionary = [:]
-        config.requestCachePolicy = .reloadIgnoringLocalCacheData
-        let session = URLSession(configuration: config)
-
-        let (data, response) = try await session.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw APIError.network(NSError(domain: "CyclingCoachClient", code: -1, userInfo: [
-                NSLocalizedDescriptionKey: "Invalid response type"
-            ]))
-        }
-
-        guard (200...299).contains(httpResponse.statusCode) else {
-            // Try to decode error response
-            let decoder = JSONDecoder()
-            if let errorResponse = try? decoder.decode(APIErrorResponse.self, from: data) {
-                throw APIError(
-                    code: APIErrorCode(rawValue: errorResponse.error.code) ?? .unknown,
-                    message: errorResponse.error.message,
-                    statusCode: httpResponse.statusCode
-                )
-            }
-            throw APIError.unknown("Request failed with status \(httpResponse.statusCode)", statusCode: httpResponse.statusCode)
-        }
-
-        let decoder = JSONDecoder()
-        let apiResponse = try decoder.decode(APIResponse<T>.self, from: data)
-        return apiResponse.data
-    }
 }
 
