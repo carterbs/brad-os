@@ -94,6 +94,7 @@ Respond with a valid JSON object matching this exact schema:
 ```
 
 Important:
+- You MUST return exactly `sessionsPerWeek` sessions in the `sessions` array. No more, no less. If the input says `sessionsPerWeek: 2`, return exactly 2 sessions. If it says `sessionsPerWeek: 4`, return exactly 4 sessions.
 - `sessionType` must be one of: vo2max, threshold, endurance, tempo, fun, recovery
 - `pelotonClassTypes` should list 2-3 Peloton class types that match the session intent
 - `description` should be a short, friendly instruction for finding the right class

@@ -376,15 +376,25 @@ Respond with valid JSON matching this schema:
   }
 }
 
+const VALID_SESSION_TYPES = new Set(['vo2max', 'threshold', 'endurance', 'tempo', 'fun', 'recovery']);
+
 /**
  * Validates the shape of a schedule generation response.
+ * @param data - The parsed AI response
+ * @param expectedSessionCount - The number of sessions that should be in the response
  */
-function isValidScheduleResponse(data: unknown): data is GenerateScheduleResponse {
+export function isValidScheduleResponse(
+  data: unknown,
+  expectedSessionCount: number,
+): data is GenerateScheduleResponse {
   if (typeof data !== 'object' || data === null) return false;
 
   const obj = data as Record<string, unknown>;
   if (!Array.isArray(obj['sessions'])) return false;
   if (typeof obj['rationale'] !== 'string') return false;
+
+  // Validate session count matches expected
+  if (obj['sessions'].length !== expectedSessionCount) return false;
 
   const weeklyPlan = obj['weeklyPlan'];
   if (typeof weeklyPlan !== 'object' || weeklyPlan === null) return false;
@@ -392,12 +402,13 @@ function isValidScheduleResponse(data: unknown): data is GenerateScheduleRespons
   if (typeof planObj['totalEstimatedHours'] !== 'number') return false;
   if (!Array.isArray(planObj['phases'])) return false;
 
-  // Validate each session has required fields
+  // Validate each session has required fields with correct types
   for (const session of obj['sessions'] as unknown[]) {
     if (typeof session !== 'object' || session === null) return false;
     const s = session as Record<string, unknown>;
     if (typeof s['order'] !== 'number') return false;
     if (typeof s['sessionType'] !== 'string') return false;
+    if (!VALID_SESSION_TYPES.has(s['sessionType'])) return false;
     if (!Array.isArray(s['pelotonClassTypes'])) return false;
     if (typeof s['suggestedDurationMinutes'] !== 'number') return false;
     if (typeof s['description'] !== 'string') return false;
@@ -498,7 +509,7 @@ export async function generateSchedule(
     const responseContent = await callOpenAIWithRetry(client, messages);
     const parsed: unknown = JSON.parse(responseContent);
 
-    if (isValidScheduleResponse(parsed)) {
+    if (isValidScheduleResponse(parsed, request.sessionsPerWeek)) {
       info('cycling-coach:schedule_generated', {
         phase: 'parse_response',
         session_count: parsed.sessions.length,
