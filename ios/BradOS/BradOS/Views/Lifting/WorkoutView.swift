@@ -221,9 +221,9 @@ struct WorkoutView: View {
     private func bottomPadding(for workout: Workout) -> CGFloat {
         var padding: CGFloat = 0
 
-        // Add space for floating action buttons
+        // Add space for floating action buttons (button height + padding + safe area)
         if workout.status == .pending || workout.status == .inProgress {
-            padding += 100
+            padding += 120
         }
 
         // Add space for rest timer bar
