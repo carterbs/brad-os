@@ -33,6 +33,14 @@ struct CyclingTodayView: View {
                 // AI Coach recommendation
                 coachSection
 
+                // VO2 Max estimate
+                if let estimate = viewModel.vo2maxEstimate {
+                    VO2MaxCard(
+                        estimate: estimate,
+                        history: viewModel.vo2maxHistory
+                    )
+                }
+
                 // Training load summary
                 if let load = viewModel.trainingLoad {
                     TrainingLoadCard(load: load)

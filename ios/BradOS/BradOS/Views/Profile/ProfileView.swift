@@ -9,6 +9,9 @@ struct ProfileView: View {
                     // Cycling Section
                     cyclingSection
 
+                    // Health Section
+                    healthSection
+
                     // Settings Section
                     settingsSection
 
@@ -66,12 +69,12 @@ struct ProfileView: View {
                 Divider()
                     .background(Theme.strokeSubtle)
 
-                NavigationLink(destination: WeightGoalView()) {
+                NavigationLink(destination: StravaConnectionView()) {
                     SettingsRow(
-                        title: "Weight Goal",
-                        subtitle: "Track weight targets",
-                        iconName: "scalemass.fill",
-                        iconColor: Theme.cycling
+                        title: "Strava",
+                        subtitle: "Connect to sync rides",
+                        iconName: "figure.outdoor.cycle",
+                        iconColor: Color.orange
                     ) {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 14, weight: .semibold))
@@ -79,16 +82,25 @@ struct ProfileView: View {
                     }
                 }
                 .buttonStyle(.plain)
+            }
+            .glassCard(.card, padding: 0)
+        }
+    }
 
-                Divider()
-                    .background(Theme.strokeSubtle)
+    // MARK: - Health Section
 
-                NavigationLink(destination: StravaConnectionView()) {
+    @ViewBuilder
+    private var healthSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
+            SectionHeader(title: "Health")
+
+            VStack(spacing: 0) {
+                NavigationLink(destination: WeightGoalView()) {
                     SettingsRow(
-                        title: "Strava",
-                        subtitle: "Connect to sync rides",
-                        iconName: "figure.outdoor.cycle",
-                        iconColor: Color.orange
+                        title: "Weight Goal",
+                        subtitle: "Track weight targets",
+                        iconName: "scalemass.fill",
+                        iconColor: Theme.success
                     ) {
                         Image(systemName: "chevron.right")
                             .font(.system(size: 14, weight: .semibold))
