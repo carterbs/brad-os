@@ -336,6 +336,7 @@ struct TrainingBlockSetupView: View {
                         }
                         .padding(Theme.Spacing.space4)
                         .frame(minHeight: Theme.Dimensions.listRowMinHeight)
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
                 }

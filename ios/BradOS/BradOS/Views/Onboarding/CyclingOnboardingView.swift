@@ -585,6 +585,7 @@ struct CyclingOnboardingView: View {
                                 }
                             }
                             .padding(Theme.Spacing.space3)
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }
