@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "=== Deploying Cloud Functions ==="
+echo "=== Deploying Cloud Functions + Hosting ==="
 
 # Navigate to project root
 cd "$(dirname "$0")/.."
@@ -10,19 +10,19 @@ echo "Building functions..."
 npm run build -w @brad-os/functions
 
 echo "Deploying to Firebase..."
-firebase deploy --only functions
+firebase deploy --only functions,hosting
 
 echo "=== Deployment complete! ==="
 echo ""
 echo "DEV Functions deployed:"
 echo "  - devHealth, devExercises, devPlans, devMesocycles"
 echo "  - devWorkouts, devWorkoutSets, devStretchSessions"
-echo "  - devMeditationSessions, devCalendar"
+echo "  - devMeditationSessions, devCalendar, devCycling"
 echo ""
 echo "PROD Functions deployed:"
 echo "  - prodHealth, prodExercises, prodPlans, prodMesocycles"
 echo "  - prodWorkouts, prodWorkoutSets, prodStretchSessions"
-echo "  - prodMeditationSessions, prodCalendar"
+echo "  - prodMeditationSessions, prodCalendar, prodCycling"
 echo ""
 echo "Hosting URLs:"
 echo "  DEV:  https://brad-os.web.app/api/dev/<endpoint>"

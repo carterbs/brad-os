@@ -32,14 +32,23 @@ class WorkoutManager: NSObject, ObservableObject {
     @Published var elapsedTime: TimeInterval = 0
     @Published var isWorkoutActive = false
     @Published var error: Error?
+    @Published var workoutContext: WatchWorkoutContext?
+    @Published var currentExerciseIndex: Int = 0
+    @Published var restTimerActive: Bool = false
+    @Published var restTimerTarget: Int = 0
+    @Published var restTimerElapsed: Int = 0
+    @Published var restExerciseName: String?
 
     // MARK: - Private Properties
 
     private let healthStore = HKHealthStore()
+    #if !targetEnvironment(simulator)
     private var session: HKWorkoutSession?
     private var builder: HKLiveWorkoutBuilder?
+    #endif
     private var startDate: Date?
     private var elapsedTimer: Timer?
+    private var restTimer: Timer?
     private var wcSession: WCSession?
 
     // MARK: - Initialization
@@ -99,6 +108,7 @@ class WorkoutManager: NSObject, ObservableObject {
         elapsedTime = 0
         error = nil
 
+        #if !targetEnvironment(simulator)
         let config = HKWorkoutConfiguration()
         config.activityType = .traditionalStrengthTraining
         config.locationType = .indoor
@@ -119,25 +129,24 @@ class WorkoutManager: NSObject, ObservableObject {
             startDate = Date()
             session?.startActivity(with: startDate!)
             try await builder?.beginCollection(at: startDate!)
-
-            isWorkoutActive = true
-
-            // Start elapsed time timer
-            startElapsedTimer()
-
-            // Notify iPhone that workout started
-            sendStateToiPhone()
-
-            #if DEBUG
-            print("[WorkoutManager] Workout started")
-            #endif
-
         } catch {
             self.error = error
             throw error
         }
+        #else
+        startDate = Date()
+        #endif
+
+        isWorkoutActive = true
+        startElapsedTimer()
+        sendStateToiPhone()
+
+        #if DEBUG
+        print("[WorkoutManager] Workout started")
+        #endif
     }
 
+    #if !targetEnvironment(simulator)
     /// Start a workout with a specific configuration (for mirrored sessions)
     func startWorkout(with configuration: HKWorkoutConfiguration) async throws {
         // Reset state
@@ -176,9 +185,11 @@ class WorkoutManager: NSObject, ObservableObject {
             throw error
         }
     }
+    #endif
 
     /// End the workout and send summary back to iOS
     func endWorkout() async throws -> WatchWorkoutSummary {
+        #if !targetEnvironment(simulator)
         guard let builder = builder,
               let session = session else {
             throw WorkoutError.noActiveWorkout
@@ -192,6 +203,7 @@ class WorkoutManager: NSObject, ObservableObject {
         // End collection and finish workout
         try await builder.endCollection(at: endDate)
         _ = try await builder.finishWorkout()
+        #endif
 
         // Calculate summary
         let summary = WatchWorkoutSummary(
@@ -201,14 +213,19 @@ class WorkoutManager: NSObject, ObservableObject {
             totalDuration: elapsedTime
         )
 
+        #if !targetEnvironment(simulator)
         // End session
         session.end()
+        self.session = nil
+        self.builder = nil
+        #endif
 
         // Clean up
         stopElapsedTimer()
-        self.session = nil
-        self.builder = nil
         isWorkoutActive = false
+        workoutContext = nil
+        currentExerciseIndex = 0
+        dismissRestTimer()
 
         // Send summary to iPhone
         sendSummaryToiPhone(summary)
@@ -222,16 +239,120 @@ class WorkoutManager: NSObject, ObservableObject {
 
     /// Cancel workout without saving
     func cancelWorkout() {
+        #if !targetEnvironment(simulator)
         session?.end()
-        stopElapsedTimer()
         session = nil
         builder = nil
+        #endif
+        stopElapsedTimer()
         isWorkoutActive = false
+        workoutContext = nil
+        currentExerciseIndex = 0
+        dismissRestTimer()
         sendStateToiPhone()
 
         #if DEBUG
         print("[WorkoutManager] Workout cancelled")
         #endif
+    }
+
+    // MARK: - Workout Context
+
+    /// Apply an exercise update from iPhone (set logged/skipped)
+    func applyExerciseUpdate(_ update: WatchExerciseUpdate) {
+        guard var context = workoutContext else { return }
+
+        if let exerciseIndex = context.exercises.firstIndex(where: { $0.exerciseId == update.exerciseId }) {
+            // Update completed sets count
+            context.exercises[exerciseIndex].completedSets = update.completedSets
+
+            // Update individual set status
+            if let setIndex = context.exercises[exerciseIndex].sets.firstIndex(where: { $0.setId == update.setId }) {
+                context.exercises[exerciseIndex].sets[setIndex].status = update.newStatus
+            }
+
+            workoutContext = context
+
+            // Advance to next exercise if current one is done
+            currentExerciseIndex = findCurrentExerciseIndex(in: context)
+        }
+    }
+
+    /// Handle rest timer event from iPhone
+    func handleRestTimerEvent(_ event: WatchRestTimerEvent) {
+        if event.action == "start", let target = event.targetSeconds {
+            restTimerActive = true
+            restTimerTarget = target
+            restTimerElapsed = 0
+            restExerciseName = event.exerciseName
+
+            // Stop any existing rest timer
+            restTimer?.invalidate()
+
+            // Start local countdown
+            restTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+                Task { @MainActor in
+                    guard let self = self else { return }
+                    self.restTimerElapsed += 1
+
+                    if self.restTimerElapsed >= self.restTimerTarget {
+                        self.restTimerComplete()
+                    }
+                }
+            }
+        } else if event.action == "dismiss" {
+            dismissRestTimer()
+        }
+    }
+
+    /// Send a set log request to iPhone
+    func requestSetLog(setId: String, exerciseId: String) {
+        guard let session = wcSession, session.isReachable else { return }
+
+        let request = WatchSetLogRequest(setId: setId, exerciseId: exerciseId)
+
+        do {
+            let data = try JSONEncoder().encode(request)
+            let message: [String: Any] = [WCMessageKey.setLogRequest: data]
+            session.sendMessage(message, replyHandler: nil, errorHandler: { error in
+                #if DEBUG
+                print("[WorkoutManager] Failed to send set log request: \(error)")
+                #endif
+            })
+        } catch {
+            #if DEBUG
+            print("[WorkoutManager] Failed to encode set log request: \(error)")
+            #endif
+        }
+    }
+
+    /// Find the index of the first exercise with pending sets
+    func findCurrentExerciseIndex(in context: WatchWorkoutContext) -> Int {
+        for (index, exercise) in context.exercises.enumerated() {
+            if exercise.sets.contains(where: { $0.status == "pending" }) {
+                return index
+            }
+        }
+        // All done — stay on last exercise
+        return max(0, context.exercises.count - 1)
+    }
+
+    private func restTimerComplete() {
+        restTimer?.invalidate()
+        restTimer = nil
+        restTimerActive = false
+
+        // Haptic notification on completion
+        WKInterfaceDevice.current().play(.notification)
+    }
+
+    private func dismissRestTimer() {
+        restTimer?.invalidate()
+        restTimer = nil
+        restTimerActive = false
+        restTimerElapsed = 0
+        restTimerTarget = 0
+        restExerciseName = nil
     }
 
     // MARK: - Timer
@@ -344,6 +465,31 @@ extension WorkoutManager: WCSessionDelegate {
     /// Receive commands from iPhone
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
         Task { @MainActor in
+            // Handle workout context
+            if let contextData = message[WCMessageKey.workoutContext] as? Data,
+               let context = try? JSONDecoder().decode(WatchWorkoutContext.self, from: contextData) {
+                self.workoutContext = context
+                self.currentExerciseIndex = self.findCurrentExerciseIndex(in: context)
+                replyHandler(["received": true])
+                return
+            }
+
+            // Handle exercise update
+            if let updateData = message[WCMessageKey.exerciseUpdate] as? Data,
+               let update = try? JSONDecoder().decode(WatchExerciseUpdate.self, from: updateData) {
+                self.applyExerciseUpdate(update)
+                replyHandler(["received": true])
+                return
+            }
+
+            // Handle rest timer event
+            if let timerData = message[WCMessageKey.restTimerEvent] as? Data,
+               let event = try? JSONDecoder().decode(WatchRestTimerEvent.self, from: timerData) {
+                self.handleRestTimerEvent(event)
+                replyHandler(["received": true])
+                return
+            }
+
             guard let commandString = message["command"] as? String,
                   let command = WorkoutCommand(rawValue: commandString) else {
                 replyHandler(["success": false, "error": "Invalid command"])
@@ -374,6 +520,28 @@ extension WorkoutManager: WCSessionDelegate {
     /// Handle messages without reply handler
     nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any]) {
         Task { @MainActor in
+            // Handle workout context
+            if let contextData = message[WCMessageKey.workoutContext] as? Data,
+               let context = try? JSONDecoder().decode(WatchWorkoutContext.self, from: contextData) {
+                self.workoutContext = context
+                self.currentExerciseIndex = self.findCurrentExerciseIndex(in: context)
+                return
+            }
+
+            // Handle exercise update
+            if let updateData = message[WCMessageKey.exerciseUpdate] as? Data,
+               let update = try? JSONDecoder().decode(WatchExerciseUpdate.self, from: updateData) {
+                self.applyExerciseUpdate(update)
+                return
+            }
+
+            // Handle rest timer event
+            if let timerData = message[WCMessageKey.restTimerEvent] as? Data,
+               let event = try? JSONDecoder().decode(WatchRestTimerEvent.self, from: timerData) {
+                self.handleRestTimerEvent(event)
+                return
+            }
+
             guard let commandString = message["command"] as? String,
                   let command = WorkoutCommand(rawValue: commandString) else {
                 return
@@ -406,6 +574,7 @@ extension WorkoutManager: WCSessionDelegate {
     }
 }
 
+#if !targetEnvironment(simulator)
 // MARK: - HKWorkoutSessionDelegate
 
 extension WorkoutManager: HKWorkoutSessionDelegate {
@@ -495,3 +664,4 @@ extension WorkoutManager: HKLiveWorkoutBuilderDelegate {
         #endif
     }
 }
+#endif

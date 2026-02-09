@@ -8,6 +8,7 @@ struct WorkoutView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.apiClient) private var apiClient
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var watchWorkoutController: WatchWorkoutController
 
     // Workout state
     @State private var workout: Workout?
@@ -87,6 +88,15 @@ struct WorkoutView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
             restTimer.handleForeground()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .watchSetLogRequested)) { notification in
+            guard let setId = notification.userInfo?["setId"] as? String,
+                  let exerciseId = notification.userInfo?["exerciseId"] as? String,
+                  let exercises = workout?.exercises,
+                  let exercise = exercises.first(where: { $0.exerciseId == exerciseId }),
+                  let set = exercise.sets.first(where: { $0.id == setId }),
+                  set.status == .pending else { return }
+            Task { await logSet(set, exercise: exercise) }
         }
         .background(AuroraBackground().ignoresSafeArea())
         .navigationTitle(workout?.planDayName ?? "Workout")
@@ -250,6 +260,20 @@ struct WorkoutView: View {
                     Text(formattedDate(workout.status == .inProgress ? Date() : workout.scheduledDate))
                         .font(.subheadline)
                         .foregroundColor(Theme.textSecondary)
+                }
+
+                if watchWorkoutController.isWorkoutActive && watchWorkoutController.currentHeartRate > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "heart.fill")
+                            .font(.caption)
+                            .foregroundColor(.red)
+                        Text("\(Int(watchWorkoutController.currentHeartRate))")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                            .foregroundColor(Theme.textPrimary)
+                            .monospacedDigit()
+                            .contentTransition(.numericText())
+                    }
                 }
 
                 Spacer()
@@ -470,6 +494,14 @@ struct WorkoutView: View {
             stateManager.initializeForWorkout(workoutId: workoutId)
             // Reload the full workout to get exercises
             await loadWorkout()
+
+            // Start Watch workout and send context
+            if watchWorkoutController.canSendToWatch {
+                try? await watchWorkoutController.startMirroredWorkout()
+                if let workout = workout {
+                    watchWorkoutController.sendWorkoutContext(from: workout)
+                }
+            }
         } catch {
             #if DEBUG
             print("[WorkoutView] Failed to start workout: \(error)")
@@ -488,6 +520,12 @@ struct WorkoutView: View {
             var completedWorkout = try await apiClient.completeWorkout(id: workoutId)
             completedWorkout.planDayName = existingPlanDayName
             workout = completedWorkout
+
+            // End Watch workout
+            if watchWorkoutController.isWorkoutActive {
+                try? await watchWorkoutController.endWorkout()
+            }
+
             stateManager.clearState()
             dismissRestTimer()
             showingStretchPrompt = true
@@ -509,6 +547,10 @@ struct WorkoutView: View {
             var skippedWorkout = try await apiClient.skipWorkout(id: workoutId)
             skippedWorkout.planDayName = existingPlanDayName
             workout = skippedWorkout
+
+            // Cancel Watch workout
+            watchWorkoutController.cancelWorkout()
+
             stateManager.clearState()
             dismissRestTimer()
         } catch {
@@ -541,6 +583,17 @@ struct WorkoutView: View {
             // Remove from local edits after successful log
             localSetEdits.removeValue(forKey: set.id)
             stateManager.removePendingEdit(setId: set.id)
+
+            // Send update to Watch
+            let exercise = workout?.exercises?.first(where: { $0.exerciseId == set.exerciseId })
+            watchWorkoutController.sendExerciseUpdate(
+                exerciseId: set.exerciseId,
+                setId: set.id,
+                newStatus: "completed",
+                actualReps: reps,
+                actualWeight: weight,
+                completedSets: exercise?.completedSets ?? 0
+            )
         } catch {
             // Rollback on failure
             updateSetInWorkout(setId: set.id, status: .pending, actualWeight: nil, actualReps: nil)
@@ -725,11 +778,16 @@ struct WorkoutView: View {
             setNumber: setNumber
         )
         stateManager.saveTimerState(timerState)
+
+        // Notify Watch
+        let exerciseName = workout?.exercises?.first(where: { $0.exerciseId == exerciseId })?.exerciseName
+        watchWorkoutController.sendRestTimerEvent(action: "start", targetSeconds: targetSeconds, exerciseName: exerciseName)
     }
 
     private func dismissRestTimer() {
         restTimer.dismiss()
         stateManager.clearTimerState()
+        watchWorkoutController.sendRestTimerEvent(action: "dismiss")
         showingTimerOverlay = false
     }
 }

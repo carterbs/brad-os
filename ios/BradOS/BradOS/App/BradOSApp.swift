@@ -12,6 +12,7 @@ struct BradOSApp: App {
     @StateObject private var healthKitManager = HealthKitManager()
     @StateObject private var healthKitSyncService: HealthKitSyncService
     @StateObject private var cyclingViewModel = CyclingViewModel()
+    @StateObject private var watchWorkoutController = WatchWorkoutController()
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -53,6 +54,7 @@ struct BradOSApp: App {
                 .environmentObject(healthKitManager)
                 .environmentObject(healthKitSyncService)
                 .environmentObject(cyclingViewModel)
+                .environmentObject(watchWorkoutController)
                 .environment(\.apiClient, APIClient.shared)
                 .preferredColorScheme(.dark)
                 .onAppear {

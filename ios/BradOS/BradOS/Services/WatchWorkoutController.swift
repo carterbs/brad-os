@@ -1,6 +1,7 @@
 import HealthKit
 import WatchConnectivity
 import Foundation
+import BradOSCore
 
 // MARK: - Shared Types (iOS <-> WatchOS)
 
@@ -212,6 +213,107 @@ class WatchWorkoutController: NSObject, ObservableObject {
         print("[WatchWorkoutController] Workout cancelled")
         #endif
     }
+
+    // MARK: - Workout Context Methods
+
+    /// Send full workout context to Watch for exercise display
+    func sendWorkoutContext(from workout: Workout) {
+        guard let session = wcSession, session.isReachable,
+              let exercises = workout.exercises else { return }
+
+        let watchExercises = exercises.map { exercise in
+            WatchExerciseInfo(
+                exerciseId: exercise.exerciseId,
+                name: exercise.exerciseName,
+                totalSets: exercise.totalSets,
+                completedSets: exercise.completedSets,
+                restSeconds: exercise.restSeconds,
+                sets: exercise.sets.map { set in
+                    WatchSetInfo(
+                        setId: set.id,
+                        setNumber: set.setNumber,
+                        targetReps: set.targetReps,
+                        targetWeight: set.targetWeight,
+                        status: set.status.rawValue
+                    )
+                }
+            )
+        }
+
+        let context = WatchWorkoutContext(
+            workoutId: workout.id,
+            dayName: workout.planDayName ?? "Workout",
+            weekNumber: workout.weekNumber,
+            exercises: watchExercises
+        )
+
+        do {
+            let data = try JSONEncoder().encode(context)
+            let message: [String: Any] = [WCMessageKey.workoutContext: data]
+            session.sendMessage(message, replyHandler: nil, errorHandler: { error in
+                #if DEBUG
+                print("[WatchWorkoutController] Failed to send workout context: \(error)")
+                #endif
+            })
+        } catch {
+            #if DEBUG
+            print("[WatchWorkoutController] Failed to encode workout context: \(error)")
+            #endif
+        }
+    }
+
+    /// Send exercise update when a set is logged/skipped
+    func sendExerciseUpdate(exerciseId: String, setId: String, newStatus: String, actualReps: Int?, actualWeight: Double?, completedSets: Int) {
+        guard let session = wcSession, session.isReachable else { return }
+
+        let update = WatchExerciseUpdate(
+            exerciseId: exerciseId,
+            setId: setId,
+            newStatus: newStatus,
+            actualReps: actualReps,
+            actualWeight: actualWeight,
+            completedSets: completedSets
+        )
+
+        do {
+            let data = try JSONEncoder().encode(update)
+            let message: [String: Any] = [WCMessageKey.exerciseUpdate: data]
+            session.sendMessage(message, replyHandler: nil, errorHandler: { error in
+                #if DEBUG
+                print("[WatchWorkoutController] Failed to send exercise update: \(error)")
+                #endif
+            })
+        } catch {
+            #if DEBUG
+            print("[WatchWorkoutController] Failed to encode exercise update: \(error)")
+            #endif
+        }
+    }
+
+    /// Send rest timer event to Watch
+    func sendRestTimerEvent(action: String, targetSeconds: Int? = nil, exerciseName: String? = nil) {
+        guard let session = wcSession, session.isReachable else { return }
+
+        let event = WatchRestTimerEvent(
+            action: action,
+            targetSeconds: targetSeconds,
+            exerciseName: exerciseName
+        )
+
+        do {
+            let data = try JSONEncoder().encode(event)
+            let message: [String: Any] = [WCMessageKey.restTimerEvent: data]
+            session.sendMessage(message, replyHandler: nil, errorHandler: { error in
+                #if DEBUG
+                print("[WatchWorkoutController] Failed to send rest timer event: \(error)")
+                #endif
+            })
+        } catch {
+            #if DEBUG
+            print("[WatchWorkoutController] Failed to encode rest timer event: \(error)")
+            #endif
+        }
+    }
 }
 
 // MARK: - WCSessionDelegate
@@ -297,6 +399,20 @@ extension WatchWorkoutController: WCSessionDelegate {
         // Handle workout state changes
         if let isActive = message["isWorkoutActive"] as? Bool {
             isWorkoutActive = isActive
+        }
+
+        // Handle set log request from Watch
+        if let requestData = message[WCMessageKey.setLogRequest] as? Data,
+           let request = try? JSONDecoder().decode(WatchSetLogRequest.self, from: requestData) {
+            NotificationCenter.default.post(
+                name: .watchSetLogRequested,
+                object: nil,
+                userInfo: ["setId": request.setId, "exerciseId": request.exerciseId]
+            )
+
+            #if DEBUG
+            print("[WatchWorkoutController] Watch requested set log: \(request.setId)")
+            #endif
         }
     }
 }

@@ -24,6 +24,7 @@ class AppDelegate: NSObject, WKApplicationDelegate {
         #endif
     }
 
+    #if !targetEnvironment(simulator)
     /// Called when a workout configuration is sent from iOS (for mirrored sessions)
     /// Note: This is used for HKWorkoutSession mirroring, which we're not using
     /// in favor of WatchConnectivity for more control
@@ -41,4 +42,5 @@ class AppDelegate: NSObject, WKApplicationDelegate {
             }
         }
     }
+    #endif
 }
