@@ -2,11 +2,12 @@ import SwiftUI
 
 /// Dashboard card displaying the AI Today Coach daily briefing.
 ///
-/// Self-loading: fetches recovery from Firebase, then calls the Today Coach API.
+/// Self-loading: syncs HealthKit to Firebase, fetches recovery, then calls the Today Coach API.
 /// Shows loading/error/content states inline on the dashboard.
 struct TodayCoachCard: View {
     @EnvironmentObject var healthKit: HealthKitManager
     @StateObject private var coachClient = TodayCoachClient()
+    @State private var syncService: HealthKitSyncService?
     @State private var recovery: RecoveryData?
     @State private var isLoadingRecovery = false
     @State private var isShowingDetail = false
@@ -56,6 +57,15 @@ struct TodayCoachCard: View {
     private func loadCoachRecommendation() async {
         isLoadingRecovery = true
 
+        // Initialize sync service if needed
+        if syncService == nil {
+            syncService = HealthKitSyncService(healthKitManager: healthKit)
+        }
+
+        // Step 1: Sync HealthKit to Firebase first (ensures fresh data)
+        await syncService?.sync()
+
+        // Step 2: Fetch the latest recovery snapshot from Firebase
         do {
             let snapshot = try await APIClient.shared.getLatestRecovery()
             recovery = snapshot?.toRecoveryData()
@@ -65,6 +75,7 @@ struct TodayCoachCard: View {
 
         isLoadingRecovery = false
 
+        // Step 3: Call AI coach with fresh recovery data
         if let recovery = recovery {
             await coachClient.getRecommendation(recovery: recovery)
         }

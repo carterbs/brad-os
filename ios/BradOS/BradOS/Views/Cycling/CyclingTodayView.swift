@@ -6,11 +6,13 @@ import SwiftUI
 struct CyclingTodayView: View {
     @EnvironmentObject var viewModel: CyclingViewModel
     @EnvironmentObject var stravaAuth: StravaAuthManager
+    @EnvironmentObject var healthKit: HealthKitManager
     @StateObject private var coachClient = CyclingCoachClient()
 
     @State private var showOnboarding = false
     @State private var showSetupOnboarding = false
     @State private var recovery: RecoveryData?
+    @State private var syncService: HealthKitSyncService?
 
     private var needsOnboarding: Bool {
         // Show onboarding if:
@@ -143,6 +145,14 @@ struct CyclingTodayView: View {
     // MARK: - Load Recommendation
 
     private func loadRecoveryAndCoach() async {
+        // Initialize sync service if needed
+        if syncService == nil {
+            syncService = HealthKitSyncService(healthKitManager: healthKit)
+        }
+
+        // Sync HealthKit to Firebase first (ensures fresh data)
+        await syncService?.sync()
+
         // Load recovery from Firebase
         do {
             let snapshot = try await APIClient.shared.getLatestRecovery()

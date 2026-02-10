@@ -8,6 +8,7 @@ import SwiftUI
 /// - HealthKit is only used for auth prompts (to enable the sync)
 struct ReadinessCard: View {
     @EnvironmentObject var healthKit: HealthKitManager
+    @State private var syncService: HealthKitSyncService?
     @State private var isShowingDetail = false
     @State private var recovery: RecoveryData?
     @State private var isLoading = false
@@ -51,6 +52,15 @@ struct ReadinessCard: View {
         isLoading = true
         defer { isLoading = false }
 
+        // Initialize sync service if needed
+        if syncService == nil {
+            syncService = HealthKitSyncService(healthKitManager: healthKit)
+        }
+
+        // Sync HealthKit to Firebase first (ensures fresh data)
+        await syncService?.sync()
+
+        // Fetch the latest recovery snapshot from Firebase
         do {
             let snapshot = try await APIClient.shared.getLatestRecovery()
             recovery = snapshot?.toRecoveryData()
