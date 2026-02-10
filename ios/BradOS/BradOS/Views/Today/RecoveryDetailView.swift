@@ -156,29 +156,37 @@ struct RecoveryDetailView: View {
                 .foregroundColor(Theme.textPrimary)
 
             // HRV
-            metricDetail(
-                icon: "waveform.path.ecg",
-                label: "Heart Rate Variability",
-                value: String(format: "%.0f ms", recovery.hrvMs),
-                trend: recovery.hrvVsBaseline,
-                trendLabel: "vs 60-day baseline",
-                isPercentage: true,
-                positiveIsGood: true
-            )
+            NavigationLink(destination: HRVHistoryView()) {
+                metricDetail(
+                    icon: "waveform.path.ecg",
+                    label: "Heart Rate Variability",
+                    value: String(format: "%.0f ms", recovery.hrvMs),
+                    trend: recovery.hrvVsBaseline,
+                    trendLabel: "vs 60-day baseline",
+                    isPercentage: true,
+                    positiveIsGood: true,
+                    showChevron: true
+                )
+            }
+            .buttonStyle(.plain)
 
             Divider()
                 .overlay(Theme.divider)
 
             // RHR
-            metricDetail(
-                icon: "heart.fill",
-                label: "Resting Heart Rate",
-                value: String(format: "%.0f bpm", recovery.rhrBpm),
-                trend: recovery.rhrVsBaseline,
-                trendLabel: "vs baseline",
-                isPercentage: false,
-                positiveIsGood: false
-            )
+            NavigationLink(destination: RHRHistoryView()) {
+                metricDetail(
+                    icon: "heart.fill",
+                    label: "Resting Heart Rate",
+                    value: String(format: "%.0f bpm", recovery.rhrBpm),
+                    trend: recovery.rhrVsBaseline,
+                    trendLabel: "vs baseline",
+                    isPercentage: false,
+                    positiveIsGood: false,
+                    showChevron: true
+                )
+            }
+            .buttonStyle(.plain)
         }
         .glassCard()
     }
@@ -190,7 +198,8 @@ struct RecoveryDetailView: View {
         trend: Double,
         trendLabel: String,
         isPercentage: Bool,
-        positiveIsGood: Bool
+        positiveIsGood: Bool,
+        showChevron: Bool = false
     ) -> some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
             HStack(spacing: Theme.Spacing.space2) {
@@ -202,6 +211,13 @@ struct RecoveryDetailView: View {
                 Text(label)
                     .font(.subheadline)
                     .foregroundColor(Theme.textSecondary)
+
+                if showChevron {
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Theme.textTertiary)
+                }
             }
 
             HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.space3) {

@@ -117,6 +117,38 @@ struct ProfileView: View {
                     }
                 }
                 .buttonStyle(.plain)
+
+                Divider().background(Theme.divider)
+
+                NavigationLink(destination: HRVHistoryView()) {
+                    SettingsRow(
+                        title: "HRV History",
+                        subtitle: "Heart rate variability trends",
+                        iconName: "waveform.path.ecg",
+                        iconColor: Theme.interactivePrimary
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                }
+                .buttonStyle(.plain)
+
+                Divider().background(Theme.divider)
+
+                NavigationLink(destination: RHRHistoryView()) {
+                    SettingsRow(
+                        title: "RHR History",
+                        subtitle: "Resting heart rate trends",
+                        iconName: "heart.fill",
+                        iconColor: Theme.destructive
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                }
+                .buttonStyle(.plain)
             }
             .glassCard(.card, padding: 0)
         }
