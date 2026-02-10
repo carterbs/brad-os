@@ -56,6 +56,7 @@ struct ProfileView: View {
                         }
                     }
                 }
+                .contentShape(Rectangle())
                 .buttonStyle(.plain)
 
                 Divider()
@@ -73,6 +74,7 @@ struct ProfileView: View {
                             .foregroundColor(Theme.textTertiary)
                     }
                 }
+                .contentShape(Rectangle())
                 .buttonStyle(.plain)
 
                 Divider()
@@ -90,6 +92,7 @@ struct ProfileView: View {
                             .foregroundColor(Theme.textTertiary)
                     }
                 }
+                .contentShape(Rectangle())
                 .buttonStyle(.plain)
             }
             .glassCard(.card, padding: 0)
@@ -116,6 +119,7 @@ struct ProfileView: View {
                             .foregroundColor(Theme.textTertiary)
                     }
                 }
+                .contentShape(Rectangle())
                 .buttonStyle(.plain)
 
                 Divider().background(Theme.divider)
@@ -132,6 +136,7 @@ struct ProfileView: View {
                             .foregroundColor(Theme.textTertiary)
                     }
                 }
+                .contentShape(Rectangle())
                 .buttonStyle(.plain)
 
                 Divider().background(Theme.divider)
@@ -148,6 +153,7 @@ struct ProfileView: View {
                             .foregroundColor(Theme.textTertiary)
                     }
                 }
+                .contentShape(Rectangle())
                 .buttonStyle(.plain)
 
                 Divider().background(Theme.divider)
@@ -164,6 +170,7 @@ struct ProfileView: View {
                             .foregroundColor(Theme.textTertiary)
                     }
                 }
+                .contentShape(Rectangle())
                 .buttonStyle(.plain)
             }
             .glassCard(.card, padding: 0)
@@ -190,6 +197,7 @@ struct ProfileView: View {
                             .foregroundColor(Theme.textTertiary)
                     }
                 }
+                .contentShape(Rectangle())
                 .buttonStyle(.plain)
 
                 Divider()
@@ -207,6 +215,25 @@ struct ProfileView: View {
                             .foregroundColor(Theme.textTertiary)
                     }
                 }
+                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+
+                Divider()
+                    .background(Theme.strokeSubtle)
+
+                NavigationLink(destination: HealthSyncView()) {
+                    SettingsRow(
+                        title: "Health Sync",
+                        subtitle: "Force sync HealthKit data",
+                        iconName: "arrow.triangle.2.circlepath",
+                        iconColor: Theme.interactivePrimary
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                }
+                .contentShape(Rectangle())
                 .buttonStyle(.plain)
             }
             .glassCard(.card, padding: 0)
