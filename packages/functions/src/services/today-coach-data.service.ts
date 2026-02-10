@@ -39,6 +39,9 @@ import type {
   WeightGoal,
   WeightMetrics,
   RecoveryHistoryEntry,
+  RecentRideStreamSummary,
+  ActivityStreamData,
+  CyclingActivity,
 } from '../shared.js';
 
 /**
@@ -134,6 +137,135 @@ async function buildTodayWorkoutContext(): Promise<TodayWorkoutContext | null> {
   };
 }
 
+/** Standard Coggan power zone boundaries as fraction of FTP. */
+const COGGAN_ZONES: { name: string; min: number; max: number }[] = [
+  { name: 'Z1_Recovery', min: 0, max: 0.55 },
+  { name: 'Z2_Endurance', min: 0.55, max: 0.75 },
+  { name: 'Z3_Tempo', min: 0.75, max: 0.90 },
+  { name: 'Z4_Threshold', min: 0.90, max: 1.05 },
+  { name: 'Z5_VO2max', min: 1.05, max: 1.20 },
+  { name: 'Z6_Anaerobic', min: 1.20, max: 1.50 },
+  { name: 'Z7_Neuromuscular', min: 1.50, max: Infinity },
+];
+
+/**
+ * Compute the best N-second average from a power array.
+ * Returns null if the array is shorter than the window.
+ */
+function bestNSecondPower(watts: number[], windowSeconds: number): number | null {
+  if (watts.length < windowSeconds) return null;
+  let windowSum = 0;
+  for (let i = 0; i < windowSeconds; i++) {
+    windowSum += watts[i] ?? 0;
+  }
+  let best = windowSum;
+  for (let i = windowSeconds; i < watts.length; i++) {
+    windowSum += (watts[i] ?? 0) - (watts[i - windowSeconds] ?? 0);
+    if (windowSum > best) best = windowSum;
+  }
+  return Math.round(best / windowSeconds);
+}
+
+/**
+ * Compute normalized power from second-by-second power data.
+ * Uses the standard 30-second rolling average method.
+ */
+function computeNormalizedPower(watts: number[]): number {
+  if (watts.length < 30) {
+    const avg = watts.reduce((a, b) => a + b, 0) / watts.length;
+    return Math.round(avg);
+  }
+  const windowSize = 30;
+  let windowSum = 0;
+  for (let i = 0; i < windowSize; i++) {
+    windowSum += watts[i] ?? 0;
+  }
+  let fourthPowerSum = Math.pow(windowSum / windowSize, 4);
+  let count = 1;
+  for (let i = windowSize; i < watts.length; i++) {
+    windowSum += (watts[i] ?? 0) - (watts[i - windowSize] ?? 0);
+    fourthPowerSum += Math.pow(windowSum / windowSize, 4);
+    count++;
+  }
+  return Math.round(Math.pow(fourthPowerSum / count, 0.25));
+}
+
+/**
+ * Compute power zone distribution as percentage of time in each zone.
+ */
+function computePowerZoneDistribution(watts: number[], ftp: number): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const zone of COGGAN_ZONES) {
+    counts[zone.name] = 0;
+  }
+  for (const w of watts) {
+    const ratio = w / ftp;
+    for (const zone of COGGAN_ZONES) {
+      if (ratio >= zone.min && ratio < zone.max) {
+        counts[zone.name] = (counts[zone.name] ?? 0) + 1;
+        break;
+      }
+    }
+  }
+  const total = watts.length || 1;
+  const distribution: Record<string, number> = {};
+  for (const zone of COGGAN_ZONES) {
+    distribution[zone.name] = Math.round(((counts[zone.name] ?? 0) / total) * 100);
+  }
+  return distribution;
+}
+
+/**
+ * Build a RecentRideStreamSummary from raw stream data.
+ * Returns null if streams lack power data.
+ */
+function buildStreamSummary(
+  streams: ActivityStreamData,
+  activity: CyclingActivity,
+  ftp: number
+): RecentRideStreamSummary | null {
+  const watts = streams.watts;
+  if (!watts || watts.length === 0) return null;
+
+  const avgPower = Math.round(watts.reduce((a, b) => a + b, 0) / watts.length);
+  const maxPower = Math.max(...watts);
+  const normalizedPower = computeNormalizedPower(watts);
+  const peak5MinPower = bestNSecondPower(watts, 300);
+  const peak20MinPower = bestNSecondPower(watts, 1200);
+
+  const hr = streams.heartrate;
+  let avgHR: number | null = null;
+  let maxHR: number | null = null;
+  if (hr && hr.length > 0) {
+    avgHR = Math.round(hr.reduce((a, b) => a + b, 0) / hr.length);
+    maxHR = Math.max(...hr);
+  }
+
+  const cadence = streams.cadence;
+  let avgCadence: number | null = null;
+  if (cadence && cadence.length > 0) {
+    const nonZero = cadence.filter((c) => c > 0);
+    if (nonZero.length > 0) {
+      avgCadence = Math.round(nonZero.reduce((a, b) => a + b, 0) / nonZero.length);
+    }
+  }
+
+  return {
+    avgPower,
+    maxPower,
+    normalizedPower,
+    peak5MinPower,
+    peak20MinPower,
+    avgHR,
+    maxHR,
+    hrCompleteness: activity.hrCompleteness ?? 0,
+    avgCadence,
+    sampleCount: streams.sampleCount,
+    durationSeconds: watts.length,
+    powerZoneDistribution: computePowerZoneDistribution(watts, ftp),
+  };
+}
+
 /**
  * Build cycling context for the Today Coach.
  * Returns null if cycling is not set up (no FTP).
@@ -223,6 +355,22 @@ async function buildCyclingContext(userId: string): Promise<TodayCoachCyclingCon
     }
   }
 
+  // Stream summary for the most recent ride within 24 hours
+  let lastRideStreams: RecentRideStreamSummary | null = null;
+  if (activities.length > 0) {
+    const mostRecent = activities[0];
+    if (mostRecent) {
+      const activityDate = new Date(mostRecent.date);
+      const hoursSince = (now.getTime() - activityDate.getTime()) / (1000 * 60 * 60);
+      if (hoursSince <= 24) {
+        const streams = await cyclingService.getActivityStreams(userId, mostRecent.id);
+        if (streams) {
+          lastRideStreams = buildStreamSummary(streams, mostRecent, ftp.value);
+        }
+      }
+    }
+  }
+
   return {
     ftp: ftp.value,
     trainingLoad: { atl: metrics.atl, ctl: metrics.ctl, tsb: metrics.tsb },
@@ -233,6 +381,7 @@ async function buildCyclingContext(userId: string): Promise<TodayCoachCyclingCon
     vo2max,
     efTrend,
     ftpStaleDays: daysSince(ftp.date),
+    lastRideStreams,
   };
 }
 

@@ -73,6 +73,19 @@ export function buildTodayCoachSystemPrompt(): string {
 - If FTP is stale (60+ days), suggest retesting
 - If cycling not set up (null context), omit cycling section entirely
 
+## Last Ride Stream Analysis (when lastRideStreams is present)
+If the cycling context includes lastRideStreams, the most recent ride happened within the last 24 hours and has detailed power/HR data. Use it to enrich your cycling insight:
+- **Power zone distribution**: Shows % of time in each Coggan zone (Z1-Z7). Use this to assess whether the ride matched its intended type:
+  - Endurance ride should be mostly Z2 (60%+)
+  - Threshold work should have significant Z4 time (30%+)
+  - VO2max intervals should show Z5 time (15%+)
+  - Recovery ride should be nearly all Z1-Z2
+- **Peak powers**: peak5MinPower and peak20MinPower vs FTP indicate effort intensity. peak20Min > 95% FTP suggests threshold-level sustained effort.
+- **Normalized power vs avg power**: Large gap (NP/AP > 1.1) means variable/interval ride; close values mean steady-state.
+- **HR completeness**: Below 80% means HR data is unreliable — don't draw conclusions from avgHR/maxHR.
+- **Cadence**: avgCadence < 80 may indicate grinding/strength work; > 95 suggests spin-focused session.
+- Connect findings to today's recommendation: e.g. "Yesterday's ride was mostly Zone 2 endurance — great base building. Today a shorter threshold session would complement that."
+
 ## Stretching Recommendations
 - Connect stretching to recent lifting — suggest regions based on what was trained
 - 3+ days since last stretch after heavy lifting = high priority
@@ -395,6 +408,7 @@ export async function getTodayCoachRecommendation(
     recovery_state: request.recovery.state,
     has_workout: request.todaysWorkout !== null,
     has_cycling: request.cyclingContext !== null,
+    has_stream_data: request.cyclingContext?.lastRideStreams !== null,
     has_weight: request.weightMetrics !== null,
     stretch_days_since: request.stretchingContext.daysSinceLastSession,
     meditation_streak: request.meditationContext.currentStreak,
