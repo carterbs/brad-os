@@ -324,6 +324,7 @@ export interface RecoveryHistoryEntry {
   score: number;
   state: RecoveryState;
   hrvMs: number;
+  rhrBpm: number;
   sleepHours: number;
 }
 

@@ -29,6 +29,20 @@ export type {
   SessionRecommendation,
 } from './cycling.js';
 
+// --- Health Trends ---
+
+/**
+ * HRV and RHR trend data computed from real HealthKit history.
+ */
+export interface HealthTrends {
+  hrv7DayAvgMs: number | null;
+  hrv30DayAvgMs: number | null;
+  hrvTrend: 'rising' | 'stable' | 'declining' | null;
+  rhr7DayAvgBpm: number | null;
+  rhr30DayAvgBpm: number | null;
+  rhrTrend: 'rising' | 'stable' | 'declining' | null;
+}
+
 // --- Today Coach Request Types ---
 
 /**
@@ -106,6 +120,8 @@ export interface TodayCoachRequest {
   meditationContext: MeditationContext;
 
   weightMetrics: WeightMetrics | null;
+
+  healthTrends: HealthTrends | null;
 
   timezone: string;
   currentDate: string;

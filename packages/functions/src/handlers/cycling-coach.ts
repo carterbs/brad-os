@@ -354,6 +354,7 @@ app.post(
       score: r.score,
       state: r.state,
       hrvMs: r.hrvMs,
+      rhrBpm: r.rhrBpm,
       sleepHours: r.sleepHours,
     }));
 

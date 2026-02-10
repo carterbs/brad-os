@@ -39,6 +39,9 @@ import type {
   WeightGoal,
   WeightMetrics,
   RecoveryHistoryEntry,
+  HealthTrends,
+  HRVEntry,
+  RHREntry,
 } from '../shared.js';
 
 /**
@@ -332,6 +335,57 @@ async function buildMeditationContext(timezoneOffset: number): Promise<Meditatio
 }
 
 /**
+ * Compute health trends from real HRV and RHR history data.
+ * Compares 7-day avg to 30-day avg to determine trend direction.
+ * >5% difference = rising/declining, else stable.
+ */
+function computeHealthTrends(
+  hrvHistory: HRVEntry[],
+  rhrHistory: RHREntry[]
+): HealthTrends | null {
+  if (hrvHistory.length === 0 && rhrHistory.length === 0) {
+    return null;
+  }
+
+  const hrv7 = hrvHistory.slice(0, 7);
+  const hrv7DayAvgMs = hrv7.length > 0
+    ? Math.round((hrv7.reduce((sum, e) => sum + e.avgMs, 0) / hrv7.length) * 10) / 10
+    : null;
+  const hrv30DayAvgMs = hrvHistory.length > 0
+    ? Math.round((hrvHistory.reduce((sum, e) => sum + e.avgMs, 0) / hrvHistory.length) * 10) / 10
+    : null;
+
+  let hrvTrend: HealthTrends['hrvTrend'] = null;
+  if (hrv7DayAvgMs !== null && hrv30DayAvgMs !== null && hrv30DayAvgMs > 0) {
+    const changePercent = ((hrv7DayAvgMs - hrv30DayAvgMs) / hrv30DayAvgMs) * 100;
+    hrvTrend = changePercent > 5 ? 'rising' : changePercent < -5 ? 'declining' : 'stable';
+  }
+
+  const rhr7 = rhrHistory.slice(0, 7);
+  const rhr7DayAvgBpm = rhr7.length > 0
+    ? Math.round((rhr7.reduce((sum, e) => sum + e.avgBpm, 0) / rhr7.length) * 10) / 10
+    : null;
+  const rhr30DayAvgBpm = rhrHistory.length > 0
+    ? Math.round((rhrHistory.reduce((sum, e) => sum + e.avgBpm, 0) / rhrHistory.length) * 10) / 10
+    : null;
+
+  let rhrTrend: HealthTrends['rhrTrend'] = null;
+  if (rhr7DayAvgBpm !== null && rhr30DayAvgBpm !== null && rhr30DayAvgBpm > 0) {
+    const changePercent = ((rhr7DayAvgBpm - rhr30DayAvgBpm) / rhr30DayAvgBpm) * 100;
+    rhrTrend = changePercent > 5 ? 'rising' : changePercent < -5 ? 'declining' : 'stable';
+  }
+
+  return {
+    hrv7DayAvgMs,
+    hrv30DayAvgMs,
+    hrvTrend,
+    rhr7DayAvgBpm,
+    rhr30DayAvgBpm,
+    rhrTrend,
+  };
+}
+
+/**
  * Fetches and shapes all data needed for the Today Coach.
  *
  * @param userId - The user ID
@@ -356,6 +410,8 @@ export async function buildTodayCoachContext(
     meditationContext,
     weightHistory,
     weightGoal,
+    hrvHistory,
+    rhrHistory,
   ] = await Promise.all([
     recoveryService.getRecoveryHistory(userId, 7),
     buildTodayWorkoutContext(),
@@ -367,6 +423,8 @@ export async function buildTodayCoachContext(
     buildMeditationContext(timezoneOffset),
     recoveryService.getWeightHistory(userId, 30),
     cyclingService.getWeightGoal(userId),
+    recoveryService.getHRVHistory(userId, 30),
+    recoveryService.getRHRHistory(userId, 30),
   ]);
 
   // Build recovery history entries (trimmed for token efficiency)
@@ -375,6 +433,7 @@ export async function buildTodayCoachContext(
     score: r.score,
     state: r.state,
     hrvMs: r.hrvMs,
+    rhrBpm: r.rhrBpm,
     sleepHours: r.sleepHours,
   }));
 
@@ -395,6 +454,8 @@ export async function buildTodayCoachContext(
     meditationContext,
 
     weightMetrics: computeWeightMetrics(weightHistory, weightGoal),
+
+    healthTrends: computeHealthTrends(hrvHistory, rhrHistory),
 
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     currentDate: formatDate(now),

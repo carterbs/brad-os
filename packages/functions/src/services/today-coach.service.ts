@@ -50,6 +50,12 @@ export function buildTodayCoachSystemPrompt(): string {
 - Score < 50 ("recover"): Prioritize rest across ALL domains
 - 3+ consecutive "recover" days = accumulated fatigue — recommend rest regardless of schedule
 - Rising HRV trend = good sign, declining = potential overtraining
+- healthTrends provides real 7/30-day HRV and RHR averages from HealthKit history
+- Rising HRV trend (7-day avg > 30-day avg) = improving recovery capacity
+- Declining HRV trend = potential overtraining, fatigue accumulation
+- Rising RHR trend = stress, illness, or overreaching
+- Declining RHR trend = improving cardiovascular fitness
+- Use these trends to give specific numbers: "Your HRV is averaging Xms this week vs Yms over the last month"
 
 ## Lifting Context
 - If a workout is scheduled today, mention it and the progressive overload context
