@@ -35,6 +35,11 @@ class HealthKitSyncService: ObservableObject {
     /// UserDefaults key for persisting last sync date
     private let lastSyncKey = "healthkit_last_sync_date"
 
+    /// UserDefaults keys for tracking whether initial backfills are done
+    private let hrvBackfillCompleteKey = "healthkit_hrv_backfill_complete"
+    private let rhrBackfillCompleteKey = "healthkit_rhr_backfill_complete"
+    private let sleepBackfillCompleteKey = "healthkit_sleep_backfill_complete"
+
     // MARK: - Initialization
 
     init(healthKitManager: HealthKitManager) {
@@ -92,8 +97,12 @@ class HealthKitSyncService: ObservableObject {
             // Sync recovery snapshot to Firebase (no weight — weight syncs separately in bulk)
             try await sendSyncRequest(recovery: recovery, baseline: baseline)
 
-            // Sync weight history in bulk (HealthKit → Firebase)
-            await syncWeightHistory()
+            // Sync all health history in parallel (each is non-fatal)
+            async let w: Void = syncWeightHistory()
+            async let h: Void = syncHRVHistory()
+            async let r: Void = syncRHRHistory()
+            async let s: Void = syncSleepHistory()
+            _ = await (w, h, r, s)
 
             // Update last sync date
             lastSyncDate = Date()
@@ -148,6 +157,201 @@ class HealthKitSyncService: ObservableObject {
         } catch {
             // Don't fail the overall sync if weight sync fails
             print("[HealthKitSyncService] Weight sync failed (non-fatal): \(error)")
+        }
+    }
+
+    /// Sync HRV history from HealthKit to Firebase in bulk.
+    /// First sync does a full 10-year backfill; subsequent syncs only check the last 7 days.
+    private func syncHRVHistory() async {
+        do {
+            let backfillDone = UserDefaults.standard.bool(forKey: hrvBackfillCompleteKey)
+            let syncDays = backfillDone ? 7 : 3650
+
+            let hkReadings = try await healthKitManager.fetchHRVHistory(days: syncDays)
+            print("[HealthKitSyncService] HRV sync (\(backfillDone ? "incremental" : "backfill")): \(hkReadings.count) HealthKit samples for last \(syncDays) days")
+            guard !hkReadings.isEmpty else {
+                print("[HealthKitSyncService] No HealthKit HRV data to sync")
+                if !backfillDone { UserDefaults.standard.set(true, forKey: hrvBackfillCompleteKey) }
+                return
+            }
+
+            // Aggregate by date: avg, min, max, count per date
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+
+            var dailyReadings: [String: [Double]] = [:]
+            for reading in hkReadings {
+                let dateStr = dateFormatter.string(from: reading.date)
+                dailyReadings[dateStr, default: []].append(reading.valueMs)
+            }
+
+            // Fetch existing Firebase dates to diff
+            let existingEntries = try await APIClient.shared.getHRVHistory(days: syncDays)
+            let existingDates = Set(existingEntries.map(\.date))
+
+            let newEntries = dailyReadings.compactMap { (dateStr, values) -> HRVSyncEntry? in
+                guard !existingDates.contains(dateStr) else { return nil }
+                let avg = values.reduce(0, +) / Double(values.count)
+                let min = values.min() ?? avg
+                let max = values.max() ?? avg
+                return HRVSyncEntry(
+                    date: dateStr,
+                    avgMs: avg,
+                    minMs: min,
+                    maxMs: max,
+                    sampleCount: values.count,
+                    source: "healthkit"
+                )
+            }
+
+            guard !newEntries.isEmpty else {
+                print("[HealthKitSyncService] HRV data already up to date")
+                if !backfillDone { UserDefaults.standard.set(true, forKey: hrvBackfillCompleteKey) }
+                return
+            }
+
+            // Batch in 500s
+            var totalAdded = 0
+            for batchStart in stride(from: 0, to: newEntries.count, by: 500) {
+                let batchEnd = min(batchStart + 500, newEntries.count)
+                let batch = Array(newEntries[batchStart..<batchEnd])
+                let added = try await APIClient.shared.syncHRVBulk(entries: batch)
+                totalAdded += added
+            }
+            print("[HealthKitSyncService] Synced \(totalAdded) HRV entries to Firebase")
+
+            if !backfillDone {
+                UserDefaults.standard.set(true, forKey: hrvBackfillCompleteKey)
+                print("[HealthKitSyncService] Initial HRV backfill complete")
+            }
+        } catch {
+            print("[HealthKitSyncService] HRV sync failed (non-fatal): \(error)")
+        }
+    }
+
+    /// Sync RHR history from HealthKit to Firebase in bulk.
+    /// First sync does a full 10-year backfill; subsequent syncs only check the last 7 days.
+    private func syncRHRHistory() async {
+        do {
+            let backfillDone = UserDefaults.standard.bool(forKey: rhrBackfillCompleteKey)
+            let syncDays = backfillDone ? 7 : 3650
+
+            let hkReadings = try await healthKitManager.fetchRHRHistory(days: syncDays)
+            print("[HealthKitSyncService] RHR sync (\(backfillDone ? "incremental" : "backfill")): \(hkReadings.count) HealthKit samples for last \(syncDays) days")
+            guard !hkReadings.isEmpty else {
+                print("[HealthKitSyncService] No HealthKit RHR data to sync")
+                if !backfillDone { UserDefaults.standard.set(true, forKey: rhrBackfillCompleteKey) }
+                return
+            }
+
+            // Aggregate by date: avg, count per date
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateFormat = "yyyy-MM-dd"
+            dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+
+            var dailyReadings: [String: [Double]] = [:]
+            for reading in hkReadings {
+                let dateStr = dateFormatter.string(from: reading.date)
+                dailyReadings[dateStr, default: []].append(reading.valueBpm)
+            }
+
+            // Fetch existing Firebase dates to diff
+            let existingEntries = try await APIClient.shared.getRHRHistory(days: syncDays)
+            let existingDates = Set(existingEntries.map(\.date))
+
+            let newEntries = dailyReadings.compactMap { (dateStr, values) -> RHRSyncEntry? in
+                guard !existingDates.contains(dateStr) else { return nil }
+                let avg = values.reduce(0, +) / Double(values.count)
+                return RHRSyncEntry(
+                    date: dateStr,
+                    avgBpm: avg,
+                    sampleCount: values.count,
+                    source: "healthkit"
+                )
+            }
+
+            guard !newEntries.isEmpty else {
+                print("[HealthKitSyncService] RHR data already up to date")
+                if !backfillDone { UserDefaults.standard.set(true, forKey: rhrBackfillCompleteKey) }
+                return
+            }
+
+            var totalAdded = 0
+            for batchStart in stride(from: 0, to: newEntries.count, by: 500) {
+                let batchEnd = min(batchStart + 500, newEntries.count)
+                let batch = Array(newEntries[batchStart..<batchEnd])
+                let added = try await APIClient.shared.syncRHRBulk(entries: batch)
+                totalAdded += added
+            }
+            print("[HealthKitSyncService] Synced \(totalAdded) RHR entries to Firebase")
+
+            if !backfillDone {
+                UserDefaults.standard.set(true, forKey: rhrBackfillCompleteKey)
+                print("[HealthKitSyncService] Initial RHR backfill complete")
+            }
+        } catch {
+            print("[HealthKitSyncService] RHR sync failed (non-fatal): \(error)")
+        }
+    }
+
+    /// Sync sleep history from HealthKit to Firebase in bulk.
+    /// First sync does a full 10-year backfill; subsequent syncs only check the last 7 days.
+    private func syncSleepHistory() async {
+        do {
+            let backfillDone = UserDefaults.standard.bool(forKey: sleepBackfillCompleteKey)
+            let syncDays = backfillDone ? 7 : 3650
+
+            let hkNights = try await healthKitManager.fetchSleepHistory(days: syncDays)
+            print("[HealthKitSyncService] Sleep sync (\(backfillDone ? "incremental" : "backfill")): \(hkNights.count) nights for last \(syncDays) days")
+            guard !hkNights.isEmpty else {
+                print("[HealthKitSyncService] No HealthKit sleep data to sync")
+                if !backfillDone { UserDefaults.standard.set(true, forKey: sleepBackfillCompleteKey) }
+                return
+            }
+
+            // Fetch existing Firebase dates to diff
+            let existingEntries = try await APIClient.shared.getSleepHistory(days: syncDays)
+            let existingDates = Set(existingEntries.map(\.date))
+
+            let newEntries = hkNights.compactMap { (dateStr, metrics) -> SleepSyncEntry? in
+                guard !existingDates.contains(dateStr) else { return nil }
+                // Skip nights with no sleep data
+                guard metrics.totalSleep > 0 else { return nil }
+                return SleepSyncEntry(
+                    date: dateStr,
+                    totalSleepMinutes: Int(metrics.totalSleep / 60),
+                    inBedMinutes: Int(metrics.inBed / 60),
+                    coreMinutes: Int(metrics.core / 60),
+                    deepMinutes: Int(metrics.deep / 60),
+                    remMinutes: Int(metrics.rem / 60),
+                    awakeMinutes: Int(metrics.awake / 60),
+                    sleepEfficiency: metrics.efficiency,
+                    source: "healthkit"
+                )
+            }
+
+            guard !newEntries.isEmpty else {
+                print("[HealthKitSyncService] Sleep data already up to date")
+                if !backfillDone { UserDefaults.standard.set(true, forKey: sleepBackfillCompleteKey) }
+                return
+            }
+
+            var totalAdded = 0
+            for batchStart in stride(from: 0, to: newEntries.count, by: 500) {
+                let batchEnd = min(batchStart + 500, newEntries.count)
+                let batch = Array(newEntries[batchStart..<batchEnd])
+                let added = try await APIClient.shared.syncSleepBulk(entries: batch)
+                totalAdded += added
+            }
+            print("[HealthKitSyncService] Synced \(totalAdded) sleep entries to Firebase")
+
+            if !backfillDone {
+                UserDefaults.standard.set(true, forKey: sleepBackfillCompleteKey)
+                print("[HealthKitSyncService] Initial sleep backfill complete")
+            }
+        } catch {
+            print("[HealthKitSyncService] Sleep sync failed (non-fatal): \(error)")
         }
     }
 

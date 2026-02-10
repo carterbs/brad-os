@@ -737,6 +737,51 @@ final class APIClient: APIClientProtocol {
         return response.added
     }
 
+    func syncHRVBulk(entries: [HRVSyncEntry]) async throws -> Int {
+        struct BulkHRVBody: Encodable {
+            let entries: [HRVSyncEntry]
+        }
+        struct BulkHRVResponse: Decodable {
+            let added: Int
+        }
+        let response: BulkHRVResponse = try await post("/health-sync/hrv/bulk", body: BulkHRVBody(entries: entries))
+        return response.added
+    }
+
+    func getHRVHistory(days: Int) async throws -> [HRVHistoryEntry] {
+        try await get("/health-sync/hrv", queryItems: [URLQueryItem(name: "days", value: String(days))])
+    }
+
+    func syncRHRBulk(entries: [RHRSyncEntry]) async throws -> Int {
+        struct BulkRHRBody: Encodable {
+            let entries: [RHRSyncEntry]
+        }
+        struct BulkRHRResponse: Decodable {
+            let added: Int
+        }
+        let response: BulkRHRResponse = try await post("/health-sync/rhr/bulk", body: BulkRHRBody(entries: entries))
+        return response.added
+    }
+
+    func getRHRHistory(days: Int) async throws -> [RHRHistoryEntry] {
+        try await get("/health-sync/rhr", queryItems: [URLQueryItem(name: "days", value: String(days))])
+    }
+
+    func syncSleepBulk(entries: [SleepSyncEntry]) async throws -> Int {
+        struct BulkSleepBody: Encodable {
+            let entries: [SleepSyncEntry]
+        }
+        struct BulkSleepResponse: Decodable {
+            let added: Int
+        }
+        let response: BulkSleepResponse = try await post("/health-sync/sleep/bulk", body: BulkSleepBody(entries: entries))
+        return response.added
+    }
+
+    func getSleepHistory(days: Int) async throws -> [SleepHistoryEntry] {
+        try await get("/health-sync/sleep", queryItems: [URLQueryItem(name: "days", value: String(days))])
+    }
+
     func getLatestRecovery() async throws -> RecoverySnapshotResponse? {
         try await getOptional("/health-sync/recovery")
     }

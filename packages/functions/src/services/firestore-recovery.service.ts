@@ -7,6 +7,9 @@
  * - /users/{userId}/recoverySnapshots/{YYYY-MM-DD}  (date as doc ID for upsert)
  * - /users/{userId}/recoveryBaseline               (single doc)
  * - /users/{userId}/weightHistory/{YYYY-MM-DD}  (date as doc ID for upsert)
+ * - /users/{userId}/hrvHistory/{YYYY-MM-DD}     (date as doc ID for upsert)
+ * - /users/{userId}/rhrHistory/{YYYY-MM-DD}     (date as doc ID for upsert)
+ * - /users/{userId}/sleepHistory/{YYYY-MM-DD}   (date as doc ID for upsert)
  */
 
 import type { Firestore } from 'firebase-admin/firestore';
@@ -16,7 +19,11 @@ import type {
   StoredRecoverySnapshot,
   RecoveryBaseline,
   WeightEntry,
+  HRVEntry,
+  RHREntry,
+  SleepEntry,
   RecoverySource,
+  HealthSource,
 } from '../shared.js';
 
 /**
@@ -387,4 +394,241 @@ export async function getLatestWeight(
     source: data['source'] as WeightEntry['source'],
     syncedAt: data['syncedAt'] as string,
   };
+}
+
+// ============ HRV History ============
+
+/**
+ * Add multiple HRV entries in bulk using batched writes.
+ * Uses date as document ID for idempotent upserts.
+ */
+export async function addHRVEntries(
+  userId: string,
+  entries: Array<{ date: string; avgMs: number; minMs: number; maxMs: number; sampleCount: number; source?: HealthSource }>
+): Promise<number> {
+  const db = getDb();
+  const userDoc = getUserDoc(userId);
+  const syncedAt = new Date().toISOString();
+  const collection = userDoc.collection('hrvHistory');
+
+  const batchSize = 500;
+  let written = 0;
+
+  for (let i = 0; i < entries.length; i += batchSize) {
+    const chunk = entries.slice(i, i + batchSize);
+    const batch = db.batch();
+
+    for (const entry of chunk) {
+      const docRef = collection.doc(entry.date);
+      batch.set(docRef, {
+        date: entry.date,
+        avgMs: entry.avgMs,
+        minMs: entry.minMs,
+        maxMs: entry.maxMs,
+        sampleCount: entry.sampleCount,
+        source: entry.source ?? 'healthkit',
+        syncedAt,
+      });
+    }
+
+    await batch.commit();
+    written += chunk.length;
+  }
+
+  return written;
+}
+
+/**
+ * Get HRV history for a user.
+ */
+export async function getHRVHistory(
+  userId: string,
+  days: number
+): Promise<HRVEntry[]> {
+  const userDoc = getUserDoc(userId);
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - days);
+  const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
+  const snapshot = await userDoc
+    .collection('hrvHistory')
+    .where('date', '>=', cutoffStr)
+    .orderBy('date', 'desc')
+    .get();
+
+  return snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      date: data['date'] as string,
+      avgMs: data['avgMs'] as number,
+      minMs: data['minMs'] as number,
+      maxMs: data['maxMs'] as number,
+      sampleCount: data['sampleCount'] as number,
+      source: data['source'] as HealthSource,
+      syncedAt: data['syncedAt'] as string,
+    };
+  });
+}
+
+// ============ RHR History ============
+
+/**
+ * Add multiple RHR entries in bulk using batched writes.
+ * Uses date as document ID for idempotent upserts.
+ */
+export async function addRHREntries(
+  userId: string,
+  entries: Array<{ date: string; avgBpm: number; sampleCount: number; source?: HealthSource }>
+): Promise<number> {
+  const db = getDb();
+  const userDoc = getUserDoc(userId);
+  const syncedAt = new Date().toISOString();
+  const collection = userDoc.collection('rhrHistory');
+
+  const batchSize = 500;
+  let written = 0;
+
+  for (let i = 0; i < entries.length; i += batchSize) {
+    const chunk = entries.slice(i, i + batchSize);
+    const batch = db.batch();
+
+    for (const entry of chunk) {
+      const docRef = collection.doc(entry.date);
+      batch.set(docRef, {
+        date: entry.date,
+        avgBpm: entry.avgBpm,
+        sampleCount: entry.sampleCount,
+        source: entry.source ?? 'healthkit',
+        syncedAt,
+      });
+    }
+
+    await batch.commit();
+    written += chunk.length;
+  }
+
+  return written;
+}
+
+/**
+ * Get RHR history for a user.
+ */
+export async function getRHRHistory(
+  userId: string,
+  days: number
+): Promise<RHREntry[]> {
+  const userDoc = getUserDoc(userId);
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - days);
+  const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
+  const snapshot = await userDoc
+    .collection('rhrHistory')
+    .where('date', '>=', cutoffStr)
+    .orderBy('date', 'desc')
+    .get();
+
+  return snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      date: data['date'] as string,
+      avgBpm: data['avgBpm'] as number,
+      sampleCount: data['sampleCount'] as number,
+      source: data['source'] as HealthSource,
+      syncedAt: data['syncedAt'] as string,
+    };
+  });
+}
+
+// ============ Sleep History ============
+
+/**
+ * Add multiple sleep entries in bulk using batched writes.
+ * Uses date as document ID for idempotent upserts.
+ */
+export async function addSleepEntries(
+  userId: string,
+  entries: Array<{
+    date: string;
+    totalSleepMinutes: number;
+    inBedMinutes: number;
+    coreMinutes: number;
+    deepMinutes: number;
+    remMinutes: number;
+    awakeMinutes: number;
+    sleepEfficiency: number;
+    source?: HealthSource;
+  }>
+): Promise<number> {
+  const db = getDb();
+  const userDoc = getUserDoc(userId);
+  const syncedAt = new Date().toISOString();
+  const collection = userDoc.collection('sleepHistory');
+
+  const batchSize = 500;
+  let written = 0;
+
+  for (let i = 0; i < entries.length; i += batchSize) {
+    const chunk = entries.slice(i, i + batchSize);
+    const batch = db.batch();
+
+    for (const entry of chunk) {
+      const docRef = collection.doc(entry.date);
+      batch.set(docRef, {
+        date: entry.date,
+        totalSleepMinutes: entry.totalSleepMinutes,
+        inBedMinutes: entry.inBedMinutes,
+        coreMinutes: entry.coreMinutes,
+        deepMinutes: entry.deepMinutes,
+        remMinutes: entry.remMinutes,
+        awakeMinutes: entry.awakeMinutes,
+        sleepEfficiency: entry.sleepEfficiency,
+        source: entry.source ?? 'healthkit',
+        syncedAt,
+      });
+    }
+
+    await batch.commit();
+    written += chunk.length;
+  }
+
+  return written;
+}
+
+/**
+ * Get sleep history for a user.
+ */
+export async function getSleepHistory(
+  userId: string,
+  days: number
+): Promise<SleepEntry[]> {
+  const userDoc = getUserDoc(userId);
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - days);
+  const cutoffStr = cutoffDate.toISOString().split('T')[0];
+
+  const snapshot = await userDoc
+    .collection('sleepHistory')
+    .where('date', '>=', cutoffStr)
+    .orderBy('date', 'desc')
+    .get();
+
+  return snapshot.docs.map((doc) => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      date: data['date'] as string,
+      totalSleepMinutes: data['totalSleepMinutes'] as number,
+      inBedMinutes: data['inBedMinutes'] as number,
+      coreMinutes: data['coreMinutes'] as number,
+      deepMinutes: data['deepMinutes'] as number,
+      remMinutes: data['remMinutes'] as number,
+      awakeMinutes: data['awakeMinutes'] as number,
+      sleepEfficiency: data['sleepEfficiency'] as number,
+      source: data['source'] as HealthSource,
+      syncedAt: data['syncedAt'] as string,
+    };
+  });
 }

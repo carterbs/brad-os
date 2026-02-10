@@ -80,6 +80,52 @@ export const bulkWeightSyncSchema = z.object({
 
 export type BulkWeightSyncInput = z.infer<typeof bulkWeightSyncSchema>;
 
+// --- Bulk HRV Sync Schema ---
+
+export const bulkHRVSyncSchema = z.object({
+  entries: z.array(z.object({
+    date: z.string().regex(datePattern, 'Date must be in YYYY-MM-DD format'),
+    avgMs: z.number().min(0).max(300),
+    minMs: z.number().min(0).max(300),
+    maxMs: z.number().min(0).max(300),
+    sampleCount: z.number().int().min(1),
+    source: z.enum(['healthkit']).optional(),
+  })).min(1).max(500),
+});
+
+export type BulkHRVSyncInput = z.infer<typeof bulkHRVSyncSchema>;
+
+// --- Bulk RHR Sync Schema ---
+
+export const bulkRHRSyncSchema = z.object({
+  entries: z.array(z.object({
+    date: z.string().regex(datePattern, 'Date must be in YYYY-MM-DD format'),
+    avgBpm: z.number().min(30).max(200),
+    sampleCount: z.number().int().min(1),
+    source: z.enum(['healthkit']).optional(),
+  })).min(1).max(500),
+});
+
+export type BulkRHRSyncInput = z.infer<typeof bulkRHRSyncSchema>;
+
+// --- Bulk Sleep Sync Schema ---
+
+export const bulkSleepSyncSchema = z.object({
+  entries: z.array(z.object({
+    date: z.string().regex(datePattern, 'Date must be in YYYY-MM-DD format'),
+    totalSleepMinutes: z.number().int().min(0).max(1440),
+    inBedMinutes: z.number().int().min(0).max(1440),
+    coreMinutes: z.number().int().min(0).max(1440),
+    deepMinutes: z.number().int().min(0).max(1440),
+    remMinutes: z.number().int().min(0).max(1440),
+    awakeMinutes: z.number().int().min(0).max(1440),
+    sleepEfficiency: z.number().min(0).max(100),
+    source: z.enum(['healthkit']).optional(),
+  })).min(1).max(500),
+});
+
+export type BulkSleepSyncInput = z.infer<typeof bulkSleepSyncSchema>;
+
 // --- Sync Health Data Schema ---
 
 /**

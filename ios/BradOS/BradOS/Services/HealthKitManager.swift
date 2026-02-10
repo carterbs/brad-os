@@ -341,6 +341,84 @@ class HealthKitManager: ObservableObject {
         }
     }
 
+    /// Fetch sleep history for multiple nights, grouped by date.
+    /// Uses 6 PM cutoff: samples after 6 PM are attributed to the next day's sleep.
+    func fetchSleepHistory(days: Int) async throws -> [(date: String, metrics: SleepMetrics)] {
+        let sleepType = HKCategoryType(.sleepAnalysis)
+        let calendar = Calendar.current
+        let now = Date()
+        let startDate = calendar.date(byAdding: .day, value: -days, to: now) ?? now
+
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: now)
+        let descriptor = HKSampleQueryDescriptor(
+            predicates: [.categorySample(type: sleepType, predicate: predicate)],
+            sortDescriptors: [SortDescriptor(\.startDate)]
+        )
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dateFormatter.timeZone = .current
+
+        do {
+            let samples = try await descriptor.result(for: healthStore)
+
+            // Group samples into nights using 6 PM cutoff
+            var nightMetrics: [String: SleepMetrics] = [:]
+
+            for sample in samples {
+                let duration = sample.endDate.timeIntervalSince(sample.startDate)
+
+                // Determine which "night" this sample belongs to
+                // Samples after 6 PM belong to next day; samples before 6 PM belong to same day
+                let startHour = calendar.component(.hour, from: sample.startDate)
+                let nightDate: Date
+                if startHour >= 18 {
+                    nightDate = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: sample.startDate)) ?? sample.startDate
+                } else {
+                    nightDate = calendar.startOfDay(for: sample.startDate)
+                }
+                let dateStr = dateFormatter.string(from: nightDate)
+
+                var metrics = nightMetrics[dateStr] ?? SleepMetrics()
+
+                switch HKCategoryValueSleepAnalysis(rawValue: sample.value) {
+                case .inBed:
+                    metrics.inBed += duration
+                case .asleepCore:
+                    metrics.core += duration
+                    metrics.totalSleep += duration
+                case .asleepDeep:
+                    metrics.deep += duration
+                    metrics.totalSleep += duration
+                case .asleepREM:
+                    metrics.rem += duration
+                    metrics.totalSleep += duration
+                case .awake:
+                    metrics.awake += duration
+                case .asleepUnspecified:
+                    metrics.core += duration
+                    metrics.totalSleep += duration
+                default:
+                    break
+                }
+
+                nightMetrics[dateStr] = metrics
+            }
+
+            // Estimate inBed if not tracked, then return sorted
+            return nightMetrics.map { (date, metrics) in
+                var m = metrics
+                if m.inBed == 0 && m.totalSleep > 0 {
+                    m.inBed = m.totalSleep + m.awake
+                }
+                return (date: date, metrics: m)
+            }.sorted { $0.date > $1.date }
+        } catch {
+            throw HealthKitError.queryFailed(error)
+        }
+    }
+
     // MARK: - Recovery Score Calculation
 
     /// Calculate complete recovery data

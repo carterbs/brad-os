@@ -68,6 +68,57 @@ export interface WeightEntry {
   syncedAt: string; // ISO 8601 timestamp
 }
 
+// --- HRV History Entry ---
+
+export type HealthSource = 'healthkit';
+
+/**
+ * A daily HRV aggregate synced from HealthKit.
+ */
+export interface HRVEntry {
+  id: string;
+  date: string; // YYYY-MM-DD format
+  avgMs: number;
+  minMs: number;
+  maxMs: number;
+  sampleCount: number;
+  source: HealthSource;
+  syncedAt: string; // ISO 8601 timestamp
+}
+
+// --- RHR History Entry ---
+
+/**
+ * A daily resting heart rate aggregate synced from HealthKit.
+ */
+export interface RHREntry {
+  id: string;
+  date: string; // YYYY-MM-DD format
+  avgBpm: number;
+  sampleCount: number;
+  source: HealthSource;
+  syncedAt: string; // ISO 8601 timestamp
+}
+
+// --- Sleep History Entry ---
+
+/**
+ * A nightly sleep breakdown synced from HealthKit.
+ */
+export interface SleepEntry {
+  id: string;
+  date: string; // YYYY-MM-DD format
+  totalSleepMinutes: number;
+  inBedMinutes: number;
+  coreMinutes: number;
+  deepMinutes: number;
+  remMinutes: number;
+  awakeMinutes: number;
+  sleepEfficiency: number; // 0-100
+  source: HealthSource;
+  syncedAt: string; // ISO 8601 timestamp
+}
+
 // --- Sync Request/Response Types ---
 
 /**

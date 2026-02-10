@@ -15,6 +15,9 @@ import {
   syncHealthDataSchema,
   getRecoveryQuerySchema,
   bulkWeightSyncSchema,
+  bulkHRVSyncSchema,
+  bulkRHRSyncSchema,
+  bulkSleepSyncSchema,
 } from '../shared.js';
 
 const app = express();
@@ -244,6 +247,205 @@ app.get(
     res.json({
       success: true,
       data: weight,
+    });
+  })
+);
+
+// POST /health/hrv/bulk
+// Bulk sync HRV entries from HealthKit
+app.post(
+  '/hrv/bulk',
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const userId = getUserId(req);
+
+    const parseResult = bulkHRVSyncSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid request body',
+          details: parseResult.error.errors,
+        },
+      });
+      return;
+    }
+
+    const { entries } = parseResult.data;
+    const added = await recoveryService.addHRVEntries(userId, entries);
+
+    res.json({
+      success: true,
+      data: { added },
+    });
+  })
+);
+
+// GET /health/hrv
+// Get latest HRV or HRV history
+app.get(
+  '/hrv',
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const userId = getUserId(req);
+    const days = parseInt(String(req.query['days']), 10);
+
+    if (days && days > 0) {
+      const history = await recoveryService.getHRVHistory(userId, Math.min(days, 3650));
+      res.json({
+        success: true,
+        data: history,
+      });
+      return;
+    }
+
+    // Default: return latest (last 1 day)
+    const history = await recoveryService.getHRVHistory(userId, 1);
+    if (history.length === 0) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'No HRV data available',
+        },
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: history[0],
+    });
+  })
+);
+
+// POST /health/rhr/bulk
+// Bulk sync RHR entries from HealthKit
+app.post(
+  '/rhr/bulk',
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const userId = getUserId(req);
+
+    const parseResult = bulkRHRSyncSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid request body',
+          details: parseResult.error.errors,
+        },
+      });
+      return;
+    }
+
+    const { entries } = parseResult.data;
+    const added = await recoveryService.addRHREntries(userId, entries);
+
+    res.json({
+      success: true,
+      data: { added },
+    });
+  })
+);
+
+// GET /health/rhr
+// Get latest RHR or RHR history
+app.get(
+  '/rhr',
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const userId = getUserId(req);
+    const days = parseInt(String(req.query['days']), 10);
+
+    if (days && days > 0) {
+      const history = await recoveryService.getRHRHistory(userId, Math.min(days, 3650));
+      res.json({
+        success: true,
+        data: history,
+      });
+      return;
+    }
+
+    const history = await recoveryService.getRHRHistory(userId, 1);
+    if (history.length === 0) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'No RHR data available',
+        },
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: history[0],
+    });
+  })
+);
+
+// POST /health/sleep/bulk
+// Bulk sync sleep entries from HealthKit
+app.post(
+  '/sleep/bulk',
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const userId = getUserId(req);
+
+    const parseResult = bulkSleepSyncSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid request body',
+          details: parseResult.error.errors,
+        },
+      });
+      return;
+    }
+
+    const { entries } = parseResult.data;
+    const added = await recoveryService.addSleepEntries(userId, entries);
+
+    res.json({
+      success: true,
+      data: { added },
+    });
+  })
+);
+
+// GET /health/sleep
+// Get latest sleep or sleep history
+app.get(
+  '/sleep',
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const userId = getUserId(req);
+    const days = parseInt(String(req.query['days']), 10);
+
+    if (days && days > 0) {
+      const history = await recoveryService.getSleepHistory(userId, Math.min(days, 3650));
+      res.json({
+        success: true,
+        data: history,
+      });
+      return;
+    }
+
+    const history = await recoveryService.getSleepHistory(userId, 1);
+    if (history.length === 0) {
+      res.status(404).json({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'No sleep data available',
+        },
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: history[0],
     });
   })
 );
