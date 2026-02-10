@@ -25,6 +25,37 @@ struct WeightSyncEntry: Encodable {
     let source: String     // "healthkit" or "manual"
 }
 
+/// Recovery data for sync to the backend
+struct RecoverySyncData: Encodable {
+    let date: String
+    let hrvMs: Double
+    let hrvVsBaseline: Double
+    let rhrBpm: Double
+    let rhrVsBaseline: Double
+    let sleepHours: Double
+    let sleepEfficiency: Double
+    let deepSleepPercent: Double
+    let score: Int
+    let state: String
+    let source: String
+}
+
+/// Recovery baseline for sync to the backend
+struct RecoveryBaselineSyncData: Encodable {
+    let hrvMedian: Double
+    let hrvStdDev: Double
+    let rhrMedian: Double
+    let sampleCount: Int
+}
+
+/// Response from the recovery sync endpoint
+struct RecoverySyncResponse: Decodable {
+    let synced: Bool
+    let recoveryDate: String
+    let baselineUpdated: Bool
+    let weightAdded: Bool
+}
+
 /// Recovery snapshot from the backend (stored in Firebase)
 struct RecoverySnapshotResponse: Decodable {
     let date: String           // YYYY-MM-DD

@@ -1,16 +1,6 @@
 import Foundation
 import BradOSCore
 
-// MARK: - Sync Response
-
-/// Response from the health sync endpoint
-private struct SyncResponse: Decodable {
-    let synced: Bool
-    let recoveryDate: String
-    let baselineUpdated: Bool
-    let weightAdded: Bool
-}
-
 // MARK: - HealthKitSyncService
 
 /// Service for syncing HealthKit data to Firebase.
@@ -359,98 +349,36 @@ class HealthKitSyncService: ObservableObject {
         recovery: RecoveryData,
         baseline: RecoveryBaseline?
     ) async throws {
-        let baseURL = APIConfiguration.default.baseURL
-        var request = URLRequest(url: baseURL.appendingPathComponent("/health-sync/sync"))
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-
-        // Build request body — recovery only (weight syncs separately via bulk)
-        var body: [String: Any] = [
-            "recovery": recovery.toAPIFormat()
-        ]
-
-        if let baseline = baseline {
-            body["baseline"] = [
-                "hrvMedian": baseline.hrvMedian,
-                "hrvStdDev": baseline.hrvStdDev,
-                "rhrMedian": baseline.rhrMedian,
-                "sampleCount": 60 // Approximate - we use 60-day baseline
-            ]
-        }
-
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        // Create session matching APIClient's setup
-        let config = URLSessionConfiguration.default
-        config.connectionProxyDictionary = [:]
-        config.requestCachePolicy = .reloadIgnoringLocalCacheData
-        let session = URLSession(configuration: config)
-
-        let (data, response) = try await session.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw SyncError.invalidResponse
-        }
-
-        guard (200...299).contains(httpResponse.statusCode) else {
-            // Try to parse error message
-            if let errorResponse = try? JSONDecoder().decode(APIErrorResponse.self, from: data) {
-                throw SyncError.apiError(errorResponse.error.message)
-            }
-            throw SyncError.httpError(httpResponse.statusCode)
-        }
-
-        // Parse response to verify success
-        let apiResponse = try JSONDecoder().decode(APIResponse<SyncResponse>.self, from: data)
-        guard apiResponse.data.synced else {
-            throw SyncError.syncFailed
-        }
-    }
-}
-
-// MARK: - Sync Errors
-
-private enum SyncError: LocalizedError {
-    case invalidResponse
-    case httpError(Int)
-    case apiError(String)
-    case syncFailed
-
-    var errorDescription: String? {
-        switch self {
-        case .invalidResponse:
-            return "Invalid response from server"
-        case .httpError(let code):
-            return "HTTP error: \(code)"
-        case .apiError(let message):
-            return message
-        case .syncFailed:
-            return "Sync failed"
-        }
-    }
-}
-
-// MARK: - RecoveryData Extension
-
-private extension RecoveryData {
-    /// Convert to API format for sync request
-    func toAPIFormat() -> [String: Any] {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
 
-        return [
-            "date": formatter.string(from: date),
-            "hrvMs": hrvMs,
-            "hrvVsBaseline": hrvVsBaseline,
-            "rhrBpm": rhrBpm,
-            "rhrVsBaseline": rhrVsBaseline,
-            "sleepHours": sleepHours,
-            "sleepEfficiency": sleepEfficiency,
-            "deepSleepPercent": deepSleepPercent,
-            "score": score,
-            "state": state.rawValue,
-            "source": "healthkit"
-        ]
+        let syncData = RecoverySyncData(
+            date: formatter.string(from: recovery.date),
+            hrvMs: recovery.hrvMs,
+            hrvVsBaseline: recovery.hrvVsBaseline,
+            rhrBpm: recovery.rhrBpm,
+            rhrVsBaseline: recovery.rhrVsBaseline,
+            sleepHours: recovery.sleepHours,
+            sleepEfficiency: recovery.sleepEfficiency,
+            deepSleepPercent: recovery.deepSleepPercent,
+            score: recovery.score,
+            state: recovery.state.rawValue,
+            source: "healthkit"
+        )
+
+        let baselineData = baseline.map {
+            RecoveryBaselineSyncData(
+                hrvMedian: $0.hrvMedian,
+                hrvStdDev: $0.hrvStdDev,
+                rhrMedian: $0.rhrMedian,
+                sampleCount: 60
+            )
+        }
+
+        let response = try await APIClient.shared.syncRecovery(recovery: syncData, baseline: baselineData)
+        guard response.synced else {
+            throw URLError(.badServerResponse)
+        }
     }
 }

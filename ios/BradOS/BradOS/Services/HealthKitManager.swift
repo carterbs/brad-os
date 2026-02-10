@@ -87,19 +87,34 @@ class HealthKitManager: ObservableObject {
 
     // MARK: - HRV Queries
 
-    /// Fetch the most recent HRV reading
+    /// Fetch today's average HRV (all samples from last 24 hours, averaged).
+    /// Falls back to the single most recent sample if no samples exist in the last 24 hours.
     func fetchLatestHRV() async throws -> Double? {
         let hrvType = HKQuantityType(.heartRateVariabilitySDNN)
+        let oneDayAgo = Calendar.current.date(byAdding: .hour, value: -24, to: Date()) ?? Date()
 
-        let descriptor = HKSampleQueryDescriptor(
-            predicates: [.quantitySample(type: hrvType)],
-            sortDescriptors: [SortDescriptor(\.endDate, order: .reverse)],
-            limit: 1
+        // First try: get all samples from the last 24 hours and average them
+        let predicate = HKQuery.predicateForSamples(withStart: oneDayAgo, end: Date())
+        let recentDescriptor = HKSampleQueryDescriptor(
+            predicates: [.quantitySample(type: hrvType, predicate: predicate)],
+            sortDescriptors: [SortDescriptor(\.endDate, order: .reverse)]
         )
 
         do {
-            let results = try await descriptor.result(for: healthStore)
-            return results.first?.quantity.doubleValue(for: .secondUnit(with: .milli))
+            let results = try await recentDescriptor.result(for: healthStore)
+            if !results.isEmpty {
+                let values = results.map { $0.quantity.doubleValue(for: .secondUnit(with: .milli)) }
+                return values.reduce(0, +) / Double(values.count)
+            }
+
+            // Fallback: get the single most recent sample (any date)
+            let latestDescriptor = HKSampleQueryDescriptor(
+                predicates: [.quantitySample(type: hrvType)],
+                sortDescriptors: [SortDescriptor(\.endDate, order: .reverse)],
+                limit: 1
+            )
+            let latest = try await latestDescriptor.result(for: healthStore)
+            return latest.first?.quantity.doubleValue(for: .secondUnit(with: .milli))
         } catch {
             throw HealthKitError.queryFailed(error)
         }

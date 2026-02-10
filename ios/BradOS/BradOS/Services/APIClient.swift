@@ -790,6 +790,14 @@ final class APIClient: APIClientProtocol {
         try await getOptional("/health-sync/recovery")
     }
 
+    func syncRecovery(recovery: RecoverySyncData, baseline: RecoveryBaselineSyncData?) async throws -> RecoverySyncResponse {
+        struct SyncBody: Encodable {
+            let recovery: RecoverySyncData
+            let baseline: RecoveryBaselineSyncData?
+        }
+        return try await post("/health-sync/sync", body: SyncBody(recovery: recovery, baseline: baseline))
+    }
+
     func getWeightGoal() async throws -> WeightGoalResponse? {
         try await getOptional("/cycling/weight-goal")
     }
