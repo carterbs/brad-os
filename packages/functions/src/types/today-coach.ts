@@ -57,6 +57,26 @@ export interface TodayWorkoutContext {
 }
 
 /**
+ * Pre-computed summary of stream data from the most recent ride.
+ * Sent instead of raw arrays to stay within token limits.
+ */
+export interface RecentRideStreamSummary {
+  avgPower: number;
+  maxPower: number;
+  normalizedPower: number;
+  peak5MinPower: number | null;
+  peak20MinPower: number | null;
+  avgHR: number | null;
+  maxHR: number | null;
+  hrCompleteness: number;
+  avgCadence: number | null;
+  sampleCount: number;
+  durationSeconds: number;
+  /** Percentage of time in each Coggan power zone (Z1-Z7), keyed by zone name. */
+  powerZoneDistribution: Record<string, number>;
+}
+
+/**
  * Cycling context for the Today Coach.
  */
 export interface TodayCoachCyclingContext {
@@ -69,6 +89,7 @@ export interface TodayCoachCyclingContext {
   vo2max: VO2MaxContext | null;
   efTrend: EFTrendSummary | null;
   ftpStaleDays: number;
+  lastRideStreams: RecentRideStreamSummary | null;
 }
 
 /**
