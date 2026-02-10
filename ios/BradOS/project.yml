@@ -46,6 +46,7 @@ targets:
       - package: Firebase
         product: FirebaseAppCheck
       - target: BradOSWidget
+      - target: BradOSWatch
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bradcarter.brad-os

@@ -106,6 +106,7 @@
 		C25E9E4FFD21AD710D825C09 /* TTSAudioCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC98A389A8A8FFCA71333DEB /* TTSAudioCache.swift */; };
 		C32B53A1CC22EBE561E97766 /* ReadinessCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1242FA62054836D545BA364 /* ReadinessCard.swift */; };
 		C686CD6041F93A59ADDEAAE8 /* CoachRecommendationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D14E61BBD21F155014416196 /* CoachRecommendationCard.swift */; };
+		C71245DB3E4040E6549731CF /* BradOSWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = 2759D836A83D7DACF70D51D5 /* BradOSWatch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		CC7E90C261523A92636E54B6 /* NowPlayingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0541AD3BB9C7C96E443092E /* NowPlayingManager.swift */; };
 		CC9ED644E5641FDB01342427 /* StravaConnectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38D5EE1C5FCDACE62D3C9D36 /* StravaConnectionView.swift */; };
 		CCC8ADA904A7E1616B6AC3DA /* StretchSessionStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FF31397C3FAAB4210662D7 /* StretchSessionStorage.swift */; };
@@ -143,6 +144,13 @@
 			remoteGlobalIDString = 8A7135F3BB1083CFAEC8256F;
 			remoteInfo = BradOSWidget;
 		};
+		BF57FECCCB274D81810D0420 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = C22675FE74ADD673C014BDBE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 67BC99C8C48B6DC4F03F699D;
+			remoteInfo = BradOSWatch;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -155,6 +163,17 @@
 				8B0EFF5B6B13B2AE74F0F115 /* BradOSWidget.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DA12830CDF92BEDBBE798C38 /* Embed Watch Content */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(CONTENTS_FOLDER_PATH)/Watch";
+			dstSubfolderSpec = 16;
+			files = (
+				C71245DB3E4040E6549731CF /* BradOSWatch.app in Embed Watch Content */,
+			);
+			name = "Embed Watch Content";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -683,7 +702,7 @@
 			path = Lifting;
 			sourceTree = "<group>";
 		};
-		"TEMP_E8C3FA3F-569E-4817-B1B5-E56FEE02C8C9" /* Resources */ = {
+		"TEMP_5210A9BD-1E46-4394-8B58-5E490ED5C905" /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -701,11 +720,13 @@
 				D33881B47378763279B5625B /* Resources */,
 				4E10A18E79B0CDF5F9BFDB2E /* Frameworks */,
 				383E944A18A5B17710BBFB5F /* Embed Foundation Extensions */,
+				DA12830CDF92BEDBBE798C38 /* Embed Watch Content */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				81FDB819AD4B8B0A82D92F45 /* PBXTargetDependency */,
+				3E5D6A6266294CD93867B946 /* PBXTargetDependency */,
 			);
 			name = BradOS;
 			packageProductDependencies = (
@@ -957,6 +978,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		3E5D6A6266294CD93867B946 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 67BC99C8C48B6DC4F03F699D /* BradOSWatch */;
+			targetProxy = BF57FECCCB274D81810D0420 /* PBXContainerItemProxy */;
+		};
 		81FDB819AD4B8B0A82D92F45 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 8A7135F3BB1083CFAEC8256F /* BradOSWidget */;

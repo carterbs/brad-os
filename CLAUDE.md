@@ -240,9 +240,9 @@ Run the setup script to install dependencies for iOS Simulator testing:
 
 ```bash
 # Build for simulator (no workspace - use xcodeproj directly)
+# NOTE: Do NOT pass -sdk flag — it breaks the watchOS companion build.
 xcodebuild -project ios/BradOS/BradOS.xcodeproj \
   -scheme BradOS \
-  -sdk iphonesimulator \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -derivedDataPath ./build/ios \
   build
