@@ -1,0 +1,402 @@
+/**
+ * Today Coach Data Aggregation Service
+ *
+ * Collects all activity data needed for the Today Coach AI.
+ * Fetches recovery, lifting, cycling, stretching, meditation, and weight
+ * data in parallel and shapes it into the TodayCoachRequest format.
+ */
+
+import * as cyclingService from './firestore-cycling.service.js';
+import * as recoveryService from './firestore-recovery.service.js';
+import {
+  calculateTrainingLoadMetrics,
+  getWeekInBlock,
+  determineNextSession,
+  getWeekBoundaries,
+  type DailyTSS,
+} from './training-load.service.js';
+import {
+  buildLiftingContext,
+  buildLiftingSchedule,
+  buildMesocycleContext,
+} from './lifting-context.service.js';
+import {
+  getWorkoutRepository,
+  getPlanDayRepository,
+  getWorkoutSetRepository,
+  getStretchSessionRepository,
+  getMeditationSessionRepository,
+} from '../repositories/index.js';
+import type {
+  RecoverySnapshot,
+  TodayCoachRequest,
+  TodayCoachCyclingContext,
+  TodayWorkoutContext,
+  StretchingContext,
+  MeditationContext,
+  CyclingActivitySummary,
+  WeightEntry,
+  WeightGoal,
+  WeightMetrics,
+  RecoveryHistoryEntry,
+} from '../shared.js';
+
+/**
+ * Format a date as YYYY-MM-DD.
+ */
+function formatDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Calculate days since a date string.
+ */
+function daysSince(dateString: string): number {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Compute weight metrics from weight history entries.
+ */
+function computeWeightMetrics(
+  weightHistory: WeightEntry[],
+  weightGoal: WeightGoal | null
+): WeightMetrics | null {
+  if (weightHistory.length === 0 && !weightGoal) {
+    return null;
+  }
+
+  if (weightHistory.length === 0) {
+    return { currentLbs: 0, trend7DayLbs: 0, trend30DayLbs: 0, goal: weightGoal ?? undefined };
+  }
+
+  const currentLbs = weightHistory[0]?.weightLbs ?? 0;
+
+  const recent7 = weightHistory.slice(0, 7);
+  const avg7 = recent7.reduce((sum, e) => sum + e.weightLbs, 0) / recent7.length;
+  const trend7DayLbs = Math.round((currentLbs - avg7) * 10) / 10;
+
+  const avg30 = weightHistory.reduce((sum, e) => sum + e.weightLbs, 0) / weightHistory.length;
+  const trend30DayLbs = Math.round((currentLbs - avg30) * 10) / 10;
+
+  return {
+    currentLbs,
+    trend7DayLbs,
+    trend30DayLbs,
+    goal: weightGoal ?? undefined,
+  };
+}
+
+/**
+ * Build today's workout context from the active mesocycle.
+ */
+async function buildTodayWorkoutContext(): Promise<TodayWorkoutContext | null> {
+  const workoutRepo = getWorkoutRepository();
+  const planDayRepo = getPlanDayRepository();
+  const workoutSetRepo = getWorkoutSetRepository();
+
+  const todayStr = formatDate(new Date());
+  const todayWorkouts = await workoutRepo.findByDate(todayStr);
+
+  // Find pending or in-progress workout for today
+  const todayWorkout = todayWorkouts.find(
+    (w) => w.status === 'pending' || w.status === 'in_progress' || w.status === 'completed'
+  );
+
+  if (!todayWorkout) {
+    return null;
+  }
+
+  let planDayName = 'Workout';
+  if (todayWorkout.plan_day_id) {
+    const planDay = await planDayRepo.findById(todayWorkout.plan_day_id);
+    if (planDay) {
+      planDayName = planDay.name;
+    }
+  }
+
+  // Count exercises via workout sets
+  const sets = await workoutSetRepo.findByWorkoutId(todayWorkout.id);
+  const uniqueExercises = new Set(sets.map((s) => s.exercise_id));
+
+  return {
+    planDayName,
+    weekNumber: todayWorkout.week_number,
+    isDeload: todayWorkout.week_number === 7,
+    exerciseCount: uniqueExercises.size,
+    status: todayWorkout.status as TodayWorkoutContext['status'],
+  };
+}
+
+/**
+ * Build cycling context for the Today Coach.
+ * Returns null if cycling is not set up (no FTP).
+ */
+async function buildCyclingContext(userId: string): Promise<TodayCoachCyclingContext | null> {
+  const [ftp, block, activities] = await Promise.all([
+    cyclingService.getCurrentFTP(userId),
+    cyclingService.getCurrentTrainingBlock(userId),
+    cyclingService.getCyclingActivities(userId, 60),
+  ]);
+
+  if (!ftp) {
+    return null;
+  }
+
+  // Training load
+  const dailyTSS: DailyTSS[] = activities.map((a) => ({ date: a.date, tss: a.tss }));
+  const metrics = calculateTrainingLoadMetrics(dailyTSS, 60);
+
+  // Week in block
+  const weekInBlock = block ? getWeekInBlock(block.startDate) : null;
+  const totalWeeks = block ? 8 : null;
+
+  // Next session
+  const now = new Date();
+  const weeklySessions = block?.weeklySessions ?? [];
+  const weekBoundaries = getWeekBoundaries(now);
+  const thisWeekActivities = activities.filter((a) => {
+    const actDate = a.date.split('T')[0] ?? a.date;
+    return actDate >= weekBoundaries.start && actDate <= weekBoundaries.end;
+  });
+  const nextSessionRaw = determineNextSession(weeklySessions, thisWeekActivities);
+  const nextSession = nextSessionRaw
+    ? { type: nextSessionRaw.sessionType, description: nextSessionRaw.description }
+    : null;
+
+  // Recent activities (trimmed for token efficiency)
+  const recentActivities: CyclingActivitySummary[] = activities.slice(0, 7).map((a) => ({
+    date: a.date,
+    type: a.type,
+    durationMinutes: a.durationMinutes,
+    tss: a.tss,
+  }));
+
+  // VO2 max
+  const [latestVO2Max, vo2maxHistory] = await Promise.all([
+    cyclingService.getLatestVO2Max(userId),
+    cyclingService.getVO2MaxHistory(userId, 5),
+  ]);
+  const vo2max = latestVO2Max
+    ? {
+        current: latestVO2Max.value,
+        date: latestVO2Max.date,
+        method: latestVO2Max.method,
+        history: vo2maxHistory.map((e) => ({ date: e.date, value: e.value })),
+      }
+    : null;
+
+  // EF trend
+  const withEF = activities.filter((a) => a.ef !== undefined && a.ef > 0);
+  let efTrend = null;
+  if (withEF.length >= 4) {
+    const fourWeeksAgo = new Date();
+    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+    const eightWeeksAgo = new Date();
+    eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
+
+    const fourWeeksAgoStr = formatDate(fourWeeksAgo);
+    const eightWeeksAgoStr = formatDate(eightWeeksAgo);
+
+    const recent = withEF.filter((a) => (a.date.split('T')[0] ?? a.date) >= fourWeeksAgoStr);
+    const previous = withEF.filter((a) => {
+      const d = a.date.split('T')[0] ?? a.date;
+      return d >= eightWeeksAgoStr && d < fourWeeksAgoStr;
+    });
+
+    if (recent.length > 0 && previous.length > 0) {
+      const recentAvg = recent.reduce((sum, a) => sum + (a.ef ?? 0), 0) / recent.length;
+      const previousAvg = previous.reduce((sum, a) => sum + (a.ef ?? 0), 0) / previous.length;
+      const changePercent = ((recentAvg - previousAvg) / previousAvg) * 100;
+      const trend = changePercent > 3 ? 'improving' as const : changePercent < -3 ? 'declining' as const : 'stable' as const;
+      efTrend = {
+        recent4WeekAvg: Math.round(recentAvg * 100) / 100,
+        previous4WeekAvg: Math.round(previousAvg * 100) / 100,
+        trend,
+      };
+    }
+  }
+
+  return {
+    ftp: ftp.value,
+    trainingLoad: { atl: metrics.atl, ctl: metrics.ctl, tsb: metrics.tsb },
+    weekInBlock,
+    totalWeeks,
+    nextSession,
+    recentActivities,
+    vo2max,
+    efTrend,
+    ftpStaleDays: daysSince(ftp.date),
+  };
+}
+
+/**
+ * Build stretching context for the Today Coach.
+ */
+async function buildStretchingContext(timezoneOffset: number): Promise<StretchingContext> {
+  const stretchRepo = getStretchSessionRepository();
+
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
+
+  const [latest, thisWeek] = await Promise.all([
+    stretchRepo.findLatest(),
+    stretchRepo.findInDateRange(formatDate(weekStart), formatDate(now), timezoneOffset),
+  ]);
+
+  const lastSessionDate = latest?.completedAt?.split('T')[0] ?? null;
+  const daysSinceLastSession = lastSessionDate !== null ? daysSince(lastSessionDate) : null;
+
+  // Extract body regions from last session
+  const lastRegions: string[] = [];
+  if (latest?.stretches) {
+    const regions = new Set(latest.stretches.map((s) => s.region));
+    lastRegions.push(...regions);
+  }
+
+  return {
+    lastSessionDate,
+    daysSinceLastSession,
+    sessionsThisWeek: thisWeek.length,
+    lastRegions,
+  };
+}
+
+/**
+ * Build meditation context for the Today Coach.
+ */
+async function buildMeditationContext(timezoneOffset: number): Promise<MeditationContext> {
+  const meditationRepo = getMeditationSessionRepository();
+
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
+
+  const [latest, thisWeek] = await Promise.all([
+    meditationRepo.findLatest(),
+    meditationRepo.findInDateRange(formatDate(weekStart), formatDate(now), timezoneOffset),
+  ]);
+
+  const lastSessionDate = latest?.completedAt?.split('T')[0] ?? null;
+  const daysSinceLastSession = lastSessionDate !== null ? daysSince(lastSessionDate) : null;
+
+  const totalMinutesThisWeek = thisWeek.reduce(
+    (sum, s) => sum + Math.floor(s.actualDurationSeconds / 60),
+    0
+  );
+
+  // Calculate streak: consecutive days with at least one session
+  let currentStreak = 0;
+  if (latest) {
+    // Look back up to 30 days for streak calculation
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(now.getDate() - 30);
+    const recentSessions = await meditationRepo.findInDateRange(
+      formatDate(thirtyDaysAgo),
+      formatDate(now),
+      timezoneOffset
+    );
+
+    // Build a set of dates with sessions
+    const sessionDates = new Set(
+      recentSessions.map((s) => s.completedAt.split('T')[0])
+    );
+
+    // Count consecutive days going backwards from today (max 30)
+    const checkDate = new Date(now);
+    for (let i = 0; i < 30; i++) {
+      const dateStr = formatDate(checkDate);
+      if (sessionDates.has(dateStr)) {
+        currentStreak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else {
+        break;
+      }
+    }
+  }
+
+  return {
+    lastSessionDate,
+    daysSinceLastSession,
+    sessionsThisWeek: thisWeek.length,
+    totalMinutesThisWeek,
+    currentStreak,
+  };
+}
+
+/**
+ * Fetches and shapes all data needed for the Today Coach.
+ *
+ * @param userId - The user ID
+ * @param recovery - The recovery snapshot (provided by iOS)
+ * @param timezoneOffset - Timezone offset in minutes
+ * @returns Fully populated TodayCoachRequest
+ */
+export async function buildTodayCoachContext(
+  userId: string,
+  recovery: RecoverySnapshot,
+  timezoneOffset: number
+): Promise<TodayCoachRequest> {
+  // Fetch everything in parallel
+  const [
+    recoveryHistory,
+    todaysWorkout,
+    liftingHistory,
+    liftingSchedule,
+    mesocycleContext,
+    cyclingContext,
+    stretchingContext,
+    meditationContext,
+    weightHistory,
+    weightGoal,
+  ] = await Promise.all([
+    recoveryService.getRecoveryHistory(userId, 7),
+    buildTodayWorkoutContext(),
+    buildLiftingContext(timezoneOffset),
+    buildLiftingSchedule(),
+    buildMesocycleContext(),
+    buildCyclingContext(userId),
+    buildStretchingContext(timezoneOffset),
+    buildMeditationContext(timezoneOffset),
+    recoveryService.getWeightHistory(userId, 30),
+    cyclingService.getWeightGoal(userId),
+  ]);
+
+  // Build recovery history entries (trimmed for token efficiency)
+  const recoveryHistoryEntries: RecoveryHistoryEntry[] = recoveryHistory.map((r) => ({
+    date: r.date,
+    score: r.score,
+    state: r.state,
+    hrvMs: r.hrvMs,
+    sleepHours: r.sleepHours,
+  }));
+
+  const now = new Date();
+
+  return {
+    recovery,
+    recoveryHistory: recoveryHistoryEntries,
+
+    todaysWorkout,
+    liftingHistory,
+    liftingSchedule,
+    mesocycleContext: mesocycleContext ?? null,
+
+    cyclingContext,
+
+    stretchingContext,
+    meditationContext,
+
+    weightMetrics: computeWeightMetrics(weightHistory, weightGoal),
+
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    currentDate: formatDate(now),
+  };
+}
