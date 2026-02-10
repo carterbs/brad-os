@@ -27,6 +27,7 @@ import { stretchesApp } from './handlers/stretches.js';
 import { cyclingApp } from './handlers/cycling.js';
 import { stravaWebhookApp } from './handlers/strava-webhook.js';
 import { cyclingCoachApp } from './handlers/cycling-coach.js';
+import { todayCoachApp } from './handlers/today-coach.js';
 import { healthSyncApp } from './handlers/health-sync.js';
 
 // Secrets
@@ -72,6 +73,7 @@ export const devStretches = onRequest(defaultOptions, stretchesApp);
 export const devCycling = onRequest(defaultOptions, cyclingApp);
 export const devStrava = onRequest(defaultOptions, stravaWebhookApp);
 export const devCyclingCoach = onRequest(withOpenAiOptions, cyclingCoachApp);
+export const devTodayCoach = onRequest(withOpenAiOptions, todayCoachApp);
 export const devHealthSync = onRequest(defaultOptions, healthSyncApp);
 
 // ============ PROD Functions ============
@@ -95,6 +97,7 @@ export const prodStretches = onRequest(defaultOptions, stretchesApp);
 export const prodCycling = onRequest(defaultOptions, cyclingApp);
 export const prodStrava = onRequest(defaultOptions, stravaWebhookApp);
 export const prodCyclingCoach = onRequest(withOpenAiOptions, cyclingCoachApp);
+export const prodTodayCoach = onRequest(withOpenAiOptions, todayCoachApp);
 export const prodHealthSync = onRequest(defaultOptions, healthSyncApp);
 
 // ============ Debug Functions (emulator only) ============

@@ -194,6 +194,14 @@
         "function": "devCyclingCoach"
       },
       {
+        "source": "/api/dev/today-coach",
+        "function": "devTodayCoach"
+      },
+      {
+        "source": "/api/dev/today-coach/**",
+        "function": "devTodayCoach"
+      },
+      {
         "source": "/api/dev/health-sync",
         "function": "devHealthSync"
       },
@@ -368,6 +376,14 @@
       {
         "source": "/api/prod/cycling-coach/**",
         "function": "prodCyclingCoach"
+      },
+      {
+        "source": "/api/prod/today-coach",
+        "function": "prodTodayCoach"
+      },
+      {
+        "source": "/api/prod/today-coach/**",
+        "function": "prodTodayCoach"
       },
       {
         "source": "/api/prod/health-sync",
