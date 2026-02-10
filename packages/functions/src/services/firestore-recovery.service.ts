@@ -13,7 +13,10 @@
  */
 
 import type { Firestore } from 'firebase-admin/firestore';
+import { info } from 'firebase-functions/logger';
 import { getFirestoreDb, getCollectionName } from '../firebase.js';
+
+const TAG = '[Recovery Service]';
 import type {
   RecoverySnapshot,
   StoredRecoverySnapshot,
@@ -174,6 +177,7 @@ export async function upsertRecoverySnapshot(
   userId: string,
   snapshot: RecoverySnapshot & { source: RecoverySource }
 ): Promise<StoredRecoverySnapshot> {
+  const start = Date.now();
   const userDoc = getUserDoc(userId);
   const syncedAt = new Date().toISOString();
 
@@ -195,6 +199,7 @@ export async function upsertRecoverySnapshot(
   // Use date as document ID for natural upsert
   await userDoc.collection('recoverySnapshots').doc(snapshot.date).set(snapshotData);
 
+  info(`${TAG} upsertRecoverySnapshot`, { userId, date: snapshot.date, score: snapshot.score, state: snapshot.state, elapsedMs: Date.now() - start });
   return snapshotData;
 }
 
@@ -254,6 +259,7 @@ export async function upsertRecoveryBaseline(
 
   await userDoc.collection('settings').doc('recoveryBaseline').set(baselineData);
 
+  info(`${TAG} upsertRecoveryBaseline`, { userId, hrvMedian: baseline.hrvMedian, rhrMedian: baseline.rhrMedian, sampleCount: baseline.sampleCount });
   return baselineData;
 }
 
@@ -301,6 +307,7 @@ export async function addWeightEntries(
   userId: string,
   weights: Array<{ weightLbs: number; date: string; source?: WeightEntry['source'] }>
 ): Promise<number> {
+  const start = Date.now();
   const db = getDb();
   const userDoc = getUserDoc(userId);
   const syncedAt = new Date().toISOString();
@@ -309,6 +316,9 @@ export async function addWeightEntries(
   // Firestore batches support max 500 operations
   const batchSize = 500;
   let written = 0;
+  const batchCount = Math.ceil(weights.length / batchSize);
+
+  info(`${TAG} addWeightEntries start`, { userId, totalEntries: weights.length, batchCount });
 
   for (let i = 0; i < weights.length; i += batchSize) {
     const chunk = weights.slice(i, i + batchSize);
@@ -328,6 +338,7 @@ export async function addWeightEntries(
     written += chunk.length;
   }
 
+  info(`${TAG} addWeightEntries complete`, { userId, written, elapsedMs: Date.now() - start });
   return written;
 }
 
@@ -406,6 +417,7 @@ export async function addHRVEntries(
   userId: string,
   entries: Array<{ date: string; avgMs: number; minMs: number; maxMs: number; sampleCount: number; source?: HealthSource }>
 ): Promise<number> {
+  const start = Date.now();
   const db = getDb();
   const userDoc = getUserDoc(userId);
   const syncedAt = new Date().toISOString();
@@ -413,6 +425,9 @@ export async function addHRVEntries(
 
   const batchSize = 500;
   let written = 0;
+  const batchCount = Math.ceil(entries.length / batchSize);
+
+  info(`${TAG} addHRVEntries start`, { userId, totalEntries: entries.length, batchCount });
 
   for (let i = 0; i < entries.length; i += batchSize) {
     const chunk = entries.slice(i, i + batchSize);
@@ -435,6 +450,7 @@ export async function addHRVEntries(
     written += chunk.length;
   }
 
+  info(`${TAG} addHRVEntries complete`, { userId, written, elapsedMs: Date.now() - start });
   return written;
 }
 
@@ -481,6 +497,7 @@ export async function addRHREntries(
   userId: string,
   entries: Array<{ date: string; avgBpm: number; sampleCount: number; source?: HealthSource }>
 ): Promise<number> {
+  const start = Date.now();
   const db = getDb();
   const userDoc = getUserDoc(userId);
   const syncedAt = new Date().toISOString();
@@ -488,6 +505,9 @@ export async function addRHREntries(
 
   const batchSize = 500;
   let written = 0;
+  const batchCount = Math.ceil(entries.length / batchSize);
+
+  info(`${TAG} addRHREntries start`, { userId, totalEntries: entries.length, batchCount });
 
   for (let i = 0; i < entries.length; i += batchSize) {
     const chunk = entries.slice(i, i + batchSize);
@@ -508,6 +528,7 @@ export async function addRHREntries(
     written += chunk.length;
   }
 
+  info(`${TAG} addRHREntries complete`, { userId, written, elapsedMs: Date.now() - start });
   return written;
 }
 
@@ -562,6 +583,7 @@ export async function addSleepEntries(
     source?: HealthSource;
   }>
 ): Promise<number> {
+  const start = Date.now();
   const db = getDb();
   const userDoc = getUserDoc(userId);
   const syncedAt = new Date().toISOString();
@@ -569,6 +591,9 @@ export async function addSleepEntries(
 
   const batchSize = 500;
   let written = 0;
+  const batchCount = Math.ceil(entries.length / batchSize);
+
+  info(`${TAG} addSleepEntries start`, { userId, totalEntries: entries.length, batchCount });
 
   for (let i = 0; i < entries.length; i += batchSize) {
     const chunk = entries.slice(i, i + batchSize);
@@ -594,6 +619,7 @@ export async function addSleepEntries(
     written += chunk.length;
   }
 
+  info(`${TAG} addSleepEntries complete`, { userId, written, elapsedMs: Date.now() - start });
   return written;
 }
 

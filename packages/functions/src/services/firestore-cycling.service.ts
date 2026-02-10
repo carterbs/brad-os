@@ -13,7 +13,10 @@
 
 import type { Firestore } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
+import { info } from 'firebase-functions/logger';
 import { getFirestoreDb, getCollectionName } from '../firebase.js';
+
+const TAG = '[Cycling Service]';
 import type {
   CyclingActivity,
   TrainingBlock,
@@ -208,6 +211,17 @@ export async function createCyclingActivity(
 
   await userDoc.collection('cyclingActivities').doc(id).set(activityData);
 
+  info(`${TAG} createCyclingActivity`, {
+    userId,
+    activityId: id,
+    stravaId: activity.stravaId,
+    date: activity.date,
+    type: activity.type,
+    tss: activity.tss,
+    intensityFactor: activity.intensityFactor,
+    normalizedPower: activity.normalizedPower,
+  });
+
   return {
     id,
     stravaId: activity.stravaId,
@@ -258,6 +272,7 @@ export async function deleteCyclingActivity(
   }
 
   await docRef.delete();
+  info(`${TAG} deleteCyclingActivity`, { userId, activityId, hadStreams: streamsDoc.exists });
   return true;
 }
 
@@ -287,6 +302,8 @@ export async function saveActivityStreams(
     .collection('streams')
     .doc('data')
     .set(streamData);
+
+  info(`${TAG} saveActivityStreams`, { userId, activityId, sampleCount: streams.sampleCount });
 }
 
 /**
@@ -412,6 +429,7 @@ export async function createFTPEntry(
 
   await userDoc.collection('ftpHistory').doc(id).set(ftpData);
 
+  info(`${TAG} createFTPEntry`, { userId, value: entry.value, date: entry.date, source: entry.source });
   return {
     id,
     ...ftpData,
@@ -731,6 +749,8 @@ export async function setStravaTokens(
     expiresAt: tokens.expiresAt,
     athleteId: tokens.athleteId,
   });
+
+  info(`${TAG} setStravaTokens`, { userId, athleteId: tokens.athleteId, expiresAt: tokens.expiresAt });
 }
 
 /**
@@ -784,6 +804,7 @@ export async function saveVO2MaxEstimate(
 
   await userDoc.collection('vo2maxEstimates').doc(id).set(estimateData);
 
+  info(`${TAG} saveVO2MaxEstimate`, { userId, value: estimate.value, method: estimate.method, sourcePower: estimate.sourcePower, sourceWeight: estimate.sourceWeight });
   return {
     id,
     ...estimate,
@@ -951,5 +972,6 @@ export async function updateCyclingActivity(
   }
 
   await docRef.update(updates);
+  info(`${TAG} updateCyclingActivity`, { userId, activityId, updatedFields: Object.keys(updates) });
   return true;
 }

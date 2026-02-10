@@ -75,7 +75,9 @@ app.get(
 app.post(
   '/activities/backfill-streams',
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const backfillStart = Date.now();
     const userId = getUserId(req);
+    info('[Cycling] POST /activities/backfill-streams', { userId });
 
     // Get Strava tokens
     const tokens = await cyclingService.getStravaTokens(userId);
@@ -159,6 +161,7 @@ app.post(
       }
     }
 
+    info('[Cycling] POST /activities/backfill-streams complete', { userId, backfilled, skipped, failed, elapsedMs: Date.now() - backfillStart });
     res.json({
       success: true,
       data: { backfilled, skipped, failed },

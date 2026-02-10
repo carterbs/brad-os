@@ -6,6 +6,7 @@
 
 import express, { type Request, type Response, type NextFunction } from 'express';
 import cors from 'cors';
+import { info, warn } from 'firebase-functions/logger';
 import { errorHandler } from '../middleware/error-handler.js';
 import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
 import { requireAppCheck } from '../middleware/app-check.js';
@@ -19,6 +20,8 @@ import {
   bulkRHRSyncSchema,
   bulkSleepSyncSchema,
 } from '../shared.js';
+
+const TAG = '[Health Sync]';
 
 const app = express();
 app.use(cors({ origin: true }));
@@ -43,11 +46,14 @@ function getUserId(req: Request): string {
 app.post(
   '/sync',
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const start = Date.now();
     const userId = getUserId(req);
+    info(`${TAG} POST /sync`, { userId });
 
     // Validate request body
     const parseResult = syncHealthDataSchema.safeParse(req.body);
     if (!parseResult.success) {
+      warn(`${TAG} POST /sync validation failed`, { userId, errors: parseResult.error.errors });
       res.status(400).json({
         success: false,
         error: {
@@ -60,6 +66,18 @@ app.post(
     }
 
     const { recovery, baseline, weight } = parseResult.data;
+    info(`${TAG} POST /sync payload`, {
+      userId,
+      recoveryDate: recovery.date,
+      score: recovery.score,
+      state: recovery.state,
+      hrvMs: recovery.hrvMs,
+      rhrBpm: recovery.rhrBpm,
+      sleepHours: recovery.sleepHours,
+      hasBaseline: Boolean(baseline),
+      hasWeight: Boolean(weight),
+      weightLbs: weight?.weightLbs,
+    });
 
     // Upsert recovery snapshot
     await recoveryService.upsertRecoverySnapshot(userId, recovery);
@@ -78,6 +96,7 @@ app.post(
       weightAdded = true;
     }
 
+    info(`${TAG} POST /sync complete`, { userId, recoveryDate: recovery.date, baselineUpdated, weightAdded, elapsedMs: Date.now() - start });
     res.json({
       success: true,
       data: {
@@ -96,10 +115,13 @@ app.get(
   '/recovery',
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     const userId = getUserId(req);
+    const dateParam = req.query['date'];
+    info(`${TAG} GET /recovery`, { userId, date: dateParam });
 
     // Validate query parameters
     const parseResult = getRecoveryQuerySchema.safeParse(req.query);
     if (!parseResult.success) {
+      warn(`${TAG} GET /recovery validation failed`, { userId, errors: parseResult.error.errors });
       res.status(400).json({
         success: false,
         error: {
@@ -121,6 +143,7 @@ app.get(
     }
 
     if (!recovery) {
+      info(`${TAG} GET /recovery not found`, { userId, date });
       res.status(404).json({
         success: false,
         error: {
@@ -133,6 +156,7 @@ app.get(
       return;
     }
 
+    info(`${TAG} GET /recovery found`, { userId, recoveryDate: recovery.date, score: recovery.score, state: recovery.state });
     res.json({
       success: true,
       data: recovery,
@@ -147,9 +171,11 @@ app.get(
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     const userId = getUserId(req);
     const days = Math.min(Math.max(1, parseInt(String(req.query['days']), 10) || 7), 90);
+    info(`${TAG} GET /recovery/history`, { userId, days });
 
     const history = await recoveryService.getRecoveryHistory(userId, days);
 
+    info(`${TAG} GET /recovery/history result`, { userId, days, count: history.length });
     res.json({
       success: true,
       data: history,
@@ -163,10 +189,12 @@ app.get(
   '/baseline',
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     const userId = getUserId(req);
+    info(`${TAG} GET /baseline`, { userId });
 
     const baseline = await recoveryService.getRecoveryBaseline(userId);
 
     if (!baseline) {
+      info(`${TAG} GET /baseline not found`, { userId });
       res.status(404).json({
         success: false,
         error: {
@@ -177,6 +205,7 @@ app.get(
       return;
     }
 
+    info(`${TAG} GET /baseline found`, { userId, hrvMedian: baseline.hrvMedian, rhrMedian: baseline.rhrMedian, sampleCount: baseline.sampleCount });
     res.json({
       success: true,
       data: baseline,
@@ -189,10 +218,13 @@ app.get(
 app.post(
   '/weight/bulk',
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const start = Date.now();
     const userId = getUserId(req);
+    info(`${TAG} POST /weight/bulk`, { userId });
 
     const parseResult = bulkWeightSyncSchema.safeParse(req.body);
     if (!parseResult.success) {
+      warn(`${TAG} POST /weight/bulk validation failed`, { userId, errors: parseResult.error.errors });
       res.status(400).json({
         success: false,
         error: {
@@ -205,8 +237,10 @@ app.post(
     }
 
     const { weights } = parseResult.data;
+    info(`${TAG} POST /weight/bulk processing`, { userId, entryCount: weights.length, dateRange: weights.length > 0 ? { first: weights[0]?.date, last: weights[weights.length - 1]?.date } : null });
     const added = await recoveryService.addWeightEntries(userId, weights);
 
+    info(`${TAG} POST /weight/bulk complete`, { userId, added, elapsedMs: Date.now() - start });
     res.json({
       success: true,
       data: { added },
@@ -221,9 +255,11 @@ app.get(
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     const userId = getUserId(req);
     const days = parseInt(String(req.query['days']), 10);
+    info(`${TAG} GET /weight`, { userId, days: days || 'latest' });
 
     if (days && days > 0) {
       const history = await recoveryService.getWeightHistory(userId, Math.min(days, 365));
+      info(`${TAG} GET /weight history result`, { userId, days, count: history.length });
       res.json({
         success: true,
         data: history,
@@ -234,6 +270,7 @@ app.get(
     const weight = await recoveryService.getLatestWeight(userId);
 
     if (!weight) {
+      info(`${TAG} GET /weight not found`, { userId });
       res.status(404).json({
         success: false,
         error: {
@@ -244,6 +281,7 @@ app.get(
       return;
     }
 
+    info(`${TAG} GET /weight found`, { userId, date: weight.date, weightLbs: weight.weightLbs });
     res.json({
       success: true,
       data: weight,
@@ -256,10 +294,13 @@ app.get(
 app.post(
   '/hrv/bulk',
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const start = Date.now();
     const userId = getUserId(req);
+    info(`${TAG} POST /hrv/bulk`, { userId });
 
     const parseResult = bulkHRVSyncSchema.safeParse(req.body);
     if (!parseResult.success) {
+      warn(`${TAG} POST /hrv/bulk validation failed`, { userId, errors: parseResult.error.errors });
       res.status(400).json({
         success: false,
         error: {
@@ -272,8 +313,10 @@ app.post(
     }
 
     const { entries } = parseResult.data;
+    info(`${TAG} POST /hrv/bulk processing`, { userId, entryCount: entries.length, dateRange: entries.length > 0 ? { first: entries[0]?.date, last: entries[entries.length - 1]?.date } : null });
     const added = await recoveryService.addHRVEntries(userId, entries);
 
+    info(`${TAG} POST /hrv/bulk complete`, { userId, added, elapsedMs: Date.now() - start });
     res.json({
       success: true,
       data: { added },
@@ -288,9 +331,11 @@ app.get(
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     const userId = getUserId(req);
     const days = parseInt(String(req.query['days']), 10);
+    info(`${TAG} GET /hrv`, { userId, days: days || 'latest' });
 
     if (days && days > 0) {
       const history = await recoveryService.getHRVHistory(userId, Math.min(days, 3650));
+      info(`${TAG} GET /hrv history result`, { userId, days, count: history.length });
       res.json({
         success: true,
         data: history,
@@ -301,6 +346,7 @@ app.get(
     // Default: return latest (last 1 day)
     const history = await recoveryService.getHRVHistory(userId, 1);
     if (history.length === 0) {
+      info(`${TAG} GET /hrv not found`, { userId });
       res.status(404).json({
         success: false,
         error: {
@@ -311,6 +357,7 @@ app.get(
       return;
     }
 
+    info(`${TAG} GET /hrv found`, { userId, date: history[0]?.date, avgMs: history[0]?.avgMs });
     res.json({
       success: true,
       data: history[0],
@@ -323,10 +370,13 @@ app.get(
 app.post(
   '/rhr/bulk',
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const start = Date.now();
     const userId = getUserId(req);
+    info(`${TAG} POST /rhr/bulk`, { userId });
 
     const parseResult = bulkRHRSyncSchema.safeParse(req.body);
     if (!parseResult.success) {
+      warn(`${TAG} POST /rhr/bulk validation failed`, { userId, errors: parseResult.error.errors });
       res.status(400).json({
         success: false,
         error: {
@@ -339,8 +389,10 @@ app.post(
     }
 
     const { entries } = parseResult.data;
+    info(`${TAG} POST /rhr/bulk processing`, { userId, entryCount: entries.length, dateRange: entries.length > 0 ? { first: entries[0]?.date, last: entries[entries.length - 1]?.date } : null });
     const added = await recoveryService.addRHREntries(userId, entries);
 
+    info(`${TAG} POST /rhr/bulk complete`, { userId, added, elapsedMs: Date.now() - start });
     res.json({
       success: true,
       data: { added },
@@ -355,9 +407,11 @@ app.get(
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     const userId = getUserId(req);
     const days = parseInt(String(req.query['days']), 10);
+    info(`${TAG} GET /rhr`, { userId, days: days || 'latest' });
 
     if (days && days > 0) {
       const history = await recoveryService.getRHRHistory(userId, Math.min(days, 3650));
+      info(`${TAG} GET /rhr history result`, { userId, days, count: history.length });
       res.json({
         success: true,
         data: history,
@@ -367,6 +421,7 @@ app.get(
 
     const history = await recoveryService.getRHRHistory(userId, 1);
     if (history.length === 0) {
+      info(`${TAG} GET /rhr not found`, { userId });
       res.status(404).json({
         success: false,
         error: {
@@ -377,6 +432,7 @@ app.get(
       return;
     }
 
+    info(`${TAG} GET /rhr found`, { userId, date: history[0]?.date, avgBpm: history[0]?.avgBpm });
     res.json({
       success: true,
       data: history[0],
@@ -389,10 +445,13 @@ app.get(
 app.post(
   '/sleep/bulk',
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const start = Date.now();
     const userId = getUserId(req);
+    info(`${TAG} POST /sleep/bulk`, { userId });
 
     const parseResult = bulkSleepSyncSchema.safeParse(req.body);
     if (!parseResult.success) {
+      warn(`${TAG} POST /sleep/bulk validation failed`, { userId, errors: parseResult.error.errors });
       res.status(400).json({
         success: false,
         error: {
@@ -405,8 +464,10 @@ app.post(
     }
 
     const { entries } = parseResult.data;
+    info(`${TAG} POST /sleep/bulk processing`, { userId, entryCount: entries.length, dateRange: entries.length > 0 ? { first: entries[0]?.date, last: entries[entries.length - 1]?.date } : null });
     const added = await recoveryService.addSleepEntries(userId, entries);
 
+    info(`${TAG} POST /sleep/bulk complete`, { userId, added, elapsedMs: Date.now() - start });
     res.json({
       success: true,
       data: { added },
@@ -421,9 +482,11 @@ app.get(
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     const userId = getUserId(req);
     const days = parseInt(String(req.query['days']), 10);
+    info(`${TAG} GET /sleep`, { userId, days: days || 'latest' });
 
     if (days && days > 0) {
       const history = await recoveryService.getSleepHistory(userId, Math.min(days, 3650));
+      info(`${TAG} GET /sleep history result`, { userId, days, count: history.length });
       res.json({
         success: true,
         data: history,
@@ -433,6 +496,7 @@ app.get(
 
     const history = await recoveryService.getSleepHistory(userId, 1);
     if (history.length === 0) {
+      info(`${TAG} GET /sleep not found`, { userId });
       res.status(404).json({
         success: false,
         error: {
@@ -443,6 +507,7 @@ app.get(
       return;
     }
 
+    info(`${TAG} GET /sleep found`, { userId, date: history[0]?.date, totalSleepMinutes: history[0]?.totalSleepMinutes, sleepEfficiency: history[0]?.sleepEfficiency });
     res.json({
       success: true,
       data: history[0],

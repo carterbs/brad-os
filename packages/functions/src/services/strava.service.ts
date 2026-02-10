@@ -13,7 +13,7 @@ import type {
   CyclingActivityType,
 } from '../shared.js';
 import { calculateEF } from './efficiency-factor.service.js';
-import { warn, error as logError } from 'firebase-functions/logger';
+import { info, warn, error as logError } from 'firebase-functions/logger';
 
 const STRAVA_API_BASE = 'https://www.strava.com/api/v3';
 const STRAVA_OAUTH_URL = 'https://www.strava.com/oauth/token';
@@ -65,7 +65,10 @@ export async function fetchStravaActivity(
   accessToken: string,
   activityId: number
 ): Promise<StravaActivity> {
+  const start = Date.now();
   const url = `${STRAVA_API_BASE}/activities/${activityId}`;
+  info(`${TAG} fetchStravaActivity`, { activityId });
+
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -85,6 +88,17 @@ export async function fetchStravaActivity(
   }
 
   const activity = (await response.json()) as StravaActivity;
+  info(`${TAG} fetchStravaActivity success`, {
+    activityId,
+    type: activity.type,
+    name: activity.name,
+    date: activity.start_date,
+    movingTime: activity.moving_time,
+    avgWatts: activity.average_watts,
+    weightedWatts: activity.weighted_average_watts,
+    deviceWatts: activity.device_watts,
+    elapsedMs: Date.now() - start,
+  });
   return activity;
 }
 
@@ -102,6 +116,8 @@ export async function fetchStravaActivities(
   page: number = 1,
   perPage: number = 30
 ): Promise<StravaActivity[]> {
+  const start = Date.now();
+  info(`${TAG} fetchStravaActivities`, { page, perPage });
   const url = new URL(`${STRAVA_API_BASE}/athlete/activities`);
   url.searchParams.set('page', page.toString());
   url.searchParams.set('per_page', Math.min(perPage, 200).toString());
@@ -126,6 +142,7 @@ export async function fetchStravaActivities(
   }
 
   const activities = (await response.json()) as StravaActivity[];
+  info(`${TAG} fetchStravaActivities success`, { page, perPage, returned: activities.length, elapsedMs: Date.now() - start });
   return activities;
 }
 
@@ -143,6 +160,8 @@ export async function refreshStravaTokens(
   clientSecret: string,
   refreshToken: string
 ): Promise<StravaTokens> {
+  const start = Date.now();
+  info(`${TAG} refreshStravaTokens starting`);
   const response = await fetch(STRAVA_OAUTH_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -174,6 +193,7 @@ export async function refreshStravaTokens(
   }
 
   const data = (await response.json()) as TokenResponse;
+  info(`${TAG} refreshStravaTokens success`, { athleteId: data.athlete?.id, expiresAt: data.expires_at, elapsedMs: Date.now() - start });
   return {
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
@@ -281,6 +301,21 @@ export function processStravaActivity(
   const avgHeartRate = stravaActivity.average_heartrate ?? 0;
   const ef = calculateEF(normalizedPower, avgHeartRate) ?? undefined;
 
+  info(`${TAG} processStravaActivity`, {
+    stravaId: stravaActivity.id,
+    activityType: stravaActivity.type,
+    date: stravaActivity.start_date,
+    durationMin: Math.round(durationSeconds / 60),
+    ftp,
+    normalizedPower,
+    avgPower,
+    intensityFactor,
+    tss,
+    classifiedType: type,
+    avgHeartRate,
+    ef,
+  });
+
   return {
     stravaId: stravaActivity.id,
     userId,
@@ -365,6 +400,8 @@ export async function fetchActivityStreams(
   activityId: number,
   keys: string[] = ['watts', 'heartrate', 'time']
 ): Promise<ActivityStreams> {
+  const start = Date.now();
+  info(`${TAG} fetchActivityStreams`, { activityId, keys });
   const url = new URL(
     `${STRAVA_API_BASE}/activities/${activityId}/streams`
   );
@@ -390,6 +427,14 @@ export async function fetchActivityStreams(
   }
 
   const data = (await response.json()) as ActivityStreams;
+  info(`${TAG} fetchActivityStreams success`, {
+    activityId,
+    wattsSamples: data.watts?.data.length ?? 0,
+    hrSamples: data.heartrate?.data.length ?? 0,
+    timeSamples: data.time?.data.length ?? 0,
+    cadenceSamples: data.cadence?.data.length ?? 0,
+    elapsedMs: Date.now() - start,
+  });
   return data;
 }
 
