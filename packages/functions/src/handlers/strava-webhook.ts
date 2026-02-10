@@ -10,6 +10,7 @@
 
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
+import { info, warn, error as logError } from 'firebase-functions/logger';
 import { stravaWebhookEventSchema } from '../shared.js';
 import * as stravaService from '../services/strava.service.js';
 import * as cyclingService from '../services/firestore-cycling.service.js';
@@ -18,6 +19,8 @@ import {
 } from '../services/vo2max.service.js';
 import { errorHandler } from '../middleware/error-handler.js';
 import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
+
+const TAG = '[Strava Webhook]';
 
 const app = express();
 app.use(cors({ origin: true }));
@@ -43,10 +46,10 @@ app.get(
 
     // Validate the request
     if (mode === 'subscribe' && token === verifyToken) {
-      console.log('[Strava Webhook] Verification successful');
+      info(`${TAG} Verification successful`);
       res.json({ 'hub.challenge': challenge });
     } else {
-      console.warn('[Strava Webhook] Verification failed - invalid token');
+      warn(`${TAG} Verification failed - invalid token`);
       res.status(403).send('Forbidden');
     }
   }
@@ -61,19 +64,28 @@ app.get(
 app.post(
   '/webhook',
   (req: Request, res: Response) => {
-    const parseResult = stravaWebhookEventSchema.safeParse(req.body);
+    const rawBody: unknown = req.body;
+    info(`${TAG} Incoming webhook POST`, { body: rawBody });
+
+    const parseResult = stravaWebhookEventSchema.safeParse(rawBody);
 
     if (!parseResult.success) {
-      console.warn('[Strava Webhook] Invalid payload:', parseResult.error.errors);
+      warn(`${TAG} Invalid payload`, {
+        errors: parseResult.error.errors,
+        rawBody,
+      });
       // Still return 200 to acknowledge receipt (Strava expects this)
       res.status(200).send('EVENT_RECEIVED');
       return;
     }
 
     const event = parseResult.data;
-    console.log(
-      `[Strava Webhook] Received ${event.aspect_type} event for ${event.object_type} ${event.object_id}`
-    );
+    info(`${TAG} Parsed event`, {
+      aspect: event.aspect_type,
+      objectType: event.object_type,
+      objectId: event.object_id,
+      ownerId: event.owner_id,
+    });
 
     // Acknowledge receipt immediately
     res.status(200).send('EVENT_RECEIVED');
@@ -85,8 +97,13 @@ app.post(
         event.object_id,
         event.aspect_type
       ).catch((error: unknown) => {
-        console.error('[Strava Webhook] Error processing activity:', error);
+        logError(`${TAG} FATAL: Background processing failed`, {
+          activityId: event.object_id,
+          error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+        });
       });
+    } else {
+      info(`${TAG} Ignoring non-activity event`, { objectType: event.object_type });
     }
   }
 );
@@ -103,19 +120,17 @@ async function processActivityEvent(
   activityId: number,
   aspectType: 'create' | 'update' | 'delete'
 ): Promise<void> {
-  console.log(
-    `[Strava Webhook] Processing ${aspectType} for activity ${activityId} (athlete ${athleteId})`
-  );
+  const startTime = Date.now();
+  info(`${TAG} Processing event`, { aspectType, activityId, athleteId });
 
   try {
     // Find user by athlete ID
     const userId = findUserByAthleteId(athleteId);
     if (userId === null || userId === '') {
-      console.warn(
-        `[Strava Webhook] No user found for athlete ID ${athleteId}`
-      );
+      warn(`${TAG} No user found for athlete — webhook ignored`, { athleteId });
       return;
     }
+    info(`${TAG} Mapped athlete to user`, { athleteId, userId });
 
     switch (aspectType) {
       case 'create':
@@ -128,8 +143,16 @@ async function processActivityEvent(
         await handleActivityDelete(userId, activityId);
         break;
     }
+
+    const elapsedMs = Date.now() - startTime;
+    info(`${TAG} Completed event processing`, { aspectType, activityId, elapsedMs });
   } catch (error) {
-    console.error(`[Strava Webhook] Error processing activity ${activityId}:`, error);
+    const elapsedMs = Date.now() - startTime;
+    logError(`${TAG} Error processing activity`, {
+      activityId,
+      elapsedMs,
+      error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+    });
     throw error;
   }
 }
@@ -148,6 +171,7 @@ function findUserByAthleteId(athleteId: number): string | null {
   // TODO: Implement proper user lookup from Firestore
   // For now, use the athleteId as a string userId (matches test setup)
   // In production, you would query: /athleteToUser/{athleteId} -> userId
+  info(`${TAG} findUserByAthleteId — using athleteId as userId (stub)`, { athleteId });
   return athleteId.toString();
 }
 
@@ -162,25 +186,33 @@ async function handleActivityCreate(
   activityId: number
 ): Promise<void> {
   // Check if we already have this activity
+  info(`${TAG} Checking for existing activity`, { stravaId: activityId, userId });
   const existing = await cyclingService.getCyclingActivityByStravaId(
     userId,
     activityId
   );
   if (existing) {
-    console.log(`[Strava Webhook] Activity ${activityId} already exists, skipping`);
+    info(`${TAG} Activity already exists, skipping`, { stravaId: activityId, docId: existing.id });
     return;
   }
 
   // Get user's Strava tokens
+  info(`${TAG} Fetching Strava tokens`, { userId });
   const tokens = await cyclingService.getStravaTokens(userId);
   if (!tokens) {
-    console.warn(`[Strava Webhook] No Strava tokens for user ${userId}`);
+    warn(`${TAG} No Strava tokens — cannot fetch activity`, { userId });
     return;
   }
+  info(`${TAG} Tokens found`, {
+    athleteId: tokens.athleteId,
+    expiresAt: tokens.expiresAt,
+    expiresAtISO: new Date(tokens.expiresAt * 1000).toISOString(),
+  });
 
   // Refresh tokens if needed
   let accessToken = tokens.accessToken;
   if (stravaService.areTokensExpired(tokens)) {
+    info(`${TAG} Tokens expired, refreshing...`);
     const clientId = process.env['STRAVA_CLIENT_ID'];
     const clientSecret = process.env['STRAVA_CLIENT_SECRET'];
 
@@ -190,37 +222,67 @@ async function handleActivityCreate(
       clientSecret === undefined ||
       clientSecret === ''
     ) {
-      console.error('[Strava Webhook] Missing Strava client credentials');
+      logError(`${TAG} Missing Strava client credentials`, {
+        clientIdSet: Boolean(clientId),
+        clientSecretSet: Boolean(clientSecret),
+      });
       return;
     }
 
+    const refreshStart = Date.now();
     const newTokens = await stravaService.refreshStravaTokens(
       clientId,
       clientSecret,
       tokens.refreshToken
     );
+    info(`${TAG} Tokens refreshed`, {
+      elapsedMs: Date.now() - refreshStart,
+      newExpiresAt: newTokens.expiresAt,
+    });
     await cyclingService.setStravaTokens(userId, newTokens);
     accessToken = newTokens.accessToken;
+  } else {
+    info(`${TAG} Tokens still valid`);
   }
 
   // Fetch the activity from Strava
+  info(`${TAG} Fetching activity from Strava API`, { activityId });
+  const fetchStart = Date.now();
   const stravaActivity = await stravaService.fetchStravaActivity(
     accessToken,
     activityId
   );
+  info(`${TAG} Fetched activity from Strava`, {
+    elapsedMs: Date.now() - fetchStart,
+    type: stravaActivity.type,
+    name: stravaActivity.name ?? '(unnamed)',
+    startDate: stravaActivity.start_date,
+    durationMin: Math.round(stravaActivity.moving_time / 60),
+    avgWatts: stravaActivity.average_watts ?? null,
+    normalizedPower: stravaActivity.weighted_average_watts ?? null,
+    avgHR: stravaActivity.average_heartrate ?? null,
+    maxHR: stravaActivity.max_heartrate ?? null,
+    deviceWatts: stravaActivity.device_watts ?? null,
+    kilojoules: stravaActivity.kilojoules ?? null,
+  });
 
   // Only process cycling activities
   const cyclingTypes = ['VirtualRide', 'Ride'];
   if (!cyclingTypes.includes(stravaActivity.type)) {
-    console.log(
-      `[Strava Webhook] Skipping non-cycling activity type: ${stravaActivity.type}`
-    );
+    info(`${TAG} Skipping non-cycling activity`, {
+      type: stravaActivity.type,
+      accepted: cyclingTypes,
+    });
     return;
   }
 
   // Get user's FTP for TSS calculation
   const ftp = await cyclingService.getCurrentFTP(userId);
-  const ftpValue = ftp?.value ?? 200; // Default FTP if not set
+  const ftpValue = ftp?.value ?? 200;
+  info(`${TAG} FTP for TSS calculation`, {
+    ftp: ftpValue,
+    source: ftp ? 'history' : 'default (no FTP set!)',
+  });
 
   // Process and store the activity
   const processedActivity = stravaService.processStravaActivity(
@@ -228,11 +290,26 @@ async function handleActivityCreate(
     ftpValue,
     userId
   );
+  info(`${TAG} Processed activity`, {
+    tss: processedActivity.tss,
+    intensityFactor: processedActivity.intensityFactor,
+    type: processedActivity.type,
+    normalizedPower: processedActivity.normalizedPower,
+    avgPower: processedActivity.avgPower,
+    durationMin: processedActivity.durationMinutes,
+    avgHR: processedActivity.avgHeartRate,
+  });
 
+  const saveStart = Date.now();
   const savedActivity = await cyclingService.createCyclingActivity(userId, processedActivity);
-  console.log(`[Strava Webhook] Created activity ${activityId} for user ${userId}`);
+  info(`${TAG} Saved activity`, {
+    docId: savedActivity.id,
+    stravaId: activityId,
+    elapsedMs: Date.now() - saveStart,
+  });
 
   // Enrich with streams data (peak power, HR completeness, auto VO2 max)
+  info(`${TAG} Starting streams enrichment`, { activityId });
   await enrichActivityWithStreams(userId, savedActivity.id, activityId, accessToken);
 }
 
@@ -247,11 +324,20 @@ async function enrichActivityWithStreams(
   accessToken: string
 ): Promise<void> {
   try {
+    const fetchStart = Date.now();
     const streams = await stravaService.fetchActivityStreams(
       accessToken,
       stravaActivityId,
       ['watts', 'heartrate', 'time', 'cadence']
     );
+    info(`${TAG} Fetched streams`, {
+      stravaActivityId,
+      elapsedMs: Date.now() - fetchStart,
+      wattsSamples: streams.watts?.data.length ?? 0,
+      hrSamples: streams.heartrate?.data.length ?? 0,
+      timeSamples: streams.time?.data.length ?? 0,
+      cadenceSamples: streams.cadence?.data.length ?? 0,
+    });
 
     // Persist raw stream data to subcollection
     try {
@@ -270,15 +356,15 @@ async function enrichActivityWithStreams(
           cadence: streams.cadence?.data,
           sampleCount,
         });
-        console.log(
-          `[Strava Webhook] Saved ${sampleCount} stream samples for activity ${stravaActivityId}`
-        );
+        info(`${TAG} Saved stream samples`, { stravaActivityId, sampleCount });
+      } else {
+        warn(`${TAG} No stream samples to save`, { stravaActivityId });
       }
     } catch (streamSaveError) {
-      console.warn(
-        `[Strava Webhook] Failed to save stream data for activity ${stravaActivityId}:`,
-        streamSaveError
-      );
+      warn(`${TAG} Failed to save stream data`, {
+        stravaActivityId,
+        error: streamSaveError instanceof Error ? streamSaveError.message : streamSaveError,
+      });
     }
 
     const updates: Parameters<typeof cyclingService.updateCyclingActivity>[2] = {};
@@ -298,6 +384,10 @@ async function enrichActivityWithStreams(
         1200
       );
       if (peak20 > 0) updates.peak20MinPower = peak20;
+
+      info(`${TAG} Peak power calculated`, { stravaActivityId, peak5min: peak5, peak20min: peak20 });
+    } else {
+      info(`${TAG} No watts/time streams — skipping peak power`, { stravaActivityId });
     }
 
     // Calculate HR completeness
@@ -305,15 +395,15 @@ async function enrichActivityWithStreams(
       updates.hrCompleteness = stravaService.calculateHRCompleteness(
         streams.heartrate.data
       );
+      info(`${TAG} HR completeness`, { stravaActivityId, hrCompleteness: updates.hrCompleteness });
+    } else {
+      info(`${TAG} No HR stream — skipping HR completeness`, { stravaActivityId });
     }
 
     // Update the activity with streams-derived data
     if (Object.keys(updates).length > 0) {
       await cyclingService.updateCyclingActivity(userId, activityDocId, updates);
-      console.log(
-        `[Strava Webhook] Enriched activity ${stravaActivityId} with streams data:`,
-        updates
-      );
+      info(`${TAG} Enriched activity with streams data`, { stravaActivityId, updates });
     }
 
     // Auto-estimate VO2 max from peak 5-min power if we have weight
@@ -336,18 +426,30 @@ async function enrichActivityWithStreams(
             activityId: activityDocId,
             createdAt: new Date().toISOString(),
           });
-          console.log(
-            `[Strava Webhook] Auto-estimated VO2 max: ${vo2max} mL/kg/min from peak 5-min power ${updates.peak5MinPower}W`
-          );
+          info(`${TAG} VO2 max estimated`, {
+            vo2max,
+            peak5min: updates.peak5MinPower,
+            weightKg: profile.weightKg,
+          });
+        } else {
+          info(`${TAG} VO2 max estimation returned null`, {
+            peak5min: updates.peak5MinPower,
+            weightKg: profile.weightKg,
+          });
         }
+      } else {
+        info(`${TAG} Skipping VO2 max — no cycling profile or weight`, {
+          hasProfile: Boolean(profile),
+          weightKg: profile?.weightKg ?? null,
+        });
       }
     }
   } catch (error) {
     // Streams enrichment is best-effort; don't fail the whole webhook
-    console.warn(
-      `[Strava Webhook] Failed to enrich activity ${stravaActivityId} with streams:`,
-      error
-    );
+    warn(`${TAG} Failed to enrich activity with streams`, {
+      stravaActivityId,
+      error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+    });
   }
 }
 
@@ -361,6 +463,7 @@ async function handleActivityUpdate(
   userId: string,
   activityId: number
 ): Promise<void> {
+  info(`${TAG} Handling UPDATE — will delete-and-recreate`, { activityId });
   // For updates, we delete and recreate the activity
   // This ensures we have the latest data
   const existing = await cyclingService.getCyclingActivityByStravaId(
@@ -370,7 +473,9 @@ async function handleActivityUpdate(
 
   if (existing) {
     await cyclingService.deleteCyclingActivity(userId, existing.id);
-    console.log(`[Strava Webhook] Deleted old version of activity ${activityId}`);
+    info(`${TAG} Deleted old version`, { stravaId: activityId, docId: existing.id });
+  } else {
+    info(`${TAG} No existing activity found, will create fresh`, { stravaId: activityId });
   }
 
   // Recreate with updated data
@@ -394,9 +499,9 @@ async function handleActivityDelete(
 
   if (existing) {
     await cyclingService.deleteCyclingActivity(userId, existing.id);
-    console.log(`[Strava Webhook] Deleted activity ${activityId} for user ${userId}`);
+    info(`${TAG} Deleted activity`, { stravaId: activityId, docId: existing.id, userId });
   } else {
-    console.log(`[Strava Webhook] Activity ${activityId} not found, nothing to delete`);
+    info(`${TAG} Activity not found, nothing to delete`, { stravaId: activityId });
   }
 }
 

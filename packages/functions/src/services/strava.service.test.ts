@@ -62,6 +62,7 @@ describe('Strava Service', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 401,
+        text: () => Promise.resolve('Unauthorized'),
       });
 
       await expect(fetchStravaActivity('bad-token', 12345)).rejects.toThrow(
@@ -154,6 +155,7 @@ describe('Strava Service', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 400,
+        text: () => Promise.resolve('Bad Request'),
       });
 
       await expect(
@@ -400,6 +402,7 @@ describe('Strava Service', () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
+        text: () => Promise.resolve('Not Found'),
       });
 
       await expect(fetchActivityStreams('test-token', 99999)).rejects.toThrow(

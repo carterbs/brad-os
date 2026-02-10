@@ -13,9 +13,11 @@ import type {
   CyclingActivityType,
 } from '../shared.js';
 import { calculateEF } from './efficiency-factor.service.js';
+import { warn, error as logError } from 'firebase-functions/logger';
 
 const STRAVA_API_BASE = 'https://www.strava.com/api/v3';
 const STRAVA_OAUTH_URL = 'https://www.strava.com/oauth/token';
+const TAG = '[Strava API]';
 
 /**
  * Raw activity data from the Strava API.
@@ -63,13 +65,21 @@ export async function fetchStravaActivity(
   accessToken: string,
   activityId: number
 ): Promise<StravaActivity> {
-  const response = await fetch(`${STRAVA_API_BASE}/activities/${activityId}`, {
+  const url = `${STRAVA_API_BASE}/activities/${activityId}`;
+  const response = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
   if (!response.ok) {
+    const body = await response.text().catch(() => '(unreadable)');
+    logError(`${TAG} fetchStravaActivity failed`, {
+      url,
+      status: response.status,
+      responseBody: body,
+      activityId,
+    });
     throw new StravaApiError(
-      `Strava API error: ${response.status}`,
+      `Strava API error: ${response.status} - ${body}`,
       response.status
     );
   }
@@ -101,8 +111,16 @@ export async function fetchStravaActivities(
   });
 
   if (!response.ok) {
+    const body = await response.text().catch(() => '(unreadable)');
+    logError(`${TAG} fetchStravaActivities failed`, {
+      url: url.toString(),
+      status: response.status,
+      responseBody: body,
+      page,
+      perPage,
+    });
     throw new StravaApiError(
-      `Strava API error: ${response.status}`,
+      `Strava API error: ${response.status} - ${body}`,
       response.status
     );
   }
@@ -137,8 +155,13 @@ export async function refreshStravaTokens(
   });
 
   if (!response.ok) {
+    const body = await response.text().catch(() => '(unreadable)');
+    logError(`${TAG} Token refresh failed`, {
+      status: response.status,
+      responseBody: body,
+    });
     throw new StravaApiError(
-      `Token refresh failed: ${response.status}`,
+      `Token refresh failed: ${response.status} - ${body}`,
       response.status
     );
   }
@@ -353,8 +376,15 @@ export async function fetchActivityStreams(
   });
 
   if (!response.ok) {
+    const body = await response.text().catch(() => '(unreadable)');
+    warn(`${TAG} fetchActivityStreams failed`, {
+      url: url.toString(),
+      status: response.status,
+      responseBody: body,
+      activityId,
+    });
     throw new StravaApiError(
-      `Strava Streams API error: ${response.status}`,
+      `Strava Streams API error: ${response.status} - ${body}`,
       response.status
     );
   }

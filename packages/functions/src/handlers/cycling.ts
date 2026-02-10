@@ -6,6 +6,7 @@
 
 import express, { type Request, type Response, type NextFunction } from 'express';
 import cors from 'cors';
+import { info, warn, error as logError } from 'firebase-functions/logger';
 import {
   createFTPEntrySchema,
   createTrainingBlockSchema,
@@ -447,29 +448,43 @@ app.post(
 app.post(
   '/sync',
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const syncStart = Date.now();
     const userId = getUserId(req);
+    info('[Cycling Sync] Manual sync started', { userId });
 
     // Get user's Strava tokens
     const tokens = await cyclingService.getStravaTokens(userId);
     if (tokens === null) {
+      warn('[Cycling Sync] No Strava tokens', { userId });
       res.status(400).json({
         success: false,
         error: 'Strava not connected. Please connect Strava first.',
       });
       return;
     }
+    info('[Cycling Sync] Tokens found', {
+      athleteId: tokens.athleteId,
+      expiresAt: tokens.expiresAt,
+      expiresAtISO: new Date(tokens.expiresAt * 1000).toISOString(),
+    });
 
     // Get user's current FTP for TSS calculation
     const ftpEntry = await cyclingService.getCurrentFTP(userId);
-    const ftp = ftpEntry?.value ?? 200; // Default to 200 if not set
+    const ftp = ftpEntry?.value ?? 200;
+    info('[Cycling Sync] FTP', { ftp, source: ftpEntry ? 'history' : 'default' });
 
     // Refresh tokens if needed
     let accessToken = tokens.accessToken;
     if (stravaService.areTokensExpired(tokens)) {
+      info('[Cycling Sync] Tokens expired, refreshing...');
       const clientId = process.env['STRAVA_CLIENT_ID'] ?? '';
       const clientSecret = process.env['STRAVA_CLIENT_SECRET'] ?? '';
 
       if (!clientId || !clientSecret) {
+        logError('[Cycling Sync] Missing Strava credentials', {
+          clientIdSet: Boolean(clientId),
+          clientSecretSet: Boolean(clientSecret),
+        });
         res.status(500).json({
           success: false,
           error: 'Strava credentials not configured on server.',
@@ -477,37 +492,54 @@ app.post(
         return;
       }
 
+      const refreshStart = Date.now();
       const newTokens = await stravaService.refreshStravaTokens(
         clientId,
         clientSecret,
         tokens.refreshToken
       );
+      info('[Cycling Sync] Tokens refreshed', { elapsedMs: Date.now() - refreshStart });
       await cyclingService.setStravaTokens(userId, newTokens);
       accessToken = newTokens.accessToken;
+    } else {
+      info('[Cycling Sync] Tokens still valid');
     }
 
     // Fetch activities (up to 200 per page, get 2 pages = 400 activities)
     const allActivities: stravaService.StravaActivity[] = [];
     for (let page = 1; page <= 2; page++) {
+      info('[Cycling Sync] Fetching page from Strava', { page });
+      const fetchStart = Date.now();
       const activities = await stravaService.fetchStravaActivities(
         accessToken,
         page,
         200
       );
+      info('[Cycling Sync] Fetched page', {
+        page,
+        count: activities.length,
+        elapsedMs: Date.now() - fetchStart,
+      });
       if (activities.length === 0) break;
       allActivities.push(...activities);
     }
 
     // Filter to cycling activities only
     const cyclingActivities = stravaService.filterCyclingActivities(allActivities);
+    info('[Cycling Sync] Filtered activities', {
+      cycling: cyclingActivities.length,
+      total: allActivities.length,
+    });
 
     // Get existing activity Strava IDs to avoid duplicates
     const existingActivities = await cyclingService.getCyclingActivities(userId);
     const existingStravaIds = new Set(existingActivities.map((a) => a.stravaId));
+    info('[Cycling Sync] Existing activities in DB', { count: existingActivities.length });
 
     // Process and save new activities
     let imported = 0;
     let skipped = 0;
+    let skippedNoPower = 0;
 
     for (const stravaActivity of cyclingActivities) {
       if (existingStravaIds.has(stravaActivity.id)) {
@@ -519,6 +551,7 @@ app.post(
       const hasWeightedPower = stravaActivity.weighted_average_watts !== undefined && stravaActivity.weighted_average_watts !== null && stravaActivity.weighted_average_watts > 0;
       const hasAvgPower = stravaActivity.average_watts !== undefined && stravaActivity.average_watts !== null && stravaActivity.average_watts > 0;
       if (!hasWeightedPower && !hasAvgPower) {
+        skippedNoPower++;
         skipped++;
         continue;
       }
@@ -530,8 +563,24 @@ app.post(
       );
 
       await cyclingService.createCyclingActivity(userId, processedActivity);
+      info('[Cycling Sync] Imported activity', {
+        stravaId: stravaActivity.id,
+        type: stravaActivity.type,
+        date: stravaActivity.start_date,
+        tss: processedActivity.tss,
+        intensityFactor: processedActivity.intensityFactor,
+      });
       imported++;
     }
+
+    const elapsedMs = Date.now() - syncStart;
+    info('[Cycling Sync] Sync complete', {
+      elapsedMs,
+      imported,
+      skipped,
+      skippedNoPower,
+      skippedAlreadyExist: skipped - skippedNoPower,
+    });
 
     res.json({
       success: true,
