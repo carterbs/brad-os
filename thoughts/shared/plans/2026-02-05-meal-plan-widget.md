@@ -389,7 +389,6 @@ Key details:
 ## Dependencies
 
 - **Requires `2026-02-05-meal-plan-caching.md` Phases 0-3** to be implemented first (App Group entitlements, `MealPlanCacheService`, ViewModel integrations)
-- Requires Apple Developer account with App Group capability (already have `DEVELOPMENT_TEAM: 6Q7R3U43ZD` in `project.yml`)
 
 ## References
 

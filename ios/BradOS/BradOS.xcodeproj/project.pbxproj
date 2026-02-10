@@ -52,6 +52,7 @@
 		5156479059476325EBC7F199 /* StretchSessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEF0E53C0457422A3740718E /* StretchSessionManager.swift */; };
 		51826CCA127A3AB946135BD5 /* WatchWorkoutController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAD57049D63F2DE8E959543A /* WatchWorkoutController.swift */; };
 		5539B1EC2F3741A9884A4B9D /* RecoveryData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B494AA7B99F9AA28F1AA4778 /* RecoveryData.swift */; };
+		57E68D2BB37C847C32150923 /* HealthSyncModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AE152B7484C5449F17F24FC /* HealthSyncModels.swift */; };
 		5A68965C044E0FAEB179839A /* WorkoutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28D0646C1AC2CDBFAA9B5C48 /* WorkoutView.swift */; };
 		5BFC07B87B0651B487E308F2 /* CollapsibleCritiqueView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E8CCBA16EB6E3B89313519E /* CollapsibleCritiqueView.swift */; };
 		5D1E29AAE0F9402749492A0E /* BradOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = 9212B9164743CD23CA9B7BBF /* BradOSCore */; };
@@ -181,6 +182,7 @@
 		287EDC2B2F8BEE19E85C3B29 /* MeditationManifestService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationManifestService.swift; sourceTree = "<group>"; };
 		28D0646C1AC2CDBFAA9B5C48 /* WorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutView.swift; sourceTree = "<group>"; };
 		291611BD7E1315D2A2F4A174 /* CyclingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingModels.swift; sourceTree = "<group>"; };
+		2AE152B7484C5449F17F24FC /* HealthSyncModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncModels.swift; sourceTree = "<group>"; };
 		2EB7D67BFCEA76962684150F /* ErrorStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorStateView.swift; sourceTree = "<group>"; };
 		2F7986113E22E50B924F9B7F /* TodayCoachClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayCoachClient.swift; sourceTree = "<group>"; };
 		31C0E1D71C97F2B7F0D33ADC /* WorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutView.swift; sourceTree = "<group>"; };
@@ -615,6 +617,7 @@
 			children = (
 				291611BD7E1315D2A2F4A174 /* CyclingModels.swift */,
 				CAB73F3D9DD5B217641D6828 /* GuidedMeditation.swift */,
+				2AE152B7484C5449F17F24FC /* HealthSyncModels.swift */,
 				17EE8DDE72557ED06FDF728C /* MeditationManifest.swift */,
 				97BC3FD39CD95DA799E37E3C /* MeditationState.swift */,
 				B494AA7B99F9AA28F1AA4778 /* RecoveryData.swift */,
@@ -680,7 +683,7 @@
 			path = Lifting;
 			sourceTree = "<group>";
 		};
-		"TEMP_329D0072-6C26-48BE-955C-02C99E227C82" /* Resources */ = {
+		"TEMP_E8C3FA3F-569E-4817-B1B5-E56FEE02C8C9" /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -759,15 +762,15 @@
 				LastUpgradeCheck = 1500;
 				TargetAttributes = {
 					2AA2633E5BF785D602CA3892 = {
-						DevelopmentTeam = 6Q7R3U43ZD;
+						DevelopmentTeam = TWWJ3E2WLY;
 						ProvisioningStyle = Automatic;
 					};
 					67BC99C8C48B6DC4F03F699D = {
-						DevelopmentTeam = 6Q7R3U43ZD;
+						DevelopmentTeam = TWWJ3E2WLY;
 						ProvisioningStyle = Automatic;
 					};
 					8A7135F3BB1083CFAEC8256F = {
-						DevelopmentTeam = 6Q7R3U43ZD;
+						DevelopmentTeam = TWWJ3E2WLY;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -855,6 +858,7 @@
 				D23E0FD74C1866E30F778DF5 /* GuidedMeditationService.swift in Sources */,
 				AE472A35366FB9B9F1BEC079 /* HealthKitManager.swift in Sources */,
 				0E30621C5428BFE2F37746AF /* HealthKitSyncService.swift in Sources */,
+				57E68D2BB37C847C32150923 /* HealthSyncModels.swift in Sources */,
 				F7E73D097F3A08BEDF56B266 /* HistoryView.swift in Sources */,
 				EA6DB5F838F769ECDD5B890D /* KeychainService.swift in Sources */,
 				0C2035D397B4383A35E1E100 /* LiftingTabView.swift in Sources */,
@@ -1036,7 +1040,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = 6Q7R3U43ZD;
+				DEVELOPMENT_TEAM = TWWJ3E2WLY;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -1123,7 +1127,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = 6Q7R3U43ZD;
+				DEVELOPMENT_TEAM = TWWJ3E2WLY;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
