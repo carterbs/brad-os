@@ -149,6 +149,22 @@ struct ProfileView: View {
                     }
                 }
                 .buttonStyle(.plain)
+
+                Divider().background(Theme.divider)
+
+                NavigationLink(destination: SleepHistoryView()) {
+                    SettingsRow(
+                        title: "Sleep History",
+                        subtitle: "Sleep duration and stage trends",
+                        iconName: "bed.double.fill",
+                        iconColor: Theme.interactiveSecondary
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                }
+                .buttonStyle(.plain)
             }
             .glassCard(.card, padding: 0)
         }

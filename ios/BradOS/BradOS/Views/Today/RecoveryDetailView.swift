@@ -187,6 +187,36 @@ struct RecoveryDetailView: View {
                 )
             }
             .buttonStyle(.plain)
+
+            Divider()
+                .overlay(Theme.divider)
+
+            // Sleep
+            NavigationLink(destination: SleepHistoryView()) {
+                HStack {
+                    Image(systemName: "bed.double.fill")
+                        .font(.system(size: Theme.Typography.listRowIcon))
+                        .foregroundStyle(Theme.interactiveSecondary)
+                        .frame(width: Theme.Dimensions.iconFrameMD, height: Theme.Dimensions.iconFrameMD)
+
+                    VStack(alignment: .leading, spacing: Theme.Spacing.space1) {
+                        Text("Sleep")
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.textPrimary)
+                        Text(String(format: "%.1f hrs · %.0f%% efficiency", recovery.sleepHours, recovery.sleepEfficiency))
+                            .font(.caption)
+                            .monospacedDigit()
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+
+                    Spacer()
+
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Theme.textTertiary)
+                }
+            }
+            .buttonStyle(.plain)
         }
         .glassCard()
     }

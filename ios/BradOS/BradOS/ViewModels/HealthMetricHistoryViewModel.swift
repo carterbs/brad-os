@@ -326,3 +326,129 @@ class RHRHistoryViewModel {
         return (n * sumXY - sumX * sumY) / denominator
     }
 }
+
+// MARK: - Sleep History Data Point
+
+struct SleepChartPoint: Identifiable {
+    let id = UUID()
+    let date: Date
+    let totalHours: Double
+    let coreHours: Double
+    let deepHours: Double
+    let remHours: Double
+    let awakeHours: Double
+    let efficiency: Double
+}
+
+// MARK: - Sleep History ViewModel
+
+@MainActor
+@Observable
+class SleepHistoryViewModel {
+
+    // MARK: - State
+
+    var allHistory: [SleepChartPoint] = []
+    var selectedRange: HealthChartRange = .sixMonths
+    var isLoading = false
+    var error: String?
+
+    private let apiClient = APIClient.shared
+
+    // MARK: - Computed
+
+    var history: [SleepChartPoint] {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -selectedRange.days, to: Date()) ?? Date()
+        return allHistory.filter { $0.date >= cutoff }
+    }
+
+    var currentEntry: SleepChartPoint? {
+        allHistory.last
+    }
+
+    var averageSleepHours: Double? {
+        let recent = Array(allHistory.suffix(7))
+        guard !recent.isEmpty else { return nil }
+        return recent.map(\.totalHours).reduce(0, +) / Double(recent.count)
+    }
+
+    var averageEfficiency: Double? {
+        let recent = Array(allHistory.suffix(7))
+        guard !recent.isEmpty else { return nil }
+        return recent.map(\.efficiency).reduce(0, +) / Double(recent.count)
+    }
+
+    /// Total sleep hours as HealthMetricChartPoints for the smoothed line
+    var totalSleepPoints: [HealthMetricChartPoint] {
+        history.map { HealthMetricChartPoint(date: $0.date, value: $0.totalHours) }
+    }
+
+    var smoothedTotalSleep: [HealthMetricChartPoint] {
+        calculateSMA(points: totalSleepPoints, window: 7)
+    }
+
+    var chartYDomain: ClosedRange<Double> {
+        let values = history.map(\.totalHours)
+        let minVal = (values.min() ?? 4)
+        let maxVal = (values.max() ?? 10)
+        let padding = max((maxVal - minVal) * 0.1, 0.5)
+        return max(0, minVal - padding)...(maxVal + padding)
+    }
+
+    // MARK: - Loading
+
+    func loadData() async {
+        isLoading = true
+        error = nil
+        defer { isLoading = false }
+
+        do {
+            let entries = try await apiClient.getSleepHistory(days: 365)
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyy-MM-dd"
+            formatter.locale = Locale(identifier: "en_US_POSIX")
+            formatter.timeZone = .current
+
+            let points = entries.compactMap { entry -> SleepChartPoint? in
+                guard let date = formatter.date(from: entry.date) else { return nil }
+                return SleepChartPoint(
+                    date: date,
+                    totalHours: Double(entry.totalSleepMinutes) / 60.0,
+                    coreHours: Double(entry.coreMinutes) / 60.0,
+                    deepHours: Double(entry.deepMinutes) / 60.0,
+                    remHours: Double(entry.remMinutes) / 60.0,
+                    awakeHours: Double(entry.awakeMinutes) / 60.0,
+                    efficiency: entry.sleepEfficiency
+                )
+            }.sorted { $0.date < $1.date }
+
+            // Deduplicate by date
+            var seen = Set<String>()
+            var deduped: [SleepChartPoint] = []
+            for point in points.reversed() {
+                let key = formatter.string(from: point.date)
+                if !seen.contains(key) {
+                    seen.insert(key)
+                    deduped.append(point)
+                }
+            }
+            allHistory = deduped.reversed()
+        } catch {
+            self.error = "Failed to load sleep history"
+            print("[SleepHistoryVM] Error: \(error)")
+        }
+    }
+
+    // MARK: - SMA
+
+    private func calculateSMA(points: [HealthMetricChartPoint], window: Int) -> [HealthMetricChartPoint] {
+        guard points.count >= 2 else { return points }
+
+        return points.enumerated().map { index, point in
+            let windowStart = max(0, index - window + 1)
+            let windowSlice = points[windowStart...index]
+            let avg = windowSlice.map(\.value).reduce(0, +) / Double(windowSlice.count)
+            return HealthMetricChartPoint(date: point.date, value: avg)
+        }
+    }
+}

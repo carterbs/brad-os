@@ -44,6 +44,7 @@
 		40BF5CFDA965A67F71B85DDE /* MeditationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97BC3FD39CD95DA799E37E3C /* MeditationState.swift */; };
 		42EE5173C656ADF9C1C695BE /* MealDayCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB12AF8EB986F19AD034CB01 /* MealDayCard.swift */; };
 		431CE65223D5711937A751A4 /* StatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F6E117271DD3981B357748D /* StatusBadge.swift */; };
+		4819F332AA63F1CC73662D46 /* SleepHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DE2C7BB07234EEE95ED3FEB /* SleepHistoryView.swift */; };
 		48B95D8E70ABEBCB27F73477 /* ShoppingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91979ABDCADC3D6A75458062 /* ShoppingListView.swift */; };
 		493F8544615F1805E8F33A78 /* GuidedMeditationPreparingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4643A92CCBE1B9470038D7D /* GuidedMeditationPreparingView.swift */; };
 		497D515CA9E2E7DFB5D83223 /* MealPlanWidgetEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C159B8B81190EC9E4AFAD81D /* MealPlanWidgetEntryView.swift */; };
@@ -207,6 +208,7 @@
 		291611BD7E1315D2A2F4A174 /* CyclingModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingModels.swift; sourceTree = "<group>"; };
 		2AE152B7484C5449F17F24FC /* HealthSyncModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncModels.swift; sourceTree = "<group>"; };
 		2C883E0DD61F3F396B1EA426 /* HRVHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HRVHistoryView.swift; sourceTree = "<group>"; };
+		2DE2C7BB07234EEE95ED3FEB /* SleepHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepHistoryView.swift; sourceTree = "<group>"; };
 		2EB7D67BFCEA76962684150F /* ErrorStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorStateView.swift; sourceTree = "<group>"; };
 		2F7986113E22E50B924F9B7F /* TodayCoachClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayCoachClient.swift; sourceTree = "<group>"; };
 		31C0E1D71C97F2B7F0D33ADC /* WorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutView.swift; sourceTree = "<group>"; };
@@ -472,6 +474,7 @@
 				2C883E0DD61F3F396B1EA426 /* HRVHistoryView.swift */,
 				C23F6F8043584A903D01FF2C /* ProfileView.swift */,
 				0FEAD9A65BCA66EABEDE4AFF /* RHRHistoryView.swift */,
+				2DE2C7BB07234EEE95ED3FEB /* SleepHistoryView.swift */,
 				38D5EE1C5FCDACE62D3C9D36 /* StravaConnectionView.swift */,
 				05EB9A11EE216DA0027D5C09 /* TextToSpeechView.swift */,
 				233426DF2BD48E5CB18E73F3 /* TrainingBlockSetupView.swift */,
@@ -711,7 +714,7 @@
 			path = Lifting;
 			sourceTree = "<group>";
 		};
-		"TEMP_4FD9F8E5-0876-4A80-8BD4-5FF54E99482B" /* Resources */ = {
+		"TEMP_17B4CCFD-A0BA-41D8-8553-A7F24AB7C1A0" /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -927,6 +930,7 @@
 				E491404ABE9A78157B1B6BCD /* SectionHeader.swift in Sources */,
 				48B95D8E70ABEBCB27F73477 /* ShoppingListView.swift in Sources */,
 				1FEB0DA2D4D27545C69B6DBA /* SilenceGenerator.swift in Sources */,
+				4819F332AA63F1CC73662D46 /* SleepHistoryView.swift in Sources */,
 				431CE65223D5711937A751A4 /* StatusBadge.swift in Sources */,
 				BA425F4FAA16BC31E251E506 /* StravaAuthManager.swift in Sources */,
 				A118C6D9A1D3F23E197395BD /* StravaClient.swift in Sources */,
