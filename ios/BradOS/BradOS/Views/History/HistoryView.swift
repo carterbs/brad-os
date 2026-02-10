@@ -46,6 +46,9 @@ struct HistoryView: View {
 
                     // Legend
                     legendSection
+
+                    // Health Trends
+                    healthTrendsSection
                 }
                 .padding(Theme.Spacing.space4)
             }
@@ -89,6 +92,67 @@ struct HistoryView: View {
             .task {
                 await viewModel.fetchMonth()
             }
+        }
+    }
+
+    // MARK: - Health Trends Section
+
+    @ViewBuilder
+    private var healthTrendsSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
+            SectionHeader(title: "Health Trends")
+
+            VStack(spacing: 0) {
+                NavigationLink(destination: HRVHistoryView()) {
+                    SettingsRow(
+                        title: "HRV History",
+                        subtitle: "Heart rate variability trends",
+                        iconName: "waveform.path.ecg",
+                        iconColor: Theme.interactivePrimary
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                }
+                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+
+                Divider().background(Theme.divider)
+
+                NavigationLink(destination: RHRHistoryView()) {
+                    SettingsRow(
+                        title: "RHR History",
+                        subtitle: "Resting heart rate trends",
+                        iconName: "heart.fill",
+                        iconColor: Theme.destructive
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                }
+                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+
+                Divider().background(Theme.divider)
+
+                NavigationLink(destination: SleepHistoryView()) {
+                    SettingsRow(
+                        title: "Sleep History",
+                        subtitle: "Sleep duration and stage trends",
+                        iconName: "bed.double.fill",
+                        iconColor: Theme.interactiveSecondary
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                }
+                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+            }
+            .glassCard(.card, padding: 0)
         }
     }
 

@@ -101,6 +101,68 @@ class HealthKitSyncService: ObservableObject {
         }
     }
 
+    // MARK: - Force Sync Individual Types
+
+    /// Force sync only weight data from HealthKit to Firebase
+    func forceSyncWeight() async {
+        isSyncing = true
+        lastError = nil
+        defer { isSyncing = false }
+        await syncWeightHistory()
+    }
+
+    /// Force sync only HRV data from HealthKit to Firebase
+    func forceSyncHRV() async {
+        isSyncing = true
+        lastError = nil
+        defer { isSyncing = false }
+        await syncHRVHistory()
+    }
+
+    /// Force sync only RHR data from HealthKit to Firebase
+    func forceSyncRHR() async {
+        isSyncing = true
+        lastError = nil
+        defer { isSyncing = false }
+        await syncRHRHistory()
+    }
+
+    /// Force sync only sleep data from HealthKit to Firebase
+    func forceSyncSleep() async {
+        isSyncing = true
+        lastError = nil
+        defer { isSyncing = false }
+        await syncSleepHistory()
+    }
+
+    /// Force sync recovery snapshot to Firebase
+    func forceSyncRecovery() async {
+        isSyncing = true
+        lastError = nil
+        defer { isSyncing = false }
+        do {
+            guard healthKitManager.isAuthorized else {
+                lastError = "HealthKit not authorized"
+                return
+            }
+            let recovery = try await healthKitManager.calculateRecoveryScore()
+            let baseline = await healthKitManager.getCachedBaseline()
+            try await sendSyncRequest(recovery: recovery, baseline: baseline)
+            print("[HealthKitSyncService] Recovery sync completed")
+        } catch {
+            print("[HealthKitSyncService] Recovery sync failed: \(error)")
+            lastError = error.localizedDescription
+        }
+    }
+
+    /// Reset backfill flags so next sync does a full 10-year backfill for all types
+    func resetBackfill() {
+        UserDefaults.standard.removeObject(forKey: hrvBackfillCompleteKey)
+        UserDefaults.standard.removeObject(forKey: rhrBackfillCompleteKey)
+        UserDefaults.standard.removeObject(forKey: sleepBackfillCompleteKey)
+        print("[HealthKitSyncService] Backfill flags reset — next sync will do full backfill")
+    }
+
     // MARK: - Private Methods
 
     /// Sync weight history from HealthKit to Firebase in bulk.

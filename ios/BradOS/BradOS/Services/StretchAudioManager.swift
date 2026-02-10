@@ -29,9 +29,9 @@ enum StretchAudioError: Error, LocalizedError {
 /// 4. Plays narration audio on top of the keepalive without pausing it
 @MainActor
 class StretchAudioManager: ObservableObject {
-    /// Player for silent keepalive loop
-    private var keepalivePlayer: AVPlayer?
-    private var keepaliveObserver: NSObjectProtocol?
+    /// Player for silent keepalive loop (AVQueuePlayer for use with AVPlayerLooper)
+    private var keepalivePlayer: AVQueuePlayer?
+    private var keepaliveLooper: AVPlayerLooper?
     private var isKeepaliveRunning = false
 
     /// Keepalive volume (matches PWA's 1% / 0.01)
@@ -52,23 +52,8 @@ class StretchAudioManager: ObservableObject {
         }
     }
 
-    #if DEBUG
-    private static let logFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
-
-    private func log(_ message: String) {
-        let timestamp = Self.logFormatter.string(from: Date())
-        print("\(timestamp) \(message)")
-    }
-    #endif
-
     deinit {
-        if let observer = keepaliveObserver {
-            NotificationCenter.default.removeObserver(observer)
-        }
+        keepaliveLooper?.disableLooping()
         keepalivePlayer?.pause()
     }
 
@@ -101,11 +86,13 @@ class StretchAudioManager: ObservableObject {
     /// Configure and activate the audio session for stretching
     /// Call this when starting a stretch session
     func activateSession() throws {
+        NSLog("[StretchAudioManager] activateSession()")
         try audioSession.activateForMixing()
     }
 
     /// Deactivate the audio session when ending a stretch session
     func deactivateSession() {
+        NSLog("[StretchAudioManager] deactivateSession()")
         stopAllAudio()
         preparedAudio = nil
         audioSession.deactivate()
@@ -113,56 +100,44 @@ class StretchAudioManager: ObservableObject {
 
     // MARK: - Keepalive Loop
 
-    /// Start the silent keepalive audio loop
-    /// This maintains the audio session and keeps the app alive on lock screen
+    /// Start the silent keepalive audio loop using AVPlayerLooper for gapless background playback.
+    /// This maintains the audio session and keeps the app alive on lock screen.
     func startKeepalive() {
-        guard !isKeepaliveRunning else { return }
-
-        // Find silence audio file
-        guard let silenceURL = findAudioFile("shared/silence-1s.wav") else {
-            #if DEBUG
-            log("[StretchAudioManager] Silence file not found, skipping keepalive")
-            #endif
+        guard !isKeepaliveRunning else {
+            NSLog("[StretchAudioManager] startKeepalive() - already running, skipping")
             return
         }
 
-        // Create looping player
-        let playerItem = AVPlayerItem(url: silenceURL)
-        keepalivePlayer = AVPlayer(playerItem: playerItem)
-        keepalivePlayer?.volume = keepaliveVolume
-
-        // Set up loop notification
-        keepaliveObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: playerItem,
-            queue: .main
-        ) { [weak self] _ in
-            // Loop by seeking back to start
-            self?.keepalivePlayer?.seek(to: .zero)
-            self?.keepalivePlayer?.play()
+        // Find silence audio file
+        guard let silenceURL = findAudioFile("shared/silence-1s.wav") else {
+            NSLog("[StretchAudioManager] startKeepalive() - silence file not found, skipping")
+            return
         }
 
-        keepalivePlayer?.play()
+        NSLog("[StretchAudioManager] startKeepalive() - creating AVQueuePlayer + AVPlayerLooper")
+
+        // Create AVQueuePlayer + AVPlayerLooper for gapless looping
+        let templateItem = AVPlayerItem(url: silenceURL)
+        let queuePlayer = AVQueuePlayer()
+        queuePlayer.volume = keepaliveVolume
+        keepalivePlayer = queuePlayer
+        keepaliveLooper = AVPlayerLooper(player: queuePlayer, templateItem: templateItem)
+
+        queuePlayer.play()
         isKeepaliveRunning = true
 
-        #if DEBUG
-        log("[StretchAudioManager] Keepalive started")
-        #endif
+        NSLog("[StretchAudioManager] startKeepalive() - keepalive started, looper status: %d", keepaliveLooper?.status.rawValue ?? -1)
     }
 
     /// Stop the keepalive audio loop
     func stopKeepalive() {
-        if let observer = keepaliveObserver {
-            NotificationCenter.default.removeObserver(observer)
-            keepaliveObserver = nil
-        }
+        NSLog("[StretchAudioManager] stopKeepalive() - wasRunning: %@", isKeepaliveRunning ? "true" : "false")
+        keepaliveLooper?.disableLooping()
+        keepaliveLooper = nil
         keepalivePlayer?.pause()
         keepalivePlayer = nil
         isKeepaliveRunning = false
-
-        #if DEBUG
-        log("[StretchAudioManager] Keepalive stopped")
-        #endif
+        NSLog("[StretchAudioManager] stopKeepalive() - done")
     }
 
     /// Check if keepalive is currently running
@@ -174,39 +149,48 @@ class StretchAudioManager: ObservableObject {
     /// Call this after returning from background or after audio interruptions
     /// to guarantee the audio session stays alive and iOS doesn't suspend the app.
     func ensureKeepaliveActive() {
-        guard isKeepaliveRunning else { return }
+        guard isKeepaliveRunning else {
+            NSLog("[StretchAudioManager] ensureKeepaliveActive() - not running, skipping")
+            return
+        }
+        NSLog("[StretchAudioManager] ensureKeepaliveActive() - reactivating session and resuming playback")
         try? audioSession.activateForMixing()
         resumeKeepalivePlayback()
     }
 
     /// Resume keepalive playback after an audio session interruption.
     /// Unlike startKeepalive(), this doesn't recreate the player — it just
-    /// seeks to the start and plays again, which is sufficient after
-    /// setActive(false) stops the player mid-stream.
+    /// resumes play, which is sufficient after interruption stops the player.
     private func resumeKeepalivePlayback() {
-        guard isKeepaliveRunning, let player = keepalivePlayer else { return }
-        player.seek(to: .zero)
+        guard isKeepaliveRunning, let player = keepalivePlayer else {
+            NSLog("[StretchAudioManager] resumeKeepalivePlayback() - skipped (running: %@, player: %@)",
+                  isKeepaliveRunning ? "true" : "false",
+                  keepalivePlayer != nil ? "exists" : "nil")
+            return
+        }
+        NSLog("[StretchAudioManager] resumeKeepalivePlayback() - resuming player")
         player.play()
     }
 
     // MARK: - Narration Playback
 
     /// Plays narration audio from a URL. Returns when clip finishes.
-    /// Keepalive continues running during narration (matching PWA behavior).
-    /// Other audio may be interrupted/paused during narration when it was already playing.
+    /// Keepalive continues running during narration — it's 1% volume silent audio
+    /// and won't interfere with narration playback.
     /// - Parameter url: File URL to the audio file (from TTS cache or bundle)
     func playNarration(_ url: URL) async throws {
-        let shouldPauseKeepalive = isKeepaliveRunning && audioSession.isOtherAudioPlaying
-        if shouldPauseKeepalive {
-            stopKeepalive()
+        NSLog("[StretchAudioManager] playNarration() - url: %@, keepalive running: %@",
+              url.lastPathComponent, isKeepaliveRunning ? "true" : "false")
+
+        do {
+            try await audioSession.playNarration(url: url, backgroundSafe: true)
+            NSLog("[StretchAudioManager] playNarration() - completed successfully")
+        } catch {
+            NSLog("[StretchAudioManager] playNarration() - ERROR: %@", error.localizedDescription)
+            throw error
         }
-        defer {
-            if shouldPauseKeepalive {
-                startKeepalive()
-            }
-        }
-        try await audioSession.playNarration(url: url)
-        // Resume keepalive after interruption restore (session deactivate may have paused it)
+
+        // Resume keepalive after narration (session changes during ducking may have paused it)
         resumeKeepalivePlayback()
     }
 
@@ -215,18 +199,25 @@ class StretchAudioManager: ObservableObject {
     /// - Parameter url: File URL to the audio file, or nil to skip
     func playNarrationAsync(_ url: URL?) {
         guard let url else { return }
+        NSLog("[StretchAudioManager] playNarrationAsync() - url: %@", url.lastPathComponent)
         Task {
-            try? await playNarration(url)
+            do {
+                try await playNarration(url)
+            } catch {
+                NSLog("[StretchAudioManager] playNarrationAsync() - ERROR: %@", error.localizedDescription)
+            }
         }
     }
 
     /// Stop any currently playing narration (but not keepalive)
     func stopNarration() {
+        NSLog("[StretchAudioManager] stopNarration()")
         audioSession.stopNarration()
     }
 
     /// Stop all audio including keepalive
     func stopAllAudio() {
+        NSLog("[StretchAudioManager] stopAllAudio()")
         stopNarration()
         stopKeepalive()
     }
@@ -250,23 +241,17 @@ class StretchAudioManager: ObservableObject {
             withExtension: ext,
             subdirectory: subdirectory
         ) {
-            #if DEBUG
-            log("[StretchAudioManager] Found audio: \(clipPath) at \(url.path)")
-            #endif
+            NSLog("[StretchAudioManager] Found audio: %@ at %@", clipPath, url.path)
             return url
         }
 
         // Fallback: Try just the filename anywhere in bundle
         if let url = Bundle.main.url(forResource: filenameWithoutExt, withExtension: ext) {
-            #if DEBUG
-            log("[StretchAudioManager] Found audio (fallback): \(clipPath) at \(url.path)")
-            #endif
+            NSLog("[StretchAudioManager] Found audio (fallback): %@ at %@", clipPath, url.path)
             return url
         }
 
-        #if DEBUG
-        log("[StretchAudioManager] Audio file not found: \(clipPath) (looked in \(subdirectory))")
-        #endif
+        NSLog("[StretchAudioManager] Audio file not found: %@ (looked in %@)", clipPath, subdirectory)
         return nil
     }
 }

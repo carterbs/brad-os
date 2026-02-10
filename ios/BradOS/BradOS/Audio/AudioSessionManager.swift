@@ -11,11 +11,6 @@ final class AudioSessionManager {
     private let session = AVAudioSession.sharedInstance()
     private var isConfigured = false
     private var interruptionObserver: NSObjectProtocol?
-    private static let logFormatter: ISO8601DateFormatter = {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        return formatter
-    }()
 
     // MARK: - Narration Playback State
 
@@ -48,6 +43,7 @@ final class AudioSessionManager {
     /// Temporary interruption/ducking is applied only during narration via `playNarration`.
     func configure() throws {
         guard !isConfigured else { return }
+        NSLog("[AudioSession] configure() - setting .playback, .mixWithOthers")
         try session.setCategory(
             .playback,
             mode: .default,
@@ -59,13 +55,14 @@ final class AudioSessionManager {
     /// Activate the audio session for mixing (no interruption)
     func activate() throws {
         try configure()
+        NSLog("[AudioSession] activate() - setActive(true)")
         try session.setActive(true)
     }
 
     /// Activate session for mixing without interruption.
     /// Between narration clips, background audio can play at full volume.
     func activateForMixing() throws {
-        log("[AudioSession] Activating for mixing (.mixWithOthers, no ducking)")
+        NSLog("[AudioSession] activateForMixing() - .playback, .mixWithOthers, setActive(true)")
         try session.setCategory(
             .playback,
             mode: .default,
@@ -77,10 +74,12 @@ final class AudioSessionManager {
 
     /// Deactivate the audio session
     func deactivate() {
+        NSLog("[AudioSession] deactivate() - notifyOthersOnDeactivation")
         do {
             try session.setActive(false, options: .notifyOthersOnDeactivation)
+            NSLog("[AudioSession] deactivate() - success")
         } catch {
-            log("[AudioSession] Failed to deactivate: \(error)")
+            NSLog("[AudioSession] deactivate() - FAILED: %@", error.localizedDescription)
         }
     }
 
@@ -90,33 +89,42 @@ final class AudioSessionManager {
     /// Requests ducking/interrupt only if other audio was already playing,
     /// and restores only in that case.
     /// This is the single entry point for all narration across the app.
-    func playNarration(url: URL) async throws {
+    /// - Parameters:
+    ///   - url: File URL to the audio file
+    ///   - backgroundSafe: When true and ducking was used, restores by changing category options
+    ///     instead of deactivating the session. This prevents killing keepalive audio on lock screen.
+    func playNarration(url: URL, backgroundSafe: Bool = false) async throws {
         stopNarration()
 
         guard FileManager.default.fileExists(atPath: url.path) else {
-            log("[AudioSession] Narration file not found: \(url.path)")
+            NSLog("[AudioSession] playNarration() - file not found: %@", url.path)
             return
         }
 
-        log("[AudioSession] ========== NARRATION START ==========")
-        log("[AudioSession] Playing: \(url.lastPathComponent)")
+        NSLog("[AudioSession] ========== NARRATION START ==========")
+        NSLog("[AudioSession] playNarration() - file: %@, backgroundSafe: %@", url.lastPathComponent, backgroundSafe ? "true" : "false")
 
         let shouldDuckExternalAudio = session.isOtherAudioPlaying
+        NSLog("[AudioSession] playNarration() - isOtherAudioPlaying: %@, willDuck: %@",
+              shouldDuckExternalAudio ? "true" : "false",
+              shouldDuckExternalAudio ? "true" : "false")
 
         if shouldDuckExternalAudio {
             do {
                 try enableDucking()
             } catch {
-                log("[AudioSession] Failed to enable ducking: \(error)")
+                NSLog("[AudioSession] playNarration() - failed to enable ducking: %@", error.localizedDescription)
             }
         } else {
-            log("[AudioSession] Skipping ducking (no other audio playing)")
+            NSLog("[AudioSession] playNarration() - no other audio, activating for mixing")
             try? activateForMixing()
         }
 
         let playerItem = AVPlayerItem(url: url)
         let player = AVPlayer(playerItem: playerItem)
         narrationPlayer = player
+
+        NSLog("[AudioSession] playNarration() - starting AVPlayer playback")
 
         var playbackError: Error?
         do {
@@ -130,25 +138,35 @@ final class AudioSessionManager {
                     self?.removeNarrationObserver()
                     let cont = self?.narrationContinuation
                     self?.narrationContinuation = nil
-                    self?.log("[AudioSession] Narration playback COMPLETE")
+                    NSLog("[AudioSession] playNarration() - playback COMPLETE")
                     cont?.resume()
                 }
                 player.play()
             }
         } catch {
+            NSLog("[AudioSession] playNarration() - playback ERROR: %@", error.localizedDescription)
             playbackError = error
         }
 
         if shouldDuckExternalAudio {
-            do {
-                try await restoreAfterDucking()
-            } catch {
-                log("[AudioSession] Failed to restore after ducking: \(error)")
+            if backgroundSafe {
+                NSLog("[AudioSession] playNarration() - backgroundSafe restore (no deactivation)")
+                do {
+                    try restoreAfterDuckingBackgroundSafe()
+                } catch {
+                    NSLog("[AudioSession] playNarration() - backgroundSafe restore FAILED: %@", error.localizedDescription)
+                }
+            } else {
+                do {
+                    try await restoreAfterDucking()
+                } catch {
+                    NSLog("[AudioSession] playNarration() - restore after ducking FAILED: %@", error.localizedDescription)
+                }
             }
         }
 
         narrationPlayer = nil
-        log("[AudioSession] ========== NARRATION END ==========")
+        NSLog("[AudioSession] ========== NARRATION END ==========")
 
         if let playbackError {
             throw playbackError
@@ -188,19 +206,34 @@ final class AudioSessionManager {
     /// Enable other-audio interruption/ducking before narration.
     /// Uses voice prompt mode with ducking and mixing. Some apps pause instead of ducking.
     private func enableDucking() throws {
-        log("[AudioSession] ENABLING ducking")
+        NSLog("[AudioSession] enableDucking() - .voicePrompt, .mixWithOthers + .duckOthers")
         try session.setCategory(
             .playback,
             mode: .voicePrompt,
             options: [.mixWithOthers, .duckOthers]
         )
         try session.setActive(true)
-        log("[AudioSession] Ducking ENABLED - Spotify should lower volume now")
+        NSLog("[AudioSession] enableDucking() - DONE, Spotify should lower volume")
+    }
+
+    /// Restore other audio after narration WITHOUT deactivating the session.
+    /// This is safe for background/lock screen use — it just removes ducking options
+    /// so other audio returns to full volume, without killing our keepalive player.
+    private func restoreAfterDuckingBackgroundSafe() throws {
+        NSLog("[AudioSession] restoreAfterDuckingBackgroundSafe() - removing duckOthers, keeping session active")
+        try session.setCategory(
+            .playback,
+            mode: .default,
+            options: [.mixWithOthers]
+        )
+        NSLog("[AudioSession] restoreAfterDuckingBackgroundSafe() - DONE, Spotify should return to full volume")
     }
 
     /// Restore other audio after narration, removing interruption/ducking.
+    /// WARNING: This deactivates the session which can kill keepalive audio.
+    /// Use restoreAfterDuckingBackgroundSafe() when background audio must survive.
     private func restoreAfterDucking() async throws {
-        log("[AudioSession] RESTORING after ducking - deactivating with notification")
+        NSLog("[AudioSession] restoreAfterDucking() - deactivating with notification")
         try session.setActive(false, options: .notifyOthersOnDeactivation)
 
         // Give other audio apps a moment to resume before reactivating.
@@ -212,9 +245,9 @@ final class AudioSessionManager {
             waited += pollIntervalNanos
         }
         if session.isOtherAudioPlaying {
-            log("[AudioSession] Other audio resumed before reactivation")
+            NSLog("[AudioSession] restoreAfterDucking() - other audio resumed")
         } else {
-            log("[AudioSession] Other audio still paused; reactivating anyway")
+            NSLog("[AudioSession] restoreAfterDucking() - other audio still paused, reactivating anyway")
         }
 
         try session.setCategory(
@@ -223,7 +256,7 @@ final class AudioSessionManager {
             options: [.mixWithOthers]
         )
         try session.setActive(true)
-        log("[AudioSession] Ducking RESTORED - Spotify should return to full volume")
+        NSLog("[AudioSession] restoreAfterDucking() - DONE, Spotify should return to full volume")
     }
 
     // MARK: - Interruption Handling
@@ -249,16 +282,18 @@ final class AudioSessionManager {
 
         switch type {
         case .began:
-            log("[AudioSession] Session interrupted")
+            NSLog("[AudioSession] handleInterruption() - BEGAN")
 
         case .ended:
+            NSLog("[AudioSession] handleInterruption() - ENDED")
             if let optionsValue = userInfo[AVAudioSessionInterruptionOptionKey] as? UInt {
                 let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
                 if options.contains(.shouldResume) {
+                    NSLog("[AudioSession] handleInterruption() - shouldResume, reactivating")
                     do {
                         try activate()
                     } catch {
-                        log("[AudioSession] Failed to reactivate: \(error)")
+                        NSLog("[AudioSession] handleInterruption() - reactivation FAILED: %@", error.localizedDescription)
                     }
                 }
             }
@@ -266,10 +301,5 @@ final class AudioSessionManager {
         @unknown default:
             break
         }
-    }
-
-    private func log(_ message: String) {
-        let timestamp = Self.logFormatter.string(from: Date())
-        print("\(timestamp) \(message)")
     }
 }
