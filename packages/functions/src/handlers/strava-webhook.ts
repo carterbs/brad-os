@@ -249,8 +249,37 @@ async function enrichActivityWithStreams(
   try {
     const streams = await stravaService.fetchActivityStreams(
       accessToken,
-      stravaActivityId
+      stravaActivityId,
+      ['watts', 'heartrate', 'time', 'cadence']
     );
+
+    // Persist raw stream data to subcollection
+    try {
+      const sampleCount = streams.time?.data.length
+        ?? streams.watts?.data.length
+        ?? streams.heartrate?.data.length
+        ?? 0;
+
+      if (sampleCount > 0) {
+        await cyclingService.saveActivityStreams(userId, activityDocId, {
+          activityId: activityDocId,
+          stravaActivityId,
+          watts: streams.watts?.data,
+          heartrate: streams.heartrate?.data,
+          time: streams.time?.data,
+          cadence: streams.cadence?.data,
+          sampleCount,
+        });
+        console.log(
+          `[Strava Webhook] Saved ${sampleCount} stream samples for activity ${stravaActivityId}`
+        );
+      }
+    } catch (streamSaveError) {
+      console.warn(
+        `[Strava Webhook] Failed to save stream data for activity ${stravaActivityId}:`,
+        streamSaveError
+      );
+    }
 
     const updates: Parameters<typeof cyclingService.updateCyclingActivity>[2] = {};
 

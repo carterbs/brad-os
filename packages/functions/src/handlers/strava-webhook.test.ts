@@ -9,6 +9,10 @@ const mockCyclingService = vi.hoisted(() => ({
   getCurrentFTP: vi.fn(),
   createCyclingActivity: vi.fn(),
   deleteCyclingActivity: vi.fn(),
+  updateCyclingActivity: vi.fn(),
+  saveActivityStreams: vi.fn(),
+  getCyclingProfile: vi.fn(),
+  saveVO2MaxEstimate: vi.fn(),
 }));
 
 const mockStravaService = vi.hoisted(() => ({
@@ -16,6 +20,9 @@ const mockStravaService = vi.hoisted(() => ({
   refreshStravaTokens: vi.fn(),
   fetchStravaActivity: vi.fn(),
   processStravaActivity: vi.fn(),
+  fetchActivityStreams: vi.fn(),
+  calculatePeakPower: vi.fn(),
+  calculateHRCompleteness: vi.fn(),
 }));
 
 // Mock firebase before importing the handler
@@ -26,6 +33,9 @@ vi.mock('../firebase.js', () => ({
 
 vi.mock('../services/firestore-cycling.service.js', () => mockCyclingService);
 vi.mock('../services/strava.service.js', () => mockStravaService);
+vi.mock('../services/vo2max.service.js', () => ({
+  estimateVO2MaxFromPeakPower: vi.fn(),
+}));
 
 // Import after mocks
 import { stravaWebhookApp } from './strava-webhook.js';
@@ -301,6 +311,84 @@ describe('Strava Webhook Handler', () => {
       expect(mockStravaService.fetchStravaActivity).toHaveBeenCalledWith(
         'new-token',
         999
+      );
+    });
+
+    it('should save stream data during activity enrichment', async () => {
+      mockCyclingService.getCyclingActivityByStravaId.mockResolvedValue(null);
+      mockCyclingService.getStravaTokens.mockResolvedValue({
+        accessToken: 'token',
+        refreshToken: 'refresh',
+        expiresAt: Math.floor(Date.now() / 1000) + 3600,
+        athleteId: 12345,
+      });
+      mockCyclingService.getCurrentFTP.mockResolvedValue({ value: 250 });
+      mockStravaService.areTokensExpired.mockReturnValue(false);
+      mockStravaService.fetchStravaActivity.mockResolvedValue({
+        id: 999,
+        type: 'VirtualRide',
+        moving_time: 3600,
+        elapsed_time: 3600,
+        average_watts: 200,
+        start_date: '2024-01-15T10:00:00Z',
+      });
+      mockStravaService.processStravaActivity.mockReturnValue({
+        stravaId: 999,
+        userId: '12345',
+        date: '2024-01-15T10:00:00Z',
+        durationMinutes: 60,
+        avgPower: 200,
+        normalizedPower: 200,
+        maxPower: 0,
+        avgHeartRate: 0,
+        maxHeartRate: 0,
+        tss: 64,
+        intensityFactor: 0.8,
+        type: 'fun',
+        source: 'strava',
+        createdAt: '2024-01-15T12:00:00Z',
+      });
+      mockCyclingService.createCyclingActivity.mockResolvedValue({ id: 'new-activity-id' });
+      mockStravaService.fetchActivityStreams.mockResolvedValue({
+        watts: { data: [150, 160, 170], series_type: 'distance', original_size: 3, resolution: 'high' },
+        heartrate: { data: [130, 135, 140], series_type: 'distance', original_size: 3, resolution: 'high' },
+        time: { data: [0, 1, 2], series_type: 'distance', original_size: 3, resolution: 'high' },
+        cadence: { data: [80, 82, 85], series_type: 'distance', original_size: 3, resolution: 'high' },
+      });
+      mockStravaService.calculatePeakPower.mockReturnValue(0);
+      mockStravaService.calculateHRCompleteness.mockReturnValue(100);
+      mockCyclingService.updateCyclingActivity.mockResolvedValue(true);
+      mockCyclingService.saveActivityStreams.mockResolvedValue(undefined);
+      mockCyclingService.getCyclingProfile.mockResolvedValue(null);
+
+      const response = await request(stravaWebhookApp)
+        .post('/webhook')
+        .send({
+          aspect_type: 'create',
+          event_time: 1705320000,
+          object_id: 999,
+          object_type: 'activity',
+          owner_id: 12345,
+          subscription_id: 1,
+        });
+
+      expect(response.status).toBe(200);
+
+      // Wait for async processing
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      expect(mockCyclingService.saveActivityStreams).toHaveBeenCalledWith(
+        '12345',
+        'new-activity-id',
+        expect.objectContaining({
+          activityId: 'new-activity-id',
+          stravaActivityId: 999,
+          watts: [150, 160, 170],
+          heartrate: [130, 135, 140],
+          time: [0, 1, 2],
+          cadence: [80, 82, 85],
+          sampleCount: 3,
+        })
       );
     });
 

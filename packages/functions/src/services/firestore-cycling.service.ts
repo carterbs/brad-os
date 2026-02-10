@@ -23,6 +23,7 @@ import type {
   StravaTokens,
   VO2MaxEstimate,
   CyclingProfile,
+  ActivityStreamData,
   CreateFTPEntryInput,
   CreateTrainingBlockInput,
   CreateWeightGoalInput,
@@ -249,8 +250,83 @@ export async function deleteCyclingActivity(
     return false;
   }
 
+  // Delete streams subcollection doc if it exists
+  const streamsDocRef = docRef.collection('streams').doc('data');
+  const streamsDoc = await streamsDocRef.get();
+  if (streamsDoc.exists) {
+    await streamsDocRef.delete();
+  }
+
   await docRef.delete();
   return true;
+}
+
+// ============ Activity Streams ============
+
+/**
+ * Save raw stream data for a cycling activity.
+ *
+ * @param userId - The user ID
+ * @param activityId - The cycling activity document ID
+ * @param streams - The stream data to save
+ */
+export async function saveActivityStreams(
+  userId: string,
+  activityId: string,
+  streams: Omit<ActivityStreamData, 'createdAt'>
+): Promise<void> {
+  const userDoc = getUserDoc(userId);
+  const streamData: ActivityStreamData = {
+    ...streams,
+    createdAt: new Date().toISOString(),
+  };
+
+  await userDoc
+    .collection('cyclingActivities')
+    .doc(activityId)
+    .collection('streams')
+    .doc('data')
+    .set(streamData);
+}
+
+/**
+ * Get raw stream data for a cycling activity.
+ *
+ * @param userId - The user ID
+ * @param activityId - The cycling activity document ID
+ * @returns The stream data or null if not found
+ */
+export async function getActivityStreams(
+  userId: string,
+  activityId: string
+): Promise<ActivityStreamData | null> {
+  const userDoc = getUserDoc(userId);
+  const doc = await userDoc
+    .collection('cyclingActivities')
+    .doc(activityId)
+    .collection('streams')
+    .doc('data')
+    .get();
+
+  if (!doc.exists) {
+    return null;
+  }
+
+  const data = doc.data();
+  if (!data) {
+    return null;
+  }
+
+  return {
+    activityId: data['activityId'] as string,
+    stravaActivityId: data['stravaActivityId'] as number,
+    watts: data['watts'] as number[] | undefined,
+    heartrate: data['heartrate'] as number[] | undefined,
+    time: data['time'] as number[] | undefined,
+    cadence: data['cadence'] as number[] | undefined,
+    sampleCount: data['sampleCount'] as number,
+    createdAt: data['createdAt'] as string,
+  };
 }
 
 // ============ FTP History ============

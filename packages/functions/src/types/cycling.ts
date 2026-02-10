@@ -46,6 +46,21 @@ export interface CyclingActivity {
   createdAt: string; // ISO 8601 timestamp
 }
 
+/**
+ * Raw time-series stream data stored per activity.
+ * Stored in subcollection: cyclingActivities/{activityId}/streams/data
+ */
+export interface ActivityStreamData {
+  activityId: string;
+  stravaActivityId: number;
+  watts?: number[];
+  heartrate?: number[];
+  time?: number[];
+  cadence?: number[];
+  sampleCount: number;
+  createdAt: string;
+}
+
 // --- Training Block Types ---
 
 export type TrainingGoal = 'regain_fitness' | 'maintain_muscle' | 'lose_weight';

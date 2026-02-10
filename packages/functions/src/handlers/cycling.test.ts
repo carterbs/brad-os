@@ -34,7 +34,19 @@ const mockCyclingService = vi.hoisted(() => ({
   updateTrainingBlockWeek: vi.fn(),
   getWeightGoal: vi.fn(),
   setWeightGoal: vi.fn(),
+  getActivityStreams: vi.fn(),
+  saveActivityStreams: vi.fn(),
+  getStravaTokens: vi.fn(),
+  setStravaTokens: vi.fn(),
 }));
+
+const mockStravaService = vi.hoisted(() => ({
+  areTokensExpired: vi.fn(),
+  refreshStravaTokens: vi.fn(),
+  fetchActivityStreams: vi.fn(),
+}));
+
+vi.mock('../services/strava.service.js', () => mockStravaService);
 
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({
@@ -615,6 +627,118 @@ describe('Cycling Handler', () => {
       const body = response.body as ApiResponse;
 
       expect(response.status).toBe(400);
+      expect(body.success).toBe(false);
+    });
+  });
+
+  describe('GET /cycling/activities/:id/streams', () => {
+    it('should return streams for an activity', async () => {
+      const activity = createTestActivity({ id: 'activity-123' });
+      mockCyclingService.getCyclingActivityById.mockResolvedValue(activity);
+      mockCyclingService.getActivityStreams.mockResolvedValue({
+        activityId: 'activity-123',
+        stravaActivityId: 12345,
+        watts: [150, 160, 170],
+        heartrate: [130, 135, 140],
+        time: [0, 1, 2],
+        sampleCount: 3,
+        createdAt: '2024-01-15T12:00:00.000Z',
+      });
+
+      const response = await request(cyclingApp).get('/activities/activity-123/streams');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        success: true,
+        data: {
+          activityId: 'activity-123',
+          stravaActivityId: 12345,
+          watts: [150, 160, 170],
+          heartrate: [130, 135, 140],
+          time: [0, 1, 2],
+          sampleCount: 3,
+          createdAt: '2024-01-15T12:00:00.000Z',
+        },
+      });
+    });
+
+    it('should return 404 when activity not found', async () => {
+      mockCyclingService.getCyclingActivityById.mockResolvedValue(null);
+
+      const response = await request(cyclingApp).get('/activities/non-existent/streams');
+
+      expect(response.status).toBe(404);
+    });
+
+    it('should return 404 when streams not found', async () => {
+      const activity = createTestActivity({ id: 'activity-123' });
+      mockCyclingService.getCyclingActivityById.mockResolvedValue(activity);
+      mockCyclingService.getActivityStreams.mockResolvedValue(null);
+
+      const response = await request(cyclingApp).get('/activities/activity-123/streams');
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Streams for activity activity-123 not found',
+        },
+      });
+    });
+  });
+
+  describe('POST /cycling/activities/backfill-streams', () => {
+    it('should backfill streams for activities without them', async () => {
+      const activities = [
+        createTestActivity({ id: 'a1', stravaId: 111 }),
+        createTestActivity({ id: 'a2', stravaId: 222 }),
+      ];
+      mockCyclingService.getStravaTokens.mockResolvedValue({
+        accessToken: 'token',
+        refreshToken: 'refresh',
+        expiresAt: Math.floor(Date.now() / 1000) + 3600,
+        athleteId: 12345,
+      });
+      mockStravaService.areTokensExpired.mockReturnValue(false);
+      mockCyclingService.getCyclingActivities.mockResolvedValue(activities);
+      // First activity has no streams, second already has them
+      mockCyclingService.getActivityStreams
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ activityId: 'a2', sampleCount: 100 });
+      mockStravaService.fetchActivityStreams.mockResolvedValue({
+        watts: { data: [100, 110], series_type: 'distance', original_size: 2, resolution: 'high' },
+        heartrate: { data: [120, 125], series_type: 'distance', original_size: 2, resolution: 'high' },
+        time: { data: [0, 1], series_type: 'distance', original_size: 2, resolution: 'high' },
+      });
+      mockCyclingService.saveActivityStreams.mockResolvedValue(undefined);
+
+      const response = await request(cyclingApp).post('/activities/backfill-streams');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        success: true,
+        data: { backfilled: 1, skipped: 1, failed: 0 },
+      });
+      expect(mockCyclingService.saveActivityStreams).toHaveBeenCalledTimes(1);
+      expect(mockCyclingService.saveActivityStreams).toHaveBeenCalledWith(
+        'default-user',
+        'a1',
+        expect.objectContaining({
+          activityId: 'a1',
+          stravaActivityId: 111,
+          sampleCount: 2,
+        })
+      );
+    });
+
+    it('should return 400 when Strava not connected', async () => {
+      mockCyclingService.getStravaTokens.mockResolvedValue(null);
+
+      const response = await request(cyclingApp).post('/activities/backfill-streams');
+
+      expect(response.status).toBe(400);
+      const body = response.body as ApiResponse;
       expect(body.success).toBe(false);
     });
   });

@@ -69,6 +69,102 @@ app.get(
   })
 );
 
+// POST /cycling/activities/backfill-streams
+// Must be registered BEFORE /activities/:id so Express doesn't treat "backfill-streams" as an :id param
+app.post(
+  '/activities/backfill-streams',
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const userId = getUserId(req);
+
+    // Get Strava tokens
+    const tokens = await cyclingService.getStravaTokens(userId);
+    if (tokens === null) {
+      res.status(400).json({
+        success: false,
+        error: 'Strava not connected. Please connect Strava first.',
+      });
+      return;
+    }
+
+    // Refresh tokens if needed
+    let accessToken = tokens.accessToken;
+    if (stravaService.areTokensExpired(tokens)) {
+      const clientId = process.env['STRAVA_CLIENT_ID'] ?? '';
+      const clientSecret = process.env['STRAVA_CLIENT_SECRET'] ?? '';
+
+      if (!clientId || !clientSecret) {
+        res.status(500).json({
+          success: false,
+          error: 'Strava credentials not configured on server.',
+        });
+        return;
+      }
+
+      const newTokens = await stravaService.refreshStravaTokens(
+        clientId,
+        clientSecret,
+        tokens.refreshToken
+      );
+      await cyclingService.setStravaTokens(userId, newTokens);
+      accessToken = newTokens.accessToken;
+    }
+
+    // Fetch all activities
+    const activities = await cyclingService.getCyclingActivities(userId);
+
+    let backfilled = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (const activity of activities) {
+      // Check if streams already exist
+      const existing = await cyclingService.getActivityStreams(userId, activity.id);
+      if (existing !== null) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        const streams = await stravaService.fetchActivityStreams(
+          accessToken,
+          activity.stravaId,
+          ['watts', 'heartrate', 'time', 'cadence']
+        );
+
+        const sampleCount = streams.time?.data.length
+          ?? streams.watts?.data.length
+          ?? streams.heartrate?.data.length
+          ?? 0;
+
+        if (sampleCount > 0) {
+          await cyclingService.saveActivityStreams(userId, activity.id, {
+            activityId: activity.id,
+            stravaActivityId: activity.stravaId,
+            watts: streams.watts?.data,
+            heartrate: streams.heartrate?.data,
+            time: streams.time?.data,
+            cadence: streams.cadence?.data,
+            sampleCount,
+          });
+          backfilled++;
+        } else {
+          skipped++;
+        }
+
+        // Rate limit: 1 second delay between Strava API calls
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      } catch {
+        failed++;
+      }
+    }
+
+    res.json({
+      success: true,
+      data: { backfilled, skipped, failed },
+    });
+  })
+);
+
 // GET /cycling/activities/:id
 app.get(
   '/activities/:id',
@@ -83,6 +179,32 @@ app.get(
     }
 
     res.json({ success: true, data: activity });
+  })
+);
+
+// GET /cycling/activities/:id/streams
+app.get(
+  '/activities/:id/streams',
+  asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+    const userId = getUserId(req);
+    const id = req.params['id'] ?? '';
+
+    const activity = await cyclingService.getCyclingActivityById(userId, id);
+    if (activity === null) {
+      next(new NotFoundError('CyclingActivity', id));
+      return;
+    }
+
+    const streams = await cyclingService.getActivityStreams(userId, id);
+    if (streams === null) {
+      res.status(404).json({
+        success: false,
+        error: { code: 'NOT_FOUND', message: `Streams for activity ${id} not found` },
+      });
+      return;
+    }
+
+    res.json({ success: true, data: streams });
   })
 );
 
