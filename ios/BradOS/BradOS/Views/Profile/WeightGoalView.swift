@@ -19,7 +19,13 @@ struct WeightGoalView: View {
                         weightTrendChart
                     }
 
-                    // Prediction
+                    // 2-week projection summary (shown even without a goal)
+                    if let projected = viewModel.twoWeekProjectedWeight,
+                       let slope = viewModel.trendSlope {
+                        twoWeekProjectionSection(projected: projected, weeklyRate: slope * 7)
+                    }
+
+                    // Prediction (requires a goal)
                     if let prediction = viewModel.prediction {
                         predictionSection(prediction)
                     }
@@ -174,6 +180,19 @@ struct WeightGoalView: View {
                         .lineStyle(StrokeStyle(lineWidth: 2))
                     }
 
+                    // 2-week projected trend (dashed)
+                    if !viewModel.projectedTrendPoints.isEmpty {
+                        ForEach(viewModel.projectedTrendPoints) { point in
+                            LineMark(
+                                x: .value("Date", point.date),
+                                y: .value("Weight", point.weight)
+                            )
+                            .foregroundStyle(Theme.interactivePrimary.opacity(0.35))
+                            .interpolationMethod(.linear)
+                            .lineStyle(StrokeStyle(lineWidth: 2, dash: [6, 4]))
+                        }
+                    }
+
                     // Goal line
                     if let target = Double(viewModel.targetWeight), target > 0 {
                         RuleMark(y: .value("Goal", target))
@@ -265,6 +284,17 @@ struct WeightGoalView: View {
                             .foregroundStyle(Theme.textTertiary)
                     }
 
+                    if !viewModel.projectedTrendPoints.isEmpty {
+                        HStack(spacing: Theme.Spacing.space1) {
+                            RoundedRectangle(cornerRadius: 1)
+                                .stroke(Theme.interactivePrimary.opacity(0.35), style: StrokeStyle(lineWidth: 2, dash: [4, 3]))
+                                .frame(width: 16, height: 2)
+                            Text("Projection")
+                                .font(.caption)
+                                .foregroundStyle(Theme.textTertiary)
+                        }
+                    }
+
                     if Double(viewModel.targetWeight) != nil {
                         HStack(spacing: Theme.Spacing.space1) {
                             RoundedRectangle(cornerRadius: 1)
@@ -278,6 +308,66 @@ struct WeightGoalView: View {
                 }
             }
             .glassCard()
+        }
+    }
+
+    // MARK: - 2-Week Projection Section
+
+    @ViewBuilder
+    private func twoWeekProjectionSection(projected: Double, weeklyRate: Double) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
+            SectionHeader(title: "2-Week Projection")
+
+            VStack(spacing: 0) {
+                // Current rate
+                HStack {
+                    Image(systemName: weeklyRate < 0 ? "arrow.down.right" : "arrow.up.right")
+                        .font(.system(size: Theme.Typography.iconMD))
+                        .foregroundStyle(Theme.interactivePrimary)
+                        .frame(width: Theme.Dimensions.iconFrameMD, height: Theme.Dimensions.iconFrameMD)
+                        .background(Theme.interactivePrimary.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: Theme.Spacing.space1) {
+                        Text("Current Rate")
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.textPrimary)
+                        Text(String(format: "%.1f lbs/week", abs(weeklyRate)))
+                            .font(.caption)
+                            .monospacedDigit()
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    Spacer()
+                }
+                .padding(Theme.Spacing.space4)
+                .frame(minHeight: Theme.Dimensions.listRowMinHeight)
+
+                Divider().background(Theme.divider)
+
+                // Projected weight in 2 weeks
+                HStack {
+                    Image(systemName: "sparkle")
+                        .font(.system(size: Theme.Typography.iconMD))
+                        .foregroundStyle(Theme.interactivePrimary)
+                        .frame(width: Theme.Dimensions.iconFrameMD, height: Theme.Dimensions.iconFrameMD)
+                        .background(Theme.interactivePrimary.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: Theme.Spacing.space1) {
+                        Text("Projected Weight")
+                            .font(.subheadline)
+                            .foregroundStyle(Theme.textPrimary)
+                        Text(String(format: "~%.0f lbs in 2 weeks", projected))
+                            .font(.caption)
+                            .monospacedDigit()
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                    Spacer()
+                }
+                .padding(Theme.Spacing.space4)
+                .frame(minHeight: Theme.Dimensions.listRowMinHeight)
+            }
+            .glassCard(.card, padding: 0)
         }
     }
 

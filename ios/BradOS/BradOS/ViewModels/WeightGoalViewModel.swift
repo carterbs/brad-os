@@ -50,6 +50,7 @@ class WeightGoalViewModel {
     var targetWeight: String = ""
     var targetDate = Date().addingTimeInterval(60 * 60 * 24 * 56) // 8 weeks default
     var prediction: WeightPrediction?
+    var trendSlope: Double?              // lbs/day from regression (independent of goal)
     var existingGoal: WeightGoalResponse?
     var isLoading = false
     var isSaving = false
@@ -72,6 +73,29 @@ class WeightGoalViewModel {
 
     var hasGoal: Bool {
         Double(targetWeight) != nil
+    }
+
+    /// 14-day projected trend line from regression, starting at last smoothed point
+    var projectedTrendPoints: [WeightChartPoint] {
+        guard let slope = trendSlope,
+              let lastPoint = allSmoothedHistory.last,
+              abs(slope) > 0.001 else { return [] }
+
+        // Include the last real point so the line connects seamlessly
+        var points = [WeightChartPoint(date: lastPoint.date, weight: lastPoint.weight)]
+        for day in 1...14 {
+            guard let date = Calendar.current.date(byAdding: .day, value: day, to: lastPoint.date) else { continue }
+            points.append(WeightChartPoint(date: date, weight: lastPoint.weight + slope * Double(day)))
+        }
+        return points
+    }
+
+    /// Projected weight 2 weeks from now based on current trend
+    var twoWeekProjectedWeight: Double? {
+        guard let slope = trendSlope,
+              let lastPoint = allSmoothedHistory.last,
+              abs(slope) > 0.001 else { return nil }
+        return lastPoint.weight + slope * 14
     }
 
     var weeklyRate: Double? {
@@ -112,7 +136,10 @@ class WeightGoalViewModel {
         await apiHistory
         await apiGoal
 
-        // Calculate prediction if we have enough data
+        // Compute trend slope (works without a goal set)
+        updateTrend()
+
+        // Calculate goal prediction if we have a target
         updatePrediction()
     }
 
@@ -192,26 +219,41 @@ class WeightGoalViewModel {
         }
     }
 
+    // MARK: - Trend (independent of goal)
+
+    /// Compute regression slope from recent smoothed data. Requires at least 7 data points.
+    func updateTrend() {
+        let recentPoints = Array(allSmoothedHistory.suffix(28))
+        guard recentPoints.count >= 7 else {
+            trendSlope = nil
+            return
+        }
+        trendSlope = linearRegression(points: recentPoints).slope
+    }
+
     // MARK: - Prediction via Linear Regression
 
     func updatePrediction() {
-        guard let target = Double(targetWeight), !smoothedHistory.isEmpty else {
+        guard let target = Double(targetWeight), !allSmoothedHistory.isEmpty else {
             prediction = nil
             return
         }
 
-        // Use last 28 days of data for regression (or all if less)
-        let recentPoints = smoothedHistory.suffix(28)
-        guard recentPoints.count >= 3 else {
-            prediction = nil
-            return
+        // Reuse already-computed trend slope, or compute from visible range
+        let dailyRate: Double
+        if let slope = trendSlope {
+            dailyRate = slope
+        } else {
+            let recentPoints = Array(allSmoothedHistory.suffix(28))
+            guard recentPoints.count >= 3 else {
+                prediction = nil
+                return
+            }
+            dailyRate = linearRegression(points: recentPoints).slope
         }
-
-        let regression = linearRegression(points: Array(recentPoints))
-        let dailyRate = regression.slope  // lbs per day
 
         // If rate is zero or moving away from goal, can't predict
-        let current = recentPoints.last!.weight
+        let current = allSmoothedHistory.last!.weight
         let needToLose = current > target
         let movingRight = (needToLose && dailyRate < 0) || (!needToLose && dailyRate > 0)
 
@@ -306,7 +348,7 @@ class WeightGoalViewModel {
     // MARK: - Chart Helpers
 
     var chartYDomain: ClosedRange<Double> {
-        let allWeights = weightHistory.map(\.weight)
+        let allWeights = weightHistory.map(\.weight) + projectedTrendPoints.map(\.weight)
         var minWeight = allWeights.min() ?? 150
         var maxWeight = allWeights.max() ?? 200
 
