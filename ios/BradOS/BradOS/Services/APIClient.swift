@@ -711,6 +711,10 @@ final class APIClient: APIClientProtocol {
         try await post("/cycling-coach/recommend", body: body)
     }
 
+    func getTodayCoachRecommendation(_ body: CyclingCoachRequestBody) async throws -> TodayCoachRecommendation {
+        try await post("/today-coach/recommend", body: body)
+    }
+
     func completeBlock(id: String) async throws {
         struct CompleteResponse: Decodable { let completed: Bool }
         let _: CompleteResponse = try await put("/cycling/block/\(id)/complete")
