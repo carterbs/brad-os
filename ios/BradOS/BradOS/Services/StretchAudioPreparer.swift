@@ -18,7 +18,8 @@ enum SharedStretchCue: String, CaseIterable {
 
 /// Pre-fetched audio URLs for a stretch session
 struct PreparedStretchAudio {
-    let stretchAudio: [String: URL] // stretchId -> cached MP3 URL
+    let stretchAudio: [String: URL] // stretchId -> cached MP3 URL (full instructions)
+    let stretchNameAudio: [String: URL] // stretchId -> cached MP3 URL (name only)
     let switchSidesURL: URL
     let halfwayURL: URL
     let sessionCompleteURL: URL
@@ -47,13 +48,16 @@ final class StretchAudioPreparer: ObservableObject {
         progress = 0
         error = nil
 
-        let totalItems = stretches.count + SharedStretchCue.allCases.count
+        // Each stretch needs 2 clips (name + full), plus shared cues
+        let totalItems = (stretches.count * 2) + SharedStretchCue.allCases.count
         var completedItems = 0
 
-        // Prepare stretch narration audio
+        // Prepare stretch narration audio (full instructions + name only)
         var stretchAudio: [String: URL] = [:]
+        var stretchNameAudio: [String: URL] = [:]
 
         for stretch in stretches {
+            // Full narration (name + region + description)
             do {
                 let narrationText = "\(stretch.definition.name). \(stretch.region.displayName). \(stretch.definition.description)"
                 let url = try await cache.getOrFetch(
@@ -62,8 +66,22 @@ final class StretchAudioPreparer: ObservableObject {
                 )
                 stretchAudio[stretch.definition.id] = url
             } catch {
-                // Skip this stretch's narration on failure — session can still run
                 print("StretchAudioPreparer: Failed to prepare audio for \(stretch.definition.id): \(error)")
+            }
+
+            completedItems += 1
+            progress = Double(completedItems) / Double(totalItems)
+
+            // Name-only clip (just the stretch name)
+            do {
+                let nameText = stretch.definition.name
+                let url = try await cache.getOrFetch(
+                    text: nameText,
+                    using: apiClient
+                )
+                stretchNameAudio[stretch.definition.id] = url
+            } catch {
+                print("StretchAudioPreparer: Failed to prepare name audio for \(stretch.definition.id): \(error)")
             }
 
             completedItems += 1
@@ -94,6 +112,7 @@ final class StretchAudioPreparer: ObservableObject {
               let sessionCompleteURL = sharedURLs[.sessionComplete] else {
             let prepared = PreparedStretchAudio(
                 stretchAudio: stretchAudio,
+                stretchNameAudio: stretchNameAudio,
                 switchSidesURL: sharedURLs[.switchSides] ?? URL(fileURLWithPath: ""),
                 halfwayURL: sharedURLs[.halfway] ?? URL(fileURLWithPath: ""),
                 sessionCompleteURL: sharedURLs[.sessionComplete] ?? URL(fileURLWithPath: "")
@@ -104,6 +123,7 @@ final class StretchAudioPreparer: ObservableObject {
 
         return PreparedStretchAudio(
             stretchAudio: stretchAudio,
+            stretchNameAudio: stretchNameAudio,
             switchSidesURL: switchSidesURL,
             halfwayURL: halfwayURL,
             sessionCompleteURL: sessionCompleteURL

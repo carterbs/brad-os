@@ -240,9 +240,9 @@ class StretchSessionManager: ObservableObject {
         updateNowPlayingInfo()
         startNowPlayingUpdates()
 
-        // Play first stretch narration ASYNCHRONOUSLY (timer continues during playback)
+        // Play just the stretch name (timer continues during playback)
         let firstStretch = selectedStretches[0]
-        audioManager.playNarrationAsync(audioManager.audioURL(for: firstStretch.definition.id))
+        audioManager.playNarrationAsync(audioManager.nameAudioURL(for: firstStretch.definition.id))
     }
 
     /// Restore a session from saved state
@@ -358,6 +358,13 @@ class StretchSessionManager: ObservableObject {
         Task {
             await advanceToNextStretch()
         }
+    }
+
+    /// Play the full narration (name + region + instructions) for the current stretch on demand
+    func playFullNarration() {
+        guard status == .active || status == .paused,
+              let stretch = currentStretch else { return }
+        audioManager.playNarrationAsync(audioManager.audioURL(for: stretch.id))
     }
 
     /// End the session early (without saving) - resets directly to idle
@@ -536,9 +543,9 @@ class StretchSessionManager: ObservableObject {
 
             updateNowPlayingInfo()
 
-            // Play next stretch narration ASYNCHRONOUSLY (timer continues during playback)
+            // Play just the stretch name ASYNCHRONOUSLY (timer continues during playback)
             if let nextStretch = currentStretch {
-                audioManager.playNarrationAsync(audioManager.audioURL(for: nextStretch.id))
+                audioManager.playNarrationAsync(audioManager.nameAudioURL(for: nextStretch.id))
             }
         }
     }

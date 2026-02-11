@@ -214,6 +214,7 @@ struct StretchView: View {
         preparationTask = Task {
             let audio = (try? await audioPreparer.prepareAudio(for: sessionManager.selectedStretches)) ?? PreparedStretchAudio(
                 stretchAudio: [:],
+                stretchNameAudio: [:],
                 switchSidesURL: URL(fileURLWithPath: ""),
                 halfwayURL: URL(fileURLWithPath: ""),
                 sessionCompleteURL: URL(fileURLWithPath: "")
@@ -982,6 +983,19 @@ struct StretchActiveView: View {
                 .accessibilityLabel("End Session")
                 .accessibilityHint("End the stretching session early")
             }
+
+            // Play full instructions button
+            Button(action: { sessionManager.playFullNarration() }) {
+                HStack(spacing: Theme.Spacing.space2) {
+                    Image(systemName: "speaker.wave.2.fill")
+                        .font(.subheadline)
+                    Text("Play Instructions")
+                        .font(.subheadline)
+                }
+            }
+            .buttonStyle(GlassSecondaryButtonStyle())
+            .accessibilityLabel("Play Instructions")
+            .accessibilityHint("Play the full narration for this stretch")
 
             // Skip entire stretch button
             Button(action: { sessionManager.skipStretch() }) {

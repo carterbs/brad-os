@@ -64,9 +64,14 @@ class StretchAudioManager: ObservableObject {
         self.preparedAudio = prepared
     }
 
-    /// Get cached audio URL for a specific stretch
+    /// Get cached audio URL for a specific stretch (full instructions)
     func audioURL(for stretchId: String) -> URL? {
         preparedAudio?.stretchAudio[stretchId]
+    }
+
+    /// Get cached audio URL for a stretch name announcement only
+    func nameAudioURL(for stretchId: String) -> URL? {
+        preparedAudio?.stretchNameAudio[stretchId]
     }
 
     /// Get cached audio URL for a shared cue
