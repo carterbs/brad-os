@@ -58,10 +58,16 @@ export function buildTodayCoachSystemPrompt(): string {
 - Use these trends to give specific numbers: "Your HRV is averaging Xms this week vs Yms over the last month"
 
 ## Lifting Context
-- If a workout is scheduled today, mention it and the progressive overload context
-- Deload week (week 7): volume is halved — mention the recovery opportunity
+- If a workout is scheduled today, ALWAYS include the workout object with all fields from todaysWorkout
+- Mention the plan day name (e.g., "Push Day", "Pull Day", "Leg Day") and progressive overload context
+- Progressive overload pattern:
+  - Odd weeks (1, 3, 5): Add 1 rep per set
+  - Even weeks (2, 4, 6): Add weight (typically 5 lbs)
+  - Week 7: Deload (50% volume) — emphasize recovery opportunity
+- Use liftingHistory to reference recent performance and trends
+- Use mesocycleContext for week-in-cycle awareness
+- Connect heavy lifting sessions to stretching needs (e.g., "After yesterday's leg day, stretching is a priority")
 - If no workout today, don't force a lifting section — focus on other domains
-- Connect heavy lifting sessions to stretching needs
 
 ## Cycling Recommendations
 - If cycling context is provided (FTP set up), include Peloton class type recommendations
@@ -141,6 +147,13 @@ Respond with a valid JSON object matching this exact schema:
     },
     "lifting": {
       "insight": "1-2 sentence insight about today's lifting",
+      "workout": {
+        "planDayName": "string (from todaysWorkout.planDayName)",
+        "weekNumber": number (from todaysWorkout.weekNumber),
+        "isDeload": boolean (from todaysWorkout.isDeload),
+        "exerciseCount": number (from todaysWorkout.exerciseCount),
+        "status": "pending" | "in_progress" | "completed" | "skipped"
+      } | null,
       "priority": "high" | "normal" | "rest"
     } | null,
     "cycling": {
@@ -174,6 +187,7 @@ Respond with a valid JSON object matching this exact schema:
 
 Important:
 - lifting section is null if no workout is scheduled today
+- If lifting section exists, workout object MUST be populated with all fields from todaysWorkout
 - cycling section is null if cycling is not set up (no FTP)
 - weight section is null if no weight data available
 - warnings is an empty array if no warnings
@@ -220,6 +234,16 @@ export function isValidTodayCoachResponse(data: unknown): data is TodayCoachResp
     if (typeof lifting['insight'] !== 'string') return false;
     const validPriorities = ['high', 'normal', 'rest'];
     if (!validPriorities.includes(lifting['priority'] as string)) return false;
+    // Workout details (nullable within lifting section)
+    if (lifting['workout'] !== null && lifting['workout'] !== undefined) {
+      const workout = lifting['workout'] as Record<string, unknown>;
+      if (typeof workout['planDayName'] !== 'string') return false;
+      if (typeof workout['weekNumber'] !== 'number') return false;
+      if (typeof workout['isDeload'] !== 'boolean') return false;
+      if (typeof workout['exerciseCount'] !== 'number') return false;
+      const validStatuses = ['pending', 'in_progress', 'completed', 'skipped'];
+      if (!validStatuses.includes(workout['status'] as string)) return false;
+    }
   }
 
   // Cycling section (nullable)
@@ -351,6 +375,13 @@ export function createFallbackResponse(request: TodayCoachRequest): TodayCoachRe
     },
     lifting: request.todaysWorkout !== null ? {
       insight: `${request.todaysWorkout.planDayName} scheduled${request.todaysWorkout.isDeload ? ' (deload week)' : ''}.`,
+      workout: {
+        planDayName: request.todaysWorkout.planDayName,
+        weekNumber: request.todaysWorkout.weekNumber,
+        isDeload: request.todaysWorkout.isDeload,
+        exerciseCount: request.todaysWorkout.exerciseCount,
+        status: request.todaysWorkout.status,
+      },
       priority: state === 'recover' ? 'rest' : 'normal',
     } : null,
     cycling: request.cyclingContext !== null ? {

@@ -28,10 +28,19 @@ struct TodayCoachRecommendation: Codable, Equatable {
 
     struct LiftingSection: Codable, Equatable {
         let insight: String
+        let workout: WorkoutDetails?
         let priority: String // high, normal, rest
 
         var liftingPriority: CoachPriority {
             CoachPriority(rawValue: priority) ?? .normal
+        }
+
+        struct WorkoutDetails: Codable, Equatable {
+            let planDayName: String
+            let weekNumber: Int
+            let isDeload: Bool
+            let exerciseCount: Int
+            let status: String // pending, in_progress, completed, skipped
         }
     }
 

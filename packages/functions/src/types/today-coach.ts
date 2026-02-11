@@ -163,6 +163,13 @@ export interface TodayCoachRecoverySection {
  */
 export interface TodayCoachLiftingSection {
   insight: string;
+  workout: {
+    planDayName: string;
+    weekNumber: number;
+    isDeload: boolean;
+    exerciseCount: number;
+    status: 'pending' | 'in_progress' | 'completed' | 'skipped';
+  } | null;
   priority: 'high' | 'normal' | 'rest';
 }
 

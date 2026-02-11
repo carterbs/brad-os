@@ -142,6 +142,69 @@ struct TodayCoachDetailView: View {
                 .foregroundColor(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            // Workout details if available
+            if let workout = lifting.workout {
+                Divider().overlay(Theme.divider)
+
+                VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
+                    HStack {
+                        Image(systemName: workout.isDeload ? "figure.cooldown" : "dumbbell.fill")
+                            .font(.title3)
+                            .foregroundStyle(Theme.lifting)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(workout.planDayName)
+                                .font(.headline)
+                                .foregroundColor(Theme.textPrimary)
+                            Text(workout.isDeload ? "Deload Week" : "Week \(workout.weekNumber)")
+                                .font(.subheadline)
+                                .foregroundStyle(workout.isDeload ? Theme.warning : Theme.textSecondary)
+                        }
+
+                        Spacer()
+
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text("\(workout.exerciseCount)")
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .foregroundStyle(Theme.textPrimary)
+                            Text(workout.exerciseCount == 1 ? "exercise" : "exercises")
+                                .font(.caption)
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+
+                    // Workout status
+                    if workout.status == "completed" {
+                        HStack(spacing: Theme.Spacing.space2) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.caption)
+                                .foregroundStyle(Theme.success)
+                            Text("Workout completed")
+                                .font(.footnote)
+                                .foregroundStyle(Theme.success)
+                        }
+                        .padding(Theme.Spacing.space2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Theme.success.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+                    } else if workout.status == "in_progress" {
+                        HStack(spacing: Theme.Spacing.space2) {
+                            Image(systemName: "arrow.clockwise.circle.fill")
+                                .font(.caption)
+                                .foregroundStyle(Theme.info)
+                            Text("Workout in progress")
+                                .font(.footnote)
+                                .foregroundStyle(Theme.info)
+                        }
+                        .padding(Theme.Spacing.space2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Theme.info.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+                    }
+                }
+            }
+
             priorityBadge(lifting.liftingPriority)
         }
         .glassCard()

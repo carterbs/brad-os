@@ -212,8 +212,8 @@ struct TodayCoachCard: View {
                         icon: "dumbbell.fill",
                         title: "Lifting",
                         insight: lifting.insight,
-                        trailingText: priorityLabel(lifting.liftingPriority),
-                        color: priorityColor(lifting.liftingPriority)
+                        trailingText: lifting.workout?.planDayName ?? priorityLabel(lifting.liftingPriority),
+                        color: Theme.lifting
                     )
                 }
 
