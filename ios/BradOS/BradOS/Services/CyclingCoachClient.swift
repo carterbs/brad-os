@@ -130,6 +130,14 @@ class CyclingCoachClient: ObservableObject {
     // MARK: - Private Properties
 
     private let apiClient: APIClient
+    private var cacheTimestamp: Date?
+    private let cacheTTL: TimeInterval = 1800 // 30 min
+
+    /// Whether the cached recommendation is still fresh
+    var hasFreshCache: Bool {
+        guard recommendation != nil, let timestamp = cacheTimestamp else { return false }
+        return Date().timeIntervalSince(timestamp) < cacheTTL
+    }
 
     // MARK: - Initialization
 
@@ -139,8 +147,14 @@ class CyclingCoachClient: ObservableObject {
 
     // MARK: - Public Methods
 
-    /// Get a training recommendation from the AI coach
+    /// Get a training recommendation from the AI coach (returns cached if fresh)
     func getRecommendation(recovery: RecoveryData) async throws -> CyclingCoachRecommendation {
+        // Return cached recommendation if still fresh
+        if hasFreshCache, let cached = recommendation {
+            print("[CyclingCoachClient] Returning cached recommendation (\(Int(Date().timeIntervalSince(cacheTimestamp!)))s old)")
+            return cached
+        }
+
         isLoading = true
         error = nil
         defer { isLoading = false }
@@ -167,6 +181,7 @@ class CyclingCoachClient: ObservableObject {
         do {
             let response = try await apiClient.getCoachRecommendation(requestBody)
             recommendation = response
+            cacheTimestamp = Date()
             return response
         } catch let apiError as APIError {
             error = apiError.localizedDescription
@@ -175,6 +190,11 @@ class CyclingCoachClient: ObservableObject {
             self.error = error.localizedDescription
             throw error
         }
+    }
+
+    /// Invalidate the cached recommendation so next call fetches fresh
+    func invalidateCache() {
+        cacheTimestamp = nil
     }
 
     /// Generate a weekly schedule from the AI coach

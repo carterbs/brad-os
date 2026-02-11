@@ -15,6 +15,14 @@ class TodayCoachClient: ObservableObject {
     // MARK: - Private Properties
 
     private let apiClient: APIClient
+    private var cacheTimestamp: Date?
+    private let cacheTTL: TimeInterval = 1800 // 30 min
+
+    /// Whether the cached recommendation is still fresh
+    var hasFreshCache: Bool {
+        guard recommendation != nil, let timestamp = cacheTimestamp else { return false }
+        return Date().timeIntervalSince(timestamp) < cacheTTL
+    }
 
     // MARK: - Initialization
 
@@ -24,8 +32,14 @@ class TodayCoachClient: ObservableObject {
 
     // MARK: - Public Methods
 
-    /// Get a daily briefing from the Today Coach
+    /// Get a daily briefing from the Today Coach (returns cached if fresh)
     func getRecommendation(recovery: RecoveryData) async {
+        // Return cached recommendation if still fresh
+        if hasFreshCache {
+            print("[TodayCoachClient] Returning cached recommendation (\(Int(Date().timeIntervalSince(cacheTimestamp!)))s old)")
+            return
+        }
+
         isLoading = true
         error = nil
         defer { isLoading = false }
@@ -51,11 +65,17 @@ class TodayCoachClient: ObservableObject {
         do {
             let response = try await apiClient.getTodayCoachRecommendation(requestBody)
             recommendation = response
+            cacheTimestamp = Date()
         } catch let apiError as APIError {
             error = apiError.localizedDescription
         } catch {
             self.error = error.localizedDescription
         }
+    }
+
+    /// Invalidate the cached recommendation so next call fetches fresh
+    func invalidateCache() {
+        cacheTimestamp = nil
     }
 
     /// Refresh recommendation using latest recovery data from Firebase

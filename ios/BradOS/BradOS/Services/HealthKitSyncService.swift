@@ -50,8 +50,12 @@ class HealthKitSyncService: ObservableObject {
 
     // MARK: - Public Methods
 
-    /// Sync on app foreground (always syncs)
+    /// Sync only if enough time has passed since last sync
     func syncIfNeeded() async {
+        guard needsSync else {
+            print("[HealthKitSyncService] Skipping sync — last sync was \(Int(Date().timeIntervalSince(lastSyncDate ?? .distantPast)))s ago")
+            return
+        }
         await sync()
     }
 

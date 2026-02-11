@@ -55,6 +55,20 @@ struct TodayCoachCard: View {
     // MARK: - Data Loading
 
     private func loadCoachRecommendation() async {
+        // Skip everything if coach already has a fresh cached recommendation
+        if coachClient.hasFreshCache {
+            // Still load recovery for the badge display if we don't have it
+            if recovery == nil {
+                do {
+                    let snapshot = try await APIClient.shared.getLatestRecovery()
+                    recovery = snapshot?.toRecoveryData()
+                } catch {
+                    print("[TodayCoachCard] Failed to load recovery: \(error)")
+                }
+            }
+            return
+        }
+
         isLoadingRecovery = true
 
         // Initialize sync service if needed
@@ -62,8 +76,8 @@ struct TodayCoachCard: View {
             syncService = HealthKitSyncService(healthKitManager: healthKit)
         }
 
-        // Step 1: Sync HealthKit to Firebase first (ensures fresh data)
-        await syncService?.sync()
+        // Step 1: Sync HealthKit to Firebase only if needed (respects 1-hour interval)
+        await syncService?.syncIfNeeded()
 
         // Step 2: Fetch the latest recovery snapshot from Firebase
         do {
@@ -75,13 +89,15 @@ struct TodayCoachCard: View {
 
         isLoadingRecovery = false
 
-        // Step 3: Call AI coach with fresh recovery data
+        // Step 3: Call AI coach with fresh recovery data (uses its own 30-min cache)
         if let recovery = recovery {
             await coachClient.getRecommendation(recovery: recovery)
         }
     }
 
     func refresh() async {
+        // Force refresh bypasses caches
+        coachClient.invalidateCache()
         await loadCoachRecommendation()
     }
 

@@ -8,6 +8,10 @@ struct TodayDashboardView: View {
     @EnvironmentObject var cyclingViewModel: CyclingViewModel
     @StateObject private var viewModel = DashboardViewModel(apiClient: APIClient.shared)
 
+    /// Track last dashboard load to avoid redundant reloads on foreground
+    @State private var lastLoadTime: Date?
+    private let foregroundReloadInterval: TimeInterval = 300 // 5 min
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -56,12 +60,15 @@ struct TodayDashboardView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
             .refreshable {
+                // Pull-to-refresh always forces a reload
                 await viewModel.loadDashboard()
                 await healthKitManager.refresh()
+                lastLoadTime = Date()
             }
             .task {
                 await viewModel.loadDashboard()
                 await cyclingViewModel.loadData()
+                lastLoadTime = Date()
                 // Request HealthKit authorization and load recovery data
                 if healthKitManager.isHealthDataAvailable {
                     try? await healthKitManager.requestAuthorization()
@@ -70,8 +77,14 @@ struct TodayDashboardView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
                 Task {
+                    // Skip reload if we loaded recently (API cache handles staleness)
+                    if let lastLoad = lastLoadTime,
+                       Date().timeIntervalSince(lastLoad) < foregroundReloadInterval {
+                        return
+                    }
                     await viewModel.loadDashboard()
                     await cyclingViewModel.loadData()
+                    lastLoadTime = Date()
                 }
             }
         }

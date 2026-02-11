@@ -5,6 +5,58 @@ import FirebaseAppCheck
 /// Empty body for POST/PUT requests that don't need a body
 private struct EmptyBody: Encodable {}
 
+/// Cache TTL presets for API responses
+enum CacheTTL {
+    /// 5 minutes — frequently changing data (today's workout, latest sessions)
+    static let short: TimeInterval = 300
+    /// 15 minutes — moderate change rate (cycling data, recovery, calendar)
+    static let medium: TimeInterval = 900
+    /// 30 minutes — slow changing data (FTP, training block, health history)
+    static let long: TimeInterval = 1800
+}
+
+/// In-memory response cache with per-key TTL
+private final class ResponseCache: @unchecked Sendable {
+    struct Entry {
+        let data: Data
+        let timestamp: Date
+        let ttl: TimeInterval
+        var isValid: Bool { Date().timeIntervalSince(timestamp) < ttl }
+    }
+
+    private var cache: [String: Entry] = [:]
+    private let lock = NSLock()
+
+    func get(_ key: String) -> Data? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard let entry = cache[key], entry.isValid else {
+            cache.removeValue(forKey: key)
+            return nil
+        }
+        return entry.data
+    }
+
+    func set(_ key: String, data: Data, ttl: TimeInterval) {
+        lock.lock()
+        defer { lock.unlock() }
+        cache[key] = Entry(data: data, timestamp: Date(), ttl: ttl)
+    }
+
+    /// Invalidate all entries whose key contains the given substring
+    func invalidate(matching substring: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        cache = cache.filter { !$0.key.contains(substring) }
+    }
+
+    func invalidateAll() {
+        lock.lock()
+        defer { lock.unlock() }
+        cache.removeAll()
+    }
+}
+
 /// Main API client for Brad OS server
 final class APIClient: APIClientProtocol {
     // MARK: - Singleton
@@ -17,6 +69,7 @@ final class APIClient: APIClientProtocol {
     private let session: URLSession
     private let decoder: JSONDecoder
     private let encoder: JSONEncoder
+    private let responseCache = ResponseCache()
 
     // MARK: - Initialization
 
@@ -94,18 +147,30 @@ final class APIClient: APIClientProtocol {
         self.encoder.dateEncodingStrategy = .iso8601
     }
 
-    // MARK: - Core Request Methods
+    // MARK: - Cache Management
 
-    /// Perform GET request and decode response
-    private func get<T: Decodable>(_ path: String, queryItems: [URLQueryItem]? = nil) async throws -> T {
-        let request = try buildRequest(path: path, method: "GET", queryItems: queryItems)
-        return try await performRequest(request)
+    /// Invalidate cached responses matching a URL path substring
+    func invalidateCache(matching path: String) {
+        responseCache.invalidate(matching: path)
     }
 
-    /// Perform GET request that may return null
-    private func getOptional<T: Decodable>(_ path: String, queryItems: [URLQueryItem]? = nil) async throws -> T? {
+    /// Invalidate all cached responses
+    func invalidateAllCaches() {
+        responseCache.invalidateAll()
+    }
+
+    // MARK: - Core Request Methods
+
+    /// Perform GET request and decode response, with optional caching
+    private func get<T: Decodable>(_ path: String, queryItems: [URLQueryItem]? = nil, cacheTTL: TimeInterval? = nil) async throws -> T {
         let request = try buildRequest(path: path, method: "GET", queryItems: queryItems)
-        return try await performOptionalRequest(request)
+        return try await performRequest(request, cacheTTL: cacheTTL)
+    }
+
+    /// Perform GET request that may return null, with optional caching
+    private func getOptional<T: Decodable>(_ path: String, queryItems: [URLQueryItem]? = nil, cacheTTL: TimeInterval? = nil) async throws -> T? {
+        let request = try buildRequest(path: path, method: "GET", queryItems: queryItems)
+        return try await performOptionalRequest(request, cacheTTL: cacheTTL)
     }
 
     /// Perform POST request with body
@@ -193,9 +258,27 @@ final class APIClient: APIClientProtocol {
         }
     }
 
-    private func performRequest<T: Decodable>(_ request: URLRequest) async throws -> T {
+    private func performRequest<T: Decodable>(_ request: URLRequest, cacheTTL: TimeInterval? = nil) async throws -> T {
+        let cacheKey = request.url?.absoluteString ?? ""
+
+        // Check cache for GET requests
+        if let ttl = cacheTTL, !cacheKey.isEmpty, let cached = responseCache.get(cacheKey) {
+            do {
+                let apiResponse = try decoder.decode(APIResponse<T>.self, from: cached)
+                print("🌐 [APIClient] CACHE HIT \(request.url?.path ?? "")")
+                return apiResponse.data
+            } catch {
+                // Cache decode failed (type mismatch?), fall through to network
+            }
+        }
+
         let (data, response) = try await performDataTask(for: request)
         try validateResponse(data: data, response: response)
+
+        // Cache successful GET response
+        if let ttl = cacheTTL, !cacheKey.isEmpty {
+            responseCache.set(cacheKey, data: data, ttl: ttl)
+        }
 
         do {
             let apiResponse = try decoder.decode(APIResponse<T>.self, from: data)
@@ -212,9 +295,27 @@ final class APIClient: APIClientProtocol {
         }
     }
 
-    private func performOptionalRequest<T: Decodable>(_ request: URLRequest) async throws -> T? {
+    private func performOptionalRequest<T: Decodable>(_ request: URLRequest, cacheTTL: TimeInterval? = nil) async throws -> T? {
+        let cacheKey = request.url?.absoluteString ?? ""
+
+        // Check cache for GET requests
+        if let ttl = cacheTTL, !cacheKey.isEmpty, let cached = responseCache.get(cacheKey) {
+            do {
+                let apiResponse = try decoder.decode(APIResponse<T?>.self, from: cached)
+                print("🌐 [APIClient] CACHE HIT \(request.url?.path ?? "")")
+                return apiResponse.data
+            } catch {
+                // Cache decode failed, fall through to network
+            }
+        }
+
         let (data, response) = try await performDataTask(for: request)
         try validateResponse(data: data, response: response)
+
+        // Cache successful GET response
+        if let ttl = cacheTTL, !cacheKey.isEmpty {
+            responseCache.set(cacheKey, data: data, ttl: ttl)
+        }
 
         do {
             // Try to decode as APIResponse<T?>
@@ -268,7 +369,7 @@ final class APIClient: APIClientProtocol {
     // MARK: - Workouts
 
     func getTodaysWorkout() async throws -> Workout? {
-        try await getOptional("/workouts/today")
+        try await getOptional("/workouts/today", cacheTTL: CacheTTL.short)
     }
 
     func getWorkout(id: String) async throws -> Workout {
@@ -276,15 +377,21 @@ final class APIClient: APIClientProtocol {
     }
 
     func startWorkout(id: String) async throws -> Workout {
-        try await put("/workouts/\(id)/start")
+        let result: Workout = try await put("/workouts/\(id)/start")
+        invalidateCache(matching: "/workouts")
+        return result
     }
 
     func completeWorkout(id: String) async throws -> Workout {
-        try await put("/workouts/\(id)/complete")
+        let result: Workout = try await put("/workouts/\(id)/complete")
+        invalidateCache(matching: "/workouts")
+        return result
     }
 
     func skipWorkout(id: String) async throws -> Workout {
-        try await put("/workouts/\(id)/skip")
+        let result: Workout = try await put("/workouts/\(id)/skip")
+        invalidateCache(matching: "/workouts")
+        return result
     }
 
     // MARK: - Workout Sets
@@ -442,7 +549,7 @@ final class APIClient: APIClientProtocol {
     }
 
     func getLatestStretchSession() async throws -> StretchSession? {
-        try await getOptional("/stretch-sessions/latest")
+        try await getOptional("/stretch-sessions/latest", cacheTTL: CacheTTL.short)
     }
 
     func getStretchSession(id: String) async throws -> StretchSession {
@@ -488,7 +595,9 @@ final class APIClient: APIClientProtocol {
             regionsSkipped: session.regionsSkipped,
             stretches: stretchBodies
         )
-        return try await post("/stretch-sessions", body: body)
+        let result: StretchSession = try await post("/stretch-sessions", body: body)
+        invalidateCache(matching: "/stretch-sessions")
+        return result
     }
 
     // MARK: - Meditation Sessions
@@ -498,7 +607,7 @@ final class APIClient: APIClientProtocol {
     }
 
     func getLatestMeditationSession() async throws -> MeditationSession? {
-        try await getOptional("/meditation-sessions/latest")
+        try await getOptional("/meditation-sessions/latest", cacheTTL: CacheTTL.short)
     }
 
     func createMeditationSession(_ session: MeditationSession) async throws -> MeditationSession {
@@ -521,11 +630,13 @@ final class APIClient: APIClientProtocol {
             actualDurationSeconds: session.actualDurationSeconds,
             completedFully: session.completedFully
         )
-        return try await post("/meditation-sessions", body: body)
+        let result: MeditationSession = try await post("/meditation-sessions", body: body)
+        invalidateCache(matching: "/meditation-sessions")
+        return result
     }
 
     func getMeditationStats() async throws -> MeditationStats {
-        try await get("/meditation-sessions/stats")
+        try await get("/meditation-sessions/stats", cacheTTL: CacheTTL.short)
     }
 
     // MARK: - Barcodes
@@ -635,27 +746,27 @@ final class APIClient: APIClientProtocol {
         if let limit = limit {
             queryItems = [URLQueryItem(name: "limit", value: String(limit))]
         }
-        return try await get("/cycling/activities", queryItems: queryItems)
+        return try await get("/cycling/activities", queryItems: queryItems, cacheTTL: CacheTTL.medium)
     }
 
     func getCyclingTrainingLoad() async throws -> CyclingTrainingLoadResponse {
-        try await get("/cycling/training-load")
+        try await get("/cycling/training-load", cacheTTL: CacheTTL.medium)
     }
 
     func getCurrentFTP() async throws -> FTPEntryResponse? {
-        try await getOptional("/cycling/ftp")
+        try await getOptional("/cycling/ftp", cacheTTL: CacheTTL.long)
     }
 
     func getCurrentBlock() async throws -> TrainingBlockResponse? {
-        try await getOptional("/cycling/block")
+        try await getOptional("/cycling/block", cacheTTL: CacheTTL.long)
     }
 
     func getVO2Max() async throws -> VO2MaxResponse {
-        try await get("/cycling/vo2max")
+        try await get("/cycling/vo2max", cacheTTL: CacheTTL.long)
     }
 
     func getEFHistory() async throws -> [EFDataPoint] {
-        try await get("/cycling/ef")
+        try await get("/cycling/ef", cacheTTL: CacheTTL.medium)
     }
 
     func createFTP(value: Int, date: String, source: String = "manual") async throws -> FTPEntryResponse {
@@ -664,11 +775,13 @@ final class APIClient: APIClientProtocol {
             let date: String
             let source: String
         }
-        return try await post("/cycling/ftp", body: CreateFTPBody(value: value, date: date, source: source))
+        let result: FTPEntryResponse = try await post("/cycling/ftp", body: CreateFTPBody(value: value, date: date, source: source))
+        invalidateCache(matching: "/cycling/ftp")
+        return result
     }
 
     func getFTPHistory() async throws -> [FTPEntryResponse] {
-        try await get("/cycling/ftp/history")
+        try await get("/cycling/ftp/history", cacheTTL: CacheTTL.long)
     }
 
     func createBlock(
@@ -691,7 +804,7 @@ final class APIClient: APIClientProtocol {
             let experienceLevel: String?
             let weeklyHoursAvailable: Double?
         }
-        return try await post("/cycling/block", body: CreateBlockBody(
+        let result: TrainingBlockResponse = try await post("/cycling/block", body: CreateBlockBody(
             startDate: startDate,
             endDate: endDate,
             goals: goals,
@@ -701,6 +814,8 @@ final class APIClient: APIClientProtocol {
             experienceLevel: experienceLevel?.rawValue,
             weeklyHoursAvailable: weeklyHoursAvailable
         ))
+        invalidateCache(matching: "/cycling/block")
+        return result
     }
 
     func generateSchedule(_ request: GenerateScheduleRequest) async throws -> GenerateScheduleResponse {
@@ -718,16 +833,17 @@ final class APIClient: APIClientProtocol {
     func completeBlock(id: String) async throws {
         struct CompleteResponse: Decodable { let completed: Bool }
         let _: CompleteResponse = try await put("/cycling/block/\(id)/complete")
+        invalidateCache(matching: "/cycling/block")
     }
 
     // MARK: - Weight & Health Sync
 
     func getWeightHistory(days: Int) async throws -> [WeightHistoryEntry] {
-        try await get("/health-sync/weight", queryItems: [URLQueryItem(name: "days", value: String(days))])
+        try await get("/health-sync/weight", queryItems: [URLQueryItem(name: "days", value: String(days))], cacheTTL: CacheTTL.long)
     }
 
     func getLatestWeight() async throws -> WeightHistoryEntry? {
-        try await getOptional("/health-sync/weight")
+        try await getOptional("/health-sync/weight", cacheTTL: CacheTTL.medium)
     }
 
     func syncWeightBulk(weights: [WeightSyncEntry]) async throws -> Int {
@@ -738,6 +854,7 @@ final class APIClient: APIClientProtocol {
             let added: Int
         }
         let response: BulkWeightResponse = try await post("/health-sync/weight/bulk", body: BulkWeightBody(weights: weights))
+        if response.added > 0 { invalidateCache(matching: "/health-sync/weight") }
         return response.added
     }
 
@@ -749,11 +866,12 @@ final class APIClient: APIClientProtocol {
             let added: Int
         }
         let response: BulkHRVResponse = try await post("/health-sync/hrv/bulk", body: BulkHRVBody(entries: entries))
+        if response.added > 0 { invalidateCache(matching: "/health-sync/hrv") }
         return response.added
     }
 
     func getHRVHistory(days: Int) async throws -> [HRVHistoryEntry] {
-        try await get("/health-sync/hrv", queryItems: [URLQueryItem(name: "days", value: String(days))])
+        try await get("/health-sync/hrv", queryItems: [URLQueryItem(name: "days", value: String(days))], cacheTTL: CacheTTL.long)
     }
 
     func syncRHRBulk(entries: [RHRSyncEntry]) async throws -> Int {
@@ -764,11 +882,12 @@ final class APIClient: APIClientProtocol {
             let added: Int
         }
         let response: BulkRHRResponse = try await post("/health-sync/rhr/bulk", body: BulkRHRBody(entries: entries))
+        if response.added > 0 { invalidateCache(matching: "/health-sync/rhr") }
         return response.added
     }
 
     func getRHRHistory(days: Int) async throws -> [RHRHistoryEntry] {
-        try await get("/health-sync/rhr", queryItems: [URLQueryItem(name: "days", value: String(days))])
+        try await get("/health-sync/rhr", queryItems: [URLQueryItem(name: "days", value: String(days))], cacheTTL: CacheTTL.long)
     }
 
     func syncSleepBulk(entries: [SleepSyncEntry]) async throws -> Int {
@@ -779,15 +898,16 @@ final class APIClient: APIClientProtocol {
             let added: Int
         }
         let response: BulkSleepResponse = try await post("/health-sync/sleep/bulk", body: BulkSleepBody(entries: entries))
+        if response.added > 0 { invalidateCache(matching: "/health-sync/sleep") }
         return response.added
     }
 
     func getSleepHistory(days: Int) async throws -> [SleepHistoryEntry] {
-        try await get("/health-sync/sleep", queryItems: [URLQueryItem(name: "days", value: String(days))])
+        try await get("/health-sync/sleep", queryItems: [URLQueryItem(name: "days", value: String(days))], cacheTTL: CacheTTL.long)
     }
 
     func getLatestRecovery() async throws -> RecoverySnapshotResponse? {
-        try await getOptional("/health-sync/recovery")
+        try await getOptional("/health-sync/recovery", cacheTTL: CacheTTL.medium)
     }
 
     func syncRecovery(recovery: RecoverySyncData, baseline: RecoveryBaselineSyncData?) async throws -> RecoverySyncResponse {
@@ -795,11 +915,13 @@ final class APIClient: APIClientProtocol {
             let recovery: RecoverySyncData
             let baseline: RecoveryBaselineSyncData?
         }
-        return try await post("/health-sync/sync", body: SyncBody(recovery: recovery, baseline: baseline))
+        let result: RecoverySyncResponse = try await post("/health-sync/sync", body: SyncBody(recovery: recovery, baseline: baseline))
+        invalidateCache(matching: "/health-sync/recovery")
+        return result
     }
 
     func getWeightGoal() async throws -> WeightGoalResponse? {
-        try await getOptional("/cycling/weight-goal")
+        try await getOptional("/cycling/weight-goal", cacheTTL: CacheTTL.long)
     }
 
     func saveWeightGoal(targetWeightLbs: Double, targetDate: String, startWeightLbs: Double, startDate: String) async throws -> WeightGoalResponse {
@@ -809,12 +931,14 @@ final class APIClient: APIClientProtocol {
             let startWeightLbs: Double
             let startDate: String
         }
-        return try await post("/cycling/weight-goal", body: SaveWeightGoalBody(
+        let result: WeightGoalResponse = try await post("/cycling/weight-goal", body: SaveWeightGoalBody(
             targetWeightLbs: targetWeightLbs,
             targetDate: targetDate,
             startWeightLbs: startWeightLbs,
             startDate: startDate
         ))
+        invalidateCache(matching: "/cycling/weight-goal")
+        return result
     }
 
     // MARK: - Calendar
@@ -824,6 +948,6 @@ final class APIClient: APIClientProtocol {
         if let tz = timezoneOffset {
             queryItems = [URLQueryItem(name: "tz", value: String(tz))]
         }
-        return try await get("/calendar/\(year)/\(month)", queryItems: queryItems)
+        return try await get("/calendar/\(year)/\(month)", queryItems: queryItems, cacheTTL: CacheTTL.medium)
     }
 }

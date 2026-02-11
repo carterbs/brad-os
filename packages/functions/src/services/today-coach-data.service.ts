@@ -341,16 +341,16 @@ async function buildCyclingContext(userId: string): Promise<TodayCoachCyclingCon
   const [ftp, block, activities] = await Promise.all([
     cyclingService.getCurrentFTP(userId),
     cyclingService.getCurrentTrainingBlock(userId),
-    cyclingService.getCyclingActivities(userId, 60),
+    cyclingService.getCyclingActivities(userId, 14),
   ]);
 
   if (!ftp) {
     return null;
   }
 
-  // Training load
+  // Training load (14 days is sufficient for ATL/TSB-based daily recommendations)
   const dailyTSS: DailyTSS[] = activities.map((a) => ({ date: a.date, tss: a.tss }));
-  const metrics = calculateTrainingLoadMetrics(dailyTSS, 60);
+  const metrics = calculateTrainingLoadMetrics(dailyTSS, 14);
 
   // Week in block
   const weekInBlock = block ? getWeekInBlock(block.startDate) : null;
