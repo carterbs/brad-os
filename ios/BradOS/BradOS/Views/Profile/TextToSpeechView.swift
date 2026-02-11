@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftUI
 
 /// Text to Speech view: enter text, tap Play, hear it spoken
@@ -62,11 +63,23 @@ struct TextToSpeechView: View {
         switch viewModel.state {
         case .idle:
             Button {
+                #if DEBUG
+                viewModel.generateAndPlay(delaySec: duckingHarness.playbackDelay)
+                #else
                 viewModel.generateAndPlay()
+                #endif
             } label: {
                 HStack(spacing: Theme.Spacing.space2) {
                     Image(systemName: "play.fill")
+                    #if DEBUG
+                    if duckingHarness.playbackDelay > 0 {
+                        Text("Play (in \(duckingHarness.playbackDelay)s)")
+                    } else {
+                        Text("Play")
+                    }
+                    #else
                     Text("Play")
+                    #endif
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -140,6 +153,23 @@ struct TextToSpeechView: View {
                 }
                 .tint(Theme.interactivePrimary)
 
+                // Playback delay for background/lock screen testing
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Playback Delay")
+                            .font(.subheadline)
+                            .foregroundColor(Theme.textPrimary)
+                        Text("Lock screen after tapping Play to test background audio")
+                            .font(.caption2)
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                    Spacer()
+                    Stepper("\(duckingHarness.playbackDelay)s", value: $duckingHarness.playbackDelay, in: 0...30, step: 5)
+                        .font(.subheadline.monospacedDigit())
+                        .foregroundColor(Theme.textPrimary)
+                        .fixedSize()
+                }
+
                 // Current session state
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Audio Session State")
@@ -151,7 +181,16 @@ struct TextToSpeechView: View {
                         Circle()
                             .fill(duckingHarness.isOtherAudioPlaying ? Theme.success : Theme.textTertiary)
                             .frame(width: 8, height: 8)
-                        Text("Other Audio Playing: \(duckingHarness.isOtherAudioPlaying ? "Yes" : "No")")
+                        Text("isOtherAudioPlaying: \(duckingHarness.isOtherAudioPlaying ? "Yes" : "No")")
+                            .font(.caption)
+                            .foregroundColor(Theme.textSecondary)
+                    }
+
+                    HStack(spacing: Theme.Spacing.space2) {
+                        Circle()
+                            .fill(duckingHarness.silencedHint ? Theme.success : Theme.textTertiary)
+                            .frame(width: 8, height: 8)
+                        Text("secondaryAudioSilencedHint: \(duckingHarness.silencedHint ? "Yes" : "No")")
                             .font(.caption)
                             .foregroundColor(Theme.textSecondary)
                     }
@@ -240,8 +279,10 @@ final class DuckingTestHarness: ObservableObject {
             AudioSessionManager.shared.forceDucking = forceDucking
         }
     }
+    @Published var playbackDelay: Int = 0
     @Published var events: [Event] = []
     @Published var isOtherAudioPlaying: Bool = false
+    @Published var silencedHint: Bool = false
 
     private var pollTimer: Timer?
 
@@ -252,10 +293,14 @@ final class DuckingTestHarness: ObservableObject {
             }
         }
 
-        // Poll isOtherAudioPlaying every 2 seconds
+        // Poll audio state every 2 seconds
         pollTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            let session = AVAudioSession.sharedInstance()
+            let otherPlaying = session.isOtherAudioPlaying
+            let hint = session.secondaryAudioShouldBeSilencedHint
             Task { @MainActor [weak self] in
-                self?.isOtherAudioPlaying = AudioSessionManager.shared.isOtherAudioPlaying
+                self?.isOtherAudioPlaying = otherPlaying
+                self?.silencedHint = hint
             }
         }
     }

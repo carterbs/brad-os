@@ -1,6 +1,45 @@
 import AVFoundation
 import Foundation
 
+// ╔══════════════════════════════════════════════════════════════════════════════╗
+// ║                    DO NOT MODIFY WITHOUT READING THIS                       ║
+// ║                                                                             ║
+// ║  This file controls ALL audio session behavior for the entire app.          ║
+// ║  The category, mode, and options are carefully chosen to:                   ║
+// ║                                                                             ║
+// ║  1. Play audio in the background and with the screen locked                 ║
+// ║     (.playback category + UIBackgroundModes audio in Info.plist)            ║
+// ║                                                                             ║
+// ║  2. Duck music and pause podcasts during narration                          ║
+// ║     (.voicePrompt mode + .duckOthers + .interruptSpokenAudioAndMix)        ║
+// ║                                                                             ║
+// ║  3. Restore other apps' audio volume after narration finishes               ║
+// ║     (setActive(false, .notifyOthersOnDeactivation) or category swap)       ║
+// ║                                                                             ║
+// ║  4. Keep the audio session alive on lock screen via keepalive players       ║
+// ║     (backgroundSafe restore avoids deactivation that kills keepalive)       ║
+// ║                                                                             ║
+// ║  WHAT WILL BREAK IF YOU CHANGE THINGS:                                      ║
+// ║  - Removing .duckOthers: music blasts over narration                        ║
+// ║  - Removing .interruptSpokenAudioAndMixWithOthers: podcasts garble          ║
+// ║    under narration instead of pausing cleanly                               ║
+// ║  - Removing .mixWithOthers from restore: our app steals audio focus and     ║
+// ║    kills Spotify/Music permanently                                          ║
+// ║  - Removing .notifyOthersOnDeactivation: other apps stay ducked forever     ║
+// ║  - Calling setActive(false) during backgroundSafe mode: kills keepalive,    ║
+// ║    audio stops working on lock screen                                       ║
+// ║  - Bypassing this manager (direct AVAudioSession calls): creates session    ║
+// ║    conflicts, undefined ducking behavior, audio randomly stops              ║
+// ║                                                                             ║
+// ║  ALL audio session config in the app MUST go through this singleton.        ║
+// ║  Do not call AVAudioSession.sharedInstance() directly from views,           ║
+// ║  view models, or other services.                                            ║
+// ║                                                                             ║
+// ║  Test changes with the debug harness: Profile > Text to Speech >            ║
+// ║  "Ducking Test Harness" section. Use Force Ducking + Playback Delay         ║
+// ║  to verify background + ducking behavior on simulator.                      ║
+// ╚══════════════════════════════════════════════════════════════════════════════╝
+
 /// Centralized audio session manager handling narration playback, other-audio interruption,
 /// and session lifecycle. All narration playback across the app goes through `playNarration`,
 /// which requests ducking/interrupt for other audio when it was already playing and restores
@@ -31,8 +70,10 @@ final class AudioSessionManager {
     #endif
 
     /// Whether other audio (Spotify, etc.) is currently playing.
+    /// Falls back to `secondaryAudioShouldBeSilencedHint` which is sometimes
+    /// more reliable on the iOS Simulator.
     var isOtherAudioPlaying: Bool {
-        session.isOtherAudioPlaying
+        session.isOtherAudioPlaying || session.secondaryAudioShouldBeSilencedHint
     }
 
     private init() {
@@ -118,9 +159,9 @@ final class AudioSessionManager {
         #else
         let shouldDuckExternalAudio = session.isOtherAudioPlaying
         #endif
-        NSLog("[AudioSession] playNarration() - isOtherAudioPlaying: %@, forceDucking: %@, willDuck: %@",
+        NSLog("[AudioSession] playNarration() - isOtherAudioPlaying: %@, silencedHint: %@, willDuck: %@",
               session.isOtherAudioPlaying ? "true" : "false",
-              shouldDuckExternalAudio != session.isOtherAudioPlaying ? "true" : "false",
+              session.secondaryAudioShouldBeSilencedHint ? "true" : "false",
               shouldDuckExternalAudio ? "true" : "false")
 
         if shouldDuckExternalAudio {
@@ -218,6 +259,9 @@ final class AudioSessionManager {
     }
 
     // MARK: - Ducking (private)
+    // WARNING: The exact combination of category/mode/options below was carefully researched
+    // and tested. Changing ANY option will break ducking, background audio, or both.
+    // See thoughts/shared/ios-audio-ducking-research.md for the full rationale.
 
     /// Enable other-audio interruption/ducking before narration.
     /// Uses voice prompt mode with ducking and mixing. Some apps pause instead of ducking.

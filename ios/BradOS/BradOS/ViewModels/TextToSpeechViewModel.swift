@@ -37,8 +37,9 @@ final class TextToSpeechViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    /// Send text to TTS API and play the returned audio
-    func generateAndPlay() {
+    /// Send text to TTS API and play the returned audio.
+    /// - Parameter delaySec: Seconds to wait after generating before playing (for lock screen testing).
+    func generateAndPlay(delaySec: Int = 0) {
         guard canPlay else { return }
 
         errorMessage = nil
@@ -47,6 +48,10 @@ final class TextToSpeechViewModel: ObservableObject {
         Task {
             do {
                 let audioData = try await apiClient.synthesizeSpeech(text: text)
+                if delaySec > 0 {
+                    state = .playing // Show "Stop" button during countdown
+                    try await Task.sleep(nanoseconds: UInt64(delaySec) * 1_000_000_000)
+                }
                 try await audioEngine.play(data: audioData)
                 state = .playing
             } catch {
