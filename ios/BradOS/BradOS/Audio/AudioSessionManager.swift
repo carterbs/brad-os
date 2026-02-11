@@ -120,6 +120,17 @@ final class AudioSessionManager {
             try? activateForMixing()
         }
 
+        // Ensure ducking is always restored even on error/cancellation (backgroundSafe path only;
+        // the async restoreAfterDucking path is handled after the do/catch below).
+        defer {
+            if shouldDuckExternalAudio && backgroundSafe {
+                NSLog("[AudioSession] playNarration() - defer: backgroundSafe restore")
+                try? restoreAfterDuckingBackgroundSafe()
+            }
+            narrationPlayer = nil
+            NSLog("[AudioSession] ========== NARRATION END ==========")
+        }
+
         let playerItem = AVPlayerItem(url: url)
         let player = AVPlayer(playerItem: playerItem)
         narrationPlayer = player
@@ -148,25 +159,14 @@ final class AudioSessionManager {
             playbackError = error
         }
 
-        if shouldDuckExternalAudio {
-            if backgroundSafe {
-                NSLog("[AudioSession] playNarration() - backgroundSafe restore (no deactivation)")
-                do {
-                    try restoreAfterDuckingBackgroundSafe()
-                } catch {
-                    NSLog("[AudioSession] playNarration() - backgroundSafe restore FAILED: %@", error.localizedDescription)
-                }
-            } else {
-                do {
-                    try await restoreAfterDucking()
-                } catch {
-                    NSLog("[AudioSession] playNarration() - restore after ducking FAILED: %@", error.localizedDescription)
-                }
+        // Async restoration for non-backgroundSafe mode (can't go in defer)
+        if shouldDuckExternalAudio && !backgroundSafe {
+            do {
+                try await restoreAfterDucking()
+            } catch {
+                NSLog("[AudioSession] playNarration() - restore after ducking FAILED: %@", error.localizedDescription)
             }
         }
-
-        narrationPlayer = nil
-        NSLog("[AudioSession] ========== NARRATION END ==========")
 
         if let playbackError {
             throw playbackError
@@ -206,14 +206,14 @@ final class AudioSessionManager {
     /// Enable other-audio interruption/ducking before narration.
     /// Uses voice prompt mode with ducking and mixing. Some apps pause instead of ducking.
     private func enableDucking() throws {
-        NSLog("[AudioSession] enableDucking() - .voicePrompt, .mixWithOthers + .duckOthers")
+        NSLog("[AudioSession] enableDucking() - .voicePrompt, .duckOthers + .interruptSpokenAudioAndMixWithOthers")
         try session.setCategory(
             .playback,
             mode: .voicePrompt,
-            options: [.mixWithOthers, .duckOthers]
+            options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
         )
         try session.setActive(true)
-        NSLog("[AudioSession] enableDucking() - DONE, Spotify should lower volume")
+        NSLog("[AudioSession] enableDucking() - DONE, music ducked / spoken audio paused")
     }
 
     /// Restore other audio after narration WITHOUT deactivating the session.

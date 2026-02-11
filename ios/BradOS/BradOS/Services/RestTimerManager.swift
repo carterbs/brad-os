@@ -140,8 +140,7 @@ final class RestTimerManager: ObservableObject {
 
     private func configureAudioSession() {
         do {
-            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
-            try AVAudioSession.sharedInstance().setActive(true)
+            try AudioSessionManager.shared.activateForMixing()
         } catch {
             #if DEBUG
             print("[RestTimerManager] Failed to configure audio session: \(error)")
