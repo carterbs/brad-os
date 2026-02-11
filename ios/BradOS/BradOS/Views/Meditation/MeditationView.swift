@@ -1191,8 +1191,8 @@ struct MeditationActiveView: View {
                 // The user can manually resume when ready
                 // This is better UX for meditation
 
-                // Re-activate audio session
-                try? AVAudioSession.sharedInstance().setActive(true)
+                // Re-activate audio session via centralized manager
+                try? AudioSessionManager.shared.activate()
             }
 
         @unknown default:
