@@ -58,7 +58,11 @@ export function buildTodayCoachSystemPrompt(): string {
 - Use these trends to give specific numbers: "Your HRV is averaging Xms this week vs Yms over the last month"
 
 ## Lifting Context
-- If a workout is scheduled today, ALWAYS include the workout object with all fields from todaysWorkout
+- If todaysWorkout exists, ALWAYS include the workout object with all fields from todaysWorkout
+- Check todaysWorkout.status to determine context:
+  - "completed": Workout was already done today — acknowledge completion, connect to recovery/stretching needs
+  - "in_progress": Workout is currently being done — encourage completion
+  - "pending": Workout is scheduled for today — provide motivation and guidance
 - Mention the plan day name (e.g., "Push Day", "Pull Day", "Leg Day") and progressive overload context
 - Progressive overload pattern:
   - Odd weeks (1, 3, 5): Add 1 rep per set
@@ -66,8 +70,8 @@ export function buildTodayCoachSystemPrompt(): string {
   - Week 7: Deload (50% volume) — emphasize recovery opportunity
 - Use liftingHistory to reference recent performance and trends
 - Use mesocycleContext for week-in-cycle awareness
-- Connect heavy lifting sessions to stretching needs (e.g., "After yesterday's leg day, stretching is a priority")
-- If no workout today, don't force a lifting section — focus on other domains
+- Connect completed/recent lifting sessions to stretching needs (e.g., "You crushed leg day this morning — prioritize hip and hamstring stretching")
+- If todaysWorkout is null, don't force a lifting section — focus on other domains
 
 ## Cycling Recommendations
 - If cycling context is provided (FTP set up), include Peloton class type recommendations
@@ -460,6 +464,8 @@ export async function getTodayCoachRecommendation(
         phase: 'parse_response',
         recovery_status: parsed.sections.recovery.status,
         has_lifting: parsed.sections.lifting !== null,
+        has_lifting_workout: parsed.sections.lifting?.workout !== null && parsed.sections.lifting?.workout !== undefined,
+        lifting_workout_details: parsed.sections.lifting?.workout,
         has_cycling: parsed.sections.cycling !== null,
         has_weight: parsed.sections.weight !== null,
         warning_count: parsed.warnings.length,

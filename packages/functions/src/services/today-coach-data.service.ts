@@ -101,19 +101,38 @@ function computeWeightMetrics(
 
 /**
  * Build today's workout context from the active mesocycle.
+ * Looks for workouts that were:
+ * - Completed today or yesterday (for recovery context)
+ * - Scheduled for today (pending/in-progress)
  */
 async function buildTodayWorkoutContext(): Promise<TodayWorkoutContext | null> {
   const workoutRepo = getWorkoutRepository();
   const planDayRepo = getPlanDayRepository();
   const workoutSetRepo = getWorkoutSetRepository();
 
-  const todayStr = formatDate(new Date());
-  const todayWorkouts = await workoutRepo.findByDate(todayStr);
+  const now = new Date();
+  const todayStr = formatDate(now);
 
-  // Find pending or in-progress workout for today
-  const todayWorkout = todayWorkouts.find(
+  // Get yesterday's date for recent completions
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = formatDate(yesterday);
+
+  // Query for today's and yesterday's workouts
+  const [todayWorkouts, yesterdayWorkouts] = await Promise.all([
+    workoutRepo.findByDate(todayStr),
+    workoutRepo.findByDate(yesterdayStr),
+  ]);
+
+  // Prefer today's workout (scheduled or completed)
+  let todayWorkout = todayWorkouts.find(
     (w) => w.status === 'pending' || w.status === 'in_progress' || w.status === 'completed'
   );
+
+  // If no workout for today, check yesterday's completed workout for context
+  if (!todayWorkout) {
+    todayWorkout = yesterdayWorkouts.find((w) => w.status === 'completed');
+  }
 
   if (!todayWorkout) {
     return null;

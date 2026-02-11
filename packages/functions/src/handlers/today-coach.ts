@@ -9,6 +9,7 @@
 import express, { type Request, type Response, type NextFunction } from 'express';
 import cors from 'cors';
 import { defineSecret } from 'firebase-functions/params';
+import { info } from 'firebase-functions/logger';
 import { errorHandler } from '../middleware/error-handler.js';
 import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
 import { requireAppCheck } from '../middleware/app-check.js';
@@ -67,6 +68,13 @@ app.post(
 
     // Aggregate all activity data
     const coachContext = await buildTodayCoachContext(userId, recovery, timezoneOffset);
+
+    // Debug logging
+    info('[TodayCoach] Context built', {
+      hasTodaysWorkout: coachContext.todaysWorkout !== null,
+      workoutDetails: coachContext.todaysWorkout,
+      userId,
+    });
 
     // Get OpenAI API key
     const apiKey = openaiApiKey.value();
