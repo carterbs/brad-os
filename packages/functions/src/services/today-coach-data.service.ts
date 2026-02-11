@@ -104,34 +104,47 @@ function computeWeightMetrics(
  * Looks for workouts that were:
  * - Completed today or yesterday (for recovery context)
  * - Scheduled for today (pending/in-progress)
+ * @param timezoneOffset - Timezone offset in minutes from client
  */
-async function buildTodayWorkoutContext(): Promise<TodayWorkoutContext | null> {
+async function buildTodayWorkoutContext(timezoneOffset: number): Promise<TodayWorkoutContext | null> {
   const workoutRepo = getWorkoutRepository();
   const planDayRepo = getPlanDayRepository();
   const workoutSetRepo = getWorkoutSetRepository();
 
+  // Calculate today in user's timezone
   const now = new Date();
-  const todayStr = formatDate(now);
+  const userNow = new Date(now.getTime() - timezoneOffset * 60 * 1000);
+  const todayStr = formatDate(userNow);
 
   // Get yesterday's date for recent completions
-  const yesterday = new Date(now);
+  const yesterday = new Date(userNow);
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = formatDate(yesterday);
 
-  // Query for today's and yesterday's workouts
-  const [todayWorkouts, yesterdayWorkouts] = await Promise.all([
-    workoutRepo.findByDate(todayStr),
-    workoutRepo.findByDate(yesterdayStr),
-  ]);
+  // Query for workouts scheduled today
+  const scheduledToday = await workoutRepo.findByDate(todayStr);
 
-  // Prefer today's workout (scheduled or completed)
-  let todayWorkout = todayWorkouts.find(
-    (w) => w.status === 'pending' || w.status === 'in_progress' || w.status === 'completed'
+  // Check for pending/in-progress workout scheduled for today
+  let todayWorkout = scheduledToday.find(
+    (w) => w.status === 'pending' || w.status === 'in_progress'
   );
 
-  // If no workout for today, check yesterday's completed workout for context
+  // If no scheduled workout, find workouts completed today (regardless of scheduled date)
   if (!todayWorkout) {
-    todayWorkout = yesterdayWorkouts.find((w) => w.status === 'completed');
+    const todayStart = `${todayStr}T00:00:00.000Z`;
+    const todayEnd = `${todayStr}T23:59:59.999Z`;
+
+    const completedToday = await workoutRepo.findByCompletedAtRange(todayStart, todayEnd);
+    todayWorkout = completedToday[0]; // Take most recent
+  }
+
+  // If still no workout, check yesterday for recent completion context
+  if (!todayWorkout) {
+    const yesterdayStart = `${yesterdayStr}T00:00:00.000Z`;
+    const yesterdayEnd = `${yesterdayStr}T23:59:59.999Z`;
+
+    const completedYesterday = await workoutRepo.findByCompletedAtRange(yesterdayStart, yesterdayEnd);
+    todayWorkout = completedYesterday[0];
   }
 
   if (!todayWorkout) {
@@ -582,7 +595,7 @@ export async function buildTodayCoachContext(
     rhrHistory,
   ] = await Promise.all([
     recoveryService.getRecoveryHistory(userId, 7),
-    buildTodayWorkoutContext(),
+    buildTodayWorkoutContext(timezoneOffset),
     buildLiftingContext(timezoneOffset),
     buildLiftingSchedule(),
     buildMesocycleContext(),

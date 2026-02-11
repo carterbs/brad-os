@@ -92,9 +92,26 @@ export class WorkoutRepository extends BaseRepository<
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Workout);
   }
 
+  /**
+   * Find workouts by scheduled date (YYYY-MM-DD).
+   * scheduled_date is stored as a simple date string.
+   */
   async findByDate(date: string): Promise<Workout[]> {
     const snapshot = await this.collection
       .where('scheduled_date', '==', date)
+      .get();
+    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Workout);
+  }
+
+  /**
+   * Find workouts completed within a date range (ISO timestamps).
+   * Used to find workouts completed today/yesterday regardless of scheduled date.
+   */
+  async findByCompletedAtRange(startTimestamp: string, endTimestamp: string): Promise<Workout[]> {
+    const snapshot = await this.collection
+      .where('completed_at', '>=', startTimestamp)
+      .where('completed_at', '<=', endTimestamp)
+      .orderBy('completed_at', 'desc')
       .get();
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Workout);
   }
