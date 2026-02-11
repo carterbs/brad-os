@@ -119,7 +119,7 @@ export const bulkSleepSyncSchema = z.object({
     deepMinutes: z.number().int().min(0).max(1440),
     remMinutes: z.number().int().min(0).max(1440),
     awakeMinutes: z.number().int().min(0).max(1440),
-    sleepEfficiency: z.number().min(0).max(100),
+    sleepEfficiency: z.number().min(0).max(110),
     source: z.enum(['healthkit']).optional(),
   })).min(1).max(500),
 });

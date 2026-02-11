@@ -374,7 +374,7 @@ class HealthKitSyncService: ObservableObject {
                     deepMinutes: Int(metrics.deep / 60),
                     remMinutes: Int(metrics.rem / 60),
                     awakeMinutes: Int(metrics.awake / 60),
-                    sleepEfficiency: metrics.efficiency,
+                    sleepEfficiency: min(metrics.efficiency, 100),
                     source: "healthkit"
                 )
             }
