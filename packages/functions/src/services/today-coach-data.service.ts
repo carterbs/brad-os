@@ -68,6 +68,37 @@ function daysSince(dateString: string): number {
 }
 
 /**
+ * Compute time-of-day category from timezone offset.
+ * @param timezoneOffset - Timezone offset in minutes from Date.getTimezoneOffset()
+ * @returns Object with timeOfDay category and currentHour (0-23 in user's local time)
+ */
+function computeTimeContext(timezoneOffset: number): {
+  timeOfDay: 'early_morning' | 'morning' | 'midday' | 'afternoon' | 'evening' | 'night';
+  currentHour: number;
+} {
+  const now = new Date();
+  const userNow = new Date(now.getTime() - timezoneOffset * 60 * 1000);
+  const currentHour = userNow.getUTCHours();
+
+  let timeOfDay: 'early_morning' | 'morning' | 'midday' | 'afternoon' | 'evening' | 'night';
+  if (currentHour >= 5 && currentHour < 8) {
+    timeOfDay = 'early_morning';
+  } else if (currentHour >= 8 && currentHour < 11) {
+    timeOfDay = 'morning';
+  } else if (currentHour >= 11 && currentHour < 14) {
+    timeOfDay = 'midday';
+  } else if (currentHour >= 14 && currentHour < 17) {
+    timeOfDay = 'afternoon';
+  } else if (currentHour >= 17 && currentHour < 22) {
+    timeOfDay = 'evening';
+  } else {
+    timeOfDay = 'night';
+  }
+
+  return { timeOfDay, currentHour };
+}
+
+/**
  * Compute weight metrics from weight history entries.
  */
 function computeWeightMetrics(
@@ -169,6 +200,7 @@ async function buildTodayWorkoutContext(timezoneOffset: number): Promise<TodayWo
     isDeload: todayWorkout.week_number === 7,
     exerciseCount: uniqueExercises.size,
     status: todayWorkout.status as TodayWorkoutContext['status'],
+    completedAt: todayWorkout.completed_at,
   };
 }
 
@@ -579,6 +611,9 @@ export async function buildTodayCoachContext(
   recovery: RecoverySnapshot,
   timezoneOffset: number
 ): Promise<TodayCoachRequest> {
+  // Compute time context
+  const timeContext = computeTimeContext(timezoneOffset);
+
   // Fetch everything in parallel
   const [
     recoveryHistory,
@@ -608,6 +643,28 @@ export async function buildTodayCoachContext(
     recoveryService.getRHRHistory(userId, 30),
   ]);
 
+  // Fetch today's stretch and meditation sessions for completion detection
+  const now = new Date();
+  const userNow = new Date(now.getTime() - timezoneOffset * 60 * 1000);
+  const todayStr = formatDate(userNow);
+
+  const [todaysStretches, todaysMeditations] = await Promise.all([
+    getStretchSessionRepository().findInDateRange(todayStr, todayStr, timezoneOffset),
+    getMeditationSessionRepository().findInDateRange(todayStr, todayStr, timezoneOffset),
+  ]);
+
+  // Compute completion flags
+  const completedActivities = {
+    hasLiftedToday: todaysWorkout?.status === 'completed',
+    liftedAt: todaysWorkout?.status === 'completed' ? (todaysWorkout.completedAt ?? null) : null,
+    hasCycledToday: cyclingContext?.recentActivities.some(a => a.date.startsWith(todayStr)) ?? false,
+    cycledAt: cyclingContext?.recentActivities.find(a => a.date.startsWith(todayStr))?.date ?? null,
+    hasStretchedToday: todaysStretches.length > 0,
+    stretchedAt: todaysStretches.length > 0 ? (todaysStretches[0]?.completedAt ?? null) : null,
+    hasMeditatedToday: todaysMeditations.length > 0,
+    meditatedAt: todaysMeditations.length > 0 ? (todaysMeditations[0]?.completedAt ?? null) : null,
+  };
+
   // Build recovery history entries (trimmed for token efficiency)
   const recoveryHistoryEntries: RecoveryHistoryEntry[] = recoveryHistory.map((r) => ({
     date: r.date,
@@ -617,8 +674,6 @@ export async function buildTodayCoachContext(
     rhrBpm: r.rhrBpm,
     sleepHours: r.sleepHours,
   }));
-
-  const now = new Date();
 
   return {
     recovery,
@@ -640,5 +695,8 @@ export async function buildTodayCoachContext(
 
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     currentDate: formatDate(now),
+
+    timeContext,
+    completedActivities,
   };
 }

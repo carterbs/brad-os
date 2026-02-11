@@ -46,6 +46,30 @@ export interface HealthTrends {
 // --- Today Coach Request Types ---
 
 /**
+ * Time-of-day context for coaching.
+ */
+export interface TimeContext {
+  /** Time of day category based on user's local hour */
+  timeOfDay: 'early_morning' | 'morning' | 'midday' | 'afternoon' | 'evening' | 'night';
+  /** Current hour in user's local time (0-23) */
+  currentHour: number;
+}
+
+/**
+ * Activity completion tracking for today.
+ */
+export interface CompletedActivities {
+  hasLiftedToday: boolean;
+  liftedAt: string | null;
+  hasCycledToday: boolean;
+  cycledAt: string | null;
+  hasStretchedToday: boolean;
+  stretchedAt: string | null;
+  hasMeditatedToday: boolean;
+  meditatedAt: string | null;
+}
+
+/**
  * Today's workout context from the active mesocycle.
  */
 export interface TodayWorkoutContext {
@@ -54,6 +78,7 @@ export interface TodayWorkoutContext {
   isDeload: boolean;
   exerciseCount: number;
   status: 'pending' | 'in_progress' | 'completed' | 'skipped';
+  completedAt: string | null;
 }
 
 /**
@@ -146,6 +171,9 @@ export interface TodayCoachRequest {
 
   timezone: string;
   currentDate: string;
+
+  timeContext: TimeContext;
+  completedActivities: CompletedActivities;
 }
 
 // --- Today Coach Response Types ---
