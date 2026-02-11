@@ -5,6 +5,7 @@ import BradOSCore
 struct HealthView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel: CalendarViewModel
+    @State private var isShowingHistory = false
 
     private let columns = [
         GridItem(.flexible()),
@@ -69,6 +70,9 @@ struct HealthView: View {
             .navigationTitle("Health")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
+            .navigationDestination(isPresented: $isShowingHistory) {
+                HistoryView()
+            }
             .task {
                 await viewModel.fetchMonth()
             }
@@ -81,7 +85,7 @@ struct HealthView: View {
     private var recentActivitySection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             SectionHeader(title: "Recent Activity", actionTitle: "See All") {
-                appState.selectedTab = .history
+                isShowingHistory = true
             }
 
             if viewModel.isLoading {

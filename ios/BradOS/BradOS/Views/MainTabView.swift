@@ -15,8 +15,6 @@ struct MainTabView: View {
                     HealthView()
                 case .meals:
                     MealPlanView()
-                case .history:
-                    HistoryView()
                 case .profile:
                     ProfileView()
                 }
@@ -87,7 +85,6 @@ enum TabItem: String, CaseIterable, Identifiable {
     case today
     case health
     case meals
-    case history
     case profile
 
     var id: String { rawValue }
@@ -97,7 +94,6 @@ enum TabItem: String, CaseIterable, Identifiable {
         case .today: return .today
         case .health: return .health
         case .meals: return .meals
-        case .history: return .history
         case .profile: return .profile
         }
     }
@@ -107,7 +103,6 @@ enum TabItem: String, CaseIterable, Identifiable {
         case .today: return "Today"
         case .health: return "Health"
         case .meals: return "Meals"
-        case .history: return "History"
         case .profile: return "Profile"
         }
     }
@@ -117,7 +112,6 @@ enum TabItem: String, CaseIterable, Identifiable {
         case .today: return "house.fill"
         case .health: return "heart.fill"
         case .meals: return "fork.knife"
-        case .history: return "calendar"
         case .profile: return "person.fill"
         }
     }
@@ -127,7 +121,6 @@ enum TabItem: String, CaseIterable, Identifiable {
         case .today: return "house"
         case .health: return "heart"
         case .meals: return "fork.knife"
-        case .history: return "calendar"
         case .profile: return "person"
         }
     }

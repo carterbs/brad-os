@@ -170,7 +170,6 @@ enum MainTab: Hashable {
     case today
     case health
     case meals
-    case history
     case profile
 }
 
