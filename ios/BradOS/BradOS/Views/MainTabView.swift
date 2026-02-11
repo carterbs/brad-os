@@ -11,8 +11,10 @@ struct MainTabView: View {
                 switch appState.selectedTab {
                 case .today:
                     TodayDashboardView()
-                case .activities:
-                    ActivitiesView()
+                case .health:
+                    HealthView()
+                case .meals:
+                    MealPlanView()
                 case .history:
                     HistoryView()
                 case .profile:
@@ -83,7 +85,8 @@ struct MainTabView: View {
 
 enum TabItem: String, CaseIterable, Identifiable {
     case today
-    case activities
+    case health
+    case meals
     case history
     case profile
 
@@ -92,7 +95,8 @@ enum TabItem: String, CaseIterable, Identifiable {
     var mainTab: MainTab {
         switch self {
         case .today: return .today
-        case .activities: return .activities
+        case .health: return .health
+        case .meals: return .meals
         case .history: return .history
         case .profile: return .profile
         }
@@ -101,7 +105,8 @@ enum TabItem: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .today: return "Today"
-        case .activities: return "Activities"
+        case .health: return "Health"
+        case .meals: return "Meals"
         case .history: return "History"
         case .profile: return "Profile"
         }
@@ -110,7 +115,8 @@ enum TabItem: String, CaseIterable, Identifiable {
     var filledIcon: String {
         switch self {
         case .today: return "house.fill"
-        case .activities: return "square.grid.2x2.fill"
+        case .health: return "heart.fill"
+        case .meals: return "fork.knife"
         case .history: return "calendar"
         case .profile: return "person.fill"
         }
@@ -119,7 +125,8 @@ enum TabItem: String, CaseIterable, Identifiable {
     var outlinedIcon: String {
         switch self {
         case .today: return "house"
-        case .activities: return "square.grid.2x2"
+        case .health: return "heart"
+        case .meals: return "fork.knife"
         case .history: return "calendar"
         case .profile: return "person"
         }

@@ -84,7 +84,7 @@ struct BradOSApp: App {
         guard url.scheme == "brados" else { return }
         switch url.host {
         case "mealplan":
-            appState.isShowingMealPlan = true
+            appState.selectedTab = .meals
         default:
             break
         }
@@ -168,7 +168,8 @@ class AppState: ObservableObject {
 
 enum MainTab: Hashable {
     case today
-    case activities
+    case health
+    case meals
     case history
     case profile
 }

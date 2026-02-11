@@ -5,6 +5,7 @@ import BradOSCore
 struct TodayDashboardView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var healthKitManager: HealthKitManager
+    @EnvironmentObject var cyclingViewModel: CyclingViewModel
     @StateObject private var viewModel = DashboardViewModel(apiClient: APIClient.shared)
 
     var body: some View {
@@ -19,7 +20,7 @@ struct TodayDashboardView: View {
                         todayMeals: viewModel.todayMeals,
                         isLoading: viewModel.isLoadingMealPlan,
                         onTap: {
-                            appState.isShowingMealPlan = true
+                            appState.selectedTab = .meals
                         },
                         onLongPress: {
                             Task {
@@ -35,6 +36,18 @@ struct TodayDashboardView: View {
                     ) {
                         navigateToWorkout()
                     }
+
+                    // Cycling Card
+                    CyclingDashboardCard(
+                        nextSession: cyclingViewModel.nextSession,
+                        weekProgress: cyclingViewModel.nextSession != nil
+                            ? "\(cyclingViewModel.sessionsCompletedThisWeek + 1) of \(cyclingViewModel.weeklySessionsTotal)"
+                            : nil,
+                        isLoading: cyclingViewModel.isLoading,
+                        onTap: {
+                            appState.isShowingCycling = true
+                        }
+                    )
                 }
                 .padding(Theme.Spacing.space4)
             }
@@ -48,6 +61,7 @@ struct TodayDashboardView: View {
             }
             .task {
                 await viewModel.loadDashboard()
+                await cyclingViewModel.loadData()
                 // Request HealthKit authorization and load recovery data
                 if healthKitManager.isHealthDataAvailable {
                     try? await healthKitManager.requestAuthorization()
@@ -57,6 +71,7 @@ struct TodayDashboardView: View {
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)) { _ in
                 Task {
                     await viewModel.loadDashboard()
+                    await cyclingViewModel.loadData()
                 }
             }
         }
@@ -77,6 +92,7 @@ struct TodayDashboardView: View {
     TodayDashboardView()
         .environmentObject(AppState())
         .environmentObject(HealthKitManager())
+        .environmentObject(CyclingViewModel())
         .preferredColorScheme(.dark)
 }
 
@@ -84,6 +100,7 @@ struct TodayDashboardView: View {
     TodayDashboardView()
         .environmentObject(AppState())
         .environmentObject(HealthKitManager())
+        .environmentObject(CyclingViewModel())
         .preferredColorScheme(.dark)
 }
 
@@ -91,5 +108,6 @@ struct TodayDashboardView: View {
     TodayDashboardView()
         .environmentObject(AppState())
         .environmentObject(HealthKitManager())
+        .environmentObject(CyclingViewModel())
         .preferredColorScheme(.dark)
 }

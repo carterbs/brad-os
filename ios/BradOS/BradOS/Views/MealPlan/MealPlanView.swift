@@ -28,15 +28,19 @@ struct MealPlanView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        appState.isShowingMealPlan = false
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "chevron.left")
-                            Text("Back")
+                // Only show back button when presented as sheet (isShowingMealPlan)
+                // When shown in Meals tab, no back button needed
+                if appState.isShowingMealPlan {
+                    ToolbarItem(placement: .navigationBarLeading) {
+                        Button(action: {
+                            appState.isShowingMealPlan = false
+                        }) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                Text("Back")
+                            }
+                            .foregroundColor(Theme.interactivePrimary)
                         }
-                        .foregroundColor(Theme.interactivePrimary)
                     }
                 }
             }

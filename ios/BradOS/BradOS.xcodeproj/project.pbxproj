@@ -11,7 +11,6 @@
 		01F1BB6C4022A65EAC116B83 /* TTSAudioEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4969BBC9A12B2A735D9E5B4D /* TTSAudioEngine.swift */; };
 		066415228315231B0DA4DF30 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBA2C21147E61C0F1E7FAD9D /* ContentView.swift */; };
 		06C14303485106D69DB83F81 /* MeditationDashboardCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A375E7313BF426DC8D3506CC /* MeditationDashboardCard.swift */; };
-		06FFD7FF6AFE94A655464CFC /* ActivitiesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94B56EFF002A58FE0F269792 /* ActivitiesView.swift */; };
 		08557693D39217D58F0AAB7C /* MeditationAPIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F3D18814CDDE99C1B9E404F /* MeditationAPIService.swift */; };
 		0A48470668E9BCD8CA7FF527 /* RecoveryDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 251081EFEE5E1CEC90CB5B2C /* RecoveryDetailView.swift */; };
 		0C2035D397B4383A35E1E100 /* LiftingTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD45B75A479093507100918B /* LiftingTabView.swift */; };
@@ -96,10 +95,12 @@
 		A789B0443A126E93F89A03F2 /* CyclingHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B32C19CB0A73AE82221F6B2B /* CyclingHistoryView.swift */; };
 		A9CBFED4F42EFDDF2C0C6B24 /* TrainingBlockSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 233426DF2BD48E5CB18E73F3 /* TrainingBlockSetupView.swift */; };
 		AA2D2FF269F864C173071CCA /* TodayCoachModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9AE4A4D6D2084FF2AA9493 /* TodayCoachModels.swift */; };
+		AB1989FE9904C8C10A86163E /* HealthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F25403C11555696C27102274 /* HealthView.swift */; };
 		AE1BA3C27DA0767CAEEE5181 /* WeightGoalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8A6CA9426DF17ABB0A447EC /* WeightGoalView.swift */; };
 		AE472A35366FB9B9F1BEC079 /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C474DBAD9A28EC53239DD31D /* HealthKitManager.swift */; };
 		B3768B832B5376CB69E944D6 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD7FBB792EDF2A2AED223945 /* APIClient.swift */; };
 		B481692B4F423807DB18DF1D /* StretchSessionDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A81A4BB6E628562A8FAB14 /* StretchSessionDetailView.swift */; };
+		B5FD75B2FCEFD3F51BD8C039 /* CyclingDashboardCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DFB9E814FDDB86E3CDF2C9E /* CyclingDashboardCard.swift */; };
 		B68F0268014E38BCCBFEDE4B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C23F6F8043584A903D01FF2C /* ProfileView.swift */; };
 		B767E7F26F638C903401A1A5 /* TodayDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33EA5122074F1AC3438C0B15 /* TodayDashboardView.swift */; };
 		B8629E664B4B6BBF3D6C54F0 /* LoadingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1FD886F6F9131804F710038 /* LoadingView.swift */; };
@@ -225,6 +226,7 @@
 		460D19A4C8322DAEFB0E907F /* BarcodeRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeRenderer.swift; sourceTree = "<group>"; };
 		4969BBC9A12B2A735D9E5B4D /* TTSAudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TTSAudioEngine.swift; sourceTree = "<group>"; };
 		49FF31397C3FAAB4210662D7 /* StretchSessionStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchSessionStorage.swift; sourceTree = "<group>"; };
+		4DFB9E814FDDB86E3CDF2C9E /* CyclingDashboardCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingDashboardCard.swift; sourceTree = "<group>"; };
 		511B89B20EB43811B7882699 /* MealPlanGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealPlanGridView.swift; sourceTree = "<group>"; };
 		527CD29BA4D349413A9C8DCB /* Audio */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Audio; path = BradOS/Resources/Audio; sourceTree = SOURCE_ROOT; };
 		5772DDAD04489B4098A5A803 /* StravaAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StravaAuthManager.swift; sourceTree = "<group>"; };
@@ -251,7 +253,6 @@
 		90BC999E29435DA84532BACE /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 		91979ABDCADC3D6A75458062 /* ShoppingListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShoppingListView.swift; sourceTree = "<group>"; };
 		946D16CC27BFFCEAD81D0911 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		94B56EFF002A58FE0F269792 /* ActivitiesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivitiesView.swift; sourceTree = "<group>"; };
 		95A2DE32A58E6CAD1F228067 /* NotificationSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationSettingsView.swift; sourceTree = "<group>"; };
 		96E8D3B865B339056854BB2E /* APIConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIConfiguration.swift; sourceTree = "<group>"; };
 		97BC3FD39CD95DA799E37E3C /* MeditationState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationState.swift; sourceTree = "<group>"; };
@@ -313,6 +314,7 @@
 		EEF0E53C0457422A3740718E /* StretchSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchSessionManager.swift; sourceTree = "<group>"; };
 		F0644C85B66D9537DDF00FEE /* CyclingTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingTabView.swift; sourceTree = "<group>"; };
 		F1242FA62054836D545BA364 /* ReadinessCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReadinessCard.swift; sourceTree = "<group>"; };
+		F25403C11555696C27102274 /* HealthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthView.swift; sourceTree = "<group>"; };
 		F2A81A4BB6E628562A8FAB14 /* StretchSessionDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchSessionDetailView.swift; sourceTree = "<group>"; };
 		F592A2134BA93D5BC9EC1A1E /* CyclingTodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingTodayView.swift; sourceTree = "<group>"; };
 		FA13B528976D6158FAD1396F /* CyclingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingViewModel.swift; sourceTree = "<group>"; };
@@ -489,6 +491,7 @@
 		4C37AFCBE279B6CC41FF08B4 /* Today */ = {
 			isa = PBXGroup;
 			children = (
+				4DFB9E814FDDB86E3CDF2C9E /* CyclingDashboardCard.swift */,
 				A0A5A2096504176F249FB0B8 /* MealPlanDashboardCard.swift */,
 				A375E7313BF426DC8D3506CC /* MeditationDashboardCard.swift */,
 				F1242FA62054836D545BA364 /* ReadinessCard.swift */,
@@ -500,14 +503,6 @@
 				60811224B9F92689C02CFB3D /* WorkoutDashboardCard.swift */,
 			);
 			path = Today;
-			sourceTree = "<group>";
-		};
-		4E7B185F79A5E0C3F6701238 /* Activities */ = {
-			isa = PBXGroup;
-			children = (
-				94B56EFF002A58FE0F269792 /* ActivitiesView.swift */,
-			);
-			path = Activities;
 			sourceTree = "<group>";
 		};
 		559FE34F30E3BFFC9D40D87E /* Theme */ = {
@@ -573,11 +568,11 @@
 		88CF50C3ED2FEC41532FC3B8 /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				4E7B185F79A5E0C3F6701238 /* Activities */,
 				0227672F60D6846EBE3D4F93 /* Barcode */,
 				A7E064897A7CD5D2D2AFBCCA /* Calendar */,
 				12CEF3E4A18655A1D2821D97 /* Components */,
 				6BE366FC1514FE0AFABD8E17 /* Cycling */,
+				CBA0DCA9485AA5E7B944CE45 /* Health */,
 				584BF955F976A64CB5B650E8 /* History */,
 				E8DFE299BADECE756B6092C2 /* Lifting */,
 				B85D8085AF0A4EA5C0BAD64A /* MealPlan */,
@@ -662,6 +657,14 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		CBA0DCA9485AA5E7B944CE45 /* Health */ = {
+			isa = PBXGroup;
+			children = (
+				F25403C11555696C27102274 /* HealthView.swift */,
+			);
+			path = Health;
+			sourceTree = "<group>";
+		};
 		D3DDCD6E1BDB40C320EF6EBF /* BradOS */ = {
 			isa = PBXGroup;
 			children = (
@@ -717,7 +720,7 @@
 			path = Lifting;
 			sourceTree = "<group>";
 		};
-		"TEMP_43F02998-2F77-420D-AD41-6E5CF8BE8E3B" /* Resources */ = {
+		"TEMP_15DF41D2-75C7-4EBC-8182-1B796794D6F1" /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -857,7 +860,6 @@
 				B3768B832B5376CB69E944D6 /* APIClient.swift in Sources */,
 				190DE96CCF907ECA009B31C4 /* APIConfiguration.swift in Sources */,
 				01578F385EE7B6429AD6B91E /* APIResponse.swift in Sources */,
-				06FFD7FF6AFE94A655464CFC /* ActivitiesView.swift in Sources */,
 				F96867D0D15F6B08F57BE63D /* ActivityCard.swift in Sources */,
 				CF50BB506F72F3CABBC7486D /* AudioSessionManager.swift in Sources */,
 				967C6FB1C31932F178ED3520 /* BarcodeDisplaySheet.swift in Sources */,
@@ -874,6 +876,7 @@
 				A397B3DA95F1A0DC9A40CE99 /* CritiqueInputView.swift in Sources */,
 				687ED813020B272B9D6301A0 /* CyclingBlockView.swift in Sources */,
 				3B0A570782106358E7AE4962 /* CyclingCoachClient.swift in Sources */,
+				B5FD75B2FCEFD3F51BD8C039 /* CyclingDashboardCard.swift in Sources */,
 				A789B0443A126E93F89A03F2 /* CyclingHistoryView.swift in Sources */,
 				1C6D78344669756397DAB573 /* CyclingModels.swift in Sources */,
 				7EBF20874CDA10719B2D920B /* CyclingOnboardingView.swift in Sources */,
@@ -898,6 +901,7 @@
 				DA05FF1290673BD330C87D4D /* HealthMetricHistoryViewModel.swift in Sources */,
 				57E68D2BB37C847C32150923 /* HealthSyncModels.swift in Sources */,
 				391F2B6A72126570D7F940FB /* HealthSyncView.swift in Sources */,
+				AB1989FE9904C8C10A86163E /* HealthView.swift in Sources */,
 				F7E73D097F3A08BEDF56B266 /* HistoryView.swift in Sources */,
 				EA6DB5F838F769ECDD5B890D /* KeychainService.swift in Sources */,
 				0C2035D397B4383A35E1E100 /* LiftingTabView.swift in Sources */,

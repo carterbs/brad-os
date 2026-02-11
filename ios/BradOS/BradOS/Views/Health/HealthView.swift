@@ -1,8 +1,8 @@
 import SwiftUI
 import BradOSCore
 
-/// Grid view of available activity types
-struct ActivitiesView: View {
+/// Grid view of available health activities and metrics
+struct HealthView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel: CalendarViewModel
 
@@ -55,35 +55,18 @@ struct ActivitiesView: View {
                         ActivityCard(activityType: .meditation) {
                             appState.isShowingMeditation = true
                         }
-
-                        // Meal Plan (not an ActivityType — not tracked on calendar)
-                        Button(action: { appState.isShowingMealPlan = true }) {
-                            VStack(spacing: 10) {
-                                Image(systemName: "fork.knife")
-                                    .font(.system(size: Theme.Typography.activityGridIcon))
-                                    .foregroundColor(Theme.mealPlan)
-
-                                Text("Meal Plan")
-                                    .font(.headline)
-                                    .foregroundColor(Theme.textPrimary)
-
-                                Text("Weekly meals")
-                                    .font(.footnote)
-                                    .foregroundColor(Theme.textSecondary)
-                            }
-                            .frame(maxWidth: .infinity, minHeight: 100)
-                            .glassCard(.card, padding: Theme.Spacing.space6)
-                        }
-                        .buttonStyle(PlainButtonStyle())
                     }
 
                     // Recent Activity Section
                     recentActivitySection
+
+                    // Health Metrics Section
+                    healthMetricsSection
                 }
                 .padding(Theme.Spacing.space5)
             }
             .background(AuroraBackground().ignoresSafeArea())
-            .navigationTitle("Activities")
+            .navigationTitle("Health")
             .navigationBarTitleDisplayMode(.large)
             .toolbarBackground(.hidden, for: .navigationBar)
             .task {
@@ -120,6 +103,67 @@ struct ActivitiesView: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Health Metrics Section
+
+    @ViewBuilder
+    private var healthMetricsSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
+            SectionHeader(title: "Health Metrics")
+
+            VStack(spacing: 0) {
+                NavigationLink(destination: HRVHistoryView()) {
+                    SettingsRow(
+                        title: "HRV History",
+                        subtitle: "Heart rate variability trends",
+                        iconName: "waveform.path.ecg",
+                        iconColor: Theme.interactivePrimary
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                }
+                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+
+                Divider().background(Theme.divider)
+
+                NavigationLink(destination: RHRHistoryView()) {
+                    SettingsRow(
+                        title: "RHR History",
+                        subtitle: "Resting heart rate trends",
+                        iconName: "heart.fill",
+                        iconColor: Theme.destructive
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                }
+                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+
+                Divider().background(Theme.divider)
+
+                NavigationLink(destination: SleepHistoryView()) {
+                    SettingsRow(
+                        title: "Sleep History",
+                        subtitle: "Sleep duration and stage trends",
+                        iconName: "bed.double.fill",
+                        iconColor: Theme.interactiveSecondary
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                }
+                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+            }
+            .glassCard()
         }
     }
 }
@@ -239,22 +283,22 @@ struct RecentActivityRow: View {
     }
 }
 
-#Preview("Activities") {
-    ActivitiesView(apiClient: MockAPIClient())
+#Preview("Health") {
+    HealthView(apiClient: MockAPIClient())
         .environmentObject(AppState())
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
 }
 
-#Preview("Activities - Loading") {
-    ActivitiesView(apiClient: MockAPIClient.withDelay(10.0))
+#Preview("Health - Loading") {
+    HealthView(apiClient: MockAPIClient.withDelay(10.0))
         .environmentObject(AppState())
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
 }
 
-#Preview("Activities - Empty") {
-    ActivitiesView(apiClient: MockAPIClient.empty)
+#Preview("Health - Empty") {
+    HealthView(apiClient: MockAPIClient.empty)
         .environmentObject(AppState())
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
