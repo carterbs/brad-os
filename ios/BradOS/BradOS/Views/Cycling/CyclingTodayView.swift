@@ -5,7 +5,6 @@ import SwiftUI
 /// Today's cycling dashboard with recovery and coach recommendations
 struct CyclingTodayView: View {
     @EnvironmentObject var viewModel: CyclingViewModel
-    @EnvironmentObject var stravaAuth: StravaAuthManager
     @EnvironmentObject var healthKit: HealthKitManager
     @StateObject private var coachClient = CyclingCoachClient()
 
@@ -15,9 +14,8 @@ struct CyclingTodayView: View {
     @State private var syncService: HealthKitSyncService?
 
     private var needsOnboarding: Bool {
-        // Show onboarding if:
-        // 1. No FTP set AND no training block AND not connected to Strava
-        !viewModel.hasFTP && viewModel.currentBlock == nil && !stravaAuth.isConnected
+        // Show onboarding if no FTP set AND no training block
+        !viewModel.hasFTP && viewModel.currentBlock == nil
     }
 
     var body: some View {
@@ -69,7 +67,6 @@ struct CyclingTodayView: View {
                     await viewModel.loadData()
                 }
             }
-            .environmentObject(stravaAuth)
         }
         .sheet(isPresented: $showSetupOnboarding) {
             CyclingOnboardingView {
@@ -77,7 +74,6 @@ struct CyclingTodayView: View {
                     await viewModel.loadData()
                 }
             }
-            .environmentObject(stravaAuth)
         }
     }
 
@@ -293,7 +289,7 @@ struct CoachPlaceholderCard: View {
                     .foregroundColor(Theme.textPrimary)
             }
 
-            Text("Connect Strava and set your FTP to get personalized training recommendations.")
+            Text("Set your FTP to get personalized training recommendations.")
                 .font(.subheadline)
                 .foregroundStyle(Theme.textSecondary)
 
@@ -437,7 +433,6 @@ struct TodayNextUpCard: View {
     CyclingTodayView()
         .environmentObject(CyclingViewModel())
         .environmentObject(HealthKitManager())
-        .environmentObject(StravaAuthManager())
         .padding(Theme.Spacing.space5)
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
@@ -447,7 +442,6 @@ struct TodayNextUpCard: View {
     CyclingTodayView()
         .environmentObject(CyclingViewModel())
         .environmentObject(HealthKitManager())
-        .environmentObject(StravaAuthManager())
         .padding(Theme.Spacing.space5)
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)

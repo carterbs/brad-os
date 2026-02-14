@@ -174,10 +174,15 @@ final class APIClient: APIClientProtocol {
     }
 
     /// Perform POST request with body
-    private func post<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+    private func post<T: Decodable, B: Encodable>(_ path: String, body: B, headers: [String: String]? = nil) async throws -> T {
         var request = try buildRequest(path: path, method: "POST")
         request.httpBody = try encoder.encode(body)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        if let headers {
+            for (key, value) in headers {
+                request.setValue(value, forHTTPHeaderField: key)
+            }
+        }
         return try await performRequest(request)
     }
 
@@ -827,7 +832,13 @@ final class APIClient: APIClientProtocol {
     }
 
     func getTodayCoachRecommendation(_ body: CyclingCoachRequestBody) async throws -> TodayCoachRecommendation {
-        try await post("/today-coach/recommend", body: body)
+        // Backend expects JS-style offset: minutes *behind* UTC (positive = west of UTC)
+        // iOS secondsFromGMT is seconds *ahead* of UTC (negative = west of UTC), so negate
+        let timezoneOffset = -(TimeZone.current.secondsFromGMT() / 60)
+        let result: TodayCoachRecommendation = try await post("/today-coach/recommend", body: body, headers: [
+            "x-timezone-offset": String(timezoneOffset)
+        ])
+        return result
     }
 
     func completeBlock(id: String) async throws {

@@ -4,16 +4,14 @@ import SwiftUI
 
 /// Steps in the cycling onboarding wizard
 enum CyclingOnboardingStep: Int, CaseIterable {
-    case strava = 0
-    case ftp = 1
-    case experience = 2
-    case sessions = 3
-    case goals = 4
-    case preview = 5
+    case ftp = 0
+    case experience = 1
+    case sessions = 2
+    case goals = 3
+    case preview = 4
 
     var title: String {
         switch self {
-        case .strava: return "Connect Strava"
         case .ftp: return "Set Your FTP"
         case .experience: return "Experience"
         case .sessions: return "Sessions"
@@ -24,7 +22,6 @@ enum CyclingOnboardingStep: Int, CaseIterable {
 
     var subtitle: String {
         switch self {
-        case .strava: return "Sync your Peloton rides automatically"
         case .ftp: return "Your Functional Threshold Power"
         case .experience: return "Help the AI tailor your plan"
         case .sessions: return "How often do you want to ride?"
@@ -35,7 +32,6 @@ enum CyclingOnboardingStep: Int, CaseIterable {
 
     var systemImage: String {
         switch self {
-        case .strava: return "figure.outdoor.cycle"
         case .ftp: return "bolt.fill"
         case .experience: return "person.fill"
         case .sessions: return "calendar"
@@ -68,11 +64,10 @@ private enum OnboardingHoursOption: String, CaseIterable {
 /// Wizard-style onboarding flow for cycling feature
 struct CyclingOnboardingView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var stravaAuth: StravaAuthManager
     @EnvironmentObject var cyclingVM: CyclingViewModel
     @StateObject private var coachClient = CyclingCoachClient()
 
-    @State private var currentStep: CyclingOnboardingStep = .strava
+    @State private var currentStep: CyclingOnboardingStep = .ftp
     @State private var ftpValue: String = ""
     @State private var experienceLevel: ExperienceLevel = .intermediate
     @State private var hoursOption: OnboardingHoursOption = .fourToFive
@@ -100,9 +95,6 @@ struct CyclingOnboardingView: View {
 
                 // Step content
                 TabView(selection: $currentStep) {
-                    stravaStep
-                        .tag(CyclingOnboardingStep.strava)
-
                     ftpStep
                         .tag(CyclingOnboardingStep.ftp)
 
@@ -158,120 +150,6 @@ struct CyclingOnboardingView: View {
                     .animation(.easeInOut, value: currentStep)
             }
         }
-    }
-
-    // MARK: - Strava Step
-
-    private var stravaStep: some View {
-        ScrollView {
-            VStack(spacing: Theme.Spacing.space6) {
-                Spacer()
-                    .frame(height: Theme.Spacing.space8)
-
-                Image(systemName: CyclingOnboardingStep.strava.systemImage)
-                    .font(.system(size: 64))
-                    .foregroundStyle(Color.orange)
-                    .frame(width: 120, height: 120)
-                    .background(Color.orange.opacity(0.15))
-                    .clipShape(Circle())
-
-                VStack(spacing: Theme.Spacing.space2) {
-                    Text(CyclingOnboardingStep.strava.title)
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(Theme.textPrimary)
-
-                    Text(CyclingOnboardingStep.strava.subtitle)
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.textSecondary)
-                        .multilineTextAlignment(.center)
-                }
-
-                if stravaAuth.isConnected {
-                    connectedStravaCard
-                } else {
-                    connectStravaCard
-                }
-
-                featuresList
-
-                Spacer()
-            }
-            .padding(Theme.Spacing.space5)
-        }
-    }
-
-    private var connectedStravaCard: some View {
-        HStack(spacing: Theme.Spacing.space3) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.title2)
-                .foregroundStyle(Theme.success)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Strava Connected")
-                    .font(.headline)
-                    .foregroundColor(Theme.textPrimary)
-
-                if let athleteId = stravaAuth.athleteId {
-                    Text("Athlete ID: \(athleteId)")
-                        .font(.caption)
-                        .foregroundStyle(Theme.textSecondary)
-                }
-            }
-
-            Spacer()
-        }
-        .padding(Theme.Spacing.space4)
-        .glassCard()
-    }
-
-    private var connectStravaCard: some View {
-        VStack(spacing: Theme.Spacing.space4) {
-            Button {
-                Task {
-                    do {
-                        try await stravaAuth.startOAuthFlow()
-                    } catch {
-                        errorMessage = error.localizedDescription
-                        showError = true
-                    }
-                }
-            } label: {
-                HStack {
-                    Image(systemName: "link")
-                    Text("Connect with Strava")
-                }
-                .frame(maxWidth: .infinity)
-                .padding()
-                .background(Color.orange)
-                .foregroundStyle(.white)
-                .cornerRadius(Theme.CornerRadius.md)
-            }
-            .disabled(stravaAuth.isLoading)
-            .opacity(stravaAuth.isLoading ? 0.5 : 1.0)
-
-            if stravaAuth.isLoading {
-                ProgressView()
-                    .tint(Theme.textPrimary)
-            }
-
-            if let error = stravaAuth.error {
-                Text(error)
-                    .font(.caption)
-                    .foregroundColor(Theme.destructive)
-                    .multilineTextAlignment(.center)
-            }
-        }
-    }
-
-    private var featuresList: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
-            OnboardingFeatureRow(icon: "bicycle", text: "Sync Peloton rides automatically")
-            OnboardingFeatureRow(icon: "bolt.fill", text: "Track power metrics (NP, TSS)")
-            OnboardingFeatureRow(icon: "heart.fill", text: "Heart rate analysis")
-        }
-        .padding(Theme.Spacing.space4)
-        .glassCard()
     }
 
     // MARK: - FTP Step
@@ -735,7 +613,7 @@ struct CyclingOnboardingView: View {
     private var navigationButtons: some View {
         HStack(spacing: Theme.Spacing.space4) {
             // Back button
-            if currentStep != .strava {
+            if currentStep != .ftp {
                 Button {
                     withAnimation {
                         if let previousIndex = CyclingOnboardingStep.allCases.firstIndex(of: currentStep),
@@ -785,7 +663,6 @@ struct CyclingOnboardingView: View {
 
     private var canAdvance: Bool {
         switch currentStep {
-        case .strava: return true
         case .ftp: return true
         case .experience: return true
         case .sessions: return !preferredDays.isEmpty
@@ -799,8 +676,6 @@ struct CyclingOnboardingView: View {
     private func handleNext() {
         withAnimation {
             switch currentStep {
-            case .strava:
-                currentStep = .ftp
             case .ftp:
                 currentStep = .experience
             case .experience:
@@ -940,23 +815,6 @@ struct CyclingOnboardingView: View {
 
 // MARK: - Supporting Views
 
-struct OnboardingFeatureRow: View {
-    let icon: String
-    let text: String
-
-    var body: some View {
-        HStack(spacing: Theme.Spacing.space3) {
-            Image(systemName: icon)
-                .foregroundStyle(Color.orange)
-                .frame(width: 24)
-            Text(text)
-                .font(.subheadline)
-                .foregroundColor(Theme.textPrimary)
-            Spacer()
-        }
-    }
-}
-
 struct PowerZoneRow: View {
     let zone: String
     let range: String
@@ -983,7 +841,6 @@ struct PowerZoneRow: View {
 
 #Preview {
     CyclingOnboardingView()
-        .environmentObject(StravaAuthManager())
         .environmentObject(CyclingViewModel())
         .preferredColorScheme(.dark)
 }

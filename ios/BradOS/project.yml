@@ -71,6 +71,7 @@ targets:
         NSHealthShareUsageDescription: We use your HRV, sleep, and weight data to track recovery and provide personalized cycling training recommendations.
         NSRemindersFullAccessUsageDescription: BradOS uses Reminders to export your weekly grocery shopping list.
         NSUserNotificationsUsageDescription: BradOS uses notifications to alert you when rest timers complete during workouts.
+        NSCameraUsageDescription: BradOS uses the camera to scan and identify food items for calorie tracking.
         CFBundleURLTypes:
           - CFBundleURLName: com.bradcarter.brad-os
             CFBundleURLSchemes:

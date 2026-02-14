@@ -172,6 +172,23 @@ struct ProfileView: View {
                 }
                 .contentShape(Rectangle())
                 .buttonStyle(.plain)
+
+                Divider().background(Theme.divider)
+
+                NavigationLink(destination: FoodScannerView()) {
+                    SettingsRow(
+                        title: "Food Scanner",
+                        subtitle: "Scan meals with AI + depth sensor",
+                        iconName: "camera.fill",
+                        iconColor: Theme.mealPlan
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                }
+                .contentShape(Rectangle())
+                .buttonStyle(.plain)
             }
             .glassCard(.card, padding: 0)
         }

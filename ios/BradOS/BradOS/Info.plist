@@ -33,6 +33,8 @@
 	<array>
 		<string>spotify</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>BradOS uses the camera to scan and identify food items for calorie tracking.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>We use your HRV, sleep, and weight data to track recovery and provide personalized cycling training recommendations.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
