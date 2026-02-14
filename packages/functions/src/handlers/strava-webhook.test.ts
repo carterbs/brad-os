@@ -6,6 +6,8 @@ const mockCyclingService = vi.hoisted(() => ({
   getCyclingActivityByStravaId: vi.fn(),
   getStravaTokens: vi.fn(),
   setStravaTokens: vi.fn(),
+  setAthleteToUserMapping: vi.fn(),
+  getUserIdByAthleteId: vi.fn(),
   getCurrentFTP: vi.fn(),
   createCyclingActivity: vi.fn(),
   deleteCyclingActivity: vi.fn(),
@@ -31,6 +33,10 @@ vi.mock('../firebase.js', () => ({
   getCollectionName: vi.fn((name: string) => name),
 }));
 
+vi.mock('../middleware/app-check.js', () => ({
+  requireAppCheck: (_req: unknown, _res: unknown, next: () => void): void => { next(); },
+}));
+
 vi.mock('../services/firestore-cycling.service.js', () => mockCyclingService);
 vi.mock('../services/strava.service.js', () => mockStravaService);
 vi.mock('../services/vo2max.service.js', () => ({
@@ -51,6 +57,8 @@ describe('Strava Webhook Handler', () => {
       STRAVA_CLIENT_ID: 'test-client-id',
       STRAVA_CLIENT_SECRET: 'test-client-secret',
     };
+    // Default: athlete 12345 maps to 'default-user'
+    mockCyclingService.getUserIdByAthleteId.mockResolvedValue('default-user');
   });
 
   afterEach(() => {
@@ -378,7 +386,7 @@ describe('Strava Webhook Handler', () => {
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       expect(mockCyclingService.saveActivityStreams).toHaveBeenCalledWith(
-        '12345',
+        'default-user',
         'new-activity-id',
         expect.objectContaining({
           activityId: 'new-activity-id',
@@ -390,6 +398,29 @@ describe('Strava Webhook Handler', () => {
           sampleCount: 3,
         })
       );
+    });
+
+    it('should ignore webhook when no athlete mapping exists', async () => {
+      mockCyclingService.getUserIdByAthleteId.mockResolvedValue(null);
+
+      const response = await request(stravaWebhookApp)
+        .post('/webhook')
+        .send({
+          aspect_type: 'create',
+          event_time: 1705320000,
+          object_id: 999,
+          object_type: 'activity',
+          owner_id: 99999,
+          subscription_id: 1,
+        });
+
+      expect(response.status).toBe(200);
+
+      // Wait for async processing
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(mockCyclingService.getStravaTokens).not.toHaveBeenCalled();
+      expect(mockCyclingService.createCyclingActivity).not.toHaveBeenCalled();
     });
 
     it('should handle delete events', async () => {
@@ -416,9 +447,57 @@ describe('Strava Webhook Handler', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(mockCyclingService.deleteCyclingActivity).toHaveBeenCalledWith(
-        '12345',
+        'default-user',
         'activity-to-delete'
       );
+    });
+  });
+
+  describe('POST /strava/tokens - Token Sync', () => {
+    it('should sync tokens and create athlete mapping', async () => {
+      mockCyclingService.setStravaTokens.mockResolvedValue(undefined);
+      mockCyclingService.setAthleteToUserMapping.mockResolvedValue(undefined);
+
+      const response = await request(stravaWebhookApp)
+        .post('/tokens')
+        .send({
+          accessToken: 'test-access-token',
+          refreshToken: 'test-refresh-token',
+          expiresAt: 1705320000,
+          athleteId: 12345,
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        success: true,
+        data: { synced: true },
+      });
+
+      expect(mockCyclingService.setStravaTokens).toHaveBeenCalledWith(
+        'default-user',
+        {
+          accessToken: 'test-access-token',
+          refreshToken: 'test-refresh-token',
+          expiresAt: 1705320000,
+          athleteId: 12345,
+        }
+      );
+      expect(mockCyclingService.setAthleteToUserMapping).toHaveBeenCalledWith(
+        12345,
+        'default-user'
+      );
+    });
+
+    it('should reject invalid token payload', async () => {
+      const response = await request(stravaWebhookApp)
+        .post('/tokens')
+        .send({
+          accessToken: '',
+          refreshToken: 'test',
+          expiresAt: -1,
+        });
+
+      expect(response.status).toBe(400);
     });
   });
 });

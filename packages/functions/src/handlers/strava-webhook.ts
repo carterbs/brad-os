@@ -6,12 +6,13 @@
  * Endpoints:
  * - GET /strava/webhook - Verification challenge for webhook subscription
  * - POST /strava/webhook - Activity events (create, update, delete)
+ * - POST /strava/tokens - Sync Strava tokens from iOS app (App Check protected)
  */
 
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 import { info, warn, error as logError } from 'firebase-functions/logger';
-import { stravaWebhookEventSchema } from '../shared.js';
+import { stravaWebhookEventSchema, syncStravaTokensSchema, createSuccessResponse } from '../shared.js';
 import * as stravaService from '../services/strava.service.js';
 import * as cyclingService from '../services/firestore-cycling.service.js';
 import {
@@ -19,6 +20,7 @@ import {
 } from '../services/vo2max.service.js';
 import { errorHandler } from '../middleware/error-handler.js';
 import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
+import { requireAppCheck } from '../middleware/app-check.js';
 
 const TAG = '[Strava Webhook]';
 
@@ -27,7 +29,54 @@ app.use(cors({ origin: true }));
 app.use(express.json());
 app.use(stripPathPrefix('strava'));
 
-// Note: Webhook endpoints don't use App Check middleware since Strava calls them
+// Note: Webhook endpoints don't use App Check middleware since Strava calls them.
+// The /tokens endpoint DOES use App Check since the iOS app calls it.
+
+/**
+ * POST /strava/tokens - Sync Strava tokens from iOS app
+ *
+ * Called after the iOS app completes Strava OAuth.
+ * Saves tokens to Firestore and creates the athlete-to-user mapping
+ * so webhooks can resolve athleteId → userId.
+ *
+ * Protected by App Check (only our iOS app can call this).
+ */
+app.post(
+  '/tokens',
+  requireAppCheck,
+  (req: Request, res: Response): void => {
+    const rawBody: unknown = req.body;
+    const parseResult = syncStravaTokensSchema.safeParse(rawBody);
+
+    if (!parseResult.success) {
+      warn(`${TAG} Invalid token sync payload`, { errors: parseResult.error.errors });
+      res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid token payload' } });
+      return;
+    }
+
+    const { accessToken, refreshToken, expiresAt, athleteId } = parseResult.data;
+
+    // Hard-coded userId for single-user app
+    const userId = 'default-user';
+
+    info(`${TAG} Syncing Strava tokens`, { athleteId, userId, expiresAt });
+
+    Promise.all([
+      cyclingService.setStravaTokens(userId, { accessToken, refreshToken, expiresAt, athleteId }),
+      cyclingService.setAthleteToUserMapping(athleteId, userId),
+    ])
+      .then(() => {
+        info(`${TAG} Tokens synced and athlete mapping created`, { athleteId, userId });
+        res.json(createSuccessResponse({ synced: true }));
+      })
+      .catch((error: unknown) => {
+        logError(`${TAG} Failed to sync tokens`, {
+          error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
+        });
+        res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to sync tokens' } });
+      });
+  }
+);
 
 /**
  * GET /strava/webhook - Verification challenge
@@ -125,7 +174,7 @@ async function processActivityEvent(
 
   try {
     // Find user by athlete ID
-    const userId = findUserByAthleteId(athleteId);
+    const userId = await findUserByAthleteId(athleteId);
     if (userId === null || userId === '') {
       warn(`${TAG} No user found for athlete — webhook ignored`, { athleteId });
       return;
@@ -160,19 +209,20 @@ async function processActivityEvent(
 /**
  * Find a user ID by their Strava athlete ID.
  *
- * This requires looking up our user-athlete mapping.
- * For now, we'll use a simple approach where userId equals athleteId.toString()
- * In production, this should query a mapping collection in Firestore.
+ * Queries the /athleteToUser/{athleteId} mapping in Firestore,
+ * which is created when the iOS app syncs tokens via POST /strava/tokens.
  *
  * @param athleteId - Strava athlete ID
  * @returns User ID or null if not found
  */
-function findUserByAthleteId(athleteId: number): string | null {
-  // TODO: Implement proper user lookup from Firestore
-  // For now, use the athleteId as a string userId (matches test setup)
-  // In production, you would query: /athleteToUser/{athleteId} -> userId
-  info(`${TAG} findUserByAthleteId — using athleteId as userId (stub)`, { athleteId });
-  return athleteId.toString();
+async function findUserByAthleteId(athleteId: number): Promise<string | null> {
+  const userId = await cyclingService.getUserIdByAthleteId(athleteId);
+  if (userId !== null) {
+    info(`${TAG} findUserByAthleteId — resolved`, { athleteId, userId });
+  } else {
+    warn(`${TAG} findUserByAthleteId — no mapping found`, { athleteId });
+  }
+  return userId;
 }
 
 /**

@@ -108,6 +108,19 @@ export const stravaCallbackSchema = z.object({
 export type StravaCallbackInput = z.infer<typeof stravaCallbackSchema>;
 
 /**
+ * Schema for syncing Strava tokens from the iOS app to Firestore.
+ * Called after the iOS app completes Strava OAuth.
+ */
+export const syncStravaTokensSchema = z.object({
+  accessToken: z.string().min(1),
+  refreshToken: z.string().min(1),
+  expiresAt: z.number().int().positive(),
+  athleteId: z.number().int().positive(),
+});
+
+export type SyncStravaTokensInput = z.infer<typeof syncStravaTokensSchema>;
+
+/**
  * Schema for Strava webhook subscription validation.
  * Used when Strava verifies the webhook endpoint.
  */

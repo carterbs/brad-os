@@ -744,6 +744,26 @@ final class APIClient: APIClientProtocol {
         try await get("/guidedMeditations/\(id)")
     }
 
+    // MARK: - Strava Token Sync
+
+    func syncStravaTokens(_ tokens: StravaTokens) async throws {
+        struct SyncTokensBody: Encodable {
+            let accessToken: String
+            let refreshToken: String
+            let expiresAt: Int
+            let athleteId: Int
+        }
+        struct SyncTokensResponse: Decodable {
+            let synced: Bool
+        }
+        let _: SyncTokensResponse = try await post("/strava/tokens", body: SyncTokensBody(
+            accessToken: tokens.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresAt: tokens.expiresAt,
+            athleteId: tokens.athleteId
+        ))
+    }
+
     // MARK: - Cycling
 
     func getCyclingActivities(limit: Int? = nil) async throws -> [CyclingActivityModel] {

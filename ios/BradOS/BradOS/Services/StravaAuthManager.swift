@@ -163,6 +163,9 @@ final class StravaAuthManager: NSObject, ObservableObject {
             // Save tokens to keychain
             try keychainService.saveStravaTokens(tokens)
 
+            // Sync tokens to backend so webhooks can use them
+            await syncTokensToBackend(tokens)
+
             // Update state
             isConnected = true
             athleteId = tokens.athleteId
@@ -192,6 +195,9 @@ final class StravaAuthManager: NSObject, ObservableObject {
 
         // Save new tokens
         try keychainService.saveStravaTokens(newTokens)
+
+        // Sync refreshed tokens to backend
+        await syncTokensToBackend(newTokens)
 
         // Update state
         isConnected = true
@@ -237,6 +243,17 @@ final class StravaAuthManager: NSObject, ObservableObject {
 
     // MARK: - Private Methods
 
+    /// Sync tokens to the backend so webhooks can fetch activities.
+    /// Best-effort — failure here should not block the OAuth flow.
+    private func syncTokensToBackend(_ tokens: StravaTokens) async {
+        do {
+            try await APIClient.shared.syncStravaTokens(tokens)
+            print("[StravaAuthManager] Tokens synced to backend")
+        } catch {
+            print("[StravaAuthManager] Failed to sync tokens to backend (non-fatal): \(error.localizedDescription)")
+        }
+    }
+
     /// Load existing tokens from keychain
     private func loadExistingTokens() {
         do {
@@ -244,6 +261,11 @@ final class StravaAuthManager: NSObject, ObservableObject {
                 isConnected = true
                 athleteId = tokens.athleteId
                 print("[StravaAuthManager] Loaded existing tokens for athlete: \(tokens.athleteId)")
+
+                // Sync existing tokens to backend (handles migration for pre-sync users)
+                Task {
+                    await syncTokensToBackend(tokens)
+                }
 
                 // Check if tokens need refresh
                 if tokens.isExpired {

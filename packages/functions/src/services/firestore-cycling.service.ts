@@ -772,6 +772,52 @@ export async function deleteStravaTokens(userId: string): Promise<boolean> {
   return true;
 }
 
+// ============ Athlete-to-User Mapping ============
+
+/**
+ * Set the athlete-to-user mapping so webhooks can resolve a Strava athlete ID to a userId.
+ *
+ * Stored at `/athleteToUser/{athleteId}` (top-level, not under a user doc)
+ * so the webhook can look it up without knowing the userId first.
+ *
+ * @param athleteId - Strava athlete ID
+ * @param userId - The app user ID
+ */
+export async function setAthleteToUserMapping(
+  athleteId: number,
+  userId: string
+): Promise<void> {
+  const db = getDb();
+  const collectionName = getCollectionName('athleteToUser');
+  await db.collection(collectionName).doc(athleteId.toString()).set({ userId });
+  info(`${TAG} setAthleteToUserMapping`, { athleteId, userId });
+}
+
+/**
+ * Look up the userId for a Strava athlete ID.
+ *
+ * @param athleteId - Strava athlete ID
+ * @returns The userId or null if no mapping exists
+ */
+export async function getUserIdByAthleteId(
+  athleteId: number
+): Promise<string | null> {
+  const db = getDb();
+  const collectionName = getCollectionName('athleteToUser');
+  const doc = await db.collection(collectionName).doc(athleteId.toString()).get();
+
+  if (!doc.exists) {
+    return null;
+  }
+
+  const data = doc.data();
+  if (!data) {
+    return null;
+  }
+
+  return data['userId'] as string;
+}
+
 // ============ VO2 Max Estimates ============
 
 /**
