@@ -100,6 +100,7 @@ enum SessionType: String, Codable {
 /// Request body for cycling coach recommendation
 struct CyclingCoachRequestBody: Encodable {
     let recovery: RecoverySnapshot
+    let timezoneOffsetMinutes: Int
 
     /// Simplified recovery snapshot for API request
     struct RecoverySnapshot: Encodable {
@@ -161,7 +162,8 @@ class CyclingCoachClient: ObservableObject {
                 deepSleepPercent: recovery.deepSleepPercent,
                 score: recovery.score,
                 state: recovery.state.rawValue
-            )
+            ),
+            timezoneOffsetMinutes: TimeZone.current.secondsFromGMT() / 60
         )
 
         do {

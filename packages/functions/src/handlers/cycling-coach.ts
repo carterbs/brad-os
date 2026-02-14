@@ -18,7 +18,6 @@ import {
   calculateTrainingLoadMetrics,
   getWeekInBlock,
   determineNextSession,
-  getWeekBoundaries,
   type DailyTSS,
 } from '../services/training-load.service.js';
 import { generateScheduleSchema } from '../schemas/cycling.schema.js';
@@ -92,11 +91,59 @@ function getUserId(req: Request): string {
 }
 
 /**
- * Determine session type based on day of week.
+ * Get a Date whose UTC methods represent the user's local time.
+ *
+ * @param offsetMinutes - Minutes from GMT (e.g. -300 for US Eastern EST).
+ *   This matches iOS `TimeZone.current.secondsFromGMT() / 60`.
  */
-function getSessionType(date: Date): 'vo2max' | 'threshold' | 'fun' {
-  const day = date.getDay();
-  switch (day) {
+export function getUserLocalNow(offsetMinutes: number): Date {
+  return new Date(Date.now() + offsetMinutes * 60 * 1000);
+}
+
+/**
+ * Format a timezone-adjusted Date as YYYY-MM-DD using UTC methods.
+ * Use this with dates returned by getUserLocalNow().
+ */
+export function formatDateUTC(date: Date): string {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Get the user's local day-of-week name from a timezone-adjusted Date.
+ */
+export function getUserLocalDayName(adjustedNow: Date): string {
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  return dayNames[adjustedNow.getUTCDay()] ?? 'Monday';
+}
+
+/**
+ * Get Monday-Sunday week boundaries for the user's local timezone.
+ */
+export function getUserLocalWeekBoundaries(
+  adjustedNow: Date
+): { start: string; end: string } {
+  const dayOfWeek = adjustedNow.getUTCDay(); // 0=Sun, 1=Mon, ...
+  const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const todayMidnight = Date.UTC(
+    adjustedNow.getUTCFullYear(),
+    adjustedNow.getUTCMonth(),
+    adjustedNow.getUTCDate(),
+  );
+  const monday = new Date(todayMidnight + mondayOffset * 86_400_000);
+  const sunday = new Date(todayMidnight + (mondayOffset + 6) * 86_400_000);
+  return { start: formatDateUTC(monday), end: formatDateUTC(sunday) };
+}
+
+/**
+ * Determine session type based on day of week number.
+ *
+ * @param dayNumber - 0=Sunday .. 6=Saturday (same as Date.getUTCDay)
+ */
+export function getSessionType(dayNumber: number): 'vo2max' | 'threshold' | 'fun' {
+  switch (dayNumber) {
     case 2: return 'vo2max';    // Tuesday
     case 4: return 'threshold'; // Thursday
     case 6: return 'fun';       // Saturday
@@ -112,16 +159,6 @@ function daysSince(dateString: string): number {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
-}
-
-/**
- * Format a date as YYYY-MM-DD.
- */
-function formatDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 }
 
 /**
@@ -145,12 +182,11 @@ async function buildLiftingContext(timezoneOffset: number): Promise<LiftingWorko
   const planDayRepo = getPlanDayRepository();
   const workoutSetRepo = getWorkoutSetRepository();
 
-  const now = new Date();
-  const sevenDaysAgo = new Date(now);
-  sevenDaysAgo.setDate(now.getDate() - 7);
+  const userNow = getUserLocalNow(timezoneOffset);
+  const sevenDaysAgo = new Date(userNow.getTime() - 7 * 86_400_000);
 
-  const startDate = formatDate(sevenDaysAgo);
-  const endDate = formatDate(now);
+  const startDate = formatDateUTC(sevenDaysAgo);
+  const endDate = formatDateUTC(userNow);
 
   const completedWorkouts = await workoutRepo.findCompletedInDateRange(
     startDate,
@@ -211,21 +247,22 @@ async function buildLiftingContext(timezoneOffset: number): Promise<LiftingWorko
 }
 
 /**
- * Build lifting schedule context for today/tomorrow/yesterday.
+ * Build lifting schedule context for today/tomorrow/yesterday,
+ * using the user's local timezone.
+ *
+ * @param timezoneOffsetMinutes - Minutes from GMT (e.g. -300 for EST)
  */
-async function buildLiftingSchedule(): Promise<LiftingScheduleContext> {
+async function buildLiftingSchedule(timezoneOffsetMinutes: number): Promise<LiftingScheduleContext> {
   const workoutRepo = getWorkoutRepository();
   const planDayRepo = getPlanDayRepository();
 
-  const now = new Date();
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  const tomorrow = new Date(now);
-  tomorrow.setDate(now.getDate() + 1);
+  const userNow = getUserLocalNow(timezoneOffsetMinutes);
+  const userYesterday = new Date(userNow.getTime() - 86_400_000);
+  const userTomorrow = new Date(userNow.getTime() + 86_400_000);
 
-  const todayStr = formatDate(now);
-  const yesterdayStr = formatDate(yesterday);
-  const tomorrowStr = formatDate(tomorrow);
+  const todayStr = formatDateUTC(userNow);
+  const yesterdayStr = formatDateUTC(userYesterday);
+  const tomorrowStr = formatDateUTC(userTomorrow);
 
   // Helper to get workout name and lower body status
   async function getWorkoutInfo(workout: Workout): Promise<{ name: string; isLowerBody: boolean }> {
@@ -313,7 +350,7 @@ app.post(
     const userId = getUserId(req);
 
     // Recovery data: prefer from request body (iOS-provided), fallback to Firestore
-    const requestBody = req.body as { recovery?: RecoverySnapshot };
+    const requestBody = req.body as { recovery?: RecoverySnapshot; timezoneOffsetMinutes?: number };
     let recovery: RecoverySnapshot | undefined = requestBody.recovery;
 
     if (!recovery) {
@@ -354,13 +391,22 @@ app.post(
     }));
     const metrics = calculateTrainingLoadMetrics(dailyTSS, 60);
 
+    // Resolve timezone: prefer body field, fall back to header, default to 0 (UTC)
+    const timezoneOffset: number =
+      typeof requestBody.timezoneOffsetMinutes === 'number'
+        ? requestBody.timezoneOffsetMinutes
+        : parseInt(req.headers['x-timezone-offset'] as string, 10) || 0;
+
+    // All date calculations use the user's local timezone
+    const userNow = getUserLocalNow(timezoneOffset);
+    const userTodayStr = formatDateUTC(userNow);
+
     // Build coach request
-    const now = new Date();
-    const weekInBlock = block ? getWeekInBlock(block.startDate) : 1;
+    const weekInBlock = block ? getWeekInBlock(block.startDate, userTodayStr) : 1;
 
     // Determine next session from the weekly queue
     const weeklySessions: WeeklySession[] = block?.weeklySessions ?? [];
-    const weekBoundaries = getWeekBoundaries(now);
+    const weekBoundaries = getUserLocalWeekBoundaries(userNow);
 
     // Filter this week's activities to determine what's been completed
     const thisWeekActivities = activities.filter((a) => {
@@ -373,11 +419,10 @@ app.post(
       ? weeklySessions.filter((s) => s.order >= nextSession.order).length
       : 0);
 
-    // Build lifting context in parallel
-    const timezoneOffset = parseInt(req.headers['x-timezone-offset'] as string, 10) || 0;
+    // Build lifting context in parallel (both use user's timezone)
     const [recentLiftingWorkouts, liftingSchedule] = await Promise.all([
       buildLiftingContext(timezoneOffset),
-      buildLiftingSchedule(),
+      buildLiftingSchedule(timezoneOffset),
     ]);
 
     const coachRequest: CyclingCoachRequest = {
@@ -394,7 +439,7 @@ app.post(
         ftpLastTestedDate: ftp.date,
         goals: block?.goals ?? [],
         weekInBlock,
-        blockStartDate: block?.startDate ?? (now.toISOString().split('T')[0] ?? ''),
+        blockStartDate: block?.startDate ?? (userTodayStr),
       },
       weight: {
         currentLbs: 0,
@@ -402,8 +447,8 @@ app.post(
         trend30DayLbs: 0,
       },
       schedule: {
-        dayOfWeek: now.toLocaleDateString('en-US', { weekday: 'long' }),
-        sessionType: getSessionType(now),
+        dayOfWeek: getUserLocalDayName(userNow),
+        sessionType: getSessionType(userNow.getUTCDay()),
         nextSession,
         sessionsCompletedThisWeek,
         totalSessionsThisWeek: weeklySessions.length,
