@@ -1,0 +1,11 @@
+#!/bin/sh
+#
+# Pre-commit hook: scan staged changes for secrets using gitleaks
+#
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "gitleaks not installed. Install with: brew install gitleaks"
+  exit 1
+fi
+
+gitleaks protect --staged --verbose
