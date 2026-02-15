@@ -17,11 +17,13 @@ npm install
 # ... make changes ...
 npm run typecheck && npm run lint && npm test
 
-# 4. Commit and merge back to main (from main worktree)
+# 4. If iOS files were changed, run SwiftLint via xcodebuild (see iOS Linting below)
+
+# 5. Commit and merge back to main (from main worktree)
 cd /Users/bradcarter/Documents/Dev/brad-os
 git merge <branch-name>
 
-# 5. Clean up the worktree
+# 6. Clean up the worktree
 git worktree remove ../lifting-worktrees/<branch-name>
 git branch -d <branch-name>
 ```
@@ -253,6 +255,31 @@ xcodebuild -project ios/BradOS/BradOS.xcodeproj \
 xcrun simctl install booted ./build/ios/Build/Products/Debug-iphonesimulator/BradOS.app
 xcrun simctl launch booted com.bradcarter.brad-os
 ```
+
+### iOS Linting (SwiftLint)
+
+SwiftLint runs as an SPM build tool plugin — it executes automatically during `xcodebuild build`. There is no separate lint command; a successful build means zero SwiftLint errors.
+
+**Before merging any branch that touches iOS files**, verify the build passes:
+
+```bash
+cd ios/BradOS && xcodegen generate && cd ../..
+xcodebuild -project ios/BradOS/BradOS.xcodeproj \
+  -scheme BradOS \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -derivedDataPath ./build/ios \
+  -skipPackagePluginValidation \
+  build
+```
+
+SwiftLint is configured in `ios/BradOS/.swiftlint.yml`. Key rules enforced:
+- `file_length` (max 600 lines) — split large files using Swift extensions
+- `type_body_length` (max 500 lines) — move methods to `+Extension.swift` files
+- `function_body_length` (max 60 lines) — extract helper methods
+- `force_unwrapping` — use `guard let` or `?? default` instead of `!`
+- `identifier_name` — no `SCREAMING_CASE`; use `camelCase` for constants
+
+When splitting files, remember to remove `private` from properties/methods that need cross-file access within the same module.
 
 ### Exploratory Testing
 
