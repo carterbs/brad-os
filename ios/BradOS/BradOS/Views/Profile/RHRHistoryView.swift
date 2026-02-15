@@ -187,7 +187,8 @@ struct RHRHistoryView: View {
                             .gesture(
                                 DragGesture(minimumDistance: 0)
                                     .onChanged { value in
-                                        let origin = geo[chart.plotFrame!].origin
+                                        guard let plotFrame = chart.plotFrame else { return }
+                                        let origin = geo[plotFrame].origin
                                         let x = value.location.x - origin.x
                                         if let date: Date = chart.value(atX: x) {
                                             selectedDate = date

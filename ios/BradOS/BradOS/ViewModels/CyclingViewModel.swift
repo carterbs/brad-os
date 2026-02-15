@@ -227,8 +227,8 @@ class CyclingViewModel: ObservableObject {
             let tss = dailyTSS[day] ?? 0
 
             // Simplified exponential decay
-            runningATL = runningATL + (tss - runningATL) / 7
-            runningCTL = runningCTL + (tss - runningCTL) / 42
+            runningATL += (tss - runningATL) / 7
+            runningCTL += (tss - runningCTL) / 42
 
             return TrainingLoadDataPoint(date: date, ctl: runningCTL, atl: runningATL, tsb: runningCTL - runningATL)
         }.reversed()

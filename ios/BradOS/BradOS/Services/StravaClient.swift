@@ -130,13 +130,26 @@ final class StravaClient: ObservableObject {
     func fetchRecentActivities(page: Int = 1, perPage: Int = 30) async throws -> [StravaActivity] {
         let tokens = try await stravaAuthManager.refreshTokensIfNeeded()
 
-        var components = URLComponents(string: "\(baseURL)/athlete/activities")!
+        guard var components = URLComponents(string: "\(baseURL)/athlete/activities") else {
+            throw StravaClientError.networkError(
+                NSError(domain: "StravaClient", code: -1, userInfo: [
+                    NSLocalizedDescriptionKey: "Invalid URL"
+                ])
+            )
+        }
         components.queryItems = [
             URLQueryItem(name: "page", value: "\(page)"),
             URLQueryItem(name: "per_page", value: "\(min(perPage, 200))")
         ]
 
-        var request = URLRequest(url: components.url!)
+        guard let url = components.url else {
+            throw StravaClientError.networkError(
+                NSError(domain: "StravaClient", code: -1, userInfo: [
+                    NSLocalizedDescriptionKey: "Invalid URL"
+                ])
+            )
+        }
+        var request = URLRequest(url: url)
         request.setValue("Bearer \(tokens.accessToken)", forHTTPHeaderField: "Authorization")
 
         do {
@@ -174,7 +187,14 @@ final class StravaClient: ObservableObject {
     func fetchActivity(id: Int) async throws -> StravaActivity {
         let tokens = try await stravaAuthManager.refreshTokensIfNeeded()
 
-        var request = URLRequest(url: URL(string: "\(baseURL)/activities/\(id)")!)
+        guard let activityURL = URL(string: "\(baseURL)/activities/\(id)") else {
+            throw StravaClientError.networkError(
+                NSError(domain: "StravaClient", code: -1, userInfo: [
+                    NSLocalizedDescriptionKey: "Invalid URL"
+                ])
+            )
+        }
+        var request = URLRequest(url: activityURL)
         request.setValue("Bearer \(tokens.accessToken)", forHTTPHeaderField: "Authorization")
 
         do {

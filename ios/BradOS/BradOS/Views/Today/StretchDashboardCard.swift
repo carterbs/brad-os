@@ -166,7 +166,7 @@ struct StretchDashboardCard: View {
     StretchDashboardCard(
         lastSession: StretchSession(
             id: "1",
-            completedAt: Calendar.current.date(byAdding: .day, value: -1, to: Date())!,
+            completedAt: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date(),
             totalDurationSeconds: 480,
             regionsCompleted: 8,
             regionsSkipped: 0,
@@ -184,7 +184,7 @@ struct StretchDashboardCard: View {
     StretchDashboardCard(
         lastSession: StretchSession(
             id: "1",
-            completedAt: Calendar.current.date(byAdding: .day, value: -4, to: Date())!,
+            completedAt: Calendar.current.date(byAdding: .day, value: -4, to: Date()) ?? Date(),
             totalDurationSeconds: 480,
             regionsCompleted: 8,
             regionsSkipped: 0,

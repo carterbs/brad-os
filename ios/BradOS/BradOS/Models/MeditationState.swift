@@ -80,7 +80,7 @@ struct MeditationConfig: Codable {
 // MARK: - Constants
 
 /// How long before a saved session is considered stale (1 hour)
-let MEDITATION_STALE_THRESHOLD: TimeInterval = 60 * 60
+let meditationStaleThreshold: TimeInterval = 60 * 60
 
 /// How long a paused session can remain before auto-ending (30 minutes)
-let MEDITATION_PAUSE_TIMEOUT: TimeInterval = 30 * 60
+let meditationPauseTimeout: TimeInterval = 30 * 60

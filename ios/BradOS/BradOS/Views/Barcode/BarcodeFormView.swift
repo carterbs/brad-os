@@ -234,6 +234,7 @@ struct BarcodeFormView: View {
 /// Custom text field style matching the Aurora Glass design system
 /// H:52pt, R:12pt (Theme.CornerRadius.md), Glass L1 background
 struct BarcodeTextFieldStyle: TextFieldStyle {
+    // swiftlint:disable:next identifier_name
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration
             .padding(.horizontal, Theme.Spacing.space4)

@@ -36,7 +36,7 @@ class TodayCoachClient: ObservableObject {
     func getRecommendation(recovery: RecoveryData) async {
         // Return cached recommendation if still fresh
         if hasFreshCache {
-            print("[TodayCoachClient] Returning cached recommendation (\(Int(Date().timeIntervalSince(cacheTimestamp!)))s old)")
+            print("[TodayCoachClient] Returning cached recommendation (\(Int(Date().timeIntervalSince(cacheTimestamp ?? Date())))s old)")
             return
         }
 

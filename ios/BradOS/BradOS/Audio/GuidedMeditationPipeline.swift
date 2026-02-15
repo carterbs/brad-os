@@ -38,6 +38,14 @@ final class GuidedMeditationPipeline: ObservableObject {
 
     // MARK: - Build Timeline
 
+    /// Audio event used during timeline building
+    private struct AudioEvent {
+        let startSeconds: Int
+        let fileURL: URL
+        let audioDuration: TimeInterval
+        let phase: String
+    }
+
     /// Build the complete audio timeline from prepared segments and interjections
     /// - Parameters:
     ///   - segments: Prepared TTS segments with measured durations
@@ -50,103 +58,8 @@ final class GuidedMeditationPipeline: ObservableObject {
     ) throws {
         self.totalDuration = totalDuration
 
-        // Merge segments + interjections into single sorted list
-        struct AudioEvent {
-            let startSeconds: Int
-            let fileURL: URL
-            let audioDuration: TimeInterval
-            let phase: String
-        }
-
-        var events: [AudioEvent] = []
-
-        for segment in segments {
-            events.append(AudioEvent(
-                startSeconds: segment.startSeconds,
-                fileURL: segment.audioFileURL,
-                audioDuration: segment.audioDuration,
-                phase: segment.phase
-            ))
-        }
-
-        for interjection in interjections {
-            events.append(AudioEvent(
-                startSeconds: interjection.scheduledSeconds,
-                fileURL: interjection.audioFileURL,
-                audioDuration: interjection.audioDuration,
-                phase: "interjection"
-            ))
-        }
-
-        // Sort by start time
-        events.sort { $0.startSeconds < $1.startSeconds }
-
-        // Build queue items
-        var playerItems: [AVPlayerItem] = []
-        timelineEntries = []
-        var currentEndTime: TimeInterval = 0
-
-        for event in events {
-            let eventStart = TimeInterval(event.startSeconds)
-
-            // Add silence gap if needed
-            let silenceGap = eventStart - currentEndTime
-            if silenceGap > 0.5 {  // Only add silence if gap is meaningful
-                let silenceURL = try SilenceGenerator.generateSilence(duration: silenceGap)
-                let silenceItem = AVPlayerItem(url: silenceURL)
-                playerItems.append(silenceItem)
-
-                timelineEntries.append(TimelineEntry(
-                    startTime: currentEndTime,
-                    duration: silenceGap,
-                    phase: "silence",
-                    isAudio: false
-                ))
-
-                currentEndTime += silenceGap
-            }
-
-            // Add the audio event
-            let audioItem = AVPlayerItem(url: event.fileURL)
-            playerItems.append(audioItem)
-
-            timelineEntries.append(TimelineEntry(
-                startTime: currentEndTime,
-                duration: event.audioDuration,
-                phase: event.phase,
-                isAudio: true
-            ))
-
-            currentEndTime += event.audioDuration
-        }
-
-        // Add trailing silence + bell to reach total duration
-        let remainingSilence = totalDuration - currentEndTime - 3  // 3 seconds for bell
-        if remainingSilence > 0 {
-            let silenceURL = try SilenceGenerator.generateSilence(duration: remainingSilence)
-            playerItems.append(AVPlayerItem(url: silenceURL))
-
-            timelineEntries.append(TimelineEntry(
-                startTime: currentEndTime,
-                duration: remainingSilence,
-                phase: "silence",
-                isAudio: false
-            ))
-            currentEndTime += remainingSilence
-        }
-
-        // Add bell at the end
-        if let bellURL = Bundle.main.url(forResource: "bell", withExtension: "wav", subdirectory: "Audio/meditation/shared") {
-            let bellItem = AVPlayerItem(url: bellURL)
-            playerItems.append(bellItem)
-
-            timelineEntries.append(TimelineEntry(
-                startTime: currentEndTime,
-                duration: 3,
-                phase: "complete",
-                isAudio: true
-            ))
-        }
+        let events = mergeAndSortEvents(segments: segments, interjections: interjections)
+        let playerItems = try buildPlayerItems(from: events, totalDuration: totalDuration)
 
         // Create queue player
         queuePlayer = AVQueuePlayer(items: playerItems)
@@ -170,6 +83,88 @@ final class GuidedMeditationPipeline: ObservableObject {
                 }
             }
         }
+    }
+
+    /// Merge segments and interjections into a single sorted event list
+    private func mergeAndSortEvents(
+        segments: [PreparedAudioSegment],
+        interjections: [ResolvedInterjection]
+    ) -> [AudioEvent] {
+        var events: [AudioEvent] = []
+
+        for segment in segments {
+            events.append(AudioEvent(
+                startSeconds: segment.startSeconds,
+                fileURL: segment.audioFileURL,
+                audioDuration: segment.audioDuration,
+                phase: segment.phase
+            ))
+        }
+
+        for interjection in interjections {
+            events.append(AudioEvent(
+                startSeconds: interjection.scheduledSeconds,
+                fileURL: interjection.audioFileURL,
+                audioDuration: interjection.audioDuration,
+                phase: "interjection"
+            ))
+        }
+
+        return events.sorted { $0.startSeconds < $1.startSeconds }
+    }
+
+    /// Build AVPlayerItems with silence gaps, trailing silence, and bell
+    private func buildPlayerItems(from events: [AudioEvent], totalDuration: TimeInterval) throws -> [AVPlayerItem] {
+        var playerItems: [AVPlayerItem] = []
+        timelineEntries = []
+        var currentEndTime: TimeInterval = 0
+
+        for event in events {
+            let eventStart = TimeInterval(event.startSeconds)
+
+            // Add silence gap if needed
+            let silenceGap = eventStart - currentEndTime
+            if silenceGap > 0.5 {
+                let silenceURL = try SilenceGenerator.generateSilence(duration: silenceGap)
+                playerItems.append(AVPlayerItem(url: silenceURL))
+
+                timelineEntries.append(TimelineEntry(
+                    startTime: currentEndTime, duration: silenceGap, phase: "silence", isAudio: false
+                ))
+                currentEndTime += silenceGap
+            }
+
+            // Add the audio event
+            playerItems.append(AVPlayerItem(url: event.fileURL))
+
+            timelineEntries.append(TimelineEntry(
+                startTime: currentEndTime, duration: event.audioDuration, phase: event.phase, isAudio: true
+            ))
+            currentEndTime += event.audioDuration
+        }
+
+        // Add trailing silence + bell to reach total duration
+        let remainingSilence = totalDuration - currentEndTime - 3  // 3 seconds for bell
+        if remainingSilence > 0 {
+            let silenceURL = try SilenceGenerator.generateSilence(duration: remainingSilence)
+            playerItems.append(AVPlayerItem(url: silenceURL))
+
+            timelineEntries.append(TimelineEntry(
+                startTime: currentEndTime, duration: remainingSilence, phase: "silence", isAudio: false
+            ))
+            currentEndTime += remainingSilence
+        }
+
+        // Add bell at the end
+        if let bellURL = Bundle.main.url(forResource: "bell", withExtension: "wav", subdirectory: "Audio/meditation/shared") {
+            playerItems.append(AVPlayerItem(url: bellURL))
+
+            timelineEntries.append(TimelineEntry(
+                startTime: currentEndTime, duration: 3, phase: "complete", isAudio: true
+            ))
+        }
+
+        return playerItems
     }
 
     // MARK: - Playback Controls

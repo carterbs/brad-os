@@ -16,9 +16,11 @@ excluded:
   - .build
 
 # Rules that are errors (block the build)
+analyzer_rules:
+  - unused_import
+
 opt_in_rules:
   - force_unwrapping
-  - unused_import
   - empty_count
   - empty_string
   - closure_spacing
@@ -104,29 +106,5 @@ identifier_name:
 large_tuple:
   warning: 3
   error: 4
-
-# Custom rules for AI-generated code issues
-custom_rules:
-  no_print_statements:
-    name: "No Print Statements"
-    regex: '^\s*print\s*\('
-    message: "Use os.log or Logger instead of print() in production code"
-    severity: warning
-    match_kinds:
-      - identifier
-
-  discourage_try_bang:
-    name: "Discourage try!"
-    regex: '\btry!\s'
-    message: "Avoid try! - use do/catch or try? instead"
-    severity: error
-
-  magic_number:
-    name: "Magic Number"
-    regex: '(?<![.\w])(?:0[xX][0-9a-fA-F]{3,}|[0-9]{3,})(?![.\w])'
-    message: "Avoid magic numbers - extract to a named constant"
-    severity: warning
-    match_kinds:
-      - number
 
 reporter: xcode

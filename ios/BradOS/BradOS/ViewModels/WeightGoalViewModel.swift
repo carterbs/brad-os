@@ -253,7 +253,8 @@ class WeightGoalViewModel {
         }
 
         // If rate is zero or moving away from goal, can't predict
-        let current = allSmoothedHistory.last!.weight
+        guard let lastPoint = allSmoothedHistory.last else { return }
+        let current = lastPoint.weight
         let needToLose = current > target
         let movingRight = (needToLose && dailyRate < 0) || (!needToLose && dailyRate > 0)
 
