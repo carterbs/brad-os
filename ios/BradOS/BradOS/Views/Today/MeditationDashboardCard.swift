@@ -183,7 +183,7 @@ struct MeditationDashboardCard: View {
     MeditationDashboardCard(
         lastSession: MeditationSession(
             id: "1",
-            completedAt: Calendar.current.date(byAdding: .day, value: -1, to: Date())!,
+            completedAt: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date(),
             sessionType: "basic-breathing",
             plannedDurationSeconds: 600,
             actualDurationSeconds: 600,
@@ -201,7 +201,7 @@ struct MeditationDashboardCard: View {
     MeditationDashboardCard(
         lastSession: MeditationSession(
             id: "1",
-            completedAt: Calendar.current.date(byAdding: .day, value: -3, to: Date())!,
+            completedAt: Calendar.current.date(byAdding: .day, value: -3, to: Date()) ?? Date(),
             sessionType: "basic-breathing",
             plannedDurationSeconds: 300,
             actualDurationSeconds: 300,

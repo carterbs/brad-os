@@ -146,7 +146,7 @@ final class StravaAuthManager: NSObject, ObservableObject {
 
         do {
             // Build authorization URL
-            let authURL = buildAuthURL()
+            let authURL = try buildAuthURL()
             print("[StravaAuthManager] Starting OAuth flow with URL: \(authURL)")
 
             // Present authentication session
@@ -278,8 +278,10 @@ final class StravaAuthManager: NSObject, ObservableObject {
     }
 
     /// Build the authorization URL
-    private func buildAuthURL() -> URL {
-        var components = URLComponents(string: Self.authorizationURL)!
+    private func buildAuthURL() throws -> URL {
+        guard var components = URLComponents(string: Self.authorizationURL) else {
+            throw StravaAuthError.authenticationFailed("Invalid authorization URL")
+        }
 
         components.queryItems = [
             URLQueryItem(name: "client_id", value: clientId),
@@ -289,7 +291,10 @@ final class StravaAuthManager: NSObject, ObservableObject {
             URLQueryItem(name: "approval_prompt", value: "auto")
         ]
 
-        return components.url!
+        guard let url = components.url else {
+            throw StravaAuthError.authenticationFailed("Failed to build authorization URL")
+        }
+        return url
     }
 
     /// Present ASWebAuthenticationSession
@@ -350,7 +355,10 @@ final class StravaAuthManager: NSObject, ObservableObject {
 
     /// Exchange authorization code for tokens
     private func exchangeCodeForTokens(code: String) async throws -> StravaTokens {
-        var request = URLRequest(url: URL(string: Self.tokenURL)!)
+        guard let tokenURL = URL(string: Self.tokenURL) else {
+            throw StravaAuthError.tokenExchangeFailed("Invalid token URL")
+        }
+        var request = URLRequest(url: tokenURL)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
@@ -398,7 +406,10 @@ final class StravaAuthManager: NSObject, ObservableObject {
 
     /// Refresh tokens using refresh token
     private func refreshTokens(refreshToken: String, athleteId: Int) async throws -> StravaTokens {
-        var request = URLRequest(url: URL(string: Self.tokenURL)!)
+        guard let tokenURL = URL(string: Self.tokenURL) else {
+            throw StravaAuthError.tokenRefreshFailed("Invalid token URL")
+        }
+        var request = URLRequest(url: tokenURL)
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 

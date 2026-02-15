@@ -58,87 +58,9 @@ final class MeditationManifestService {
                     name: "Basic Breathing",
                     description: "A simple breathing meditation focusing on natural breath awareness.",
                     variants: [
-                        MeditationVariant(
-                            durationMinutes: 5,
-                            phases: [
-                                MeditationPhaseDefinition(
-                                    type: .intro,
-                                    durationSeconds: 30,
-                                    fixedCues: [
-                                        FixedCue(atSeconds: 0, audioFile: "sessions/basic-breathing/intro-welcome.wav")
-                                    ],
-                                    interjectionWindows: nil
-                                ),
-                                MeditationPhaseDefinition(
-                                    type: .breathing,
-                                    durationSeconds: 240,
-                                    fixedCues: [],
-                                    interjectionWindows: []
-                                ),
-                                MeditationPhaseDefinition(
-                                    type: .closing,
-                                    durationSeconds: 30,
-                                    fixedCues: [
-                                        FixedCue(atSeconds: 0, audioFile: "sessions/basic-breathing/closing.wav")
-                                    ],
-                                    interjectionWindows: nil
-                                )
-                            ]
-                        ),
-                        MeditationVariant(
-                            durationMinutes: 10,
-                            phases: [
-                                MeditationPhaseDefinition(
-                                    type: .intro,
-                                    durationSeconds: 45,
-                                    fixedCues: [
-                                        FixedCue(atSeconds: 0, audioFile: "sessions/basic-breathing/intro-welcome.wav")
-                                    ],
-                                    interjectionWindows: nil
-                                ),
-                                MeditationPhaseDefinition(
-                                    type: .breathing,
-                                    durationSeconds: 525,
-                                    fixedCues: [],
-                                    interjectionWindows: []
-                                ),
-                                MeditationPhaseDefinition(
-                                    type: .closing,
-                                    durationSeconds: 30,
-                                    fixedCues: [
-                                        FixedCue(atSeconds: 0, audioFile: "sessions/basic-breathing/closing.wav")
-                                    ],
-                                    interjectionWindows: nil
-                                )
-                            ]
-                        ),
-                        MeditationVariant(
-                            durationMinutes: 20,
-                            phases: [
-                                MeditationPhaseDefinition(
-                                    type: .intro,
-                                    durationSeconds: 60,
-                                    fixedCues: [
-                                        FixedCue(atSeconds: 0, audioFile: "sessions/basic-breathing/intro-welcome.wav")
-                                    ],
-                                    interjectionWindows: nil
-                                ),
-                                MeditationPhaseDefinition(
-                                    type: .breathing,
-                                    durationSeconds: 1110,
-                                    fixedCues: [],
-                                    interjectionWindows: []
-                                ),
-                                MeditationPhaseDefinition(
-                                    type: .closing,
-                                    durationSeconds: 30,
-                                    fixedCues: [
-                                        FixedCue(atSeconds: 0, audioFile: "sessions/basic-breathing/closing.wav")
-                                    ],
-                                    interjectionWindows: nil
-                                )
-                            ]
-                        )
+                        makeBreathingVariant(durationMinutes: 5, introSeconds: 30, breathingSeconds: 240),
+                        makeBreathingVariant(durationMinutes: 10, introSeconds: 45, breathingSeconds: 525),
+                        makeBreathingVariant(durationMinutes: 20, introSeconds: 60, breathingSeconds: 1110)
                     ]
                 )
             ],
@@ -146,6 +68,37 @@ final class MeditationManifestService {
                 bell: "shared/bell.wav",
                 silence: "shared/silence.wav"
             )
+        )
+    }
+
+    /// Build a basic-breathing variant with intro, breathing, and closing phases
+    private func makeBreathingVariant(durationMinutes: Int, introSeconds: Int, breathingSeconds: Int) -> MeditationVariant {
+        MeditationVariant(
+            durationMinutes: durationMinutes,
+            phases: [
+                MeditationPhaseDefinition(
+                    type: .intro,
+                    durationSeconds: introSeconds,
+                    fixedCues: [
+                        FixedCue(atSeconds: 0, audioFile: "sessions/basic-breathing/intro-welcome.wav")
+                    ],
+                    interjectionWindows: nil
+                ),
+                MeditationPhaseDefinition(
+                    type: .breathing,
+                    durationSeconds: breathingSeconds,
+                    fixedCues: [],
+                    interjectionWindows: []
+                ),
+                MeditationPhaseDefinition(
+                    type: .closing,
+                    durationSeconds: 30,
+                    fixedCues: [
+                        FixedCue(atSeconds: 0, audioFile: "sessions/basic-breathing/closing.wav")
+                    ],
+                    interjectionWindows: nil
+                )
+            ]
         )
     }
 

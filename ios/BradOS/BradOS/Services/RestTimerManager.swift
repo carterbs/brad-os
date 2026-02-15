@@ -116,11 +116,12 @@ final class RestTimerManager: ObservableObject {
     // MARK: - Private Methods
 
     private func startTimer() {
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+        let newTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             self?.tick()
         }
+        timer = newTimer
         // Ensure timer runs on main run loop mode for background support
-        RunLoop.current.add(timer!, forMode: .common)
+        RunLoop.current.add(newTimer, forMode: .common)
     }
 
     private func tick() {

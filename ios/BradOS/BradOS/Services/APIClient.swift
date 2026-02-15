@@ -3,7 +3,7 @@ import BradOSCore
 import FirebaseAppCheck
 
 /// Empty body for POST/PUT requests that don't need a body
-private struct EmptyBody: Encodable {}
+struct EmptyBody: Encodable {}
 
 /// Cache TTL presets for API responses
 enum CacheTTL {
@@ -16,7 +16,7 @@ enum CacheTTL {
 }
 
 /// In-memory response cache with per-key TTL
-private final class ResponseCache: @unchecked Sendable {
+final class ResponseCache: @unchecked Sendable {
     struct Entry {
         let data: Data
         let timestamp: Date
@@ -65,11 +65,11 @@ final class APIClient: APIClientProtocol {
 
     // MARK: - Properties
 
-    private let configuration: APIConfiguration
-    private let session: URLSession
-    private let decoder: JSONDecoder
-    private let encoder: JSONEncoder
-    private let responseCache = ResponseCache()
+    let configuration: APIConfiguration
+    let session: URLSession
+    let decoder: JSONDecoder
+    let encoder: JSONEncoder
+    let responseCache = ResponseCache()
 
     // MARK: - Initialization
 
@@ -162,19 +162,19 @@ final class APIClient: APIClientProtocol {
     // MARK: - Core Request Methods
 
     /// Perform GET request and decode response, with optional caching
-    private func get<T: Decodable>(_ path: String, queryItems: [URLQueryItem]? = nil, cacheTTL: TimeInterval? = nil) async throws -> T {
+    func get<T: Decodable>(_ path: String, queryItems: [URLQueryItem]? = nil, cacheTTL: TimeInterval? = nil) async throws -> T {
         let request = try buildRequest(path: path, method: "GET", queryItems: queryItems)
         return try await performRequest(request, cacheTTL: cacheTTL)
     }
 
     /// Perform GET request that may return null, with optional caching
-    private func getOptional<T: Decodable>(_ path: String, queryItems: [URLQueryItem]? = nil, cacheTTL: TimeInterval? = nil) async throws -> T? {
+    func getOptional<T: Decodable>(_ path: String, queryItems: [URLQueryItem]? = nil, cacheTTL: TimeInterval? = nil) async throws -> T? {
         let request = try buildRequest(path: path, method: "GET", queryItems: queryItems)
         return try await performOptionalRequest(request, cacheTTL: cacheTTL)
     }
 
     /// Perform POST request with body
-    private func post<T: Decodable, B: Encodable>(_ path: String, body: B, headers: [String: String]? = nil) async throws -> T {
+    func post<T: Decodable, B: Encodable>(_ path: String, body: B, headers: [String: String]? = nil) async throws -> T {
         var request = try buildRequest(path: path, method: "POST")
         request.httpBody = try encoder.encode(body)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -187,13 +187,13 @@ final class APIClient: APIClientProtocol {
     }
 
     /// Perform PUT request with optional body
-    private func put<T: Decodable>(_ path: String) async throws -> T {
+    func put<T: Decodable>(_ path: String) async throws -> T {
         let request = try buildRequest(path: path, method: "PUT")
         return try await performRequest(request)
     }
 
     /// Perform PUT request with body
-    private func put<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+    func put<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
         var request = try buildRequest(path: path, method: "PUT")
         request.httpBody = try encoder.encode(body)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -201,21 +201,21 @@ final class APIClient: APIClientProtocol {
     }
 
     /// Perform DELETE request (no response body)
-    private func delete(_ path: String) async throws {
+    func deleteRequest(_ path: String) async throws {
         let request = try buildRequest(path: path, method: "DELETE")
         let (data, response) = try await performDataTask(for: request)
         try validateResponse(data: data, response: response, allowEmpty: true)
     }
 
     /// Perform DELETE request with response body
-    private func delete<T: Decodable>(_ path: String) async throws -> T {
+    func deleteRequest<T: Decodable>(_ path: String) async throws -> T {
         let request = try buildRequest(path: path, method: "DELETE")
         return try await performRequest(request)
     }
 
     // MARK: - Request Building
 
-    private func buildRequest(path: String, method: String, queryItems: [URLQueryItem]? = nil) throws -> URLRequest {
+    func buildRequest(path: String, method: String, queryItems: [URLQueryItem]? = nil) throws -> URLRequest {
         var components = URLComponents(url: configuration.baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: true)
         if let queryItems = queryItems, !queryItems.isEmpty {
             components?.queryItems = queryItems
@@ -233,7 +233,7 @@ final class APIClient: APIClientProtocol {
 
     // MARK: - Response Handling
 
-    private func performDataTask(for request: URLRequest) async throws -> (Data, URLResponse) {
+    func performDataTask(for request: URLRequest) async throws -> (Data, URLResponse) {
         var request = request
 
         // Skip App Check for emulator (localhost) - server bypasses verification in emulator mode
@@ -263,7 +263,7 @@ final class APIClient: APIClientProtocol {
         }
     }
 
-    private func performRequest<T: Decodable>(_ request: URLRequest, cacheTTL: TimeInterval? = nil) async throws -> T {
+    func performRequest<T: Decodable>(_ request: URLRequest, cacheTTL: TimeInterval? = nil) async throws -> T {
         let cacheKey = request.url?.absoluteString ?? ""
 
         // Check cache for GET requests
@@ -300,7 +300,7 @@ final class APIClient: APIClientProtocol {
         }
     }
 
-    private func performOptionalRequest<T: Decodable>(_ request: URLRequest, cacheTTL: TimeInterval? = nil) async throws -> T? {
+    func performOptionalRequest<T: Decodable>(_ request: URLRequest, cacheTTL: TimeInterval? = nil) async throws -> T? {
         let cacheKey = request.url?.absoluteString ?? ""
 
         // Check cache for GET requests
@@ -331,7 +331,7 @@ final class APIClient: APIClientProtocol {
         }
     }
 
-    private func validateResponse(data: Data, response: URLResponse, allowEmpty: Bool = false) throws {
+    func validateResponse(data: Data, response: URLResponse, allowEmpty: Bool = false) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.network(NSError(domain: "APIClient", code: -1, userInfo: [
                 NSLocalizedDescriptionKey: "Invalid response type"
@@ -369,624 +369,5 @@ final class APIClient: APIClientProtocol {
         default:
             throw APIError.unknown(message, statusCode: httpResponse.statusCode)
         }
-    }
-
-    // MARK: - Workouts
-
-    func getTodaysWorkout() async throws -> Workout? {
-        try await getOptional("/workouts/today", cacheTTL: CacheTTL.short)
-    }
-
-    func getWorkout(id: String) async throws -> Workout {
-        try await get("/workouts/\(id)")
-    }
-
-    func startWorkout(id: String) async throws -> Workout {
-        let result: Workout = try await put("/workouts/\(id)/start")
-        invalidateCache(matching: "/workouts")
-        return result
-    }
-
-    func completeWorkout(id: String) async throws -> Workout {
-        let result: Workout = try await put("/workouts/\(id)/complete")
-        invalidateCache(matching: "/workouts")
-        return result
-    }
-
-    func skipWorkout(id: String) async throws -> Workout {
-        let result: Workout = try await put("/workouts/\(id)/skip")
-        invalidateCache(matching: "/workouts")
-        return result
-    }
-
-    // MARK: - Workout Sets
-
-    func logSet(id: String, actualReps: Int, actualWeight: Double) async throws -> WorkoutSet {
-        struct LogSetBody: Encodable {
-            let actual_reps: Int
-            let actual_weight: Double
-        }
-        return try await put("/workout-sets/\(id)/log", body: LogSetBody(actual_reps: actualReps, actual_weight: actualWeight))
-    }
-
-    func skipSet(id: String) async throws -> WorkoutSet {
-        try await put("/workout-sets/\(id)/skip")
-    }
-
-    func unlogSet(id: String) async throws -> WorkoutSet {
-        try await put("/workout-sets/\(id)/unlog")
-    }
-
-    func addSet(workoutId: String, exerciseId: String) async throws -> ModifySetCountResult {
-        try await post("/workouts/\(workoutId)/exercises/\(exerciseId)/sets/add", body: EmptyBody())
-    }
-
-    func removeSet(workoutId: String, exerciseId: String) async throws -> ModifySetCountResult {
-        try await delete("/workouts/\(workoutId)/exercises/\(exerciseId)/sets/remove")
-    }
-
-    // MARK: - Exercises
-
-    func getExercises() async throws -> [Exercise] {
-        try await get("/exercises")
-    }
-
-    func getExercise(id: String) async throws -> Exercise {
-        try await get("/exercises/\(id)")
-    }
-
-    func createExercise(name: String, weightIncrement: Double = 5.0) async throws -> Exercise {
-        struct CreateExerciseBody: Encodable {
-            let name: String
-            let weight_increment: Double
-        }
-        return try await post("/exercises", body: CreateExerciseBody(name: name, weight_increment: weightIncrement))
-    }
-
-    func updateExercise(id: String, name: String? = nil, weightIncrement: Double? = nil) async throws -> Exercise {
-        struct UpdateExerciseBody: Encodable {
-            let name: String?
-            let weight_increment: Double?
-        }
-        return try await put("/exercises/\(id)", body: UpdateExerciseBody(name: name, weight_increment: weightIncrement))
-    }
-
-    func deleteExercise(id: String) async throws {
-        try await delete("/exercises/\(id)")
-    }
-
-    func getExerciseHistory(id: String) async throws -> ExerciseHistory {
-        try await get("/exercises/\(id)/history")
-    }
-
-    // MARK: - Plans
-
-    func getPlans() async throws -> [Plan] {
-        try await get("/plans")
-    }
-
-    func getPlan(id: String) async throws -> Plan {
-        try await get("/plans/\(id)")
-    }
-
-    func createPlan(name: String, durationWeeks: Int = 6) async throws -> Plan {
-        struct CreatePlanBody: Encodable {
-            let name: String
-            let duration_weeks: Int
-        }
-        return try await post("/plans", body: CreatePlanBody(name: name, duration_weeks: durationWeeks))
-    }
-
-    func updatePlan(id: String, name: String? = nil, durationWeeks: Int? = nil) async throws -> Plan {
-        struct UpdatePlanBody: Encodable {
-            let name: String?
-            let duration_weeks: Int?
-        }
-        return try await put("/plans/\(id)", body: UpdatePlanBody(name: name, duration_weeks: durationWeeks))
-    }
-
-    func deletePlan(id: String) async throws {
-        try await delete("/plans/\(id)")
-    }
-
-    func getPlanDays(planId: String) async throws -> [PlanDay] {
-        print("[APIClient] getPlanDays: fetching days for plan \(planId)")
-        let days: [PlanDay] = try await get("/plans/\(planId)/days")
-        print("[APIClient] getPlanDays: got \(days.count) days for plan \(planId)")
-        var enrichedDays: [PlanDay] = []
-        for var day in days {
-            do {
-                let exercises: [PlanDayExercise] = try await get("/plans/\(planId)/days/\(day.id)/exercises")
-                day.exercises = exercises
-                print("[APIClient] getPlanDays: day \(day.id) has \(exercises.count) exercises")
-            } catch {
-                print("[APIClient] getPlanDays: FAILED to decode exercises for day \(day.id): \(error)")
-                // Continue with empty exercises rather than failing the entire plan
-                day.exercises = []
-            }
-            enrichedDays.append(day)
-        }
-        return enrichedDays
-    }
-
-    // MARK: - Mesocycles
-
-    func getMesocycles() async throws -> [Mesocycle] {
-        try await get("/mesocycles")
-    }
-
-    func getActiveMesocycle() async throws -> Mesocycle? {
-        try await getOptional("/mesocycles/active")
-    }
-
-    func getMesocycle(id: String) async throws -> Mesocycle {
-        try await get("/mesocycles/\(id)")
-    }
-
-    func createMesocycle(planId: String, startDate: Date) async throws -> Mesocycle {
-        struct CreateMesocycleBody: Encodable {
-            let plan_id: String
-            let start_date: String
-        }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.timeZone = TimeZone.current
-        let dateString = formatter.string(from: startDate)
-        return try await post("/mesocycles", body: CreateMesocycleBody(plan_id: planId, start_date: dateString))
-    }
-
-    func startMesocycle(id: String) async throws -> Mesocycle {
-        try await put("/mesocycles/\(id)/start")
-    }
-
-    func completeMesocycle(id: String) async throws -> Mesocycle {
-        try await put("/mesocycles/\(id)/complete")
-    }
-
-    func cancelMesocycle(id: String) async throws -> Mesocycle {
-        try await put("/mesocycles/\(id)/cancel")
-    }
-
-    // MARK: - Stretch Sessions
-
-    func getStretchSessions() async throws -> [StretchSession] {
-        try await get("/stretch-sessions")
-    }
-
-    func getLatestStretchSession() async throws -> StretchSession? {
-        try await getOptional("/stretch-sessions/latest", cacheTTL: CacheTTL.short)
-    }
-
-    func getStretchSession(id: String) async throws -> StretchSession {
-        try await get("/stretch-sessions/\(id)")
-    }
-
-    func createStretchSession(_ session: StretchSession) async throws -> StretchSession {
-        // Use a custom body struct to match server expectations (camelCase)
-        struct CompletedStretchBody: Encodable {
-            let region: String
-            let stretchId: String
-            let stretchName: String
-            let durationSeconds: Int
-            let skippedSegments: Int
-        }
-
-        struct CreateStretchSessionBody: Encodable {
-            let completedAt: String
-            let totalDurationSeconds: Int
-            let regionsCompleted: Int
-            let regionsSkipped: Int
-            let stretches: [CompletedStretchBody]
-        }
-
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-
-        // Convert stretches to the expected format
-        let stretchBodies = (session.stretches ?? []).map { stretch in
-            CompletedStretchBody(
-                region: stretch.region.rawValue,
-                stretchId: stretch.stretchId,
-                stretchName: stretch.stretchName,
-                durationSeconds: stretch.durationSeconds,
-                skippedSegments: stretch.skippedSegments
-            )
-        }
-
-        let body = CreateStretchSessionBody(
-            completedAt: formatter.string(from: session.completedAt),
-            totalDurationSeconds: session.totalDurationSeconds,
-            regionsCompleted: session.regionsCompleted,
-            regionsSkipped: session.regionsSkipped,
-            stretches: stretchBodies
-        )
-        let result: StretchSession = try await post("/stretch-sessions", body: body)
-        invalidateCache(matching: "/stretch-sessions")
-        return result
-    }
-
-    // MARK: - Meditation Sessions
-
-    func getMeditationSessions() async throws -> [MeditationSession] {
-        try await get("/meditation-sessions")
-    }
-
-    func getLatestMeditationSession() async throws -> MeditationSession? {
-        try await getOptional("/meditation-sessions/latest", cacheTTL: CacheTTL.short)
-    }
-
-    func createMeditationSession(_ session: MeditationSession) async throws -> MeditationSession {
-        // Use a custom body struct to match server expectations (camelCase)
-        struct CreateMeditationSessionBody: Encodable {
-            let completedAt: String
-            let sessionType: String
-            let plannedDurationSeconds: Int
-            let actualDurationSeconds: Int
-            let completedFully: Bool
-        }
-
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-
-        let body = CreateMeditationSessionBody(
-            completedAt: formatter.string(from: session.completedAt),
-            sessionType: session.sessionType,
-            plannedDurationSeconds: session.plannedDurationSeconds,
-            actualDurationSeconds: session.actualDurationSeconds,
-            completedFully: session.completedFully
-        )
-        let result: MeditationSession = try await post("/meditation-sessions", body: body)
-        invalidateCache(matching: "/meditation-sessions")
-        return result
-    }
-
-    func getMeditationStats() async throws -> MeditationStats {
-        try await get("/meditation-sessions/stats", cacheTTL: CacheTTL.short)
-    }
-
-    // MARK: - Barcodes
-
-    func getBarcodes() async throws -> [Barcode] {
-        try await get("/barcodes")
-    }
-
-    func getBarcode(id: String) async throws -> Barcode {
-        try await get("/barcodes/\(id)")
-    }
-
-    func createBarcode(_ dto: CreateBarcodeDTO) async throws -> Barcode {
-        try await post("/barcodes", body: dto)
-    }
-
-    func updateBarcode(id: String, dto: UpdateBarcodeDTO) async throws -> Barcode {
-        try await put("/barcodes/\(id)", body: dto)
-    }
-
-    func deleteBarcode(id: String) async throws {
-        try await delete("/barcodes/\(id)")
-    }
-
-    // MARK: - Ingredients
-
-    func getIngredients() async throws -> [Ingredient] {
-        try await get("/ingredients")
-    }
-
-    // MARK: - Recipes
-
-    func getRecipes() async throws -> [Recipe] {
-        try await get("/recipes")
-    }
-
-    // MARK: - Meal Plans
-
-    func generateMealPlan() async throws -> GenerateMealPlanResponse {
-        struct EmptyBody: Encodable {}
-        return try await post("/mealplans/generate", body: EmptyBody())
-    }
-
-    func getMealPlanSession(id: String) async throws -> MealPlanSession {
-        try await get("/mealplans/\(id)")
-    }
-
-    func critiqueMealPlan(sessionId: String, critique: String) async throws -> CritiqueMealPlanResponse {
-        struct CritiqueBody: Encodable { let critique: String }
-        return try await post("/mealplans/\(sessionId)/critique", body: CritiqueBody(critique: critique))
-    }
-
-    func finalizeMealPlan(sessionId: String) async throws {
-        struct EmptyBody: Encodable {}
-        struct FinalizeResponse: Decodable { let finalized: Bool }
-        let _: FinalizeResponse = try await post("/mealplans/\(sessionId)/finalize", body: EmptyBody())
-    }
-
-    func getLatestMealPlanSession() async throws -> MealPlanSession? {
-        return try await getOptional("/mealplans/latest")
-    }
-
-    // MARK: - Stretches
-
-    func getStretches() async throws -> [StretchRegionData] {
-        try await get("/stretches")
-    }
-
-    // MARK: - Text to Speech
-
-    func synthesizeSpeech(text: String) async throws -> Data {
-        struct SynthesizeBody: Encodable {
-            let text: String
-        }
-
-        struct SynthesizeResponse: Decodable {
-            let audio: String
-        }
-
-        let response: SynthesizeResponse = try await post("/tts/synthesize", body: SynthesizeBody(text: text))
-
-        guard let audioData = Data(base64Encoded: response.audio) else {
-            throw APIError.unknown("Failed to decode base64 audio data")
-        }
-
-        return audioData
-    }
-
-    // MARK: - Guided Meditations
-
-    func getGuidedMeditationCategories() async throws -> [GuidedMeditationCategoryResponse] {
-        try await get("/guidedMeditations/categories")
-    }
-
-    func getGuidedMeditationScripts(category: String) async throws -> [GuidedMeditationScript] {
-        try await get("/guidedMeditations/category/\(category)")
-    }
-
-    func getGuidedMeditationScript(id: String) async throws -> GuidedMeditationScript {
-        try await get("/guidedMeditations/\(id)")
-    }
-
-    // MARK: - Strava Token Sync
-
-    func syncStravaTokens(_ tokens: StravaTokens) async throws {
-        struct SyncTokensBody: Encodable {
-            let accessToken: String
-            let refreshToken: String
-            let expiresAt: Int
-            let athleteId: Int
-        }
-        struct SyncTokensResponse: Decodable {
-            let synced: Bool
-        }
-        let _: SyncTokensResponse = try await post("/strava/tokens", body: SyncTokensBody(
-            accessToken: tokens.accessToken,
-            refreshToken: tokens.refreshToken,
-            expiresAt: tokens.expiresAt,
-            athleteId: tokens.athleteId
-        ))
-    }
-
-    // MARK: - Cycling
-
-    func getCyclingActivities(limit: Int? = nil) async throws -> [CyclingActivityModel] {
-        var queryItems: [URLQueryItem]? = nil
-        if let limit = limit {
-            queryItems = [URLQueryItem(name: "limit", value: String(limit))]
-        }
-        return try await get("/cycling/activities", queryItems: queryItems, cacheTTL: CacheTTL.medium)
-    }
-
-    func getCyclingTrainingLoad() async throws -> CyclingTrainingLoadResponse {
-        try await get("/cycling/training-load", cacheTTL: CacheTTL.medium)
-    }
-
-    func getCurrentFTP() async throws -> FTPEntryResponse? {
-        try await getOptional("/cycling/ftp", cacheTTL: CacheTTL.long)
-    }
-
-    func getCurrentBlock() async throws -> TrainingBlockResponse? {
-        try await getOptional("/cycling/block", cacheTTL: CacheTTL.long)
-    }
-
-    func getVO2Max() async throws -> VO2MaxResponse {
-        try await get("/cycling/vo2max", cacheTTL: CacheTTL.long)
-    }
-
-    func getEFHistory() async throws -> [EFDataPoint] {
-        try await get("/cycling/ef", cacheTTL: CacheTTL.medium)
-    }
-
-    func createFTP(value: Int, date: String, source: String = "manual") async throws -> FTPEntryResponse {
-        struct CreateFTPBody: Encodable {
-            let value: Int
-            let date: String
-            let source: String
-        }
-        let result: FTPEntryResponse = try await post("/cycling/ftp", body: CreateFTPBody(value: value, date: date, source: source))
-        invalidateCache(matching: "/cycling/ftp")
-        return result
-    }
-
-    func getFTPHistory() async throws -> [FTPEntryResponse] {
-        try await get("/cycling/ftp/history", cacheTTL: CacheTTL.long)
-    }
-
-    func createBlock(
-        startDate: String,
-        endDate: String,
-        goals: [String],
-        daysPerWeek: Int? = nil,
-        weeklySessions: [WeeklySessionModel]? = nil,
-        preferredDays: [Int]? = nil,
-        experienceLevel: ExperienceLevel? = nil,
-        weeklyHoursAvailable: Double? = nil
-    ) async throws -> TrainingBlockResponse {
-        struct CreateBlockBody: Encodable {
-            let startDate: String
-            let endDate: String
-            let goals: [String]
-            let daysPerWeek: Int?
-            let weeklySessions: [WeeklySessionModel]?
-            let preferredDays: [Int]?
-            let experienceLevel: String?
-            let weeklyHoursAvailable: Double?
-        }
-        let result: TrainingBlockResponse = try await post("/cycling/block", body: CreateBlockBody(
-            startDate: startDate,
-            endDate: endDate,
-            goals: goals,
-            daysPerWeek: daysPerWeek,
-            weeklySessions: weeklySessions,
-            preferredDays: preferredDays,
-            experienceLevel: experienceLevel?.rawValue,
-            weeklyHoursAvailable: weeklyHoursAvailable
-        ))
-        invalidateCache(matching: "/cycling/block")
-        return result
-    }
-
-    func generateSchedule(_ request: GenerateScheduleRequest) async throws -> GenerateScheduleResponse {
-        try await post("/cycling-coach/generate-schedule", body: request)
-    }
-
-    func getCoachRecommendation(_ body: CyclingCoachRequestBody) async throws -> CyclingCoachRecommendation {
-        try await post("/cycling-coach/recommend", body: body)
-    }
-
-    func getTodayCoachRecommendation(_ body: CyclingCoachRequestBody) async throws -> TodayCoachRecommendation {
-        // Backend expects JS-style offset: minutes *behind* UTC (positive = west of UTC)
-        // iOS secondsFromGMT is seconds *ahead* of UTC (negative = west of UTC), so negate
-        let timezoneOffset = -(TimeZone.current.secondsFromGMT() / 60)
-        let result: TodayCoachRecommendation = try await post("/today-coach/recommend", body: body, headers: [
-            "x-timezone-offset": String(timezoneOffset)
-        ])
-        return result
-    }
-
-    func syncCyclingActivities() async throws -> CyclingSyncResponse {
-        struct EmptyBody: Encodable {}
-        let result: CyclingSyncResponse = try await post("/cycling/sync", body: EmptyBody())
-        invalidateCache(matching: "/cycling/activities")
-        invalidateCache(matching: "/cycling/training-load")
-        return result
-    }
-
-    func completeBlock(id: String) async throws {
-        struct CompleteResponse: Decodable { let completed: Bool }
-        let _: CompleteResponse = try await put("/cycling/block/\(id)/complete")
-        invalidateCache(matching: "/cycling/block")
-    }
-
-    // MARK: - Weight & Health Sync
-
-    func getWeightHistory(days: Int) async throws -> [WeightHistoryEntry] {
-        try await get("/health-sync/weight", queryItems: [URLQueryItem(name: "days", value: String(days))], cacheTTL: CacheTTL.long)
-    }
-
-    func getLatestWeight() async throws -> WeightHistoryEntry? {
-        try await getOptional("/health-sync/weight", cacheTTL: CacheTTL.medium)
-    }
-
-    func syncWeightBulk(weights: [WeightSyncEntry]) async throws -> Int {
-        struct BulkWeightBody: Encodable {
-            let weights: [WeightSyncEntry]
-        }
-        struct BulkWeightResponse: Decodable {
-            let added: Int
-        }
-        let response: BulkWeightResponse = try await post("/health-sync/weight/bulk", body: BulkWeightBody(weights: weights))
-        if response.added > 0 { invalidateCache(matching: "/health-sync/weight") }
-        return response.added
-    }
-
-    func syncHRVBulk(entries: [HRVSyncEntry]) async throws -> Int {
-        struct BulkHRVBody: Encodable {
-            let entries: [HRVSyncEntry]
-        }
-        struct BulkHRVResponse: Decodable {
-            let added: Int
-        }
-        let response: BulkHRVResponse = try await post("/health-sync/hrv/bulk", body: BulkHRVBody(entries: entries))
-        if response.added > 0 { invalidateCache(matching: "/health-sync/hrv") }
-        return response.added
-    }
-
-    func getHRVHistory(days: Int) async throws -> [HRVHistoryEntry] {
-        try await get("/health-sync/hrv", queryItems: [URLQueryItem(name: "days", value: String(days))], cacheTTL: CacheTTL.long)
-    }
-
-    func syncRHRBulk(entries: [RHRSyncEntry]) async throws -> Int {
-        struct BulkRHRBody: Encodable {
-            let entries: [RHRSyncEntry]
-        }
-        struct BulkRHRResponse: Decodable {
-            let added: Int
-        }
-        let response: BulkRHRResponse = try await post("/health-sync/rhr/bulk", body: BulkRHRBody(entries: entries))
-        if response.added > 0 { invalidateCache(matching: "/health-sync/rhr") }
-        return response.added
-    }
-
-    func getRHRHistory(days: Int) async throws -> [RHRHistoryEntry] {
-        try await get("/health-sync/rhr", queryItems: [URLQueryItem(name: "days", value: String(days))], cacheTTL: CacheTTL.long)
-    }
-
-    func syncSleepBulk(entries: [SleepSyncEntry]) async throws -> Int {
-        struct BulkSleepBody: Encodable {
-            let entries: [SleepSyncEntry]
-        }
-        struct BulkSleepResponse: Decodable {
-            let added: Int
-        }
-        let response: BulkSleepResponse = try await post("/health-sync/sleep/bulk", body: BulkSleepBody(entries: entries))
-        if response.added > 0 { invalidateCache(matching: "/health-sync/sleep") }
-        return response.added
-    }
-
-    func getSleepHistory(days: Int) async throws -> [SleepHistoryEntry] {
-        try await get("/health-sync/sleep", queryItems: [URLQueryItem(name: "days", value: String(days))], cacheTTL: CacheTTL.long)
-    }
-
-    func getLatestRecovery() async throws -> RecoverySnapshotResponse? {
-        try await getOptional("/health-sync/recovery", cacheTTL: CacheTTL.medium)
-    }
-
-    func syncRecovery(recovery: RecoverySyncData, baseline: RecoveryBaselineSyncData?) async throws -> RecoverySyncResponse {
-        struct SyncBody: Encodable {
-            let recovery: RecoverySyncData
-            let baseline: RecoveryBaselineSyncData?
-        }
-        let result: RecoverySyncResponse = try await post("/health-sync/sync", body: SyncBody(recovery: recovery, baseline: baseline))
-        invalidateCache(matching: "/health-sync/recovery")
-        return result
-    }
-
-    func getWeightGoal() async throws -> WeightGoalResponse? {
-        try await getOptional("/cycling/weight-goal", cacheTTL: CacheTTL.long)
-    }
-
-    func saveWeightGoal(targetWeightLbs: Double, targetDate: String, startWeightLbs: Double, startDate: String) async throws -> WeightGoalResponse {
-        struct SaveWeightGoalBody: Encodable {
-            let targetWeightLbs: Double
-            let targetDate: String
-            let startWeightLbs: Double
-            let startDate: String
-        }
-        let result: WeightGoalResponse = try await post("/cycling/weight-goal", body: SaveWeightGoalBody(
-            targetWeightLbs: targetWeightLbs,
-            targetDate: targetDate,
-            startWeightLbs: startWeightLbs,
-            startDate: startDate
-        ))
-        invalidateCache(matching: "/cycling/weight-goal")
-        return result
-    }
-
-    // MARK: - Calendar
-
-    func getCalendarData(year: Int, month: Int, timezoneOffset: Int? = nil) async throws -> CalendarData {
-        var queryItems: [URLQueryItem]? = nil
-        if let tz = timezoneOffset {
-            queryItems = [URLQueryItem(name: "tz", value: String(tz))]
-        }
-        return try await get("/calendar/\(year)/\(month)", queryItems: queryItems, cacheTTL: CacheTTL.medium)
     }
 }

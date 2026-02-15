@@ -126,9 +126,10 @@ class WorkoutManager: NSObject, ObservableObject {
                 workoutConfiguration: config
             )
 
-            startDate = Date()
-            session?.startActivity(with: startDate!)
-            try await builder?.beginCollection(at: startDate!)
+            let workoutStartDate = Date()
+            startDate = workoutStartDate
+            session?.startActivity(with: workoutStartDate)
+            try await builder?.beginCollection(at: workoutStartDate)
         } catch {
             self.error = error
             throw error
@@ -168,9 +169,10 @@ class WorkoutManager: NSObject, ObservableObject {
                 workoutConfiguration: configuration
             )
 
-            startDate = Date()
-            session?.startActivity(with: startDate!)
-            try await builder?.beginCollection(at: startDate!)
+            let workoutStartDate = Date()
+            startDate = workoutStartDate
+            session?.startActivity(with: workoutStartDate)
+            try await builder?.beginCollection(at: workoutStartDate)
 
             isWorkoutActive = true
             startElapsedTimer()

@@ -151,7 +151,7 @@ class CyclingCoachClient: ObservableObject {
     func getRecommendation(recovery: RecoveryData) async throws -> CyclingCoachRecommendation {
         // Return cached recommendation if still fresh
         if hasFreshCache, let cached = recommendation {
-            print("[CyclingCoachClient] Returning cached recommendation (\(Int(Date().timeIntervalSince(cacheTimestamp!)))s old)")
+            print("[CyclingCoachClient] Returning cached recommendation (\(Int(Date().timeIntervalSince(cacheTimestamp ?? Date())))s old)")
             return cached
         }
 

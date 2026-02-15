@@ -57,14 +57,14 @@ final class MeditationStorage {
         // Check if it's been paused too long
         if let pausedAt = state.pausedAt {
             let pauseDuration = Date().timeIntervalSince(pausedAt)
-            if pauseDuration > MEDITATION_PAUSE_TIMEOUT {
+            if pauseDuration > meditationPauseTimeout {
                 return true
             }
         }
 
         // Check if the overall session is too old
         let sessionAge = Date().timeIntervalSince(sessionStartedAt)
-        return sessionAge > MEDITATION_STALE_THRESHOLD
+        return sessionAge > meditationStaleThreshold
     }
 
     /// Try to recover a valid session, returns nil if stale or none exists
