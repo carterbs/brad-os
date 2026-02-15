@@ -247,12 +247,12 @@ Run the setup script to install dependencies for iOS Simulator testing:
 xcodebuild -project ios/BradOS/BradOS.xcodeproj \
   -scheme BradOS \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-  -derivedDataPath ./build/ios \
+  -derivedDataPath ~/.cache/brad-os-derived-data \
   -skipPackagePluginValidation \
   build
 
 # Install and launch
-xcrun simctl install booted ./build/ios/Build/Products/Debug-iphonesimulator/BradOS.app
+xcrun simctl install booted ~/.cache/brad-os-derived-data/Build/Products/Debug-iphonesimulator/BradOS.app
 xcrun simctl launch booted com.bradcarter.brad-os
 ```
 
@@ -267,7 +267,7 @@ cd ios/BradOS && xcodegen generate && cd ../..
 xcodebuild -project ios/BradOS/BradOS.xcodeproj \
   -scheme BradOS \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-  -derivedDataPath ./build/ios \
+  -derivedDataPath ~/.cache/brad-os-derived-data \
   -skipPackagePluginValidation \
   build
 ```

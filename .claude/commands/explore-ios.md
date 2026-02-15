@@ -29,14 +29,14 @@ xcodebuild -workspace ios/BradOS/BradOS.xcworkspace \
   -scheme BradOS \
   -sdk iphonesimulator \
   -destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
-  -derivedDataPath ./build/ios \
+  -derivedDataPath ~/.cache/brad-os-derived-data \
   build
 
 # Boot simulator (if not running)
 xcrun simctl boot 'iPhone 15 Pro'
 
 # Install app
-xcrun simctl install booted ./build/ios/Build/Products/Debug-iphonesimulator/BradOS.app
+xcrun simctl install booted ~/.cache/brad-os-derived-data/Build/Products/Debug-iphonesimulator/BradOS.app
 
 # Launch app
 xcrun simctl launch booted com.bradcarter.brad-os

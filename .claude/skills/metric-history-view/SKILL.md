@@ -326,7 +326,7 @@ Then build to verify:
 xcodebuild -project ios/BradOS/BradOS.xcodeproj \
   -scheme BradOS \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-  -derivedDataPath ./build/ios \
+  -derivedDataPath ~/.cache/brad-os-derived-data \
   build
 ```
 
