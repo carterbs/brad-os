@@ -201,7 +201,7 @@ class CyclingViewModel: ObservableObject {
         for activity in activities {
             let weekOfYear = calendar.component(.weekOfYear, from: activity.date)
             let label = "W\(weekOfYear)"
-            weeklyTSS[label, default: 0] += activity.tss
+            weeklyTSS[label, default: 0] += Int(activity.tss)
         }
         tssHistory = weeklyTSS.sorted { $0.key < $1.key }
             .suffix(8)
@@ -212,7 +212,7 @@ class CyclingViewModel: ObservableObject {
         let recentActivities = activities.filter { $0.date >= thirtyDaysAgo }
 
         // Group by day
-        var dailyTSS: [Date: Int] = [:]
+        var dailyTSS: [Date: Double] = [:]
         for activity in recentActivities {
             let day = calendar.startOfDay(for: activity.date)
             dailyTSS[day, default: 0] += activity.tss
@@ -224,7 +224,7 @@ class CyclingViewModel: ObservableObject {
         loadHistory = (0..<28).compactMap { daysAgo -> TrainingLoadDataPoint? in
             guard let date = calendar.date(byAdding: .day, value: -daysAgo, to: Date()) else { return nil }
             let day = calendar.startOfDay(for: date)
-            let tss = Double(dailyTSS[day] ?? 0)
+            let tss = dailyTSS[day] ?? 0
 
             // Simplified exponential decay
             runningATL = runningATL + (tss - runningATL) / 7

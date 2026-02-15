@@ -10,7 +10,8 @@ struct CyclingHistoryView: View {
     var body: some View {
         ScrollView {
             LazyVStack(spacing: Theme.Spacing.space3) {
-                if viewModel.activities.isEmpty {
+                if !stravaAuth.isConnected {
+                    // Not connected to Strava
                     EmptyHistoryCard(onConnectStrava: {
                         Task {
                             do {
@@ -20,7 +21,11 @@ struct CyclingHistoryView: View {
                             }
                         }
                     })
+                } else if viewModel.activities.isEmpty {
+                    // Connected but no activities yet
+                    NoRidesCard()
                 } else {
+                    // Show activities
                     ForEach(viewModel.activities) { activity in
                         RideCard(activity: activity)
                     }
@@ -57,9 +62,9 @@ struct RideCard: View {
             // Stats row
             HStack(spacing: Theme.Spacing.space4) {
                 StatColumn(value: "\(activity.durationMinutes)", label: "min")
-                StatColumn(value: "\(activity.normalizedPower)", label: "NP")
-                StatColumn(value: "\(activity.tss)", label: "TSS")
-                StatColumn(value: "\(activity.avgHeartRate)", label: "HR")
+                StatColumn(value: "\(Int(activity.normalizedPower))", label: "NP")
+                StatColumn(value: "\(Int(activity.tss))", label: "TSS")
+                StatColumn(value: "\(Int(activity.avgHeartRate))", label: "HR")
             }
             .frame(maxWidth: .infinity)
 
@@ -169,7 +174,7 @@ struct WorkoutTypeBadge: View {
 
 // MARK: - Empty History Card
 
-/// Empty state when no rides recorded
+/// Empty state when not connected to Strava
 struct EmptyHistoryCard: View {
     var onConnectStrava: (() -> Void)?
 
@@ -179,7 +184,7 @@ struct EmptyHistoryCard: View {
                 .font(.system(size: Theme.Typography.iconXXL, weight: .regular))
                 .foregroundStyle(Theme.textTertiary)
 
-            Text("No Rides Yet")
+            Text("Connect Strava")
                 .font(.title3)
                 .fontWeight(.semibold)
                 .foregroundColor(Theme.textPrimary)
@@ -194,6 +199,31 @@ struct EmptyHistoryCard: View {
             }
             .buttonStyle(GlassPrimaryButtonStyle())
             .padding(.top, Theme.Spacing.space2)
+        }
+        .padding(Theme.Spacing.space6)
+        .glassCard()
+    }
+}
+
+// MARK: - No Rides Card
+
+/// Empty state when connected but no rides yet
+struct NoRidesCard: View {
+    var body: some View {
+        VStack(spacing: Theme.Spacing.space3) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: Theme.Typography.iconXXL, weight: .regular))
+                .foregroundStyle(Theme.success)
+
+            Text("Ready to Track")
+                .font(.title3)
+                .fontWeight(.semibold)
+                .foregroundColor(Theme.textPrimary)
+
+            Text("You're all set! Your Peloton rides will appear here once they sync from Strava.")
+                .font(.subheadline)
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
         }
         .padding(Theme.Spacing.space6)
         .glassCard()

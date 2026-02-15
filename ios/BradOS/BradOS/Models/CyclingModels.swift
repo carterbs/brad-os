@@ -8,12 +8,12 @@ struct CyclingActivityModel: Identifiable, Codable {
     let stravaId: Int
     let date: Date
     let durationMinutes: Int
-    let avgPower: Int
-    let normalizedPower: Int
-    let maxPower: Int
-    let avgHeartRate: Int
-    let maxHeartRate: Int
-    let tss: Int
+    let avgPower: Double
+    let normalizedPower: Double
+    let maxPower: Double
+    let avgHeartRate: Double
+    let maxHeartRate: Double
+    let tss: Double
     let intensityFactor: Double
     let type: CyclingWorkoutType
     var ef: Double?
@@ -198,8 +198,8 @@ struct EFDataPoint: Identifiable, Codable {
     let activityId: String
     let date: String
     let ef: Double
-    let normalizedPower: Int
-    let avgHeartRate: Int
+    let normalizedPower: Double
+    let avgHeartRate: Double
 }
 
 // MARK: - API Response Models
@@ -246,4 +246,12 @@ struct WeightGoalResponse: Codable {
     let targetDate: String
     let startWeightLbs: Double
     let startDate: String
+}
+
+/// Response from POST /cycling/sync
+struct CyclingSyncResponse: Codable {
+    let total: Int
+    let imported: Int
+    let skipped: Int
+    let message: String
 }

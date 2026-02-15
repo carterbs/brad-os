@@ -861,6 +861,14 @@ final class APIClient: APIClientProtocol {
         return result
     }
 
+    func syncCyclingActivities() async throws -> CyclingSyncResponse {
+        struct EmptyBody: Encodable {}
+        let result: CyclingSyncResponse = try await post("/cycling/sync", body: EmptyBody())
+        invalidateCache(matching: "/cycling/activities")
+        invalidateCache(matching: "/cycling/training-load")
+        return result
+    }
+
     func completeBlock(id: String) async throws {
         struct CompleteResponse: Decodable { let completed: Bool }
         let _: CompleteResponse = try await put("/cycling/block/\(id)/complete")
