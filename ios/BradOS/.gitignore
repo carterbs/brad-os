@@ -49,3 +49,7 @@ iOSInjectionProject/
 # Playgrounds
 timeline.xctimeline
 playground.xcworkspace
+
+# Static Analysis
+periphery-results.txt
+.periphery_baseline.json

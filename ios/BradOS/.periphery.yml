@@ -1,0 +1,15 @@
+# Periphery Configuration for Brad OS
+# Run manually: periphery scan
+# Run with clean build: periphery scan --clean-build
+
+project: BradOS.xcodeproj
+schemes:
+  - BradOS
+targets:
+  - BradOS
+  - BradOSWidget
+  - BradOSWatch
+
+retain_public: false
+retain_objc_accessible: false
+clean_build: true
