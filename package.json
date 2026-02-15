@@ -24,7 +24,8 @@
     "emulators:seed": "npm run build && firebase emulators:start --import=./seed-data",
     "test:integration": "vitest run --config vitest.integration.config.ts --no-file-parallelism",
     "test:integration:watch": "vitest --config vitest.integration.config.ts --no-file-parallelism",
-    "seed:generate": "npx tsx scripts/generate-seed-data.ts"
+    "seed:generate": "npx tsx scripts/generate-seed-data.ts",
+    "postinstall": "git config core.hooksPath hooks"
   },
   "devDependencies": {
     "@types/supertest": "^6.0.3",
