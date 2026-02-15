@@ -1,9 +1,16 @@
 import SwiftUI
 import Charts
 
-struct HRVHistoryView: View {
-    @State private var viewModel = HRVHistoryViewModel()
+/// Unified history view for HRV and RHR metrics (replaces HRVHistoryView & RHRHistoryView)
+struct HealthMetricHistoryView: View {
+    @State private var viewModel: HealthMetricHistoryViewModel
     @State private var selectedDate: Date?
+
+    private var metric: HealthMetric { viewModel.metric }
+
+    init(_ metric: HealthMetric) {
+        _viewModel = State(initialValue: HealthMetricHistoryViewModel(metric))
+    }
 
     var body: some View {
         ScrollView {
@@ -16,13 +23,12 @@ struct HRVHistoryView: View {
                     if !viewModel.history.isEmpty {
                         trendChart
                     }
-
                 }
             }
             .padding(Theme.Spacing.space5)
         }
         .background(AuroraBackground().ignoresSafeArea())
-        .navigationTitle("HRV History")
+        .navigationTitle(metric.navigationTitle)
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)
         .task {
@@ -37,7 +43,7 @@ struct HRVHistoryView: View {
         VStack(spacing: Theme.Spacing.space4) {
             ProgressView()
                 .tint(Theme.textSecondary)
-            Text("Loading HRV data...")
+            Text("Loading \(metric.chartLabel) data...")
                 .font(.subheadline)
                 .foregroundStyle(Theme.textSecondary)
         }
@@ -50,25 +56,26 @@ struct HRVHistoryView: View {
     @ViewBuilder
     private var currentValueSection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
-            SectionHeader(title: "Current HRV")
+            SectionHeader(title: metric.currentSectionTitle)
 
             HStack {
                 if let value = viewModel.currentValue {
+                    if metric.iconBeforeValue {
+                        metricIcon(color: metric.color)
+                    }
                     Text(String(format: "%.0f", value))
                         .font(.system(size: 34, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(Theme.textPrimary)
-                    Text("ms")
+                    Text(metric.unit)
                         .font(.subheadline)
                         .foregroundStyle(Theme.textSecondary)
-                    Image(systemName: "waveform.path.ecg")
-                        .font(.title3)
-                        .foregroundStyle(Theme.interactivePrimary)
+                    if !metric.iconBeforeValue {
+                        metricIcon(color: metric.color)
+                    }
                 } else {
-                    Image(systemName: "waveform.path.ecg")
-                        .font(.title3)
-                        .foregroundStyle(Theme.textTertiary)
-                    Text("No HRV data")
+                    metricIcon(color: Theme.textTertiary)
+                    Text(metric.noDataText)
                         .font(.subheadline)
                         .foregroundStyle(Theme.textSecondary)
                 }
@@ -80,18 +87,25 @@ struct HRVHistoryView: View {
         }
     }
 
+    private func metricIcon(color: Color) -> some View {
+        Image(systemName: metric.icon)
+            .font(.title3)
+            .foregroundStyle(color)
+    }
+
     // MARK: - Trend Chart
 
     @ViewBuilder
     private var trendChart: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
             HStack {
-                SectionHeader(title: "HRV Trend")
+                SectionHeader(title: metric.trendTitle)
                 Spacer()
                 HStack(spacing: Theme.Spacing.space1) {
                     ForEach(HealthChartRange.allCases, id: \.self) { range in
                         FilterChip(
                             title: range.rawValue,
+                            color: metric.color,
                             isSelected: viewModel.selectedRange == range
                         ) {
                             withAnimation(.easeInOut(duration: 0.2)) {
@@ -110,23 +124,23 @@ struct HRVHistoryView: View {
                         Text(nearest.date, format: .dateTime.month(.abbreviated).day())
                             .font(.caption)
                             .foregroundStyle(Theme.textSecondary)
-                        Text(String(format: "%.0f ms", nearest.value))
+                        Text(String(format: "%.0f \(metric.unit)", nearest.value))
                             .font(.caption)
                             .fontWeight(.semibold)
                             .monospacedDigit()
-                            .foregroundStyle(Theme.interactivePrimary)
+                            .foregroundStyle(metric.color)
                     }
                     .transition(.opacity)
                 }
 
                 Chart {
-                    // Actual HRV points
+                    // Actual data points
                     ForEach(viewModel.history) { point in
                         PointMark(
                             x: .value("Date", point.date),
-                            y: .value("HRV", point.value)
+                            y: .value(metric.chartLabel, point.value)
                         )
-                        .foregroundStyle(Theme.interactivePrimary.opacity(0.5))
+                        .foregroundStyle(metric.color.opacity(0.5))
                         .symbolSize(20)
                     }
 
@@ -134,9 +148,9 @@ struct HRVHistoryView: View {
                     ForEach(viewModel.smoothedHistory) { point in
                         LineMark(
                             x: .value("Date", point.date),
-                            y: .value("HRV", point.value)
+                            y: .value(metric.chartLabel, point.value)
                         )
-                        .foregroundStyle(Theme.interactivePrimary)
+                        .foregroundStyle(metric.color)
                         .interpolationMethod(.catmullRom)
                         .lineStyle(StrokeStyle(lineWidth: 2))
                     }
@@ -150,14 +164,14 @@ struct HRVHistoryView: View {
 
                         PointMark(
                             x: .value("Selected", nearest.date),
-                            y: .value("HRV", nearest.value)
+                            y: .value(metric.chartLabel, nearest.value)
                         )
-                        .foregroundStyle(Theme.interactivePrimary)
+                        .foregroundStyle(metric.color)
                         .symbolSize(50)
 
                         PointMark(
                             x: .value("Selected", nearest.date),
-                            y: .value("HRV", nearest.value)
+                            y: .value(metric.chartLabel, nearest.value)
                         )
                         .foregroundStyle(.white)
                         .symbolSize(20)
@@ -203,7 +217,7 @@ struct HRVHistoryView: View {
                 HStack(spacing: Theme.Spacing.space4) {
                     HStack(spacing: Theme.Spacing.space1) {
                         Circle()
-                            .fill(Theme.interactivePrimary.opacity(0.5))
+                            .fill(metric.color.opacity(0.5))
                             .frame(width: 6, height: 6)
                         Text("Daily")
                             .font(.caption)
@@ -212,13 +226,12 @@ struct HRVHistoryView: View {
 
                     HStack(spacing: Theme.Spacing.space1) {
                         RoundedRectangle(cornerRadius: 1)
-                            .fill(Theme.interactivePrimary)
+                            .fill(metric.color)
                             .frame(width: 16, height: 2)
                         Text("7-Day Avg")
                             .font(.caption)
                             .foregroundStyle(Theme.textTertiary)
                     }
-
                 }
             }
             .glassCard()
@@ -234,11 +247,18 @@ struct HRVHistoryView: View {
     }
 }
 
-// MARK: - Preview
+// MARK: - Previews
 
-#Preview {
+#Preview("HRV") {
     NavigationStack {
-        HRVHistoryView()
+        HealthMetricHistoryView(.hrv)
+    }
+    .preferredColorScheme(.dark)
+}
+
+#Preview("RHR") {
+    NavigationStack {
+        HealthMetricHistoryView(.rhr)
     }
     .preferredColorScheme(.dark)
 }

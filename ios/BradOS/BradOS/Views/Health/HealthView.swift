@@ -118,7 +118,7 @@ struct HealthView: View {
             SectionHeader(title: "Health Metrics")
 
             VStack(spacing: 0) {
-                NavigationLink(destination: HRVHistoryView()) {
+                NavigationLink(destination: HealthMetricHistoryView(.hrv)) {
                     SettingsRow(
                         title: "HRV History",
                         subtitle: "Heart rate variability trends",
@@ -135,7 +135,7 @@ struct HealthView: View {
 
                 Divider().background(Theme.divider)
 
-                NavigationLink(destination: RHRHistoryView()) {
+                NavigationLink(destination: HealthMetricHistoryView(.rhr)) {
                     SettingsRow(
                         title: "RHR History",
                         subtitle: "Resting heart rate trends",

@@ -1,6 +1,8 @@
 import Foundation
 import SwiftUI
 
+// MARK: - Shared Types
+
 /// Shared time range for health metric charts (reusable across HRV, RHR, etc.)
 enum HealthChartRange: String, CaseIterable {
     case oneWeek = "1W"
@@ -27,161 +29,156 @@ struct HealthMetricChartPoint: Identifiable {
     let value: Double
 }
 
-// MARK: - HRV History ViewModel
+// MARK: - Shared Utilities
 
-@MainActor
-@Observable
-class HRVHistoryViewModel {
-
-    // MARK: - State
-
-    var allHistory: [HealthMetricChartPoint] = []
-    var allSmoothedHistory: [HealthMetricChartPoint] = []
-    var selectedRange: HealthChartRange = .sixMonths
-    var isLoading = false
-    var error: String?
-    var trendSlope: Double? // ms/day from regression
-
-    private let apiClient = APIClient.shared
-
-    // MARK: - Computed
-
-    var history: [HealthMetricChartPoint] {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -selectedRange.days, to: Date()) ?? Date()
-        return allHistory.filter { $0.date >= cutoff }
-    }
-
-    var smoothedHistory: [HealthMetricChartPoint] {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -selectedRange.days, to: Date()) ?? Date()
-        return allSmoothedHistory.filter { $0.date >= cutoff }
-    }
-
-    var currentValue: Double? {
-        allHistory.last?.value
-    }
-
-    var projectedTrendPoints: [HealthMetricChartPoint] {
-        guard let slope = trendSlope,
-              let lastPoint = allSmoothedHistory.last,
-              abs(slope) > 0.001 else { return [] }
-
-        var points = [HealthMetricChartPoint(date: lastPoint.date, value: lastPoint.value)]
-        for day in 1...14 {
-            guard let date = Calendar.current.date(byAdding: .day, value: day, to: lastPoint.date) else { continue }
-            points.append(HealthMetricChartPoint(date: date, value: lastPoint.value + slope * Double(day)))
-        }
-        return points
-    }
-
-    var twoWeekProjectedValue: Double? {
-        guard let slope = trendSlope,
-              let lastPoint = allSmoothedHistory.last,
-              abs(slope) > 0.001 else { return nil }
-        return lastPoint.value + slope * 14
-    }
-
-    /// Weekly rate in ms/week. Positive = HRV increasing (good).
-    var weeklyRate: Double? {
-        guard let slope = trendSlope, abs(slope) > 0.001 else { return nil }
-        return slope * 7
-    }
-
-    var chartYDomain: ClosedRange<Double> {
-        let allValues = history.map(\.value) + projectedTrendPoints.map(\.value)
-        var minVal = allValues.min() ?? 20
-        var maxVal = allValues.max() ?? 60
-
-        let padding = max((maxVal - minVal) * 0.1, 2)
-        return (minVal - padding)...(maxVal + padding)
-    }
-
-    // MARK: - Loading
-
-    func loadData() async {
-        isLoading = true
-        error = nil
-        defer { isLoading = false }
-
-        do {
-            let entries = try await apiClient.getHRVHistory(days: 365)
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd"
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.timeZone = .current
-
-            let points = entries.compactMap { entry -> HealthMetricChartPoint? in
-                guard let date = formatter.date(from: entry.date) else { return nil }
-                return HealthMetricChartPoint(date: date, value: entry.avgMs)
-            }.sorted { $0.date < $1.date }
-
-            // Deduplicate by date (keep latest per day)
-            var seen = Set<String>()
-            var deduped: [HealthMetricChartPoint] = []
-            for point in points.reversed() {
-                let key = formatter.string(from: point.date)
-                if !seen.contains(key) {
-                    seen.insert(key)
-                    deduped.append(point)
-                }
-            }
-            allHistory = deduped.reversed()
-            allSmoothedHistory = calculateSMA(points: allHistory, window: 7)
-            updateTrend()
-        } catch {
-            self.error = "Failed to load HRV history"
-            print("[HRVHistoryVM] Error: \(error)")
-        }
-    }
-
-    // MARK: - SMA & Trend
-
-    private func calculateSMA(points: [HealthMetricChartPoint], window: Int) -> [HealthMetricChartPoint] {
-        guard points.count >= 2 else { return points }
-
-        return points.enumerated().map { index, point in
-            let windowStart = max(0, index - window + 1)
-            let windowSlice = points[windowStart...index]
-            let avg = windowSlice.map(\.value).reduce(0, +) / Double(windowSlice.count)
-            return HealthMetricChartPoint(date: point.date, value: avg)
-        }
-    }
-
-    private func updateTrend() {
-        let recentPoints = Array(allSmoothedHistory.suffix(28))
-        guard recentPoints.count >= 7 else {
-            trendSlope = nil
-            return
-        }
-        trendSlope = linearRegression(points: recentPoints)
-    }
-
-    private func linearRegression(points: [HealthMetricChartPoint]) -> Double {
-        let n = Double(points.count)
-        guard n >= 2, let firstDate = points.first?.date else { return 0 }
-
-        var sumX = 0.0, sumY = 0.0, sumXY = 0.0, sumX2 = 0.0
-
-        for point in points {
-            let x = point.date.timeIntervalSince(firstDate) / 86400.0
-            let y = point.value
-            sumX += x
-            sumY += y
-            sumXY += x * y
-            sumX2 += x * x
-        }
-
-        let denominator = n * sumX2 - sumX * sumX
-        guard abs(denominator) > 1e-10 else { return 0 }
-
-        return (n * sumXY - sumX * sumY) / denominator
+/// Calculate Simple Moving Average for chart points
+func calculateSMA(points: [HealthMetricChartPoint], window: Int) -> [HealthMetricChartPoint] {
+    guard points.count >= 2 else { return points }
+    return points.enumerated().map { index, point in
+        let windowStart = max(0, index - window + 1)
+        let windowSlice = points[windowStart...index]
+        let avg = windowSlice.map(\.value).reduce(0, +) / Double(windowSlice.count)
+        return HealthMetricChartPoint(date: point.date, value: avg)
     }
 }
 
-// MARK: - RHR History ViewModel
+/// Linear regression returning slope (units/day)
+func linearRegressionSlope(points: [HealthMetricChartPoint]) -> Double {
+    let n = Double(points.count)
+    guard n >= 2, let firstDate = points.first?.date else { return 0 }
+
+    var sumX = 0.0, sumY = 0.0, sumXY = 0.0, sumX2 = 0.0
+    for point in points {
+        let x = point.date.timeIntervalSince(firstDate) / 86400.0
+        let y = point.value
+        sumX += x
+        sumY += y
+        sumXY += x * y
+        sumX2 += x * x
+    }
+
+    let denominator = n * sumX2 - sumX * sumX
+    guard abs(denominator) > 1e-10 else { return 0 }
+    return (n * sumXY - sumX * sumY) / denominator
+}
+
+/// Parse date strings into chart points, deduplicating by day (keeps latest per date)
+func parseDatePoints(_ items: [(dateString: String, value: Double)]) -> [HealthMetricChartPoint] {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd"
+    formatter.locale = Locale(identifier: "en_US_POSIX")
+    formatter.timeZone = .current
+
+    let points = items.compactMap { item -> HealthMetricChartPoint? in
+        guard let date = formatter.date(from: item.dateString) else { return nil }
+        return HealthMetricChartPoint(date: date, value: item.value)
+    }.sorted { $0.date < $1.date }
+
+    var seen = Set<String>()
+    var deduped: [HealthMetricChartPoint] = []
+    for point in points.reversed() {
+        let key = formatter.string(from: point.date)
+        if !seen.contains(key) {
+            seen.insert(key)
+            deduped.append(point)
+        }
+    }
+    return deduped.reversed()
+}
+
+// MARK: - Health Metric Configuration
+
+/// Defines all metric-specific behavior and appearance for HRV/RHR-style metrics
+enum HealthMetric {
+    case hrv
+    case rhr
+
+    var navigationTitle: String {
+        switch self {
+        case .hrv: return "HRV History"
+        case .rhr: return "RHR History"
+        }
+    }
+
+    var currentSectionTitle: String {
+        switch self {
+        case .hrv: return "Current HRV"
+        case .rhr: return "Current RHR"
+        }
+    }
+
+    var trendTitle: String {
+        switch self {
+        case .hrv: return "HRV Trend"
+        case .rhr: return "RHR Trend"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .hrv: return "waveform.path.ecg"
+        case .rhr: return "heart.fill"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .hrv: return Theme.interactivePrimary
+        case .rhr: return Theme.destructive
+        }
+    }
+
+    var unit: String {
+        switch self {
+        case .hrv: return "ms"
+        case .rhr: return "bpm"
+        }
+    }
+
+    var noDataText: String {
+        switch self {
+        case .hrv: return "No HRV data"
+        case .rhr: return "No RHR data"
+        }
+    }
+
+    var chartLabel: String {
+        switch self {
+        case .hrv: return "HRV"
+        case .rhr: return "RHR"
+        }
+    }
+
+    /// Whether the icon appears before the value text
+    var iconBeforeValue: Bool {
+        switch self {
+        case .hrv: return false
+        case .rhr: return true
+        }
+    }
+
+    fileprivate var errorMessage: String {
+        switch self {
+        case .hrv: return "Failed to load HRV history"
+        case .rhr: return "Failed to load RHR history"
+        }
+    }
+
+    fileprivate var defaultYRange: (min: Double, max: Double) {
+        switch self {
+        case .hrv: return (20, 60)
+        case .rhr: return (50, 80)
+        }
+    }
+}
+
+// MARK: - Generic Health Metric ViewModel (replaces HRVHistoryViewModel & RHRHistoryViewModel)
 
 @MainActor
 @Observable
-class RHRHistoryViewModel {
+class HealthMetricHistoryViewModel {
+
+    let metric: HealthMetric
 
     // MARK: - State
 
@@ -190,9 +187,13 @@ class RHRHistoryViewModel {
     var selectedRange: HealthChartRange = .sixMonths
     var isLoading = false
     var error: String?
-    var trendSlope: Double? // bpm/day from regression
+    var trendSlope: Double?
 
     private let apiClient = APIClient.shared
+
+    init(_ metric: HealthMetric) {
+        self.metric = metric
+    }
 
     // MARK: - Computed
 
@@ -230,7 +231,6 @@ class RHRHistoryViewModel {
         return lastPoint.value + slope * 14
     }
 
-    /// Weekly rate in bpm/week. For RHR, negative = decreasing = GOOD.
     var weeklyRate: Double? {
         guard let slope = trendSlope, abs(slope) > 0.001 else { return nil }
         return slope * 7
@@ -238,9 +238,8 @@ class RHRHistoryViewModel {
 
     var chartYDomain: ClosedRange<Double> {
         let allValues = history.map(\.value) + projectedTrendPoints.map(\.value)
-        var minVal = allValues.min() ?? 50
-        var maxVal = allValues.max() ?? 80
-
+        let minVal = allValues.min() ?? metric.defaultYRange.min
+        let maxVal = allValues.max() ?? metric.defaultYRange.max
         let padding = max((maxVal - minVal) * 0.1, 2)
         return (minVal - padding)...(maxVal + padding)
     }
@@ -253,46 +252,22 @@ class RHRHistoryViewModel {
         defer { isLoading = false }
 
         do {
-            let entries = try await apiClient.getRHRHistory(days: 365)
-            let formatter = DateFormatter()
-            formatter.dateFormat = "yyyy-MM-dd"
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.timeZone = .current
-
-            let points = entries.compactMap { entry -> HealthMetricChartPoint? in
-                guard let date = formatter.date(from: entry.date) else { return nil }
-                return HealthMetricChartPoint(date: date, value: entry.avgBpm)
-            }.sorted { $0.date < $1.date }
-
-            // Deduplicate by date (keep latest per day)
-            var seen = Set<String>()
-            var deduped: [HealthMetricChartPoint] = []
-            for point in points.reversed() {
-                let key = formatter.string(from: point.date)
-                if !seen.contains(key) {
-                    seen.insert(key)
-                    deduped.append(point)
-                }
+            let rawPoints: [(dateString: String, value: Double)]
+            switch metric {
+            case .hrv:
+                let entries = try await apiClient.getHRVHistory(days: 365)
+                rawPoints = entries.map { ($0.date, $0.avgMs) }
+            case .rhr:
+                let entries = try await apiClient.getRHRHistory(days: 365)
+                rawPoints = entries.map { ($0.date, $0.avgBpm) }
             }
-            allHistory = deduped.reversed()
+
+            allHistory = parseDatePoints(rawPoints)
             allSmoothedHistory = calculateSMA(points: allHistory, window: 7)
             updateTrend()
         } catch {
-            self.error = "Failed to load RHR history"
-            print("[RHRHistoryVM] Error: \(error)")
-        }
-    }
-
-    // MARK: - SMA & Trend
-
-    private func calculateSMA(points: [HealthMetricChartPoint], window: Int) -> [HealthMetricChartPoint] {
-        guard points.count >= 2 else { return points }
-
-        return points.enumerated().map { index, point in
-            let windowStart = max(0, index - window + 1)
-            let windowSlice = points[windowStart...index]
-            let avg = windowSlice.map(\.value).reduce(0, +) / Double(windowSlice.count)
-            return HealthMetricChartPoint(date: point.date, value: avg)
+            self.error = metric.errorMessage
+            print("[\(metric.chartLabel)HistoryVM] Error: \(error)")
         }
     }
 
@@ -302,28 +277,7 @@ class RHRHistoryViewModel {
             trendSlope = nil
             return
         }
-        trendSlope = linearRegression(points: recentPoints)
-    }
-
-    private func linearRegression(points: [HealthMetricChartPoint]) -> Double {
-        let n = Double(points.count)
-        guard n >= 2, let firstDate = points.first?.date else { return 0 }
-
-        var sumX = 0.0, sumY = 0.0, sumXY = 0.0, sumX2 = 0.0
-
-        for point in points {
-            let x = point.date.timeIntervalSince(firstDate) / 86400.0
-            let y = point.value
-            sumX += x
-            sumY += y
-            sumXY += x * y
-            sumX2 += x * x
-        }
-
-        let denominator = n * sumX2 - sumX * sumX
-        guard abs(denominator) > 1e-10 else { return 0 }
-
-        return (n * sumXY - sumX * sumY) / denominator
+        trendSlope = linearRegressionSlope(points: recentPoints)
     }
 }
 
@@ -436,19 +390,6 @@ class SleepHistoryViewModel {
         } catch {
             self.error = "Failed to load sleep history"
             print("[SleepHistoryVM] Error: \(error)")
-        }
-    }
-
-    // MARK: - SMA
-
-    private func calculateSMA(points: [HealthMetricChartPoint], window: Int) -> [HealthMetricChartPoint] {
-        guard points.count >= 2 else { return points }
-
-        return points.enumerated().map { index, point in
-            let windowStart = max(0, index - window + 1)
-            let windowSlice = points[windowStart...index]
-            let avg = windowSlice.map(\.value).reduce(0, +) / Double(windowSlice.count)
-            return HealthMetricChartPoint(date: point.date, value: avg)
         }
     }
 }

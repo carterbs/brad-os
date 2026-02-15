@@ -124,7 +124,7 @@ struct ProfileView: View {
 
                 Divider().background(Theme.divider)
 
-                NavigationLink(destination: HRVHistoryView()) {
+                NavigationLink(destination: HealthMetricHistoryView(.hrv)) {
                     SettingsRow(
                         title: "HRV History",
                         subtitle: "Heart rate variability trends",
@@ -141,7 +141,7 @@ struct ProfileView: View {
 
                 Divider().background(Theme.divider)
 
-                NavigationLink(destination: RHRHistoryView()) {
+                NavigationLink(destination: HealthMetricHistoryView(.rhr)) {
                     SettingsRow(
                         title: "RHR History",
                         subtitle: "Resting heart rate trends",
