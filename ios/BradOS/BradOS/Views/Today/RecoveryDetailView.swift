@@ -156,7 +156,7 @@ struct RecoveryDetailView: View {
                 .foregroundColor(Theme.textPrimary)
 
             // HRV
-            NavigationLink(destination: HRVHistoryView()) {
+            NavigationLink(destination: HealthMetricHistoryView(.hrv)) {
                 metricDetail(
                     icon: "waveform.path.ecg",
                     label: "Heart Rate Variability",
@@ -174,7 +174,7 @@ struct RecoveryDetailView: View {
                 .overlay(Theme.divider)
 
             // RHR
-            NavigationLink(destination: RHRHistoryView()) {
+            NavigationLink(destination: HealthMetricHistoryView(.rhr)) {
                 metricDetail(
                     icon: "heart.fill",
                     label: "Resting Heart Rate",
