@@ -1,5 +1,6 @@
 import SwiftUI
 import BradOSCore
+import FirebaseAppCheck
 
 struct StravaConnectionView: View {
     @EnvironmentObject var stravaAuth: StravaAuthManager
