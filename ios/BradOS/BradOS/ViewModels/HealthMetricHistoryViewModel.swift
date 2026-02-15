@@ -44,22 +44,22 @@ func calculateSMA(points: [HealthMetricChartPoint], window: Int) -> [HealthMetri
 
 /// Linear regression returning slope (units/day)
 func linearRegressionSlope(points: [HealthMetricChartPoint]) -> Double {
-    let n = Double(points.count)
-    guard n >= 2, let firstDate = points.first?.date else { return 0 }
+    let count = Double(points.count)
+    guard count >= 2, let firstDate = points.first?.date else { return 0 }
 
     var sumX = 0.0, sumY = 0.0, sumXY = 0.0, sumX2 = 0.0
     for point in points {
-        let x = point.date.timeIntervalSince(firstDate) / 86400.0
-        let y = point.value
-        sumX += x
-        sumY += y
-        sumXY += x * y
-        sumX2 += x * x
+        let xVal = point.date.timeIntervalSince(firstDate) / 86400.0
+        let yVal = point.value
+        sumX += xVal
+        sumY += yVal
+        sumXY += xVal * yVal
+        sumX2 += xVal * xVal
     }
 
-    let denominator = n * sumX2 - sumX * sumX
+    let denominator = count * sumX2 - sumX * sumX
     guard abs(denominator) > 1e-10 else { return 0 }
-    return (n * sumXY - sumX * sumY) / denominator
+    return (count * sumXY - sumX * sumY) / denominator
 }
 
 /// Parse date strings into chart points, deduplicating by day (keeps latest per date)
