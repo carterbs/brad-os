@@ -13,6 +13,9 @@ packages:
   Firebase:
     url: https://github.com/firebase/firebase-ios-sdk
     version: 11.0.0
+  SwiftLintPlugins:
+    url: https://github.com/SimplyDanny/SwiftLintPlugins
+    from: 0.63.2
 
 settings:
   base:
@@ -47,6 +50,9 @@ targets:
         product: FirebaseAppCheck
       - target: BradOSWidget
       - target: BradOSWatch
+    buildToolPlugins:
+      - plugin: SwiftLintBuildToolPlugin
+        package: SwiftLintPlugins
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bradcarter.brad-os
@@ -86,6 +92,9 @@ targets:
           - "*.entitlements"
     dependencies:
       - package: BradOSCore
+    buildToolPlugins:
+      - plugin: SwiftLintBuildToolPlugin
+        package: SwiftLintPlugins
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bradcarter.brad-os.widget
@@ -106,6 +115,9 @@ targets:
       - path: BradOSWatch
         excludes:
           - "*.entitlements"
+    buildToolPlugins:
+      - plugin: SwiftLintBuildToolPlugin
+        package: SwiftLintPlugins
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bradcarter.brad-os.watchkitapp

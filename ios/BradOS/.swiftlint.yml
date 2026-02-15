@@ -1,0 +1,132 @@
+# SwiftLint Configuration for Brad OS
+# Optimized for catching common issues in AI-generated code
+
+# Only lint project source files
+included:
+  - BradOS
+  - BradOSCore/Sources
+  - BradOSWidget
+  - BradOSWatch
+
+excluded:
+  - BradOSCore/Tests
+  - "**/*.generated.swift"
+  - build
+  - DerivedData
+  - .build
+
+# Rules that are errors (block the build)
+opt_in_rules:
+  - force_unwrapping
+  - unused_import
+  - empty_count
+  - empty_string
+  - closure_spacing
+  - contains_over_filter_count
+  - contains_over_first_not_nil
+  - discouraged_optional_boolean
+  - fallthrough
+  - fatal_error_message
+  - first_where
+  - flatmap_over_map_reduce
+  - last_where
+  - modifier_order
+  - overridden_super_call
+  - redundant_nil_coalescing
+  - redundant_type_annotation
+  - toggle_bool
+  - unneeded_parentheses_in_closure_argument
+  - vertical_whitespace_closing_braces
+
+disabled_rules:
+  - todo
+  - trailing_comma
+  - opening_brace
+
+# Rule configurations
+force_unwrapping:
+  severity: error
+
+force_cast:
+  severity: error
+
+force_try:
+  severity: error
+
+function_body_length:
+  warning: 40
+  error: 80
+
+cyclomatic_complexity:
+  warning: 10
+  error: 20
+
+file_length:
+  warning: 400
+  error: 600
+  ignore_comment_only_lines: true
+
+type_body_length:
+  warning: 300
+  error: 500
+
+line_length:
+  warning: 120
+  error: 200
+  ignores_comments: true
+  ignores_urls: true
+  ignores_interpolated_strings: true
+
+nesting:
+  type_level: 3
+  function_level: 3
+
+identifier_name:
+  min_length:
+    warning: 2
+    error: 1
+  max_length:
+    warning: 50
+    error: 60
+  excluded:
+    - id
+    - x
+    - y
+    - i
+    - j
+    - k
+    - to
+    - vc
+    - vm
+    - ok
+    - db
+
+large_tuple:
+  warning: 3
+  error: 4
+
+# Custom rules for AI-generated code issues
+custom_rules:
+  no_print_statements:
+    name: "No Print Statements"
+    regex: '^\s*print\s*\('
+    message: "Use os.log or Logger instead of print() in production code"
+    severity: warning
+    match_kinds:
+      - identifier
+
+  discourage_try_bang:
+    name: "Discourage try!"
+    regex: '\btry!\s'
+    message: "Avoid try! - use do/catch or try? instead"
+    severity: error
+
+  magic_number:
+    name: "Magic Number"
+    regex: '(?<![.\w])(?:0[xX][0-9a-fA-F]{3,}|[0-9]{3,})(?![.\w])'
+    message: "Avoid magic numbers - extract to a named constant"
+    severity: warning
+    match_kinds:
+      - number
+
+reporter: xcode
