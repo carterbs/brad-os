@@ -201,42 +201,12 @@ struct StravaConnectionView: View {
     }
 
     private func syncStravaActivities() async throws -> (imported: Int, skipped: Int, message: String) {
-        // Call the backend sync endpoint
-        let url = APIConfiguration.default.baseURL.appendingPathComponent("cycling/sync")
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("default-user", forHTTPHeaderField: "X-User-Id")
-
-        let (data, response) = try await URLSession.shared.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw URLError(.badServerResponse)
+        // Use concrete APIClient for cycling methods (not in protocol yet)
+        guard let client = apiClient as? APIClient else {
+            throw NSError(domain: "Strava", code: -1, userInfo: [NSLocalizedDescriptionKey: "API client not available"])
         }
-
-        if httpResponse.statusCode != 200 {
-            struct ErrorResponse: Decodable {
-                let error: String?
-            }
-            if let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data) {
-                throw NSError(domain: "Strava", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: errorResponse.error ?? "Sync failed"])
-            }
-            throw URLError(.badServerResponse)
-        }
-
-        struct SyncResponse: Decodable {
-            let success: Bool
-            let data: SyncData
-
-            struct SyncData: Decodable {
-                let imported: Int
-                let skipped: Int
-                let message: String
-            }
-        }
-
-        let syncResponse = try JSONDecoder().decode(SyncResponse.self, from: data)
-        return (syncResponse.data.imported, syncResponse.data.skipped, syncResponse.data.message)
+        let response = try await client.syncCyclingActivities()
+        return (response.imported, response.skipped, response.message)
     }
 
     // MARK: - Disconnect Section
