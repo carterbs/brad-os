@@ -39,14 +39,14 @@ public class MealPlanViewModel: ObservableObject {
 
     public init(
         apiClient: APIClientProtocol,
-        recipeCache: RecipeCacheService = RecipeCacheService.shared,
+        recipeCache: RecipeCacheService? = nil,
         remindersService: RemindersServiceProtocol = RemindersService(),
-        cacheService: MealPlanCacheServiceProtocol = MealPlanCacheService.shared
+        cacheService: MealPlanCacheServiceProtocol? = nil
     ) {
         self.apiClient = apiClient
-        self.recipeCache = recipeCache
+        self.recipeCache = recipeCache ?? RecipeCacheService.shared
         self.remindersService = remindersService
-        self.cacheService = cacheService
+        self.cacheService = cacheService ?? MealPlanCacheService.shared
     }
 
     // MARK: - Session Persistence

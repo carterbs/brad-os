@@ -81,70 +81,57 @@ final class APIClient: APIClientProtocol {
             self.session = session
         } else {
             let config = URLSessionConfiguration.default
-            config.connectionProxyDictionary = [:] // Disable proxies (including Private Relay)
+            config.connectionProxyDictionary = [:]
             config.requestCachePolicy = .reloadIgnoringLocalCacheData
             self.session = URLSession(configuration: config)
         }
 
-        print("🌐 [APIClient] Initialized with baseURL: \(configuration.baseURL.absoluteString) (proxy bypass enabled)")
+        print("[APIClient] Initialized with baseURL: \(configuration.baseURL.absoluteString)")
 
-        // Configure decoder for ISO 8601 dates with fractional seconds
         self.decoder = JSONDecoder()
         self.decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let dateString = try container.decode(String.self)
-
-            // Try ISO 8601 with fractional seconds first
-            let formatterWithFractional = ISO8601DateFormatter()
-            formatterWithFractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-            if let date = formatterWithFractional.date(from: dateString) {
-                return date
+            guard let date = Self.parseDate(dateString) else {
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Cannot decode date from: \(dateString)"
+                )
             }
-
-            // Try ISO 8601 without fractional seconds
-            let formatterWithoutFractional = ISO8601DateFormatter()
-            formatterWithoutFractional.formatOptions = [.withInternetDateTime]
-            if let date = formatterWithoutFractional.date(from: dateString) {
-                return date
-            }
-
-            // Try date-only format (YYYY-MM-DD)
-            // Use local timezone since the server already converts to local date
-            let dateOnlyFormatter = DateFormatter()
-            dateOnlyFormatter.dateFormat = "yyyy-MM-dd"
-            dateOnlyFormatter.locale = Locale(identifier: "en_US_POSIX")
-            dateOnlyFormatter.timeZone = TimeZone.current
-            if let date = dateOnlyFormatter.date(from: dateString) {
-                return date
-            }
-
-            // Try space-separated datetime format (YYYY-MM-DD HH:mm:ss) - SQLite default format
-            let sqliteFormatter = DateFormatter()
-            sqliteFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
-            sqliteFormatter.locale = Locale(identifier: "en_US_POSIX")
-            sqliteFormatter.timeZone = TimeZone(identifier: "UTC")
-            if let date = sqliteFormatter.date(from: dateString) {
-                return date
-            }
-
-            // Try space-separated datetime with fractional seconds (YYYY-MM-DD HH:mm:ss.SSSSSS)
-            let sqliteFractionalFormatter = DateFormatter()
-            sqliteFractionalFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSSSSS"
-            sqliteFractionalFormatter.locale = Locale(identifier: "en_US_POSIX")
-            sqliteFractionalFormatter.timeZone = TimeZone(identifier: "UTC")
-            if let date = sqliteFractionalFormatter.date(from: dateString) {
-                return date
-            }
-
-            throw DecodingError.dataCorruptedError(
-                in: container,
-                debugDescription: "Cannot decode date from: \(dateString)"
-            )
+            return date
         }
 
-        // Configure encoder for ISO 8601 dates
         self.encoder = JSONEncoder()
         self.encoder.dateEncodingStrategy = .iso8601
+    }
+
+    /// Parse a date string trying multiple formats
+    private static func parseDate(_ dateString: String) -> Date? {
+        let iso8601Fractional = ISO8601DateFormatter()
+        iso8601Fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        if let date = iso8601Fractional.date(from: dateString) { return date }
+
+        let iso8601 = ISO8601DateFormatter()
+        iso8601.formatOptions = [.withInternetDateTime]
+        if let date = iso8601.date(from: dateString) { return date }
+
+        let dateOnly = DateFormatter()
+        dateOnly.dateFormat = "yyyy-MM-dd"
+        dateOnly.locale = Locale(identifier: "en_US_POSIX")
+        dateOnly.timeZone = TimeZone.current
+        if let date = dateOnly.date(from: dateString) { return date }
+
+        let sqlite = DateFormatter()
+        sqlite.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        sqlite.locale = Locale(identifier: "en_US_POSIX")
+        sqlite.timeZone = TimeZone(identifier: "UTC")
+        if let date = sqlite.date(from: dateString) { return date }
+
+        let sqliteFractional = DateFormatter()
+        sqliteFractional.dateFormat = "yyyy-MM-dd HH:mm:ss.SSSSSS"
+        sqliteFractional.locale = Locale(identifier: "en_US_POSIX")
+        sqliteFractional.timeZone = TimeZone(identifier: "UTC")
+        return sqliteFractional.date(from: dateString)
     }
 
     // MARK: - Cache Management
@@ -162,13 +149,19 @@ final class APIClient: APIClientProtocol {
     // MARK: - Core Request Methods
 
     /// Perform GET request and decode response, with optional caching
-    func get<T: Decodable>(_ path: String, queryItems: [URLQueryItem]? = nil, cacheTTL: TimeInterval? = nil) async throws -> T {
+    func get<T: Decodable>(
+        _ path: String, queryItems: [URLQueryItem]? = nil,
+        cacheTTL: TimeInterval? = nil
+    ) async throws -> T {
         let request = try buildRequest(path: path, method: "GET", queryItems: queryItems)
         return try await performRequest(request, cacheTTL: cacheTTL)
     }
 
     /// Perform GET request that may return null, with optional caching
-    func getOptional<T: Decodable>(_ path: String, queryItems: [URLQueryItem]? = nil, cacheTTL: TimeInterval? = nil) async throws -> T? {
+    func getOptional<T: Decodable>(
+        _ path: String, queryItems: [URLQueryItem]? = nil,
+        cacheTTL: TimeInterval? = nil
+    ) async throws -> T? {
         let request = try buildRequest(path: path, method: "GET", queryItems: queryItems)
         return try await performOptionalRequest(request, cacheTTL: cacheTTL)
     }
@@ -215,8 +208,12 @@ final class APIClient: APIClientProtocol {
 
     // MARK: - Request Building
 
-    func buildRequest(path: String, method: String, queryItems: [URLQueryItem]? = nil) throws -> URLRequest {
-        var components = URLComponents(url: configuration.baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: true)
+    func buildRequest(
+        path: String, method: String,
+        queryItems: [URLQueryItem]? = nil
+    ) throws -> URLRequest {
+        let fullURL = configuration.baseURL.appendingPathComponent(path)
+        var components = URLComponents(url: fullURL, resolvingAgainstBaseURL: true)
         if let queryItems = queryItems, !queryItems.isEmpty {
             components?.queryItems = queryItems
         }
@@ -267,7 +264,7 @@ final class APIClient: APIClientProtocol {
         let cacheKey = request.url?.absoluteString ?? ""
 
         // Check cache for GET requests
-        if let ttl = cacheTTL, !cacheKey.isEmpty, let cached = responseCache.get(cacheKey) {
+        if cacheTTL != nil, !cacheKey.isEmpty, let cached = responseCache.get(cacheKey) {
             do {
                 let apiResponse = try decoder.decode(APIResponse<T>.self, from: cached)
                 print("🌐 [APIClient] CACHE HIT \(request.url?.path ?? "")")
@@ -304,7 +301,7 @@ final class APIClient: APIClientProtocol {
         let cacheKey = request.url?.absoluteString ?? ""
 
         // Check cache for GET requests
-        if let ttl = cacheTTL, !cacheKey.isEmpty, let cached = responseCache.get(cacheKey) {
+        if cacheTTL != nil, !cacheKey.isEmpty, let cached = responseCache.get(cacheKey) {
             do {
                 let apiResponse = try decoder.decode(APIResponse<T?>.self, from: cached)
                 print("🌐 [APIClient] CACHE HIT \(request.url?.path ?? "")")

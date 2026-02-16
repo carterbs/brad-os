@@ -16,7 +16,6 @@ struct RHRHistoryView: View {
                     if !viewModel.history.isEmpty {
                         trendChart
                     }
-
                 }
             }
             .padding(Theme.Spacing.space5)
@@ -220,7 +219,6 @@ struct RHRHistoryView: View {
                             .font(.caption)
                             .foregroundStyle(Theme.textTertiary)
                     }
-
                 }
             }
             .glassCard()

@@ -48,15 +48,18 @@ struct LiftingTabView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        appState.isShowingLiftingContext = false
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "chevron.left")
-                            Text("Back")
+                    Button(
+                        action: {
+                            appState.isShowingLiftingContext = false
+                        },
+                        label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                Text("Back")
+                            }
+                            .foregroundColor(Theme.interactivePrimary)
                         }
-                        .foregroundColor(Theme.interactivePrimary)
-                    }
+                    )
                 }
             }
             .onAppear {

@@ -64,7 +64,11 @@ struct BradOSApp: App {
                 .onOpenURL { url in
                     handleDeepLink(url)
                 }
-                .onReceive(NotificationCenter.default.publisher(for: MealPlanCacheService.cacheDidChangeNotification)) { _ in
+                .onReceive(
+                    NotificationCenter.default.publisher(
+                        for: MealPlanCacheService.cacheDidChangeNotification
+                    )
+                ) { _ in
                     WidgetCenter.shared.reloadAllTimelines()
                 }
                 .onChange(of: scenePhase) { oldPhase, newPhase in

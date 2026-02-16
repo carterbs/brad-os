@@ -8,6 +8,10 @@ struct HealthSyncView: View {
     @State private var lastResult: String?
     @State private var showResetConfirm = false
 
+    private static let backfillResetMessage =
+        "This will clear backfill flags so the next sync re-downloads " +
+        "all historical HRV, RHR, and sleep data from HealthKit (up to 10 years)."
+
     private enum SyncType: String {
         case all = "All"
         case recovery = "Recovery"
@@ -45,7 +49,7 @@ struct HealthSyncView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This will clear backfill flags so the next sync re-downloads all historical HRV, RHR, and sleep data from HealthKit (up to 10 years).")
+            Text(Self.backfillResetMessage)
         }
     }
 

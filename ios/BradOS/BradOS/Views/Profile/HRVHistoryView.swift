@@ -16,7 +16,6 @@ struct HRVHistoryView: View {
                     if !viewModel.history.isEmpty {
                         trendChart
                     }
-
                 }
             }
             .padding(Theme.Spacing.space5)
@@ -219,7 +218,6 @@ struct HRVHistoryView: View {
                             .font(.caption)
                             .foregroundStyle(Theme.textTertiary)
                     }
-
                 }
             }
             .glassCard()

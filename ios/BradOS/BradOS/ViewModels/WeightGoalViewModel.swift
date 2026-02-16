@@ -129,12 +129,12 @@ class WeightGoalViewModel {
 
         // Fetch current weight + history + goal from Firebase in parallel
         async let latestWeight = loadLatestWeight()
-        async let apiHistory = loadWeightHistory()
-        async let apiGoal = loadWeightGoal()
+        async let loadHistory: Void = loadWeightHistory()
+        async let loadGoal: Void = loadWeightGoal()
 
         currentWeight = await latestWeight
-        await apiHistory
-        await apiGoal
+        await loadHistory
+        await loadGoal
 
         // Compute trend slope (works without a goal set)
         updateTrend()
@@ -287,8 +287,8 @@ class WeightGoalViewModel {
     /// Least-squares linear regression. Returns (slope, intercept) where
     /// x = days since first point, y = weight.
     private func linearRegression(points: [WeightChartPoint]) -> (slope: Double, intercept: Double) {
-        let n = Double(points.count)
-        guard n >= 2, let firstDate = points.first?.date else {
+        let count = Double(points.count)
+        guard count >= 2, let firstDate = points.first?.date else {
             return (slope: 0, intercept: points.first?.weight ?? 0)
         }
 
@@ -303,13 +303,13 @@ class WeightGoalViewModel {
             sumX2 += x * x
         }
 
-        let denominator = n * sumX2 - sumX * sumX
+        let denominator = count * sumX2 - sumX * sumX
         guard abs(denominator) > 1e-10 else {
-            return (slope: 0, intercept: sumY / n)
+            return (slope: 0, intercept: sumY / count)
         }
 
-        let slope = (n * sumXY - sumX * sumY) / denominator
-        let intercept = (sumY - slope * sumX) / n
+        let slope = (count * sumXY - sumX * sumY) / denominator
+        let intercept = (sumY - slope * sumX) / count
 
         return (slope: slope, intercept: intercept)
     }

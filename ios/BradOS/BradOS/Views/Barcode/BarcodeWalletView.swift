@@ -32,10 +32,10 @@ struct BarcodeWalletView: View {
         .toolbarBackground(.hidden, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: { showingAddSheet = true }) {
+                Button(action: { showingAddSheet = true }, label: {
                     Image(systemName: "plus")
                         .foregroundColor(Theme.interactivePrimary)
-                }
+                })
             }
         }
         .sheet(isPresented: $showingAddSheet) {
@@ -167,9 +167,9 @@ struct BarcodeCardRow: View {
             Button(action: onEdit) {
                 Label("Edit", systemImage: "pencil")
             }
-            Button(role: .destructive, action: { showingDeleteAlert = true }) {
+            Button(role: .destructive, action: { showingDeleteAlert = true }, label: {
                 Label("Delete", systemImage: "trash")
-            }
+            })
         }
         .alert("Delete Barcode?", isPresented: $showingDeleteAlert) {
             Button("Cancel", role: .cancel) {}

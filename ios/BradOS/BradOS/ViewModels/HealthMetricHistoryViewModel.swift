@@ -88,8 +88,8 @@ class HRVHistoryViewModel {
 
     var chartYDomain: ClosedRange<Double> {
         let allValues = history.map(\.value) + projectedTrendPoints.map(\.value)
-        var minVal = allValues.min() ?? 20
-        var maxVal = allValues.max() ?? 60
+        let minVal = allValues.min() ?? 20
+        let maxVal = allValues.max() ?? 60
 
         let padding = max((maxVal - minVal) * 0.1, 2)
         return (minVal - padding)...(maxVal + padding)
@@ -156,8 +156,8 @@ class HRVHistoryViewModel {
     }
 
     private func linearRegression(points: [HealthMetricChartPoint]) -> Double {
-        let n = Double(points.count)
-        guard n >= 2, let firstDate = points.first?.date else { return 0 }
+        let count = Double(points.count)
+        guard count >= 2, let firstDate = points.first?.date else { return 0 }
 
         var sumX = 0.0, sumY = 0.0, sumXY = 0.0, sumX2 = 0.0
 
@@ -170,10 +170,10 @@ class HRVHistoryViewModel {
             sumX2 += x * x
         }
 
-        let denominator = n * sumX2 - sumX * sumX
+        let denominator = count * sumX2 - sumX * sumX
         guard abs(denominator) > 1e-10 else { return 0 }
 
-        return (n * sumXY - sumX * sumY) / denominator
+        return (count * sumXY - sumX * sumY) / denominator
     }
 }
 
@@ -238,8 +238,8 @@ class RHRHistoryViewModel {
 
     var chartYDomain: ClosedRange<Double> {
         let allValues = history.map(\.value) + projectedTrendPoints.map(\.value)
-        var minVal = allValues.min() ?? 50
-        var maxVal = allValues.max() ?? 80
+        let minVal = allValues.min() ?? 50
+        let maxVal = allValues.max() ?? 80
 
         let padding = max((maxVal - minVal) * 0.1, 2)
         return (minVal - padding)...(maxVal + padding)
@@ -306,8 +306,8 @@ class RHRHistoryViewModel {
     }
 
     private func linearRegression(points: [HealthMetricChartPoint]) -> Double {
-        let n = Double(points.count)
-        guard n >= 2, let firstDate = points.first?.date else { return 0 }
+        let count = Double(points.count)
+        guard count >= 2, let firstDate = points.first?.date else { return 0 }
 
         var sumX = 0.0, sumY = 0.0, sumXY = 0.0, sumX2 = 0.0
 
@@ -320,10 +320,10 @@ class RHRHistoryViewModel {
             sumX2 += x * x
         }
 
-        let denominator = n * sumX2 - sumX * sumX
+        let denominator = count * sumX2 - sumX * sumX
         guard abs(denominator) > 1e-10 else { return 0 }
 
-        return (n * sumXY - sumX * sumY) / denominator
+        return (count * sumXY - sumX * sumY) / denominator
     }
 }
 

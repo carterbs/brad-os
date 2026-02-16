@@ -228,23 +228,23 @@ struct MeditationView: View {
                     if sessionState == .categorySelection {
                         Button(action: {
                             appState.isShowingMeditation = false
-                        }) {
+                        }, label: {
                             HStack(spacing: 4) {
                                 Image(systemName: "chevron.left")
                                 Text("Back")
                             }
                             .foregroundColor(Theme.interactivePrimary)
-                        }
+                        })
                     } else if sessionState == .setup {
                         Button(action: {
                             sessionState = .categorySelection
-                        }) {
+                        }, label: {
                             HStack(spacing: 4) {
                                 Image(systemName: "chevron.left")
                                 Text("Back")
                             }
                             .foregroundColor(Theme.interactivePrimary)
-                        }
+                        })
                     }
                 }
             }
@@ -321,7 +321,11 @@ struct MeditationView: View {
 
     private func startSession() {
         // Save duration preference and category
-        storage.saveMeditationConfig(MeditationConfig(duration: selectedDuration.rawValue, selectedCategory: selectedCategory?.rawValue))
+        let config = MeditationConfig(
+            duration: selectedDuration.rawValue,
+            selectedCategory: selectedCategory?.rawValue
+        )
+        storage.saveMeditationConfig(config)
         recoverableSession = nil
         sessionState = .active
     }

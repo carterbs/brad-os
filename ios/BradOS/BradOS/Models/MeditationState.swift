@@ -57,7 +57,7 @@ struct MeditationSessionPersisted: Codable {
 
 /// A scheduled audio cue with play status
 struct ScheduledCue: Codable, Identifiable {
-    var id: UUID = UUID()
+    var id = UUID()
     let atSeconds: Int
     let audioFile: String
     var played: Bool

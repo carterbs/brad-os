@@ -33,7 +33,7 @@ final class NowPlayingManager {
         ]
 
         // Add artwork if available
-        if let image = UIImage(systemName: "brain.head.profile") {
+        if UIImage(systemName: "brain.head.profile") != nil {
             let artwork = MPMediaItemArtwork(boundsSize: CGSize(width: 300, height: 300)) { _ in
                 // Create a simple colored image with the icon
                 let renderer = UIGraphicsImageRenderer(size: CGSize(width: 300, height: 300))

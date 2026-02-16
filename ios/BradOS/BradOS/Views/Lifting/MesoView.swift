@@ -33,9 +33,10 @@ struct MesoView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 if activeMesocycle == nil {
-                    Button(action: { showingNewMesocycleSheet = true }) {
-                        Image(systemName: "plus")
-                    }
+                        Button(
+                        action: { showingNewMesocycleSheet = true },
+                        label: { Image(systemName: "plus") }
+                    )
                 }
             }
         }
@@ -149,10 +150,13 @@ struct MesoView: View {
                 .foregroundColor(Theme.textSecondary)
                 .multilineTextAlignment(.center)
 
-            Button(action: { showingNewMesocycleSheet = true }) {
-                Text("Start Mesocycle")
-                    .fontWeight(.medium)
-            }
+            Button(
+                action: { showingNewMesocycleSheet = true },
+                label: {
+                    Text("Start Mesocycle")
+                        .fontWeight(.medium)
+                }
+            )
             .buttonStyle(PrimaryButtonStyle())
             .padding(.top, Theme.Spacing.space2)
         }
@@ -196,12 +200,11 @@ struct ActiveMesocycleCard: View {
     /// The active week is the first week that has an incomplete workout
     private var activeWeekNumber: Int? {
         guard let weeks = mesocycle.weeks else { return nil }
-        for week in weeks {
-            if week.workouts.contains(where: { $0.status != .completed && $0.status != .skipped }) {
-                return week.weekNumber
-            }
-        }
-        return nil
+        return weeks.first(where: { week in
+            week.workouts.contains(where: {
+                $0.status != .completed && $0.status != .skipped
+            })
+        })?.weekNumber
     }
 
     var body: some View {
@@ -222,10 +225,13 @@ struct ActiveMesocycleCard: View {
             }
 
             // Cancel Button
-            Button(action: { showingCancelAlert = true }) {
-                Text("Cancel Mesocycle")
-                    .frame(maxWidth: .infinity)
-            }
+            Button(
+                action: { showingCancelAlert = true },
+                label: {
+                    Text("Cancel Mesocycle")
+                        .frame(maxWidth: .infinity)
+                }
+            )
             .buttonStyle(SecondaryButtonStyle())
         }
         .alert("Cancel Mesocycle?", isPresented: $showingCancelAlert) {
@@ -234,7 +240,10 @@ struct ActiveMesocycleCard: View {
                 Task { await cancelMesocycle() }
             }
         } message: {
-            Text("This will end your current mesocycle. Your progress will be saved but the mesocycle will be marked as cancelled.")
+            Text(
+                "This will end your current mesocycle. "
+                + "Your progress will be saved but the mesocycle will be marked as cancelled."
+            )
         }
         .disabled(isCancelling)
     }
@@ -284,7 +293,10 @@ struct ActiveMesocycleCard: View {
                             .frame(height: Theme.Dimensions.progressBarHeight)
                         RoundedRectangle(cornerRadius: 2, style: .continuous)
                             .fill(Theme.lifting)
-                            .frame(width: geometry.size.width * (mesocycle.progressPercentage ?? 0), height: Theme.Dimensions.progressBarHeight)
+                            .frame(
+                                width: geometry.size.width * mesocycle.progressPercentage,
+                                height: Theme.Dimensions.progressBarHeight
+                            )
                     }
                 }
                 .frame(height: Theme.Dimensions.progressBarHeight)
@@ -314,217 +326,6 @@ struct ActiveMesocycleCard: View {
             #endif
         }
         isCancelling = false
-    }
-
-}
-
-/// Card displaying a single week's workouts
-struct WeekCard: View {
-    let week: WeekSummary
-    let isActiveWeek: Bool
-    let hasInProgressWorkout: Bool
-    @Binding var navigationPath: NavigationPath
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
-            // Week Header
-            HStack {
-                Text(week.isDeload ? "Deload Week" : "Week \(week.weekNumber)")
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .foregroundColor(isActiveWeek ? Theme.interactivePrimary : Theme.textPrimary)
-                    .monospacedDigit()
-
-                if week.isComplete {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.caption)
-                        .foregroundColor(Theme.success)
-                }
-
-                Spacer()
-
-                if isActiveWeek {
-                    Text("Active")
-                        .font(.caption2)
-                        .fontWeight(.semibold)
-                        .foregroundColor(Theme.textOnAccent)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(Theme.interactivePrimary)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
-                }
-            }
-
-            // Workouts
-            ForEach(week.workouts) { workout in
-                workoutRow(workout)
-            }
-        }
-        .glassCard()
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
-                .stroke(isActiveWeek ? Theme.interactivePrimary : Theme.strokeSubtle, lineWidth: isActiveWeek ? 2 : 1)
-        )
-    }
-
-    @ViewBuilder
-    private func workoutRow(_ workout: WorkoutSummary) -> some View {
-        let canStart = canStartWorkout(workout)
-        let isTappable = workout.status == .inProgress || workout.status == .completed || (workout.status == .pending && canStart)
-
-        HStack {
-            Circle()
-                .fill(statusColor(for: workout.status))
-                .frame(width: 8, height: 8)
-
-            Text(workout.dayName)
-                .font(.subheadline)
-                .foregroundColor(Theme.textPrimary)
-
-            Spacer()
-
-            Text(statusText(for: workout.status))
-                .font(.caption)
-                .fontWeight(.medium)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(statusColor(for: workout.status).opacity(0.2))
-                .foregroundColor(statusColor(for: workout.status))
-                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
-
-            if isTappable {
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
-            }
-        }
-        .padding(.vertical, 4)
-        .contentShape(Rectangle())
-        .opacity(workout.status == .pending && !canStart ? 0.5 : 1.0)
-        .onTapGesture {
-            if isTappable {
-                navigationPath.append(WorkoutDestination(workoutId: workout.id))
-            }
-        }
-    }
-
-    /// Determines if a pending workout can be started (no in-progress workouts exist anywhere in the mesocycle)
-    private func canStartWorkout(_ workout: WorkoutSummary) -> Bool {
-        guard workout.status == .pending else { return true }
-        return !hasInProgressWorkout
-    }
-
-    private func statusColor(for status: WorkoutStatus) -> Color {
-        switch status {
-        case .completed: return Theme.success
-        case .skipped: return Theme.neutral
-        case .inProgress: return Theme.warning
-        case .pending: return Color.white.opacity(0.06)
-        }
-    }
-
-    private func statusText(for status: WorkoutStatus) -> String {
-        switch status {
-        case .completed: return "Completed"
-        case .skipped: return "Skipped"
-        case .inProgress: return "In Progress"
-        case .pending: return "Scheduled"
-        }
-    }
-}
-
-/// Card displaying a completed mesocycle
-struct CompletedMesocycleCard: View {
-    let mesocycle: Mesocycle
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(mesocycle.planName ?? "Mesocycle")
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .foregroundColor(Theme.textPrimary)
-
-                Text(dateRange)
-                    .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
-            }
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 4) {
-                GenericBadge(
-                    text: mesocycle.status == .completed ? "Completed" : "Cancelled",
-                    color: mesocycle.status == .completed ? Theme.success : Theme.neutral
-                )
-
-                Text("\(mesocycle.completedWorkouts ?? 0)/\(mesocycle.totalWorkouts ?? 0) workouts")
-                    .font(.caption)
-                    .foregroundColor(Theme.textSecondary)
-                    .monospacedDigit()
-            }
-        }
-        .glassCard()
-    }
-
-    private var dateRange: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        let start = formatter.string(from: mesocycle.startDate)
-
-        if let endDate = Calendar.current.date(byAdding: .weekOfYear, value: 7, to: mesocycle.startDate) {
-            let end = formatter.string(from: endDate)
-            return "\(start) - \(end)"
-        }
-        return start
-    }
-}
-
-/// Sheet for creating a new mesocycle
-struct NewMesocycleSheet: View {
-    @Environment(\.dismiss) private var dismiss
-
-    @State private var selectedPlan: Plan? = Plan.mockPlans.first
-    @State private var startDate: Date = Date()
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Plan") {
-                    Picker("Select Plan", selection: $selectedPlan) {
-                        ForEach(Plan.mockPlans) { plan in
-                            Text(plan.name).tag(plan as Plan?)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-
-                Section("Start Date") {
-                    DatePicker("Start Date", selection: $startDate, displayedComponents: .date)
-                        .datePickerStyle(.graphical)
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .background(AuroraBackground().ignoresSafeArea())
-            .navigationTitle("New Mesocycle")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
-                        dismiss()
-                    }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Start") {
-                        // Start mesocycle action
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                    .disabled(selectedPlan == nil)
-                }
-            }
-        }
     }
 }
 

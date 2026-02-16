@@ -76,13 +76,13 @@ struct MealPlanEditingView: View {
                 // Finalize button
                 Button(action: {
                     Task { await viewModel.finalize() }
-                }) {
+                }, label: {
                     HStack {
                         Image(systemName: "checkmark.seal")
                         Text("Finalize Plan")
                     }
                     .frame(maxWidth: .infinity)
-                }
+                })
                 .buttonStyle(PrimaryButtonStyle())
                 .padding(.horizontal, Theme.Spacing.space4)
             }

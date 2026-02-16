@@ -34,12 +34,12 @@ public class ProfileViewModel: ObservableObject {
         error = nil
 
         // Load all data concurrently
-        async let mesocyclesTask = loadMesocycleStats()
-        async let meditationTask = loadMeditationStats()
+        async let loadMesocycles: Void = loadMesocycleStats()
+        async let loadMeditation: Void = loadMeditationStats()
 
         // Await all tasks
-        await mesocyclesTask
-        await meditationTask
+        await loadMesocycles
+        await loadMeditation
 
         isLoading = false
     }

@@ -71,7 +71,8 @@ extension WorkoutView {
                 exercises[exerciseIndex].sets[setIndex].actualReps = actualReps
 
                 // Update completed count
-                exercises[exerciseIndex].completedSets = exercises[exerciseIndex].sets.filter { $0.status == .completed }.count
+                exercises[exerciseIndex].completedSets = exercises[exerciseIndex].sets
+                    .filter { $0.status == .completed }.count
                 break
             }
         }
@@ -128,7 +129,9 @@ extension WorkoutView {
 
         // Notify Watch
         let exerciseName = workout?.exercises?.first(where: { $0.exerciseId == exerciseId })?.exerciseName
-        watchWorkoutController.sendRestTimerEvent(action: "start", targetSeconds: targetSeconds, exerciseName: exerciseName)
+        watchWorkoutController.sendRestTimerEvent(
+            action: "start", targetSeconds: targetSeconds, exerciseName: exerciseName
+        )
     }
 
     func dismissRestTimer() {

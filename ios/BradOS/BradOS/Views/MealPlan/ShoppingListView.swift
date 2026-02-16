@@ -102,7 +102,7 @@ struct SaveToGroceryListButton: View {
         VStack(spacing: Theme.Spacing.space2) {
             Button(action: {
                 Task { await viewModel.exportToReminders() }
-            }) {
+            }, label: {
                 HStack(spacing: Theme.Spacing.space2) {
                     if viewModel.isExportingToReminders {
                         ProgressView()
@@ -119,7 +119,7 @@ struct SaveToGroceryListButton: View {
                 .fontWeight(.semibold)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, Theme.Spacing.space2)
-            }
+            })
             .buttonStyle(PrimaryButtonStyle())
             .disabled(viewModel.isExportingToReminders)
 

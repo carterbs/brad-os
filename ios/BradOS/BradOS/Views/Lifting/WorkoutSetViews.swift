@@ -278,11 +278,14 @@ struct SetRow: View {
                 .foregroundColor(Theme.textSecondary.opacity(0.3))
                 .frame(width: 44)
         } else if workoutSet.status == .completed {
-            Button(action: { showingActions = true }) {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.title2)
-                    .foregroundColor(Theme.success)
-            }
+            Button(
+                action: { showingActions = true },
+                label: {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(Theme.success)
+                }
+            )
             .frame(width: 44)
         } else if workoutSet.status == .skipped {
             Image(systemName: "forward.fill")

@@ -226,12 +226,24 @@ private extension MockAPIClient {
             regionsCompleted: 6,
             regionsSkipped: 2,
             stretches: [
-                CompletedStretch(region: .neck, stretchId: "neck-forward", stretchName: "Forward Tilt", durationSeconds: 60, skippedSegments: 0),
-                CompletedStretch(region: .shoulders, stretchId: "shoulders-cross", stretchName: "Cross-Body Stretch", durationSeconds: 120, skippedSegments: 1),
-                CompletedStretch(region: .back, stretchId: "back-cat-cow", stretchName: "Cat-Cow", durationSeconds: 60, skippedSegments: 0),
-                CompletedStretch(region: .hipFlexors, stretchId: "hip-lunge", stretchName: "Lunge Stretch", durationSeconds: 120, skippedSegments: 2),
-                CompletedStretch(region: .hamstrings, stretchId: "hamstring-seated", stretchName: "Seated Forward Fold", durationSeconds: 60, skippedSegments: 0),
-                CompletedStretch(region: .calves, stretchId: "calves-wall", stretchName: "Wall Stretch", durationSeconds: 60, skippedSegments: 0),
+                CompletedStretch(
+                    region: .neck, stretchId: "neck-forward",
+                    stretchName: "Forward Tilt", durationSeconds: 60, skippedSegments: 0),
+                CompletedStretch(
+                    region: .shoulders, stretchId: "shoulders-cross",
+                    stretchName: "Cross-Body Stretch", durationSeconds: 120, skippedSegments: 1),
+                CompletedStretch(
+                    region: .back, stretchId: "back-cat-cow",
+                    stretchName: "Cat-Cow", durationSeconds: 60, skippedSegments: 0),
+                CompletedStretch(
+                    region: .hipFlexors, stretchId: "hip-lunge",
+                    stretchName: "Lunge Stretch", durationSeconds: 120, skippedSegments: 2),
+                CompletedStretch(
+                    region: .hamstrings, stretchId: "hamstring-seated",
+                    stretchName: "Seated Forward Fold", durationSeconds: 60, skippedSegments: 0),
+                CompletedStretch(
+                    region: .calves, stretchId: "calves-wall",
+                    stretchName: "Wall Stretch", durationSeconds: 60, skippedSegments: 0),
             ]
         )
         return client

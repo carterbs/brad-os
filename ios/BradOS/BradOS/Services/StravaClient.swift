@@ -13,6 +13,7 @@ struct StravaActivity: Codable, Identifiable, Equatable {
     let averageWatts: Double?
     let weightedAverageWatts: Double?
     let maxWatts: Int?
+    // swiftlint:disable:next discouraged_optional_boolean
     let deviceWatts: Bool?
     let kilojoules: Double?
     let startDate: String
@@ -129,7 +130,26 @@ final class StravaClient: ObservableObject {
     /// - Returns: Array of cycling activities
     func fetchRecentActivities(page: Int = 1, perPage: Int = 30) async throws -> [StravaActivity] {
         let tokens = try await stravaAuthManager.refreshTokensIfNeeded()
+        let url = try buildActivitiesURL(page: page, perPage: perPage)
 
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(tokens.accessToken)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            try validateHTTPResponse(response, data: data)
+            let allActivities = try JSONDecoder().decode([StravaActivity].self, from: data)
+            return allActivities.filter { $0.isCycling }
+        } catch let error as StravaClientError {
+            throw error
+        } catch let error as DecodingError {
+            throw StravaClientError.decodingError(error)
+        } catch {
+            throw StravaClientError.networkError(error)
+        }
+    }
+
+    private func buildActivitiesURL(page: Int, perPage: Int) throws -> URL {
         guard var components = URLComponents(string: "\(baseURL)/athlete/activities") else {
             throw StravaClientError.networkError(
                 NSError(domain: "StravaClient", code: -1, userInfo: [
@@ -141,7 +161,6 @@ final class StravaClient: ObservableObject {
             URLQueryItem(name: "page", value: "\(page)"),
             URLQueryItem(name: "per_page", value: "\(min(perPage, 200))")
         ]
-
         guard let url = components.url else {
             throw StravaClientError.networkError(
                 NSError(domain: "StravaClient", code: -1, userInfo: [
@@ -149,35 +168,20 @@ final class StravaClient: ObservableObject {
                 ])
             )
         }
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(tokens.accessToken)", forHTTPHeaderField: "Authorization")
+        return url
+    }
 
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw StravaClientError.networkError(
-                    NSError(domain: "StravaClient", code: -1, userInfo: [
-                        NSLocalizedDescriptionKey: "Invalid response"
-                    ])
-                )
-            }
-
-            if httpResponse.statusCode != 200 {
-                let message = String(data: data, encoding: .utf8) ?? "Unknown error"
-                throw StravaClientError.apiError(httpResponse.statusCode, message)
-            }
-
-            let allActivities = try JSONDecoder().decode([StravaActivity].self, from: data)
-
-            // Filter to only cycling activities
-            return allActivities.filter { $0.isCycling }
-        } catch let error as StravaClientError {
-            throw error
-        } catch let error as DecodingError {
-            throw StravaClientError.decodingError(error)
-        } catch {
-            throw StravaClientError.networkError(error)
+    private func validateHTTPResponse(_ response: URLResponse, data: Data) throws {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw StravaClientError.networkError(
+                NSError(domain: "StravaClient", code: -1, userInfo: [
+                    NSLocalizedDescriptionKey: "Invalid response"
+                ])
+            )
+        }
+        if httpResponse.statusCode != 200 {
+            let message = String(data: data, encoding: .utf8) ?? "Unknown error"
+            throw StravaClientError.apiError(httpResponse.statusCode, message)
         }
     }
 
@@ -199,20 +203,7 @@ final class StravaClient: ObservableObject {
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
-
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw StravaClientError.networkError(
-                    NSError(domain: "StravaClient", code: -1, userInfo: [
-                        NSLocalizedDescriptionKey: "Invalid response"
-                    ])
-                )
-            }
-
-            if httpResponse.statusCode != 200 {
-                let message = String(data: data, encoding: .utf8) ?? "Unknown error"
-                throw StravaClientError.apiError(httpResponse.statusCode, message)
-            }
-
+            try validateHTTPResponse(response, data: data)
             return try JSONDecoder().decode(StravaActivity.self, from: data)
         } catch let error as StravaClientError {
             throw error
@@ -248,7 +239,9 @@ final class StravaClient: ObservableObject {
     /// Sync activities to the backend.
     /// This fetches activities from Strava and posts them to our API.
     /// - Parameter apiClient: The API client to use for backend requests
-    func syncActivitiesToBackend<T: CyclingAPIClient>(apiClient: T) async throws where T.Response == APIResponse<CyclingActivityResponse> {
+    func syncActivitiesToBackend<T: CyclingAPIClient>(
+        apiClient: T
+    ) async throws where T.Response == APIResponse<CyclingActivityResponse> {
         guard stravaAuthManager.isConnected else {
             throw StravaClientError.notAuthenticated
         }
@@ -274,7 +267,7 @@ final class StravaClient: ObservableObject {
                     source: "strava"
                 )
 
-                let _ = try await apiClient.post(path: "cycling/activities", body: body)
+                _ = try await apiClient.post(path: "cycling/activities", body: body)
                 print("[StravaClient] Synced activity \(activity.id) to backend")
             } catch {
                 // Log but continue with other activities

@@ -7,49 +7,8 @@ import BradOSCore
 extension MeditationActiveView {
 
     func initializeSession() {
-        // Recover state if available
-        if let recovered = recoveredState {
-            sessionStartTime = recovered.sessionStartedAt ?? Date()
-            pausedElapsed = recovered.pausedElapsed
-            if recovered.status == .paused {
-                pausedAt = recovered.pausedAt
-                isPaused = true
-            }
-        } else {
-            sessionStartTime = Date()
-            pausedElapsed = 0
-            pausedAt = nil
-            isPaused = false
-        }
-
-        // Initialize audio and load cues
-        Task {
-            do {
-                try await audioEngine.initialize()
-                audioEngine.startKeepalive()
-
-                // Load scheduled cues from recovered state or generate new ones
-                if let recovered = recoveredState, !recovered.scheduledCues.isEmpty {
-                    await MainActor.run {
-                        scheduledCues = recovered.scheduledCues
-                    }
-                } else {
-                    let cues = try await manifestService.generateScheduledCues(
-                        sessionId: "basic-breathing",
-                        duration: duration.rawValue
-                    )
-                    await MainActor.run {
-                        scheduledCues = cues
-                    }
-                }
-            } catch {
-                // Show error but allow session to continue without audio
-                await MainActor.run {
-                    audioErrorMessage = "Could not initialize audio. The session will continue without sound."
-                    showAudioError = true
-                }
-            }
-        }
+        recoverOrResetState()
+        initializeAudioAndCues()
 
         // Setup lock screen controls
         nowPlaying.setupRemoteCommands(
@@ -66,6 +25,50 @@ extension MeditationActiveView {
 
         // Update Now Playing
         updateNowPlaying()
+    }
+
+    private func recoverOrResetState() {
+        if let recovered = recoveredState {
+            sessionStartTime = recovered.sessionStartedAt ?? Date()
+            pausedElapsed = recovered.pausedElapsed
+            if recovered.status == .paused {
+                pausedAt = recovered.pausedAt
+                isPaused = true
+            }
+        } else {
+            sessionStartTime = Date()
+            pausedElapsed = 0
+            pausedAt = nil
+            isPaused = false
+        }
+    }
+
+    private func initializeAudioAndCues() {
+        Task {
+            do {
+                try await audioEngine.initialize()
+                audioEngine.startKeepalive()
+
+                if let recovered = recoveredState, !recovered.scheduledCues.isEmpty {
+                    await MainActor.run {
+                        scheduledCues = recovered.scheduledCues
+                    }
+                } else {
+                    let cues = try await manifestService.generateScheduledCues(
+                        sessionId: "basic-breathing",
+                        duration: duration.rawValue
+                    )
+                    await MainActor.run {
+                        scheduledCues = cues
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    audioErrorMessage = "Could not initialize audio. The session will continue without sound."
+                    showAudioError = true
+                }
+            }
+        }
     }
 
     func cleanup() {

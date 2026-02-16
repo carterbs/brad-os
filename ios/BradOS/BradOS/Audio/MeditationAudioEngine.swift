@@ -166,32 +166,8 @@ final class MeditationAudioEngine: ObservableObject {
 
     /// Generate a silent audio buffer for keepalive
     private func generateSilentKeepalive() throws {
-        // Create a 1-second silent audio buffer
-        let sampleRate: Double = 44100
-        let duration: Double = 1.0
-        let numSamples = Int(sampleRate * duration)
-
-        var audioFormat = AudioStreamBasicDescription(
-            mSampleRate: sampleRate,
-            mFormatID: kAudioFormatLinearPCM,
-            mFormatFlags: kAudioFormatFlagIsFloat | kAudioFormatFlagIsPacked,
-            mBytesPerPacket: 4,
-            mFramesPerPacket: 1,
-            mBytesPerFrame: 4,
-            mChannelsPerFrame: 1,
-            mBitsPerChannel: 32,
-            mReserved: 0
-        )
-
-        // Create silent audio data
-        var silence = [Float](repeating: 0.0, count: numSamples)
-
-        // Write to temporary file
-        let tempURL = FileManager.default.temporaryDirectory
-            .appendingPathComponent("silence.wav")
-
-        // For simplicity, we'll just set keepalive to nil if we can't create it
-        // The app will still work but background audio might stop
+        // Keepalive audio generation is not yet implemented.
+        // The app will still work but background audio might stop.
         keepalivePlayer = nil
     }
 

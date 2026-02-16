@@ -14,7 +14,7 @@ struct MeditationActiveView: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     // Timer state - using timestamps for background resilience
-    @State var sessionStartTime: Date = Date()
+    @State var sessionStartTime = Date()
     @State var pausedElapsed: TimeInterval = 0
     @State var pausedAt: Date?
     @State var isPaused: Bool = false

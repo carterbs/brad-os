@@ -7,7 +7,7 @@ import BradOSCore
 
 struct Theme {
     // MARK: - Background Colors (from shared ThemeColors)
-    struct BG {
+    struct Background {
         static let deep = ThemeColors.bgDeep
         static let base = ThemeColors.bgBase
         static let surface = ThemeColors.bgSurface
@@ -102,7 +102,6 @@ struct Theme {
         static let space6: CGFloat = 24
         static let space7: CGFloat = 32
         static let space8: CGFloat = 40
-
     }
 
     // MARK: - Corner Radius
@@ -138,7 +137,6 @@ struct Theme {
         static let standardSpring = Animation.spring(response: 0.32, dampingFraction: 0.86)
         static let bouncySpring = Animation.spring(response: 0.40, dampingFraction: 0.78)
     }
-
 }
 
 // MARK: - Glass Level
@@ -266,7 +264,7 @@ struct AuroraBackground: View {
     var body: some View {
         ZStack {
             LinearGradient(
-                colors: [Theme.BG.deep, Theme.BG.base],
+                colors: [Theme.Background.deep, Theme.Background.base],
                 startPoint: .top,
                 endPoint: .bottom
             )

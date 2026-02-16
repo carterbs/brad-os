@@ -61,7 +61,10 @@ extension APIClient {
             let date: String
             let source: String
         }
-        let result: FTPEntryResponse = try await post("/cycling/ftp", body: CreateFTPBody(value: value, date: date, source: source))
+        let result: FTPEntryResponse = try await post(
+            "/cycling/ftp",
+            body: CreateFTPBody(value: value, date: date, source: source)
+        )
         invalidateCache(matching: "/cycling/ftp")
         return result
     }
@@ -138,7 +141,11 @@ extension APIClient {
     // MARK: - Weight & Health Sync
 
     func getWeightHistory(days: Int) async throws -> [WeightHistoryEntry] {
-        try await get("/health-sync/weight", queryItems: [URLQueryItem(name: "days", value: String(days))], cacheTTL: CacheTTL.long)
+        try await get(
+            "/health-sync/weight",
+            queryItems: [URLQueryItem(name: "days", value: String(days))],
+            cacheTTL: CacheTTL.long
+        )
     }
 
     func getLatestWeight() async throws -> WeightHistoryEntry? {
@@ -152,7 +159,10 @@ extension APIClient {
         struct BulkWeightResponse: Decodable {
             let added: Int
         }
-        let response: BulkWeightResponse = try await post("/health-sync/weight/bulk", body: BulkWeightBody(weights: weights))
+        let response: BulkWeightResponse = try await post(
+            "/health-sync/weight/bulk",
+            body: BulkWeightBody(weights: weights)
+        )
         if response.added > 0 { invalidateCache(matching: "/health-sync/weight") }
         return response.added
     }
@@ -164,13 +174,20 @@ extension APIClient {
         struct BulkHRVResponse: Decodable {
             let added: Int
         }
-        let response: BulkHRVResponse = try await post("/health-sync/hrv/bulk", body: BulkHRVBody(entries: entries))
+        let response: BulkHRVResponse = try await post(
+            "/health-sync/hrv/bulk",
+            body: BulkHRVBody(entries: entries)
+        )
         if response.added > 0 { invalidateCache(matching: "/health-sync/hrv") }
         return response.added
     }
 
     func getHRVHistory(days: Int) async throws -> [HRVHistoryEntry] {
-        try await get("/health-sync/hrv", queryItems: [URLQueryItem(name: "days", value: String(days))], cacheTTL: CacheTTL.long)
+        try await get(
+            "/health-sync/hrv",
+            queryItems: [URLQueryItem(name: "days", value: String(days))],
+            cacheTTL: CacheTTL.long
+        )
     }
 
     func syncRHRBulk(entries: [RHRSyncEntry]) async throws -> Int {
@@ -180,13 +197,20 @@ extension APIClient {
         struct BulkRHRResponse: Decodable {
             let added: Int
         }
-        let response: BulkRHRResponse = try await post("/health-sync/rhr/bulk", body: BulkRHRBody(entries: entries))
+        let response: BulkRHRResponse = try await post(
+            "/health-sync/rhr/bulk",
+            body: BulkRHRBody(entries: entries)
+        )
         if response.added > 0 { invalidateCache(matching: "/health-sync/rhr") }
         return response.added
     }
 
     func getRHRHistory(days: Int) async throws -> [RHRHistoryEntry] {
-        try await get("/health-sync/rhr", queryItems: [URLQueryItem(name: "days", value: String(days))], cacheTTL: CacheTTL.long)
+        try await get(
+            "/health-sync/rhr",
+            queryItems: [URLQueryItem(name: "days", value: String(days))],
+            cacheTTL: CacheTTL.long
+        )
     }
 
     func syncSleepBulk(entries: [SleepSyncEntry]) async throws -> Int {
@@ -196,25 +220,38 @@ extension APIClient {
         struct BulkSleepResponse: Decodable {
             let added: Int
         }
-        let response: BulkSleepResponse = try await post("/health-sync/sleep/bulk", body: BulkSleepBody(entries: entries))
+        let response: BulkSleepResponse = try await post(
+            "/health-sync/sleep/bulk",
+            body: BulkSleepBody(entries: entries)
+        )
         if response.added > 0 { invalidateCache(matching: "/health-sync/sleep") }
         return response.added
     }
 
     func getSleepHistory(days: Int) async throws -> [SleepHistoryEntry] {
-        try await get("/health-sync/sleep", queryItems: [URLQueryItem(name: "days", value: String(days))], cacheTTL: CacheTTL.long)
+        try await get(
+            "/health-sync/sleep",
+            queryItems: [URLQueryItem(name: "days", value: String(days))],
+            cacheTTL: CacheTTL.long
+        )
     }
 
     func getLatestRecovery() async throws -> RecoverySnapshotResponse? {
         try await getOptional("/health-sync/recovery", cacheTTL: CacheTTL.medium)
     }
 
-    func syncRecovery(recovery: RecoverySyncData, baseline: RecoveryBaselineSyncData?) async throws -> RecoverySyncResponse {
+    func syncRecovery(
+        recovery: RecoverySyncData,
+        baseline: RecoveryBaselineSyncData?
+    ) async throws -> RecoverySyncResponse {
         struct SyncBody: Encodable {
             let recovery: RecoverySyncData
             let baseline: RecoveryBaselineSyncData?
         }
-        let result: RecoverySyncResponse = try await post("/health-sync/sync", body: SyncBody(recovery: recovery, baseline: baseline))
+        let result: RecoverySyncResponse = try await post(
+            "/health-sync/sync",
+            body: SyncBody(recovery: recovery, baseline: baseline)
+        )
         invalidateCache(matching: "/health-sync/recovery")
         return result
     }
@@ -223,7 +260,10 @@ extension APIClient {
         try await getOptional("/cycling/weight-goal", cacheTTL: CacheTTL.long)
     }
 
-    func saveWeightGoal(targetWeightLbs: Double, targetDate: String, startWeightLbs: Double, startDate: String) async throws -> WeightGoalResponse {
+    func saveWeightGoal(
+        targetWeightLbs: Double, targetDate: String,
+        startWeightLbs: Double, startDate: String
+    ) async throws -> WeightGoalResponse {
         struct SaveWeightGoalBody: Encodable {
             let targetWeightLbs: Double
             let targetDate: String

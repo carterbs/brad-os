@@ -14,7 +14,11 @@ struct EmptyStateView: View {
             Image(systemName: iconName)
                 .font(.system(size: 56, weight: .regular))
                 .foregroundColor(Theme.textTertiary)
-                .auroraGlow(glowColor ?? Theme.interactivePrimary, intensity: .secondary, offset: CGPoint(x: -10, y: -10))
+                .auroraGlow(
+                    glowColor ?? Theme.interactivePrimary,
+                    intensity: .secondary,
+                    offset: CGPoint(x: -10, y: -10)
+                )
 
             Text(title)
                 .font(.system(size: 20, weight: .semibold))

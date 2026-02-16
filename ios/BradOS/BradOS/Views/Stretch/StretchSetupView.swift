@@ -7,8 +7,8 @@ struct StretchSetupView: View {
     var isLoadingData: Bool = false
     var hasDataError: Bool = false
     let onStart: () -> Void
-    var onConfigChange: (() -> Void)? = nil
-    var onRetryLoad: (() -> Void)? = nil
+    var onConfigChange: (() -> Void)?
+    var onRetryLoad: (() -> Void)?
 
     @State private var spotifyUrl: String = ""
     @State private var editMode: EditMode = .inactive
@@ -79,15 +79,18 @@ struct StretchSetupView: View {
 
                 Spacer()
 
-                Button(action: {
-                    editMode = editMode == .active ? .inactive : .active
-                }) {
-                    Text(editMode == .active ? "Done" : "Reorder")
-                        .font(.caption)
-                        .foregroundColor(Theme.interactivePrimary)
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
-                }
+                Button(
+                    action: {
+                        editMode = editMode == .active ? .inactive : .active
+                    },
+                    label: {
+                        Text(editMode == .active ? "Done" : "Reorder")
+                            .font(.caption)
+                            .foregroundColor(Theme.interactivePrimary)
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                )
 
                 Button(action: toggleAll) {
                     Text(allSelected ? "Deselect All" : "Select All")
@@ -114,7 +117,8 @@ struct StretchSetupView: View {
                                 onConfigChange?()
                             },
                             onDurationToggle: {
-                                config.regions[index].durationSeconds = config.regions[index].durationSeconds == 60 ? 120 : 60
+                                let current = config.regions[index].durationSeconds
+                                config.regions[index].durationSeconds = current == 60 ? 120 : 60
                                 onConfigChange?()
                             }
                         )
@@ -348,10 +352,13 @@ struct ReorderableRegionRow: View {
                 .foregroundColor(Theme.stretch)
 
             // Enabled toggle
-            Button(action: { config.enabled.toggle() }) {
-                Image(systemName: config.enabled ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(config.enabled ? Theme.stretch : Theme.textSecondary)
-            }
+            Button(
+                action: { config.enabled.toggle() },
+                label: {
+                    Image(systemName: config.enabled ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(config.enabled ? Theme.stretch : Theme.textSecondary)
+                }
+            )
 
             // Move buttons
             VStack(spacing: 2) {
@@ -365,7 +372,9 @@ struct ReorderableRegionRow: View {
                 Button(action: onMoveDown) {
                     Image(systemName: "chevron.down")
                         .font(.caption)
-                        .foregroundColor(index == totalCount - 1 ? Theme.textSecondary.opacity(0.3) : Theme.textSecondary)
+                        .foregroundColor(
+                            index == totalCount - 1 ? Theme.textSecondary.opacity(0.3) : Theme.textSecondary
+                        )
                 }
                 .disabled(index == totalCount - 1)
             }

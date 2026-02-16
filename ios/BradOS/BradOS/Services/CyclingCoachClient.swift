@@ -9,6 +9,7 @@ struct CyclingCoachRecommendation: Codable, Equatable {
     let reasoning: String
     let coachingTips: [String]?
     let warnings: [CoachWarning]?
+    // swiftlint:disable:next discouraged_optional_boolean
     let suggestFTPTest: Bool?
 
     /// Recommended cycling session
@@ -231,6 +232,4 @@ class CyclingCoachClient: ObservableObject {
             }
         }
     }
-
 }
-
