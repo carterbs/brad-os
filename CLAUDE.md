@@ -272,12 +272,15 @@ xcodebuild -project ios/BradOS/BradOS.xcodeproj \
   build
 ```
 
-SwiftLint is configured in `ios/BradOS/.swiftlint.yml`. Key rules enforced:
+SwiftLint is configured in `ios/BradOS/.swiftlint.yml`. All rules are errors — there are no warnings. Key rules enforced:
 - `file_length` (max 600 lines) — split large files using Swift extensions
 - `type_body_length` (max 500 lines) — move methods to `+Extension.swift` files
 - `function_body_length` (max 60 lines) — extract helper methods
 - `force_unwrapping` — use `guard let` or `?? default` instead of `!`
 - `identifier_name` — no `SCREAMING_CASE`; use `camelCase` for constants
+- `discouraged_optional_boolean` — use explicit `Bool` (not `Bool?`); for Codable structs, use `decodeIfPresent ?? false`
+
+**NEVER write `swiftlint:disable` comments.** Fix the underlying code instead. If a rule fires, either the code needs to change or the rule should be turned off globally in `.swiftlint.yml` — never silenced inline.
 
 When splitting files, remember to remove `private` from properties/methods that need cross-file access within the same module.
 
