@@ -9,8 +9,7 @@ struct CyclingCoachRecommendation: Codable, Equatable {
     let reasoning: String
     let coachingTips: [String]?
     let warnings: [CoachWarning]?
-    // swiftlint:disable:next discouraged_optional_boolean
-    let suggestFTPTest: Bool?
+    let suggestFTPTest: Bool
 
     /// Recommended cycling session
     struct SessionRecommendation: Codable, Equatable {
@@ -58,6 +57,17 @@ struct CyclingCoachRecommendation: Codable, Equatable {
     struct CoachWarning: Codable, Equatable {
         let type: String
         let message: String
+    }
+}
+
+extension CyclingCoachRecommendation {
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        session = try container.decode(SessionRecommendation.self, forKey: .session)
+        reasoning = try container.decode(String.self, forKey: .reasoning)
+        coachingTips = try container.decodeIfPresent([String].self, forKey: .coachingTips)
+        warnings = try container.decodeIfPresent([CoachWarning].self, forKey: .warnings)
+        suggestFTPTest = try container.decodeIfPresent(Bool.self, forKey: .suggestFTPTest) ?? false
     }
 }
 

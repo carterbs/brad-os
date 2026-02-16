@@ -54,7 +54,7 @@ public struct ActivitySummary: Codable, Hashable, Sendable {
     public var setsCompleted: Int?
     public var totalSets: Int?
     public var weekNumber: Int?
-    public var isDeload: Bool?
+    public var isDeload: Bool
 
     // Stretch fields
     public var totalDurationSeconds: Int?
@@ -71,7 +71,7 @@ public struct ActivitySummary: Codable, Hashable, Sendable {
         setsCompleted: Int? = nil,
         totalSets: Int? = nil,
         weekNumber: Int? = nil,
-        isDeload: Bool? = nil,
+        isDeload: Bool = false,
         totalDurationSeconds: Int? = nil,
         regionsCompleted: Int? = nil,
         regionsSkipped: Int? = nil,
@@ -89,6 +89,21 @@ public struct ActivitySummary: Codable, Hashable, Sendable {
         self.regionsSkipped = regionsSkipped
         self.durationSeconds = durationSeconds
         self.meditationType = meditationType
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        dayName = try container.decodeIfPresent(String.self, forKey: .dayName)
+        exerciseCount = try container.decodeIfPresent(Int.self, forKey: .exerciseCount)
+        setsCompleted = try container.decodeIfPresent(Int.self, forKey: .setsCompleted)
+        totalSets = try container.decodeIfPresent(Int.self, forKey: .totalSets)
+        weekNumber = try container.decodeIfPresent(Int.self, forKey: .weekNumber)
+        isDeload = try container.decodeIfPresent(Bool.self, forKey: .isDeload) ?? false
+        totalDurationSeconds = try container.decodeIfPresent(Int.self, forKey: .totalDurationSeconds)
+        regionsCompleted = try container.decodeIfPresent(Int.self, forKey: .regionsCompleted)
+        regionsSkipped = try container.decodeIfPresent(Int.self, forKey: .regionsSkipped)
+        durationSeconds = try container.decodeIfPresent(Int.self, forKey: .durationSeconds)
+        meditationType = try container.decodeIfPresent(String.self, forKey: .meditationType)
     }
 }
 

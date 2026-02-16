@@ -13,8 +13,7 @@ struct StravaActivity: Codable, Identifiable, Equatable {
     let averageWatts: Double?
     let weightedAverageWatts: Double?
     let maxWatts: Int?
-    // swiftlint:disable:next discouraged_optional_boolean
-    let deviceWatts: Bool?
+    let deviceWatts: Bool
     let kilojoules: Double?
     let startDate: String
     let name: String?
@@ -31,6 +30,24 @@ struct StravaActivity: Codable, Identifiable, Equatable {
         case maxWatts = "max_watts"
         case deviceWatts = "device_watts"
         case startDate = "start_date"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        type = try container.decode(String.self, forKey: .type)
+        movingTime = try container.decode(Int.self, forKey: .movingTime)
+        elapsedTime = try container.decode(Int.self, forKey: .elapsedTime)
+        averageHeartrate = try container.decodeIfPresent(Double.self, forKey: .averageHeartrate)
+        maxHeartrate = try container.decodeIfPresent(Double.self, forKey: .maxHeartrate)
+        averageWatts = try container.decodeIfPresent(Double.self, forKey: .averageWatts)
+        weightedAverageWatts = try container.decodeIfPresent(Double.self, forKey: .weightedAverageWatts)
+        maxWatts = try container.decodeIfPresent(Int.self, forKey: .maxWatts)
+        deviceWatts = try container.decodeIfPresent(Bool.self, forKey: .deviceWatts) ?? false
+        kilojoules = try container.decodeIfPresent(Double.self, forKey: .kilojoules)
+        startDate = try container.decode(String.self, forKey: .startDate)
+        name = try container.decodeIfPresent(String.self, forKey: .name)
+        distance = try container.decodeIfPresent(Double.self, forKey: .distance)
     }
 
     /// Duration in minutes

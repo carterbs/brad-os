@@ -124,7 +124,7 @@ struct CoachRecommendationErrorCard: View {
         suggestFTPTest: false
     )
 
-    return CoachRecommendationCard(recommendation: recommendation, ftp: 280)
+    CoachRecommendationCard(recommendation: recommendation, ftp: 280)
         .padding()
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
@@ -150,7 +150,7 @@ struct CoachRecommendationErrorCard: View {
         suggestFTPTest: true
     )
 
-    return CoachRecommendationCard(recommendation: recommendation, ftp: 280)
+    CoachRecommendationCard(recommendation: recommendation, ftp: 280)
         .padding()
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
@@ -181,7 +181,7 @@ struct CoachRecommendationErrorCard: View {
         suggestFTPTest: false
     )
 
-    return CoachRecommendationCard(recommendation: recommendation, ftp: nil)
+    CoachRecommendationCard(recommendation: recommendation, ftp: nil)
         .padding()
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)

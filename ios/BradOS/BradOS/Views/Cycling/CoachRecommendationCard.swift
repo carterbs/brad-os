@@ -54,7 +54,7 @@ struct CoachRecommendationCard: View {
             }
 
             // FTP test suggestion
-            if recommendation.suggestFTPTest == true {
+            if recommendation.suggestFTPTest {
                 ftpTestSuggestion
             }
         }
