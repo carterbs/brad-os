@@ -105,10 +105,13 @@ struct WorkoutView: View {
         .toolbar {
             if !walletBarcodes.isEmpty {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingBarcodeSheet = true }) {
-                        Image(systemName: "barcode")
-                            .foregroundColor(Theme.textPrimary)
-                    }
+                    Button(
+                        action: { showingBarcodeSheet = true },
+                        label: {
+                            Image(systemName: "barcode")
+                                .foregroundColor(Theme.textPrimary)
+                        }
+                    )
                 }
             }
         }
@@ -315,62 +318,10 @@ struct WorkoutView: View {
     func floatingActionButtons(_ workout: Workout) -> some View {
         switch workout.status {
         case .pending:
-            HStack(spacing: Theme.Spacing.space4) {
-                Button(action: { Task { await startWorkout() } }) {
-                    HStack {
-                        if isStarting {
-                            ProgressView()
-                                .tint(Theme.textOnAccent)
-                        } else {
-                            Image(systemName: "play.fill")
-                        }
-                        Text("Start Workout")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Theme.Spacing.space2)
-                }
-                .buttonStyle(GlassPrimaryButtonStyle())
-                .disabled(isStarting)
-
-                Button(action: { showingSkipAlert = true }) {
-                    Text("Skip")
-                        .padding(.horizontal, Theme.Spacing.space4)
-                        .padding(.vertical, Theme.Spacing.space2)
-                }
-                .buttonStyle(GlassSecondaryButtonStyle())
-                .disabled(isSkipping)
-            }
-            .padding(.horizontal, Theme.Spacing.space4)
-            .padding(.bottom, Theme.Spacing.space4)
+            pendingActionButtons
 
         case .inProgress:
-            HStack(spacing: Theme.Spacing.space4) {
-                Button(action: { showingCompleteAlert = true }) {
-                    HStack {
-                        if isCompleting {
-                            ProgressView()
-                                .tint(Theme.textOnAccent)
-                        } else {
-                            Image(systemName: "checkmark")
-                        }
-                        Text("Complete")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, Theme.Spacing.space2)
-                }
-                .buttonStyle(GlassPrimaryButtonStyle())
-                .disabled(isCompleting)
-
-                Button(action: { showingSkipAlert = true }) {
-                    Text("Skip")
-                        .padding(.horizontal, Theme.Spacing.space4)
-                        .padding(.vertical, Theme.Spacing.space2)
-                }
-                .buttonStyle(GlassSecondaryButtonStyle())
-                .disabled(isSkipping)
-            }
-            .padding(.horizontal, Theme.Spacing.space4)
-            .padding(.bottom, Theme.Spacing.space4)
+            inProgressActionButtons
 
         case .completed, .skipped:
             EmptyView()

@@ -52,15 +52,15 @@ struct CyclingTabView: View {
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: {
-                        appState.isShowingCycling = false
-                    }) {
+                    Button(
+                        action: { appState.isShowingCycling = false },
+                        label: {
                         HStack(spacing: 4) {
                             Image(systemName: "chevron.left")
                             Text("Back")
                         }
                         .foregroundColor(Theme.interactivePrimary)
-                    }
+                    })
                 }
             }
             .task {

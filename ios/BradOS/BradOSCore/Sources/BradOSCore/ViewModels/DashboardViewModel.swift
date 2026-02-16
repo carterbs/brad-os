@@ -52,16 +52,16 @@ public class DashboardViewModel: ObservableObject {
         meditationError = nil
 
         // Load all data concurrently - each method manages its own loading state
-        async let workoutTask = loadTodaysWorkout()
-        async let stretchTask = loadLatestStretch()
-        async let meditationTask = loadLatestMeditation()
-        async let mealPlanTask = loadMealPlan()
+        async let loadWorkout: Void = loadTodaysWorkout()
+        async let loadStretch: Void = loadLatestStretch()
+        async let loadMeditation: Void = loadLatestMeditation()
+        async let loadMeals: Void = loadMealPlan()
 
         // Await all tasks - errors are handled individually
-        await workoutTask
-        await stretchTask
-        await meditationTask
-        await mealPlanTask
+        await loadWorkout
+        await loadStretch
+        await loadMeditation
+        await loadMeals
 
         isLoading = false
     }

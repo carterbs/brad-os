@@ -111,12 +111,12 @@ struct ExerciseTab: View {
                         .padding(.vertical, 4)
 
                         // Log Set button
-                        Button(action: {
+                        Button {
                             workoutManager.requestSetLog(
                                 setId: nextSet.setId,
                                 exerciseId: exercise.exerciseId
                             )
-                        }) {
+                        } label: {
                             HStack {
                                 Image(systemName: "checkmark.circle.fill")
                                 Text("Log Set")
@@ -220,7 +220,10 @@ struct RestTimerOverlayWatch: View {
                         .stroke(Color.white.opacity(0.2), lineWidth: 4)
                     Circle()
                         .trim(from: 0, to: min(progress, 1.0))
-                        .stroke(isComplete ? Color.green : Color.blue, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+                        .stroke(
+                            isComplete ? Color.green : Color.blue,
+                            style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                        )
                         .rotationEffect(.degrees(-90))
                         .animation(.linear(duration: 1), value: progress)
                 }
@@ -419,38 +422,42 @@ private func previewWorkoutManagerWithContext() -> WorkoutManager {
         manager.maxHeartRate = 148
         manager.activeCalories = 203
         manager.elapsedTime = 2100
-        manager.workoutContext = WatchWorkoutContext(
-            workoutId: "preview-1",
-            dayName: "Push Day",
-            weekNumber: 3,
-            exercises: [
-                WatchExerciseInfo(
-                    exerciseId: "ex-1",
-                    name: "Bench Press",
-                    totalSets: 3,
-                    completedSets: 1,
-                    restSeconds: 120,
-                    sets: [
-                        WatchSetInfo(setId: "s1", setNumber: 1, targetReps: 10, targetWeight: 135, status: "completed"),
-                        WatchSetInfo(setId: "s2", setNumber: 2, targetReps: 10, targetWeight: 135, status: "pending"),
-                        WatchSetInfo(setId: "s3", setNumber: 3, targetReps: 10, targetWeight: 135, status: "pending")
-                    ]
-                ),
-                WatchExerciseInfo(
-                    exerciseId: "ex-2",
-                    name: "Overhead Press",
-                    totalSets: 3,
-                    completedSets: 0,
-                    restSeconds: 90,
-                    sets: [
-                        WatchSetInfo(setId: "s4", setNumber: 1, targetReps: 8, targetWeight: 95, status: "pending"),
-                        WatchSetInfo(setId: "s5", setNumber: 2, targetReps: 8, targetWeight: 95, status: "pending"),
-                        WatchSetInfo(setId: "s6", setNumber: 3, targetReps: 8, targetWeight: 95, status: "pending")
-                    ]
-                )
-            ]
-        )
+        manager.workoutContext = makePreviewContext()
         manager.currentExerciseIndex = 0
     }
     return manager
+}
+
+private func makePreviewContext() -> WatchWorkoutContext {
+    WatchWorkoutContext(
+        workoutId: "preview-1",
+        dayName: "Push Day",
+        weekNumber: 3,
+        exercises: [
+            WatchExerciseInfo(
+                exerciseId: "ex-1",
+                name: "Bench Press",
+                totalSets: 3,
+                completedSets: 1,
+                restSeconds: 120,
+                sets: [
+                    WatchSetInfo(setId: "s1", setNumber: 1, targetReps: 10, targetWeight: 135, status: "completed"),
+                    WatchSetInfo(setId: "s2", setNumber: 2, targetReps: 10, targetWeight: 135, status: "pending"),
+                    WatchSetInfo(setId: "s3", setNumber: 3, targetReps: 10, targetWeight: 135, status: "pending")
+                ]
+            ),
+            WatchExerciseInfo(
+                exerciseId: "ex-2",
+                name: "Overhead Press",
+                totalSets: 3,
+                completedSets: 0,
+                restSeconds: 90,
+                sets: [
+                    WatchSetInfo(setId: "s4", setNumber: 1, targetReps: 8, targetWeight: 95, status: "pending"),
+                    WatchSetInfo(setId: "s5", setNumber: 2, targetReps: 8, targetWeight: 95, status: "pending"),
+                    WatchSetInfo(setId: "s6", setNumber: 3, targetReps: 8, targetWeight: 95, status: "pending")
+                ]
+            )
+        ]
+    )
 }

@@ -134,7 +134,6 @@ struct TodayFocusView: View {
         case .dinner: return 2
         }
     }
-
 }
 
 #Preview("Today Focus") {

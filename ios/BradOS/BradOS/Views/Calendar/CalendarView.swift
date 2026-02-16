@@ -7,10 +7,10 @@ struct CalendarView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel: CalendarViewModel
 
-    @State private var selectedDate: Date = Date()
+    @State private var selectedDate = Date()
     @State private var showingDayDetail: Bool = false
     @State private var selectedDayActivities: [CalendarActivity] = []
-    @State private var pendingWorkoutId: String? = nil
+    @State private var pendingWorkoutId: String?
 
     init(apiClient: APIClientProtocol = APIClient.shared) {
         _viewModel = StateObject(wrappedValue: CalendarViewModel(apiClient: apiClient))
@@ -34,7 +34,7 @@ struct CalendarView: View {
                             viewModel: viewModel,
                             selectedDate: $selectedDate,
                             filter: nil,  // No filter for calendar page
-                            onDayTapped: { date, activities in
+                            onDayTapped: { _, activities in
                                 selectedDayActivities = activities
                                 showingDayDetail = !activities.isEmpty
                             }
@@ -64,7 +64,7 @@ struct CalendarView: View {
             }
             .onChange(of: showingDayDetail) { _, isShowing in
                 // Navigate to workout after sheet dismisses
-                if !isShowing, let workoutId = pendingWorkoutId {
+                if !isShowing, pendingWorkoutId != nil {
                     pendingWorkoutId = nil
                     appState.isShowingLiftingContext = true
                 }

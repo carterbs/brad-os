@@ -29,14 +29,25 @@ struct HealthView: View {
                         .gridCellColumns(2)
 
                         // Cycling
-                        Button(action: { appState.isShowingCycling = true }) {
+                        Button(
+                            action: { appState.isShowingCycling = true },
+                            label: {
                             VStack(spacing: Theme.Spacing.space3) {
                                 Image(systemName: "figure.outdoor.cycle")
-                                    .font(.system(size: Theme.Typography.activityGridIcon, weight: .regular))
+                                    .font(.system(
+                                        size: Theme.Typography.activityGridIcon,
+                                        weight: .regular
+                                    ))
                                     .foregroundColor(Theme.cycling)
-                                    .frame(width: Theme.Dimensions.iconFrameLG, height: Theme.Dimensions.iconFrameLG)
+                                    .frame(
+                                        width: Theme.Dimensions.iconFrameLG,
+                                        height: Theme.Dimensions.iconFrameLG
+                                    )
                                     .background(Theme.cycling.opacity(0.12))
-                                    .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+                                    .clipShape(RoundedRectangle(
+                                        cornerRadius: Theme.CornerRadius.sm,
+                                        style: .continuous
+                                    ))
 
                                 Text("Cycling")
                                     .font(.headline)
@@ -44,7 +55,7 @@ struct HealthView: View {
                             }
                             .frame(maxWidth: .infinity, minHeight: 100)
                             .glassCard(.card, padding: Theme.Spacing.space6)
-                        }
+                        })
                         .buttonStyle(PlainButtonStyle())
 
                         // Stretch
@@ -84,9 +95,11 @@ struct HealthView: View {
     @ViewBuilder
     private var recentActivitySection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
-            SectionHeader(title: "Recent Activity", actionTitle: "See All") {
-                isShowingHistory = true
-            }
+            SectionHeader(
+                title: "Recent Activity",
+                actionTitle: "See All",
+                action: { isShowingHistory = true }
+            )
 
             if viewModel.isLoading {
                 // Show loading placeholders

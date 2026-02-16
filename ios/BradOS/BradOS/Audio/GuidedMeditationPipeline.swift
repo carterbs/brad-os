@@ -156,7 +156,10 @@ final class GuidedMeditationPipeline: ObservableObject {
         }
 
         // Add bell at the end
-        if let bellURL = Bundle.main.url(forResource: "bell", withExtension: "wav", subdirectory: "Audio/meditation/shared") {
+        if let bellURL = Bundle.main.url(
+            forResource: "bell", withExtension: "wav",
+            subdirectory: "Audio/meditation/shared"
+        ) {
             playerItems.append(AVPlayerItem(url: bellURL))
 
             timelineEntries.append(TimelineEntry(
@@ -200,13 +203,11 @@ final class GuidedMeditationPipeline: ObservableObject {
 
     /// Determine current phase based on elapsed time
     private func updateCurrentPhase() {
-        for entry in timelineEntries.reversed() {
-            if elapsedSeconds >= entry.startTime {
-                if entry.phase != "silence" && entry.phase != "interjection" {
-                    currentPhase = entry.phase
-                }
-                return
+        for entry in timelineEntries.reversed() where elapsedSeconds >= entry.startTime {
+            if entry.phase != "silence" && entry.phase != "interjection" {
+                currentPhase = entry.phase
             }
+            return
         }
     }
 
@@ -236,10 +237,8 @@ final class GuidedMeditationPipeline: ObservableObject {
         let completedCount = totalItemCount - remainingItemCount
 
         var elapsed: TimeInterval = 0
-        for i in 0..<completedCount {
-            if i < timelineEntries.count {
-                elapsed += timelineEntries[i].duration
-            }
+        for i in 0..<completedCount where i < timelineEntries.count {
+            elapsed += timelineEntries[i].duration
         }
 
         // Add current item's elapsed time
@@ -257,7 +256,10 @@ final class GuidedMeditationPipeline: ObservableObject {
 
     private func setupKeepalive() {
         // Use the existing silence file or generate a short one for looping
-        if let silenceURL = Bundle.main.url(forResource: "silence", withExtension: "wav", subdirectory: "Audio/meditation/shared") {
+        if let silenceURL = Bundle.main.url(
+            forResource: "silence", withExtension: "wav",
+            subdirectory: "Audio/meditation/shared"
+        ) {
             keepalivePlayer = try? AVAudioPlayer(contentsOf: silenceURL)
         } else {
             // Generate a 1-second silence for keepalive

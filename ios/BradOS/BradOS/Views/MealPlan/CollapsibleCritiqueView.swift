@@ -13,7 +13,7 @@ struct CollapsibleCritiqueView: View {
                 withAnimation(.easeInOut(duration: 0.2)) {
                     viewModel.isCritiqueExpanded.toggle()
                 }
-            }) {
+            }, label: {
                 HStack {
                     Text("Adjust Plan")
                         .font(.callout.weight(.semibold))
@@ -26,7 +26,7 @@ struct CollapsibleCritiqueView: View {
                 .padding(.horizontal, Theme.Spacing.space4)
                 .padding(.vertical, Theme.Spacing.space2)
                 .glassCard(padding: 0)
-            }
+            })
             .buttonStyle(PlainButtonStyle())
 
             // Expanded content
@@ -72,7 +72,7 @@ struct CollapsibleCritiqueView: View {
             .onAppear {
                 proxy.scrollTo("conversationBottom", anchor: .bottom)
             }
-            .onChange(of: messages.count) { _ in
+            .onChange(of: messages.count) {
                 withAnimation {
                     proxy.scrollTo("conversationBottom", anchor: .bottom)
                 }
@@ -143,7 +143,10 @@ struct CollapsibleCritiqueView: View {
                 }
                 .frame(width: 36, height: 36)
             }
-            .disabled(viewModel.isSending || viewModel.critiqueText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(
+                viewModel.isSending
+                    || viewModel.critiqueText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            )
             .foregroundColor(
                 viewModel.isSending || viewModel.critiqueText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     ? Theme.textDisabled

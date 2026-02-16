@@ -85,7 +85,7 @@ struct GuidedMeditationBrowserView: View {
                     LazyVStack(spacing: Theme.Spacing.space3) {
                         ForEach(Array(service.scripts.enumerated()), id: \.element.id) { index, script in
                             let isCompleted = completedScriptIds.contains(script.id)
-                            Button(action: { onSelectScript(script) }) {
+                            Button(action: { onSelectScript(script) }, label: {
                                 HStack(spacing: Theme.Spacing.space4) {
                                     // Order number or checkmark
                                     if isCompleted {
@@ -131,7 +131,7 @@ struct GuidedMeditationBrowserView: View {
                                         .foregroundColor(Theme.textSecondary)
                                 }
                                 .glassCard()
-                            }
+                            })
                             .buttonStyle(PlainButtonStyle())
                         }
                     }

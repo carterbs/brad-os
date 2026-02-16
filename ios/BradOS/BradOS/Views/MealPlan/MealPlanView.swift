@@ -34,13 +34,13 @@ struct MealPlanView: View {
                     ToolbarItem(placement: .navigationBarLeading) {
                         Button(action: {
                             appState.isShowingMealPlan = false
-                        }) {
+                        }, label: {
                             HStack(spacing: 4) {
                                 Image(systemName: "chevron.left")
                                 Text("Back")
                             }
                             .foregroundColor(Theme.interactivePrimary)
-                        }
+                        })
                     }
                 }
             }
@@ -66,7 +66,10 @@ struct MealPlanView: View {
                 .fontWeight(.bold)
                 .foregroundColor(Theme.textPrimary)
 
-            Text("Generate a 7-day meal plan based on your saved meals. You can refine it with feedback before finalizing.")
+            Text(
+                "Generate a 7-day meal plan based on your saved meals. "
+                + "You can refine it with feedback before finalizing."
+            )
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -74,13 +77,13 @@ struct MealPlanView: View {
 
             Button(action: {
                 Task { await viewModel.generatePlan() }
-            }) {
+            }, label: {
                 HStack {
                     Image(systemName: "sparkles")
                     Text("Generate Plan")
                 }
                 .frame(maxWidth: .infinity)
-            }
+            })
             .buttonStyle(PrimaryButtonStyle())
             .padding(.horizontal, Theme.Spacing.space7)
 
@@ -171,13 +174,13 @@ struct MealPlanView: View {
     private var newPlanButton: some View {
         Button(action: {
             showNewPlanConfirmation = true
-        }) {
+        }, label: {
             HStack {
                 Image(systemName: "arrow.counterclockwise")
                 Text("Start New Plan")
             }
             .frame(maxWidth: .infinity)
-        }
+        })
         .buttonStyle(SecondaryButtonStyle())
         .padding(.top, Theme.Spacing.space2)
         .alert("Start New Plan?", isPresented: $showNewPlanConfirmation) {

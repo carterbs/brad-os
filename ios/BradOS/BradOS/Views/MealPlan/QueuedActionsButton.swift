@@ -9,7 +9,7 @@ struct QueuedActionsButton: View {
         if !viewModel.queuedActions.isEmpty {
             Button(action: {
                 Task { await viewModel.submitQueuedActions() }
-            }) {
+            }, label: {
                 HStack(spacing: Theme.Spacing.space2) {
                     if viewModel.isSending {
                         ProgressView()
@@ -34,7 +34,7 @@ struct QueuedActionsButton: View {
                 .background(.ultraThinMaterial)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.xl, style: .continuous))
                 .shadow(color: Theme.mealPlan.opacity(0.25), radius: 8, y: 4)
-            }
+            })
             .disabled(viewModel.isSending)
             .transition(.scale.combined(with: .opacity))
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.queuedActions.isEmpty)

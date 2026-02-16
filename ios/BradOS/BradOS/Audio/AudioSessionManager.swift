@@ -152,28 +152,11 @@ final class AudioSessionManager {
         }
 
         NSLog("[AudioSession] ========== NARRATION START ==========")
-        NSLog("[AudioSession] playNarration() - file: %@, backgroundSafe: %@", url.lastPathComponent, backgroundSafe ? "true" : "false")
+        NSLog("[AudioSession] playNarration() - file: %@, backgroundSafe: %@",
+              url.lastPathComponent, backgroundSafe ? "true" : "false")
 
-        #if DEBUG
-        let shouldDuckExternalAudio = session.isOtherAudioPlaying || forceDucking
-        #else
-        let shouldDuckExternalAudio = session.isOtherAudioPlaying
-        #endif
-        NSLog("[AudioSession] playNarration() - isOtherAudioPlaying: %@, silencedHint: %@, willDuck: %@",
-              session.isOtherAudioPlaying ? "true" : "false",
-              session.secondaryAudioShouldBeSilencedHint ? "true" : "false",
-              shouldDuckExternalAudio ? "true" : "false")
-
-        if shouldDuckExternalAudio {
-            do {
-                try enableDucking()
-            } catch {
-                NSLog("[AudioSession] playNarration() - failed to enable ducking: %@", error.localizedDescription)
-            }
-        } else {
-            NSLog("[AudioSession] playNarration() - no other audio, activating for mixing")
-            try? activateForMixing()
-        }
+        let shouldDuckExternalAudio = determineShouldDuck()
+        configureDuckingOrMixing(shouldDuck: shouldDuckExternalAudio)
 
         // Ensure ducking is always restored even on error/cancellation (backgroundSafe path only;
         // the async restoreAfterDucking path is handled after the do/catch below).
@@ -186,6 +169,46 @@ final class AudioSessionManager {
             NSLog("[AudioSession] ========== NARRATION END ==========")
         }
 
+        let playbackError = await performPlayback(url: url)
+
+        // Async restoration for non-backgroundSafe mode (can't go in defer)
+        if shouldDuckExternalAudio && !backgroundSafe {
+            try? await restoreAfterDucking()
+        }
+
+        if let playbackError {
+            throw playbackError
+        }
+    }
+
+    private func determineShouldDuck() -> Bool {
+        #if DEBUG
+        let shouldDuck = session.isOtherAudioPlaying || forceDucking
+        #else
+        let shouldDuck = session.isOtherAudioPlaying
+        #endif
+        NSLog("[AudioSession] playNarration() - isOtherAudioPlaying: %@, silencedHint: %@, willDuck: %@",
+              session.isOtherAudioPlaying ? "true" : "false",
+              session.secondaryAudioShouldBeSilencedHint ? "true" : "false",
+              shouldDuck ? "true" : "false")
+        return shouldDuck
+    }
+
+    private func configureDuckingOrMixing(shouldDuck: Bool) {
+        if shouldDuck {
+            do {
+                try enableDucking()
+            } catch {
+                NSLog("[AudioSession] playNarration() - failed to enable ducking: %@",
+                      error.localizedDescription)
+            }
+        } else {
+            NSLog("[AudioSession] playNarration() - no other audio, activating for mixing")
+            try? activateForMixing()
+        }
+    }
+
+    private func performPlayback(url: URL) async -> Error? {
         let playerItem = AVPlayerItem(url: url)
         let player = AVPlayer(playerItem: playerItem)
         narrationPlayer = player
@@ -193,7 +216,6 @@ final class AudioSessionManager {
         NSLog("[AudioSession] playNarration() - starting AVPlayer playback")
         onDuckingEvent?("playback: starting AVPlayer")
 
-        var playbackError: Error?
         do {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 narrationContinuation = continuation
@@ -202,31 +224,21 @@ final class AudioSessionManager {
                     object: playerItem,
                     queue: .main
                 ) { [weak self] _ in
-                    self?.removeNarrationObserver()
-                    let cont = self?.narrationContinuation
-                    self?.narrationContinuation = nil
+                    guard let self else { return }
+                    self.removeNarrationObserver()
+                    let cont = self.narrationContinuation
+                    self.narrationContinuation = nil
                     NSLog("[AudioSession] playNarration() - playback COMPLETE")
-                    self?.onDuckingEvent?("playback: COMPLETE")
+                    self.onDuckingEvent?("playback: COMPLETE")
                     cont?.resume()
                 }
                 player.play()
             }
+            return nil
         } catch {
-            NSLog("[AudioSession] playNarration() - playback ERROR: %@", error.localizedDescription)
-            playbackError = error
-        }
-
-        // Async restoration for non-backgroundSafe mode (can't go in defer)
-        if shouldDuckExternalAudio && !backgroundSafe {
-            do {
-                try await restoreAfterDucking()
-            } catch {
-                NSLog("[AudioSession] playNarration() - restore after ducking FAILED: %@", error.localizedDescription)
-            }
-        }
-
-        if let playbackError {
-            throw playbackError
+            NSLog("[AudioSession] playNarration() - playback ERROR: %@",
+                  error.localizedDescription)
+            return error
         }
     }
 
@@ -359,7 +371,8 @@ final class AudioSessionManager {
                     do {
                         try activate()
                     } catch {
-                        NSLog("[AudioSession] handleInterruption() - reactivation FAILED: %@", error.localizedDescription)
+                        NSLog("[AudioSession] handleInterruption() - reactivation FAILED: %@",
+                          error.localizedDescription)
                     }
                 }
             }

@@ -113,7 +113,8 @@ struct FTPCardWithWarning: View {
 
     private var isFTPStale: Bool {
         guard let lastTested = ftpLastTested else { return true }
-        let weeksSinceTest = Calendar.current.dateComponents([.weekOfYear], from: lastTested, to: Date()).weekOfYear ?? 0
+        let components = Calendar.current.dateComponents([.weekOfYear], from: lastTested, to: Date())
+        let weeksSinceTest = components.weekOfYear ?? 0
         return weeksSinceTest > 4
     }
 
@@ -299,11 +300,10 @@ struct NoBlockCard: View {
                 .foregroundStyle(Theme.textSecondary)
                 .multilineTextAlignment(.center)
 
-            Button(action: {
-                onStartBlock?()
-            }) {
-                Text("Start Training Block")
-            }
+            Button(
+                action: { onStartBlock?() },
+                label: { Text("Start Training Block") }
+            )
             .buttonStyle(GlassPrimaryButtonStyle())
             .padding(.top, Theme.Spacing.space2)
         }

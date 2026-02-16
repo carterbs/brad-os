@@ -212,56 +212,60 @@ extension WeightGoalView {
             SectionHeader(title: "2-Week Projection")
 
             VStack(spacing: 0) {
-                // Current rate
-                HStack {
-                    Image(systemName: weeklyRate < 0 ? "arrow.down.right" : "arrow.up.right")
-                        .font(.system(size: Theme.Typography.iconMD))
-                        .foregroundStyle(Theme.interactivePrimary)
-                        .frame(width: Theme.Dimensions.iconFrameMD, height: Theme.Dimensions.iconFrameMD)
-                        .background(Theme.interactivePrimary.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
-
-                    VStack(alignment: .leading, spacing: Theme.Spacing.space1) {
-                        Text("Current Rate")
-                            .font(.subheadline)
-                            .foregroundStyle(Theme.textPrimary)
-                        Text(String(format: "%.1f lbs/week", abs(weeklyRate)))
-                            .font(.caption)
-                            .monospacedDigit()
-                            .foregroundStyle(Theme.textSecondary)
-                    }
-                    Spacer()
-                }
-                .padding(Theme.Spacing.space4)
-                .frame(minHeight: Theme.Dimensions.listRowMinHeight)
-
+                projectionRateRow(weeklyRate: weeklyRate)
                 Divider().background(Theme.divider)
-
-                // Projected weight in 2 weeks
-                HStack {
-                    Image(systemName: "sparkle")
-                        .font(.system(size: Theme.Typography.iconMD))
-                        .foregroundStyle(Theme.interactivePrimary)
-                        .frame(width: Theme.Dimensions.iconFrameMD, height: Theme.Dimensions.iconFrameMD)
-                        .background(Theme.interactivePrimary.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
-
-                    VStack(alignment: .leading, spacing: Theme.Spacing.space1) {
-                        Text("Projected Weight")
-                            .font(.subheadline)
-                            .foregroundStyle(Theme.textPrimary)
-                        Text(String(format: "~%.0f lbs in 2 weeks", projected))
-                            .font(.caption)
-                            .monospacedDigit()
-                            .foregroundStyle(Theme.textSecondary)
-                    }
-                    Spacer()
-                }
-                .padding(Theme.Spacing.space4)
-                .frame(minHeight: Theme.Dimensions.listRowMinHeight)
+                projectionWeightRow(projected: projected)
             }
             .glassCard(.card, padding: 0)
         }
+    }
+
+    private func projectionRateRow(weeklyRate: Double) -> some View {
+        HStack {
+            Image(systemName: weeklyRate < 0 ? "arrow.down.right" : "arrow.up.right")
+                .font(.system(size: Theme.Typography.iconMD))
+                .foregroundStyle(Theme.interactivePrimary)
+                .frame(width: Theme.Dimensions.iconFrameMD, height: Theme.Dimensions.iconFrameMD)
+                .background(Theme.interactivePrimary.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+
+            VStack(alignment: .leading, spacing: Theme.Spacing.space1) {
+                Text("Current Rate")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textPrimary)
+                Text(String(format: "%.1f lbs/week", abs(weeklyRate)))
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer()
+        }
+        .padding(Theme.Spacing.space4)
+        .frame(minHeight: Theme.Dimensions.listRowMinHeight)
+    }
+
+    private func projectionWeightRow(projected: Double) -> some View {
+        HStack {
+            Image(systemName: "sparkle")
+                .font(.system(size: Theme.Typography.iconMD))
+                .foregroundStyle(Theme.interactivePrimary)
+                .frame(width: Theme.Dimensions.iconFrameMD, height: Theme.Dimensions.iconFrameMD)
+                .background(Theme.interactivePrimary.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+
+            VStack(alignment: .leading, spacing: Theme.Spacing.space1) {
+                Text("Projected Weight")
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.textPrimary)
+                Text(String(format: "~%.0f lbs in 2 weeks", projected))
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer()
+        }
+        .padding(Theme.Spacing.space4)
+        .frame(minHeight: Theme.Dimensions.listRowMinHeight)
     }
 
     // MARK: - Prediction Section

@@ -84,7 +84,8 @@ struct CyclingTodayView: View {
             return nil // If no last tested date, handled elsewhere
         }
 
-        let weeksSinceTest = Calendar.current.dateComponents([.weekOfYear], from: lastTested, to: Date()).weekOfYear ?? 0
+        let components = Calendar.current.dateComponents([.weekOfYear], from: lastTested, to: Date())
+        let weeksSinceTest = components.weekOfYear ?? 0
 
         if weeksSinceTest > 6 {
             return "Your FTP was last tested \(weeksSinceTest) weeks ago. Consider retesting for accurate training zones."
@@ -338,7 +339,11 @@ struct TrainingLoadCard: View {
             HStack(spacing: Theme.Spacing.space4) {
                 LoadMetric(label: "Fitness", value: Int(load.ctl), color: .blue)
                 LoadMetric(label: "Fatigue", value: Int(load.atl), color: .orange)
-                LoadMetric(label: "Form", value: Int(load.tsb), color: load.tsb >= 0 ? Theme.success : Theme.destructive)
+                LoadMetric(
+                    label: "Form",
+                    value: Int(load.tsb),
+                    color: load.tsb >= 0 ? Theme.success : Theme.destructive
+                )
             }
             .frame(maxWidth: .infinity)
         }

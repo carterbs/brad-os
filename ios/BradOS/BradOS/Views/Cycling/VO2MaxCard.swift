@@ -173,9 +173,18 @@ struct VO2MaxSparkline: View {
             category: "fair"
         ),
         history: [
-            VO2MaxEstimateModel(id: "1", date: "2026-02-08", value: 42.8, method: "ftp_derived", sourcePower: 195, sourceWeight: 79.4),
-            VO2MaxEstimateModel(id: "2", date: "2026-01-25", value: 41.2, method: "ftp_derived", sourcePower: 190, sourceWeight: 80.3),
-            VO2MaxEstimateModel(id: "3", date: "2026-01-11", value: 39.5, method: "ftp_derived", sourcePower: 182, sourceWeight: 81.0),
+            VO2MaxEstimateModel(
+                id: "1", date: "2026-02-08", value: 42.8,
+                method: "ftp_derived", sourcePower: 195, sourceWeight: 79.4
+            ),
+            VO2MaxEstimateModel(
+                id: "2", date: "2026-01-25", value: 41.2,
+                method: "ftp_derived", sourcePower: 190, sourceWeight: 80.3
+            ),
+            VO2MaxEstimateModel(
+                id: "3", date: "2026-01-11", value: 39.5,
+                method: "ftp_derived", sourcePower: 182, sourceWeight: 81.0
+            ),
         ]
     )
     .padding()

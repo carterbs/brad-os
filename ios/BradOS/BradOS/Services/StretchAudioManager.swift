@@ -131,7 +131,8 @@ class StretchAudioManager: ObservableObject {
         queuePlayer.play()
         isKeepaliveRunning = true
 
-        NSLog("[StretchAudioManager] startKeepalive() - keepalive started, looper status: %d", keepaliveLooper?.status.rawValue ?? -1)
+        NSLog("[StretchAudioManager] startKeepalive() - keepalive started, looper status: %d",
+              keepaliveLooper?.status.rawValue ?? -1)
     }
 
     /// Stop the keepalive audio loop

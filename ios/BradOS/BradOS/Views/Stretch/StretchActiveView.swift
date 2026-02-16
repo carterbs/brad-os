@@ -235,63 +235,91 @@ struct StretchActiveView: View {
         VStack(spacing: Theme.Spacing.space4) {
             HStack(spacing: Theme.Spacing.space7) {
                 // Skip Segment button
-                Button(action: { sessionManager.skipSegment() }) {
-                    Image(systemName: "forward.fill")
-                        .font(.title3)
-                        .foregroundColor(Theme.textSecondary)
-                }
+                Button(
+                    action: { sessionManager.skipSegment() },
+                    label: {
+                        Image(systemName: "forward.fill")
+                            .font(.title3)
+                            .foregroundColor(Theme.textSecondary)
+                    }
+                )
                 .buttonStyle(GlassCircleButtonStyle(size: 56))
                 .accessibilityLabel("Skip Segment")
                 .accessibilityHint("Skip to the next segment of this stretch")
 
                 // Pause/Resume button
-                Button(action: {
-                    if sessionManager.status == .paused {
-                        sessionManager.resume()
-                    } else {
-                        sessionManager.pause()
-                    }
-                }) {
-                    Image(systemName: sessionManager.status == .paused ? "play.fill" : "pause.fill")
+                Button(
+                    action: {
+                        if sessionManager.status == .paused {
+                            sessionManager.resume()
+                        } else {
+                            sessionManager.pause()
+                        }
+                    },
+                    label: {
+                        Image(
+                            systemName: sessionManager.status == .paused
+                                ? "play.fill" : "pause.fill"
+                        )
                         .font(.title)
                         .foregroundColor(Theme.textOnAccent)
-                }
-                .buttonStyle(GlassPrimaryCircleButtonStyle(size: 80, color: Theme.stretch))
-                .accessibilityLabel(sessionManager.status == .paused ? "Resume" : "Pause")
-                .accessibilityHint(sessionManager.status == .paused ? "Resume the stretching session" : "Pause the stretching session")
+                    }
+                )
+                .buttonStyle(
+                    GlassPrimaryCircleButtonStyle(size: 80, color: Theme.stretch)
+                )
+                .accessibilityLabel(
+                    sessionManager.status == .paused ? "Resume" : "Pause"
+                )
+                .accessibilityHint(
+                    sessionManager.status == .paused
+                        ? "Resume the stretching session"
+                        : "Pause the stretching session"
+                )
 
                 // End button
-                Button(action: onCancel) {
-                    Image(systemName: "stop.fill")
-                        .font(.title3)
-                        .foregroundColor(Theme.textSecondary)
-                }
+                Button(
+                    action: onCancel,
+                    label: {
+                        Image(systemName: "stop.fill")
+                            .font(.title3)
+                            .foregroundColor(Theme.textSecondary)
+                    }
+                )
                 .buttonStyle(GlassCircleButtonStyle(size: 56))
                 .accessibilityLabel("End Session")
                 .accessibilityHint("End the stretching session early")
             }
 
             // Play full instructions button
-            Button(action: { sessionManager.playFullNarration() }) {
-                HStack(spacing: Theme.Spacing.space2) {
-                    Image(systemName: "speaker.wave.2.fill")
-                        .font(.subheadline)
-                    Text("Play Instructions")
-                        .font(.subheadline)
+            Button(
+                action: { sessionManager.playFullNarration() },
+                label: {
+                    HStack(spacing: Theme.Spacing.space2) {
+                        Image(systemName: "speaker.wave.2.fill")
+                            .font(.subheadline)
+                        Text("Play Instructions")
+                            .font(.subheadline)
+                    }
                 }
-            }
+            )
             .buttonStyle(GlassSecondaryButtonStyle())
             .accessibilityLabel("Play Instructions")
             .accessibilityHint("Play the full narration for this stretch")
 
             // Skip entire stretch button
-            Button(action: { sessionManager.skipStretch() }) {
-                Text("Skip Entire Stretch")
-                    .font(.subheadline)
-            }
+            Button(
+                action: { sessionManager.skipStretch() },
+                label: {
+                    Text("Skip Entire Stretch")
+                        .font(.subheadline)
+                }
+            )
             .buttonStyle(GlassSecondaryButtonStyle())
             .accessibilityLabel("Skip Entire Stretch")
-            .accessibilityHint("Skip both segments of this stretch and move to the next one")
+            .accessibilityHint(
+                "Skip both segments of this stretch and move to the next one"
+            )
         }
     }
 

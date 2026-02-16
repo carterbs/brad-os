@@ -34,8 +34,12 @@ struct CyclingBlockView: View {
 
                             // Next Up card
                             if let nextSession = viewModel.nextSession {
-                                NextUpCard(session: nextSession, weekProgress: "\(viewModel.sessionsCompletedThisWeek + 1) of \(viewModel.weeklySessionsTotal)")
-                            } else if viewModel.sessionsCompletedThisWeek >= viewModel.weeklySessionsTotal && viewModel.weeklySessionsTotal > 0 {
+                                NextUpCard(
+                                    session: nextSession,
+                                    weekProgress: "\(viewModel.sessionsCompletedThisWeek + 1) of \(viewModel.weeklySessionsTotal)"
+                                )
+                            } else if viewModel.sessionsCompletedThisWeek >= viewModel.weeklySessionsTotal
+                                        && viewModel.weeklySessionsTotal > 0 {
                                 WeekCompleteCard(sessionsTotal: viewModel.weeklySessionsTotal)
                             }
                         }

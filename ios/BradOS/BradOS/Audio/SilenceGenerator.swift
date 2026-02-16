@@ -23,8 +23,11 @@ final class SilenceGenerator {
     static func generateSilence(duration: TimeInterval, sampleRate: Double = 8000) throws -> URL {
         // Check if we already generated this exact duration
         let filename = String(format: "silence-%.1f.wav", duration)
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("meditation-silence", isDirectory: true)
-        try? FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("meditation-silence", isDirectory: true)
+        try? FileManager.default.createDirectory(
+            at: tempDir, withIntermediateDirectories: true
+        )
         let fileURL = tempDir.appendingPathComponent(filename)
 
         // Reuse if exists
@@ -72,7 +75,8 @@ final class SilenceGenerator {
 
     /// Clean up generated silence files
     static func cleanup() {
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent("meditation-silence", isDirectory: true)
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("meditation-silence", isDirectory: true)
         try? FileManager.default.removeItem(at: tempDir)
     }
 }

@@ -157,20 +157,29 @@ struct BarcodeFormView: View {
                 HStack(spacing: Theme.Spacing.space2) {
                     ForEach(BarcodeType.allCases, id: \.self) { type in
                         let isSelected = barcodeType == type
-                        Button(action: { barcodeType = type }) {
+                        Button(action: { barcodeType = type }, label: {
                             Text(type.displayName)
                                 .font(.caption)
                                 .fontWeight(.medium)
                                 .foregroundColor(isSelected ? Theme.textOnAccent : Theme.textSecondary)
                                 .padding(.horizontal, Theme.Spacing.space4)
                                 .padding(.vertical, Theme.Spacing.space2)
-                                .background(isSelected ? AnyShapeStyle(Theme.interactivePrimary) : AnyShapeStyle(Color.white.opacity(0.06)))
+                                .background(
+                                    isSelected
+                                        ? AnyShapeStyle(Theme.interactivePrimary)
+                                        : AnyShapeStyle(Color.white.opacity(0.06))
+                                )
                                 .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
                                 .overlay(
                                     RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
-                                        .stroke(isSelected ? Theme.interactivePrimary.opacity(0.5) : Theme.strokeSubtle, lineWidth: 1)
+                                        .stroke(
+                                            isSelected
+                                                ? Theme.interactivePrimary.opacity(0.5)
+                                                : Theme.strokeSubtle,
+                                            lineWidth: 1
+                                        )
                                 )
-                        }
+                        })
                     }
                 }
             }
@@ -184,7 +193,7 @@ struct BarcodeFormView: View {
 
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 4), spacing: Theme.Spacing.space2) {
                     ForEach(colorPresets, id: \.hex) { preset in
-                        Button(action: { selectedColor = preset.hex }) {
+                        Button(action: { selectedColor = preset.hex }, label: {
                             Circle()
                                 .fill(Color(hex: String(preset.hex.dropFirst())))
                                 .frame(width: 44, height: 44)
@@ -200,7 +209,7 @@ struct BarcodeFormView: View {
                                             .foregroundColor(.white)
                                         : nil
                                 )
-                        }
+                        })
                     }
                 }
             }

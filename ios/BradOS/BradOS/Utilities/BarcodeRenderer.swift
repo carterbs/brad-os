@@ -75,19 +75,29 @@ enum BarcodeRenderer {
         let encoded = "*\(value.uppercased())*"
 
         // Validate all characters exist in the encoding table
-        for char in encoded {
-            guard code39Patterns[char] != nil else { return nil }
+        for char in encoded where code39Patterns[char] == nil {
+            return nil
         }
 
-        // Build the list of bar/space widths
+        let scale = size.width / calculateCode39Width(encoded)
+
+        // Render
+        let renderer = UIGraphicsImageRenderer(size: size)
+        return renderer.image { ctx in
+            ctx.cgContext.setFillColor(UIColor.white.cgColor)
+            ctx.cgContext.fill(CGRect(origin: .zero, size: size))
+            drawCode39Bars(encoded, scale: scale, size: size, context: ctx.cgContext)
+        }
+    }
+
+    private static func calculateCode39Width(_ encoded: String) -> CGFloat {
         let narrowWidth: CGFloat = 1
         let wideWidth: CGFloat = 3
         let interCharGap: CGFloat = 1
 
-        // Calculate total width
         var totalUnits: CGFloat = 0
         for (charIndex, char) in encoded.enumerated() {
-            guard let pattern = code39Patterns[char] else { return nil }
+            guard let pattern = code39Patterns[char] else { continue }
             for isWide in pattern {
                 totalUnits += isWide ? wideWidth : narrowWidth
             }
@@ -95,32 +105,29 @@ enum BarcodeRenderer {
                 totalUnits += interCharGap
             }
         }
+        return totalUnits
+    }
 
-        let scale = size.width / totalUnits
+    private static func drawCode39Bars(
+        _ encoded: String, scale: CGFloat, size: CGSize, context: CGContext
+    ) {
+        let narrowWidth: CGFloat = 1
+        let wideWidth: CGFloat = 3
+        let interCharGap: CGFloat = 1
 
-        // Render
-        let renderer = UIGraphicsImageRenderer(size: size)
-        return renderer.image { ctx in
-            // White background
-            ctx.cgContext.setFillColor(UIColor.white.cgColor)
-            ctx.cgContext.fill(CGRect(origin: .zero, size: size))
-
-            var x: CGFloat = 0
-            for (charIndex, char) in encoded.enumerated() {
-                guard let pattern = code39Patterns[char] else { continue }
-                for (elementIndex, isWide) in pattern.enumerated() {
-                    let elementWidth = (isWide ? wideWidth : narrowWidth) * scale
-                    let isBar = elementIndex % 2 == 0 // even indices are bars, odd are spaces
-                    if isBar {
-                        ctx.cgContext.setFillColor(UIColor.black.cgColor)
-                        ctx.cgContext.fill(CGRect(x: x, y: 0, width: elementWidth, height: size.height))
-                    }
-                    x += elementWidth
+        var xPos: CGFloat = 0
+        for (charIndex, char) in encoded.enumerated() {
+            guard let pattern = code39Patterns[char] else { continue }
+            for (elementIndex, isWide) in pattern.enumerated() {
+                let elementWidth = (isWide ? wideWidth : narrowWidth) * scale
+                if elementIndex % 2 == 0 {
+                    context.setFillColor(UIColor.black.cgColor)
+                    context.fill(CGRect(x: xPos, y: 0, width: elementWidth, height: size.height))
                 }
-                // Inter-character gap (narrow space)
-                if charIndex < encoded.count - 1 {
-                    x += interCharGap * scale
-                }
+                xPos += elementWidth
+            }
+            if charIndex < encoded.count - 1 {
+                xPos += interCharGap * scale
             }
         }
     }

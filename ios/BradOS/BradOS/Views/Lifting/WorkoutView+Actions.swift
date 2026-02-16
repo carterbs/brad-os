@@ -192,14 +192,14 @@ extension WorkoutView {
 
             // Send update to Watch
             let exercise = workout?.exercises?.first(where: { $0.exerciseId == set.exerciseId })
-            watchWorkoutController.sendExerciseUpdate(
+            watchWorkoutController.sendExerciseUpdate(WatchExerciseUpdate(
                 exerciseId: set.exerciseId,
                 setId: set.id,
                 newStatus: "completed",
                 actualReps: reps,
                 actualWeight: weight,
                 completedSets: exercise?.completedSets ?? 0
-            )
+            ))
         } catch {
             // Rollback on failure
             updateSetInWorkout(setId: set.id, status: .pending, actualWeight: nil, actualReps: nil)

@@ -14,13 +14,14 @@ struct ReadinessCard: View {
     @State private var isLoading = false
 
     var body: some View {
-        Button(action: {
-            if recovery != nil {
-                isShowingDetail = true
-            }
-        }) {
-            cardContent
-        }
+        Button(
+            action: {
+                if recovery != nil {
+                    isShowingDetail = true
+                }
+            },
+            label: { cardContent }
+        )
         .buttonStyle(PlainButtonStyle())
         .disabled(isLoading && recovery == nil)
         .sheet(isPresented: $isShowingDetail) {
@@ -143,41 +144,10 @@ struct ReadinessCard: View {
             }
 
             // Large score display
-            HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.space2) {
-                Text("\(recovery.score)")
-                    .font(.system(size: 48, weight: .bold))
-                    .monospacedDigit()
-                    .foregroundColor(stateColor(recovery.state))
-                Text("/100")
-                    .font(.title3)
-                    .foregroundColor(Theme.textSecondary)
-            }
+            recoveryScore(recovery)
 
             // Metrics grid
-            VStack(spacing: Theme.Spacing.space3) {
-                metricRow(
-                    icon: "waveform.path.ecg",
-                    label: "HRV",
-                    value: String(format: "%.0f ms", recovery.hrvMs),
-                    trend: recovery.hrvVsBaseline,
-                    isPercentage: true
-                )
-
-                metricRow(
-                    icon: "heart.fill",
-                    label: "RHR",
-                    value: String(format: "%.0f bpm", recovery.rhrBpm),
-                    trend: -recovery.rhrVsBaseline, // Negative because lower RHR is better
-                    isPercentage: false
-                )
-
-                metricRow(
-                    icon: "bed.double.fill",
-                    label: "Sleep",
-                    value: String(format: "%.1f hrs", recovery.sleepHours),
-                    subtitle: String(format: "%.0f%% efficiency", recovery.sleepEfficiency)
-                )
-            }
+            recoveryMetrics(recovery)
 
             // Action link
             HStack {
@@ -193,6 +163,45 @@ struct ReadinessCard: View {
         }
         .glassCard()
         .auroraGlow(stateColor(recovery.state))
+    }
+
+    private func recoveryScore(_ recovery: RecoveryData) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Theme.Spacing.space2) {
+            Text("\(recovery.score)")
+                .font(.system(size: 48, weight: .bold))
+                .monospacedDigit()
+                .foregroundColor(stateColor(recovery.state))
+            Text("/100")
+                .font(.title3)
+                .foregroundColor(Theme.textSecondary)
+        }
+    }
+
+    private func recoveryMetrics(_ recovery: RecoveryData) -> some View {
+        VStack(spacing: Theme.Spacing.space3) {
+            metricRow(
+                icon: "waveform.path.ecg",
+                label: "HRV",
+                value: String(format: "%.0f ms", recovery.hrvMs),
+                trend: recovery.hrvVsBaseline,
+                isPercentage: true
+            )
+
+            metricRow(
+                icon: "heart.fill",
+                label: "RHR",
+                value: String(format: "%.0f bpm", recovery.rhrBpm),
+                trend: -recovery.rhrVsBaseline,
+                isPercentage: false
+            )
+
+            metricRow(
+                icon: "bed.double.fill",
+                label: "Sleep",
+                value: String(format: "%.1f hrs", recovery.sleepHours),
+                subtitle: String(format: "%.0f%% efficiency", recovery.sleepEfficiency)
+            )
+        }
     }
 
     // MARK: - Card Header

@@ -14,8 +14,8 @@ struct GuidedMeditationActiveView: View {
 
     @StateObject private var pipeline = GuidedMeditationPipeline()
 
-    @State private var showEndConfirmation: Bool = false
-    @State private var sessionStartTime: Date = Date()
+    @State private var showEndConfirmation = false
+    @State private var sessionStartTime = Date()
 
     private let impactGenerator = UIImpactFeedbackGenerator(style: .medium)
     private let notificationGenerator = UINotificationFeedbackGenerator()
@@ -102,7 +102,7 @@ struct GuidedMeditationActiveView: View {
             // Controls
             HStack(spacing: Theme.Spacing.space7) {
                 // End button
-                Button(action: { showEndConfirmation = true }) {
+                Button(action: { showEndConfirmation = true }, label: {
                     VStack {
                         Image(systemName: "stop.fill")
                             .font(.title2)
@@ -110,7 +110,7 @@ struct GuidedMeditationActiveView: View {
                             .font(.caption)
                     }
                     .foregroundColor(Theme.textSecondary)
-                }
+                })
                 .buttonStyle(GlassCircleButtonStyle())
 
                 // Pause/Resume button

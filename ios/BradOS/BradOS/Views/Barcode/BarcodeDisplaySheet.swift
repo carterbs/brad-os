@@ -26,11 +26,11 @@ struct BarcodeDisplaySheet: View {
             }
 
             // Dismiss button
-            Button(action: { dismiss() }) {
+            Button(action: { dismiss() }, label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.title)
                     .foregroundColor(.white.opacity(0.7))
-            }
+            })
             .padding(Theme.Spacing.space6)
         }
         .background(Color.black)

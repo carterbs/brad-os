@@ -88,15 +88,18 @@ struct StretchView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     if sessionManager.status == .idle {
-                        Button(action: {
-                            appState.isShowingStretch = false
-                        }) {
-                            HStack(spacing: 4) {
-                                Image(systemName: "chevron.left")
-                                Text("Back")
+                        Button(
+                            action: {
+                                appState.isShowingStretch = false
+                            },
+                            label: {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "chevron.left")
+                                    Text("Back")
+                                }
+                                .foregroundColor(Theme.interactivePrimary)
                             }
-                            .foregroundColor(Theme.interactivePrimary)
-                        }
+                        )
                     }
                 }
             }
@@ -124,7 +127,10 @@ struct StretchView: View {
                 }
             } message: {
                 if let info = recoveryInfo {
-                    Text("You have an unfinished stretch session (\(info.progress) stretches, currently on \(info.stretchName)). Would you like to resume?")
+                    let message = "You have an unfinished stretch session " +
+                        "(\(info.progress) stretches, currently on \(info.stretchName)). " +
+                        "Would you like to resume?"
+                    Text(message)
                 } else {
                     Text("You have an unfinished stretch session. Would you like to resume?")
                 }
@@ -204,7 +210,9 @@ struct StretchView: View {
         isPreparing = true
 
         preparationTask = Task {
-            let audio = (try? await audioPreparer.prepareAudio(for: sessionManager.selectedStretches)) ?? PreparedStretchAudio(
+            let prepared = try? await audioPreparer.prepareAudio(
+                for: sessionManager.selectedStretches)
+            let audio = prepared ?? PreparedStretchAudio(
                 stretchAudio: [:],
                 stretchNameAudio: [:],
                 switchSidesURL: URL(fileURLWithPath: ""),

@@ -81,63 +81,33 @@ class WatchWorkoutController: NSObject, ObservableObject {
     /// Send start workout command to Apple Watch
     /// The Watch will receive this and start tracking heart rate, calories, etc.
     func startMirroredWorkout() async throws {
-        guard let session = wcSession else {
-            throw WatchWorkoutError.watchConnectivityNotAvailable
-        }
-
-        guard session.isPaired else {
-            throw WatchWorkoutError.watchNotPaired
-        }
-
-        guard session.isWatchAppInstalled else {
-            throw WatchWorkoutError.watchAppNotInstalled
-        }
+        let session = try validatedSession()
 
         // Clear any previous state
         workoutSummary = nil
         error = nil
 
-        let command = WorkoutCommand.start
-        let data = try JSONEncoder().encode(command)
-        let message: [String: Any] = [
-            "command": command.rawValue,
-            "data": data
-        ]
+        let message = try buildCommandMessage(.start)
 
         // If Watch is reachable, send interactive message
         if session.isReachable {
             do {
-                let reply = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[String: Any], Error>) in
-                    session.sendMessage(message, replyHandler: { reply in
-                        continuation.resume(returning: reply)
-                    }, errorHandler: { error in
-                        continuation.resume(throwing: error)
-                    })
-                }
-
-                // Check reply for success
+                let reply = try await sendMessageAsync(
+                    session: session, message: message
+                )
                 if let success = reply["success"] as? Bool, success {
                     isWorkoutActive = true
-                    #if DEBUG
-                    print("[WatchWorkoutController] Watch confirmed workout started")
-                    #endif
                 } else {
-                    let errorMessage = reply["error"] as? String ?? "Unknown error"
-                    throw WatchWorkoutError.watchRejectedCommand(errorMessage)
+                    let msg = reply["error"] as? String ?? "Unknown error"
+                    throw WatchWorkoutError.watchRejectedCommand(msg)
                 }
-
             } catch {
                 self.error = error
                 throw WatchWorkoutError.messageFailed(error)
             }
         } else {
-            // Watch not reachable - try to use transferUserInfo for background delivery
             session.transferUserInfo(message)
-            isWorkoutActive = true // Optimistic - Watch will start when it wakes
-
-            #if DEBUG
-            print("[WatchWorkoutController] Watch not reachable, queued command for background delivery")
-            #endif
+            isWorkoutActive = true
         }
     }
 
@@ -148,55 +118,27 @@ class WatchWorkoutController: NSObject, ObservableObject {
             throw WatchWorkoutError.watchConnectivityNotAvailable
         }
 
-        let command = WorkoutCommand.end
-        let data = try JSONEncoder().encode(command)
-        let message: [String: Any] = [
-            "command": command.rawValue,
-            "data": data
-        ]
+        let message = try buildCommandMessage(.end)
 
         if session.isReachable {
             do {
-                let reply = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[String: Any], Error>) in
-                    session.sendMessage(message, replyHandler: { reply in
-                        continuation.resume(returning: reply)
-                    }, errorHandler: { error in
-                        continuation.resume(throwing: error)
-                    })
-                }
-
-                // Parse summary from reply
+                let reply = try await sendMessageAsync(
+                    session: session, message: message
+                )
                 if let summaryData = reply["summary"] as? Data,
-                   let summary = try? JSONDecoder().decode(WatchWorkoutSummary.self, from: summaryData) {
+                   let summary = try? JSONDecoder().decode(
+                       WatchWorkoutSummary.self, from: summaryData
+                   ) {
                     workoutSummary = summary
-                    isWorkoutActive = false
-
-                    #if DEBUG
-                    print("[WatchWorkoutController] Received workout summary:")
-                    print("  - Avg HR: \(summary.avgHeartRate) BPM")
-                    print("  - Max HR: \(summary.maxHeartRate) BPM")
-                    print("  - Calories: \(summary.activeCalories) kcal")
-                    print("  - Duration: \(summary.totalDuration) sec")
-                    #endif
-                } else {
-                    isWorkoutActive = false
-                    #if DEBUG
-                    print("[WatchWorkoutController] Workout ended, no summary received")
-                    #endif
                 }
-
+                isWorkoutActive = false
             } catch {
                 self.error = error
                 throw WatchWorkoutError.messageFailed(error)
             }
         } else {
-            // Queue for background delivery
             session.transferUserInfo(message)
             isWorkoutActive = false
-
-            #if DEBUG
-            print("[WatchWorkoutController] Watch not reachable, queued end command for background delivery")
-            #endif
         }
     }
 
@@ -264,17 +206,8 @@ class WatchWorkoutController: NSObject, ObservableObject {
     }
 
     /// Send exercise update when a set is logged/skipped
-    func sendExerciseUpdate(exerciseId: String, setId: String, newStatus: String, actualReps: Int?, actualWeight: Double?, completedSets: Int) {
+    func sendExerciseUpdate(_ update: WatchExerciseUpdate) {
         guard let session = wcSession, session.isReachable else { return }
-
-        let update = WatchExerciseUpdate(
-            exerciseId: exerciseId,
-            setId: setId,
-            newStatus: newStatus,
-            actualReps: actualReps,
-            actualWeight: actualWeight,
-            completedSets: completedSets
-        )
 
         do {
             let data = try JSONEncoder().encode(update)
@@ -291,8 +224,50 @@ class WatchWorkoutController: NSObject, ObservableObject {
         }
     }
 
+    // MARK: - Private Helpers
+
+    private func validatedSession() throws -> WCSession {
+        guard let session = wcSession else {
+            throw WatchWorkoutError.watchConnectivityNotAvailable
+        }
+        guard session.isPaired else {
+            throw WatchWorkoutError.watchNotPaired
+        }
+        guard session.isWatchAppInstalled else {
+            throw WatchWorkoutError.watchAppNotInstalled
+        }
+        return session
+    }
+
+    private func sendMessageAsync(
+        session: WCSession,
+        message: [String: Any]
+    ) async throws -> [String: Any] {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[String: Any], Error>) in
+            session.sendMessage(
+                message,
+                replyHandler: { continuation.resume(returning: $0) },
+                errorHandler: { continuation.resume(throwing: $0) }
+            )
+        }
+    }
+
+    private func buildCommandMessage(
+        _ command: WorkoutCommand
+    ) throws -> [String: Any] {
+        let data = try JSONEncoder().encode(command)
+        return [
+            "command": command.rawValue,
+            "data": data
+        ]
+    }
+
     /// Send rest timer event to Watch
-    func sendRestTimerEvent(action: String, targetSeconds: Int? = nil, exerciseName: String? = nil) {
+    func sendRestTimerEvent(
+        action: String,
+        targetSeconds: Int? = nil,
+        exerciseName: String? = nil
+    ) {
         guard let session = wcSession, session.isReachable else { return }
 
         let event = WatchRestTimerEvent(
@@ -311,7 +286,7 @@ class WatchWorkoutController: NSObject, ObservableObject {
             })
         } catch {
             #if DEBUG
-            print("[WatchWorkoutController] Failed to encode rest timer event: \(error)")
+            print("[WatchWorkoutController] Failed to encode rest timer: \(error)")
             #endif
         }
     }
@@ -321,7 +296,11 @@ class WatchWorkoutController: NSObject, ObservableObject {
 
 extension WatchWorkoutController: WCSessionDelegate {
 
-    nonisolated func session(_ session: WCSession, activationDidCompleteWith activationState: WCSessionActivationState, error: Error?) {
+    nonisolated func session(
+        _ session: WCSession,
+        activationDidCompleteWith activationState: WCSessionActivationState,
+        error: Error?
+    ) {
         Task { @MainActor in
             if let error = error {
                 self.error = error
@@ -362,7 +341,8 @@ extension WatchWorkoutController: WCSessionDelegate {
             self.isWatchReachable = session.isReachable
             self.isWatchPairedButUnreachable = session.isPaired && !session.isReachable
             #if DEBUG
-            print("[WatchWorkoutController] Watch reachability changed: \(session.isReachable)")
+            let reachable = session.isReachable
+            print("[WatchWorkoutController] Watch reachability changed: \(reachable)")
             #endif
         }
     }
@@ -374,7 +354,11 @@ extension WatchWorkoutController: WCSessionDelegate {
         }
     }
 
-    nonisolated func session(_ session: WCSession, didReceiveMessage message: [String: Any], replyHandler: @escaping ([String: Any]) -> Void) {
+    nonisolated func session(
+        _ session: WCSession,
+        didReceiveMessage message: [String: Any],
+        replyHandler: @escaping ([String: Any]) -> Void
+    ) {
         Task { @MainActor in
             handleIncomingMessage(message)
             replyHandler(["received": true])

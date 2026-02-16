@@ -102,7 +102,10 @@ struct CritiqueInputView: View {
                 }
                 .frame(width: 36, height: 36)
             }
-            .disabled(viewModel.isSending || viewModel.critiqueText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(
+                viewModel.isSending
+                    || viewModel.critiqueText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            )
             .foregroundColor(
                 viewModel.isSending || viewModel.critiqueText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     ? Theme.textDisabled

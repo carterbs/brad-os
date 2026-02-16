@@ -72,7 +72,9 @@ final class MeditationManifestService {
     }
 
     /// Build a basic-breathing variant with intro, breathing, and closing phases
-    private func makeBreathingVariant(durationMinutes: Int, introSeconds: Int, breathingSeconds: Int) -> MeditationVariant {
+    private func makeBreathingVariant(
+        durationMinutes: Int, introSeconds: Int, breathingSeconds: Int
+    ) -> MeditationVariant {
         MeditationVariant(
             durationMinutes: durationMinutes,
             phases: [

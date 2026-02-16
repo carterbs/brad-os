@@ -37,73 +37,76 @@ final class GuidedMeditationService: ObservableObject {
     ) async throws -> (segments: [PreparedAudioSegment], interjections: [ResolvedInterjection]) {
         isPreparing = true
         preparationProgress = 0
-
-        defer {
-            isPreparing = false
-        }
+        defer { isPreparing = false }
 
         guard let segments = script.segments, let interjections = script.interjections else {
             throw GuidedMeditationError.scriptMissingContent
         }
 
-        // Count total items to fetch (segments + interjections)
         let totalItems = Double(segments.count + interjections.count)
         var completedItems: Double = 0
 
-        // Prepare segments
-        var preparedSegments: [PreparedAudioSegment] = []
+        let preparedSegments = try await prepareSegments(
+            segments, totalItems: totalItems, completedItems: &completedItems
+        )
+        let resolvedInterjections = try await prepareInterjections(
+            interjections, totalItems: totalItems, completedItems: &completedItems
+        )
+
+        preparationProgress = 1.0
+        return (preparedSegments, resolvedInterjections)
+    }
+
+    private func prepareSegments(
+        _ segments: [GuidedMeditationSegment],
+        totalItems: Double,
+        completedItems: inout Double
+    ) async throws -> [PreparedAudioSegment] {
+        var prepared: [PreparedAudioSegment] = []
         for segment in segments {
             let fileURL = try await cache.getOrFetch(text: segment.text) { text in
                 try await self.apiClient.synthesizeSpeech(text: text)
             }
-
-            // Measure actual audio duration
             let asset = AVURLAsset(url: fileURL)
             let duration = try await asset.load(.duration)
-            let durationSeconds = CMTimeGetSeconds(duration)
-
-            preparedSegments.append(PreparedAudioSegment(
+            prepared.append(PreparedAudioSegment(
                 segmentId: segment.id,
                 phase: segment.phase,
                 startSeconds: segment.startSeconds,
                 audioFileURL: fileURL,
-                audioDuration: durationSeconds
+                audioDuration: CMTimeGetSeconds(duration)
             ))
-
             completedItems += 1
             preparationProgress = completedItems / totalItems
         }
+        return prepared
+    }
 
-        // Resolve and prepare interjections
-        var resolvedInterjections: [ResolvedInterjection] = []
+    private func prepareInterjections(
+        _ interjections: [GuidedMeditationInterjection],
+        totalItems: Double,
+        completedItems: inout Double
+    ) async throws -> [ResolvedInterjection] {
+        var resolved: [ResolvedInterjection] = []
         for interjection in interjections {
-            // Pick random time within window
-            let scheduledSeconds = Int.random(in: interjection.windowStartSeconds...interjection.windowEndSeconds)
-
-            // Pick random text option
+            let scheduledSeconds = Int.random(
+                in: interjection.windowStartSeconds...interjection.windowEndSeconds
+            )
             guard let text = interjection.textOptions.randomElement() else { continue }
-
             let fileURL = try await cache.getOrFetch(text: text) { text in
                 try await self.apiClient.synthesizeSpeech(text: text)
             }
-
-            // Measure duration
             let asset = AVURLAsset(url: fileURL)
             let duration = try await asset.load(.duration)
-            let durationSeconds = CMTimeGetSeconds(duration)
-
-            resolvedInterjections.append(ResolvedInterjection(
+            resolved.append(ResolvedInterjection(
                 scheduledSeconds: scheduledSeconds,
                 audioFileURL: fileURL,
-                audioDuration: durationSeconds
+                audioDuration: CMTimeGetSeconds(duration)
             ))
-
             completedItems += 1
             preparationProgress = completedItems / totalItems
         }
-
-        preparationProgress = 1.0
-        return (preparedSegments, resolvedInterjections)
+        return resolved
     }
 }
 
