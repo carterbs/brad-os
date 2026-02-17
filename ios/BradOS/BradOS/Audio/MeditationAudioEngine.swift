@@ -49,8 +49,9 @@ final class MeditationAudioEngine: ObservableObject {
     func initialize() async throws {
         guard !isInitialized else { return }
 
-        // Activate audio session for mixing (interruption/ducking happens per narration)
-        try audioSession.activateForMixing()
+        // Configure and activate audio session (ducking happens per narration clip)
+        try audioSession.configure()
+        try audioSession.activate()
 
         // Setup keepalive with silence
         try setupKeepalive()

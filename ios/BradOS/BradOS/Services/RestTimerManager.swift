@@ -141,7 +141,8 @@ final class RestTimerManager: ObservableObject {
 
     private func configureAudioSession() {
         do {
-            try AudioSessionManager.shared.activateForMixing()
+            try AudioSessionManager.shared.configure()
+            try AudioSessionManager.shared.activate()
         } catch {
             #if DEBUG
             print("[RestTimerManager] Failed to configure audio session: \(error)")

@@ -114,9 +114,6 @@ extension StretchSessionManager {
         }
 
         if isLastStretch {
-            // Stop keepalive but keep audio session active for completion narration
-            audioManager.stopKeepalive()
-
             // Session complete - play completion narration
             if let url = audioManager.sharedAudioURL(for: .sessionComplete) {
                 try? await audioManager.playNarration(url)
@@ -187,9 +184,8 @@ extension StretchSessionManager {
         segmentEndTime = nil  // Will be set when resumed
         status = .paused
 
-        // Re-activate audio session and keepalive
+        // Re-activate audio session (configures ducking + keeps screen on)
         try? audioManager.activateSession()
-        audioManager.startKeepalive()
     }
 
     /// Resume from paused state

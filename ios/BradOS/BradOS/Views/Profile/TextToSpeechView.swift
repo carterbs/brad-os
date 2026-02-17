@@ -274,11 +274,7 @@ final class DuckingTestHarness: ObservableObject {
         }
     }
 
-    @Published var forceDucking: Bool = false {
-        didSet {
-            AudioSessionManager.shared.forceDucking = forceDucking
-        }
-    }
+    @Published var forceDucking: Bool = false
     @Published var playbackDelay: Int = 0
     @Published var events: [Event] = []
     @Published var isOtherAudioPlaying: Bool = false
@@ -287,12 +283,6 @@ final class DuckingTestHarness: ObservableObject {
     private var pollTimer: Timer?
 
     init() {
-        AudioSessionManager.shared.onDuckingEvent = { [weak self] message in
-            Task { @MainActor [weak self] in
-                self?.events.append(Event(timestamp: Date(), message: message))
-            }
-        }
-
         // Poll audio state every 2 seconds
         pollTimer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             let session = AVAudioSession.sharedInstance()

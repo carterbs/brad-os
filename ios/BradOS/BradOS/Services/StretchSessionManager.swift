@@ -18,7 +18,7 @@ enum StretchSessionStatus: String, Codable {
 /// Timer behavior matches PWA:
 /// - Timer starts immediately when a segment begins
 /// - Narration plays asynchronously (timer runs during narration)
-/// - Keepalive audio maintains background playback
+/// - Screen stays on via isIdleTimerDisabled (no keepalive needed)
 @MainActor
 class StretchSessionManager: ObservableObject {
     // MARK: - Published Properties
@@ -130,13 +130,6 @@ class StretchSessionManager: ObservableObject {
     }
 
     private func handleAppBecameActive() {
-        // Ensure keepalive audio is still running for active/paused sessions.
-        // iOS may have suspended audio playback while the app was backgrounded
-        // or the screen was locked, so we re-verify here.
-        if status == .active || status == .paused {
-            audioManager.ensureKeepaliveActive()
-        }
-
         switch spotifyState {
         case .waitingForVisible:
             // User returned from Spotify — signal the view to start audio prep
@@ -225,9 +218,8 @@ class StretchSessionManager: ObservableObject {
         pausedAt = nil
         storedSessionStartTime = Date()
 
-        // Activate audio session and start keepalive
+        // Activate audio session (configures ducking + keeps screen on)
         try? audioManager.activateSession()
-        audioManager.startKeepalive()
 
         // Start timer FIRST (matches PWA - timer runs during narration)
         // Use target end time for background-safe timing

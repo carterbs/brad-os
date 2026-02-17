@@ -7,43 +7,33 @@ import Foundation
 // ║  This file controls ALL audio session behavior for the entire app.          ║
 // ║  The category, mode, and options are carefully chosen to:                   ║
 // ║                                                                             ║
-// ║  1. Play audio in the background and with the screen locked                 ║
-// ║     (.playback category + UIBackgroundModes audio in Info.plist)            ║
-// ║                                                                             ║
-// ║  2. Duck music and pause podcasts during narration                          ║
+// ║  1. Duck music and pause podcasts during narration                          ║
 // ║     (.voicePrompt mode + .duckOthers + .interruptSpokenAudioAndMix)        ║
 // ║                                                                             ║
-// ║  3. Restore other apps' audio volume after narration finishes               ║
-// ║     (setActive(false, .notifyOthersOnDeactivation) or category swap)       ║
+// ║  2. Restore other apps' audio volume after narration finishes               ║
+// ║     (setActive(false, .notifyOthersOnDeactivation))                        ║
 // ║                                                                             ║
-// ║  4. Keep the audio session alive on lock screen via keepalive players       ║
-// ║     (backgroundSafe restore avoids deactivation that kills keepalive)       ║
+// ║  The session is configured once with ducking options, then activated/       ║
+// ║  deactivated per narration clip (Organic Maps pattern). Screen stays on     ║
+// ║  during stretch sessions via isIdleTimerDisabled — no keepalive needed.     ║
 // ║                                                                             ║
 // ║  WHAT WILL BREAK IF YOU CHANGE THINGS:                                      ║
 // ║  - Removing .duckOthers: music blasts over narration                        ║
 // ║  - Removing .interruptSpokenAudioAndMixWithOthers: podcasts garble          ║
 // ║    under narration instead of pausing cleanly                               ║
-// ║  - Removing .mixWithOthers from restore: our app steals audio focus and     ║
-// ║    kills Spotify/Music permanently                                          ║
 // ║  - Removing .notifyOthersOnDeactivation: other apps stay ducked forever     ║
-// ║  - Calling setActive(false) during backgroundSafe mode: kills keepalive,    ║
-// ║    audio stops working on lock screen                                       ║
 // ║  - Bypassing this manager (direct AVAudioSession calls): creates session    ║
 // ║    conflicts, undefined ducking behavior, audio randomly stops              ║
 // ║                                                                             ║
 // ║  ALL audio session config in the app MUST go through this singleton.        ║
 // ║  Do not call AVAudioSession.sharedInstance() directly from views,           ║
 // ║  view models, or other services.                                            ║
-// ║                                                                             ║
-// ║  Test changes with the debug harness: Profile > Text to Speech >            ║
-// ║  "Ducking Test Harness" section. Use Force Ducking + Playback Delay         ║
-// ║  to verify background + ducking behavior on simulator.                      ║
 // ╚══════════════════════════════════════════════════════════════════════════════╝
 
-/// Centralized audio session manager handling narration playback, other-audio interruption,
+/// Centralized audio session manager handling narration playback, other-audio ducking,
 /// and session lifecycle. All narration playback across the app goes through `playNarration`,
-/// which requests ducking/interrupt for other audio when it was already playing and restores
-/// afterward (some apps pause instead of ducking).
+/// which activates the session (ducking other audio), plays the clip, then deactivates
+/// (restoring other audio volume).
 final class AudioSessionManager {
     static let shared = AudioSessionManager()
 
@@ -59,15 +49,6 @@ final class AudioSessionManager {
 
     /// Callback for audio interruptions
     var onInterruption: ((AVAudioSession.InterruptionType) -> Void)?
-
-    /// Callback fired on every ducking lifecycle event (for debug harness).
-    var onDuckingEvent: ((String) -> Void)?
-
-    #if DEBUG
-    /// When true, forces the ducking code path even when no external audio is playing.
-    /// Toggle this from the TTS debug harness to verify ducking without needing Safari/Music.
-    var forceDucking: Bool = false
-    #endif
 
     /// Whether other audio (Spotify, etc.) is currently playing.
     /// Falls back to `secondaryAudioShouldBeSilencedHint` which is sometimes
@@ -89,40 +70,28 @@ final class AudioSessionManager {
 
     // MARK: - Configuration
 
-    /// Configure audio session for background playback with mixing (no interruption).
-    /// Temporary interruption/ducking is applied only during narration via `playNarration`.
+    /// Configure audio session for ducking playback.
+    /// Sets the category once: .playback, .voicePrompt, with ducking options.
+    /// Idempotent — safe to call multiple times.
     func configure() throws {
         guard !isConfigured else { return }
-        NSLog("[AudioSession] configure() - setting .playback, .mixWithOthers")
+        NSLog("[AudioSession] configure() - .playback, .voicePrompt, .duckOthers + .interruptSpokenAudioAndMixWithOthers")
         try session.setCategory(
             .playback,
-            mode: .default,
-            options: [.mixWithOthers]
+            mode: .voicePrompt,
+            options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
         )
         isConfigured = true
     }
 
-    /// Activate the audio session for mixing (no interruption)
+    /// Activate the audio session
     func activate() throws {
         try configure()
         NSLog("[AudioSession] activate() - setActive(true)")
         try session.setActive(true)
     }
 
-    /// Activate session for mixing without interruption.
-    /// Between narration clips, background audio can play at full volume.
-    func activateForMixing() throws {
-        NSLog("[AudioSession] activateForMixing() - .playback, .mixWithOthers, setActive(true)")
-        try session.setCategory(
-            .playback,
-            mode: .default,
-            options: [.mixWithOthers]
-        )
-        try session.setActive(true)
-        isConfigured = true
-    }
-
-    /// Deactivate the audio session
+    /// Deactivate the audio session with notification to restore other apps' audio
     func deactivate() {
         NSLog("[AudioSession] deactivate() - notifyOthersOnDeactivation")
         do {
@@ -133,17 +102,13 @@ final class AudioSessionManager {
         }
     }
 
-    // MARK: - Narration Playback (with automatic interruption/ducking)
+    // MARK: - Narration Playback (with automatic ducking)
 
-    /// Play narration audio from a URL with automatic interruption/ducking.
-    /// Requests ducking/interrupt only if other audio was already playing,
-    /// and restores only in that case.
+    /// Play narration audio from a URL with automatic ducking.
+    /// Activates the session (ducking other audio), plays the clip,
+    /// then deactivates (restoring other audio volume).
     /// This is the single entry point for all narration across the app.
-    /// - Parameters:
-    ///   - url: File URL to the audio file
-    ///   - backgroundSafe: When true and ducking was used, restores by changing category options
-    ///     instead of deactivating the session. This prevents killing keepalive audio on lock screen.
-    func playNarration(url: URL, backgroundSafe: Bool = false) async throws {
+    func playNarration(url: URL) async throws {
         stopNarration()
 
         guard FileManager.default.fileExists(atPath: url.path) else {
@@ -152,59 +117,27 @@ final class AudioSessionManager {
         }
 
         NSLog("[AudioSession] ========== NARRATION START ==========")
-        NSLog("[AudioSession] playNarration() - file: %@, backgroundSafe: %@",
-              url.lastPathComponent, backgroundSafe ? "true" : "false")
+        NSLog("[AudioSession] playNarration() - file: %@", url.lastPathComponent)
 
-        let shouldDuckExternalAudio = determineShouldDuck()
-        configureDuckingOrMixing(shouldDuck: shouldDuckExternalAudio)
+        // Activate session — this ducks other audio
+        try activate()
 
-        // Ensure ducking is always restored even on error/cancellation (backgroundSafe path only;
-        // the async restoreAfterDucking path is handled after the do/catch below).
         defer {
-            if shouldDuckExternalAudio && backgroundSafe {
-                NSLog("[AudioSession] playNarration() - defer: backgroundSafe restore")
-                try? restoreAfterDuckingBackgroundSafe()
-            }
-            narrationPlayer = nil
             NSLog("[AudioSession] ========== NARRATION END ==========")
         }
 
         let playbackError = await performPlayback(url: url)
 
-        // Async restoration for non-backgroundSafe mode (can't go in defer)
-        if shouldDuckExternalAudio && !backgroundSafe {
-            try? await restoreAfterDucking()
-        }
+        // Clear player I/O BEFORE deactivating — AVPlayer holds an audio unit open
+        // even after playback finishes, which blocks setActive(false) from working.
+        narrationPlayer?.replaceCurrentItem(with: nil)
+        narrationPlayer = nil
+
+        // Deactivate session — this restores other audio volume
+        deactivate()
 
         if let playbackError {
             throw playbackError
-        }
-    }
-
-    private func determineShouldDuck() -> Bool {
-        #if DEBUG
-        let shouldDuck = session.isOtherAudioPlaying || forceDucking
-        #else
-        let shouldDuck = session.isOtherAudioPlaying
-        #endif
-        NSLog("[AudioSession] playNarration() - isOtherAudioPlaying: %@, silencedHint: %@, willDuck: %@",
-              session.isOtherAudioPlaying ? "true" : "false",
-              session.secondaryAudioShouldBeSilencedHint ? "true" : "false",
-              shouldDuck ? "true" : "false")
-        return shouldDuck
-    }
-
-    private func configureDuckingOrMixing(shouldDuck: Bool) {
-        if shouldDuck {
-            do {
-                try enableDucking()
-            } catch {
-                NSLog("[AudioSession] playNarration() - failed to enable ducking: %@",
-                      error.localizedDescription)
-            }
-        } else {
-            NSLog("[AudioSession] playNarration() - no other audio, activating for mixing")
-            try? activateForMixing()
         }
     }
 
@@ -214,7 +147,6 @@ final class AudioSessionManager {
         narrationPlayer = player
 
         NSLog("[AudioSession] playNarration() - starting AVPlayer playback")
-        onDuckingEvent?("playback: starting AVPlayer")
 
         do {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
@@ -229,7 +161,6 @@ final class AudioSessionManager {
                     let cont = self.narrationContinuation
                     self.narrationContinuation = nil
                     NSLog("[AudioSession] playNarration() - playback COMPLETE")
-                    self.onDuckingEvent?("playback: COMPLETE")
                     cont?.resume()
                 }
                 player.play()
@@ -242,7 +173,7 @@ final class AudioSessionManager {
         }
     }
 
-    /// Play narration audio from data (e.g. TTS API response) with automatic interruption/ducking.
+    /// Play narration audio from data (e.g. TTS API response) with automatic ducking.
     func playNarration(data: Data) async throws {
         let tempURL = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
@@ -268,73 +199,6 @@ final class AudioSessionManager {
             NotificationCenter.default.removeObserver(observer)
             narrationObserver = nil
         }
-    }
-
-    // MARK: - Ducking (private)
-    // WARNING: The exact combination of category/mode/options below was carefully researched
-    // and tested. Changing ANY option will break ducking, background audio, or both.
-    // See thoughts/shared/ios-audio-ducking-research.md for the full rationale.
-
-    /// Enable other-audio interruption/ducking before narration.
-    /// Uses voice prompt mode with ducking and mixing. Some apps pause instead of ducking.
-    private func enableDucking() throws {
-        NSLog("[AudioSession] enableDucking() - .voicePrompt, .duckOthers + .interruptSpokenAudioAndMixWithOthers")
-        onDuckingEvent?("enableDucking: .voicePrompt + .duckOthers + .interruptSpokenAudio")
-        try session.setCategory(
-            .playback,
-            mode: .voicePrompt,
-            options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
-        )
-        try session.setActive(true)
-        NSLog("[AudioSession] enableDucking() - DONE, music ducked / spoken audio paused")
-        onDuckingEvent?("enableDucking: DONE - external audio should be ducked")
-    }
-
-    /// Restore other audio after narration WITHOUT deactivating the session.
-    /// This is safe for background/lock screen use — it just removes ducking options
-    /// so other audio returns to full volume, without killing our keepalive player.
-    private func restoreAfterDuckingBackgroundSafe() throws {
-        NSLog("[AudioSession] restoreAfterDuckingBackgroundSafe() - removing duckOthers, keeping session active")
-        onDuckingEvent?("restoreBackgroundSafe: removing .duckOthers, keeping session active")
-        try session.setCategory(
-            .playback,
-            mode: .default,
-            options: [.mixWithOthers]
-        )
-        NSLog("[AudioSession] restoreAfterDuckingBackgroundSafe() - DONE, Spotify should return to full volume")
-        onDuckingEvent?("restoreBackgroundSafe: DONE - external audio should be full volume")
-    }
-
-    /// Restore other audio after narration, removing interruption/ducking.
-    /// WARNING: This deactivates the session which can kill keepalive audio.
-    /// Use restoreAfterDuckingBackgroundSafe() when background audio must survive.
-    private func restoreAfterDucking() async throws {
-        NSLog("[AudioSession] restoreAfterDucking() - deactivating with notification")
-        onDuckingEvent?("restoreAfterDucking: deactivating with .notifyOthersOnDeactivation")
-        try session.setActive(false, options: .notifyOthersOnDeactivation)
-
-        // Give other audio apps a moment to resume before reactivating.
-        let maxWaitNanos: UInt64 = 1_000_000_000
-        let pollIntervalNanos: UInt64 = 200_000_000
-        var waited: UInt64 = 0
-        while !session.isOtherAudioPlaying && waited < maxWaitNanos {
-            try? await Task.sleep(nanoseconds: pollIntervalNanos)
-            waited += pollIntervalNanos
-        }
-        if session.isOtherAudioPlaying {
-            NSLog("[AudioSession] restoreAfterDucking() - other audio resumed")
-        } else {
-            NSLog("[AudioSession] restoreAfterDucking() - other audio still paused, reactivating anyway")
-        }
-
-        try session.setCategory(
-            .playback,
-            mode: .default,
-            options: [.mixWithOthers]
-        )
-        try session.setActive(true)
-        NSLog("[AudioSession] restoreAfterDucking() - DONE, Spotify should return to full volume")
-        onDuckingEvent?("restoreAfterDucking: DONE - reactivated with .mixWithOthers")
     }
 
     // MARK: - Interruption Handling
