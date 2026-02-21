@@ -29,57 +29,11 @@ export class PlanRepository extends BaseRepository<
     return plan;
   }
 
-  async findById(id: string): Promise<Plan | null> {
-    const doc = await this.collection.doc(id).get();
-    if (!doc.exists) {
-      return null;
-    }
-    return { id: doc.id, ...doc.data() } as Plan;
-  }
-
   async findAll(): Promise<Plan[]> {
     const snapshot = await this.collection.orderBy('name').get();
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Plan);
   }
 
-  async update(id: string, data: UpdatePlanDTO): Promise<Plan | null> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return null;
-    }
-
-    const updates: Record<string, string | number> = {};
-
-    if (data.name !== undefined) {
-      updates['name'] = data.name;
-    }
-
-    if (data.duration_weeks !== undefined) {
-      updates['duration_weeks'] = data.duration_weeks;
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return existing;
-    }
-
-    updates['updated_at'] = this.updateTimestamp();
-
-    await this.collection.doc(id).update(updates);
-    return this.findById(id);
-  }
-
-  async delete(id: string): Promise<boolean> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return false;
-    }
-    await this.collection.doc(id).delete();
-    return true;
-  }
-
-  /**
-   * Check if plan is referenced by any mesocycles
-   */
   async isInUse(id: string): Promise<boolean> {
     const mesocyclesCollection = this.db.collection(
       getCollectionName('mesocycles')

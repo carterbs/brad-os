@@ -44,6 +44,8 @@ export class WorkoutRepository extends BaseRepository<
   CreateWorkoutDTO,
   UpdateWorkoutDTO
 > {
+  protected override includeTimestampOnUpdate = false;
+
   constructor(db?: Firestore) {
     super('workouts', db);
   }
@@ -68,14 +70,6 @@ export class WorkoutRepository extends BaseRepository<
     return workout;
   }
 
-  async findById(id: string): Promise<Workout | null> {
-    const doc = await this.collection.doc(id).get();
-    if (!doc.exists) {
-      return null;
-    }
-    return { id: doc.id, ...doc.data() } as Workout;
-  }
-
   async findByMesocycleId(mesocycleId: string): Promise<Workout[]> {
     const snapshot = await this.collection
       .where('mesocycle_id', '==', mesocycleId)
@@ -92,10 +86,6 @@ export class WorkoutRepository extends BaseRepository<
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Workout);
   }
 
-  /**
-   * Find workouts by scheduled date (YYYY-MM-DD).
-   * scheduled_date is stored as a simple date string.
-   */
   async findByDate(date: string): Promise<Workout[]> {
     const snapshot = await this.collection
       .where('scheduled_date', '==', date)
@@ -103,10 +93,6 @@ export class WorkoutRepository extends BaseRepository<
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Workout);
   }
 
-  /**
-   * Find workouts completed within a date range (ISO timestamps).
-   * Used to find workouts completed today/yesterday regardless of scheduled date.
-   */
   async findByCompletedAtRange(startTimestamp: string, endTimestamp: string): Promise<Workout[]> {
     const snapshot = await this.collection
       .where('completed_at', '>=', startTimestamp)
@@ -116,9 +102,6 @@ export class WorkoutRepository extends BaseRepository<
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Workout);
   }
 
-  /**
-   * Find the previous week's workout for the same plan day within the same mesocycle
-   */
   async findPreviousWeekWorkout(
     mesocycleId: string,
     planDayId: string,
@@ -145,18 +128,13 @@ export class WorkoutRepository extends BaseRepository<
     return { id: doc.id, ...doc.data() } as Workout;
   }
 
-  /**
-   * Find the next upcoming workout (pending or in_progress) ordered by scheduled date.
-   */
   async findNextPending(): Promise<Workout | null> {
-    // Query for pending workouts
     const pendingSnapshot = await this.collection
       .where('status', '==', 'pending')
       .orderBy('scheduled_date')
       .limit(1)
       .get();
 
-    // Query for in_progress workouts
     const inProgressSnapshot = await this.collection
       .where('status', '==', 'in_progress')
       .orderBy('scheduled_date')
@@ -183,7 +161,6 @@ export class WorkoutRepository extends BaseRepository<
       return null;
     }
 
-    // Return the one with earliest scheduled_date
     candidates.sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date));
     return candidates[0] ?? null;
   }
@@ -193,9 +170,6 @@ export class WorkoutRepository extends BaseRepository<
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Workout);
   }
 
-  /**
-   * Find completed workouts where completed_at falls within the date range.
-   */
   async findCompletedInDateRange(
     startDate: string,
     endDate: string,
@@ -212,42 +186,5 @@ export class WorkoutRepository extends BaseRepository<
       .get();
 
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Workout);
-  }
-
-  async update(id: string, data: UpdateWorkoutDTO): Promise<Workout | null> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return null;
-    }
-
-    const updates: Record<string, string | null> = {};
-
-    if (data.status !== undefined) {
-      updates['status'] = data.status;
-    }
-
-    if (data.started_at !== undefined) {
-      updates['started_at'] = data.started_at;
-    }
-
-    if (data.completed_at !== undefined) {
-      updates['completed_at'] = data.completed_at;
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return existing;
-    }
-
-    await this.collection.doc(id).update(updates);
-    return this.findById(id);
-  }
-
-  async delete(id: string): Promise<boolean> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return false;
-    }
-    await this.collection.doc(id).delete();
-    return true;
   }
 }

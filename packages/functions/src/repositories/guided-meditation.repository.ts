@@ -8,14 +8,6 @@ import type {
 } from '../shared.js';
 import { BaseRepository } from './base.repository.js';
 
-/**
- * Repository for guided meditation scripts stored in Firestore.
- *
- * Scripts contain timed segments (opening, teachings, closing) and
- * interjection windows for brief reminders during silence periods.
- * Segments and interjections are stored as fields on the document,
- * not as subcollections.
- */
 export class GuidedMeditationRepository extends BaseRepository<
   GuidedMeditationScript,
   CreateGuidedMeditationScriptDTO,
@@ -50,23 +42,11 @@ export class GuidedMeditationRepository extends BaseRepository<
     };
   }
 
-  async findById(id: string): Promise<GuidedMeditationScript | null> {
-    const doc = await this.collection.doc(id).get();
-    if (!doc.exists) {
-      return null;
-    }
-    return { id: doc.id, ...doc.data() } as GuidedMeditationScript;
-  }
-
   async findAll(): Promise<GuidedMeditationScript[]> {
     const snapshot = await this.collection.orderBy('orderIndex').get();
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as GuidedMeditationScript);
   }
 
-  /**
-   * Find all scripts in a category, ordered by orderIndex.
-   * Returns scripts WITHOUT segments and interjections for listing views.
-   */
   async findAllByCategory(category: string): Promise<Omit<GuidedMeditationScript, 'segments' | 'interjections'>[]> {
     const snapshot = await this.collection
       .where('category', '==', category)
@@ -88,9 +68,6 @@ export class GuidedMeditationRepository extends BaseRepository<
     });
   }
 
-  /**
-   * Get all categories with script counts by querying all scripts and grouping.
-   */
   async getCategories(): Promise<GuidedMeditationCategory[]> {
     const snapshot = await this.collection.get();
     const categoryMap = new Map<string, number>();
@@ -112,7 +89,7 @@ export class GuidedMeditationRepository extends BaseRepository<
     return categories;
   }
 
-  async update(
+  override async update(
     id: string,
     data: Partial<CreateGuidedMeditationScriptDTO>
   ): Promise<GuidedMeditationScript | null> {
@@ -145,18 +122,6 @@ export class GuidedMeditationRepository extends BaseRepository<
     return this.findById(id);
   }
 
-  async delete(id: string): Promise<boolean> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return false;
-    }
-    await this.collection.doc(id).delete();
-    return true;
-  }
-
-  /**
-   * Batch write multiple scripts for initial data seeding.
-   */
   async seed(scripts: CreateGuidedMeditationScriptDTO[]): Promise<GuidedMeditationScript[]> {
     const batch = this.db.batch();
     const results: GuidedMeditationScript[] = [];

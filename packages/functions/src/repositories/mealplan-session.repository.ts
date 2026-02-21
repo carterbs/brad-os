@@ -37,51 +37,9 @@ export class MealPlanSessionRepository extends BaseRepository<
     return session;
   }
 
-  async findById(id: string): Promise<MealPlanSession | null> {
-    const doc = await this.collection.doc(id).get();
-    if (!doc.exists) {
-      return null;
-    }
-    return { id: doc.id, ...doc.data() } as MealPlanSession;
-  }
-
   async findAll(): Promise<MealPlanSession[]> {
     const snapshot = await this.collection.orderBy('created_at', 'desc').get();
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as MealPlanSession);
-  }
-
-  async update(id: string, data: UpdateMealPlanSessionDTO): Promise<MealPlanSession | null> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return null;
-    }
-
-    const updates: Record<string, unknown> = {};
-
-    if (data.plan !== undefined) {
-      updates['plan'] = data.plan;
-    }
-
-    if (data.meals_snapshot !== undefined) {
-      updates['meals_snapshot'] = data.meals_snapshot;
-    }
-
-    if (data.history !== undefined) {
-      updates['history'] = data.history;
-    }
-
-    if (data.is_finalized !== undefined) {
-      updates['is_finalized'] = data.is_finalized;
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return existing;
-    }
-
-    updates['updated_at'] = this.updateTimestamp();
-
-    await this.collection.doc(id).update(updates);
-    return this.findById(id);
   }
 
   async appendHistory(sessionId: string, message: ConversationMessage): Promise<MealPlanSession | null> {
@@ -123,14 +81,5 @@ export class MealPlanSessionRepository extends BaseRepository<
       plan: updatedPlan,
       updated_at: this.updateTimestamp(),
     });
-  }
-
-  async delete(id: string): Promise<boolean> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return false;
-    }
-    await this.collection.doc(id).delete();
-    return true;
   }
 }
