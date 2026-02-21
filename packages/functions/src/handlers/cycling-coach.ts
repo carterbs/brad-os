@@ -4,12 +4,10 @@
  * Express app for AI cycling coach endpoints.
  */
 
-import express, { type Request, type Response, type NextFunction } from 'express';
-import cors from 'cors';
+import { type Request, type Response, type NextFunction } from 'express';
 import { defineSecret } from 'firebase-functions/params';
 import { errorHandler } from '../middleware/error-handler.js';
-import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
-import { requireAppCheck } from '../middleware/app-check.js';
+import { createBaseApp } from '../middleware/create-resource-router.js';
 import { asyncHandler } from '../middleware/async-handler.js';
 import * as cyclingService from '../services/firestore-cycling.service.js';
 import * as recoveryService from '../services/firestore-recovery.service.js';
@@ -78,11 +76,7 @@ Heavy lower body yesterday: Swap hard session for Low Impact or Recovery Ride
 Heavy lower body today: Recovery Ride only
 Upper body only: No adjustments needed`;
 
-const app = express();
-app.use(cors({ origin: true }));
-app.use(express.json());
-app.use(stripPathPrefix('cycling-coach'));
-app.use(requireAppCheck);
+const app = createBaseApp('cycling-coach');
 
 /**
  * Get user ID from request headers.

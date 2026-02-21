@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Response } from 'supertest';
 import type { WorkoutSet } from '../shared.js';
+import { NotFoundError, ValidationError } from '../middleware/error-handler.js';
 
 // Type for API response body
 interface ApiResponse<T = unknown> {
@@ -133,7 +134,7 @@ describe('WorkoutSets Handler', () => {
     });
 
     it('should return 404 when set not found', async () => {
-      mockWorkoutSetService.log.mockRejectedValue(new Error('WorkoutSet not found'));
+      mockWorkoutSetService.log.mockRejectedValue(new NotFoundError('WorkoutSet', 'non-existent-id'));
 
       const response = await request(workoutSetsApp)
         .put('/non-existent-id/log')
@@ -221,7 +222,7 @@ describe('WorkoutSets Handler', () => {
     });
 
     it('should return 400 when cannot log set', async () => {
-      mockWorkoutSetService.log.mockRejectedValue(new Error('Cannot log set that is already logged'));
+      mockWorkoutSetService.log.mockRejectedValue(new ValidationError('Cannot log set that is already logged'));
 
       const response: Response = await request(workoutSetsApp)
         .put('/set-123/log')
@@ -237,7 +238,7 @@ describe('WorkoutSets Handler', () => {
     });
 
     it('should return 400 when reps must be positive', async () => {
-      mockWorkoutSetService.log.mockRejectedValue(new Error('Reps must be a non-negative number'));
+      mockWorkoutSetService.log.mockRejectedValue(new ValidationError('Reps must be a non-negative number'));
 
       const response: Response = await request(workoutSetsApp)
         .put('/set-123/log')
@@ -272,7 +273,7 @@ describe('WorkoutSets Handler', () => {
     });
 
     it('should return 404 when set not found', async () => {
-      mockWorkoutSetService.skip.mockRejectedValue(new Error('WorkoutSet not found'));
+      mockWorkoutSetService.skip.mockRejectedValue(new NotFoundError('WorkoutSet', 'non-existent-id'));
 
       const response = await request(workoutSetsApp).put('/non-existent-id/skip');
 
@@ -287,7 +288,7 @@ describe('WorkoutSets Handler', () => {
     });
 
     it('should return 400 when cannot skip set', async () => {
-      mockWorkoutSetService.skip.mockRejectedValue(new Error('Cannot skip set that is already completed'));
+      mockWorkoutSetService.skip.mockRejectedValue(new ValidationError('Cannot skip set that is already completed'));
 
       const response: Response = await request(workoutSetsApp).put('/set-123/skip');
       const body = response.body as ApiResponse;
@@ -319,7 +320,7 @@ describe('WorkoutSets Handler', () => {
     });
 
     it('should return 404 when set not found', async () => {
-      mockWorkoutSetService.unlog.mockRejectedValue(new Error('WorkoutSet not found'));
+      mockWorkoutSetService.unlog.mockRejectedValue(new NotFoundError('WorkoutSet', 'non-existent-id'));
 
       const response = await request(workoutSetsApp).put('/non-existent-id/unlog');
 
@@ -334,7 +335,7 @@ describe('WorkoutSets Handler', () => {
     });
 
     it('should return 400 when cannot unlog set', async () => {
-      mockWorkoutSetService.unlog.mockRejectedValue(new Error('Cannot unlog set that is not completed'));
+      mockWorkoutSetService.unlog.mockRejectedValue(new ValidationError('Cannot unlog set that is not completed'));
 
       const response: Response = await request(workoutSetsApp).put('/set-123/unlog');
       const body = response.body as ApiResponse;

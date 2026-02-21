@@ -503,7 +503,7 @@ describe('WorkoutSetService', () => {
 
       await expect(
         service.addSetToExercise('workout-1', 'exercise-1')
-      ).rejects.toThrow('No sets found for exercise exercise-1 in workout workout-1');
+      ).rejects.toThrow('WorkoutSet with id exercise exercise-1 in workout workout-1 not found');
     });
 
     it('should copy target values from the last set', async () => {
@@ -586,7 +586,7 @@ describe('WorkoutSetService', () => {
 
       await expect(
         service.removeSetFromExercise('workout-1', 'exercise-1')
-      ).rejects.toThrow('No sets found for exercise exercise-1 in workout workout-1');
+      ).rejects.toThrow('WorkoutSet with id exercise exercise-1 in workout workout-1 not found');
     });
 
     it('should throw error if trying to remove the last set', async () => {

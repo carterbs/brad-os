@@ -1,17 +1,11 @@
-import express, { type Request, type Response, type NextFunction } from 'express';
-import cors from 'cors';
+import { type Request, type Response, type NextFunction } from 'express';
 import { errorHandler } from '../middleware/error-handler.js';
-import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
-import { requireAppCheck } from '../middleware/app-check.js';
+import { createBaseApp } from '../middleware/create-resource-router.js';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { RecipeRepository } from '../repositories/recipe.repository.js';
 import { getFirestoreDb } from '../firebase.js';
 
-const app = express();
-app.use(cors({ origin: true }));
-app.use(express.json());
-app.use(stripPathPrefix('recipes'));
-app.use(requireAppCheck);
+const app = createBaseApp('recipes');
 
 // Lazy repository initialization
 let recipeRepo: RecipeRepository | null = null;
@@ -28,7 +22,6 @@ app.get('/', asyncHandler(async (_req: Request, res: Response, _next: NextFuncti
   res.json({ success: true, data: recipes });
 }));
 
-// Error handler must be last
 app.use(errorHandler);
 
 export const recipesApp = app;

@@ -1,5 +1,4 @@
-import express, { type Request, type Response, type NextFunction } from 'express';
-import cors from 'cors';
+import { type Request, type Response, type NextFunction } from 'express';
 import {
   createExerciseSchema,
   updateExerciseSchema,
@@ -8,19 +7,14 @@ import {
 } from '../shared.js';
 import { validate } from '../middleware/validate.js';
 import { errorHandler, NotFoundError, ConflictError } from '../middleware/error-handler.js';
-import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
-import { requireAppCheck } from '../middleware/app-check.js';
+import { createBaseApp } from '../middleware/create-resource-router.js';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { ExerciseRepository } from '../repositories/exercise.repository.js';
 import { WorkoutSetRepository } from '../repositories/workout-set.repository.js';
 import type { ExerciseHistory, ExerciseHistoryEntry } from '../shared.js';
 import { getFirestoreDb } from '../firebase.js';
 
-const app = express();
-app.use(cors({ origin: true }));
-app.use(express.json());
-app.use(stripPathPrefix('exercises'));
-app.use(requireAppCheck);
+const app = createBaseApp('exercises');
 
 // Lazy repository initialization
 let exerciseRepo: ExerciseRepository | null = null;
@@ -167,7 +161,6 @@ app.delete('/:id', asyncHandler(async (req: Request, res: Response, next: NextFu
   res.json({ success: true, data: { deleted: true } });
 }));
 
-// Error handler must be last
 app.use(errorHandler);
 
 export const exercisesApp = app;

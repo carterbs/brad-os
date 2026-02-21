@@ -1,5 +1,4 @@
-import express, { type Request, type Response, type NextFunction } from 'express';
-import cors from 'cors';
+import { type Request, type Response, type NextFunction } from 'express';
 import {
   createWorkoutSchema,
   updateWorkoutSchema,
@@ -14,9 +13,8 @@ import {
   type LogWorkoutSetInput,
 } from '../shared.js';
 import { validate } from '../middleware/validate.js';
-import { errorHandler, NotFoundError, ValidationError } from '../middleware/error-handler.js';
-import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
-import { requireAppCheck } from '../middleware/app-check.js';
+import { errorHandler, NotFoundError } from '../middleware/error-handler.js';
+import { createBaseApp } from '../middleware/create-resource-router.js';
 import { asyncHandler } from '../middleware/async-handler.js';
 import {
   WorkoutRepository,
@@ -29,11 +27,7 @@ import {
 } from '../services/index.js';
 import { getFirestoreDb } from '../firebase.js';
 
-const app = express();
-app.use(cors({ origin: true }));
-app.use(express.json());
-app.use(stripPathPrefix('workouts'));
-app.use(requireAppCheck);
+const app = createBaseApp('workouts');
 
 // Lazy repository initialization
 let workoutRepo: WorkoutRepository | null = null;
@@ -140,23 +134,9 @@ app.put('/:id/start', asyncHandler(async (req: Request, res: Response, next: Nex
     return;
   }
 
-  try {
-    const workout = await service.start(id);
-    const response: ApiResponse<Workout> = { success: true, data: workout };
-    res.json(response);
-  } catch (error) {
-    if (error instanceof Error) {
-      if (error.message.includes('not found')) {
-        next(new NotFoundError('Workout', id));
-        return;
-      }
-      if (error.message.includes('Cannot') || error.message.includes('already')) {
-        next(new ValidationError(error.message));
-        return;
-      }
-    }
-    throw error;
-  }
+  const workout = await service.start(id);
+  const response: ApiResponse<Workout> = { success: true, data: workout };
+  res.json(response);
 }));
 
 // PUT /workouts/:id/complete
@@ -169,23 +149,9 @@ app.put('/:id/complete', asyncHandler(async (req: Request, res: Response, next: 
     return;
   }
 
-  try {
-    const workout = await service.complete(id);
-    const response: ApiResponse<Workout> = { success: true, data: workout };
-    res.json(response);
-  } catch (error) {
-    if (error instanceof Error) {
-      if (error.message.includes('not found')) {
-        next(new NotFoundError('Workout', id));
-        return;
-      }
-      if (error.message.includes('Cannot') || error.message.includes('already')) {
-        next(new ValidationError(error.message));
-        return;
-      }
-    }
-    throw error;
-  }
+  const workout = await service.complete(id);
+  const response: ApiResponse<Workout> = { success: true, data: workout };
+  res.json(response);
 }));
 
 // PUT /workouts/:id/skip
@@ -198,23 +164,9 @@ app.put('/:id/skip', asyncHandler(async (req: Request, res: Response, next: Next
     return;
   }
 
-  try {
-    const workout = await service.skip(id);
-    const response: ApiResponse<Workout> = { success: true, data: workout };
-    res.json(response);
-  } catch (error) {
-    if (error instanceof Error) {
-      if (error.message.includes('not found')) {
-        next(new NotFoundError('Workout', id));
-        return;
-      }
-      if (error.message.includes('Cannot') || error.message.includes('already')) {
-        next(new ValidationError(error.message));
-        return;
-      }
-    }
-    throw error;
-  }
+  const workout = await service.skip(id);
+  const response: ApiResponse<Workout> = { success: true, data: workout };
+  res.json(response);
 }));
 
 // DELETE /workouts/:id
@@ -294,27 +246,13 @@ app.put('/sets/:id/log', validate(logWorkoutSetSchema), asyncHandler(async (req:
   }
 
   const logBody = req.body as LogWorkoutSetInput;
-  try {
-    const set = await service.log(id, {
-      actual_reps: logBody.actual_reps,
-      actual_weight: logBody.actual_weight,
-    });
+  const set = await service.log(id, {
+    actual_reps: logBody.actual_reps,
+    actual_weight: logBody.actual_weight,
+  });
 
-    const response: ApiResponse<WorkoutSet> = { success: true, data: set };
-    res.json(response);
-  } catch (error) {
-    if (error instanceof Error) {
-      if (error.message.includes('not found')) {
-        next(new NotFoundError('WorkoutSet', id));
-        return;
-      }
-      if (error.message.includes('Cannot') || error.message.includes('must be')) {
-        next(new ValidationError(error.message));
-        return;
-      }
-    }
-    throw error;
-  }
+  const response: ApiResponse<WorkoutSet> = { success: true, data: set };
+  res.json(response);
 }));
 
 // PUT /workouts/sets/:id/skip (legacy endpoint - use /workout-sets/:id/skip instead)
@@ -327,23 +265,9 @@ app.put('/sets/:id/skip', asyncHandler(async (req: Request, res: Response, next:
     return;
   }
 
-  try {
-    const set = await service.skip(id);
-    const response: ApiResponse<WorkoutSet> = { success: true, data: set };
-    res.json(response);
-  } catch (error) {
-    if (error instanceof Error) {
-      if (error.message.includes('not found')) {
-        next(new NotFoundError('WorkoutSet', id));
-        return;
-      }
-      if (error.message.includes('Cannot')) {
-        next(new ValidationError(error.message));
-        return;
-      }
-    }
-    throw error;
-  }
+  const set = await service.skip(id);
+  const response: ApiResponse<WorkoutSet> = { success: true, data: set };
+  res.json(response);
 }));
 
 // DELETE /workouts/sets/:id
@@ -382,23 +306,9 @@ app.post(
       return;
     }
 
-    try {
-      const result = await service.addSetToExercise(workoutId, exerciseId);
-      const response: ApiResponse<typeof result> = { success: true, data: result };
-      res.status(201).json(response);
-    } catch (error) {
-      if (error instanceof Error) {
-        if (error.message.includes('not found')) {
-          next(new NotFoundError('Workout or Exercise', `${workoutId}/${exerciseId}`));
-          return;
-        }
-        if (error.message.includes('Cannot')) {
-          next(new ValidationError(error.message));
-          return;
-        }
-      }
-      throw error;
-    }
+    const result = await service.addSetToExercise(workoutId, exerciseId);
+    const response: ApiResponse<typeof result> = { success: true, data: result };
+    res.status(201).json(response);
   })
 );
 
@@ -419,27 +329,12 @@ app.delete(
       return;
     }
 
-    try {
-      const result = await service.removeSetFromExercise(workoutId, exerciseId);
-      const response: ApiResponse<typeof result> = { success: true, data: result };
-      res.json(response);
-    } catch (error) {
-      if (error instanceof Error) {
-        if (error.message.includes('not found')) {
-          next(new NotFoundError('Workout or Exercise', `${workoutId}/${exerciseId}`));
-          return;
-        }
-        if (error.message.includes('Cannot') || error.message.includes('No pending')) {
-          next(new ValidationError(error.message));
-          return;
-        }
-      }
-      throw error;
-    }
+    const result = await service.removeSetFromExercise(workoutId, exerciseId);
+    const response: ApiResponse<typeof result> = { success: true, data: result };
+    res.json(response);
   })
 );
 
-// Error handler must be last
 app.use(errorHandler);
 
 export const workoutsApp = app;

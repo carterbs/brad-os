@@ -1,5 +1,4 @@
-import express, { type Request, type Response, type NextFunction } from 'express';
-import cors from 'cors';
+import { type Request, type Response, type NextFunction } from 'express';
 import {
   createPlanSchema,
   updatePlanSchema,
@@ -20,8 +19,7 @@ import {
 } from '../shared.js';
 import { validate } from '../middleware/validate.js';
 import { errorHandler, NotFoundError, ConflictError } from '../middleware/error-handler.js';
-import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
-import { requireAppCheck } from '../middleware/app-check.js';
+import { createBaseApp } from '../middleware/create-resource-router.js';
 import { asyncHandler } from '../middleware/async-handler.js';
 import {
   PlanRepository,
@@ -33,11 +31,7 @@ import {
 import { getPlanModificationService } from '../services/index.js';
 import { getFirestoreDb } from '../firebase.js';
 
-const app = express();
-app.use(cors({ origin: true }));
-app.use(express.json());
-app.use(stripPathPrefix('plans'));
-app.use(requireAppCheck);
+const app = createBaseApp('plans');
 
 // Lazy repository initialization
 let planRepo: PlanRepository | null = null;

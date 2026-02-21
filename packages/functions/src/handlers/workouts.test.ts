@@ -3,6 +3,7 @@ import request from 'supertest';
 import type { Response } from 'supertest';
 import type { Workout, WorkoutSet } from '../shared.js';
 import type { WorkoutWithExercises } from '../services/index.js';
+import { NotFoundError, ValidationError } from '../middleware/error-handler.js';
 
 // Type for API response body
 interface ApiResponse<T = unknown> {
@@ -351,7 +352,7 @@ describe('Workouts Handler', () => {
     });
 
     it('should return 404 when workout not found', async () => {
-      mockWorkoutService.start.mockRejectedValue(new Error('Workout not found'));
+      mockWorkoutService.start.mockRejectedValue(new NotFoundError('Workout', 'non-existent-id'));
 
       const response = await request(workoutsApp).put('/non-existent-id/start');
 
@@ -366,7 +367,7 @@ describe('Workouts Handler', () => {
     });
 
     it('should return 400 when workout already started', async () => {
-      mockWorkoutService.start.mockRejectedValue(new Error('Workout already started'));
+      mockWorkoutService.start.mockRejectedValue(new ValidationError('Workout already started'));
 
       const response: Response = await request(workoutsApp).put('/workout-123/start');
       const body = response.body as ApiResponse;
@@ -377,7 +378,7 @@ describe('Workouts Handler', () => {
     });
 
     it('should return 400 when cannot start workout', async () => {
-      mockWorkoutService.start.mockRejectedValue(new Error('Cannot start completed workout'));
+      mockWorkoutService.start.mockRejectedValue(new ValidationError('Cannot start completed workout'));
 
       const response: Response = await request(workoutsApp).put('/workout-123/start');
       const body = response.body as ApiResponse;
@@ -408,7 +409,7 @@ describe('Workouts Handler', () => {
     });
 
     it('should return 404 when workout not found', async () => {
-      mockWorkoutService.complete.mockRejectedValue(new Error('Workout not found'));
+      mockWorkoutService.complete.mockRejectedValue(new NotFoundError('Workout', 'non-existent-id'));
 
       const response: Response = await request(workoutsApp).put('/non-existent-id/complete');
       const body = response.body as ApiResponse;
@@ -418,7 +419,7 @@ describe('Workouts Handler', () => {
     });
 
     it('should return 400 when workout not in progress', async () => {
-      mockWorkoutService.complete.mockRejectedValue(new Error('Cannot complete workout that is not in progress'));
+      mockWorkoutService.complete.mockRejectedValue(new ValidationError('Cannot complete workout that is not in progress'));
 
       const response: Response = await request(workoutsApp).put('/workout-123/complete');
       const body = response.body as ApiResponse;
@@ -447,7 +448,7 @@ describe('Workouts Handler', () => {
     });
 
     it('should return 404 when workout not found', async () => {
-      mockWorkoutService.skip.mockRejectedValue(new Error('Workout not found'));
+      mockWorkoutService.skip.mockRejectedValue(new NotFoundError('Workout', 'non-existent-id'));
 
       const response: Response = await request(workoutsApp).put('/non-existent-id/skip');
       const body = response.body as ApiResponse;
@@ -457,7 +458,7 @@ describe('Workouts Handler', () => {
     });
 
     it('should return 400 when workout already completed', async () => {
-      mockWorkoutService.skip.mockRejectedValue(new Error('Cannot skip completed workout'));
+      mockWorkoutService.skip.mockRejectedValue(new ValidationError('Cannot skip completed workout'));
 
       const response: Response = await request(workoutsApp).put('/workout-123/skip');
       const body = response.body as ApiResponse;
@@ -624,7 +625,7 @@ describe('Workouts Handler', () => {
     });
 
     it('should return 404 when set not found', async () => {
-      mockWorkoutSetService.log.mockRejectedValue(new Error('WorkoutSet not found'));
+      mockWorkoutSetService.log.mockRejectedValue(new NotFoundError('WorkoutSet', 'non-existent-id'));
 
       const response: Response = await request(workoutsApp)
         .put('/sets/non-existent-id/log')
@@ -671,7 +672,7 @@ describe('Workouts Handler', () => {
     });
 
     it('should return 404 when set not found', async () => {
-      mockWorkoutSetService.skip.mockRejectedValue(new Error('WorkoutSet not found'));
+      mockWorkoutSetService.skip.mockRejectedValue(new NotFoundError('WorkoutSet', 'non-existent-id'));
 
       const response: Response = await request(workoutsApp).put('/sets/non-existent-id/skip');
       const body = response.body as ApiResponse;
@@ -723,7 +724,7 @@ describe('Workouts Handler', () => {
     });
 
     it('should return 404 when workout or exercise not found', async () => {
-      mockWorkoutSetService.addSetToExercise.mockRejectedValue(new Error('Workout not found'));
+      mockWorkoutSetService.addSetToExercise.mockRejectedValue(new NotFoundError('Workout', 'non-existent'));
 
       const response: Response = await request(workoutsApp)
         .post('/non-existent/exercises/exercise-456/sets/add');
@@ -734,7 +735,7 @@ describe('Workouts Handler', () => {
     });
 
     it('should return 400 when cannot add set', async () => {
-      mockWorkoutSetService.addSetToExercise.mockRejectedValue(new Error('Cannot add set to completed workout'));
+      mockWorkoutSetService.addSetToExercise.mockRejectedValue(new ValidationError('Cannot add set to completed workout'));
 
       const response: Response = await request(workoutsApp)
         .post('/workout-123/exercises/exercise-456/sets/add');
@@ -766,7 +767,7 @@ describe('Workouts Handler', () => {
     });
 
     it('should return 404 when workout or exercise not found', async () => {
-      mockWorkoutSetService.removeSetFromExercise.mockRejectedValue(new Error('Workout not found'));
+      mockWorkoutSetService.removeSetFromExercise.mockRejectedValue(new NotFoundError('Workout', 'non-existent'));
 
       const response: Response = await request(workoutsApp)
         .delete('/non-existent/exercises/exercise-456/sets/remove');
@@ -777,7 +778,7 @@ describe('Workouts Handler', () => {
     });
 
     it('should return 400 when no pending sets to remove', async () => {
-      mockWorkoutSetService.removeSetFromExercise.mockRejectedValue(new Error('No pending sets to remove'));
+      mockWorkoutSetService.removeSetFromExercise.mockRejectedValue(new ValidationError('No pending sets to remove'));
 
       const response: Response = await request(workoutsApp)
         .delete('/workout-123/exercises/exercise-456/sets/remove');
@@ -788,7 +789,7 @@ describe('Workouts Handler', () => {
     });
 
     it('should return 400 when cannot remove set', async () => {
-      mockWorkoutSetService.removeSetFromExercise.mockRejectedValue(new Error('Cannot remove set from completed workout'));
+      mockWorkoutSetService.removeSetFromExercise.mockRejectedValue(new ValidationError('Cannot remove set from completed workout'));
 
       const response: Response = await request(workoutsApp)
         .delete('/workout-123/exercises/exercise-456/sets/remove');

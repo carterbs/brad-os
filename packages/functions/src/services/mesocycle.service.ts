@@ -1,5 +1,6 @@
 import type { Firestore, WriteBatch } from 'firebase-admin/firestore';
 import { getCollectionName } from '../firebase.js';
+import { NotFoundError, ValidationError, ConflictError } from '../middleware/error-handler.js';
 import type {
   Mesocycle,
   CreateMesocycleRequest,
@@ -76,13 +77,13 @@ export class MesocycleService {
     // Check if plan exists
     const plan = await this.planRepo.findById(request.plan_id);
     if (!plan) {
-      throw new Error(`Plan with id ${request.plan_id} not found`);
+      throw new NotFoundError('Plan', request.plan_id);
     }
 
     // Get plan days with exercises to validate plan is properly configured
     const planDays = await this.planDayRepo.findByPlanId(request.plan_id);
     if (planDays.length === 0) {
-      throw new Error('Plan has no workout days configured');
+      throw new ValidationError('Plan has no workout days configured');
     }
 
     // Create mesocycle (defaults to 'pending' status)
@@ -102,17 +103,17 @@ export class MesocycleService {
   async start(id: string): Promise<Mesocycle> {
     const mesocycle = await this.mesocycleRepo.findById(id);
     if (!mesocycle) {
-      throw new Error(`Mesocycle with id ${id} not found`);
+      throw new NotFoundError('Mesocycle', id);
     }
 
     if (mesocycle.status !== 'pending') {
-      throw new Error('Only pending mesocycles can be started');
+      throw new ValidationError('Only pending mesocycles can be started');
     }
 
     // Check for existing active mesocycle
     const activeMesocycles = await this.mesocycleRepo.findActive();
     if (activeMesocycles.length > 0) {
-      throw new Error('An active mesocycle already exists');
+      throw new ConflictError('An active mesocycle already exists');
     }
 
     // Get plan days with exercises
@@ -131,7 +132,7 @@ export class MesocycleService {
       for (const pde of planDayExercises) {
         const exercise = await this.exerciseRepo.findById(pde.exercise_id);
         if (!exercise) {
-          throw new Error(`Exercise with id ${pde.exercise_id} not found`);
+          throw new NotFoundError('Exercise', pde.exercise_id);
         }
         exercises.push({
           planDayExercise: pde,
@@ -258,11 +259,11 @@ export class MesocycleService {
   async complete(id: string): Promise<Mesocycle> {
     const mesocycle = await this.mesocycleRepo.findById(id);
     if (!mesocycle) {
-      throw new Error(`Mesocycle with id ${id} not found`);
+      throw new NotFoundError('Mesocycle', id);
     }
 
     if (mesocycle.status !== 'active') {
-      throw new Error('Mesocycle is not active');
+      throw new ValidationError('Mesocycle is not active');
     }
 
     const updated = await this.mesocycleRepo.update(id, { status: 'completed' });
@@ -278,11 +279,11 @@ export class MesocycleService {
   async cancel(id: string): Promise<Mesocycle> {
     const mesocycle = await this.mesocycleRepo.findById(id);
     if (!mesocycle) {
-      throw new Error(`Mesocycle with id ${id} not found`);
+      throw new NotFoundError('Mesocycle', id);
     }
 
     if (mesocycle.status !== 'active') {
-      throw new Error('Mesocycle is not active');
+      throw new ValidationError('Mesocycle is not active');
     }
 
     const updated = await this.mesocycleRepo.update(id, { status: 'cancelled' });
