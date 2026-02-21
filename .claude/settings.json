@@ -7,6 +7,14 @@
           {
             "type": "command",
             "command": "FILE=$(jq -r '.tool_input.file_path // empty') && { [[ -z \"$FILE\" || ! \"$FILE\" =~ \\.(ts|tsx|js|jsx)$ ]] || npx eslint --fix \"$FILE\"; }"
+          },
+          {
+            "type": "command",
+            "command": "FILE=$(jq -r '.tool_input.file_path // empty') && { [[ -z \"$FILE\" || ! \"$FILE\" =~ \\.(ts|tsx)$ ]] || cd /Users/bradcarter/Documents/Dev/brad-os/packages/functions && npx tsc --noEmit --pretty 2>&1 | head -20 || true; }"
+          },
+          {
+            "type": "command",
+            "command": "FILE=$(jq -r '.tool_input.file_path // empty') && { [[ -z \"$FILE\" || ! \"$FILE\" =~ \\.swift$ ]] || cd /Users/bradcarter/Documents/Dev/brad-os/ios/BradOS && swiftlint lint --quiet \"$FILE\" 2>&1 | head -20 || true; }"
           }
         ]
       }

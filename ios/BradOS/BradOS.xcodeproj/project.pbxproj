@@ -851,7 +851,7 @@
 			path = Lifting;
 			sourceTree = "<group>";
 		};
-		"TEMP_8DAE7292-0F77-4CA7-924F-684913B3A531" /* Resources */ = {
+		"TEMP_EC1EEA33-467F-472C-A4E6-E0CB9BBB65C3" /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 			);
