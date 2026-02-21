@@ -68,3 +68,7 @@ ios/BradOS/BradOS/GoogleService-Info.plist
 
 # Bundled shared package for Cloud Functions deployment
 packages/functions/shared/
+
+# Local planning/cache
+.plan/
+.cache/
