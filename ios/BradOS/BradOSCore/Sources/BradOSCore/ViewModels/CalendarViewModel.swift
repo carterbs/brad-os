@@ -8,10 +8,14 @@ public class CalendarViewModel: ObservableObject {
 
     @Published public var currentMonth: Date = Date()
     @Published public var activitiesByDate: [String: [CalendarActivity]] = [:]
-    @Published public var isLoading = false
-    @Published public var error: String?
-    @Published public var calendarData: CalendarData?
+    @Published public private(set) var calendarState: LoadState<CalendarData> = .idle
     @Published public var selectedFilter: String?
+
+    // MARK: - Computed (backwards-compatible)
+
+    public var isLoading: Bool { calendarState.isLoading }
+    public var error: String? { calendarState.error?.displayMessage }
+    public var calendarData: CalendarData? { calendarState.data }
 
     // MARK: - Dependencies
 
@@ -41,8 +45,7 @@ public class CalendarViewModel: ObservableObject {
 
     /// Load calendar data for the current month
     public func loadCalendarData() async {
-        isLoading = true
-        error = nil
+        calendarState = .loading
 
         do {
             let response = try await apiClient.getCalendarData(
@@ -51,17 +54,15 @@ public class CalendarViewModel: ObservableObject {
                 timezoneOffset: timezoneOffset
             )
 
-            calendarData = response
+            calendarState = .loaded(response)
 
             // Transform CalendarDayData to activities array per date
             activitiesByDate = response.days.mapValues { dayData in
                 dayData.activities
             }
         } catch {
-            self.error = "Failed to load calendar data"
+            calendarState = .error(error)
         }
-
-        isLoading = false
     }
 
     /// Fetch calendar data for the current month (alias for loadCalendarData)
@@ -155,14 +156,16 @@ public extension CalendarViewModel {
     /// Create a view model simulating loading state
     static var loading: CalendarViewModel {
         let viewModel = CalendarViewModel(apiClient: MockAPIClient.withDelay(2.0))
-        viewModel.isLoading = true
+        viewModel.calendarState = .loading
         return viewModel
     }
 
     /// Create a view model simulating error state
     static var errorState: CalendarViewModel {
         let viewModel = CalendarViewModel(apiClient: MockAPIClient.failing())
-        viewModel.error = "Failed to load calendar data"
+        viewModel.calendarState = .error(APIError.network(NSError(domain: "", code: -1, userInfo: [
+            NSLocalizedDescriptionKey: "Failed to load calendar data"
+        ])))
         return viewModel
     }
 

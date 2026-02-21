@@ -97,7 +97,7 @@ class ExerciseHistoryViewModel: ObservableObject {
             isUpdating = false
             return true
         } catch {
-            updateError = parseError(error)
+            updateError = error.displayMessage
             isUpdating = false
             return false
         }
@@ -134,13 +134,6 @@ class ExerciseHistoryViewModel: ObservableObject {
     }
 
     // MARK: - Helpers
-
-    private func parseError(_ error: Error) -> String {
-        if let apiError = error as? APIError {
-            return apiError.message
-        }
-        return error.localizedDescription
-    }
 
     private func formatWeightIncrement(_ value: Double) -> String {
         if value.truncatingRemainder(dividingBy: 1) == 0 {

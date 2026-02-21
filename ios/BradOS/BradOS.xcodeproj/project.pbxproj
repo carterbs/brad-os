@@ -22,6 +22,7 @@
 		0E7B59F8EC54495D5AFD971E /* TodayCoachDetailView+Sections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 029378B1B953ECC6D2E24AC6 /* TodayCoachDetailView+Sections.swift */; };
 		1259C6E662B064549437CA75 /* BarcodeWalletView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44CA545D816A69914CAA801D /* BarcodeWalletView.swift */; };
 		12FFC4D283D2EFCFE77D8A8A /* CyclingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA13B528976D6158FAD1396F /* CyclingViewModel.swift */; };
+		165E1D28FB054A9CC2557515 /* LoadStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BC1E634DFF6AA2C64A0E1C2 /* LoadStateView.swift */; };
 		17782B51CDF2746E1BB59290 /* WorkoutManager+Context.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECEE66DEFC9900222CDEE1C3 /* WorkoutManager+Context.swift */; };
 		18709989938802F8B0B43D0C /* MealPlanGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 511B89B20EB43811B7882699 /* MealPlanGridView.swift */; };
 		189FBD96D7EFC5338335647C /* WeightGoalView+Charts.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCA34F8E0E9408BBB73B1F1B /* WeightGoalView+Charts.swift */; };
@@ -44,7 +45,6 @@
 		3078497041DB37D85E0C5252 /* TextToSpeechViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 860F464B6153DE259CA15B43 /* TextToSpeechViewModel.swift */; };
 		31019FE4FFBCA5704111E1C4 /* TodayCoachClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F7986113E22E50B924F9B7F /* TodayCoachClient.swift */; };
 		31987F115A5E471B11730A54 /* MealPlanWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06D0B8347A99B93E834A9FED /* MealPlanWidget.swift */; };
-		322C80E6C03891D58961B1EF /* CyclingAPIClientProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1CF9466E261248F84B8305 /* CyclingAPIClientProtocol.swift */; };
 		328E6FBABB08CF31FB025887 /* StretchSupportViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62E7BB00FEA56784F03E89F8 /* StretchSupportViews.swift */; };
 		35D3E2A9780F237391241D01 /* StravaConnectionView+Sections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A5ABDB9A6FF40B99D519918 /* StravaConnectionView+Sections.swift */; };
 		36BDCF58471798B9A4004C0D /* StretchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06FAC4C7BDEAE262B3CC404F /* StretchView.swift */; };
@@ -244,6 +244,7 @@
 		17EE8DDE72557ED06FDF728C /* MeditationManifest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationManifest.swift; sourceTree = "<group>"; };
 		187340315FF519C4F8D914AB /* FTPEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FTPEntryView.swift; sourceTree = "<group>"; };
 		1AE87A13F207E1549739EDF4 /* BarcodeFormView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeFormView.swift; sourceTree = "<group>"; };
+		1BC1E634DFF6AA2C64A0E1C2 /* LoadStateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadStateView.swift; sourceTree = "<group>"; };
 		1F7282E428085A0EEE9FDABE /* EfficiencyFactorChart.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EfficiencyFactorChart.swift; sourceTree = "<group>"; };
 		2303AB8F9F1AAF211AB3E335 /* StretchSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchSetupView.swift; sourceTree = "<group>"; };
 		233426DF2BD48E5CB18E73F3 /* TrainingBlockSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingBlockSetupView.swift; sourceTree = "<group>"; };
@@ -396,7 +397,6 @@
 		F8A1A73EC80514BA87B64890 /* FoodScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodScannerView.swift; sourceTree = "<group>"; };
 		F957A5A2A6637FCA0986D7B0 /* HealthMetricHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthMetricHistoryView.swift; sourceTree = "<group>"; };
 		FA13B528976D6158FAD1396F /* CyclingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingViewModel.swift; sourceTree = "<group>"; };
-		FB1CF9466E261248F84B8305 /* CyclingAPIClientProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingAPIClientProtocol.swift; sourceTree = "<group>"; };
 		FB5D60FE3BC6768651DE9621 /* TodayCoachDetailView+Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TodayCoachDetailView+Helpers.swift"; sourceTree = "<group>"; };
 		FD45B75A479093507100918B /* LiftingTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiftingTabView.swift; sourceTree = "<group>"; };
 		FE15CBAC22F7DA10D9FB2521 /* MeditationCompleteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationCompleteView.swift; sourceTree = "<group>"; };
@@ -472,6 +472,7 @@
 				C314C4B07F71DEAD03ABE429 /* EmptyStateView.swift */,
 				2EB7D67BFCEA76962684150F /* ErrorStateView.swift */,
 				D1FD886F6F9131804F710038 /* LoadingView.swift */,
+				1BC1E634DFF6AA2C64A0E1C2 /* LoadStateView.swift */,
 				95A2DE32A58E6CAD1F228067 /* NotificationSettingsView.swift */,
 				CE93789A2229F32CC25BE1E2 /* SectionHeader.swift */,
 				0F6E117271DD3981B357748D /* StatusBadge.swift */,
@@ -772,14 +773,6 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
-		C0B13940A74D2399F11588A6 /* Protocols */ = {
-			isa = PBXGroup;
-			children = (
-				FB1CF9466E261248F84B8305 /* CyclingAPIClientProtocol.swift */,
-			);
-			path = Protocols;
-			sourceTree = "<group>";
-		};
 		CBA0DCA9485AA5E7B944CE45 /* Health */ = {
 			isa = PBXGroup;
 			children = (
@@ -796,7 +789,6 @@
 				27DE064832740EFE6D2B9ED2 /* Components */,
 				902CB203F68951F01F41A400 /* Extensions */,
 				BB6728928AF4A316229CFE13 /* Models */,
-				C0B13940A74D2399F11588A6 /* Protocols */,
 				2E02F2556B233379B298698A /* Services */,
 				E80B212E743785C24B5A03F7 /* Storage */,
 				559FE34F30E3BFFC9D40D87E /* Theme */,
@@ -851,7 +843,7 @@
 			path = Lifting;
 			sourceTree = "<group>";
 		};
-		"TEMP_F2869150-D365-4AE5-A2A5-82836CD4C69E" /* Resources */ = {
+		"TEMP_E21CC384-5892-49A3-A364-7D6A70E82492" /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -1013,7 +1005,6 @@
 				5BFC07B87B0651B487E308F2 /* CollapsibleCritiqueView.swift in Sources */,
 				066415228315231B0DA4DF30 /* ContentView.swift in Sources */,
 				A397B3DA95F1A0DC9A40CE99 /* CritiqueInputView.swift in Sources */,
-				322C80E6C03891D58961B1EF /* CyclingAPIClientProtocol.swift in Sources */,
 				A2672EF267DB8F4DEB73DF48 /* CyclingBlockView+Cards.swift in Sources */,
 				687ED813020B272B9D6301A0 /* CyclingBlockView.swift in Sources */,
 				3B0A570782106358E7AE4962 /* CyclingCoachClient.swift in Sources */,
@@ -1055,6 +1046,7 @@
 				F7E73D097F3A08BEDF56B266 /* HistoryView.swift in Sources */,
 				EA6DB5F838F769ECDD5B890D /* KeychainService.swift in Sources */,
 				0C2035D397B4383A35E1E100 /* LiftingTabView.swift in Sources */,
+				165E1D28FB054A9CC2557515 /* LoadStateView.swift in Sources */,
 				B8629E664B4B6BBF3D6C54F0 /* LoadingView.swift in Sources */,
 				A32F36B56C6FC05C45681DB3 /* MainTabView.swift in Sources */,
 				42EE5173C656ADF9C1C695BE /* MealDayCard.swift in Sources */,

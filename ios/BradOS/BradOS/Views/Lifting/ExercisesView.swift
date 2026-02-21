@@ -17,17 +17,12 @@ struct ExercisesView: View {
     }
 
     var body: some View {
-        Group {
-            switch viewModel.exercisesState {
-            case .idle, .loading:
-                LoadingView(message: "Loading exercises...")
-
-            case .error(let error):
-                errorView(error)
-
-            case .loaded:
-                contentView
-            }
+        LoadStateView(
+            viewModel.exercisesState,
+            loadingMessage: "Loading exercises...",
+            retryAction: { await viewModel.loadExercises() }
+        ) { _ in
+            contentView
         }
         .background(AuroraBackground().ignoresSafeArea())
         .navigationTitle("Exercises")
@@ -185,23 +180,6 @@ struct ExercisesView: View {
         } message: {
             Text(viewModel.deleteError ?? "")
         }
-    }
-
-    // MARK: - Error View
-
-    @ViewBuilder
-    private func errorView(_ error: Error) -> some View {
-        VStack(spacing: Theme.Spacing.space4) {
-            EmptyStateView(
-                iconName: "exclamationmark.triangle",
-                title: "Failed to Load",
-                message: error.localizedDescription,
-                buttonTitle: "Try Again"
-            ) {
-                Task { await viewModel.loadExercises() }
-            }
-        }
-        .padding(Theme.Spacing.space4)
     }
 }
 
