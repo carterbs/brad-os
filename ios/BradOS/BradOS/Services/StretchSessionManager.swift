@@ -68,19 +68,8 @@ class StretchSessionManager: ObservableObject {
         storedSessionStartTime
     }
 
-    var isFirstSegment: Bool {
-        currentSegment == 1
-    }
-
     var isLastStretch: Bool {
         currentStretchIndex == selectedStretches.count - 1
-    }
-
-    var progressFraction: Double {
-        guard totalStretches > 0 else { return 0 }
-        let completedSegments = currentStretchIndex * 2 + (currentSegment - 1)
-        let totalSegments = totalStretches * 2
-        return Double(completedSegments) / Double(totalSegments)
     }
 
     // MARK: - Internal Properties (accessed by extensions)
@@ -135,7 +124,7 @@ class StretchSessionManager: ObservableObject {
             // User returned from Spotify — signal the view to start audio prep
             spotifyState = .idle
             isWaitingForSpotifyReturn = false
-            pendingConfig = nil
+
             isReadyForAudioPrep = true
         case .waitingForHide:
             // App became active before losing focus - Spotify may have failed to open
@@ -146,7 +135,7 @@ class StretchSessionManager: ObservableObject {
                     // Still waiting, Spotify didn't open, proceed anyway
                     self.spotifyState = .idle
                     self.isWaitingForSpotifyReturn = false
-                    self.pendingConfig = nil
+
                     self.isReadyForAudioPrep = true
                 }
             }
@@ -170,7 +159,6 @@ class StretchSessionManager: ObservableObject {
         }
 
         // Store config for when user returns
-        pendingConfig = config
 
         // Open Spotify if configured
         if let spotifyUrl = config.spotifyPlaylistUrl, !spotifyUrl.isEmpty {
@@ -241,7 +229,7 @@ class StretchSessionManager: ObservableObject {
     func cancelSpotifyWait() {
         spotifyState = .idle
         isWaitingForSpotifyReturn = false
-        pendingConfig = nil
+
         isReadyForAudioPrep = true
     }
 }

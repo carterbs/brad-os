@@ -27,14 +27,12 @@ final class GuidedMeditationPipeline: ObservableObject {
         let startTime: TimeInterval  // Absolute start time in the full timeline
         let duration: TimeInterval
         let phase: String
-        let isAudio: Bool  // true for TTS, false for silence
     }
     private var timelineEntries: [TimelineEntry] = []
     private var totalDuration: TimeInterval = 0
 
     // Audio session
     private let audioSession = AudioSessionManager.shared
-    private let nowPlaying = NowPlayingManager.shared
 
     // MARK: - Build Timeline
 
@@ -129,7 +127,7 @@ final class GuidedMeditationPipeline: ObservableObject {
                 playerItems.append(AVPlayerItem(url: silenceURL))
 
                 timelineEntries.append(TimelineEntry(
-                    startTime: currentEndTime, duration: silenceGap, phase: "silence", isAudio: false
+                    startTime: currentEndTime, duration: silenceGap, phase: "silence"
                 ))
                 currentEndTime += silenceGap
             }
@@ -138,7 +136,7 @@ final class GuidedMeditationPipeline: ObservableObject {
             playerItems.append(AVPlayerItem(url: event.fileURL))
 
             timelineEntries.append(TimelineEntry(
-                startTime: currentEndTime, duration: event.audioDuration, phase: event.phase, isAudio: true
+                startTime: currentEndTime, duration: event.audioDuration, phase: event.phase
             ))
             currentEndTime += event.audioDuration
         }
@@ -150,7 +148,7 @@ final class GuidedMeditationPipeline: ObservableObject {
             playerItems.append(AVPlayerItem(url: silenceURL))
 
             timelineEntries.append(TimelineEntry(
-                startTime: currentEndTime, duration: remainingSilence, phase: "silence", isAudio: false
+                startTime: currentEndTime, duration: remainingSilence, phase: "silence"
             ))
             currentEndTime += remainingSilence
         }
@@ -163,7 +161,7 @@ final class GuidedMeditationPipeline: ObservableObject {
             playerItems.append(AVPlayerItem(url: bellURL))
 
             timelineEntries.append(TimelineEntry(
-                startTime: currentEndTime, duration: 3, phase: "complete", isAudio: true
+                startTime: currentEndTime, duration: 3, phase: "complete"
             ))
         }
 

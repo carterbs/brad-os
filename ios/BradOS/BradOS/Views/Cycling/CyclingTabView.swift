@@ -14,8 +14,6 @@ enum CyclingTab: Int, Hashable {
 /// Tab navigation for cycling context (Today, Block, History)
 struct CyclingTabView: View {
     @EnvironmentObject var appState: AppState
-    @EnvironmentObject var healthKit: HealthKitManager
-    @EnvironmentObject var stravaAuth: StravaAuthManager
     @EnvironmentObject var viewModel: CyclingViewModel
     @State private var selectedTab: CyclingTab = .today
 

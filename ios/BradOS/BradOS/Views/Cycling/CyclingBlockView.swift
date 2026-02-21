@@ -7,7 +7,6 @@ import Charts
 struct CyclingBlockView: View {
     @EnvironmentObject var viewModel: CyclingViewModel
     @State private var showNewBlockSheet = false
-    @State private var showBlockCompletedSheet = false
     @State private var showBlockError = false
 
     var body: some View {

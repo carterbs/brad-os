@@ -224,18 +224,6 @@ class HealthMetricHistoryViewModel {
         return points
     }
 
-    var twoWeekProjectedValue: Double? {
-        guard let slope = trendSlope,
-              let lastPoint = allSmoothedHistory.last,
-              abs(slope) > 0.001 else { return nil }
-        return lastPoint.value + slope * 14
-    }
-
-    var weeklyRate: Double? {
-        guard let slope = trendSlope, abs(slope) > 0.001 else { return nil }
-        return slope * 7
-    }
-
     var chartYDomain: ClosedRange<Double> {
         let allValues = history.map(\.value) + projectedTrendPoints.map(\.value)
         let minVal = allValues.min() ?? metric.defaultYRange.min
@@ -290,7 +278,6 @@ struct SleepChartPoint: Identifiable {
     let coreHours: Double
     let deepHours: Double
     let remHours: Double
-    let awakeHours: Double
     let efficiency: Double
 }
 
@@ -371,7 +358,6 @@ class SleepHistoryViewModel {
                     coreHours: Double(entry.coreMinutes) / 60.0,
                     deepHours: Double(entry.deepMinutes) / 60.0,
                     remHours: Double(entry.remMinutes) / 60.0,
-                    awakeHours: Double(entry.awakeMinutes) / 60.0,
                     efficiency: entry.sleepEfficiency
                 )
             }.sorted { $0.date < $1.date }

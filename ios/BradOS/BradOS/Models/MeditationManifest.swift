@@ -9,8 +9,6 @@ struct MeditationManifest: Codable {
 /// Definition of a meditation session type with variants
 struct MeditationSessionDefinition: Codable {
     let id: String
-    let name: String
-    let description: String
     let variants: [MeditationVariant]
 }
 
@@ -63,7 +61,6 @@ struct InterjectionWindow: Codable {
 /// Shared audio resources used across sessions
 struct MeditationSharedAudio: Codable {
     let bell: String
-    let silence: String
 }
 
 // MARK: - Computed Properties

@@ -148,7 +148,6 @@ extension HealthKitManager {
         let sleep = try await sleepTask
 
         guard hrv != nil || rhr != nil else {
-            latestRecovery = nil
             throw HealthKitError.noData
         }
 
@@ -162,7 +161,6 @@ extension HealthKitManager {
             sleepMetrics: sleep
         )
 
-        latestRecovery = recovery
         return recovery
     }
 
@@ -197,22 +195,12 @@ extension HealthKitManager {
         return baseline
     }
 
-    /// Force refresh of baseline data
-    func refreshBaseline() async throws -> RecoveryBaseline {
-        cachedBaseline = nil
-        baselineLastUpdated = nil
-        return try await getOrUpdateBaseline()
-    }
-
     /// Refresh all recovery data
     func refresh() async {
         do {
-            error = nil
             _ = try await calculateRecoveryScore()
-        } catch let healthError as HealthKitError {
-            error = healthError
         } catch {
-            self.error = .queryFailed(error)
+            // Silently handle refresh errors
         }
     }
 }

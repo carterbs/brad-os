@@ -17,35 +17,14 @@ final class RestTimerManager: ObservableObject {
     private var timer: Timer?
     private var audioPlayer: AVAudioPlayer?
 
-    // For state persistence
-    private(set) var exerciseId: String?
-    private(set) var setNumber: Int?
-
-    // MARK: - Computed Properties
-
-    var remainingSeconds: Int {
-        max(0, targetSeconds - elapsedSeconds)
-    }
-
-    var overtimeSeconds: Int {
-        max(0, elapsedSeconds - targetSeconds)
-    }
-
-    var progress: Double {
-        guard targetSeconds > 0 else { return 0 }
-        return min(1.0, Double(elapsedSeconds) / Double(targetSeconds))
-    }
-
     // MARK: - Public Methods
 
     /// Start a new rest timer
-    func start(targetSeconds: Int, exerciseId: String? = nil, setNumber: Int? = nil) {
+    func start(targetSeconds: Int) {
         // Stop any existing timer
         dismiss()
 
         self.targetSeconds = targetSeconds
-        self.exerciseId = exerciseId
-        self.setNumber = setNumber
         self.startedAt = Date()
         self.elapsedSeconds = 0
         self.isComplete = false
@@ -57,10 +36,8 @@ final class RestTimerManager: ObservableObject {
     }
 
     /// Restore a timer from persisted state
-    func restore(startedAt: Date, targetSeconds: Int, exerciseId: String? = nil, setNumber: Int? = nil) {
+    func restore(startedAt: Date, targetSeconds: Int) {
         self.targetSeconds = targetSeconds
-        self.exerciseId = exerciseId
-        self.setNumber = setNumber
         self.startedAt = startedAt
         self.elapsedSeconds = Int(Date().timeIntervalSince(startedAt))
         self.isComplete = elapsedSeconds >= targetSeconds
@@ -86,8 +63,6 @@ final class RestTimerManager: ObservableObject {
         elapsedSeconds = 0
         targetSeconds = 0
         startedAt = nil
-        exerciseId = nil
-        setNumber = nil
     }
 
     /// Handle app returning to foreground

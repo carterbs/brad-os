@@ -2,24 +2,6 @@ import Foundation
 import AVFoundation
 import UIKit
 
-/// Errors that can occur during audio playback
-enum StretchAudioError: Error, LocalizedError {
-    case fileNotFound(String)
-    case playbackFailed(Error)
-    case sessionConfigurationFailed(Error)
-
-    var errorDescription: String? {
-        switch self {
-        case .fileNotFound(let path):
-            return "Audio file not found: \(path)"
-        case .playbackFailed(let error):
-            return "Audio playback failed: \(error.localizedDescription)"
-        case .sessionConfigurationFailed(let error):
-            return "Failed to configure audio session: \(error.localizedDescription)"
-        }
-    }
-}
-
 /// Manages audio playback for stretch narration
 ///
 /// Uses the Organic Maps pattern: configure the audio session once with ducking

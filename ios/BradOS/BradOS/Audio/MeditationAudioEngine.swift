@@ -6,11 +6,6 @@ import Foundation
 final class MeditationAudioEngine: ObservableObject {
     static let shared = MeditationAudioEngine()
 
-    // MARK: - Published State
-
-    @Published var isPlaying: Bool = false
-    @Published var audioError: Error?
-
     // MARK: - Audio Players
 
     private var keepalivePlayer: AVAudioPlayer?
@@ -35,7 +30,7 @@ final class MeditationAudioEngine: ObservableObject {
         audioSession.onInterruption = { [weak self] type in
             switch type {
             case .began:
-                self?.isPlaying = false
+                break
             case .ended:
                 // Will be handled by the view to resume if needed
                 break
@@ -119,8 +114,6 @@ final class MeditationAudioEngine: ObservableObject {
             }
         }
 
-        isPlaying = true
-        defer { isPlaying = false }
         try await audioSession.playNarration(url: url)
     }
 
@@ -188,32 +181,20 @@ final class MeditationAudioEngine: ObservableObject {
     func pause() {
         audioSession.stopNarration()
         keepalivePlayer?.pause()
-        isPlaying = false
     }
 
     /// Resume audio playback
     func resume() {
         keepalivePlayer?.play()
         // Don't resume narration - let the cue scheduler handle it
-        isPlaying = true
     }
 
     // MARK: - Cleanup
-
-    /// Teardown the audio engine
-    func teardown() {
-        stopNarration()
-        stopKeepalive()
-        audioSession.deactivate()
-        isInitialized = false
-        isPlaying = false
-    }
 
     /// Stop all audio immediately (for early session end)
     func stopAll() {
         stopNarration()
         stopKeepalive()
-        isPlaying = false
     }
 
     private func log(_ message: String) {

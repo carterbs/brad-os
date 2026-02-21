@@ -19,8 +19,6 @@ final class TextToSpeechViewModel: ObservableObject {
     private let audioEngine = TTSAudioEngine()
     private var cancellables = Set<AnyCancellable>()
 
-    var isGenerating: Bool { state == .generating }
-    var isPlaying: Bool { state == .playing }
     var canPlay: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && state == .idle }
 
     init(apiClient: APIClientProtocol = APIClient.shared) {

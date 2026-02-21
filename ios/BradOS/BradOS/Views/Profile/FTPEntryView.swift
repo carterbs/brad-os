@@ -227,26 +227,6 @@ struct FTPEntryView: View {
             }
         }
     }
-
-    private func loadHistory() {
-        Task {
-            do {
-                let history = try await APIClient.shared.getFTPHistory()
-                let formatter = DateFormatter()
-                formatter.dateFormat = "yyyy-MM-dd"
-                ftpHistory = history.map { entry in
-                    FTPEntry(
-                        id: entry.id,
-                        value: entry.value,
-                        date: formatter.date(from: entry.date) ?? Date(),
-                        source: entry.source == "test" ? .test : .manual
-                    )
-                }
-            } catch {
-                print("[FTPEntryView] Failed to load FTP history: \(error)")
-            }
-        }
-    }
 }
 
 #Preview {

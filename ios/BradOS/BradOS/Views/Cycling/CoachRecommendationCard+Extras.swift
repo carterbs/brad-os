@@ -1,10 +1,5 @@
 import SwiftUI
 
-// Surface extension for Theme
-extension Theme {
-    static let surfaceSecondary = Color.white.opacity(0.04)
-}
-
 // MARK: - Loading Card
 
 /// Loading state for coach recommendation
@@ -109,7 +104,6 @@ struct CoachRecommendationErrorCard: View {
         session: CyclingCoachRecommendation.SessionRecommendation(
             type: "vo2max",
             durationMinutes: 45,
-            intervals: nil,
             targetTSS: CyclingCoachRecommendation.TSSRange(min: 45, max: 60),
             targetZones: "Z5-Z6 for work, Z1-Z2 for recovery",
             pelotonClassTypes: ["Power Zone Max", "HIIT & Hills", "Tabata"],
@@ -124,7 +118,7 @@ struct CoachRecommendationErrorCard: View {
         suggestFTPTest: false
     )
 
-    CoachRecommendationCard(recommendation: recommendation, ftp: 280)
+    CoachRecommendationCard(recommendation: recommendation)
         .padding()
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
@@ -135,7 +129,6 @@ struct CoachRecommendationErrorCard: View {
         session: CyclingCoachRecommendation.SessionRecommendation(
             type: "fun",
             durationMinutes: 60,
-            intervals: nil,
             targetTSS: CyclingCoachRecommendation.TSSRange(min: 30, max: 80),
             targetZones: "Whatever feels good - Z2-Z4",
             pelotonClassTypes: ["Scenic Ride", "Music Ride", "Live DJ Ride"],
@@ -150,7 +143,7 @@ struct CoachRecommendationErrorCard: View {
         suggestFTPTest: true
     )
 
-    CoachRecommendationCard(recommendation: recommendation, ftp: 280)
+    CoachRecommendationCard(recommendation: recommendation)
         .padding()
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)
@@ -161,7 +154,6 @@ struct CoachRecommendationErrorCard: View {
         session: CyclingCoachRecommendation.SessionRecommendation(
             type: "off",
             durationMinutes: 0,
-            intervals: nil,
             targetTSS: CyclingCoachRecommendation.TSSRange(min: 0, max: 0),
             targetZones: "None",
             pelotonClassTypes: nil,
@@ -181,7 +173,7 @@ struct CoachRecommendationErrorCard: View {
         suggestFTPTest: false
     )
 
-    CoachRecommendationCard(recommendation: recommendation, ftp: nil)
+    CoachRecommendationCard(recommendation: recommendation)
         .padding()
         .background(AuroraBackground().ignoresSafeArea())
         .preferredColorScheme(.dark)

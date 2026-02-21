@@ -98,12 +98,6 @@ struct TodayCoachCard: View {
         }
     }
 
-    func refresh() async {
-        // Force refresh bypasses caches
-        coachClient.invalidateCache()
-        await loadCoachRecommendation()
-    }
-
     // MARK: - Loading State
 
     private var loadingState: some View {
@@ -175,7 +169,6 @@ struct TodayCoachCard: View {
                 Button("Enable HealthKit") {
                     Task {
                         try? await healthKit.requestAuthorization()
-                        await healthKit.refresh()
                     }
                 }
                 .font(.callout.weight(.semibold))

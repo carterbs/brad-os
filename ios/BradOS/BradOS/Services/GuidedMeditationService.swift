@@ -11,7 +11,6 @@ final class GuidedMeditationService: ObservableObject {
 
     @Published var scripts: [GuidedMeditationScript] = []
     @Published var preparationProgress: Double = 0
-    @Published var isPreparing: Bool = false
 
     // MARK: - Dependencies
 
@@ -35,9 +34,7 @@ final class GuidedMeditationService: ObservableObject {
     func prepareAudio(
         for script: GuidedMeditationScript
     ) async throws -> (segments: [PreparedAudioSegment], interjections: [ResolvedInterjection]) {
-        isPreparing = true
         preparationProgress = 0
-        defer { isPreparing = false }
 
         guard let segments = script.segments, let interjections = script.interjections else {
             throw GuidedMeditationError.scriptMissingContent

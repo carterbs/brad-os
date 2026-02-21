@@ -47,10 +47,4 @@ final class TTSAudioCache {
         let data = try await fetcher(text)
         return try store(data: data, for: text)
     }
-
-    /// Clear entire cache
-    func clearCache() throws {
-        try FileManager.default.removeItem(at: cacheDirectory)
-        try FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
-    }
 }

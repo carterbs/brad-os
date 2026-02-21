@@ -42,11 +42,6 @@ class StretchSessionStorage {
         return state
     }
 
-    /// Check if there's a recoverable session
-    func hasRecoverableSession() -> Bool {
-        return load() != nil
-    }
-
     /// Get information about the recoverable session without loading full state
     func getRecoveryInfo() -> (stretchName: String, regionName: String, progress: String)? {
         guard let state = load(),

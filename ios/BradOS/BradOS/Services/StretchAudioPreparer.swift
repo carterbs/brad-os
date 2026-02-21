@@ -30,7 +30,6 @@ struct PreparedStretchAudio {
 @MainActor
 final class StretchAudioPreparer: ObservableObject {
     @Published var progress: Double = 0
-    @Published var isPreparing: Bool = false
     @Published var error: APIError?
 
     private let apiClient: APIClientProtocol
@@ -44,7 +43,6 @@ final class StretchAudioPreparer: ObservableObject {
     /// Prepare all audio for the given stretches and shared cues.
     /// Returns PreparedStretchAudio with cached URLs for all clips.
     func prepareAudio(for stretches: [SelectedStretch]) async throws -> PreparedStretchAudio {
-        isPreparing = true
         progress = 0
         error = nil
 
@@ -58,7 +56,6 @@ final class StretchAudioPreparer: ObservableObject {
             totalItems: totalItems, completedItems: &completedItems
         )
 
-        isPreparing = false
         return buildResult(stretchAudio: stretchAudio, stretchNameAudio: stretchNameAudio, sharedURLs: sharedURLs)
     }
 

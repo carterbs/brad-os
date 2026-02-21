@@ -173,10 +173,6 @@ struct MeditationView: View {
                             sessionState = .complete
                             storage.clearMeditationState()
                             saveSessionToServer(session)
-                        },
-                        onCancel: {
-                            sessionState = .categorySelection
-                            storage.clearMeditationState()
                         }
                     )
 
@@ -191,10 +187,6 @@ struct MeditationView: View {
                                 sessionState = .complete
                                 storage.clearMeditationState()
                                 saveSessionToServer(session)
-                            },
-                            onCancel: {
-                                sessionState = .categorySelection
-                                storage.clearMeditationState()
                             }
                         )
                     }

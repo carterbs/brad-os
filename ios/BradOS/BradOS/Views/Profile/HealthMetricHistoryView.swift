@@ -105,7 +105,6 @@ struct HealthMetricHistoryView: View {
                     ForEach(HealthChartRange.allCases, id: \.self) { range in
                         FilterChip(
                             title: range.rawValue,
-                            color: metric.color,
                             isSelected: viewModel.selectedRange == range
                         ) {
                             withAnimation(.easeInOut(duration: 0.2)) {

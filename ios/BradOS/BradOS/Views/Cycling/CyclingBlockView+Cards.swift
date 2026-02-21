@@ -194,37 +194,6 @@ struct FTPCardWithWarning: View {
     }
 }
 
-// MARK: - FTP Card (Legacy)
-
-/// Card displaying current FTP
-struct FTPCard: View {
-    let ftp: Int
-
-    var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: Theme.Spacing.space1) {
-                Text("FTP")
-                    .font(.subheadline)
-                    .foregroundStyle(Theme.textSecondary)
-                HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text("\(ftp)")
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .monospacedDigit()
-                        .foregroundColor(Theme.textPrimary)
-                    Text("watts")
-                        .font(.subheadline)
-                        .foregroundStyle(Theme.textSecondary)
-                }
-            }
-            Spacer()
-            Image(systemName: "bolt.fill")
-                .font(.system(size: 28))
-                .foregroundStyle(.yellow)
-        }
-        .glassCard()
-    }
-}
-
 // MARK: - Block Completed Card
 
 /// Card shown when training block is complete

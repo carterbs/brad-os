@@ -12,15 +12,7 @@ struct CyclingHistoryView: View {
             LazyVStack(spacing: Theme.Spacing.space3) {
                 if !stravaAuth.isConnected {
                     // Not connected to Strava
-                    EmptyHistoryCard(onConnectStrava: {
-                        Task {
-                            do {
-                                try await stravaAuth.startOAuthFlow()
-                            } catch {
-                                print("[CyclingHistory] Strava connect failed: \(error)")
-                            }
-                        }
-                    })
+                    EmptyHistoryCard()
                 } else if viewModel.activities.isEmpty {
                     // Connected but no activities yet
                     NoRidesCard()
@@ -176,8 +168,6 @@ struct WorkoutTypeBadge: View {
 
 /// Empty state when not connected to Strava
 struct EmptyHistoryCard: View {
-    var onConnectStrava: (() -> Void)?
-
     var body: some View {
         VStack(spacing: Theme.Spacing.space3) {
             Image(systemName: "bicycle")

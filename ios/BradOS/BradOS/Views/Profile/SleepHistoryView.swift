@@ -104,7 +104,6 @@ struct SleepHistoryView: View {
                     ForEach(HealthChartRange.allCases, id: \.self) { range in
                         FilterChip(
                             title: range.rawValue,
-                            color: Theme.interactiveSecondary,
                             isSelected: viewModel.selectedRange == range
                         ) {
                             withAnimation(.easeInOut(duration: 0.2)) {

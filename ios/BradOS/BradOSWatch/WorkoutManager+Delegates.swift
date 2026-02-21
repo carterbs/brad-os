@@ -177,7 +177,6 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
         didFailWithError error: Error
     ) {
         Task { @MainActor in
-            self.error = error
             self.isWorkoutActive = false
             self.stopElapsedTimer()
 
@@ -210,7 +209,6 @@ extension WorkoutManager: HKLiveWorkoutBuilderDelegate {
                         if value > self.maxHeartRate {
                             self.maxHeartRate = value
                         }
-                        self.sendHeartRateToiPhone()
                     }
 
                 case HKQuantityType(.activeEnergyBurned):

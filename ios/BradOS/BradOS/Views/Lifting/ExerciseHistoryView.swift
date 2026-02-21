@@ -4,14 +4,12 @@ import BradOSCore
 
 /// View displaying exercise history with Swift Charts and API data
 struct ExerciseHistoryView: View {
-    let exerciseId: String
     let exerciseName: String
 
     @StateObject private var viewModel: ExerciseHistoryViewModel
     @State private var showingEditSheet = false
 
     init(exerciseId: String, exerciseName: String) {
-        self.exerciseId = exerciseId
         self.exerciseName = exerciseName
         _viewModel = StateObject(
             wrappedValue: ExerciseHistoryViewModel(exerciseId: exerciseId)

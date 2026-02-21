@@ -20,8 +20,6 @@ struct StravaConnectionView: View {
     #endif
 
     struct SyncResult {
-        let imported: Int
-        let skipped: Int
         let message: String
     }
 
@@ -66,8 +64,6 @@ struct StravaConnectionView: View {
         do {
             let response = try await syncStravaActivities()
             syncResult = SyncResult(
-                imported: response.imported,
-                skipped: response.skipped,
                 message: response.message
             )
         } catch {

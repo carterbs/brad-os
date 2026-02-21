@@ -4,17 +4,6 @@ import AVFoundation
 /// Generates silent WAV audio files of exact durations for use as spacers in AVQueuePlayer
 final class SilenceGenerator {
 
-    enum SilenceError: LocalizedError {
-        case failedToCreateFile(String)
-
-        var errorDescription: String? {
-            switch self {
-            case .failedToCreateFile(let reason):
-                return "Failed to generate silence file: \(reason)"
-            }
-        }
-    }
-
     /// Generate a silent WAV file of the specified duration
     /// - Parameters:
     ///   - duration: Duration in seconds
@@ -71,12 +60,5 @@ final class SilenceGenerator {
 
         try data.write(to: fileURL)
         return fileURL
-    }
-
-    /// Clean up generated silence files
-    static func cleanup() {
-        let tempDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("meditation-silence", isDirectory: true)
-        try? FileManager.default.removeItem(at: tempDir)
     }
 }

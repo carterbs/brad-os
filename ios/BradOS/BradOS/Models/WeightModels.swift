@@ -5,8 +5,6 @@ struct WeightHistoryEntry: Codable, Identifiable {
     let id: String
     let date: String       // YYYY-MM-DD
     let weightLbs: Double
-    let source: String     // "healthkit" or "manual"
-    let syncedAt: String   // ISO 8601
 
     /// Parse the date string into a Date
     var parsedDate: Date? {
@@ -51,9 +49,6 @@ struct RecoveryBaselineSyncData: Encodable {
 /// Response from the recovery sync endpoint
 struct RecoverySyncResponse: Decodable {
     let synced: Bool
-    let recoveryDate: String
-    let baselineUpdated: Bool
-    let weightAdded: Bool
 }
 
 /// Recovery snapshot from the backend (stored in Firebase)
@@ -68,8 +63,6 @@ struct RecoverySnapshotResponse: Decodable {
     let deepSleepPercent: Double
     let score: Int
     let state: String          // "ready", "moderate", "recover"
-    let source: String
-    let syncedAt: String
 
     /// Convert to the app's RecoveryData model
     func toRecoveryData() -> RecoveryData? {

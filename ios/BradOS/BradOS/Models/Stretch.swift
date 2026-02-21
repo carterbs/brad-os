@@ -15,11 +15,6 @@ struct SelectedStretch: Identifiable, Codable, Hashable {
         durationSeconds / 2
     }
 
-    /// Number of segments (always 2)
-    var totalSegments: Int {
-        2
-    }
-
     // MARK: - Backward compatibility for persisted sessions
     // Old sessions stored `stretch` key; new code uses `definition`.
     // CodingKeys maps the JSON key "stretch" to the Swift property `definition`,

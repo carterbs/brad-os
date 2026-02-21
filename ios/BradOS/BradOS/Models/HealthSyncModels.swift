@@ -17,11 +17,6 @@ struct HRVHistoryEntry: Codable, Identifiable {
     let id: String
     let date: String       // YYYY-MM-DD
     let avgMs: Double
-    let minMs: Double
-    let maxMs: Double
-    let sampleCount: Int
-    let source: String
-    let syncedAt: String
 }
 
 // MARK: - RHR Sync Models
@@ -39,9 +34,6 @@ struct RHRHistoryEntry: Codable, Identifiable {
     let id: String
     let date: String       // YYYY-MM-DD
     let avgBpm: Double
-    let sampleCount: Int
-    let source: String
-    let syncedAt: String
 }
 
 // MARK: - Sleep Sync Models
@@ -64,12 +56,9 @@ struct SleepHistoryEntry: Codable, Identifiable {
     let id: String
     let date: String       // YYYY-MM-DD
     let totalSleepMinutes: Int
-    let inBedMinutes: Int
     let coreMinutes: Int
     let deepMinutes: Int
     let remMinutes: Int
     let awakeMinutes: Int
     let sleepEfficiency: Double
-    let source: String
-    let syncedAt: String
 }

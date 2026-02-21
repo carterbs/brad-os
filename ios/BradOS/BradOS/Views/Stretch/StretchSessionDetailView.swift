@@ -6,7 +6,6 @@ struct StretchSessionDetailView: View {
     let sessionId: String
 
     @Environment(\.apiClient) private var apiClient
-    @Environment(\.dismiss) private var dismiss
 
     @State private var session: StretchSession?
     @State private var isLoading = true

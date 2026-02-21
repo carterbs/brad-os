@@ -28,10 +28,6 @@ class CyclingViewModel: ObservableObject {
     // Efficiency Factor data
     @Published var efHistory: [EFDataPoint] = []
 
-    // Schedule generation
-    @Published var generatedSchedule: GenerateScheduleResponse?
-    @Published var isGeneratingSchedule = false
-
     /// Whether FTP has been set
     var hasFTP: Bool {
         currentFTP != nil
@@ -232,27 +228,6 @@ class CyclingViewModel: ObservableObject {
 
             return TrainingLoadDataPoint(date: date, ctl: runningCTL, atl: runningATL, tsb: runningCTL - runningATL)
         }.reversed()
-    }
-
-    /// Refresh activities from the server
-    func refreshActivities() async {
-        await loadData()
-    }
-
-    // MARK: - Schedule Generation
-
-    /// Generate a weekly schedule from the AI coach
-    func generateSchedule(request: GenerateScheduleRequest) async {
-        isGeneratingSchedule = true
-        error = nil
-        defer { isGeneratingSchedule = false }
-
-        do {
-            generatedSchedule = try await apiClient.generateSchedule(request)
-        } catch {
-            self.error = "Failed to generate schedule: \(error.localizedDescription)"
-            print("[CyclingVM] Failed to generate schedule: \(error)")
-        }
     }
 
     // MARK: - Block Management

@@ -5,7 +5,6 @@ import BradOSCore
 /// H:32pt, pill radius, glass fills with stroke
 struct FilterChip: View {
     let title: String
-    var color: Color = Theme.interactivePrimary
     let isSelected: Bool
     let action: () -> Void
 

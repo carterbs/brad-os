@@ -16,7 +16,6 @@ enum EditedField {
 /// Card displaying an exercise with its sets
 struct ExerciseCard: View {
     let exercise: WorkoutExercise
-    let workoutId: String
     let isEditable: Bool
     let localEdits: [String: SetEditState]
     let onSetEdited: (String, Double, Int, EditedField) -> Void

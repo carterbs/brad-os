@@ -51,7 +51,7 @@ extension WorkoutManager {
     func requestSetLog(setId: String, exerciseId: String) {
         guard let session = wcSession, session.isReachable else { return }
 
-        let request = WatchSetLogRequest(setId: setId, exerciseId: exerciseId)
+        let request = WatchSetLogRequest(setId: setId)
 
         do {
             let data = try JSONEncoder().encode(request)
@@ -164,12 +164,5 @@ extension WorkoutManager {
             print("[WorkoutManager] Failed to encode summary: \(error)")
             #endif
         }
-    }
-
-    func sendHeartRateToiPhone() {
-        guard let session = wcSession, session.isReachable else { return }
-
-        let message: [String: Any] = ["heartRate": heartRate]
-        session.sendMessage(message, replyHandler: nil, errorHandler: nil)
     }
 }

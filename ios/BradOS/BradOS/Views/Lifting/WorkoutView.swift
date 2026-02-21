@@ -338,7 +338,6 @@ struct WorkoutView: View {
             ForEach(exercises) { exercise in
                 ExerciseCard(
                     exercise: exercise,
-                    workoutId: workoutId,
                     isEditable: workoutStatus == .inProgress,
                     localEdits: localSetEditsForExercise(exercise.exerciseId),
                     onSetEdited: { setId, weight, reps, editedField in

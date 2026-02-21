@@ -128,7 +128,7 @@ struct MealPlanView: View {
     // MARK: - Finalized Content (read-only)
 
     @ViewBuilder
-    private func finalizedContent(_ session: MealPlanSession) -> some View {
+    private func finalizedContent(_: MealPlanSession) -> some View {
         ScrollView {
             VStack(spacing: 20) {
                 finalizedBadge

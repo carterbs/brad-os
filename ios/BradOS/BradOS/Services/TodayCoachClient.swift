@@ -72,25 +72,4 @@ class TodayCoachClient: ObservableObject {
             self.error = error.localizedDescription
         }
     }
-
-    /// Invalidate the cached recommendation so next call fetches fresh
-    func invalidateCache() {
-        cacheTimestamp = nil
-    }
-
-    /// Refresh recommendation using latest recovery data from Firebase
-    func refresh() async {
-        do {
-            guard let snapshot = try await apiClient.getLatestRecovery(),
-                  let recovery = snapshot.toRecoveryData() else {
-                error = "No recovery data available"
-                return
-            }
-            await getRecommendation(recovery: recovery)
-        } catch {
-            if self.error == nil {
-                self.error = error.localizedDescription
-            }
-        }
-    }
 }

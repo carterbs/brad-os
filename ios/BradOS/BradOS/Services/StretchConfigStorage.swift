@@ -26,14 +26,4 @@ class StretchConfigStorage {
         }
         return config
     }
-
-    /// Check if a saved configuration exists
-    func hasSavedConfig() -> Bool {
-        return defaults.data(forKey: configKey) != nil
-    }
-
-    /// Clear the saved configuration
-    func clear() {
-        defaults.removeObject(forKey: configKey)
-    }
 }
