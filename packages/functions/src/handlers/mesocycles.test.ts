@@ -176,7 +176,7 @@ describe('Mesocycles Handler', () => {
       const response = await request(mesocyclesApp)
         .post('/')
         .send({
-          plan_id: 1,
+          plan_id: 'plan-1',
           start_date: '2024-01-01',
         });
 
@@ -186,7 +186,7 @@ describe('Mesocycles Handler', () => {
         data: createdMesocycle,
       });
       expect(mockMesocycleService.create).toHaveBeenCalledWith({
-        plan_id: 1,
+        plan_id: 'plan-1',
         start_date: '2024-01-01',
       });
     });
@@ -197,7 +197,7 @@ describe('Mesocycles Handler', () => {
       const response = await request(mesocyclesApp)
         .post('/')
         .send({
-          plan_id: 999,
+          plan_id: 'plan-999',
           start_date: '2024-01-01',
         });
 
@@ -206,7 +206,7 @@ describe('Mesocycles Handler', () => {
         success: false,
         error: {
           code: 'NOT_FOUND',
-          message: 'Plan with id 999 not found',
+          message: 'Plan with id plan-999 not found',
         },
       });
     });
@@ -217,7 +217,7 @@ describe('Mesocycles Handler', () => {
       const response = await request(mesocyclesApp)
         .post('/')
         .send({
-          plan_id: 1,
+          plan_id: 'plan-1',
           start_date: '2024-01-01',
         });
 
@@ -237,7 +237,7 @@ describe('Mesocycles Handler', () => {
       const response: Response = await request(mesocyclesApp)
         .post('/')
         .send({
-          plan_id: 1,
+          plan_id: 'plan-1',
           start_date: '2024-01-01',
         });
       const body = response.body as ApiResponse;
@@ -264,7 +264,7 @@ describe('Mesocycles Handler', () => {
       const response: Response = await request(mesocyclesApp)
         .post('/')
         .send({
-          plan_id: 1,
+          plan_id: 'plan-1',
         });
       const body = response.body as ApiResponse;
 
@@ -277,7 +277,7 @@ describe('Mesocycles Handler', () => {
       const response: Response = await request(mesocyclesApp)
         .post('/')
         .send({
-          plan_id: 1,
+          plan_id: 'plan-1',
           start_date: 'invalid-date',
         });
       const body = response.body as ApiResponse;
@@ -287,11 +287,11 @@ describe('Mesocycles Handler', () => {
       expect(body.error?.code).toBe('VALIDATION_ERROR');
     });
 
-    it('should return 400 for non-positive plan_id', async () => {
+    it('should return 400 for empty plan_id', async () => {
       const response: Response = await request(mesocyclesApp)
         .post('/')
         .send({
-          plan_id: 0,
+          plan_id: '',
           start_date: '2024-01-01',
         });
       const body = response.body as ApiResponse;

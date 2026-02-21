@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
 
+// Health check doesn't need express.json() or App Check
 const app = express();
 app.use(cors({ origin: true }));
 app.use(stripPathPrefix('health'));

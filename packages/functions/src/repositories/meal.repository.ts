@@ -36,14 +36,6 @@ export class MealRepository extends BaseRepository<
     return meal;
   }
 
-  async findById(id: string): Promise<Meal | null> {
-    const doc = await this.collection.doc(id).get();
-    if (!doc.exists) {
-      return null;
-    }
-    return { id: doc.id, ...doc.data() } as Meal;
-  }
-
   async findAll(): Promise<Meal[]> {
     const snapshot = await this.collection.orderBy('name').get();
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Meal);
@@ -55,44 +47,6 @@ export class MealRepository extends BaseRepository<
       .orderBy('name')
       .get();
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Meal);
-  }
-
-  async update(id: string, data: UpdateMealDTO): Promise<Meal | null> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return null;
-    }
-
-    const updates: Record<string, string | number | boolean> = {};
-
-    if (data.name !== undefined) {
-      updates['name'] = data.name;
-    }
-
-    if (data.meal_type !== undefined) {
-      updates['meal_type'] = data.meal_type;
-    }
-
-    if (data.effort !== undefined) {
-      updates['effort'] = data.effort;
-    }
-
-    if (data.has_red_meat !== undefined) {
-      updates['has_red_meat'] = data.has_red_meat;
-    }
-
-    if (data.url !== undefined) {
-      updates['url'] = data.url;
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return existing;
-    }
-
-    updates['updated_at'] = this.updateTimestamp();
-
-    await this.collection.doc(id).update(updates);
-    return this.findById(id);
   }
 
   async updateLastPlanned(id: string, timestamp: string): Promise<Meal | null> {
@@ -107,14 +61,5 @@ export class MealRepository extends BaseRepository<
     });
 
     return this.findById(id);
-  }
-
-  async delete(id: string): Promise<boolean> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return false;
-    }
-    await this.collection.doc(id).delete();
-    return true;
   }
 }

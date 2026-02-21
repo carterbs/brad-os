@@ -25,14 +25,6 @@ export class RecipeRepository extends BaseRepository<
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Recipe);
   }
 
-  async findById(id: string): Promise<Recipe | null> {
-    const doc = await this.collection.doc(id).get();
-    if (!doc.exists) {
-      return null;
-    }
-    return { id: doc.id, ...doc.data() } as Recipe;
-  }
-
   async findByMealIds(mealIds: string[]): Promise<Recipe[]> {
     if (mealIds.length === 0) {
       return [];
@@ -41,18 +33,15 @@ export class RecipeRepository extends BaseRepository<
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Recipe);
   }
 
-  /** Not implemented - recipes are read-only via this API */
   create(_data: RecipeCreateDTO): Promise<Recipe> {
     return Promise.reject(new Error('RecipeRepository.create is not implemented'));
   }
 
-  /** Not implemented - recipes are read-only via this API */
-  update(_id: string, _data: RecipeUpdateDTO): Promise<Recipe | null> {
+  override async update(_id: string, _data: RecipeUpdateDTO): Promise<Recipe | null> {
     return Promise.reject(new Error('RecipeRepository.update is not implemented'));
   }
 
-  /** Not implemented - recipes are read-only via this API */
-  delete(_id: string): Promise<boolean> {
+  override async delete(_id: string): Promise<boolean> {
     return Promise.reject(new Error('RecipeRepository.delete is not implemented'));
   }
 }

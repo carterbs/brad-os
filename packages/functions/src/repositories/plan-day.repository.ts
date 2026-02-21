@@ -11,6 +11,8 @@ export class PlanDayRepository extends BaseRepository<
   CreatePlanDayDTO,
   UpdatePlanDayDTO
 > {
+  protected override includeTimestampOnUpdate = false;
+
   constructor(db?: Firestore) {
     super('plan_days', db);
   }
@@ -32,14 +34,6 @@ export class PlanDayRepository extends BaseRepository<
     return planDay;
   }
 
-  async findById(id: string): Promise<PlanDay | null> {
-    const doc = await this.collection.doc(id).get();
-    if (!doc.exists) {
-      return null;
-    }
-    return { id: doc.id, ...doc.data() } as PlanDay;
-  }
-
   async findByPlanId(planId: string): Promise<PlanDay[]> {
     const snapshot = await this.collection
       .where('plan_id', '==', planId)
@@ -54,42 +48,5 @@ export class PlanDayRepository extends BaseRepository<
       .orderBy('sort_order')
       .get();
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as PlanDay);
-  }
-
-  async update(id: string, data: UpdatePlanDayDTO): Promise<PlanDay | null> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return null;
-    }
-
-    const updates: Record<string, string | number> = {};
-
-    if (data.day_of_week !== undefined) {
-      updates['day_of_week'] = data.day_of_week;
-    }
-
-    if (data.name !== undefined) {
-      updates['name'] = data.name;
-    }
-
-    if (data.sort_order !== undefined) {
-      updates['sort_order'] = data.sort_order;
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return existing;
-    }
-
-    await this.collection.doc(id).update(updates);
-    return this.findById(id);
-  }
-
-  async delete(id: string): Promise<boolean> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return false;
-    }
-    await this.collection.doc(id).delete();
-    return true;
   }
 }

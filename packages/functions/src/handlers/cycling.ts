@@ -4,8 +4,7 @@
  * Express app for cycling-related endpoints.
  */
 
-import express, { type Request, type Response, type NextFunction } from 'express';
-import cors from 'cors';
+import { type Request, type Response, type NextFunction } from 'express';
 import { info, warn, error as logError } from 'firebase-functions/logger';
 import {
   createFTPEntrySchema,
@@ -18,8 +17,7 @@ import {
 } from '../shared.js';
 import { validate } from '../middleware/validate.js';
 import { errorHandler, NotFoundError } from '../middleware/error-handler.js';
-import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
-import { requireAppCheck } from '../middleware/app-check.js';
+import { createBaseApp } from '../middleware/create-resource-router.js';
 import { asyncHandler } from '../middleware/async-handler.js';
 import * as cyclingService from '../services/firestore-cycling.service.js';
 import * as stravaService from '../services/strava.service.js';
@@ -33,11 +31,7 @@ import {
   categorizeVO2Max,
 } from '../services/vo2max.service.js';
 
-const app = express();
-app.use(cors({ origin: true }));
-app.use(express.json());
-app.use(stripPathPrefix('cycling'));
-app.use(requireAppCheck);
+const app = createBaseApp('cycling');
 
 // For now, we'll use a header to identify the user
 // In production, this would come from Firebase Auth

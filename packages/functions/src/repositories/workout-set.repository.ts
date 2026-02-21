@@ -25,6 +25,8 @@ export class WorkoutSetRepository extends BaseRepository<
   CreateWorkoutSetDTO,
   UpdateWorkoutSetDTO
 > {
+  protected override includeTimestampOnUpdate = false;
+
   constructor(db?: Firestore) {
     super('workout_sets', db);
   }
@@ -48,14 +50,6 @@ export class WorkoutSetRepository extends BaseRepository<
     };
 
     return workoutSet;
-  }
-
-  async findById(id: string): Promise<WorkoutSet | null> {
-    const doc = await this.collection.doc(id).get();
-    if (!doc.exists) {
-      return null;
-    }
-    return { id: doc.id, ...doc.data() } as WorkoutSet;
   }
 
   async findByWorkoutId(workoutId: string): Promise<WorkoutSet[]> {
@@ -93,57 +87,7 @@ export class WorkoutSetRepository extends BaseRepository<
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as WorkoutSet);
   }
 
-  async update(id: string, data: UpdateWorkoutSetDTO): Promise<WorkoutSet | null> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return null;
-    }
-
-    const updates: Record<string, string | number | null> = {};
-
-    if (data.actual_reps !== undefined) {
-      updates['actual_reps'] = data.actual_reps;
-    }
-
-    if (data.actual_weight !== undefined) {
-      updates['actual_weight'] = data.actual_weight;
-    }
-
-    if (data.status !== undefined) {
-      updates['status'] = data.status;
-    }
-
-    if (data.target_reps !== undefined) {
-      updates['target_reps'] = data.target_reps;
-    }
-
-    if (data.target_weight !== undefined) {
-      updates['target_weight'] = data.target_weight;
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return existing;
-    }
-
-    await this.collection.doc(id).update(updates);
-    return this.findById(id);
-  }
-
-  async delete(id: string): Promise<boolean> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return false;
-    }
-    await this.collection.doc(id).delete();
-    return true;
-  }
-
-  /**
-   * Find completed sets for a given exercise with workout details.
-   * This requires joining data from workout_sets and workouts collections.
-   */
   async findCompletedByExerciseId(exerciseId: string): Promise<CompletedSetRow[]> {
-    // Get all completed sets for this exercise
     const setsSnapshot = await this.collection
       .where('exercise_id', '==', exerciseId)
       .where('status', '==', 'completed')
@@ -153,7 +97,6 @@ export class WorkoutSetRepository extends BaseRepository<
       return [];
     }
 
-    // Get unique workout IDs
     const workoutIds = new Set<string>();
     for (const doc of setsSnapshot.docs) {
       const data = doc.data();
@@ -166,7 +109,6 @@ export class WorkoutSetRepository extends BaseRepository<
       return [];
     }
 
-    // Fetch workout details
     const workoutsCollection = this.db.collection(getCollectionName('workouts'));
     const workoutMap = new Map<
       string,
@@ -195,7 +137,6 @@ export class WorkoutSetRepository extends BaseRepository<
       }
     }
 
-    // Build the result
     const results: CompletedSetRow[] = [];
     for (const doc of setsSnapshot.docs) {
       const setData = doc.data();
@@ -221,7 +162,6 @@ export class WorkoutSetRepository extends BaseRepository<
       }
     }
 
-    // Sort by completed_at, scheduled_date, set_number
     results.sort((a, b) => {
       if (a.completed_at !== null && b.completed_at !== null) {
         const cmp = a.completed_at.localeCompare(b.completed_at);

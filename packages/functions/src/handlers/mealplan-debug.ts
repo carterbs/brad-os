@@ -1,6 +1,7 @@
 import express, { type Request, type Response } from 'express';
 import cors from 'cors';
 
+// Debug UI doesn't need stripPathPrefix, express.json(), or App Check
 const app = express();
 app.use(cors({ origin: true }));
 

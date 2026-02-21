@@ -6,13 +6,11 @@
  * data to deliver a personalized daily briefing.
  */
 
-import express, { type Request, type Response, type NextFunction } from 'express';
-import cors from 'cors';
+import { type Request, type Response, type NextFunction } from 'express';
 import { defineSecret } from 'firebase-functions/params';
 import { info } from 'firebase-functions/logger';
 import { errorHandler } from '../middleware/error-handler.js';
-import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
-import { requireAppCheck } from '../middleware/app-check.js';
+import { createBaseApp } from '../middleware/create-resource-router.js';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { buildTodayCoachContext } from '../services/today-coach-data.service.js';
 import { getTodayCoachRecommendation } from '../services/today-coach.service.js';
@@ -32,11 +30,7 @@ function getUserId(req: Request): string {
   return 'default-user';
 }
 
-const app = express();
-app.use(cors({ origin: true }));
-app.use(express.json());
-app.use(stripPathPrefix('today-coach'));
-app.use(requireAppCheck);
+const app = createBaseApp('today-coach');
 
 // POST /today-coach/recommend
 app.post(

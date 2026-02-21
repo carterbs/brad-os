@@ -18,3 +18,7 @@ export const updateBarcodeSchema = z.object({
 
 export type CreateBarcodeInput = z.infer<typeof createBarcodeSchema>;
 export type UpdateBarcodeInput = z.infer<typeof updateBarcodeSchema>;
+
+// DTO aliases (canonical — replaces manual interfaces in types/database.ts)
+export type CreateBarcodeDTO = CreateBarcodeInput;
+export type UpdateBarcodeDTO = UpdateBarcodeInput;

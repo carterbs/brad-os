@@ -24,13 +24,12 @@ import { requireAppCheck } from '../middleware/app-check.js';
 
 const TAG = '[Strava Webhook]';
 
+// Strava webhook uses manual middleware — no global App Check since Strava calls
+// the webhook endpoints. Only /tokens uses App Check (iOS app calls it).
 const app = express();
 app.use(cors({ origin: true }));
 app.use(express.json());
 app.use(stripPathPrefix('strava'));
-
-// Note: Webhook endpoints don't use App Check middleware since Strava calls them.
-// The /tokens endpoint DOES use App Check since the iOS app calls it.
 
 /**
  * POST /strava/tokens - Sync Strava tokens from iOS app

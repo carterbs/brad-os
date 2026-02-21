@@ -1,33 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Firestore, CollectionReference, Query } from 'firebase-admin/firestore';
-
-// Create mock types
-interface MockQueryDocumentSnapshot {
-  id: string;
-  data: () => Record<string, unknown>;
-}
-
-interface MockQuerySnapshot {
-  empty: boolean;
-  docs: MockQueryDocumentSnapshot[];
-}
-
-// Create mock functions
-const createMockQuerySnapshot = (docs: Array<{ id: string; data: Record<string, unknown> }>): MockQuerySnapshot => ({
-  empty: docs.length === 0,
-  docs: docs.map((doc) => ({
-    id: doc.id,
-    data: () => doc.data,
-  })),
-});
-
-// Create chainable mock query
-const createMockQuery = (snapshot: MockQuerySnapshot): Partial<Query> => ({
-  where: vi.fn().mockReturnThis(),
-  orderBy: vi.fn().mockReturnThis(),
-  limit: vi.fn().mockReturnThis(),
-  get: vi.fn().mockResolvedValue(snapshot),
-});
+import type { Firestore, CollectionReference } from 'firebase-admin/firestore';
+import {
+  createMockQuerySnapshot,
+  createMockQuery,
+  createFirestoreMocks,
+  setupFirebaseMock,
+} from '../test-utils/index.js';
 
 describe('IngredientRepository', () => {
   let mockDb: Partial<Firestore>;
@@ -37,28 +15,12 @@ describe('IngredientRepository', () => {
   beforeEach(async () => {
     vi.resetModules();
 
-    // Create mock collection reference
-    mockCollection = {
-      doc: vi.fn(),
-      add: vi.fn(),
-      where: vi.fn().mockReturnThis(),
-      orderBy: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      get: vi.fn(),
-    };
+    const mocks = createFirestoreMocks();
+    mockDb = mocks.mockDb;
+    mockCollection = mocks.mockCollection;
 
-    // Create mock Firestore
-    mockDb = {
-      collection: vi.fn().mockReturnValue(mockCollection),
-    };
+    setupFirebaseMock(mocks);
 
-    // Mock the firebase module
-    vi.doMock('../firebase.js', () => ({
-      getFirestoreDb: vi.fn().mockReturnValue(mockDb),
-      getCollectionName: vi.fn((name: string) => `test_${name}`),
-    }));
-
-    // Import after mocking
     const module = await import('./ingredient.repository.js');
     IngredientRepository = module.IngredientRepository;
   });

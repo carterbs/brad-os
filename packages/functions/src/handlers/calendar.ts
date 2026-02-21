@@ -1,5 +1,4 @@
-import express, { type Request, type Response } from 'express';
-import cors from 'cors';
+import { type Request, type Response } from 'express';
 import {
   createSuccessResponse,
   createErrorResponse,
@@ -7,15 +6,10 @@ import {
 } from '../shared.js';
 import { getCalendarService } from '../services/index.js';
 import { errorHandler } from '../middleware/error-handler.js';
-import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
-import { requireAppCheck } from '../middleware/app-check.js';
+import { createBaseApp } from '../middleware/create-resource-router.js';
 import { asyncHandler } from '../middleware/async-handler.js';
 
-const app = express();
-app.use(cors({ origin: true }));
-app.use(express.json());
-app.use(stripPathPrefix('calendar'));
-app.use(requireAppCheck);
+const app = createBaseApp('calendar');
 
 /**
  * Validate year parameter - must be a valid 4-digit year (1000-9999)

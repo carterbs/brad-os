@@ -11,6 +11,8 @@ export class PlanDayExerciseRepository extends BaseRepository<
   CreatePlanDayExerciseDTO,
   UpdatePlanDayExerciseDTO
 > {
+  protected override includeTimestampOnUpdate = false;
+
   constructor(db?: Firestore) {
     super('plan_day_exercises', db);
   }
@@ -37,14 +39,6 @@ export class PlanDayExerciseRepository extends BaseRepository<
     return planDayExercise;
   }
 
-  async findById(id: string): Promise<PlanDayExercise | null> {
-    const doc = await this.collection.doc(id).get();
-    if (!doc.exists) {
-      return null;
-    }
-    return { id: doc.id, ...doc.data() } as PlanDayExercise;
-  }
-
   async findByPlanDayId(planDayId: string): Promise<PlanDayExercise[]> {
     const snapshot = await this.collection
       .where('plan_day_id', '==', planDayId)
@@ -63,61 +57,5 @@ export class PlanDayExerciseRepository extends BaseRepository<
     return snapshot.docs.map(
       (doc) => ({ id: doc.id, ...doc.data() }) as PlanDayExercise
     );
-  }
-
-  async update(
-    id: string,
-    data: UpdatePlanDayExerciseDTO
-  ): Promise<PlanDayExercise | null> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return null;
-    }
-
-    const updates: Record<string, number> = {};
-
-    if (data.sets !== undefined) {
-      updates['sets'] = data.sets;
-    }
-
-    if (data.reps !== undefined) {
-      updates['reps'] = data.reps;
-    }
-
-    if (data.weight !== undefined) {
-      updates['weight'] = data.weight;
-    }
-
-    if (data.rest_seconds !== undefined) {
-      updates['rest_seconds'] = data.rest_seconds;
-    }
-
-    if (data.sort_order !== undefined) {
-      updates['sort_order'] = data.sort_order;
-    }
-
-    if (data.min_reps !== undefined) {
-      updates['min_reps'] = data.min_reps;
-    }
-
-    if (data.max_reps !== undefined) {
-      updates['max_reps'] = data.max_reps;
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return existing;
-    }
-
-    await this.collection.doc(id).update(updates);
-    return this.findById(id);
-  }
-
-  async delete(id: string): Promise<boolean> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return false;
-    }
-    await this.collection.doc(id).delete();
-    return true;
   }
 }

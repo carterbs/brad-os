@@ -1,19 +1,13 @@
-import express, { type Request, type Response, type NextFunction } from 'express';
-import cors from 'cors';
+import { type Request, type Response, type NextFunction } from 'express';
 import { getApp } from 'firebase-admin/app';
 import { getRemoteConfig } from 'firebase-admin/remote-config';
 import { type SynthesizeRequest, synthesizeSchema } from '../shared.js';
 import { validate } from '../middleware/validate.js';
 import { errorHandler } from '../middleware/error-handler.js';
-import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
-import { requireAppCheck } from '../middleware/app-check.js';
+import { createBaseApp } from '../middleware/create-resource-router.js';
 import { asyncHandler } from '../middleware/async-handler.js';
 
-const app = express();
-app.use(cors({ origin: true }));
-app.use(express.json());
-app.use(stripPathPrefix('tts'));
-app.use(requireAppCheck);
+const app = createBaseApp('tts');
 
 const DEFAULT_VOICE = 'en-US-Chirp3-HD-Algenib';
 

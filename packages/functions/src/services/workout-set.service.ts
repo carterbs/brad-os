@@ -1,5 +1,6 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import type { WorkoutSet, LogWorkoutSetInput, ModifySetCountResult } from '../shared.js';
+import { NotFoundError, ValidationError } from '../middleware/error-handler.js';
 import {
   WorkoutSetRepository,
   WorkoutRepository,
@@ -29,28 +30,28 @@ export class WorkoutSetService {
   async log(id: string, data: LogWorkoutSetInput): Promise<WorkoutSet> {
     const workoutSet = await this.workoutSetRepo.findById(id);
     if (!workoutSet) {
-      throw new Error(`WorkoutSet with id ${id} not found`);
+      throw new NotFoundError('WorkoutSet', id);
     }
 
     if (data.actual_reps < 0) {
-      throw new Error('Reps must be a non-negative number');
+      throw new ValidationError('Reps must be a non-negative number');
     }
 
     if (data.actual_weight < 0) {
-      throw new Error('Weight must be a non-negative number');
+      throw new ValidationError('Weight must be a non-negative number');
     }
 
     const workout = await this.workoutRepo.findById(workoutSet.workout_id);
     if (!workout) {
-      throw new Error(`Workout with id ${workoutSet.workout_id} not found`);
+      throw new NotFoundError('Workout', workoutSet.workout_id);
     }
 
     if (workout.status === 'completed') {
-      throw new Error('Cannot log sets for a completed workout');
+      throw new ValidationError('Cannot log sets for a completed workout');
     }
 
     if (workout.status === 'skipped') {
-      throw new Error('Cannot log sets for a skipped workout');
+      throw new ValidationError('Cannot log sets for a skipped workout');
     }
 
     if (workout.status === 'pending') {
@@ -76,20 +77,20 @@ export class WorkoutSetService {
   async skip(id: string): Promise<WorkoutSet> {
     const workoutSet = await this.workoutSetRepo.findById(id);
     if (!workoutSet) {
-      throw new Error(`WorkoutSet with id ${id} not found`);
+      throw new NotFoundError('WorkoutSet', id);
     }
 
     const workout = await this.workoutRepo.findById(workoutSet.workout_id);
     if (!workout) {
-      throw new Error(`Workout with id ${workoutSet.workout_id} not found`);
+      throw new NotFoundError('Workout', workoutSet.workout_id);
     }
 
     if (workout.status === 'completed') {
-      throw new Error('Cannot skip sets for a completed workout');
+      throw new ValidationError('Cannot skip sets for a completed workout');
     }
 
     if (workout.status === 'skipped') {
-      throw new Error('Cannot skip sets for a skipped workout');
+      throw new ValidationError('Cannot skip sets for a skipped workout');
     }
 
     if (workout.status === 'pending') {
@@ -115,20 +116,20 @@ export class WorkoutSetService {
   async unlog(id: string): Promise<WorkoutSet> {
     const workoutSet = await this.workoutSetRepo.findById(id);
     if (!workoutSet) {
-      throw new Error(`WorkoutSet with id ${id} not found`);
+      throw new NotFoundError('WorkoutSet', id);
     }
 
     const workout = await this.workoutRepo.findById(workoutSet.workout_id);
     if (!workout) {
-      throw new Error(`Workout with id ${workoutSet.workout_id} not found`);
+      throw new NotFoundError('Workout', workoutSet.workout_id);
     }
 
     if (workout.status === 'completed') {
-      throw new Error('Cannot unlog sets for a completed workout');
+      throw new ValidationError('Cannot unlog sets for a completed workout');
     }
 
     if (workout.status === 'skipped') {
-      throw new Error('Cannot unlog sets for a skipped workout');
+      throw new ValidationError('Cannot unlog sets for a skipped workout');
     }
 
     const updated = await this.workoutSetRepo.update(id, {
@@ -152,15 +153,15 @@ export class WorkoutSetService {
   async addSetToExercise(workoutId: string, exerciseId: string): Promise<ModifySetCountResult> {
     const workout = await this.workoutRepo.findById(workoutId);
     if (!workout) {
-      throw new Error(`Workout with id ${workoutId} not found`);
+      throw new NotFoundError('Workout', workoutId);
     }
 
     // Validate workout status
     if (workout.status === 'completed') {
-      throw new Error('Cannot add sets to a completed workout');
+      throw new ValidationError('Cannot add sets to a completed workout');
     }
     if (workout.status === 'skipped') {
-      throw new Error('Cannot add sets to a skipped workout');
+      throw new ValidationError('Cannot add sets to a skipped workout');
     }
 
     // Get existing sets for this exercise
@@ -170,7 +171,7 @@ export class WorkoutSetService {
     );
 
     if (existingSets.length === 0) {
-      throw new Error(`No sets found for exercise ${exerciseId} in workout ${workoutId}`);
+      throw new NotFoundError('WorkoutSet', `exercise ${exerciseId} in workout ${workoutId}`);
     }
 
     // Get the last set to copy target values
@@ -214,15 +215,15 @@ export class WorkoutSetService {
   async removeSetFromExercise(workoutId: string, exerciseId: string): Promise<ModifySetCountResult> {
     const workout = await this.workoutRepo.findById(workoutId);
     if (!workout) {
-      throw new Error(`Workout with id ${workoutId} not found`);
+      throw new NotFoundError('Workout', workoutId);
     }
 
     // Validate workout status
     if (workout.status === 'completed') {
-      throw new Error('Cannot remove sets from a completed workout');
+      throw new ValidationError('Cannot remove sets from a completed workout');
     }
     if (workout.status === 'skipped') {
-      throw new Error('Cannot remove sets from a skipped workout');
+      throw new ValidationError('Cannot remove sets from a skipped workout');
     }
 
     // Get existing sets for this exercise
@@ -232,12 +233,12 @@ export class WorkoutSetService {
     );
 
     if (existingSets.length === 0) {
-      throw new Error(`No sets found for exercise ${exerciseId} in workout ${workoutId}`);
+      throw new NotFoundError('WorkoutSet', `exercise ${exerciseId} in workout ${workoutId}`);
     }
 
     // Must keep at least 1 set
     if (existingSets.length === 1) {
-      throw new Error('Cannot remove the last set from an exercise');
+      throw new ValidationError('Cannot remove the last set from an exercise');
     }
 
     // Find the last pending set (sorted by set_number descending)
@@ -246,7 +247,7 @@ export class WorkoutSetService {
       .sort((a, b) => b.set_number - a.set_number);
 
     if (sortedPendingSets.length === 0) {
-      throw new Error('No pending sets to remove');
+      throw new ValidationError('No pending sets to remove');
     }
 
     const setToRemove = sortedPendingSets[0];

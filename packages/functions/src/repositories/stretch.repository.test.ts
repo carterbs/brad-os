@@ -1,36 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Firestore, CollectionReference, DocumentReference } from 'firebase-admin/firestore';
-
-// Create mock types
-interface MockDocumentSnapshot {
-  id: string;
-  exists: boolean;
-  data: () => Record<string, unknown> | undefined;
-}
-
-interface MockQueryDocumentSnapshot {
-  id: string;
-  data: () => Record<string, unknown>;
-}
-
-interface MockQuerySnapshot {
-  empty: boolean;
-  docs: MockQueryDocumentSnapshot[];
-}
-
-const createMockDoc = (id: string, data: Record<string, unknown> | null): MockDocumentSnapshot => ({
-  id,
-  exists: data !== null,
-  data: () => data ?? undefined,
-});
-
-const createMockQuerySnapshot = (docs: Array<{ id: string; data: Record<string, unknown> }>): MockQuerySnapshot => ({
-  empty: docs.length === 0,
-  docs: docs.map((doc) => ({
-    id: doc.id,
-    data: () => doc.data,
-  })),
-});
+import {
+  createMockDoc,
+  createMockQuerySnapshot,
+  createFirestoreMocks,
+  setupFirebaseMock,
+} from '../test-utils/index.js';
 
 describe('StretchRepository', () => {
   let mockDb: Partial<Firestore>;
@@ -41,17 +16,9 @@ describe('StretchRepository', () => {
   beforeEach(async () => {
     vi.resetModules();
 
-    mockDocRef = {
-      id: 'test-id',
-      get: vi.fn(),
-      set: vi.fn(),
-    };
-
-    mockCollection = {
-      doc: vi.fn().mockReturnValue(mockDocRef),
-      orderBy: vi.fn().mockReturnThis(),
-      get: vi.fn(),
-    };
+    const mocks = createFirestoreMocks();
+    mockDocRef = mocks.mockDocRef;
+    mockCollection = mocks.mockCollection;
 
     mockDb = {
       collection: vi.fn().mockReturnValue(mockCollection),
@@ -60,11 +27,9 @@ describe('StretchRepository', () => {
         commit: vi.fn().mockResolvedValue(undefined),
       }),
     };
+    mocks.mockDb = mockDb;
 
-    vi.doMock('../firebase.js', () => ({
-      getFirestoreDb: vi.fn().mockReturnValue(mockDb),
-      getCollectionName: vi.fn((name: string) => `test_${name}`),
-    }));
+    setupFirebaseMock(mocks);
 
     const module = await import('./stretch.repository.js');
     StretchRepository = module.StretchRepository;

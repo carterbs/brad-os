@@ -7,6 +7,7 @@ import type {
   ExerciseProgression,
   PreviousWeekPerformance,
 } from '../shared.js';
+import { NotFoundError, ValidationError } from '../middleware/error-handler.js';
 import {
   WorkoutRepository,
   WorkoutSetRepository,
@@ -80,19 +81,19 @@ export class WorkoutService {
   async start(id: string): Promise<Workout> {
     const workout = await this.workoutRepo.findById(id);
     if (!workout) {
-      throw new Error(`Workout with id ${id} not found`);
+      throw new NotFoundError('Workout', id);
     }
 
     if (workout.status === 'in_progress') {
-      throw new Error('Workout is already in progress');
+      throw new ValidationError('Workout is already in progress');
     }
 
     if (workout.status === 'completed') {
-      throw new Error('Cannot start a completed workout');
+      throw new ValidationError('Cannot start a completed workout');
     }
 
     if (workout.status === 'skipped') {
-      throw new Error('Cannot start a skipped workout');
+      throw new ValidationError('Cannot start a skipped workout');
     }
 
     // Apply dynamic progression and persist targets to DB before starting
@@ -382,19 +383,19 @@ export class WorkoutService {
   async complete(id: string): Promise<Workout> {
     const workout = await this.workoutRepo.findById(id);
     if (!workout) {
-      throw new Error(`Workout with id ${id} not found`);
+      throw new NotFoundError('Workout', id);
     }
 
     if (workout.status === 'pending') {
-      throw new Error('Cannot complete a workout that has not been started');
+      throw new ValidationError('Cannot complete a workout that has not been started');
     }
 
     if (workout.status === 'completed') {
-      throw new Error('Workout is already completed');
+      throw new ValidationError('Workout is already completed');
     }
 
     if (workout.status === 'skipped') {
-      throw new Error('Cannot complete a skipped workout');
+      throw new ValidationError('Cannot complete a skipped workout');
     }
 
     const updated = await this.workoutRepo.update(id, {
@@ -415,15 +416,15 @@ export class WorkoutService {
   async skip(id: string): Promise<Workout> {
     const workout = await this.workoutRepo.findById(id);
     if (!workout) {
-      throw new Error(`Workout with id ${id} not found`);
+      throw new NotFoundError('Workout', id);
     }
 
     if (workout.status === 'completed') {
-      throw new Error('Cannot skip a completed workout');
+      throw new ValidationError('Cannot skip a completed workout');
     }
 
     if (workout.status === 'skipped') {
-      throw new Error('Workout is already skipped');
+      throw new ValidationError('Workout is already skipped');
     }
 
     // Mark all pending sets as skipped

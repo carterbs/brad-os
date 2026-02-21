@@ -13,3 +13,7 @@ export const updateExerciseSchema = z.object({
 
 export type CreateExerciseInput = z.infer<typeof createExerciseSchema>;
 export type UpdateExerciseInput = z.infer<typeof updateExerciseSchema>;
+
+// DTO aliases (canonical — replaces manual interfaces in types/database.ts)
+export type CreateExerciseDTO = CreateExerciseInput;
+export type UpdateExerciseDTO = UpdateExerciseInput;

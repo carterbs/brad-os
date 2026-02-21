@@ -27,26 +27,15 @@ export class IngredientRepository extends BaseRepository<
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Ingredient);
   }
 
-  async findById(id: string): Promise<Ingredient | null> {
-    const doc = await this.collection.doc(id).get();
-    if (!doc.exists) {
-      return null;
-    }
-    return { id: doc.id, ...doc.data() } as Ingredient;
-  }
-
-  /** Not implemented - ingredients are read-only via this API */
   create(_data: IngredientCreateDTO): Promise<Ingredient> {
     return Promise.reject(new Error('IngredientRepository.create is not implemented'));
   }
 
-  /** Not implemented - ingredients are read-only via this API */
-  update(_id: string, _data: IngredientUpdateDTO): Promise<Ingredient | null> {
+  override async update(_id: string, _data: IngredientUpdateDTO): Promise<Ingredient | null> {
     return Promise.reject(new Error('IngredientRepository.update is not implemented'));
   }
 
-  /** Not implemented - ingredients are read-only via this API */
-  delete(_id: string): Promise<boolean> {
+  override async delete(_id: string): Promise<boolean> {
     return Promise.reject(new Error('IngredientRepository.delete is not implemented'));
   }
 }

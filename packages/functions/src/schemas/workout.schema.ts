@@ -44,6 +44,8 @@ export const updateWorkoutSetSchema = z.object({
   actual_reps: z.number().int().nonnegative().nullable().optional(),
   actual_weight: z.number().nonnegative().nullable().optional(),
   status: workoutSetStatusSchema.optional(),
+  target_reps: z.number().int().positive().optional(),
+  target_weight: z.number().nonnegative().optional(),
 });
 
 export const logWorkoutSetSchema = z.object({
@@ -56,3 +58,9 @@ export type UpdateWorkoutInput = z.infer<typeof updateWorkoutSchema>;
 export type CreateWorkoutSetInput = z.infer<typeof createWorkoutSetSchema>;
 export type UpdateWorkoutSetInput = z.infer<typeof updateWorkoutSetSchema>;
 export type LogWorkoutSetInput = z.infer<typeof logWorkoutSetSchema>;
+
+// DTO aliases (canonical — replaces manual interfaces in types/database.ts)
+export type CreateWorkoutDTO = CreateWorkoutInput;
+export type UpdateWorkoutDTO = UpdateWorkoutInput;
+export type CreateWorkoutSetDTO = CreateWorkoutSetInput;
+export type UpdateWorkoutSetDTO = UpdateWorkoutSetInput;

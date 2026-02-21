@@ -4,12 +4,10 @@
  * Express app for syncing HealthKit data to Firebase.
  */
 
-import express, { type Request, type Response, type NextFunction } from 'express';
-import cors from 'cors';
+import { type Request, type Response, type NextFunction } from 'express';
 import { info, warn } from 'firebase-functions/logger';
 import { errorHandler } from '../middleware/error-handler.js';
-import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
-import { requireAppCheck } from '../middleware/app-check.js';
+import { createBaseApp } from '../middleware/create-resource-router.js';
 import { asyncHandler } from '../middleware/async-handler.js';
 import * as recoveryService from '../services/firestore-recovery.service.js';
 import {
@@ -23,11 +21,7 @@ import {
 
 const TAG = '[Health Sync]';
 
-const app = express();
-app.use(cors({ origin: true }));
-app.use(express.json());
-app.use(stripPathPrefix('health-sync'));
-app.use(requireAppCheck);
+const app = createBaseApp('health-sync');
 
 /**
  * Get user ID from request headers.

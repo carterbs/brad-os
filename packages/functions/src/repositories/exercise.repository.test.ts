@@ -1,45 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Firestore, CollectionReference, DocumentReference, Query } from 'firebase-admin/firestore';
-
-// Create mock types
-interface MockDocumentSnapshot {
-  id: string;
-  exists: boolean;
-  data: () => Record<string, unknown> | undefined;
-}
-
-interface MockQueryDocumentSnapshot {
-  id: string;
-  data: () => Record<string, unknown>;
-}
-
-interface MockQuerySnapshot {
-  empty: boolean;
-  docs: MockQueryDocumentSnapshot[];
-}
-
-// Create mock functions
-const createMockDoc = (id: string, data: Record<string, unknown> | null): MockDocumentSnapshot => ({
-  id,
-  exists: data !== null,
-  data: () => data ?? undefined,
-});
-
-const createMockQuerySnapshot = (docs: Array<{ id: string; data: Record<string, unknown> }>): MockQuerySnapshot => ({
-  empty: docs.length === 0,
-  docs: docs.map((doc) => ({
-    id: doc.id,
-    data: () => doc.data,
-  })),
-});
-
-// Create chainable mock query
-const createMockQuery = (snapshot: MockQuerySnapshot): Partial<Query> => ({
-  where: vi.fn().mockReturnThis(),
-  orderBy: vi.fn().mockReturnThis(),
-  limit: vi.fn().mockReturnThis(),
-  get: vi.fn().mockResolvedValue(snapshot),
-});
+import type { Firestore, CollectionReference, DocumentReference } from 'firebase-admin/firestore';
+import {
+  createMockDoc,
+  createMockQuerySnapshot,
+  createMockQuery,
+  createFirestoreMocks,
+  setupFirebaseMock,
+} from '../test-utils/index.js';
 
 describe('ExerciseRepository', () => {
   let mockDb: Partial<Firestore>;
@@ -50,37 +17,13 @@ describe('ExerciseRepository', () => {
   beforeEach(async () => {
     vi.resetModules();
 
-    // Create mock document reference
-    mockDocRef = {
-      id: 'test-id',
-      get: vi.fn(),
-      set: vi.fn(),
-      update: vi.fn() as unknown as DocumentReference['update'],
-      delete: vi.fn(),
-    };
+    const mocks = createFirestoreMocks();
+    mockDb = mocks.mockDb;
+    mockCollection = mocks.mockCollection;
+    mockDocRef = mocks.mockDocRef;
 
-    // Create mock collection reference
-    mockCollection = {
-      doc: vi.fn().mockReturnValue(mockDocRef),
-      add: vi.fn().mockResolvedValue({ id: 'generated-id' }),
-      where: vi.fn().mockReturnThis(),
-      orderBy: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      get: vi.fn(),
-    };
+    setupFirebaseMock(mocks);
 
-    // Create mock Firestore
-    mockDb = {
-      collection: vi.fn().mockReturnValue(mockCollection),
-    };
-
-    // Mock the firebase module
-    vi.doMock('../firebase.js', () => ({
-      getFirestoreDb: vi.fn().mockReturnValue(mockDb),
-      getCollectionName: vi.fn((name: string) => `test_${name}`),
-    }));
-
-    // Import after mocking
     const module = await import('./exercise.repository.js');
     ExerciseRepository = module.ExerciseRepository;
   });

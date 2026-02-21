@@ -1,4 +1,4 @@
-import { onRequest, type HttpsOptions } from 'firebase-functions/v2/https';
+import { onRequest, type HttpsFunction, type HttpsOptions } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { initializeFirebase } from './firebase.js';
 
@@ -52,53 +52,65 @@ const withTtsOptions: HttpsOptions = {
   timeoutSeconds: 30,
 };
 
-// ============ DEV Functions ============
-export const devHealth = onRequest(defaultOptions, healthApp);
-export const devExercises = onRequest(defaultOptions, exercisesApp);
-export const devStretchSessions = onRequest(defaultOptions, stretchSessionsApp);
-export const devMeditationSessions = onRequest(defaultOptions, meditationSessionsApp);
-export const devPlans = onRequest(defaultOptions, plansApp);
-export const devWorkouts = onRequest(defaultOptions, workoutsApp);
-export const devWorkoutSets = onRequest(defaultOptions, workoutSetsApp);
-export const devCalendar = onRequest(defaultOptions, calendarApp);
-export const devMesocycles = onRequest(defaultOptions, mesocyclesApp);
-export const devBarcodes = onRequest(defaultOptions, barcodesApp);
-export const devMeals = onRequest(defaultOptions, mealsApp);
-export const devMealplans = onRequest(withOpenAiOptions, mealplansApp);
-export const devIngredients = onRequest(defaultOptions, ingredientsApp);
-export const devRecipes = onRequest(defaultOptions, recipesApp);
-export const devTts = onRequest(withTtsOptions, ttsApp);
-export const devGuidedMeditations = onRequest(defaultOptions, guidedMeditationsApp);
-export const devStretches = onRequest(defaultOptions, stretchesApp);
-export const devCycling = onRequest(defaultOptions, cyclingApp);
-export const devStrava = onRequest(defaultOptions, stravaWebhookApp);
-export const devCyclingCoach = onRequest(withOpenAiOptions, cyclingCoachApp);
-export const devTodayCoach = onRequest(withOpenAiOptions, todayCoachApp);
-export const devHealthSync = onRequest(defaultOptions, healthSyncApp);
+/** Register a dev/prod function pair from an Express app. */
+function register(
+  app: import('express').Application,
+  options: HttpsOptions = defaultOptions
+): { dev: HttpsFunction; prod: HttpsFunction } {
+  return {
+    dev: onRequest(options, app),
+    prod: onRequest(options, app),
+  };
+}
 
-// ============ PROD Functions ============
-export const prodHealth = onRequest(defaultOptions, healthApp);
-export const prodExercises = onRequest(defaultOptions, exercisesApp);
-export const prodStretchSessions = onRequest(defaultOptions, stretchSessionsApp);
-export const prodMeditationSessions = onRequest(defaultOptions, meditationSessionsApp);
-export const prodPlans = onRequest(defaultOptions, plansApp);
-export const prodWorkouts = onRequest(defaultOptions, workoutsApp);
-export const prodWorkoutSets = onRequest(defaultOptions, workoutSetsApp);
-export const prodCalendar = onRequest(defaultOptions, calendarApp);
-export const prodMesocycles = onRequest(defaultOptions, mesocyclesApp);
-export const prodBarcodes = onRequest(defaultOptions, barcodesApp);
-export const prodMeals = onRequest(defaultOptions, mealsApp);
-export const prodMealplans = onRequest(withOpenAiOptions, mealplansApp);
-export const prodIngredients = onRequest(defaultOptions, ingredientsApp);
-export const prodRecipes = onRequest(defaultOptions, recipesApp);
-export const prodTts = onRequest(withTtsOptions, ttsApp);
-export const prodGuidedMeditations = onRequest(defaultOptions, guidedMeditationsApp);
-export const prodStretches = onRequest(defaultOptions, stretchesApp);
-export const prodCycling = onRequest(defaultOptions, cyclingApp);
-export const prodStrava = onRequest(defaultOptions, stravaWebhookApp);
-export const prodCyclingCoach = onRequest(withOpenAiOptions, cyclingCoachApp);
-export const prodTodayCoach = onRequest(withOpenAiOptions, todayCoachApp);
-export const prodHealthSync = onRequest(defaultOptions, healthSyncApp);
+// ============ Function Registration ============
+const { dev: devHealth, prod: prodHealth } = register(healthApp);
+const { dev: devExercises, prod: prodExercises } = register(exercisesApp);
+const { dev: devStretchSessions, prod: prodStretchSessions } = register(stretchSessionsApp);
+const { dev: devMeditationSessions, prod: prodMeditationSessions } = register(meditationSessionsApp);
+const { dev: devPlans, prod: prodPlans } = register(plansApp);
+const { dev: devWorkouts, prod: prodWorkouts } = register(workoutsApp);
+const { dev: devWorkoutSets, prod: prodWorkoutSets } = register(workoutSetsApp);
+const { dev: devCalendar, prod: prodCalendar } = register(calendarApp);
+const { dev: devMesocycles, prod: prodMesocycles } = register(mesocyclesApp);
+const { dev: devBarcodes, prod: prodBarcodes } = register(barcodesApp);
+const { dev: devMeals, prod: prodMeals } = register(mealsApp);
+const { dev: devMealplans, prod: prodMealplans } = register(mealplansApp, withOpenAiOptions);
+const { dev: devIngredients, prod: prodIngredients } = register(ingredientsApp);
+const { dev: devRecipes, prod: prodRecipes } = register(recipesApp);
+const { dev: devTts, prod: prodTts } = register(ttsApp, withTtsOptions);
+const { dev: devGuidedMeditations, prod: prodGuidedMeditations } = register(guidedMeditationsApp);
+const { dev: devStretches, prod: prodStretches } = register(stretchesApp);
+const { dev: devCycling, prod: prodCycling } = register(cyclingApp);
+const { dev: devStrava, prod: prodStrava } = register(stravaWebhookApp);
+const { dev: devCyclingCoach, prod: prodCyclingCoach } = register(cyclingCoachApp, withOpenAiOptions);
+const { dev: devTodayCoach, prod: prodTodayCoach } = register(todayCoachApp, withOpenAiOptions);
+const { dev: devHealthSync, prod: prodHealthSync } = register(healthSyncApp);
+
+export {
+  devHealth, prodHealth,
+  devExercises, prodExercises,
+  devStretchSessions, prodStretchSessions,
+  devMeditationSessions, prodMeditationSessions,
+  devPlans, prodPlans,
+  devWorkouts, prodWorkouts,
+  devWorkoutSets, prodWorkoutSets,
+  devCalendar, prodCalendar,
+  devMesocycles, prodMesocycles,
+  devBarcodes, prodBarcodes,
+  devMeals, prodMeals,
+  devMealplans, prodMealplans,
+  devIngredients, prodIngredients,
+  devRecipes, prodRecipes,
+  devTts, prodTts,
+  devGuidedMeditations, prodGuidedMeditations,
+  devStretches, prodStretches,
+  devCycling, prodCycling,
+  devStrava, prodStrava,
+  devCyclingCoach, prodCyclingCoach,
+  devTodayCoach, prodTodayCoach,
+  devHealthSync, prodHealthSync,
+};
 
 // ============ Debug Functions (emulator only) ============
 export const devMealplanDebug = onRequest(defaultOptions, mealplanDebugApp);

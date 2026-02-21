@@ -627,7 +627,7 @@ describe('Plans Handler', () => {
       const response = await request(plansApp)
         .post('/plan-123/days/day-123/exercises')
         .send({
-          exercise_id: 1,
+          exercise_id: 'exercise-1',
           sort_order: 0,
         });
 
@@ -652,7 +652,7 @@ describe('Plans Handler', () => {
       const response = await request(plansApp)
         .post('/plan-123/days/day-123/exercises')
         .send({
-          exercise_id: 1,
+          exercise_id: 'exercise-1',
           sets: 4,
           reps: 12,
           weight: 150,
@@ -662,12 +662,14 @@ describe('Plans Handler', () => {
       expect(response.status).toBe(201);
       expect(mockPlanDayExerciseRepo.create).toHaveBeenCalledWith({
         plan_day_id: 'day-123',
-        exercise_id: 1,
+        exercise_id: 'exercise-1',
         sets: 4,
         reps: 12,
         weight: 150,
         rest_seconds: 60,
         sort_order: 0,
+        min_reps: 8,
+        max_reps: 12,
       });
     });
 
@@ -677,7 +679,7 @@ describe('Plans Handler', () => {
       const response: Response = await request(plansApp)
         .post('/plan-123/days/non-existent-id/exercises')
         .send({
-          exercise_id: 1,
+          exercise_id: 'exercise-1',
           sort_order: 0,
         });
       const body = response.body as ApiResponse;
@@ -706,7 +708,7 @@ describe('Plans Handler', () => {
       const response: Response = await request(plansApp)
         .post('/plan-123/days/day-123/exercises')
         .send({
-          exercise_id: 1,
+          exercise_id: 'exercise-1',
           sets: 0,
           sort_order: 0,
         });
