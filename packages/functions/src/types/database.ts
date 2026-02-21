@@ -12,31 +12,10 @@ export interface Exercise extends BaseEntity {
   is_custom: boolean;
 }
 
-export interface CreateExerciseDTO {
-  name: string;
-  weight_increment?: number;
-  is_custom?: boolean;
-}
-
-export interface UpdateExerciseDTO {
-  name?: string;
-  weight_increment?: number;
-}
-
 // Plans
 export interface Plan extends BaseEntity {
   name: string;
   duration_weeks: number;
-}
-
-export interface CreatePlanDTO {
-  name: string;
-  duration_weeks?: number;
-}
-
-export interface UpdatePlanDTO {
-  name?: string;
-  duration_weeks?: number;
 }
 
 // Plan Days
@@ -49,19 +28,6 @@ export interface PlanDay {
 }
 
 export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
-
-export interface CreatePlanDayDTO {
-  plan_id: string;
-  day_of_week: DayOfWeek;
-  name: string;
-  sort_order: number;
-}
-
-export interface UpdatePlanDayDTO {
-  day_of_week?: DayOfWeek;
-  name?: string;
-  sort_order?: number;
-}
 
 // Plan Day Exercises
 export interface PlanDayExercise {
@@ -79,28 +45,6 @@ export interface PlanDayExercise {
   max_reps: number;
 }
 
-export interface CreatePlanDayExerciseDTO {
-  plan_day_id: string;
-  exercise_id: string;
-  sets?: number;
-  reps?: number;
-  weight?: number;
-  rest_seconds?: number;
-  sort_order: number;
-  min_reps?: number;
-  max_reps?: number;
-}
-
-export interface UpdatePlanDayExerciseDTO {
-  sets?: number;
-  reps?: number;
-  weight?: number;
-  rest_seconds?: number;
-  sort_order?: number;
-  min_reps?: number;
-  max_reps?: number;
-}
-
 // Mesocycles
 export type MesocycleStatus = 'pending' | 'active' | 'completed' | 'cancelled';
 
@@ -109,16 +53,6 @@ export interface Mesocycle extends BaseEntity {
   start_date: string;
   current_week: number;
   status: MesocycleStatus;
-}
-
-export interface CreateMesocycleDTO {
-  plan_id: string;
-  start_date: string;
-}
-
-export interface UpdateMesocycleDTO {
-  current_week?: number;
-  status?: MesocycleStatus;
 }
 
 // Workouts
@@ -135,19 +69,6 @@ export interface Workout {
   completed_at: string | null;
 }
 
-export interface CreateWorkoutDTO {
-  mesocycle_id: string;
-  plan_day_id: string;
-  week_number: number;
-  scheduled_date: string;
-}
-
-export interface UpdateWorkoutDTO {
-  status?: WorkoutStatus;
-  started_at?: string | null;
-  completed_at?: string | null;
-}
-
 // Workout Sets
 export type WorkoutSetStatus = 'pending' | 'completed' | 'skipped';
 
@@ -161,22 +82,6 @@ export interface WorkoutSet {
   actual_reps: number | null;
   actual_weight: number | null;
   status: WorkoutSetStatus;
-}
-
-export interface CreateWorkoutSetDTO {
-  workout_id: string;
-  exercise_id: string;
-  set_number: number;
-  target_reps: number;
-  target_weight: number;
-}
-
-export interface UpdateWorkoutSetDTO {
-  actual_reps?: number | null;
-  actual_weight?: number | null;
-  status?: WorkoutSetStatus;
-  target_reps?: number;
-  target_weight?: number;
 }
 
 // ============ Extended Types for Mesocycle Management ============
@@ -306,18 +211,3 @@ export interface Barcode extends BaseEntity {
   sort_order: number;
 }
 
-export interface CreateBarcodeDTO {
-  label: string;
-  value: string;
-  barcode_type: BarcodeType;
-  color: string;
-  sort_order?: number;
-}
-
-export interface UpdateBarcodeDTO {
-  label?: string;
-  value?: string;
-  barcode_type?: BarcodeType;
-  color?: string;
-  sort_order?: number;
-}

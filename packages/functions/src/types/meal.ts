@@ -13,18 +13,3 @@ export interface Meal extends BaseEntity {
   last_planned: string | null;
 }
 
-export interface CreateMealDTO {
-  name: string;
-  meal_type: MealType;
-  effort: number;
-  has_red_meat: boolean;
-  url: string;
-}
-
-export interface UpdateMealDTO {
-  name?: string;
-  meal_type?: MealType;
-  effort?: number;
-  has_red_meat?: boolean;
-  url?: string;
-}

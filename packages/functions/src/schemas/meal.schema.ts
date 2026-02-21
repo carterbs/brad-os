@@ -18,3 +18,7 @@ export const updateMealSchema = z.object({
 
 export type CreateMealInput = z.infer<typeof createMealSchema>;
 export type UpdateMealInput = z.infer<typeof updateMealSchema>;
+
+// DTO aliases (canonical — replaces manual interfaces in types/meal.ts)
+export type CreateMealDTO = CreateMealInput;
+export type UpdateMealDTO = UpdateMealInput;

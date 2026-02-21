@@ -21,7 +21,7 @@ export const dayOfWeekSchema = z.union([
 ]);
 
 export const createPlanDaySchema = z.object({
-  plan_id: z.number().int().positive(),
+  plan_id: z.string().min(1),
   day_of_week: dayOfWeekSchema,
   name: z.string().min(1).max(100),
   sort_order: z.number().int().nonnegative(),
@@ -34,13 +34,15 @@ export const updatePlanDaySchema = z.object({
 });
 
 export const createPlanDayExerciseSchema = z.object({
-  plan_day_id: z.number().int().positive(),
-  exercise_id: z.number().int().positive(),
+  plan_day_id: z.string().min(1),
+  exercise_id: z.string().min(1),
   sets: z.number().int().positive().default(2),
   reps: z.number().int().positive().default(8),
   weight: z.number().nonnegative().default(30.0),
   rest_seconds: z.number().int().positive().default(60),
   sort_order: z.number().int().nonnegative(),
+  min_reps: z.number().int().positive().default(8),
+  max_reps: z.number().int().positive().default(12),
 });
 
 export const updatePlanDayExerciseSchema = z.object({
@@ -49,6 +51,8 @@ export const updatePlanDayExerciseSchema = z.object({
   weight: z.number().nonnegative().optional(),
   rest_seconds: z.number().int().positive().optional(),
   sort_order: z.number().int().nonnegative().optional(),
+  min_reps: z.number().int().positive().optional(),
+  max_reps: z.number().int().positive().optional(),
 });
 
 export type CreatePlanInput = z.infer<typeof createPlanSchema>;
@@ -61,3 +65,11 @@ export type CreatePlanDayExerciseInput = z.infer<
 export type UpdatePlanDayExerciseInput = z.infer<
   typeof updatePlanDayExerciseSchema
 >;
+
+// DTO aliases (canonical — replaces manual interfaces in types/database.ts)
+export type CreatePlanDTO = CreatePlanInput;
+export type UpdatePlanDTO = UpdatePlanInput;
+export type CreatePlanDayDTO = CreatePlanDayInput;
+export type UpdatePlanDayDTO = UpdatePlanDayInput;
+export type CreatePlanDayExerciseDTO = CreatePlanDayExerciseInput;
+export type UpdatePlanDayExerciseDTO = UpdatePlanDayExerciseInput;
