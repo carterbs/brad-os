@@ -11,10 +11,6 @@ enum WorkoutCommand: String, Codable {
 }
 
 struct WatchWorkoutSummary: Codable {
-    let avgHeartRate: Double
-    let maxHeartRate: Double
-    let activeCalories: Double
-    let totalDuration: TimeInterval
 }
 
 // MARK: - WorkoutManager
@@ -31,7 +27,6 @@ class WorkoutManager: NSObject, ObservableObject {
     @Published var activeCalories: Double = 0
     @Published var elapsedTime: TimeInterval = 0
     @Published var isWorkoutActive = false
-    @Published var error: Error?
     @Published var workoutContext: WatchWorkoutContext?
     @Published var currentExerciseIndex: Int = 0
     @Published var restTimerActive: Bool = false
@@ -106,7 +101,6 @@ class WorkoutManager: NSObject, ObservableObject {
         maxHeartRate = 0
         activeCalories = 0
         elapsedTime = 0
-        error = nil
 
         #if !targetEnvironment(simulator)
         let config = HKWorkoutConfiguration()
@@ -131,7 +125,6 @@ class WorkoutManager: NSObject, ObservableObject {
             session?.startActivity(with: workoutStartDate)
             try await builder?.beginCollection(at: workoutStartDate)
         } catch {
-            self.error = error
             throw error
         }
         #else
@@ -155,7 +148,6 @@ class WorkoutManager: NSObject, ObservableObject {
         maxHeartRate = 0
         activeCalories = 0
         elapsedTime = 0
-        error = nil
 
         do {
             session = try HKWorkoutSession(healthStore: healthStore, configuration: configuration)
@@ -182,7 +174,6 @@ class WorkoutManager: NSObject, ObservableObject {
             print("[WorkoutManager] Mirrored workout started")
             #endif
         } catch {
-            self.error = error
             throw error
         }
     }
@@ -193,7 +184,7 @@ class WorkoutManager: NSObject, ObservableObject {
         #if !targetEnvironment(simulator)
         guard let builder = builder,
               let session = session else {
-            throw WorkoutError.noActiveWorkout
+            throw NSError(domain: "WorkoutManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "No active workout to end"])
         }
 
         let endDate = Date()
@@ -207,12 +198,7 @@ class WorkoutManager: NSObject, ObservableObject {
         #endif
 
         // Calculate summary
-        let summary = WatchWorkoutSummary(
-            avgHeartRate: heartRate,
-            maxHeartRate: maxHeartRate,
-            activeCalories: activeCalories,
-            totalDuration: elapsedTime
-        )
+        let summary = WatchWorkoutSummary()
 
         #if !targetEnvironment(simulator)
         // End session
@@ -236,40 +222,5 @@ class WorkoutManager: NSObject, ObservableObject {
         #endif
 
         return summary
-    }
-
-    /// Cancel workout without saving
-    func cancelWorkout() {
-        #if !targetEnvironment(simulator)
-        session?.end()
-        session = nil
-        builder = nil
-        #endif
-        stopElapsedTimer()
-        isWorkoutActive = false
-        workoutContext = nil
-        currentExerciseIndex = 0
-        dismissRestTimer()
-        sendStateToiPhone()
-
-        #if DEBUG
-        print("[WorkoutManager] Workout cancelled")
-        #endif
-    }
-}
-
-// MARK: - Errors
-
-enum WorkoutError: Error, LocalizedError {
-    case noActiveWorkout
-    case healthKitNotAvailable
-
-    var errorDescription: String? {
-        switch self {
-        case .noActiveWorkout:
-            return "No active workout to end"
-        case .healthKitNotAvailable:
-            return "HealthKit is not available"
-        }
     }
 }

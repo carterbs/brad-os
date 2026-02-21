@@ -10,13 +10,6 @@ final class MeditationAPIService: ObservableObject {
 
     private let apiClient: APIClientProtocol
 
-    // MARK: - Published State
-
-    @Published var latestSession: MeditationSession?
-    @Published var stats: MeditationStats?
-    @Published var isLoading: Bool = false
-    @Published var error: Error?
-
     // MARK: - Offline Queue
 
     /// Sessions waiting to be uploaded when network becomes available
@@ -39,12 +32,6 @@ final class MeditationAPIService: ObservableObject {
         do {
             let savedSession = try await apiClient.createMeditationSession(session)
 
-            // Update latest session
-            await MainActor.run {
-                self.latestSession = savedSession
-                self.error = nil
-            }
-
             // Try to upload any pending sessions
             await uploadPendingSessions()
 
@@ -53,24 +40,7 @@ final class MeditationAPIService: ObservableObject {
             // Queue for later upload if network fails
             await queueForLaterUpload(session)
 
-            await MainActor.run {
-                self.error = error
-            }
-
             throw error
-        }
-    }
-
-    /// Save session without throwing - for fire-and-forget calls
-    /// Errors are captured in the error property
-    func saveSessionSilently(_ session: MeditationSession) {
-        Task {
-            do {
-                _ = try await saveSession(session)
-            } catch {
-                // Error is already captured in saveSession
-                print("[MeditationAPIService] Failed to save session: \(error.localizedDescription)")
-            }
         }
     }
 
@@ -78,65 +48,10 @@ final class MeditationAPIService: ObservableObject {
 
     /// Fetch the latest meditation session from the server
     func fetchLatestSession() async throws -> MeditationSession? {
-        await MainActor.run {
-            self.isLoading = true
-        }
-
         do {
             let session = try await apiClient.getLatestMeditationSession()
-
-            await MainActor.run {
-                self.latestSession = session
-                self.isLoading = false
-                self.error = nil
-            }
-
             return session
         } catch {
-            await MainActor.run {
-                self.isLoading = false
-                self.error = error
-            }
-
-            throw error
-        }
-    }
-
-    /// Fetch latest session without throwing
-    func fetchLatestSessionSilently() {
-        Task {
-            do {
-                _ = try await fetchLatestSession()
-            } catch {
-                print("[MeditationAPIService] Failed to fetch latest session: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    // MARK: - Statistics
-
-    /// Fetch meditation statistics from the server
-    func fetchStats() async throws -> MeditationStats {
-        await MainActor.run {
-            self.isLoading = true
-        }
-
-        do {
-            let stats = try await apiClient.getMeditationStats()
-
-            await MainActor.run {
-                self.stats = stats
-                self.isLoading = false
-                self.error = nil
-            }
-
-            return stats
-        } catch {
-            await MainActor.run {
-                self.isLoading = false
-                self.error = error
-            }
-
             throw error
         }
     }
@@ -187,16 +102,6 @@ final class MeditationAPIService: ObservableObject {
         }
     }
 
-    /// Check if there are pending uploads
-    var hasPendingUploads: Bool {
-        !pendingUploads.isEmpty
-    }
-
-    /// Number of sessions waiting to upload
-    var pendingUploadCount: Int {
-        pendingUploads.count
-    }
-
     // MARK: - Persistence for Pending Uploads
 
     private func savePendingUploads() {
@@ -219,11 +124,5 @@ final class MeditationAPIService: ObservableObject {
             print("[MeditationAPIService] Failed to load pending uploads: \(error)")
             pendingUploads = []
         }
-    }
-
-    /// Clear all pending uploads (for testing/debugging)
-    func clearPendingUploads() {
-        pendingUploads = []
-        UserDefaults.standard.removeObject(forKey: pendingUploadsKey)
     }
 }

@@ -85,29 +85,4 @@ struct APIConfiguration {
         return APIConfiguration(baseURL: url)
         #endif
     }
-
-    /// Create configuration for Firebase emulator
-    static func emulator() -> APIConfiguration {
-        guard let url = URL(string: emulatorURL) else {
-            fatalError("Invalid emulator URL: \(emulatorURL)")
-        }
-        return APIConfiguration(baseURL: url)
-    }
-
-    /// Create configuration with custom base URL
-    static func custom(_ baseURLString: String) -> APIConfiguration {
-        guard let url = URL(string: baseURLString) else {
-            fatalError("Invalid API base URL: \(baseURLString)")
-        }
-        return APIConfiguration(baseURL: url)
-    }
-
-    /// Create configuration for localhost with specific port
-    static func localhost(port: Int = 3001) -> APIConfiguration {
-        let urlString = "http://localhost:\(port)/api"
-        guard let url = URL(string: urlString) else {
-            fatalError("Invalid localhost URL with port: \(port)")
-        }
-        return APIConfiguration(baseURL: url)
-    }
 }

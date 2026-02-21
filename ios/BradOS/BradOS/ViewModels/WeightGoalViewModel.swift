@@ -31,7 +31,6 @@ struct WeightChartPoint: Identifiable {
 /// Prediction result from linear regression
 struct WeightPrediction {
     let predictedDate: Date?         // nil if moving away from goal
-    let dailyRateLbs: Double         // lbs/day (negative = losing)
     let weeklyRateLbs: Double        // lbs/week (negative = losing)
     let isOnTrack: Bool              // reaching goal by target date?
     let daysRemaining: Int?          // nil if not on track
@@ -69,10 +68,6 @@ class WeightGoalViewModel {
     var smoothedHistory: [WeightChartPoint] {
         let cutoff = Calendar.current.date(byAdding: .day, value: -selectedRange.days, to: Date()) ?? Date()
         return allSmoothedHistory.filter { $0.date >= cutoff }
-    }
-
-    var hasGoal: Bool {
-        Double(targetWeight) != nil
     }
 
     /// 14-day projected trend line from regression, starting at last smoothed point
@@ -261,7 +256,6 @@ class WeightGoalViewModel {
         guard movingRight, abs(dailyRate) > 0.001 else {
             prediction = WeightPrediction(
                 predictedDate: nil,
-                dailyRateLbs: dailyRate,
                 weeklyRateLbs: dailyRate * 7,
                 isOnTrack: false,
                 daysRemaining: nil
@@ -277,7 +271,6 @@ class WeightGoalViewModel {
 
         prediction = WeightPrediction(
             predictedDate: predictedDate,
-            dailyRateLbs: dailyRate,
             weeklyRateLbs: dailyRate * 7,
             isOnTrack: isOnTrack,
             daysRemaining: Int(daysToGoal)

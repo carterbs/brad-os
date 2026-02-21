@@ -2,20 +2,17 @@ import Foundation
 
 /// Successful API response wrapper
 struct APIResponse<T: Decodable>: Decodable {
-    let success: Bool
     let data: T
 }
 
 /// Error response from server
 struct APIErrorResponse: Decodable {
-    let success: Bool
     let error: APIErrorDetail
 }
 
 struct APIErrorDetail: Decodable {
     let code: String
     let message: String
-    let details: AnyCodable?
 }
 
 /// Type-erased Codable for arbitrary JSON details

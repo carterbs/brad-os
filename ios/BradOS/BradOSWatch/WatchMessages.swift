@@ -14,9 +14,7 @@ enum WCMessageKey {
 
 /// Complete workout snapshot sent when a workout starts on iPhone
 struct WatchWorkoutContext: Codable {
-    let workoutId: String
     let dayName: String
-    let weekNumber: Int
     var exercises: [WatchExerciseInfo]
 }
 
@@ -26,7 +24,6 @@ struct WatchExerciseInfo: Codable, Identifiable {
     let name: String
     let totalSets: Int
     var completedSets: Int
-    let restSeconds: Int
     var sets: [WatchSetInfo]
 
     var id: String { exerciseId }
@@ -35,7 +32,6 @@ struct WatchExerciseInfo: Codable, Identifiable {
 /// Individual set info for Watch display
 struct WatchSetInfo: Codable, Identifiable {
     let setId: String
-    let setNumber: Int
     let targetReps: Int
     let targetWeight: Double
     var status: String // "pending", "completed", "skipped"
@@ -50,8 +46,6 @@ struct WatchExerciseUpdate: Codable {
     let exerciseId: String
     let setId: String
     let newStatus: String // "completed", "skipped", "pending"
-    let actualReps: Int?
-    let actualWeight: Double?
     let completedSets: Int
 }
 
@@ -69,5 +63,4 @@ struct WatchRestTimerEvent: Codable {
 /// Sent when user taps "Log Set" on Watch
 struct WatchSetLogRequest: Codable {
     let setId: String
-    let exerciseId: String
 }

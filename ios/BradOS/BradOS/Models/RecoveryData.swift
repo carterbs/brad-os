@@ -147,16 +147,6 @@ struct SleepMetrics: Equatable {
     var deepPercent: Double {
         totalSleep > 0 ? (deep / totalSleep) * 100 : 0
     }
-
-    /// REM sleep as percentage of total sleep (0-100)
-    var remPercent: Double {
-        totalSleep > 0 ? (rem / totalSleep) * 100 : 0
-    }
-
-    /// Total sleep in hours
-    var hoursSlept: Double {
-        totalSleep / 3600.0
-    }
 }
 
 // MARK: - HRV Reading

@@ -71,8 +71,8 @@ struct BradOSApp: App {
                 ) { _ in
                     WidgetCenter.shared.reloadAllTimelines()
                 }
-                .onChange(of: scenePhase) { oldPhase, newPhase in
-                    handleScenePhaseChange(from: oldPhase, to: newPhase)
+                .onChange(of: scenePhase) { _, newPhase in
+                    handleScenePhaseChange(from: newPhase)
                 }
         }
     }
@@ -94,7 +94,7 @@ struct BradOSApp: App {
         }
     }
 
-    private func handleScenePhaseChange(from oldPhase: ScenePhase, to newPhase: ScenePhase) {
+    private func handleScenePhaseChange(from newPhase: ScenePhase) {
         switch newPhase {
         case .active:
             // App came to foreground - sync if needed
@@ -155,13 +155,6 @@ class AppState: ObservableObject {
 
     /// Selected workout ID for navigation to workout detail
     @Published var selectedWorkoutId: String?
-
-    /// Reference to the API client for convenience
-    let apiClient: APIClientProtocol
-
-    init(apiClient: APIClientProtocol = APIClient.shared) {
-        self.apiClient = apiClient
-    }
 
     /// Navigate to a specific workout
     func navigateToWorkout(_ workoutId: String) {

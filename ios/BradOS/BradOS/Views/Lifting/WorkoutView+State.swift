@@ -113,9 +113,7 @@ extension WorkoutView {
 
     func startRestTimer(targetSeconds: Int, exerciseId: String, setNumber: Int) {
         restTimer.start(
-            targetSeconds: targetSeconds,
-            exerciseId: exerciseId,
-            setNumber: setNumber
+            targetSeconds: targetSeconds
         )
 
         // Persist timer state

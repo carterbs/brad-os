@@ -8,7 +8,6 @@ struct MeditationActiveView: View {
     let duration: MeditationDuration
     let recoveredState: MeditationSessionPersisted?
     let onComplete: (MeditationSession) -> Void
-    let onCancel: () -> Void
 
     @Environment(\.scenePhase) var scenePhase
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -25,7 +24,6 @@ struct MeditationActiveView: View {
     @State var breathingProgress: Double = 0
     @State var circleScale: CGFloat = 1.0
     @State var circleOpacity: Double = 0.6
-    @State var previousPhase: BreathingPhase?
 
     // Timer for updates
     @State var displayTimer: Timer?
@@ -60,13 +58,11 @@ struct MeditationActiveView: View {
     init(
         duration: MeditationDuration,
         recoveredState: MeditationSessionPersisted? = nil,
-        onComplete: @escaping (MeditationSession) -> Void,
-        onCancel: @escaping () -> Void
+        onComplete: @escaping (MeditationSession) -> Void
     ) {
         self.duration = duration
         self.recoveredState = recoveredState
         self.onComplete = onComplete
-        self.onCancel = onCancel
         self._displayedTimeRemaining = State(initialValue: duration.seconds)
     }
 

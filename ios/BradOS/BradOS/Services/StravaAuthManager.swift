@@ -49,19 +49,6 @@ private struct StravaTokenResponse: Decodable {
     }
 }
 
-/// Response from Strava token refresh (no athlete object)
-private struct StravaRefreshResponse: Decodable {
-    let accessToken: String
-    let refreshToken: String
-    let expiresAt: Int
-
-    enum CodingKeys: String, CodingKey {
-        case accessToken = "access_token"
-        case refreshToken = "refresh_token"
-        case expiresAt = "expires_at"
-    }
-}
-
 /// Strava athlete info
 private struct StravaAthlete: Decodable {
     let id: Int
@@ -70,12 +57,6 @@ private struct StravaAthlete: Decodable {
 /// Strava API error response
 private struct StravaErrorResponse: Decodable {
     let message: String?
-    let errors: [StravaError]?
-
-    struct StravaError: Decodable {
-        let field: String?
-        let code: String?
-    }
 }
 
 // MARK: - Strava Auth Manager
@@ -97,7 +78,6 @@ final class StravaAuthManager: NSObject, ObservableObject {
     private let redirectUri = "bradosapp://strava-callback"
     private let keychainService: KeychainService
 
-    private var authSession: ASWebAuthenticationSession?
     private var pendingContinuation: CheckedContinuation<URL, Error>?
 
     // MARK: - Constants
@@ -175,37 +155,6 @@ final class StravaAuthManager: NSObject, ObservableObject {
             self.error = error.localizedDescription
             throw error
         }
-    }
-
-    /// Refresh tokens if needed and return valid tokens
-    func refreshTokensIfNeeded() async throws -> StravaTokens {
-        guard let tokens = try keychainService.loadStravaTokens() else {
-            throw StravaAuthError.authenticationFailed("No tokens found")
-        }
-
-        // If tokens are not expired, return them
-        if !tokens.isExpired {
-            return tokens
-        }
-
-        print("[StravaAuthManager] Access token expired, refreshing...")
-
-        // Refresh the tokens
-        let newTokens = try await refreshTokens(refreshToken: tokens.refreshToken, athleteId: tokens.athleteId)
-
-        // Save new tokens
-        try keychainService.saveStravaTokens(newTokens)
-
-        // Sync refreshed tokens to backend
-        await syncTokensToBackend(newTokens)
-
-        // Update state
-        isConnected = true
-        athleteId = newTokens.athleteId
-
-        print("[StravaAuthManager] Tokens refreshed successfully")
-
-        return newTokens
     }
 
     /// Disconnect from Strava
@@ -325,8 +274,6 @@ final class StravaAuthManager: NSObject, ObservableObject {
             session.presentationContextProvider = self
             session.prefersEphemeralWebBrowserSession = false
 
-            self.authSession = session
-
             if !session.start() {
                 continuation.resume(throwing: StravaAuthError.authenticationFailed("Failed to start auth session"))
             }
@@ -396,57 +343,6 @@ final class StravaAuthManager: NSObject, ObservableObject {
                 refreshToken: tokenResponse.refreshToken,
                 expiresAt: tokenResponse.expiresAt,
                 athleteId: tokenResponse.athlete.id
-            )
-        } catch let error as StravaAuthError {
-            throw error
-        } catch {
-            throw StravaAuthError.networkError(error)
-        }
-    }
-
-    /// Refresh tokens using refresh token
-    private func refreshTokens(refreshToken: String, athleteId: Int) async throws -> StravaTokens {
-        guard let tokenURL = URL(string: Self.tokenURL) else {
-            throw StravaAuthError.tokenRefreshFailed("Invalid token URL")
-        }
-        var request = URLRequest(url: tokenURL)
-        request.httpMethod = "POST"
-        request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-
-        let bodyParams = [
-            "client_id": clientId,
-            "client_secret": clientSecret,
-            "refresh_token": refreshToken,
-            "grant_type": "refresh_token"
-        ]
-
-        request.httpBody = bodyParams
-            .map { "\($0.key)=\($0.value)" }
-            .joined(separator: "&")
-            .data(using: .utf8)
-
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw StravaAuthError.tokenRefreshFailed("Invalid response")
-            }
-
-            if httpResponse.statusCode != 200 {
-                if let errorResponse = try? JSONDecoder().decode(StravaErrorResponse.self, from: data) {
-                    let message = errorResponse.message ?? "Unknown error"
-                    throw StravaAuthError.tokenRefreshFailed(message)
-                }
-                throw StravaAuthError.tokenRefreshFailed("HTTP \(httpResponse.statusCode)")
-            }
-
-            let refreshResponse = try JSONDecoder().decode(StravaRefreshResponse.self, from: data)
-
-            return StravaTokens(
-                accessToken: refreshResponse.accessToken,
-                refreshToken: refreshResponse.refreshToken,
-                expiresAt: refreshResponse.expiresAt,
-                athleteId: athleteId
             )
         } catch let error as StravaAuthError {
             throw error

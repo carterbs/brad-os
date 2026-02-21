@@ -5,7 +5,6 @@ import SwiftUI
 /// Displays the AI coach's training recommendation with Peloton-oriented display
 struct CoachRecommendationCard: View {
     let recommendation: CyclingCoachRecommendation
-    let ftp: Int?
 
     private var isFunDay: Bool {
         recommendation.session.sessionType == .fun

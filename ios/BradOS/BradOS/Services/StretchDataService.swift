@@ -85,11 +85,6 @@ final class StretchDataService: ObservableObject {
         return selected
     }
 
-    /// Check if a region has stretch data available
-    func hasData(for region: BodyRegion) -> Bool {
-        regions.contains { $0.region == region }
-    }
-
     // MARK: - UserDefaults Persistence
 
     private func saveToUserDefaults(_ regions: [StretchRegionData]) {

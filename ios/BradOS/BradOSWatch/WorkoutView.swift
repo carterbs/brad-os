@@ -430,20 +430,17 @@ private func previewWorkoutManagerWithContext() -> WorkoutManager {
 
 private func makePreviewContext() -> WatchWorkoutContext {
     WatchWorkoutContext(
-        workoutId: "preview-1",
         dayName: "Push Day",
-        weekNumber: 3,
         exercises: [
             WatchExerciseInfo(
                 exerciseId: "ex-1",
                 name: "Bench Press",
                 totalSets: 3,
                 completedSets: 1,
-                restSeconds: 120,
                 sets: [
-                    WatchSetInfo(setId: "s1", setNumber: 1, targetReps: 10, targetWeight: 135, status: "completed"),
-                    WatchSetInfo(setId: "s2", setNumber: 2, targetReps: 10, targetWeight: 135, status: "pending"),
-                    WatchSetInfo(setId: "s3", setNumber: 3, targetReps: 10, targetWeight: 135, status: "pending")
+                    WatchSetInfo(setId: "s1", targetReps: 10, targetWeight: 135, status: "completed"),
+                    WatchSetInfo(setId: "s2", targetReps: 10, targetWeight: 135, status: "pending"),
+                    WatchSetInfo(setId: "s3", targetReps: 10, targetWeight: 135, status: "pending")
                 ]
             ),
             WatchExerciseInfo(
@@ -451,11 +448,10 @@ private func makePreviewContext() -> WatchWorkoutContext {
                 name: "Overhead Press",
                 totalSets: 3,
                 completedSets: 0,
-                restSeconds: 90,
                 sets: [
-                    WatchSetInfo(setId: "s4", setNumber: 1, targetReps: 8, targetWeight: 95, status: "pending"),
-                    WatchSetInfo(setId: "s5", setNumber: 2, targetReps: 8, targetWeight: 95, status: "pending"),
-                    WatchSetInfo(setId: "s6", setNumber: 3, targetReps: 8, targetWeight: 95, status: "pending")
+                    WatchSetInfo(setId: "s4", targetReps: 8, targetWeight: 95, status: "pending"),
+                    WatchSetInfo(setId: "s5", targetReps: 8, targetWeight: 95, status: "pending"),
+                    WatchSetInfo(setId: "s6", targetReps: 8, targetWeight: 95, status: "pending")
                 ]
             )
         ]

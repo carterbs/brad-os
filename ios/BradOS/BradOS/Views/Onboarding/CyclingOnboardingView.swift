@@ -20,16 +20,6 @@ enum CyclingOnboardingStep: Int, CaseIterable {
         }
     }
 
-    var subtitle: String {
-        switch self {
-        case .ftp: return "Your Functional Threshold Power"
-        case .experience: return "Help the AI tailor your plan"
-        case .sessions: return "How often do you want to ride?"
-        case .goals: return "What are you working toward?"
-        case .preview: return "AI-generated training schedule"
-        }
-    }
-
     var systemImage: String {
         switch self {
         case .ftp: return "bolt.fill"
@@ -213,10 +203,6 @@ struct CyclingOnboardingView: View {
         case .goals: return !selectedGoals.isEmpty
         case .preview: return generatedSchedule != nil && !isGenerating
         }
-    }
-
-    var endDate: Date {
-        Calendar.current.date(byAdding: .weekOfYear, value: 8, to: startDate) ?? startDate
     }
 }
 

@@ -165,25 +165,19 @@ struct VO2MaxSparkline: View {
     VO2MaxCard(
         estimate: VO2MaxEstimateModel(
             id: "1",
-            date: "2026-02-08",
             value: 42.8,
             method: "ftp_derived",
-            sourcePower: 195,
-            sourceWeight: 79.4,
             category: "fair"
         ),
         history: [
             VO2MaxEstimateModel(
-                id: "1", date: "2026-02-08", value: 42.8,
-                method: "ftp_derived", sourcePower: 195, sourceWeight: 79.4
+                id: "1", value: 42.8, method: "ftp_derived"
             ),
             VO2MaxEstimateModel(
-                id: "2", date: "2026-01-25", value: 41.2,
-                method: "ftp_derived", sourcePower: 190, sourceWeight: 80.3
+                id: "2", value: 41.2, method: "ftp_derived"
             ),
             VO2MaxEstimateModel(
-                id: "3", date: "2026-01-11", value: 39.5,
-                method: "ftp_derived", sourcePower: 182, sourceWeight: 81.0
+                id: "3", value: 39.5, method: "ftp_derived"
             ),
         ]
     )

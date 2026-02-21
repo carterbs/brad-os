@@ -71,11 +71,6 @@ struct ReadinessCard: View {
         }
     }
 
-    /// Reload recovery data (called from parent on refresh)
-    func refresh() async {
-        await loadRecovery()
-    }
-
     // MARK: - Loading State
 
     private var loadingState: some View {
@@ -104,7 +99,6 @@ struct ReadinessCard: View {
                 Button("Enable HealthKit") {
                     Task {
                         try? await healthKit.requestAuthorization()
-                        await healthKit.refresh()
                     }
                 }
                 .font(.callout.weight(.semibold))

@@ -363,13 +363,11 @@ extension MeditationActiveView {
     func saveSessionState() {
         let state = MeditationSessionPersisted(
             status: isPaused ? .paused : .active,
-            sessionType: "basic-breathing",
             durationMinutes: duration.rawValue,
             sessionStartedAt: sessionStartTime,
             pausedAt: pausedAt,
             pausedElapsed: pausedElapsed,
-            scheduledCues: scheduledCues,
-            currentPhaseIndex: 0
+            scheduledCues: scheduledCues
         )
         storage.saveMeditationState(state)
     }

@@ -10,7 +10,6 @@ struct Theme {
     struct Background {
         static let deep = ThemeColors.bgDeep
         static let base = ThemeColors.bgBase
-        static let surface = ThemeColors.bgSurface
     }
 
     // MARK: - Text Colors (white at fixed opacities)
@@ -23,14 +22,11 @@ struct Theme {
     // MARK: - Strokes & Dividers
     static let strokeSubtle = Color.white.opacity(0.08)
     static let strokeMedium = Color.white.opacity(0.11)
-    static let strokeStrong = Color.white.opacity(0.18)
     static let divider = Color.white.opacity(0.08)
 
     // MARK: - Interactive Colors
     static let interactivePrimary = Color(hex: "7C5CFF")
     static let interactiveSecondary = Color(hex: "64D2FF")
-    static let interactiveLink = Color(hex: "7AA7FF")
-    static let interactiveFocusRing = Color(hex: "A48BFF").opacity(0.75)
 
     // MARK: - Activity Colors (from shared ThemeColors)
     static let lifting = ThemeColors.lifting
@@ -47,9 +43,7 @@ struct Theme {
     static let neutral = Color.white.opacity(0.56)
 
     // MARK: - Scrims
-    static let scrimLight = Color.black.opacity(0.20)
     static let scrimStandard = Color.black.opacity(0.35)
-    static let scrimHeavy = Color.black.opacity(0.50)
 
     // MARK: - Typography
     struct Typography {
@@ -66,12 +60,6 @@ struct Theme {
         static let cardHeaderIcon: CGFloat = 20
         static let activityGridIcon: CGFloat = 40
         static let listRowIcon: CGFloat = 16
-        static let badgeIcon: CGFloat = 12
-
-        // Timer sizes
-        static let timerSM: CGFloat = 48
-        static let timerMD: CGFloat = 56
-        static let timerLG: CGFloat = 64
     }
 
     // MARK: - Dimensions
@@ -111,7 +99,6 @@ struct Theme {
         static let lg: CGFloat = 16
         static let xl: CGFloat = 20
         static let xxl: CGFloat = 28
-        static let pill: CGFloat = 999
     }
 
     // MARK: - Shadows (rare — only for overlays)
@@ -119,23 +106,12 @@ struct Theme {
         static let smY: CGFloat = 4
         static let smBlur: CGFloat = 12
         static let smColor = Color.black.opacity(0.25)
-
-        static let mdY: CGFloat = 8
-        static let mdBlur: CGFloat = 24
-        static let mdColor = Color.black.opacity(0.28)
-
-        static let lgY: CGFloat = 16
-        static let lgBlur: CGFloat = 40
-        static let lgColor = Color.black.opacity(0.32)
     }
 
     // MARK: - Motion
     struct Motion {
         static let micro: Double = 0.12
-        static let fast: Double = 0.22
-        static let normal: Double = 0.30
         static let standardSpring = Animation.spring(response: 0.32, dampingFraction: 0.86)
-        static let bouncySpring = Animation.spring(response: 0.40, dampingFraction: 0.78)
     }
 }
 
@@ -300,25 +276,7 @@ struct AuroraBackground: View {
     }
 }
 
-// MARK: - Press Feedback Modifier
-struct PressFeedbackModifier: ViewModifier {
-    let isPressed: Bool
-
-    func body(content: Content) -> some View {
-        content
-            .scaleEffect(isPressed ? 0.98 : 1.0)
-            .animation(.easeInOut(duration: Theme.Motion.micro), value: isPressed)
-    }
-}
-
 // MARK: - View Modifiers
-
-// Legacy CardStyle — now Glass L1
-struct CardStyle: ViewModifier {
-    func body(content: Content) -> some View {
-        content.modifier(GlassCardModifier(level: .card))
-    }
-}
 
 // MARK: - Button Styles
 
@@ -369,22 +327,6 @@ struct GlassSecondaryButtonStyle: ButtonStyle {
                     .stroke(Theme.strokeMedium, lineWidth: 1)
             )
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
-            .animation(.easeInOut(duration: Theme.Motion.micro), value: configuration.isPressed)
-    }
-}
-
-/// Ghost button: no bg, callout semibold, interactive.primary, press: white@6% pill
-struct GhostButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.callout.weight(.semibold))
-            .foregroundColor(Theme.interactivePrimary)
-            .frame(minHeight: 44)
-            .padding(.horizontal, Theme.Spacing.space3)
-            .background(
-                Capsule(style: .continuous)
-                    .fill(Color.white.opacity(configuration.isPressed ? 0.06 : 0))
-            )
             .animation(.easeInOut(duration: Theme.Motion.micro), value: configuration.isPressed)
     }
 }
@@ -473,11 +415,6 @@ struct GlassPrimaryCircleButtonStyle: ButtonStyle {
 
 // MARK: - View Extensions
 extension View {
-    /// Apply legacy card style (now Glass L1)
-    func cardStyle() -> some View {
-        modifier(CardStyle())
-    }
-
     /// Apply glass card at a specific level
     func glassCard(_ level: GlassLevel = .card, radius: CGFloat? = nil, padding: CGFloat? = nil) -> some View {
         modifier(GlassCardModifier(level: level, radius: radius, padding: padding))

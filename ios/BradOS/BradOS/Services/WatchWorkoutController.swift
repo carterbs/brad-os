@@ -10,12 +10,7 @@ enum WorkoutCommand: String, Codable {
     case end
 }
 
-struct WatchWorkoutSummary: Codable {
-    let avgHeartRate: Double
-    let maxHeartRate: Double
-    let activeCalories: Double
-    let totalDuration: TimeInterval
-}
+struct WatchWorkoutSummary: Codable {}
 
 // MARK: - WatchWorkoutController
 
@@ -28,9 +23,7 @@ class WatchWorkoutController: NSObject, ObservableObject {
     // MARK: - Published Properties
 
     @Published var isWorkoutActive = false
-    @Published var workoutSummary: WatchWorkoutSummary?
     @Published var currentHeartRate: Double = 0
-    @Published var error: Error?
     @Published var isWatchReachable = false
     @Published var isWatchPairedButUnreachable = false
 
@@ -66,12 +59,6 @@ class WatchWorkoutController: NSObject, ObservableObject {
 
     // MARK: - Public Methods
 
-    /// Check if Watch is paired and app is installed
-    var isWatchAppAvailable: Bool {
-        guard let session = wcSession else { return false }
-        return session.isPaired && session.isWatchAppInstalled
-    }
-
     /// Check if we can send messages to Watch right now
     var canSendToWatch: Bool {
         guard let session = wcSession else { return false }
@@ -82,10 +69,6 @@ class WatchWorkoutController: NSObject, ObservableObject {
     /// The Watch will receive this and start tracking heart rate, calories, etc.
     func startMirroredWorkout() async throws {
         let session = try validatedSession()
-
-        // Clear any previous state
-        workoutSummary = nil
-        error = nil
 
         let message = try buildCommandMessage(.start)
 
@@ -102,7 +85,6 @@ class WatchWorkoutController: NSObject, ObservableObject {
                     throw WatchWorkoutError.watchRejectedCommand(msg)
                 }
             } catch {
-                self.error = error
                 throw WatchWorkoutError.messageFailed(error)
             }
         } else {
@@ -122,18 +104,11 @@ class WatchWorkoutController: NSObject, ObservableObject {
 
         if session.isReachable {
             do {
-                let reply = try await sendMessageAsync(
+                _ = try await sendMessageAsync(
                     session: session, message: message
                 )
-                if let summaryData = reply["summary"] as? Data,
-                   let summary = try? JSONDecoder().decode(
-                       WatchWorkoutSummary.self, from: summaryData
-                   ) {
-                    workoutSummary = summary
-                }
                 isWorkoutActive = false
             } catch {
-                self.error = error
                 throw WatchWorkoutError.messageFailed(error)
             }
         } else {
@@ -161,34 +136,9 @@ class WatchWorkoutController: NSObject, ObservableObject {
 
     /// Send full workout context to Watch for exercise display
     func sendWorkoutContext(from workout: Workout) {
-        guard let session = wcSession, session.isReachable,
-              let exercises = workout.exercises else { return }
+        guard let session = wcSession, session.isReachable else { return }
 
-        let watchExercises = exercises.map { exercise in
-            WatchExerciseInfo(
-                exerciseId: exercise.exerciseId,
-                name: exercise.exerciseName,
-                totalSets: exercise.totalSets,
-                completedSets: exercise.completedSets,
-                restSeconds: exercise.restSeconds,
-                sets: exercise.sets.map { set in
-                    WatchSetInfo(
-                        setId: set.id,
-                        setNumber: set.setNumber,
-                        targetReps: set.targetReps,
-                        targetWeight: set.targetWeight,
-                        status: set.status.rawValue
-                    )
-                }
-            )
-        }
-
-        let context = WatchWorkoutContext(
-            workoutId: workout.id,
-            dayName: workout.planDayName ?? "Workout",
-            weekNumber: workout.weekNumber,
-            exercises: watchExercises
-        )
+        let context = WatchWorkoutContext()
 
         do {
             let data = try JSONEncoder().encode(context)
@@ -270,11 +220,7 @@ class WatchWorkoutController: NSObject, ObservableObject {
     ) {
         guard let session = wcSession, session.isReachable else { return }
 
-        let event = WatchRestTimerEvent(
-            action: action,
-            targetSeconds: targetSeconds,
-            exerciseName: exerciseName
-        )
+        let event = WatchRestTimerEvent()
 
         do {
             let data = try JSONEncoder().encode(event)
@@ -303,7 +249,6 @@ extension WatchWorkoutController: WCSessionDelegate {
     ) {
         Task { @MainActor in
             if let error = error {
-                self.error = error
                 #if DEBUG
                 print("[WatchWorkoutController] WCSession activation failed: \(error)")
                 #endif
@@ -373,9 +318,7 @@ extension WatchWorkoutController: WCSessionDelegate {
         }
 
         // Handle workout summary
-        if let summaryData = message["summary"] as? Data,
-           let summary = try? JSONDecoder().decode(WatchWorkoutSummary.self, from: summaryData) {
-            workoutSummary = summary
+        if (message["summary"] as? Data) != nil {
             isWorkoutActive = false
 
             #if DEBUG

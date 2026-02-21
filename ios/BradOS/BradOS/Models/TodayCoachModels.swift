@@ -47,7 +47,6 @@ struct TodayCoachRecommendation: Codable, Equatable {
     struct CyclingSection: Codable, Equatable {
         let insight: String
         let session: CyclingCoachRecommendation.SessionRecommendation?
-        let priority: String // high, normal, skip
     }
 
     struct StretchingSection: Codable, Equatable {

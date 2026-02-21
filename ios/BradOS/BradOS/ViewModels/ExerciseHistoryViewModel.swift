@@ -31,8 +31,6 @@ class ExerciseHistoryViewModel: ObservableObject {
     // MARK: - Computed
 
     var history: ExerciseHistory? { historyState.data }
-    var exercise: Exercise? { exerciseState.data }
-    var isLoading: Bool { historyState.isLoading }
     var hasHistory: Bool { !(history?.entries.isEmpty ?? true) }
 
     /// Chart data sorted chronologically
@@ -140,42 +138,5 @@ class ExerciseHistoryViewModel: ObservableObject {
             return String(format: "%.0f", value)
         }
         return String(format: "%.1f", value)
-    }
-}
-
-// MARK: - Preview Support
-
-extension ExerciseHistoryViewModel {
-    /// Create a view model with mock data for previews
-    static func preview(exerciseId: String = "1") -> ExerciseHistoryViewModel {
-        let viewModel = ExerciseHistoryViewModel(exerciseId: exerciseId, apiClient: MockAPIClient())
-        viewModel.historyState = .loaded(ExerciseHistory.mockHistory)
-        return viewModel
-    }
-
-    /// Create a view model simulating loading state
-    static func loading(exerciseId: String = "1") -> ExerciseHistoryViewModel {
-        let viewModel = ExerciseHistoryViewModel(exerciseId: exerciseId, apiClient: MockAPIClient.withDelay(2.0))
-        viewModel.historyState = .loading
-        return viewModel
-    }
-
-    /// Create a view model simulating error state
-    static func error(exerciseId: String = "1") -> ExerciseHistoryViewModel {
-        let viewModel = ExerciseHistoryViewModel(exerciseId: exerciseId, apiClient: MockAPIClient.failing())
-        viewModel.historyState = .error(APIError.notFound("Exercise not found"))
-        return viewModel
-    }
-
-    /// Create a view model with no history entries
-    static func empty(exerciseId: String = "1") -> ExerciseHistoryViewModel {
-        let viewModel = ExerciseHistoryViewModel(exerciseId: exerciseId, apiClient: MockAPIClient.empty)
-        viewModel.historyState = .loaded(ExerciseHistory(
-            exerciseId: "1",
-            exerciseName: "Bench Press",
-            entries: [],
-            personalRecord: nil
-        ))
-        return viewModel
     }
 }

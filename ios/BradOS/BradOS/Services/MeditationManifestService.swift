@@ -55,8 +55,6 @@ final class MeditationManifestService {
             sessions: [
                 MeditationSessionDefinition(
                     id: "basic-breathing",
-                    name: "Basic Breathing",
-                    description: "A simple breathing meditation focusing on natural breath awareness.",
                     variants: [
                         makeBreathingVariant(durationMinutes: 5, introSeconds: 30, breathingSeconds: 240),
                         makeBreathingVariant(durationMinutes: 10, introSeconds: 45, breathingSeconds: 525),
@@ -65,8 +63,7 @@ final class MeditationManifestService {
                 )
             ],
             shared: MeditationSharedAudio(
-                bell: "shared/bell.wav",
-                silence: "shared/silence.wav"
+                bell: "shared/bell.wav"
             )
         )
     }
@@ -128,35 +125,5 @@ final class MeditationManifestService {
         }
 
         return variant.generateScheduledCues(bellFile: manifest.shared.bell)
-    }
-
-    // MARK: - Phase Calculation
-
-    /// Determine the current meditation phase based on elapsed time
-    func getCurrentPhase(
-        sessionId: String,
-        duration: Int,
-        elapsedSeconds: Int
-    ) async throws -> MeditationPhaseType? {
-        let manifest = try await loadManifest()
-
-        guard let variant = getVariant(sessionId: sessionId, duration: duration, from: manifest) else {
-            return nil
-        }
-
-        var accumulated = 0
-        for phase in variant.phases {
-            accumulated += phase.durationSeconds
-            if elapsedSeconds < accumulated {
-                return phase.type
-            }
-        }
-
-        return .closing  // Default to closing if past all phases
-    }
-
-    /// Clear cached manifest (for testing or refresh)
-    func clearCache() {
-        cachedManifest = nil
     }
 }

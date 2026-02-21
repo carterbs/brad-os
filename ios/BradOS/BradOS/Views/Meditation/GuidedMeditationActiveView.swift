@@ -8,7 +8,6 @@ struct GuidedMeditationActiveView: View {
     let preparedSegments: [PreparedAudioSegment]
     let resolvedInterjections: [ResolvedInterjection]
     let onComplete: (MeditationSession) -> Void
-    let onCancel: () -> Void
 
     @Environment(\.scenePhase) var scenePhase
 
@@ -245,16 +244,12 @@ struct GuidedMeditationActiveView: View {
     private func saveSessionState() {
         let state = MeditationSessionPersisted(
             status: pipeline.isPlaying ? .active : .paused,
-            sessionType: "reactivity-\(script.id)",
             durationMinutes: script.durationSeconds / 60,
             sessionStartedAt: sessionStartTime,
             pausedAt: pipeline.isPlaying ? nil : Date(),
             pausedElapsed: 0,  // Pipeline tracks its own elapsed time
             scheduledCues: [],  // Not used for guided sessions
-            currentPhaseIndex: 0,
-            guidedScriptId: script.id,
-            guidedCategory: "reactivity",
-            guidedElapsedSeconds: pipeline.elapsedSeconds
+            guidedScriptId: script.id
         )
         storage.saveMeditationState(state)
     }

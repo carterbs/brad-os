@@ -127,8 +127,7 @@ struct CyclingTodayView: View {
         } else if let recommendation = coachClient.recommendation {
             // Show recommendation with fun day handling
             CoachRecommendationCard(
-                recommendation: recommendation,
-                ftp: viewModel.currentFTP
+                recommendation: recommendation
             )
         } else if recovery == nil {
             // No recovery data

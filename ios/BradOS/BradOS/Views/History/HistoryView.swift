@@ -172,7 +172,6 @@ struct HistoryView: View {
                 ForEach(ActivityType.allCases, id: \.self) { type in
                     FilterChip(
                         title: type.displayName,
-                        color: type.color,
                         isSelected: selectedFilter == type
                     ) {
                         selectedFilter = type

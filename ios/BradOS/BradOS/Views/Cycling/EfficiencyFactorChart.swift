@@ -135,10 +135,10 @@ struct EfficiencyFactorChart: View {
 
 #Preview {
     EfficiencyFactorChart(data: [
-        EFDataPoint(activityId: "1", date: "2026-02-06", ef: 1.16, normalizedPower: 145, avgHeartRate: 125),
-        EFDataPoint(activityId: "2", date: "2026-02-01", ef: 1.12, normalizedPower: 140, avgHeartRate: 125),
-        EFDataPoint(activityId: "3", date: "2026-01-27", ef: 1.08, normalizedPower: 135, avgHeartRate: 125),
-        EFDataPoint(activityId: "4", date: "2026-01-22", ef: 1.05, normalizedPower: 130, avgHeartRate: 124),
+        EFDataPoint(activityId: "1", date: "2026-02-06", ef: 1.16),
+        EFDataPoint(activityId: "2", date: "2026-02-01", ef: 1.12),
+        EFDataPoint(activityId: "3", date: "2026-01-27", ef: 1.08),
+        EFDataPoint(activityId: "4", date: "2026-01-22", ef: 1.05),
     ])
     .padding()
     .background(AuroraBackground().ignoresSafeArea())

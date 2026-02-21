@@ -5,20 +5,14 @@ import Foundation
 /// A cycling activity record synced from Strava/Peloton
 struct CyclingActivityModel: Identifiable, Codable {
     let id: String
-    let stravaId: Int
     let date: Date
     let durationMinutes: Int
-    let avgPower: Double
     let normalizedPower: Double
-    let maxPower: Double
     let avgHeartRate: Double
-    let maxHeartRate: Double
     let tss: Double
-    let intensityFactor: Double
     let type: CyclingWorkoutType
     var ef: Double?
     var peak5MinPower: Int?
-    var peak20MinPower: Int?
     var hrCompleteness: Int?
 
     enum CyclingWorkoutType: String, Codable {
@@ -74,8 +68,6 @@ struct WeeklySessionModel: Codable, Identifiable {
     let pelotonClassTypes: [String]
     let suggestedDurationMinutes: Int
     let description: String
-    let preferredDay: Int?
-
     var sessionTypeEnum: SessionType {
         SessionType(rawValue: sessionType) ?? .fun
     }
@@ -102,20 +94,15 @@ struct GenerateScheduleRequest: Codable {
 
 struct GenerateScheduleResponse: Codable {
     let sessions: [WeeklySessionModel]
-    let weeklyPlan: WeeklyPlanSummary
     let rationale: String
 }
 
 struct WeeklyPlanSummary: Codable {
-    let totalEstimatedHours: Double
-    let phases: [PhaseSummary]
 }
 
 struct PhaseSummary: Codable, Identifiable {
     var id: String { name }
     let name: String
-    let weeks: String
-    let description: String
 }
 
 // MARK: - Training Block Model
@@ -160,11 +147,8 @@ struct TrainingLoadModel: Codable {
 /// An estimated VO2 max entry
 struct VO2MaxEstimateModel: Identifiable, Codable {
     let id: String
-    let date: String
     let value: Double // mL/kg/min
     let method: String // ftp_derived, peak_5min, peak_20min
-    let sourcePower: Double
-    let sourceWeight: Double
     var category: String? // poor, fair, good, excellent, elite
 
     var fitnessCategory: String {
@@ -178,16 +162,6 @@ struct VO2MaxEstimateModel: Identifiable, Codable {
         if vo2max >= 35 { return "fair" }
         return "poor"
     }
-
-    var fitnessCategoryColor: String {
-        switch fitnessCategory {
-        case "elite": return "purple"
-        case "excellent": return "blue"
-        case "good": return "green"
-        case "fair": return "yellow"
-        default: return "red"
-        }
-    }
 }
 
 // MARK: - Efficiency Factor Data Point
@@ -198,8 +172,6 @@ struct EFDataPoint: Identifiable, Codable {
     let activityId: String
     let date: String
     let ef: Double
-    let normalizedPower: Double
-    let avgHeartRate: Double
 }
 
 // MARK: - API Response Models
@@ -250,7 +222,6 @@ struct WeightGoalResponse: Codable {
 
 /// Response from POST /cycling/sync
 struct CyclingSyncResponse: Codable {
-    let total: Int
     let imported: Int
     let skipped: Int
     let message: String

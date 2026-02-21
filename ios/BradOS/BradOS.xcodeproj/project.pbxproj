@@ -45,6 +45,7 @@
 		3078497041DB37D85E0C5252 /* TextToSpeechViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 860F464B6153DE259CA15B43 /* TextToSpeechViewModel.swift */; };
 		31019FE4FFBCA5704111E1C4 /* TodayCoachClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F7986113E22E50B924F9B7F /* TodayCoachClient.swift */; };
 		31987F115A5E471B11730A54 /* MealPlanWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06D0B8347A99B93E834A9FED /* MealPlanWidget.swift */; };
+		322C80E6C03891D58961B1EF /* CyclingAPIClientProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1CF9466E261248F84B8305 /* CyclingAPIClientProtocol.swift */; };
 		328E6FBABB08CF31FB025887 /* StretchSupportViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62E7BB00FEA56784F03E89F8 /* StretchSupportViews.swift */; };
 		35D3E2A9780F237391241D01 /* StravaConnectionView+Sections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A5ABDB9A6FF40B99D519918 /* StravaConnectionView+Sections.swift */; };
 		36BDCF58471798B9A4004C0D /* StretchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06FAC4C7BDEAE262B3CC404F /* StretchView.swift */; };
@@ -109,7 +110,6 @@
 		9BD4493B10DD79146E0CA8DB /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBF372123F55E659888F52D6 /* NotificationManager.swift */; };
 		9C1BA7AA05CF5FDD8F66ACF6 /* VO2MaxCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 993608C0FBBCCEF24542B9DB /* VO2MaxCard.swift */; };
 		9DAA5CC8E064CDCD5FA4000E /* BarcodeRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 460D19A4C8322DAEFB0E907F /* BarcodeRenderer.swift */; };
-		A118C6D9A1D3F23E197395BD /* StravaClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = C56853B8332CDD2806D4C210 /* StravaClient.swift */; };
 		A2672EF267DB8F4DEB73DF48 /* CyclingBlockView+Cards.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB404B8798A6705E8A9970E5 /* CyclingBlockView+Cards.swift */; };
 		A2933051E13C62470830094F /* TrainingBlockSetupView+Steps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E1A44FEBF763CFAFCA15B58 /* TrainingBlockSetupView+Steps.swift */; };
 		A32F36B56C6FC05C45681DB3 /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABECD316D7BC15DD0A15ED2B /* MainTabView.swift */; };
@@ -366,7 +366,6 @@
 		C33D52B0396ACA302C69E801 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		C474DBAD9A28EC53239DD31D /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
 		C53E75A3690BEF52601F124F /* TodayCoachDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayCoachDetailView.swift; sourceTree = "<group>"; };
-		C56853B8332CDD2806D4C210 /* StravaClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StravaClient.swift; sourceTree = "<group>"; };
 		CA5622DD239A1E87AD387720 /* APIResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIResponse.swift; sourceTree = "<group>"; };
 		CAB73F3D9DD5B217641D6828 /* GuidedMeditation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidedMeditation.swift; sourceTree = "<group>"; };
 		CB12AF8EB986F19AD034CB01 /* MealDayCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealDayCard.swift; sourceTree = "<group>"; };
@@ -397,6 +396,7 @@
 		F8A1A73EC80514BA87B64890 /* FoodScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FoodScannerView.swift; sourceTree = "<group>"; };
 		F957A5A2A6637FCA0986D7B0 /* HealthMetricHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthMetricHistoryView.swift; sourceTree = "<group>"; };
 		FA13B528976D6158FAD1396F /* CyclingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingViewModel.swift; sourceTree = "<group>"; };
+		FB1CF9466E261248F84B8305 /* CyclingAPIClientProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingAPIClientProtocol.swift; sourceTree = "<group>"; };
 		FB5D60FE3BC6768651DE9621 /* TodayCoachDetailView+Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TodayCoachDetailView+Helpers.swift"; sourceTree = "<group>"; };
 		FD45B75A479093507100918B /* LiftingTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiftingTabView.swift; sourceTree = "<group>"; };
 		FE15CBAC22F7DA10D9FB2521 /* MeditationCompleteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationCompleteView.swift; sourceTree = "<group>"; };
@@ -509,7 +509,6 @@
 				BBF372123F55E659888F52D6 /* NotificationManager.swift */,
 				EAEBDA3BC95C3B29BEE3EFB7 /* RestTimerManager.swift */,
 				5772DDAD04489B4098A5A803 /* StravaAuthManager.swift */,
-				C56853B8332CDD2806D4C210 /* StravaClient.swift */,
 				7BB22A3D8B0F4806B6C120D8 /* StretchAudioCache.swift */,
 				C086BBC4D5541722D70764B8 /* StretchAudioManager.swift */,
 				9FC92309C729E7A7C24BF90A /* StretchAudioPreparer.swift */,
@@ -773,6 +772,14 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
+		C0B13940A74D2399F11588A6 /* Protocols */ = {
+			isa = PBXGroup;
+			children = (
+				FB1CF9466E261248F84B8305 /* CyclingAPIClientProtocol.swift */,
+			);
+			path = Protocols;
+			sourceTree = "<group>";
+		};
 		CBA0DCA9485AA5E7B944CE45 /* Health */ = {
 			isa = PBXGroup;
 			children = (
@@ -789,6 +796,7 @@
 				27DE064832740EFE6D2B9ED2 /* Components */,
 				902CB203F68951F01F41A400 /* Extensions */,
 				BB6728928AF4A316229CFE13 /* Models */,
+				C0B13940A74D2399F11588A6 /* Protocols */,
 				2E02F2556B233379B298698A /* Services */,
 				E80B212E743785C24B5A03F7 /* Storage */,
 				559FE34F30E3BFFC9D40D87E /* Theme */,
@@ -843,7 +851,7 @@
 			path = Lifting;
 			sourceTree = "<group>";
 		};
-		"TEMP_E21CC384-5892-49A3-A364-7D6A70E82492" /* Resources */ = {
+		"TEMP_8DAE7292-0F77-4CA7-924F-684913B3A531" /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -1005,6 +1013,7 @@
 				5BFC07B87B0651B487E308F2 /* CollapsibleCritiqueView.swift in Sources */,
 				066415228315231B0DA4DF30 /* ContentView.swift in Sources */,
 				A397B3DA95F1A0DC9A40CE99 /* CritiqueInputView.swift in Sources */,
+				322C80E6C03891D58961B1EF /* CyclingAPIClientProtocol.swift in Sources */,
 				A2672EF267DB8F4DEB73DF48 /* CyclingBlockView+Cards.swift in Sources */,
 				687ED813020B272B9D6301A0 /* CyclingBlockView.swift in Sources */,
 				3B0A570782106358E7AE4962 /* CyclingCoachClient.swift in Sources */,
@@ -1089,7 +1098,6 @@
 				4819F332AA63F1CC73662D46 /* SleepHistoryView.swift in Sources */,
 				431CE65223D5711937A751A4 /* StatusBadge.swift in Sources */,
 				BA425F4FAA16BC31E251E506 /* StravaAuthManager.swift in Sources */,
-				A118C6D9A1D3F23E197395BD /* StravaClient.swift in Sources */,
 				35D3E2A9780F237391241D01 /* StravaConnectionView+Sections.swift in Sources */,
 				CC9ED644E5641FDB01342427 /* StravaConnectionView.swift in Sources */,
 				7B8201A2E04A9138838B59DC /* Stretch.swift in Sources */,

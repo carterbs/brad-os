@@ -15,7 +15,6 @@ struct CyclingCoachRecommendation: Codable, Equatable {
     struct SessionRecommendation: Codable, Equatable {
         let type: String
         let durationMinutes: Int
-        let intervals: IntervalProtocol?
         let targetTSS: TSSRange
         let targetZones: String
         let pelotonClassTypes: [String]?
@@ -27,28 +26,8 @@ struct CyclingCoachRecommendation: Codable, Equatable {
         }
     }
 
-    /// Interval workout definition
-    struct IntervalProtocol: Codable, Equatable {
-        let protocolName: String
-        let count: Int
-        let workSeconds: Int
-        let restSeconds: Int
-        let targetPowerPercent: PowerRange
-
-        enum CodingKeys: String, CodingKey {
-            case protocolName = "protocol"
-            case count, workSeconds, restSeconds, targetPowerPercent
-        }
-    }
-
     /// TSS range for session target
     struct TSSRange: Codable, Equatable {
-        let min: Int
-        let max: Int
-    }
-
-    /// Power range as % of FTP
-    struct PowerRange: Codable, Equatable {
         let min: Int
         let max: Int
     }
@@ -203,11 +182,6 @@ class CyclingCoachClient: ObservableObject {
         }
     }
 
-    /// Invalidate the cached recommendation so next call fetches fresh
-    func invalidateCache() {
-        cacheTimestamp = nil
-    }
-
     /// Generate a weekly schedule from the AI coach
     func generateSchedule(request: GenerateScheduleRequest) async throws -> GenerateScheduleResponse {
         isLoading = true
@@ -223,23 +197,6 @@ class CyclingCoachClient: ObservableObject {
         } catch {
             self.error = error.localizedDescription
             throw error
-        }
-    }
-
-    /// Refresh recommendation using latest recovery data from Firebase
-    func refresh() async {
-        do {
-            guard let snapshot = try await apiClient.getLatestRecovery(),
-                  let recovery = snapshot.toRecoveryData() else {
-                error = "No recovery data available"
-                return
-            }
-            _ = try await getRecommendation(recovery: recovery)
-        } catch {
-            // Error already set in getRecommendation (if it was an API error)
-            if self.error == nil {
-                self.error = error.localizedDescription
-            }
         }
     }
 }

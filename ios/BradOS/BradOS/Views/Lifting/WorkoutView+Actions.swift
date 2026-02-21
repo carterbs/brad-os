@@ -66,9 +66,7 @@ extension WorkoutView {
             if elapsed < timerState.targetSeconds + 300 {
                 restTimer.restore(
                     startedAt: timerState.startedAt,
-                    targetSeconds: timerState.targetSeconds,
-                    exerciseId: timerState.exerciseId,
-                    setNumber: timerState.setNumber
+                    targetSeconds: timerState.targetSeconds
                 )
             }
         }
@@ -191,15 +189,7 @@ extension WorkoutView {
             stateManager.removePendingEdit(setId: set.id)
 
             // Send update to Watch
-            let exercise = workout?.exercises?.first(where: { $0.exerciseId == set.exerciseId })
-            watchWorkoutController.sendExerciseUpdate(WatchExerciseUpdate(
-                exerciseId: set.exerciseId,
-                setId: set.id,
-                newStatus: "completed",
-                actualReps: reps,
-                actualWeight: weight,
-                completedSets: exercise?.completedSets ?? 0
-            ))
+            watchWorkoutController.sendExerciseUpdate(WatchExerciseUpdate())
         } catch {
             // Rollback on failure
             updateSetInWorkout(setId: set.id, status: .pending, actualWeight: nil, actualReps: nil)

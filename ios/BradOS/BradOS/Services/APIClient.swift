@@ -49,12 +49,6 @@ final class ResponseCache: @unchecked Sendable {
         defer { lock.unlock() }
         cache = cache.filter { !$0.key.contains(substring) }
     }
-
-    func invalidateAll() {
-        lock.lock()
-        defer { lock.unlock() }
-        cache.removeAll()
-    }
 }
 
 /// Main API client for Brad OS server
@@ -147,11 +141,6 @@ final class APIClient: APIClientProtocol {
         responseCache.invalidate(matching: path)
     }
 
-    /// Invalidate all cached responses
-    func invalidateAllCaches() {
-        responseCache.invalidateAll()
-    }
-
     // MARK: - Core Request Methods
 
     /// Perform GET request and decode response, with optional caching
@@ -205,7 +194,7 @@ final class APIClient: APIClientProtocol {
     func deleteRequest(_ path: String) async throws {
         let request = try buildRequest(path: path, method: "DELETE")
         let (data, response) = try await performDataTask(for: request)
-        try validateResponse(data: data, response: response, allowEmpty: true)
+        try validateResponse(data: data, response: response)
     }
 
     /// Perform DELETE request with response body
@@ -336,7 +325,7 @@ final class APIClient: APIClientProtocol {
         }
     }
 
-    func validateResponse(data: Data, response: URLResponse, allowEmpty: Bool = false) throws {
+    func validateResponse(data: Data, response: URLResponse) throws {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.network(NSError(domain: "APIClient", code: -1, userInfo: [
                 NSLocalizedDescriptionKey: "Invalid response type"

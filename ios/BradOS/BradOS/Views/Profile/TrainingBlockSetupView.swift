@@ -8,16 +8,6 @@ enum WizardStep: Int, CaseIterable {
     case goals = 2
     case preview = 3
     case startDate = 4
-
-    var title: String {
-        switch self {
-        case .experience: return "Experience"
-        case .sessions: return "Sessions"
-        case .goals: return "Goals"
-        case .preview: return "Your Plan"
-        case .startDate: return "Start Date"
-        }
-    }
 }
 
 // MARK: - Hours Available Option

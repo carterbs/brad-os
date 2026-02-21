@@ -210,8 +210,7 @@ struct CyclingDashboardCard: View {
             sessionType: "vo2max",
             pelotonClassTypes: ["Power Zone Max", "HIIT"],
             suggestedDurationMinutes: 45,
-            description: "High-intensity intervals at 120% FTP",
-            preferredDay: 2
+            description: "High-intensity intervals at 120% FTP"
         ),
         weekProgress: "2 of 4",
         isLoading: false,
@@ -229,8 +228,7 @@ struct CyclingDashboardCard: View {
             sessionType: "threshold",
             pelotonClassTypes: ["Power Zone", "Climb"],
             suggestedDurationMinutes: 60,
-            description: "Sweet spot intervals at 88-93% FTP",
-            preferredDay: 4
+            description: "Sweet spot intervals at 88-93% FTP"
         ),
         weekProgress: "3 of 4",
         isLoading: false,
@@ -248,8 +246,7 @@ struct CyclingDashboardCard: View {
             sessionType: "endurance",
             pelotonClassTypes: ["Power Zone Endurance", "Scenic"],
             suggestedDurationMinutes: 75,
-            description: "Easy aerobic ride at 65-75% FTP",
-            preferredDay: 6
+            description: "Easy aerobic ride at 65-75% FTP"
         ),
         weekProgress: "1 of 4",
         isLoading: false,
@@ -267,8 +264,7 @@ struct CyclingDashboardCard: View {
             sessionType: "recovery",
             pelotonClassTypes: ["Low Impact", "Recovery"],
             suggestedDurationMinutes: 30,
-            description: "Active recovery at <60% FTP",
-            preferredDay: 1
+            description: "Active recovery at <60% FTP"
         ),
         weekProgress: "4 of 4",
         isLoading: false,
