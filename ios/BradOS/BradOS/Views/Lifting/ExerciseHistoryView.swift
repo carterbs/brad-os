@@ -19,17 +19,12 @@ struct ExerciseHistoryView: View {
     }
 
     var body: some View {
-        Group {
-            switch viewModel.historyState {
-            case .idle, .loading:
-                LoadingView(message: "Loading history...")
-
-            case .error(let error):
-                errorView(error)
-
-            case .loaded(let history):
-                contentView(history)
-            }
+        LoadStateView(
+            viewModel.historyState,
+            loadingMessage: "Loading history...",
+            retryAction: { await viewModel.loadHistory() }
+        ) { history in
+            contentView(history)
         }
         .background(AuroraBackground().ignoresSafeArea())
         .navigationTitle(
@@ -239,21 +234,6 @@ struct ExerciseHistoryView: View {
             message: "Complete workouts with this exercise to see your progress here."
         )
         .padding(.top, Theme.Spacing.space7)
-    }
-
-    // MARK: - Error View
-
-    @ViewBuilder
-    private func errorView(_ error: Error) -> some View {
-        EmptyStateView(
-            iconName: "exclamationmark.triangle",
-            title: "Exercise Not Found",
-            message: error.localizedDescription,
-            buttonTitle: "Try Again"
-        ) {
-            Task { await viewModel.loadHistory() }
-        }
-        .padding(Theme.Spacing.space4)
     }
 }
 

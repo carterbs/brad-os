@@ -22,3 +22,15 @@ public enum LoadState<T> {
         return nil
     }
 }
+
+// MARK: - Error Display
+
+extension Error {
+    /// User-facing error message, extracting APIError.message when available
+    public var displayMessage: String {
+        if let apiError = self as? APIError {
+            return apiError.message
+        }
+        return localizedDescription
+    }
+}

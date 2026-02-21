@@ -66,7 +66,7 @@ public class ExercisesViewModel: ObservableObject {
             isCreating = false
             return true
         } catch {
-            createError = parseError(error)
+            createError = error.displayMessage
             isCreating = false
             return false
         }
@@ -88,7 +88,7 @@ public class ExercisesViewModel: ObservableObject {
             deletingExerciseId = nil
             return true
         } catch {
-            deleteError = parseError(error)
+            deleteError = error.displayMessage
             deletingExerciseId = nil
             return false
         }
@@ -132,14 +132,6 @@ public class ExercisesViewModel: ObservableObject {
         deleteError = nil
     }
 
-    // MARK: - Helpers
-
-    private func parseError(_ error: Error) -> String {
-        if let apiError = error as? APIError {
-            return apiError.message
-        }
-        return error.localizedDescription
-    }
 }
 
 // MARK: - Preview Support
