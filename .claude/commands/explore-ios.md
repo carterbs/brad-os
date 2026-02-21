@@ -16,7 +16,7 @@ Run the setup script if you haven't already:
 ## App Details
 
 - **Bundle ID:** `com.bradcarter.brad-os`
-- **Workspace:** `ios/BradOS/BradOS.xcworkspace`
+- **Project:** `ios/BradOS/BradOS.xcodeproj` (use `-project`, NOT `-workspace`)
 - **Scheme:** `BradOS`
 
 ## Process
@@ -25,15 +25,17 @@ Run the setup script if you haven't already:
 
 ```bash
 # Build for simulator
-xcodebuild -workspace ios/BradOS/BradOS.xcworkspace \
+# NOTE: Do NOT pass -sdk flag — it breaks the watchOS companion build.
+# NOTE: -skipPackagePluginValidation is required for SwiftLint SPM build plugin in CLI builds.
+xcodebuild -project ios/BradOS/BradOS.xcodeproj \
   -scheme BradOS \
-  -sdk iphonesimulator \
-  -destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -derivedDataPath ~/.cache/brad-os-derived-data \
+  -skipPackagePluginValidation \
   build
 
 # Boot simulator (if not running)
-xcrun simctl boot 'iPhone 15 Pro'
+xcrun simctl boot 'iPhone 17 Pro'
 
 # Install app
 xcrun simctl install booted ~/.cache/brad-os-derived-data/Build/Products/Debug-iphonesimulator/BradOS.app

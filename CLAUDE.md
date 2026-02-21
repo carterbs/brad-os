@@ -9,9 +9,8 @@
 mkdir -p ../lifting-worktrees
 git worktree add ../lifting-worktrees/<branch-name> -b <branch-name>
 
-# 2. Set up the worktree (REQUIRED before running tests)
-cd ../lifting-worktrees/<branch-name>
-npm install
+# 2. Symlink node_modules (worktrees don't have their own)
+ln -s /Users/bradcarter/Documents/Dev/brad-os/node_modules ../lifting-worktrees/<branch-name>/node_modules
 
 # 3. Make changes and verify
 # ... make changes ...
@@ -29,7 +28,7 @@ git branch -d <branch-name>
 ```
 
 **Worktree Setup Requirements:**
-- `npm install` - Install dependencies (worktrees don't share node_modules)
+- Symlink `node_modules` from main (step 2 above). Only run `npm install` if the branch changes `package.json`.
 
 This keeps main clean and allows easy rollback of changes.
 
@@ -52,20 +51,21 @@ Task tool with subagent_type=Bash:
 
 **Exception**: Quick single-command checks (like `git status`) can run directly.
 
-## Database Isolation (IMPORTANT)
+## Debugging Cloud Functions (CRITICAL)
 
-The app uses separate SQLite databases based on `NODE_ENV`:
+**When an endpoint returns errors, check these in order:**
 
-| Database | NODE_ENV | Port | Usage |
-|----------|----------|------|-------|
-| `brad-os.db` | (none) or `development` | 3001 | Local development |
-| `brad-os.prod.db` | `production` | 3001 | Production |
+1. **`firebase.json` rewrite path vs `stripPathPrefix()` argument** — must match exactly. e.g., if rewrite is `/api/dev/health-sync/**`, use `stripPathPrefix('health-sync')` NOT `stripPathPrefix('health')`. Mismatch causes routes to silently 404 with no useful logs.
+2. **Cloud Function actually deployed?** Check `firebase functions:log --only <functionName>` for deployment audit entries.
+3. **App Check debug token registered?** This is the LEAST likely cause — simulators are properly registered. If other API calls work (e.g., HRV history loads), App Check is fine.
 
-**Never make direct API calls to test or manipulate data on the dev server.**
-
-## Debugging Guidelines
-
-When debugging issues, check logs and deployed state FIRST before reading source code. Verify that deployed code matches local code, check Firebase/Cloud Function logs, and confirm the environment (dev vs prod) before diving into code-level debugging.
+**General debugging approach:**
+- Check logs and deployed state FIRST before reading source code
+- Verify deployed code matches local code
+- Confirm the environment (dev vs prod)
+- `curl` the endpoint directly to isolate server vs client issues. A raw `APP_CHECK_MISSING` response means routing is OK (token is the issue). A 404 HTML page means hosting rewrite failed.
+- Cloud Function request logs are sparse — only deployment audits and instance lifecycle show up in `firebase functions:log`. To debug routing, test with curl or add temporary `console.log` to the handler.
+- iOS simulator `print()` doesn't appear in `log stream` — use `xcrun simctl launch --console` (captures stderr/NSLog only, not stdout/print).
 
 ## Project Overview
 
@@ -201,7 +201,7 @@ When creating new types or models, ALWAYS search the entire codebase for existin
 
 ## When Implementing Features
 
-1. Read the relevant plan in `plans/phase-XX-*.md` first
+1. Read the relevant plan in `thoughts/shared/plans/` (canonical) or `.plan/` (active tasks) first
 2. Write tests BEFORE implementation (TDD)
 3. Start with types/schemas in `packages/functions/src/types/` and `packages/functions/src/schemas/`
 4. Run full test suite before considering complete
@@ -303,9 +303,9 @@ Always use the app's shared Theme/color system for UI components. Never hardcode
 ### iOS App Details
 
 - **Bundle ID:** `com.bradcarter.brad-os`
-- **Workspace:** `ios/BradOS/BradOS.xcworkspace`
+- **Project:** `ios/BradOS/BradOS.xcodeproj` (use `-project`, NOT `-workspace`)
 - **Scheme:** `BradOS`
-- **Features:** Workouts, Stretching, Meditation, Calendar, Profile
+- **Features:** Workouts, Stretching, Meditation, Calendar, Profile, Cycling, Meal Planning
 
 ## Environment / Deployment
 
