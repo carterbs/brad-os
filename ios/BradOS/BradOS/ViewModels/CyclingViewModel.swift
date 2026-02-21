@@ -89,11 +89,11 @@ class CyclingViewModel: ObservableObject {
 
     // MARK: - Private Properties
 
-    private let apiClient: APIClient
+    private let apiClient: any CyclingAPIClientProtocol
 
     // MARK: - Initialization
 
-    init(apiClient: APIClient = .shared) {
+    init(apiClient: any CyclingAPIClientProtocol = APIClient.shared) {
         self.apiClient = apiClient
     }
 

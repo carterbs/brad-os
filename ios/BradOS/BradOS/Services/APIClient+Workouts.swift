@@ -39,13 +39,12 @@ extension APIClient {
         struct LogSetBody: Encodable {
             let actualReps: Int
             let actualWeight: Double
-
-            enum CodingKeys: String, CodingKey {
-                case actualReps = "actual_reps"
-                case actualWeight = "actual_weight"
-            }
         }
-        return try await put("/workout-sets/\(id)/log", body: LogSetBody(actualReps: actualReps, actualWeight: actualWeight))
+        return try await put(
+            "/workout-sets/\(id)/log",
+            body: LogSetBody(actualReps: actualReps, actualWeight: actualWeight),
+            encoder: snakeCaseEncoder
+        )
     }
 
     func skipSet(id: String) async throws -> WorkoutSet {
@@ -78,26 +77,24 @@ extension APIClient {
         struct CreateExerciseBody: Encodable {
             let name: String
             let weightIncrement: Double
-
-            enum CodingKeys: String, CodingKey {
-                case name
-                case weightIncrement = "weight_increment"
-            }
         }
-        return try await post("/exercises", body: CreateExerciseBody(name: name, weightIncrement: weightIncrement))
+        return try await post(
+            "/exercises",
+            body: CreateExerciseBody(name: name, weightIncrement: weightIncrement),
+            encoder: snakeCaseEncoder
+        )
     }
 
     func updateExercise(id: String, name: String? = nil, weightIncrement: Double? = nil) async throws -> Exercise {
         struct UpdateExerciseBody: Encodable {
             let name: String?
             let weightIncrement: Double?
-
-            enum CodingKeys: String, CodingKey {
-                case name
-                case weightIncrement = "weight_increment"
-            }
         }
-        return try await put("/exercises/\(id)", body: UpdateExerciseBody(name: name, weightIncrement: weightIncrement))
+        return try await put(
+            "/exercises/\(id)",
+            body: UpdateExerciseBody(name: name, weightIncrement: weightIncrement),
+            encoder: snakeCaseEncoder
+        )
     }
 
     func deleteExercise(id: String) async throws {
@@ -122,26 +119,24 @@ extension APIClient {
         struct CreatePlanBody: Encodable {
             let name: String
             let durationWeeks: Int
-
-            enum CodingKeys: String, CodingKey {
-                case name
-                case durationWeeks = "duration_weeks"
-            }
         }
-        return try await post("/plans", body: CreatePlanBody(name: name, durationWeeks: durationWeeks))
+        return try await post(
+            "/plans",
+            body: CreatePlanBody(name: name, durationWeeks: durationWeeks),
+            encoder: snakeCaseEncoder
+        )
     }
 
     func updatePlan(id: String, name: String? = nil, durationWeeks: Int? = nil) async throws -> Plan {
         struct UpdatePlanBody: Encodable {
             let name: String?
             let durationWeeks: Int?
-
-            enum CodingKeys: String, CodingKey {
-                case name
-                case durationWeeks = "duration_weeks"
-            }
         }
-        return try await put("/plans/\(id)", body: UpdatePlanBody(name: name, durationWeeks: durationWeeks))
+        return try await put(
+            "/plans/\(id)",
+            body: UpdatePlanBody(name: name, durationWeeks: durationWeeks),
+            encoder: snakeCaseEncoder
+        )
     }
 
     func deletePlan(id: String) async throws {
@@ -186,17 +181,16 @@ extension APIClient {
         struct CreateMesocycleBody: Encodable {
             let planId: String
             let startDate: String
-
-            enum CodingKeys: String, CodingKey {
-                case planId = "plan_id"
-                case startDate = "start_date"
-            }
         }
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         formatter.timeZone = TimeZone.current
         let dateString = formatter.string(from: startDate)
-        return try await post("/mesocycles", body: CreateMesocycleBody(planId: planId, startDate: dateString))
+        return try await post(
+            "/mesocycles",
+            body: CreateMesocycleBody(planId: planId, startDate: dateString),
+            encoder: snakeCaseEncoder
+        )
     }
 
     func startMesocycle(id: String) async throws -> Mesocycle {

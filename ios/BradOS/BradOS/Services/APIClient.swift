@@ -69,6 +69,8 @@ final class APIClient: APIClientProtocol {
     let session: URLSession
     let decoder: JSONDecoder
     let encoder: JSONEncoder
+    /// Encoder that converts camelCase Swift keys to snake_case for workout/exercise/plan/mesocycle endpoints
+    let snakeCaseEncoder: JSONEncoder
     let responseCache = ResponseCache()
 
     // MARK: - Initialization
@@ -103,6 +105,10 @@ final class APIClient: APIClientProtocol {
 
         self.encoder = JSONEncoder()
         self.encoder.dateEncodingStrategy = .iso8601
+
+        self.snakeCaseEncoder = JSONEncoder()
+        self.snakeCaseEncoder.keyEncodingStrategy = .convertToSnakeCase
+        self.snakeCaseEncoder.dateEncodingStrategy = .iso8601
     }
 
     /// Parse a date string trying multiple formats
@@ -167,9 +173,11 @@ final class APIClient: APIClientProtocol {
     }
 
     /// Perform POST request with body
-    func post<T: Decodable, B: Encodable>(_ path: String, body: B, headers: [String: String]? = nil) async throws -> T {
+    func post<T: Decodable, B: Encodable>(
+        _ path: String, body: B, headers: [String: String]? = nil, encoder override: JSONEncoder? = nil
+    ) async throws -> T {
         var request = try buildRequest(path: path, method: "POST")
-        request.httpBody = try encoder.encode(body)
+        request.httpBody = try (`override` ?? encoder).encode(body)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let headers {
             for (key, value) in headers {
@@ -186,9 +194,9 @@ final class APIClient: APIClientProtocol {
     }
 
     /// Perform PUT request with body
-    func put<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+    func put<T: Decodable, B: Encodable>(_ path: String, body: B, encoder override: JSONEncoder? = nil) async throws -> T {
         var request = try buildRequest(path: path, method: "PUT")
-        request.httpBody = try encoder.encode(body)
+        request.httpBody = try (`override` ?? encoder).encode(body)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         return try await performRequest(request)
     }
