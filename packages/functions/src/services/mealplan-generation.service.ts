@@ -94,7 +94,8 @@ function selectFromPools(pools: Meal[][], usedMealIds: Set<string>): Meal | unde
  * 4. Friday dinner is always "Eating out" (null meal)
  * 5. Prefer meals not planned within 3 weeks, fall back to recent meals
  * 6. Red meat: prefer non-consecutive AND max 2/week, relaxed if needed
- * 7. Prefer no repeated meals, allow reuse as last resort
+ * 7. Prep-ahead: max 3/week across all meal types, prefer repeats over overflow
+ * 8. Prefer no repeated meals, allow reuse as last resort
  */
 export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
   const currentDate = now ?? new Date();
@@ -114,16 +115,28 @@ export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
   // Step 1: Assign breakfast and lunch for all 7 days
   for (const mealType of ['breakfast', 'lunch'] as MealType[]) {
     for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-      // Build progressively relaxed candidate pools
+      // Build progressively relaxed candidate pools.
+      // Key invariant: the LAST pool must be non-prep, because selectFromPools
+      // reuses meals from the last pool when all options are exhausted.
+      // This ensures we repeat a non-prep meal rather than exceed the prep-ahead limit.
+      const typeMatch = (m: Meal): boolean => m.meal_type === mealType;
+      const lowEffort = (m: Meal): boolean => m.effort <= MAX_BREAKFAST_LUNCH_EFFORT;
+      const prepOk = (m: Meal): boolean => applyPrepAheadFilter(m);
+      const notPrep = (m: Meal): boolean => !m.prep_ahead;
+
       const pools: Meal[][] = [
-        // Pool 1: recency-filtered + correct type + low effort + prep-ahead limit
-        eligibleMeals.filter((m) => m.meal_type === mealType && m.effort <= MAX_BREAKFAST_LUNCH_EFFORT && applyPrepAheadFilter(m)),
-        // Pool 2: all meals + correct type + low effort + prep-ahead limit (skip recency)
-        meals.filter((m) => m.meal_type === mealType && m.effort <= MAX_BREAKFAST_LUNCH_EFFORT && applyPrepAheadFilter(m)),
-        // Pool 3: all meals + correct type + any effort + prep-ahead limit
-        meals.filter((m) => m.meal_type === mealType && applyPrepAheadFilter(m)),
-        // Pool 4: all meals + correct type + any effort (skip prep-ahead limit)
-        meals.filter((m) => m.meal_type === mealType),
+        // Pool 1: eligible (not recent) + low effort + prep-ahead limit
+        eligibleMeals.filter((m) => typeMatch(m) && lowEffort(m) && prepOk(m)),
+        // Pool 2: all meals + low effort + prep-ahead limit (relax recency)
+        meals.filter((m) => typeMatch(m) && lowEffort(m) && prepOk(m)),
+        // Pool 3: all meals + any effort + prep-ahead limit (relax effort)
+        meals.filter((m) => typeMatch(m) && prepOk(m)),
+        // Pool 4: all meals + low effort + non-prep only (hard exclude prep-ahead)
+        meals.filter((m) => typeMatch(m) && lowEffort(m) && notPrep(m)),
+        // Pool 5 (last): all meals + any effort + non-prep only
+        // Being last means reuse will pick from here — repeating a non-prep meal
+        // rather than overflowing prep-ahead
+        meals.filter((m) => typeMatch(m) && notPrep(m)),
       ];
 
       const selected = selectFromPools(pools, usedMealIds);
@@ -169,26 +182,27 @@ export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
       return true;
     };
 
-    // Build progressively relaxed candidate pools
+    // Build progressively relaxed candidate pools.
+    // Key invariant: the LAST pool must be non-prep for safe reuse.
+    const isDinner = (m: Meal): boolean => m.meal_type === 'dinner';
+    const inRange = (m: Meal): boolean => m.effort >= effortRange.min && m.effort <= effortRange.max;
+    const rmOk = (m: Meal): boolean => applyRedMeatFilter(m);
+    const prepOk = (m: Meal): boolean => applyPrepAheadFilter(m);
+    const notPrep = (m: Meal): boolean => !m.prep_ahead;
+
     const pools: Meal[][] = [
-      // Pool 1: recency-filtered + effort range + red meat + prep-ahead constraints
-      eligibleMeals.filter(
-        (m) => m.meal_type === 'dinner' && m.effort >= effortRange.min && m.effort <= effortRange.max && applyRedMeatFilter(m) && applyPrepAheadFilter(m)
-      ),
-      // Pool 2: recency-filtered + effort range + red meat (skip prep-ahead)
-      eligibleMeals.filter(
-        (m) => m.meal_type === 'dinner' && m.effort >= effortRange.min && m.effort <= effortRange.max && applyRedMeatFilter(m)
-      ),
-      // Pool 3: recency-filtered + effort range + no red meat constraints
-      eligibleMeals.filter(
-        (m) => m.meal_type === 'dinner' && m.effort >= effortRange.min && m.effort <= effortRange.max
-      ),
-      // Pool 4: all meals + effort range
-      meals.filter(
-        (m) => m.meal_type === 'dinner' && m.effort >= effortRange.min && m.effort <= effortRange.max
-      ),
-      // Pool 5: all meals + any effort dinner
-      meals.filter((m) => m.meal_type === 'dinner'),
+      // Pool 1: eligible + effort range + red meat ok + prep-ahead ok
+      eligibleMeals.filter((m) => isDinner(m) && inRange(m) && rmOk(m) && prepOk(m)),
+      // Pool 2: all meals + effort range + red meat ok + prep-ahead ok (relax recency)
+      meals.filter((m) => isDinner(m) && inRange(m) && rmOk(m) && prepOk(m)),
+      // Pool 3: all meals + effort range + prep-ahead ok (relax red meat)
+      meals.filter((m) => isDinner(m) && inRange(m) && prepOk(m)),
+      // Pool 4: all meals + effort range + non-prep only (hard exclude prep-ahead)
+      meals.filter((m) => isDinner(m) && inRange(m) && notPrep(m)),
+      // Pool 5 (last): all meals + any effort + non-prep only
+      // Being last means reuse will pick from here — repeating a non-prep dinner
+      // rather than overflowing prep-ahead
+      meals.filter((m) => isDinner(m) && notPrep(m)),
     ];
 
     const selected = selectFromPools(pools, usedMealIds);
