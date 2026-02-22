@@ -201,7 +201,7 @@ When creating new types or models, ALWAYS search the entire codebase for existin
 
 ## When Implementing Features
 
-1. Read the relevant plan in `thoughts/shared/plans/` (canonical) or `.plan/` (active tasks) first
+1. If a plan in `thoughts/shared/plans/` is **clearly related** to the task, read it for context on intent and constraints. Skip this step for bug fixes, small tweaks, or tasks with no obvious matching plan.
 2. Write tests BEFORE implementation (TDD)
 3. Start with types/schemas in `packages/functions/src/types/` and `packages/functions/src/schemas/`
 4. Run full test suite before considering complete
