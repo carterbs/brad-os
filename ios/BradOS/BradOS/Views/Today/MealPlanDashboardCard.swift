@@ -85,6 +85,9 @@ struct MealPlanDashboardCard: View {
     let onTap: () -> Void
     var onLongPress: (() -> Void)?
     var prepAheadMealIds: Set<String> = []
+    var prepAheadMeals: [MealPlanEntry] = []
+
+    private let dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
     var body: some View {
         Button(action: onTap) {
@@ -134,6 +137,10 @@ struct MealPlanDashboardCard: View {
                 MealDayContent(dayName: todayDayName, meals: todayMeals, prepAheadMealIds: prepAheadMealIds)
             }
 
+            if !prepAheadMeals.isEmpty {
+                prepAheadSection
+            }
+
             HStack {
                 Spacer()
                 HStack(spacing: Theme.Spacing.space1) {
@@ -148,6 +155,40 @@ struct MealPlanDashboardCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard()
         .auroraGlow(Theme.mealPlan, intensity: .primary)
+    }
+
+    // MARK: - Prep Ahead Section
+
+    private var prepAheadSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
+            Divider()
+                .overlay(Theme.strokeSubtle)
+
+            Text("Prep Ahead")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(Theme.warning)
+
+            ForEach(prepAheadMeals) { entry in
+                HStack(spacing: Theme.Spacing.space3) {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.caption)
+                        .foregroundColor(Theme.warning)
+                        .frame(width: 24)
+
+                    Text(entry.mealName ?? "\u{2014}")
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textPrimary)
+                        .lineLimit(1)
+
+                    Spacer()
+
+                    Text(dayNames[entry.dayIndex])
+                        .font(.caption2)
+                        .foregroundColor(Theme.textSecondary)
+                }
+            }
+        }
     }
 
     private var todayDayName: String {

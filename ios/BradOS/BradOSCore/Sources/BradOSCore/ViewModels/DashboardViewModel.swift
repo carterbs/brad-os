@@ -11,6 +11,7 @@ public class DashboardViewModel: ObservableObject {
     @Published public var latestMeditationSession: MeditationSession?
     @Published public var todayMeals: [MealPlanEntry] = []
     @Published public var prepAheadMealIds: Set<String> = []
+    @Published public var prepAheadMeals: [MealPlanEntry] = []
 
     // Independent loading states for each card
     @Published public var isLoadingWorkout = false
@@ -143,9 +144,7 @@ public class DashboardViewModel: ObservableObject {
 
         // Check disk cache first
         if let cached = cacheService.getCachedSession(), cached.isFinalized {
-            let todayDayIndex = Self.calendarWeekdayToDayIndex()
-            todayMeals = cached.plan.filter { $0.dayIndex == todayDayIndex }
-            prepAheadMealIds = Self.extractPrepAheadIds(from: cached)
+            populateMealPlan(from: cached)
             return
         }
 
@@ -153,19 +152,33 @@ public class DashboardViewModel: ObservableObject {
         do {
             let session = try await apiClient.getLatestMealPlanSession()
             if let session = session, session.isFinalized {
-                let todayDayIndex = Self.calendarWeekdayToDayIndex()
-                todayMeals = session.plan.filter { $0.dayIndex == todayDayIndex }
-                prepAheadMealIds = Self.extractPrepAheadIds(from: session)
+                populateMealPlan(from: session)
                 cacheService.cache(session)
             } else {
                 todayMeals = []
                 prepAheadMealIds = []
+                prepAheadMeals = []
             }
         } catch {
             // Meal plan loading is best-effort; don't set an error
             todayMeals = []
             prepAheadMealIds = []
+            prepAheadMeals = []
         }
+    }
+
+    private func populateMealPlan(from session: MealPlanSession) {
+        let todayDayIndex = Self.calendarWeekdayToDayIndex()
+        let ids = Self.extractPrepAheadIds(from: session)
+        todayMeals = session.plan.filter { $0.dayIndex == todayDayIndex }
+        prepAheadMealIds = ids
+        prepAheadMeals = session.plan
+            .filter { $0.dayIndex != todayDayIndex }
+            .filter { entry in
+                guard let mealId = entry.mealId else { return false }
+                return ids.contains(mealId)
+            }
+            .sorted { $0.dayIndex < $1.dayIndex }
     }
 
     /// Extract meal IDs that are prep-ahead from a session's meals snapshot
