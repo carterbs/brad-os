@@ -5,6 +5,7 @@ export const createMealSchema = z.object({
   meal_type: z.enum(['breakfast', 'lunch', 'dinner']),
   effort: z.number().int().min(1).max(10),
   has_red_meat: z.boolean(),
+  prep_ahead: z.boolean(),
   url: z.string().min(0).max(2000),
 });
 
@@ -13,6 +14,7 @@ export const updateMealSchema = z.object({
   meal_type: z.enum(['breakfast', 'lunch', 'dinner']).optional(),
   effort: z.number().int().min(1).max(10).optional(),
   has_red_meat: z.boolean().optional(),
+  prep_ahead: z.boolean().optional(),
   url: z.string().min(0).max(2000).optional(),
 });
 

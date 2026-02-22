@@ -22,6 +22,7 @@ export class MealRepository extends BaseRepository<
       meal_type: data.meal_type,
       effort: data.effort,
       has_red_meat: data.has_red_meat,
+      prep_ahead: data.prep_ahead,
       url: data.url,
       last_planned: null,
       ...timestamps,

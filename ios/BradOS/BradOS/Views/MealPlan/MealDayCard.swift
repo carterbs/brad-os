@@ -43,6 +43,17 @@ struct MealDayCard: View {
 
             Spacer()
 
+            // Prep-ahead badge
+            if viewModel.isPrepAheadForEntry(entry) {
+                Text("prep")
+                    .font(.caption2)
+                    .foregroundColor(Theme.warning)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Theme.warning.opacity(0.2))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+            }
+
             // Effort badge
             if let effort = viewModel.effortForEntry(entry) {
                 HStack(spacing: 2) {

@@ -19,6 +19,7 @@ const DINNER_EFFORT_BY_DAY: Record<number, EffortRange | null> = {
 const MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner'];
 const RECENCY_EXCLUSION_WEEKS = 3;
 const MAX_RED_MEAT_DINNERS = 2;
+const MAX_PREP_AHEAD_MEALS = 3;
 const MAX_BREAKFAST_LUNCH_EFFORT = 2;
 
 export class InsufficientMealsError extends Error {
@@ -102,23 +103,35 @@ export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
   const usedMealIds = new Set<string>();
 
   const redMeatDinnerDays: number[] = [];
+  let prepAheadCount = 0;
+
+  // Helper to filter by prep-ahead constraint
+  const applyPrepAheadFilter = (m: Meal): boolean => {
+    if (!m.prep_ahead) return true;
+    return prepAheadCount < MAX_PREP_AHEAD_MEALS;
+  };
 
   // Step 1: Assign breakfast and lunch for all 7 days
   for (const mealType of ['breakfast', 'lunch'] as MealType[]) {
     for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
       // Build progressively relaxed candidate pools
       const pools: Meal[][] = [
-        // Pool 1: recency-filtered + correct type + low effort
-        eligibleMeals.filter((m) => m.meal_type === mealType && m.effort <= MAX_BREAKFAST_LUNCH_EFFORT),
-        // Pool 2: all meals + correct type + low effort (skip recency)
-        meals.filter((m) => m.meal_type === mealType && m.effort <= MAX_BREAKFAST_LUNCH_EFFORT),
-        // Pool 3: all meals + correct type + any effort
+        // Pool 1: recency-filtered + correct type + low effort + prep-ahead limit
+        eligibleMeals.filter((m) => m.meal_type === mealType && m.effort <= MAX_BREAKFAST_LUNCH_EFFORT && applyPrepAheadFilter(m)),
+        // Pool 2: all meals + correct type + low effort + prep-ahead limit (skip recency)
+        meals.filter((m) => m.meal_type === mealType && m.effort <= MAX_BREAKFAST_LUNCH_EFFORT && applyPrepAheadFilter(m)),
+        // Pool 3: all meals + correct type + any effort + prep-ahead limit
+        meals.filter((m) => m.meal_type === mealType && applyPrepAheadFilter(m)),
+        // Pool 4: all meals + correct type + any effort (skip prep-ahead limit)
         meals.filter((m) => m.meal_type === mealType),
       ];
 
       const selected = selectFromPools(pools, usedMealIds);
       if (selected !== undefined) {
         usedMealIds.add(selected.id);
+        if (selected.prep_ahead) {
+          prepAheadCount++;
+        }
         plan.push({
           day_index: dayIndex,
           meal_type: mealType,
@@ -158,19 +171,23 @@ export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
 
     // Build progressively relaxed candidate pools
     const pools: Meal[][] = [
-      // Pool 1: recency-filtered + effort range + red meat constraints
+      // Pool 1: recency-filtered + effort range + red meat + prep-ahead constraints
+      eligibleMeals.filter(
+        (m) => m.meal_type === 'dinner' && m.effort >= effortRange.min && m.effort <= effortRange.max && applyRedMeatFilter(m) && applyPrepAheadFilter(m)
+      ),
+      // Pool 2: recency-filtered + effort range + red meat (skip prep-ahead)
       eligibleMeals.filter(
         (m) => m.meal_type === 'dinner' && m.effort >= effortRange.min && m.effort <= effortRange.max && applyRedMeatFilter(m)
       ),
-      // Pool 2: recency-filtered + effort range + no red meat constraints
+      // Pool 3: recency-filtered + effort range + no red meat constraints
       eligibleMeals.filter(
         (m) => m.meal_type === 'dinner' && m.effort >= effortRange.min && m.effort <= effortRange.max
       ),
-      // Pool 3: all meals + effort range
+      // Pool 4: all meals + effort range
       meals.filter(
         (m) => m.meal_type === 'dinner' && m.effort >= effortRange.min && m.effort <= effortRange.max
       ),
-      // Pool 4: all meals + any effort dinner
+      // Pool 5: all meals + any effort dinner
       meals.filter((m) => m.meal_type === 'dinner'),
     ];
 
@@ -179,6 +196,9 @@ export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
       usedMealIds.add(selected.id);
       if (selected.has_red_meat) {
         redMeatDinnerDays.push(dayIndex);
+      }
+      if (selected.prep_ahead) {
+        prepAheadCount++;
       }
       plan.push({
         day_index: dayIndex,
@@ -302,6 +322,20 @@ export function validatePlan(plan: MealPlanEntry[], meals: Meal[]): string[] {
     if (prev !== undefined && curr !== undefined && curr - prev === 1) {
       errors.push(`Consecutive red meat dinners on days ${prev} and ${curr}`);
     }
+  }
+
+  // Check prep-ahead constraint (max 3 across all meal types)
+  let prepAheadCount = 0;
+  for (const entry of plan) {
+    if (entry.meal_id !== null) {
+      const meal = mealMap.get(entry.meal_id);
+      if (meal !== undefined && meal.prep_ahead === true) {
+        prepAheadCount++;
+      }
+    }
+  }
+  if (prepAheadCount > MAX_PREP_AHEAD_MEALS) {
+    errors.push(`Too many prep-ahead meals: ${prepAheadCount} (max ${MAX_PREP_AHEAD_MEALS})`);
   }
 
   return errors;

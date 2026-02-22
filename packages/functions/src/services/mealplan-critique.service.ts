@@ -17,9 +17,9 @@ const BASE_DELAY_MS = 1000;
 export function buildSystemMessage(session: MealPlanSession): string {
   // Build meal table
   const mealTableRows = session.meals_snapshot.map(
-    (m) => `${m.id} | ${m.name} | ${m.meal_type} | ${m.effort} | ${m.has_red_meat ? 'Yes' : 'No'}`
+    (m) => `${m.id} | ${m.name} | ${m.meal_type} | ${m.effort} | ${m.has_red_meat ? 'Yes' : 'No'} | ${m.prep_ahead ? 'Yes' : 'No'}`
   );
-  const mealTable = `ID | Name | Type | Effort | Red Meat\n${mealTableRows.join('\n')}`;
+  const mealTable = `ID | Name | Type | Effort | Red Meat | Prep Ahead\n${mealTableRows.join('\n')}`;
 
   // Build plan grid
   const planGridRows: string[] = [];
@@ -47,6 +47,7 @@ ${planGrid}
 
 Constraints:
 - Max 2 red meat dinners per week, non-consecutive days
+- Max 3 prep-ahead meals per week (across all meal types — breakfast, lunch, and dinner)
 - No meal repeated (no meal ID appears twice in entire plan)
 - Breakfast and lunch effort must be <= 2
 - Dinner effort varies by day: Mon 3-5, Tue-Thu 3-6, Fri is eating out (null), Sat 4-8, Sun 4-10

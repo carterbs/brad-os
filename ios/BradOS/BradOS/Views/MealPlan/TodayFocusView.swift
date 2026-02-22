@@ -6,15 +6,17 @@ import BradOSCore
 struct TodayFocusView: View {
     let plan: [MealPlanEntry]
     let changedSlots: Set<String>
+    var prepAheadMealIds: Set<String> = []
 
     @State private var selectedDayIndex: Int
 
     private let dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     private let fullDayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
-    init(plan: [MealPlanEntry], changedSlots: Set<String>) {
+    init(plan: [MealPlanEntry], changedSlots: Set<String>, prepAheadMealIds: Set<String> = []) {
         self.plan = plan
         self.changedSlots = changedSlots
+        self.prepAheadMealIds = prepAheadMealIds
         // Default to today
         let weekday = Calendar.current.component(.weekday, from: Date())
         _selectedDayIndex = State(initialValue: (weekday + 5) % 7)
@@ -37,7 +39,8 @@ struct TodayFocusView: View {
         MealDayContent(
             dayName: fullDayNames[selectedDayIndex],
             meals: entries,
-            changedSlots: changedSlots
+            changedSlots: changedSlots,
+            prepAheadMealIds: prepAheadMealIds
         )
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard()

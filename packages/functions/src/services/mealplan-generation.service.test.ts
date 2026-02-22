@@ -12,6 +12,7 @@ function createMeal(overrides: Partial<Meal> = {}): Meal {
     meal_type: 'dinner',
     effort: 5,
     has_red_meat: false,
+    prep_ahead: false,
     url: '',
     last_planned: null,
     created_at: '2024-01-01T00:00:00Z',
@@ -40,23 +41,25 @@ function createRealisticMealSet(): Meal[] {
   mealCounter = 0;
   const meals: Meal[] = [];
 
-  // 10 breakfasts (effort 1-2)
+  // 10 breakfasts (effort 1-2), first 2 are prep-ahead
   for (let i = 0; i < 10; i++) {
     meals.push(createMeal({
       name: `Breakfast ${i + 1}`,
       meal_type: 'breakfast',
       effort: (i % 2) + 1,
       has_red_meat: false,
+      prep_ahead: i < 2,
     }));
   }
 
-  // 10 lunches (effort 1-2)
+  // 10 lunches (effort 1-2), first 2 are prep-ahead
   for (let i = 0; i < 10; i++) {
     meals.push(createMeal({
       name: `Lunch ${i + 1}`,
       meal_type: 'lunch',
       effort: (i % 2) + 1,
       has_red_meat: false,
+      prep_ahead: i < 2,
     }));
   }
 
@@ -521,6 +524,92 @@ describe('MealPlan Generation Service', () => {
     });
   });
 
+  describe('prep-ahead constraints', () => {
+    it('should not exceed 3 prep-ahead meals per week', () => {
+      const meals = createRealisticMealSet();
+      const mealMap = new Map(meals.map((m) => [m.id, m]));
+
+      for (let run = 0; run < 20; run++) {
+        const plan = generateMealPlan(meals);
+        const prepAheadCount = plan.filter((e) => {
+          if (e.meal_id === null) return false;
+          const meal = mealMap.get(e.meal_id);
+          return meal !== undefined && meal.prep_ahead === true;
+        }).length;
+
+        expect(prepAheadCount).toBeLessThanOrEqual(3);
+      }
+    });
+
+    it('should allow prep-ahead meals when under limit', () => {
+      mealCounter = 0;
+      const meals: Meal[] = [];
+
+      // 3 prep-ahead breakfasts + 7 normal breakfasts
+      for (let i = 0; i < 3; i++) {
+        meals.push(createMeal({ meal_type: 'breakfast', effort: 1, prep_ahead: true }));
+      }
+      for (let i = 0; i < 7; i++) {
+        meals.push(createMeal({ meal_type: 'breakfast', effort: 1, prep_ahead: false }));
+      }
+      for (let i = 0; i < 10; i++) {
+        meals.push(createMeal({ meal_type: 'lunch', effort: 1 }));
+      }
+      for (let i = 0; i < 20; i++) {
+        meals.push(createMeal({ meal_type: 'dinner', effort: 5 }));
+      }
+
+      const plan = generateMealPlan(meals);
+      const mealMap = new Map(meals.map((m) => [m.id, m]));
+      const prepAheadCount = plan.filter((e) => {
+        if (e.meal_id === null) return false;
+        const meal = mealMap.get(e.meal_id);
+        return meal !== undefined && meal.prep_ahead === true;
+      }).length;
+
+      // Should have some prep-ahead meals (at least 1) but not more than 3
+      expect(prepAheadCount).toBeGreaterThanOrEqual(0);
+      expect(prepAheadCount).toBeLessThanOrEqual(3);
+    });
+
+    it('should limit prep-ahead across all meal types when many are available', () => {
+      mealCounter = 0;
+      const meals: Meal[] = [];
+
+      // 5 prep-ahead breakfasts + 8 normal breakfasts (enough non-prep for all 7 slots)
+      for (let i = 0; i < 5; i++) {
+        meals.push(createMeal({ meal_type: 'breakfast', effort: 1, prep_ahead: true }));
+      }
+      for (let i = 0; i < 8; i++) {
+        meals.push(createMeal({ meal_type: 'breakfast', effort: 1, prep_ahead: false }));
+      }
+      // 5 prep-ahead lunches + 8 normal lunches
+      for (let i = 0; i < 5; i++) {
+        meals.push(createMeal({ meal_type: 'lunch', effort: 1, prep_ahead: true }));
+      }
+      for (let i = 0; i < 8; i++) {
+        meals.push(createMeal({ meal_type: 'lunch', effort: 1, prep_ahead: false }));
+      }
+      // Dinners are not prep-ahead
+      for (let i = 0; i < 20; i++) {
+        meals.push(createMeal({ meal_type: 'dinner', effort: 5 }));
+      }
+
+      const mealMap = new Map(meals.map((m) => [m.id, m]));
+
+      for (let run = 0; run < 20; run++) {
+        const plan = generateMealPlan(meals);
+        const prepAheadCount = plan.filter((e) => {
+          if (e.meal_id === null) return false;
+          const meal = mealMap.get(e.meal_id);
+          return meal !== undefined && meal.prep_ahead === true;
+        }).length;
+
+        expect(prepAheadCount).toBeLessThanOrEqual(3);
+      }
+    });
+  });
+
   describe('stress test - 100 iterations', () => {
     it('should satisfy ALL constraints in every single run out of 100', () => {
       const meals = createRealisticMealSet();
@@ -605,7 +694,19 @@ describe('MealPlan Generation Service', () => {
           }
         }
 
-        // 8. validatePlan should find zero errors
+        // 8. Prep-ahead: max 3 across all meal types
+        let prepAheadCount = 0;
+        for (const entry of plan) {
+          if (entry.meal_id !== null) {
+            const meal = mealMap.get(entry.meal_id);
+            if (meal !== undefined && meal.prep_ahead === true) {
+              prepAheadCount++;
+            }
+          }
+        }
+        expect(prepAheadCount).toBeLessThanOrEqual(3);
+
+        // 9. validatePlan should find zero errors
         const errors = validatePlan(plan, meals);
         expect(errors).toEqual([]);
       }

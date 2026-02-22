@@ -8,6 +8,7 @@ describe('createMealSchema', () => {
       meal_type: 'dinner',
       effort: 5,
       has_red_meat: false,
+      prep_ahead: false,
       url: 'https://example.com/recipe',
     });
 
@@ -29,6 +30,7 @@ describe('createMealSchema', () => {
         meal_type: mealType,
         effort: 3,
         has_red_meat: false,
+        prep_ahead: false,
         url: '',
       });
       expect(result.success).toBe(true);
@@ -42,6 +44,7 @@ describe('createMealSchema', () => {
         meal_type: 'dinner',
         effort,
         has_red_meat: false,
+        prep_ahead: false,
         url: '',
       });
       expect(result.success).toBe(true);
@@ -54,6 +57,7 @@ describe('createMealSchema', () => {
       meal_type: 'dinner',
       effort: 3,
       has_red_meat: false,
+      prep_ahead: false,
       url: '',
     });
     expect(result.success).toBe(true);
@@ -64,6 +68,7 @@ describe('createMealSchema', () => {
       meal_type: 'dinner',
       effort: 5,
       has_red_meat: false,
+      prep_ahead: false,
       url: '',
     });
     expect(result.success).toBe(false);
@@ -75,6 +80,7 @@ describe('createMealSchema', () => {
       meal_type: 'dinner',
       effort: 5,
       has_red_meat: false,
+      prep_ahead: false,
       url: '',
     });
     expect(result.success).toBe(false);
@@ -86,6 +92,7 @@ describe('createMealSchema', () => {
       meal_type: 'dinner',
       effort: 5,
       has_red_meat: false,
+      prep_ahead: false,
       url: '',
     });
     expect(result.success).toBe(false);
@@ -97,6 +104,7 @@ describe('createMealSchema', () => {
       meal_type: 'snack',
       effort: 5,
       has_red_meat: false,
+      prep_ahead: false,
       url: '',
     });
     expect(result.success).toBe(false);
@@ -108,6 +116,7 @@ describe('createMealSchema', () => {
       meal_type: 'dinner',
       effort: 0,
       has_red_meat: false,
+      prep_ahead: false,
       url: '',
     });
     expect(result.success).toBe(false);
@@ -119,6 +128,7 @@ describe('createMealSchema', () => {
       meal_type: 'dinner',
       effort: 11,
       has_red_meat: false,
+      prep_ahead: false,
       url: '',
     });
     expect(result.success).toBe(false);
@@ -130,6 +140,7 @@ describe('createMealSchema', () => {
       meal_type: 'dinner',
       effort: 3.5,
       has_red_meat: false,
+      prep_ahead: false,
       url: '',
     });
     expect(result.success).toBe(false);
@@ -140,6 +151,7 @@ describe('createMealSchema', () => {
       name: 'Test Meal',
       effort: 5,
       has_red_meat: false,
+      prep_ahead: false,
       url: '',
     });
     expect(result.success).toBe(false);
@@ -150,6 +162,7 @@ describe('createMealSchema', () => {
       name: 'Test Meal',
       meal_type: 'dinner',
       has_red_meat: false,
+      prep_ahead: false,
       url: '',
     });
     expect(result.success).toBe(false);
@@ -171,6 +184,7 @@ describe('createMealSchema', () => {
       meal_type: 'dinner',
       effort: 5,
       has_red_meat: false,
+      prep_ahead: false,
     });
     expect(result.success).toBe(false);
   });
@@ -183,6 +197,7 @@ describe('updateMealSchema', () => {
       meal_type: 'lunch',
       effort: 3,
       has_red_meat: true,
+      prep_ahead: false,
       url: 'https://example.com',
     });
     expect(result.success).toBe(true);

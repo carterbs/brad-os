@@ -38,6 +38,7 @@ describe('MealRepository', () => {
         meal_type: 'dinner',
         effort: 5,
         has_red_meat: false,
+        prep_ahead: false,
         url: 'https://example.com/recipe',
       });
 
@@ -47,6 +48,7 @@ describe('MealRepository', () => {
           meal_type: 'dinner',
           effort: 5,
           has_red_meat: false,
+          prep_ahead: false,
           url: 'https://example.com/recipe',
           last_planned: null,
           created_at: expect.any(String) as unknown as string,
@@ -67,6 +69,7 @@ describe('MealRepository', () => {
         meal_type: 'breakfast',
         effort: 1,
         has_red_meat: false,
+        prep_ahead: false,
         url: '',
       });
 
@@ -84,6 +87,7 @@ describe('MealRepository', () => {
         meal_type: 'dinner',
         effort: 5,
         has_red_meat: false,
+        prep_ahead: false,
         url: 'https://example.com',
         last_planned: null,
         created_at: '2024-01-01T00:00:00Z',
@@ -114,8 +118,8 @@ describe('MealRepository', () => {
     it('should return all meals ordered by name', async () => {
       const repository = new MealRepository(mockDb as Firestore);
       const meals = [
-        { id: 'meal-1', data: { name: 'Chicken Stir Fry', meal_type: 'dinner', effort: 5, has_red_meat: false, url: '', last_planned: null, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' } },
-        { id: 'meal-2', data: { name: 'Oatmeal', meal_type: 'breakfast', effort: 1, has_red_meat: false, url: '', last_planned: null, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' } },
+        { id: 'meal-1', data: { name: 'Chicken Stir Fry', meal_type: 'dinner', effort: 5, has_red_meat: false, prep_ahead: false, url: '', last_planned: null, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' } },
+        { id: 'meal-2', data: { name: 'Oatmeal', meal_type: 'breakfast', effort: 1, has_red_meat: false, prep_ahead: false, url: '', last_planned: null, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' } },
       ];
 
       const mockQuery = createMockQuery(createMockQuerySnapshot(meals));
@@ -145,7 +149,7 @@ describe('MealRepository', () => {
     it('should return meals filtered by type', async () => {
       const repository = new MealRepository(mockDb as Firestore);
       const dinnerMeals = [
-        { id: 'meal-1', data: { name: 'Chicken Stir Fry', meal_type: 'dinner', effort: 5, has_red_meat: false, url: '', last_planned: null, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' } },
+        { id: 'meal-1', data: { name: 'Chicken Stir Fry', meal_type: 'dinner', effort: 5, has_red_meat: false, prep_ahead: false, url: '', last_planned: null, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' } },
       ];
 
       const mockQuery = createMockQuery(createMockQuerySnapshot(dinnerMeals));
@@ -178,6 +182,7 @@ describe('MealRepository', () => {
         meal_type: 'dinner',
         effort: 5,
         has_red_meat: false,
+        prep_ahead: false,
         url: '',
         last_planned: null,
         created_at: '2024-01-01T00:00:00Z',
@@ -217,6 +222,7 @@ describe('MealRepository', () => {
         meal_type: 'dinner',
         effort: 5,
         has_red_meat: false,
+        prep_ahead: false,
         url: '',
         last_planned: null,
         created_at: '2024-01-01T00:00:00Z',
@@ -240,6 +246,7 @@ describe('MealRepository', () => {
         meal_type: 'dinner',
         effort: 5,
         has_red_meat: false,
+        prep_ahead: false,
         url: '',
         last_planned: null,
         created_at: '2024-01-01T00:00:00Z',
@@ -267,6 +274,7 @@ describe('MealRepository', () => {
         meal_type: 'dinner',
         effort: 5,
         has_red_meat: false,
+        prep_ahead: false,
         url: '',
         last_planned: null,
         created_at: '2024-01-01T00:00:00Z',
@@ -296,6 +304,7 @@ describe('MealRepository', () => {
         meal_type: 'dinner',
         effort: 5,
         has_red_meat: false,
+        prep_ahead: false,
         url: '',
         last_planned: null,
         created_at: '2024-01-01T00:00:00Z',
@@ -337,6 +346,7 @@ describe('MealRepository', () => {
         meal_type: 'dinner',
         effort: 5,
         has_red_meat: false,
+        prep_ahead: false,
         url: '',
         last_planned: null,
         created_at: '2024-01-01T00:00:00Z',

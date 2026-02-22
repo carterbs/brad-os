@@ -49,6 +49,7 @@ function createTestMeal(overrides: Partial<Meal> = {}): Meal {
     meal_type: 'dinner',
     effort: 5,
     has_red_meat: false,
+    prep_ahead: false,
     url: 'https://example.com/recipe',
     last_planned: null,
     created_at: '2024-01-01T00:00:00.000Z',
@@ -132,6 +133,7 @@ describe('Meals Handler', () => {
         meal_type: 'dinner',
         effort: 6,
         has_red_meat: false,
+        prep_ahead: false,
         url: 'https://example.com/salmon',
       });
       mockMealRepo.create.mockResolvedValue(createdMeal);
@@ -143,6 +145,7 @@ describe('Meals Handler', () => {
           meal_type: 'dinner',
           effort: 6,
           has_red_meat: false,
+          prep_ahead: false,
           url: 'https://example.com/salmon',
         });
 
@@ -156,6 +159,7 @@ describe('Meals Handler', () => {
         meal_type: 'dinner',
         effort: 6,
         has_red_meat: false,
+        prep_ahead: false,
         url: 'https://example.com/salmon',
       });
     });
@@ -168,6 +172,7 @@ describe('Meals Handler', () => {
           meal_type: 'snack',
           effort: 5,
           has_red_meat: false,
+          prep_ahead: false,
           url: '',
         });
       const body = response.body as ApiResponse;
@@ -184,6 +189,7 @@ describe('Meals Handler', () => {
           meal_type: 'dinner',
           effort: 5,
           has_red_meat: false,
+          prep_ahead: false,
           url: '',
         });
       const body = response.body as ApiResponse;
@@ -201,6 +207,7 @@ describe('Meals Handler', () => {
           meal_type: 'dinner',
           effort: 5,
           has_red_meat: false,
+          prep_ahead: false,
           url: '',
         });
       const body = response.body as ApiResponse;
@@ -218,6 +225,7 @@ describe('Meals Handler', () => {
           meal_type: 'dinner',
           effort: 11,
           has_red_meat: false,
+          prep_ahead: false,
           url: '',
         });
       const body = response.body as ApiResponse;
@@ -234,6 +242,7 @@ describe('Meals Handler', () => {
           name: 'Test',
           meal_type: 'dinner',
           has_red_meat: false,
+          prep_ahead: false,
           url: '',
         });
       const body = response.body as ApiResponse;

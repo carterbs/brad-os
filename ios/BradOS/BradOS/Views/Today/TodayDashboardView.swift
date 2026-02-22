@@ -30,7 +30,8 @@ struct TodayDashboardView: View {
                             Task {
                                 await viewModel.refreshMealPlan(forceRefresh: true)
                             }
-                        }
+                        },
+                        prepAheadMealIds: viewModel.prepAheadMealIds
                     )
 
                     // Workout Card

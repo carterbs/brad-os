@@ -32,6 +32,49 @@ struct MealTests {
         #expect(meal.lastPlanned != nil)
     }
 
+    @Test("decodes meal with prep_ahead field")
+    func decodesWithPrepAhead() throws {
+        let json = """
+        {
+            "id": "meal_pa",
+            "name": "Overnight Oats",
+            "meal_type": "breakfast",
+            "effort": 1,
+            "has_red_meat": false,
+            "prep_ahead": true,
+            "url": null,
+            "last_planned": null,
+            "created_at": "2026-01-15T10:00:00Z",
+            "updated_at": "2026-01-15T10:00:00Z"
+        }
+        """.data(using: .utf8)!
+
+        let meal = try makeDecoder().decode(Meal.self, from: json)
+
+        #expect(meal.prepAhead == true)
+    }
+
+    @Test("defaults prep_ahead to false when missing from JSON")
+    func defaultsPrepAheadToFalse() throws {
+        let json = """
+        {
+            "id": "meal_old",
+            "name": "Legacy Meal",
+            "meal_type": "lunch",
+            "effort": 2,
+            "has_red_meat": false,
+            "url": null,
+            "last_planned": null,
+            "created_at": "2026-01-15T10:00:00Z",
+            "updated_at": "2026-01-15T10:00:00Z"
+        }
+        """.data(using: .utf8)!
+
+        let meal = try makeDecoder().decode(Meal.self, from: json)
+
+        #expect(meal.prepAhead == false)
+    }
+
     @Test("decodes meal with nil last_planned")
     func decodesWithNilLastPlanned() throws {
         let json = """

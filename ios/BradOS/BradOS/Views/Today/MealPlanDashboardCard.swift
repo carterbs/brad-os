@@ -7,6 +7,7 @@ struct MealDayContent: View {
     let dayName: String
     let meals: [MealPlanEntry]
     var changedSlots: Set<String> = []
+    var prepAheadMealIds: Set<String> = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
@@ -44,6 +45,16 @@ struct MealDayContent: View {
             }
 
             Spacer()
+
+            if let mealId = entry?.mealId, prepAheadMealIds.contains(mealId) {
+                Text("prep")
+                    .font(.caption2)
+                    .foregroundColor(Theme.warning)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Theme.warning.opacity(0.2))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
+            }
         }
         .padding(.vertical, Theme.Spacing.space1)
         .background(isChanged ? Theme.success.opacity(0.15) : Color.clear)
@@ -73,6 +84,7 @@ struct MealPlanDashboardCard: View {
     let isLoading: Bool
     let onTap: () -> Void
     var onLongPress: (() -> Void)?
+    var prepAheadMealIds: Set<String> = []
 
     var body: some View {
         Button(action: onTap) {
@@ -119,7 +131,7 @@ struct MealPlanDashboardCard: View {
                     .font(.subheadline)
                     .foregroundColor(Theme.textSecondary)
             } else {
-                MealDayContent(dayName: todayDayName, meals: todayMeals)
+                MealDayContent(dayName: todayDayName, meals: todayMeals, prepAheadMealIds: prepAheadMealIds)
             }
 
             HStack {

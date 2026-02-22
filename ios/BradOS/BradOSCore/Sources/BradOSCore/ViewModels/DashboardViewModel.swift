@@ -10,6 +10,7 @@ public class DashboardViewModel: ObservableObject {
     @Published public var latestStretchSession: StretchSession?
     @Published public var latestMeditationSession: MeditationSession?
     @Published public var todayMeals: [MealPlanEntry] = []
+    @Published public var prepAheadMealIds: Set<String> = []
 
     // Independent loading states for each card
     @Published public var isLoadingWorkout = false
@@ -144,6 +145,7 @@ public class DashboardViewModel: ObservableObject {
         if let cached = cacheService.getCachedSession(), cached.isFinalized {
             let todayDayIndex = Self.calendarWeekdayToDayIndex()
             todayMeals = cached.plan.filter { $0.dayIndex == todayDayIndex }
+            prepAheadMealIds = Self.extractPrepAheadIds(from: cached)
             return
         }
 
@@ -153,14 +155,22 @@ public class DashboardViewModel: ObservableObject {
             if let session = session, session.isFinalized {
                 let todayDayIndex = Self.calendarWeekdayToDayIndex()
                 todayMeals = session.plan.filter { $0.dayIndex == todayDayIndex }
+                prepAheadMealIds = Self.extractPrepAheadIds(from: session)
                 cacheService.cache(session)
             } else {
                 todayMeals = []
+                prepAheadMealIds = []
             }
         } catch {
             // Meal plan loading is best-effort; don't set an error
             todayMeals = []
+            prepAheadMealIds = []
         }
+    }
+
+    /// Extract meal IDs that are prep-ahead from a session's meals snapshot
+    private static func extractPrepAheadIds(from session: MealPlanSession) -> Set<String> {
+        Set(session.mealsSnapshot.filter { $0.prepAhead }.map { $0.id })
     }
 
     /// Convert Calendar weekday (1=Sun..7=Sat) to plan dayIndex (0=Mon..6=Sun)

@@ -14,6 +14,7 @@ public struct Meal: Identifiable, Codable, Hashable, Sendable {
     public let mealType: MealType
     public let effort: Int
     public let hasRedMeat: Bool
+    public let prepAhead: Bool
     public let url: String?
     public let lastPlanned: Date?
     public let createdAt: Date
@@ -23,6 +24,7 @@ public struct Meal: Identifiable, Codable, Hashable, Sendable {
         case id, name, effort, url
         case mealType = "meal_type"
         case hasRedMeat = "has_red_meat"
+        case prepAhead = "prep_ahead"
         case lastPlanned = "last_planned"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
@@ -34,6 +36,7 @@ public struct Meal: Identifiable, Codable, Hashable, Sendable {
         mealType: MealType,
         effort: Int,
         hasRedMeat: Bool,
+        prepAhead: Bool = false,
         url: String? = nil,
         lastPlanned: Date? = nil,
         createdAt: Date,
@@ -44,10 +47,25 @@ public struct Meal: Identifiable, Codable, Hashable, Sendable {
         self.mealType = mealType
         self.effort = effort
         self.hasRedMeat = hasRedMeat
+        self.prepAhead = prepAhead
         self.url = url
         self.lastPlanned = lastPlanned
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        mealType = try container.decode(MealType.self, forKey: .mealType)
+        effort = try container.decode(Int.self, forKey: .effort)
+        hasRedMeat = try container.decode(Bool.self, forKey: .hasRedMeat)
+        prepAhead = try container.decodeIfPresent(Bool.self, forKey: .prepAhead) ?? false
+        url = try container.decodeIfPresent(String.self, forKey: .url)
+        lastPlanned = try container.decodeIfPresent(Date.self, forKey: .lastPlanned)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
     }
 }
 

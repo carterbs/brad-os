@@ -135,7 +135,8 @@ struct MealPlanView: View {
 
                 TodayFocusView(
                     plan: viewModel.currentPlan,
-                    changedSlots: viewModel.changedSlots
+                    changedSlots: viewModel.changedSlots,
+                    prepAheadMealIds: viewModel.prepAheadMealIds
                 )
 
                 SaveToGroceryListButton(viewModel: viewModel)

@@ -245,6 +245,18 @@ public class MealPlanViewModel: ObservableObject {
         return session?.mealsSnapshot.first { $0.id == mealId }?.effort
     }
 
+    /// Check if an entry's meal requires prep the night before
+    public func isPrepAheadForEntry(_ entry: MealPlanEntry) -> Bool {
+        guard let mealId = entry.mealId else { return false }
+        return session?.mealsSnapshot.first { $0.id == mealId }?.prepAhead ?? false
+    }
+
+    /// Set of meal IDs that require prep ahead, for passing to child views
+    public var prepAheadMealIds: Set<String> {
+        guard let snapshot = session?.mealsSnapshot else { return [] }
+        return Set(snapshot.filter { $0.prepAhead }.map { $0.id })
+    }
+
     /// Whether a slot supports interaction (false for entries with no mealId, e.g. "Eating out")
     public func isSlotInteractive(_ entry: MealPlanEntry) -> Bool {
         entry.mealId != nil
