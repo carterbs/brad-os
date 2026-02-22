@@ -200,6 +200,66 @@ describe('MealPlan Operations Service', () => {
       expect(updatedPlan).toEqual(plan);
     });
 
+    it('should reject swap that would exceed max prep-ahead meals', () => {
+      // Plan already has 3 prep-ahead meals
+      const plan: MealPlanEntry[] = [
+        { day_index: 0, meal_type: 'breakfast', meal_id: 'meal-pa1', meal_name: 'Prep Breakfast' },
+        { day_index: 0, meal_type: 'lunch', meal_id: 'meal-pa2', meal_name: 'Prep Lunch 1' },
+        { day_index: 0, meal_type: 'dinner', meal_id: 'meal-d1', meal_name: 'Pasta' },
+        { day_index: 1, meal_type: 'breakfast', meal_id: 'meal-b1', meal_name: 'Oatmeal' },
+        { day_index: 1, meal_type: 'lunch', meal_id: 'meal-pa3', meal_name: 'Prep Lunch 2' },
+        { day_index: 1, meal_type: 'dinner', meal_id: 'meal-d2', meal_name: 'Steak' },
+      ];
+      const meals: Meal[] = [
+        createTestMeal({ id: 'meal-pa1', name: 'Prep Breakfast', meal_type: 'breakfast', effort: 1, prep_ahead: true }),
+        createTestMeal({ id: 'meal-pa2', name: 'Prep Lunch 1', meal_type: 'lunch', effort: 1, prep_ahead: true }),
+        createTestMeal({ id: 'meal-pa3', name: 'Prep Lunch 2', meal_type: 'lunch', effort: 1, prep_ahead: true }),
+        createTestMeal({ id: 'meal-d1', name: 'Pasta', meal_type: 'dinner', effort: 4 }),
+        createTestMeal({ id: 'meal-b1', name: 'Oatmeal', meal_type: 'breakfast', effort: 1 }),
+        createTestMeal({ id: 'meal-d2', name: 'Steak', meal_type: 'dinner', effort: 5 }),
+        createTestMeal({ id: 'meal-pa4', name: 'Another Prep Meal', meal_type: 'dinner', effort: 4, prep_ahead: true }),
+      ];
+
+      // Try to swap day 0 dinner to a prep-ahead meal (would make 4 total)
+      const operations: CritiqueOperation[] = [
+        { day_index: 0, meal_type: 'dinner', new_meal_id: 'meal-pa4' },
+      ];
+
+      const { updatedPlan, errors } = applyOperations(plan, operations, meals);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain('prep-ahead');
+      // Slot unchanged
+      const dinner = updatedPlan.find((e) => e.day_index === 0 && e.meal_type === 'dinner');
+      expect(dinner?.meal_id).toBe('meal-d1');
+    });
+
+    it('should allow swap to prep-ahead when replacing an existing prep-ahead meal', () => {
+      // Plan has 3 prep-ahead. Swapping one prep-ahead for another should be fine (still 3).
+      const plan: MealPlanEntry[] = [
+        { day_index: 0, meal_type: 'lunch', meal_id: 'meal-pa1', meal_name: 'Prep Lunch 1' },
+        { day_index: 1, meal_type: 'lunch', meal_id: 'meal-pa2', meal_name: 'Prep Lunch 2' },
+        { day_index: 2, meal_type: 'lunch', meal_id: 'meal-pa3', meal_name: 'Prep Lunch 3' },
+      ];
+      const meals: Meal[] = [
+        createTestMeal({ id: 'meal-pa1', name: 'Prep Lunch 1', meal_type: 'lunch', effort: 1, prep_ahead: true }),
+        createTestMeal({ id: 'meal-pa2', name: 'Prep Lunch 2', meal_type: 'lunch', effort: 1, prep_ahead: true }),
+        createTestMeal({ id: 'meal-pa3', name: 'Prep Lunch 3', meal_type: 'lunch', effort: 1, prep_ahead: true }),
+        createTestMeal({ id: 'meal-pa4', name: 'Prep Lunch 4', meal_type: 'lunch', effort: 1, prep_ahead: true }),
+      ];
+
+      // Replace one prep-ahead with another prep-ahead
+      const operations: CritiqueOperation[] = [
+        { day_index: 0, meal_type: 'lunch', new_meal_id: 'meal-pa4' },
+      ];
+
+      const { updatedPlan, errors } = applyOperations(plan, operations, meals);
+
+      expect(errors).toEqual([]);
+      const lunch = updatedPlan.find((e) => e.day_index === 0 && e.meal_type === 'lunch');
+      expect(lunch?.meal_id).toBe('meal-pa4');
+    });
+
     it('should not mutate the original plan array', () => {
       const plan = createTestPlan();
       const originalPlan = plan.map((e) => ({ ...e }));

@@ -608,6 +608,173 @@ describe('MealPlan Generation Service', () => {
         expect(prepAheadCount).toBeLessThanOrEqual(3);
       }
     });
+
+    it('should respect prep-ahead limit when most non-prep lunches are recently planned', () => {
+      // Reproduces real-world scenario: 9 prep-ahead lunches, 10 non-prep lunches
+      // but 6 of the non-prep lunches were recently planned (within 3 weeks)
+      // leaving only 3-4 eligible non-prep lunches in Pool 1
+      mealCounter = 0;
+      const meals: Meal[] = [];
+      const now = new Date('2026-02-22T12:00:00Z');
+      const recentDate = '2026-02-15T13:00:00Z'; // 1 week ago
+
+      // 16 breakfasts (all non-prep, effort 1-2, plenty of options)
+      for (let i = 0; i < 16; i++) {
+        meals.push(createMeal({ meal_type: 'breakfast', effort: (i % 2) + 1 }));
+      }
+
+      // 9 prep-ahead lunches (effort 1-2, none recently planned)
+      for (let i = 0; i < 9; i++) {
+        meals.push(createMeal({
+          name: `Prep Lunch ${i + 1}`,
+          meal_type: 'lunch',
+          effort: (i % 2) + 1,
+          prep_ahead: true,
+        }));
+      }
+
+      // 4 non-prep lunches that were recently planned (filtered out of Pool 1)
+      for (let i = 0; i < 4; i++) {
+        meals.push(createMeal({
+          name: `Recent Non-Prep Lunch ${i + 1}`,
+          meal_type: 'lunch',
+          effort: (i % 2) + 1,
+          prep_ahead: false,
+          last_planned: recentDate,
+        }));
+      }
+
+      // 3 non-prep lunches eligible (not recently planned)
+      for (let i = 0; i < 3; i++) {
+        meals.push(createMeal({
+          name: `Eligible Non-Prep Lunch ${i + 1}`,
+          meal_type: 'lunch',
+          effort: 1,
+          prep_ahead: false,
+        }));
+      }
+
+      // 20 dinners
+      for (let i = 0; i < 20; i++) {
+        meals.push(createMeal({ meal_type: 'dinner', effort: 5 }));
+      }
+
+      const mealMap = new Map(meals.map((m) => [m.id, m]));
+
+      // Run 50 times to catch probabilistic failures
+      for (let run = 0; run < 50; run++) {
+        const plan = generateMealPlan(meals, now);
+        const prepAheadCount = plan.filter((e) => {
+          if (e.meal_id === null) return false;
+          const meal = mealMap.get(e.meal_id);
+          return meal !== undefined && meal.prep_ahead === true;
+        }).length;
+
+        expect(prepAheadCount).toBeLessThanOrEqual(3);
+      }
+    });
+
+    it('should prefer recently-planned non-prep meals over exceeding prep-ahead limit', () => {
+      // When eligible non-prep lunches run out, the algo should pull from
+      // recently-planned non-prep lunches rather than adding more prep-ahead
+      mealCounter = 0;
+      const meals: Meal[] = [];
+      const now = new Date('2026-02-22T12:00:00Z');
+      const recentDate = '2026-02-15T13:00:00Z';
+
+      // Breakfasts
+      for (let i = 0; i < 10; i++) {
+        meals.push(createMeal({ meal_type: 'breakfast', effort: 1 }));
+      }
+
+      // ALL lunches are prep-ahead except 2 recently-planned non-prep
+      for (let i = 0; i < 9; i++) {
+        meals.push(createMeal({
+          meal_type: 'lunch', effort: 1, prep_ahead: true,
+        }));
+      }
+      for (let i = 0; i < 2; i++) {
+        meals.push(createMeal({
+          meal_type: 'lunch', effort: 1, prep_ahead: false, last_planned: recentDate,
+        }));
+      }
+
+      // Dinners
+      for (let i = 0; i < 20; i++) {
+        meals.push(createMeal({ meal_type: 'dinner', effort: 5 }));
+      }
+
+      const mealMap = new Map(meals.map((m) => [m.id, m]));
+
+      for (let run = 0; run < 50; run++) {
+        const plan = generateMealPlan(meals, now);
+        const prepAheadCount = plan.filter((e) => {
+          if (e.meal_id === null) return false;
+          const meal = mealMap.get(e.meal_id);
+          return meal !== undefined && meal.prep_ahead === true;
+        }).length;
+
+        // Even in the worst case (only 2 non-prep lunches available at all),
+        // we should still not exceed 3 prep-ahead total
+        expect(prepAheadCount).toBeLessThanOrEqual(3);
+      }
+    });
+  });
+
+  describe('stress test with realistic recency', () => {
+    it('should satisfy prep-ahead constraint with real-world lunch ratios over 100 runs', () => {
+      // Mirrors actual prod data: 9 prep-ahead lunches, 10 non-prep lunches,
+      // 6 non-prep recently planned. This is the scenario that broke in production.
+      mealCounter = 0;
+      const meals: Meal[] = [];
+      const now = new Date('2026-02-22T12:00:00Z');
+      const recentDate = '2026-02-15T13:00:00Z';
+
+      // 16 breakfasts (1 prep-ahead like Overnight Oats)
+      meals.push(createMeal({ name: 'Overnight Oats', meal_type: 'breakfast', effort: 1, prep_ahead: true }));
+      for (let i = 0; i < 15; i++) {
+        meals.push(createMeal({ meal_type: 'breakfast', effort: (i % 2) + 1 }));
+      }
+
+      // 9 prep-ahead lunches (none recently planned)
+      for (let i = 0; i < 9; i++) {
+        meals.push(createMeal({ meal_type: 'lunch', effort: (i % 2) + 1, prep_ahead: true }));
+      }
+
+      // 4 non-prep lunches NOT recently planned
+      for (let i = 0; i < 4; i++) {
+        meals.push(createMeal({ meal_type: 'lunch', effort: (i % 2) + 1, prep_ahead: false }));
+      }
+
+      // 6 non-prep lunches recently planned
+      for (let i = 0; i < 6; i++) {
+        meals.push(createMeal({ meal_type: 'lunch', effort: (i % 2) + 1, prep_ahead: false, last_planned: recentDate }));
+      }
+
+      // 25 dinners (varied effort, some red meat)
+      for (let i = 0; i < 25; i++) {
+        meals.push(createMeal({ meal_type: 'dinner', effort: 3 + (i % 5), has_red_meat: i < 4 }));
+      }
+
+      const mealMap = new Map(meals.map((m) => [m.id, m]));
+
+      for (let run = 0; run < 100; run++) {
+        const plan = generateMealPlan(meals, now);
+        let prepAheadCount = 0;
+        for (const entry of plan) {
+          if (entry.meal_id !== null) {
+            const meal = mealMap.get(entry.meal_id);
+            if (meal !== undefined && meal.prep_ahead === true) {
+              prepAheadCount++;
+            }
+          }
+        }
+        expect(prepAheadCount).toBeLessThanOrEqual(3);
+
+        const errors = validatePlan(plan, meals);
+        expect(errors).toEqual([]);
+      }
+    });
   });
 
   describe('stress test - 100 iterations', () => {

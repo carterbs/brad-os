@@ -7,6 +7,7 @@ export interface ApplyOperationsResult {
 }
 
 const VALID_MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner'];
+const MAX_PREP_AHEAD_MEALS = 3;
 
 /**
  * Applies a list of CritiqueOperations to a meal plan.
@@ -69,6 +70,25 @@ export function applyOperations(
     const entry = updatedPlan[entryIndex];
     if (entry === undefined) {
       continue;
+    }
+
+    // Check prep-ahead constraint before applying swap
+    if (op.new_meal_id !== null) {
+      const newMeal = mealMap.get(op.new_meal_id);
+      if (newMeal?.prep_ahead === true) {
+        // Count current prep-ahead meals, excluding the slot being replaced
+        const currentPrepAhead = updatedPlan.filter((e) => {
+          if (e.meal_id === null) return false;
+          if (e.day_index === op.day_index && e.meal_type === op.meal_type) return false;
+          const m = mealMap.get(e.meal_id);
+          return m?.prep_ahead === true;
+        }).length;
+
+        if (currentPrepAhead >= MAX_PREP_AHEAD_MEALS) {
+          errors.push(`Swapping to "${newMeal.name}" would exceed max ${MAX_PREP_AHEAD_MEALS} prep-ahead meals`);
+          continue;
+        }
+      }
     }
 
     // Apply the operation
