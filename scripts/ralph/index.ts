@@ -19,7 +19,10 @@ import {
 } from "./git.js";
 import {
   readBacklog,
+  readTriage,
+  addTriageTask,
   removeTask,
+  removeTriageTask,
   backlogPath,
   moveTaskToMergeConflicts,
 } from "./backlog.js";
@@ -36,8 +39,11 @@ interface WorkerResult {
   branchName: string;
   worktreePath: string;
   taskText?: string;
+  taskSource: TaskSource;
   stepResults: StepSummary[];
 }
+
+type TaskSource = "backlog" | "triage" | "cli";
 
 // ── Validation helper ──
 
@@ -95,6 +101,7 @@ async function runWorker(
   logger: Logger,
   abortController: AbortController,
   taskText?: string,
+  taskSource: TaskSource = "backlog",
 ): Promise<WorkerResult> {
   const branchName = `${config.branchPrefix}-${String(improvement).padStart(3, "0")}`;
   const worktreePath = `${config.worktreeDir}/${branchName}`;
@@ -119,7 +126,7 @@ async function runWorker(
   );
   if (!wtResult.created) {
     logger.error("Failed to create worktree");
-    return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults: [] };
+    return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, taskSource, stepResults: [] };
   }
 
   if (wtResult.resumed) {
@@ -151,7 +158,7 @@ async function runWorker(
       if (!planResult.success) {
         logger.error("Planning step failed");
         logger.info(`  Worktree preserved at: ${worktreePath}`);
-        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults };
+        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, taskSource, stepResults };
       }
 
       if (
@@ -161,7 +168,7 @@ async function runWorker(
       ) {
         logger.error("Planning agent failed to create ralph-improvement.md");
         logger.info(`  Worktree preserved at: ${worktreePath}`);
-        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults };
+        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, taskSource, stepResults };
       }
 
       const planLine = planResult.outputText
@@ -200,7 +207,7 @@ async function runWorker(
       if (!planResult.success) {
         logger.error("Planning step failed");
         logger.info(`  Worktree preserved at: ${worktreePath}`);
-        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults };
+        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, taskSource, stepResults };
       }
 
       if (
@@ -210,7 +217,7 @@ async function runWorker(
       ) {
         logger.error("Planning agent failed to create ralph-improvement.md");
         logger.info(`  Worktree preserved at: ${worktreePath}`);
-        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults };
+        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, taskSource, stepResults };
       }
 
       const planLine = planResult.outputText
@@ -263,7 +270,7 @@ async function runWorker(
       if (!implResult.success) {
         logger.error("Implementation failed on retry");
         logger.info(`  Worktree preserved at: ${worktreePath}`);
-        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults };
+        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, taskSource, stepResults };
       }
     }
 
@@ -291,7 +298,7 @@ async function runWorker(
       if (!hasNewCommits(worktreePath)) {
         logger.error("No changes produced");
         logger.info(`  Worktree preserved at: ${worktreePath}`);
-        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults };
+        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, taskSource, stepResults };
       }
     }
 
@@ -320,7 +327,7 @@ async function runWorker(
           reason: "exceeded review cycles",
           ts: new Date().toISOString(),
         });
-        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults };
+        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, taskSource, stepResults };
       }
 
       logger.info(
@@ -432,7 +439,7 @@ async function runWorker(
       ts: new Date().toISOString(),
     });
 
-    return { success: true, improvement, workerSlot, branchName, worktreePath, taskText, stepResults };
+    return { success: true, improvement, workerSlot, branchName, worktreePath, taskText, taskSource, stepResults };
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     logger.error(`Improvement #${improvement} failed: ${errMsg}`);
@@ -443,7 +450,7 @@ async function runWorker(
       reason: errMsg,
       ts: new Date().toISOString(),
     });
-    return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults: [] };
+    return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, taskSource, stepResults: [] };
   }
 }
 
@@ -455,12 +462,13 @@ const activeWorktrees = new Map<number, { path: string; branch: string }>();
 function hasMoreWork(
   completed: number,
   target: number | undefined,
+  triageCount: number,
   backlogCount: number,
   inFlightCount: number,
 ): boolean {
   if (target !== undefined) return completed < target;
-  // No target: run until backlog is empty AND no tasks in flight
-  return backlogCount > 0 || inFlightCount > 0;
+  // No target: run until triage+backlog are empty and nothing is in flight
+  return triageCount > 0 || backlogCount > 0 || inFlightCount > 0;
 }
 
 async function main(): Promise<void> {
@@ -516,6 +524,7 @@ async function main(): Promise<void> {
   orchestratorLogger.info(`  Impl agent     : ${fmtStep(agents.implement)}`);
   orchestratorLogger.info(`  Review agent   : ${fmtStep(agents.review)}`);
   if (config.task) orchestratorLogger.info(`  Task           : ${config.task}`);
+  orchestratorLogger.info(`  Triage         : ${readTriage().length} tasks`);
   orchestratorLogger.info(`  Backlog        : ${readBacklog().length} tasks`);
   orchestratorLogger.info("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
 
@@ -527,23 +536,46 @@ async function main(): Promise<void> {
   const failureThreshold = Math.max(3, config.parallelism + 2);
   let nextImprovement = completed + 1;
   const tasksInFlight = new Set<string>();
+  const MAIN_NOT_GREEN_TRIAGE_TASK =
+    "Restore main to green: run npm run validate on main, fix failures, then rerun validate.";
 
   // Active worker promises keyed by worker slot
   const activeWorkers = new Map<number, Promise<WorkerResult>>();
 
-  /** Find first backlog task not already in flight. */
-  function acquireTask(): string | undefined {
-    const tasks = readBacklog();
-    for (const t of tasks) {
-      if (!tasksInFlight.has(t)) return t;
+  function makeTaskKey(taskText: string, source: TaskSource): string {
+    return `${source}:${taskText}`;
+  }
+
+  /** Find first triage/backlog task not already in flight (triage first). */
+  function acquireTask(): { text: string; source: TaskSource } | undefined {
+    const triage = readTriage();
+    for (const t of triage) {
+      if (!tasksInFlight.has(makeTaskKey(t, "triage"))) {
+        return { text: t, source: "triage" };
+      }
+    }
+
+    const backlog = readBacklog();
+    for (const t of backlog) {
+      if (!tasksInFlight.has(makeTaskKey(t, "backlog"))) {
+        return { text: t, source: "backlog" };
+      }
     }
     return undefined;
   }
 
-  /** Ensure backlog has tasks, refilling if needed. Returns false if refill fails. */
+  /** Ensure triage/backlog has tasks, refilling backlog if needed. */
   async function ensureBacklog(): Promise<boolean> {
+    const triage = readTriage();
+    const triageAvailable = triage.filter(
+      (t) => !tasksInFlight.has(makeTaskKey(t, "triage")),
+    );
+    if (triageAvailable.length > 0) return true;
+
     const tasks = readBacklog();
-    const available = tasks.filter((t) => !tasksInFlight.has(t));
+    const available = tasks.filter(
+      (t) => !tasksInFlight.has(makeTaskKey(t, "backlog")),
+    );
     if (available.length > 0) return true;
 
     // All tasks are in flight or backlog is empty — try refill
@@ -584,20 +616,44 @@ async function main(): Promise<void> {
   function parkTaskAfterMergeConflict(result: WorkerResult, logger: Logger): void {
     if (!result.taskText || config.task) return;
 
-    tasksInFlight.delete(result.taskText);
-    moveTaskToMergeConflicts(result.taskText, {
-      improvement: result.improvement,
-      branchName: result.branchName,
-      worktreePath: result.worktreePath,
-    });
+    tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
+    if (result.taskSource === "backlog") {
+      moveTaskToMergeConflicts(result.taskText, {
+        improvement: result.improvement,
+        branchName: result.branchName,
+        worktreePath: result.worktreePath,
+      });
+      logger.warn(
+        `Backlog task moved to triage after merge conflict (branch preserved at ${result.worktreePath})`,
+      );
+      return;
+    }
+
+    addTriageTask(result.taskText);
     logger.warn(
-      `Task moved to scripts/ralph/merge-conflicts.md (branch preserved at ${result.worktreePath})`,
+      `Triage task still unresolved after merge conflict (branch preserved at ${result.worktreePath})`,
     );
   }
 
   // ── Main orchestration loop ──
 
-  while (hasMoreWork(completed, config.target, readBacklog().length, tasksInFlight.size)) {
+  if (!config.task && !runValidation(config.repoDir)) {
+    if (addTriageTask(MAIN_NOT_GREEN_TRIAGE_TASK)) {
+      orchestratorLogger.warn(
+        "Main is not green; triage task added and will be prioritized.",
+      );
+    }
+  }
+
+  while (
+    hasMoreWork(
+      completed,
+      config.target,
+      readTriage().length,
+      readBacklog().length,
+      tasksInFlight.size,
+    )
+  ) {
     if (abortController.signal.aborted) break;
 
     // Check failure threshold BEFORE launching new workers
@@ -618,9 +674,10 @@ async function main(): Promise<void> {
       if (abortController.signal.aborted) break;
       if (config.target !== undefined && completed + tasksInFlight.size >= config.target) break;
 
-      let task: string | undefined = config.task;
+      let taskText: string | undefined = config.task;
+      let taskSource: TaskSource = config.task ? "cli" : "backlog";
 
-      if (!task) {
+      if (!taskText) {
         // Ensure backlog has available tasks
         const ok = await ensureBacklog();
         if (!ok) {
@@ -631,13 +688,15 @@ async function main(): Promise<void> {
           break; // Let running workers finish
         }
 
-        task = acquireTask();
-        if (!task) break; // All backlog tasks in flight, wait for workers to finish
+        const acquired = acquireTask();
+        if (!acquired) break; // All tasks in flight, wait for workers to finish
+        taskText = acquired.text;
+        taskSource = acquired.source;
       }
 
       // Acquire this task
-      if (task && !config.task) {
-        tasksInFlight.add(task);
+      if (taskText && !config.task) {
+        tasksInFlight.add(makeTaskKey(taskText, taskSource));
       }
 
       const improvement = nextImprovement++;
@@ -648,8 +707,11 @@ async function main(): Promise<void> {
       const worktreePath = `${config.worktreeDir}/${branchName}`;
       activeWorktrees.set(slot, { path: worktreePath, branch: branchName });
 
-      const remaining = readBacklog().length;
-      workerLogger.info(`Starting task (${remaining} in backlog): ${task?.slice(0, 80) ?? "(ideation)"}...`);
+      const triageRemaining = readTriage().length;
+      const backlogRemaining = readBacklog().length;
+      workerLogger.info(
+        `Starting ${taskSource} task (${triageRemaining} triage, ${backlogRemaining} backlog): ${taskText?.slice(0, 80) ?? "(ideation)"}...`,
+      );
 
       const workerPromise = runWorker(
         slot,
@@ -657,7 +719,8 @@ async function main(): Promise<void> {
         config,
         workerLogger,
         abortController,
-        task,
+        taskText,
+        taskSource,
       );
 
       activeWorkers.set(slot, workerPromise);
@@ -698,9 +761,14 @@ async function main(): Promise<void> {
       if (mergeResult.success) {
         // Remove task from backlog and in-flight set
         if (result.taskText && !config.task) {
-          removeTask(result.taskText);
-          tasksInFlight.delete(result.taskText);
-          finishedLogger.info(`Task removed from backlog after successful merge`);
+          if (result.taskSource === "triage") {
+            removeTriageTask(result.taskText);
+            finishedLogger.info("Task removed from triage after successful merge");
+          } else {
+            removeTask(result.taskText);
+            finishedLogger.info("Task removed from backlog after successful merge");
+          }
+          tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
         }
         activeWorktrees.delete(finishedSlot);
         completed++;
@@ -720,7 +788,7 @@ async function main(): Promise<void> {
     } else {
       // Worker failed
       if (result.taskText) {
-        tasksInFlight.delete(result.taskText);
+        tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
       }
       activeWorktrees.delete(finishedSlot);
       consecutiveFailures++;
@@ -752,7 +820,12 @@ async function main(): Promise<void> {
         });
         if (mergeResult.success) {
           if (result.taskText && !config.task) {
-            removeTask(result.taskText);
+            if (result.taskSource === "triage") {
+              removeTriageTask(result.taskText);
+            } else {
+              removeTask(result.taskText);
+            }
+            tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
           }
           activeWorktrees.delete(result.workerSlot);
           completed++;

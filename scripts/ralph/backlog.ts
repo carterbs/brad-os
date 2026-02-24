@@ -4,13 +4,13 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BACKLOG_PATH = join(__dirname, "backlog.md");
+const TRIAGE_PATH = join(__dirname, "triage.md");
 const MERGE_CONFLICTS_PATH = join(__dirname, "merge-conflicts.md");
 
-/** Parse backlog.md into an array of task strings. */
-export function readBacklog(): string[] {
+function readTaskFile(path: string): string[] {
   let content: string;
   try {
-    content = readFileSync(BACKLOG_PATH, "utf-8");
+    content = readFileSync(path, "utf-8");
   } catch {
     return [];
   }
@@ -19,6 +19,16 @@ export function readBacklog(): string[] {
     .split("\n")
     .map((line) => line.replace(/^- /, "").trim())
     .filter(Boolean);
+}
+
+function writeTaskFile(path: string, tasks: string[]): void {
+  const content = tasks.map((t) => `- ${t}`).join("\n") + "\n";
+  writeFileSync(path, content);
+}
+
+/** Parse backlog.md into an array of task strings. */
+export function readBacklog(): string[] {
+  return readTaskFile(BACKLOG_PATH);
 }
 
 /** Return the first task from backlog.md without removing it. */
@@ -52,6 +62,30 @@ export function removeTask(taskText: string): boolean {
   return true;
 }
 
+/** Parse triage.md into an array of task strings. */
+export function readTriage(): string[] {
+  return readTaskFile(TRIAGE_PATH);
+}
+
+/** Add a triage task if it is not already present. */
+export function addTriageTask(taskText: string): boolean {
+  const tasks = readTriage();
+  if (tasks.includes(taskText)) return false;
+  tasks.push(taskText);
+  writeTaskFile(TRIAGE_PATH, tasks);
+  return true;
+}
+
+/** Remove a specific triage task by text. */
+export function removeTriageTask(taskText: string): boolean {
+  const tasks = readTriage();
+  const idx = tasks.findIndex((t) => t === taskText);
+  if (idx === -1) return false;
+  tasks.splice(idx, 1);
+  writeTaskFile(TRIAGE_PATH, tasks);
+  return true;
+}
+
 /**
  * Move a task from the active backlog to merge-conflicts.md so it is not
  * re-run automatically when a branch is complete but cannot merge cleanly.
@@ -65,6 +99,9 @@ export function moveTaskToMergeConflicts(
   },
 ): void {
   removeTask(taskText);
+  addTriageTask(
+    `Resolve merge conflict for improvement #${details.improvement} (${details.branchName}) and merge to main. Worktree: ${details.worktreePath}. Original task: ${taskText}`,
+  );
   const marker = `improvement=${details.improvement} branch=${details.branchName}`;
   let existing = "";
   try {
