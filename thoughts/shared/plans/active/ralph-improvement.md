@@ -1,173 +1,250 @@
-**Title**: Add cycling activities to calendar aggregation and surface cycling in Calendar/History models
+**Title**: Lint-architecture rule: require colocated tests for non-abstract repository files
 
-**Why**: The current calendar pipeline omits cycling completions, so History/Calendar under-reports activity and leaves the tracked “Calendar missing cycling activities” debt unresolved.
+**Why**: All 16 concrete repositories currently have colocated `.test.ts` files, but nothing prevents a new repository from being added without one. A lint check enforces the invariant at CI time, catching gaps before they merge.
 
 **What**
-1. Extend the calendar domain contract to support cycling as a first-class calendar activity.
-- In `packages/functions/src/types/calendar.ts`:
-  - Extend `ActivityType` to include `'cycling'`.
-  - Add `CyclingActivitySummary` and include it in `ActivitySummary`.
-  - Add `isCyclingActivity(activity)` type guard.
-  - Extend `CalendarDayData.summary` with `hasCycling: boolean`.
-- Proposed summary shape:
-  - `durationMinutes: number`
-  - `tss: number`
-  - `cyclingType: CyclingActivityType` (reuse existing type from `types/cycling.ts`; do not redefine)
 
-2. Aggregate cycling entries in `CalendarService.getMonthData()` alongside workouts/stretch/meditation.
-- In `packages/functions/src/services/calendar.service.ts`:
-  - Import `getCyclingActivities` from `firestore-cycling.service`.
-  - Fetch cycling activities for the calendar user (`default-user`, matching current cycling handlers) in parallel with existing repository queries.
-  - For each cycling activity:
-    - Convert `activity.date` (UTC ISO) to local day via existing `utcToLocalDate()`.
-    - Include only entries whose local date is within the current month boundaries.
-    - Emit a `CalendarActivity` with:
-      - `id: cycling-${activity.id}`
-      - `type: 'cycling'`
-      - `date: <local YYYY-MM-DD>`
-      - `completedAt: activity.date`
-      - `summary: { durationMinutes, tss, cyclingType }`
-  - Update day-summary aggregation logic to initialize and set `hasCycling`.
-- Keep existing ordering behavior (sort by `completedAt`) unchanged.
+Add Check 20 (`checkRepositoryTestCoverage`) to the architecture linter. It scans `packages/functions/src/repositories/` for `.repository.ts` files, skips files on an explicit allowlist (abstract base classes, type-only files), and fails if any remaining file lacks a colocated `.test.ts`.
 
-3. Update iOS calendar/history model + UI rendering for the new activity type.
-- In BradOSCore model (`CalendarActivity.swift`):
-  - Add `ActivityType.cycling` with display/icon metadata (`"Cycling"`, `"figure.outdoor.cycle"`).
-  - Add cycling fields to `ActivitySummary` decode/init:
-    - `durationMinutes: Int?`
-    - `tss: Int?`
-    - `cyclingType: String?`
-  - Add `CalendarDayData.hasCycling` computed property.
-  - Add one cycling mock activity in `mockActivities`.
-- In SwiftUI layer:
-  - Map `ActivityType.cycling` to `Theme.cycling` in `BradOSCore+UI.swift`.
-  - Add `.cycling` branches to activity-card rendering switches:
-    - `DayActivityCard` cycling detail block (type + duration/TSS text)
-    - `HistoryView+Components` day-tap handler (cycling closes sheet; no navigation)
-    - `HealthView` recent-activity row title/subtitle formatting for cycling
+### Algorithm
 
-4. Keep architecture docs accurate after implementation.
-- Update `docs/architecture/calendar.md` notes from “three activity types” to include cycling.
+1. Read all files in `config.functionsSrc + '/repositories/'`.
+2. Filter to files matching `*.repository.ts` (excludes `.test.ts`, `.spec.ts`).
+3. Skip files on the allowlist: `['base.repository.ts']`.
+4. For each remaining file, check if a sibling `<name>.test.ts` exists (same directory, same base name with `.test.ts` replacing `.ts`).
+5. If missing, emit a violation with the file path and a fix instruction telling the implementer to create the test file.
 
-Concrete backend payload example after change:
-```json
-{
-  "id": "cycling-ride-123",
-  "type": "cycling",
-  "date": "2026-02-12",
-  "completedAt": "2026-02-12T18:45:00.000Z",
-  "summary": {
-    "durationMinutes": 52,
-    "tss": 67,
-    "cyclingType": "threshold"
+### Allowlist rationale
+
+- `base.repository.ts` — Abstract class with no standalone behavior to test. Its methods are exercised through concrete subclass tests.
+- The allowlist is defined as a `const` array at the top of the check function, making it easy to extend if future abstract/utility repository files are added.
+
+**Files**
+
+### 1. `scripts/lint-checks.ts` (modify)
+
+Append new exported function after `checkTestQuality`:
+
+```typescript
+// ─────────────────────────────────────────────────────────────────────────────
+// Check 20: Repository test coverage
+//
+// Every non-abstract repository file must have a colocated .test.ts file.
+// Abstract base classes and type-only files are explicitly allowlisted.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function checkRepositoryTestCoverage(config: LinterConfig): CheckResult {
+  const name = 'Repository test coverage';
+
+  // Files that are intentionally untested (abstract classes, type-only files)
+  const ALLOWLIST: string[] = [
+    'base.repository.ts',
+  ];
+
+  const repoDir = path.join(config.functionsSrc, 'repositories');
+
+  if (!fs.existsSync(repoDir)) {
+    return { name, passed: true, violations: [] };
   }
+
+  const violations: string[] = [];
+
+  const repoFiles = fs.readdirSync(repoDir).filter(
+    (f) =>
+      f.endsWith('.repository.ts') &&
+      !f.endsWith('.test.ts') &&
+      !f.endsWith('.spec.ts') &&
+      !ALLOWLIST.includes(f)
+  );
+
+  for (const file of repoFiles) {
+    const baseName = file.replace(/\.ts$/, '');
+    const testFile = `${baseName}.test.ts`;
+    const testPath = path.join(repoDir, testFile);
+
+    if (!fs.existsSync(testPath)) {
+      const relPath = path.relative(config.rootDir, path.join(repoDir, file));
+      const relTestPath = path.relative(config.rootDir, testPath);
+      violations.push(
+        `${relPath} has no colocated test file.\n` +
+        `    Rule: Every non-abstract repository must have a colocated .test.ts file.\n` +
+        `    Fix: Create ${relTestPath} with tests for all public methods.\n` +
+        `    If this file is intentionally untested (e.g., abstract base class),\n` +
+        `    add it to the ALLOWLIST in checkRepositoryTestCoverage().`
+      );
+    }
+  }
+
+  return { name, passed: violations.length === 0, violations };
 }
 ```
 
-**Files**
-1. `packages/functions/src/types/calendar.ts` (modify)
-- Add cycling activity type + summary interface + union/type guard.
-- Add `hasCycling` to day summary type.
+### 2. `scripts/lint-architecture.ts` (modify)
 
-2. `packages/functions/src/services/calendar.service.ts` (modify)
-- Import cycling service function and cycling summary type.
-- Add cycling fetch/transform/grouping path inside `getMonthData(year, month, timezoneOffset?)`.
-- Ensure day summary toggles `hasCycling`.
+Two changes:
 
-3. `packages/functions/src/services/calendar.service.test.ts` (modify)
-- Mock `getCyclingActivities` and add cycling-focused service tests.
-- Update any expected summary structures impacted by `hasCycling`.
+**A. Add import** — Add `checkRepositoryTestCoverage` to the import block:
 
-4. `packages/functions/src/handlers/calendar.test.ts` (modify)
-- Update `createTestDayData()` summary shape to include `hasCycling`.
-- Add/adjust handler assertions for mixed-type responses that include cycling.
+```typescript
+import {
+  // ... existing imports ...
+  checkTestQuality,
+  checkQualityGradesFreshness,
+  checkRepositoryTestCoverage,  // ADD
+} from './lint-checks.js';
+```
 
-5. `ios/BradOS/BradOSCore/Sources/BradOSCore/Models/CalendarActivity.swift` (modify)
-- Add `.cycling` enum case, display/icon metadata, `ActivitySummary` cycling fields, `hasCycling`, and mock entry.
+**B. Add to checks array** — Append to the `checks` array (after `checkTestQuality`):
 
-6. `ios/BradOS/BradOS/Extensions/BradOSCore+UI.swift` (modify)
-- Add `.cycling -> Theme.cycling` color mapping.
+```typescript
+(): CheckResult => checkRepositoryTestCoverage(config),
+```
 
-7. `ios/BradOS/BradOS/Views/History/DayActivityCard.swift` (modify)
-- Add cycling branch in activity detail switch and cycling summary formatting.
+### 3. `scripts/lint-architecture.test.ts` (modify)
 
-8. `ios/BradOS/BradOS/Views/History/HistoryView+Components.swift` (modify)
-- Add `.cycling` switch handling in `handleActivityTap`.
+**A. Add import** — Add `checkRepositoryTestCoverage` to the import block:
 
-9. `ios/BradOS/BradOS/Views/Health/HealthView.swift` (modify)
-- Add cycling branch for recent-activity title/subtitle switches.
+```typescript
+import {
+  // ... existing imports ...
+  checkQualityGradesFreshness,
+  checkRepositoryTestCoverage,  // ADD
+} from './lint-checks.js';
+```
 
-10. `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/ViewModels/CalendarViewModelTests.swift` (modify)
-- Add cycling filter/selection test coverage.
+**B. Add test suite** — Append after the `checkQualityGradesFreshness` describe block:
 
-11. `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/CalendarActivityTests.swift` (new)
-- Add model-level decoding/assertion tests for cycling summary fields and `hasCycling` behavior.
+```typescript
+// ── Check 20: Repository test coverage ───────────────────────────────────────
 
-12. `docs/architecture/calendar.md` (modify)
-- Update activity-type notes to include cycling.
+describe('checkRepositoryTestCoverage', () => {
+  let rootDir: string;
+  let config: LinterConfig;
+
+  beforeEach(() => {
+    ({ rootDir, config } = createFixture());
+  });
+  afterEach(() => cleanup(rootDir));
+
+  it('passes when all repository files have colocated tests', () => {
+    writeFixture(rootDir, 'packages/functions/src/repositories/exercise.repository.ts',
+      'export class ExerciseRepository {}');
+    writeFixture(rootDir, 'packages/functions/src/repositories/exercise.repository.test.ts',
+      "it('works', () => { expect(1).toBe(1); });");
+
+    const result = checkRepositoryTestCoverage(config);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('fails when a repository file has no colocated test', () => {
+    writeFixture(rootDir, 'packages/functions/src/repositories/exercise.repository.ts',
+      'export class ExerciseRepository {}');
+
+    const result = checkRepositoryTestCoverage(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0]).toContain('exercise.repository.ts');
+    expect(result.violations[0]).toContain('no colocated test file');
+  });
+
+  it('skips allowlisted files (base.repository.ts)', () => {
+    writeFixture(rootDir, 'packages/functions/src/repositories/base.repository.ts',
+      'export abstract class BaseRepository {}');
+
+    const result = checkRepositoryTestCoverage(config);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('passes when repositories directory does not exist', () => {
+    // config.functionsSrc/repositories does not exist in fixture
+    const result = checkRepositoryTestCoverage(config);
+    expect(result.passed).toBe(true);
+  });
+
+  it('reports multiple missing test files', () => {
+    writeFixture(rootDir, 'packages/functions/src/repositories/foo.repository.ts',
+      'export class FooRepository {}');
+    writeFixture(rootDir, 'packages/functions/src/repositories/bar.repository.ts',
+      'export class BarRepository {}');
+
+    const result = checkRepositoryTestCoverage(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations).toHaveLength(2);
+  });
+
+  it('ignores non-repository .ts files in the directory', () => {
+    writeFixture(rootDir, 'packages/functions/src/repositories/helpers.ts',
+      'export function helper() {}');
+
+    const result = checkRepositoryTestCoverage(config);
+    expect(result.passed).toBe(true);
+  });
+
+  it('does not flag test files themselves', () => {
+    writeFixture(rootDir, 'packages/functions/src/repositories/exercise.repository.ts',
+      'export class ExerciseRepository {}');
+    writeFixture(rootDir, 'packages/functions/src/repositories/exercise.repository.test.ts',
+      "it('works', () => { expect(1).toBe(1); });");
+
+    const result = checkRepositoryTestCoverage(config);
+    expect(result.passed).toBe(true);
+  });
+});
+```
 
 **Tests**
-1. `packages/functions/src/services/calendar.service.test.ts`
-- `getMonthData includes cycling activities in days map`
-- `cycling activities set hasCycling=true and increment totals`
-- `cycling activity ID is prefixed with cycling-`
-- `cycling UTC timestamp is grouped by local day using tz offset`
-- `service calls getCyclingActivities('default-user')`
 
-2. `packages/functions/src/handlers/calendar.test.ts`
-- Day summary helper includes `hasCycling`.
-- Mixed-activity handler response test asserts `hasCycling` toggles true when cycling item present.
+Seven test cases in `scripts/lint-architecture.test.ts` (listed above):
 
-3. `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/CalendarActivityTests.swift`
-- Decodes a cycling `CalendarActivity` JSON payload and maps summary fields.
-- `CalendarDayData.hasCycling` true/false behavior with mixed arrays.
-
-4. `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/ViewModels/CalendarViewModelTests.swift`
-- `shouldShowActivity(type:)` supports cycling filter.
-- `activitiesForDate(_:filter:)` returns only cycling entries when `.cycling` filter is selected.
+| # | Test | Verifies |
+|---|------|----------|
+| 1 | passes when all repos have tests | Happy path — no violations |
+| 2 | fails when repo has no test | Core detection logic |
+| 3 | skips allowlisted files | `base.repository.ts` is exempt |
+| 4 | passes when dir missing | Graceful degradation (no crash) |
+| 5 | reports multiple missing | Each gap is a separate violation |
+| 6 | ignores non-repository files | Only `*.repository.ts` files are checked |
+| 7 | does not flag test files | `*.repository.test.ts` files aren't treated as source |
 
 **QA**
-1. Backend manual API verification (not only unit tests)
-- Start Firebase emulators.
-- Seed at least one `users/default-user/cyclingActivities` doc with a known UTC timestamp near a day boundary.
-- Call `GET /calendar/{year}/{month}?tz={offset}` on `devCalendar` and verify:
-  - cycling activity appears with `type: "cycling"`
-  - activity is grouped into the correct local date
-  - day summary includes `hasCycling: true`
 
-2. iOS manual verification in simulator
-- Launch app with data containing at least one cycling activity in the visible month.
-- Open `Calendar` and `History`.
-- Confirm:
-  - cycling dot appears in calendar grid using cycling color
-  - `History` shows a `Cycling` filter chip
-  - selecting `Cycling` hides non-cycling dots/items
-  - day sheet renders cycling card text (ride type + duration/TSS)
-  - tapping cycling item dismisses sheet without broken navigation
+1. **Run the linter against the real codebase** to confirm it passes (all 16 concrete repos have tests):
+   ```bash
+   npx tsx scripts/lint-architecture.ts
+   ```
+   Verify the new check line appears: `✓ Repository test coverage: clean`
 
-3. Automated checks
-- Functions: run targeted calendar tests, then `npm run validate`.
-- iOS: run BradOSCore tests including new calendar model/viewmodel cases and perform a full app build.
+2. **Simulate a violation** by temporarily creating a repository without a test:
+   ```bash
+   echo 'export class TempRepository {}' > packages/functions/src/repositories/temp.repository.ts
+   npx tsx scripts/lint-architecture.ts
+   # Should show: ✗ Repository test coverage: 1 violation(s)
+   # With message pointing to temp.repository.ts
+   rm packages/functions/src/repositories/temp.repository.ts
+   ```
+
+3. **Verify allowlist works** by confirming `base.repository.ts` (which has no test) does not trigger a violation.
+
+4. **Run full validation** to ensure no regressions:
+   ```bash
+   npm run validate
+   ```
 
 **Conventions**
-1. `CLAUDE.md`
-- Read architecture map first (`docs/architecture/calendar.md`, `docs/architecture/cycling.md`).
-- Follow TDD flow: tests first, then implementation.
-- Perform real QA (endpoint + simulator), not just test execution.
 
-2. `docs/conventions/typescript.md`
-- No `any`; explicit return types on new/changed functions.
-- Deduplicate types: import and reuse `CyclingActivityType` instead of creating a new string union.
+1. **CLAUDE.md** — Run `npm run validate` before committing. Use subagents for validation commands.
 
-3. `docs/conventions/testing.md`
-- Use vitest with explicit imports.
-- No skipped/focused tests.
-- Add meaningful assertions for new cycling behavior.
+2. **docs/conventions/testing.md** — Tests use vitest with explicit imports (`import { describe, it, expect, beforeEach, afterEach } from 'vitest'`). No skipped or focused tests. Each test has at least one `expect()` assertion.
 
-4. `docs/conventions/ios-swift.md`
-- Use shared theme tokens (`Theme.cycling`), not hardcoded colors.
-- Keep switch statements exhaustive after adding new enum cases.
-- Do not suppress lint rules.
+3. **docs/conventions/typescript.md** — No `any`. Explicit return types on the new function (`CheckResult`). Use `string[]` for the allowlist const.
 
-5. `packages/functions/CLAUDE.md`
-- Use Firebase logger APIs (no `console.*`) if any logging is added while touching calendar/cycling paths.
+4. **Existing lint-checks patterns** — Follow the established structure:
+   - Section comment header with check number and description
+   - Function signature: `export function checkXxx(config: LinterConfig): CheckResult`
+   - `const name = 'Check display name'` as first line
+   - Build `violations: string[]` array
+   - Return `{ name, passed: violations.length === 0, violations }`
+   - Violation messages include: file path, rule explanation, fix instruction, and (where applicable) convention doc reference
+   - Tests use `createFixture()` / `writeFixture()` / `cleanup()` helpers from the test file
