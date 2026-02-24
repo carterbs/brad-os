@@ -271,6 +271,7 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
     "--model", model,
     "-C", cwd,
     "-o", outputFile,
+    "-",  // read prompt from stdin
   ];
 
   return new Promise<StepResult>((resolve) => {
