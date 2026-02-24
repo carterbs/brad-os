@@ -31,6 +31,9 @@ struct BradOSApp: App {
         AppCheck.setAppCheckProviderFactory(providerFactory)
         FirebaseApp.configure()
 
+        // Initialize debug telemetry (no-op in release builds)
+        DebugTelemetry.shared.setup()
+
         // Initialize sync service with shared HealthKitManager
         let hkManager = HealthKitManager()
         _healthKitManager = StateObject(wrappedValue: hkManager)
@@ -102,6 +105,8 @@ struct BradOSApp: App {
                 await healthKitSyncService.syncIfNeeded()
             }
         case .background:
+            // Flush pending telemetry before backgrounding
+            DebugTelemetry.shared.flush()
             // Schedule background refresh when going to background
             scheduleBackgroundSync()
         case .inactive:
@@ -118,9 +123,9 @@ struct BradOSApp: App {
 
         do {
             try BGTaskScheduler.shared.submit(request)
-            print("[BradOSApp] Scheduled background HealthKit sync")
+            DebugLogger.info("Scheduled background HealthKit sync", attributes: ["source": "BradOSApp"])
         } catch {
-            print("[BradOSApp] Failed to schedule background sync: \(error)")
+            DebugLogger.error("Failed to schedule background sync: \(error)", attributes: ["source": "BradOSApp"])
         }
     }
 
@@ -131,7 +136,7 @@ struct BradOSApp: App {
 
         // Set up expiration handler
         task.expirationHandler = {
-            print("[BradOSApp] Background sync expired")
+            DebugLogger.error("Background sync expired", attributes: ["source": "BradOSApp"])
             task.setTaskCompleted(success: false)
         }
 
@@ -139,7 +144,7 @@ struct BradOSApp: App {
         Task {
             await syncService.sync()
             task.setTaskCompleted(success: true)
-            print("[BradOSApp] Background sync completed")
+            DebugLogger.info("Background sync completed", attributes: ["source": "BradOSApp"])
         }
     }
 }

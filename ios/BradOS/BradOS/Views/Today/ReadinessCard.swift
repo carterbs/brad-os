@@ -66,7 +66,7 @@ struct ReadinessCard: View {
             let snapshot = try await DefaultAPIClient.concrete.getLatestRecovery()
             recovery = snapshot?.toRecoveryData()
         } catch {
-            print("[ReadinessCard] Failed to load recovery from API: \(error)")
+            DebugLogger.error("Failed to load recovery from API: \(error)", attributes: ["source": "ReadinessCard"])
             recovery = nil
         }
     }

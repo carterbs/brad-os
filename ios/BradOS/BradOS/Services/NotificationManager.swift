@@ -59,9 +59,7 @@ class NotificationManager {
             await refreshAuthorizationStatus()
             return granted
         } catch {
-            #if DEBUG
-            print("[NotificationManager] Failed to request authorization: \(error)")
-            #endif
+            DebugLogger.error("Failed to request authorization: \(error)", attributes: ["source": "NotificationManager"])
             return false
         }
     }

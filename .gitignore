@@ -73,3 +73,6 @@ packages/functions/shared/
 # Local planning/cache
 .plan/
 .cache/
+
+# OpenTelemetry debug data
+.otel/

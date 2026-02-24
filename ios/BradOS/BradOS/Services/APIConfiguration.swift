@@ -36,7 +36,7 @@ struct APIConfiguration {
         #if DEBUG
         // Check for emulator mode first (only makes sense on simulator)
         if ProcessInfo.processInfo.environment["USE_EMULATOR"] == "true" {
-            print("🔧 [APIConfiguration] Using EMULATOR: \(emulatorURL)")
+            DebugLogger.info("Using EMULATOR: \(emulatorURL)", attributes: ["source": "APIConfiguration"])
             guard let url = URL(string: emulatorURL) else {
                 fatalError("Invalid emulator URL: \(emulatorURL)")
             }
@@ -45,7 +45,7 @@ struct APIConfiguration {
 
         // Check for custom URL override
         if let envURL = ProcessInfo.processInfo.environment["BRAD_OS_API_URL"] {
-            print("🔧 [APIConfiguration] Using CUSTOM: \(envURL)")
+            DebugLogger.info("Using CUSTOM: \(envURL)", attributes: ["source": "APIConfiguration"])
             guard let url = URL(string: envURL) else {
                 fatalError("Invalid custom API URL: \(envURL)")
             }
@@ -56,21 +56,21 @@ struct APIConfiguration {
         // Unless forceDevAPIOnPhysicalDevice is set for debugging
         if isPhysicalDevice && !forceDevAPIOnPhysicalDevice {
             let urlString = prodCloudFunctionsURL
-            print("🔧 [APIConfiguration] Using PROD (physical device): \(urlString)")
+            DebugLogger.info("Using PROD (physical device): \(urlString)", attributes: ["source": "APIConfiguration"])
             guard let url = URL(string: urlString) else {
                 fatalError("Invalid API base URL: \(urlString)")
             }
             return APIConfiguration(baseURL: url)
         } else if isPhysicalDevice && forceDevAPIOnPhysicalDevice {
             let urlString = devCloudFunctionsURL
-            print("⚠️ [APIConfiguration] FORCED DEV on physical device: \(urlString)")
+            DebugLogger.warn("FORCED DEV on physical device: \(urlString)", attributes: ["source": "APIConfiguration"])
             guard let url = URL(string: urlString) else {
                 fatalError("Invalid API base URL: \(urlString)")
             }
             return APIConfiguration(baseURL: url)
         } else {
             let urlString = devCloudFunctionsURL
-            print("🔧 [APIConfiguration] Using DEV (simulator): \(urlString)")
+            DebugLogger.info("Using DEV (simulator): \(urlString)", attributes: ["source": "APIConfiguration"])
             guard let url = URL(string: urlString) else {
                 fatalError("Invalid API base URL: \(urlString)")
             }
@@ -78,7 +78,7 @@ struct APIConfiguration {
         }
         #else
         let urlString = prodCloudFunctionsURL
-        print("🔧 [APIConfiguration] Using PROD: \(urlString)")
+        DebugLogger.info("Using PROD: \(urlString)", attributes: ["source": "APIConfiguration"])
         guard let url = URL(string: urlString) else {
             fatalError("Invalid API base URL: \(urlString)")
         }

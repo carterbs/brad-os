@@ -272,17 +272,13 @@ struct StretchView: View {
                 await MainActor.run {
                     isSavingSession = false
                 }
-                #if DEBUG
-                print("[StretchView] Session saved successfully")
-                #endif
+                DebugLogger.info("Session saved successfully", attributes: ["source": "StretchView"])
             } catch {
                 await MainActor.run {
                     isSavingSession = false
                     saveError = "Could not save session"
                 }
-                #if DEBUG
-                print("[StretchView] Failed to save session: \(error)")
-                #endif
+                DebugLogger.error("Failed to save session: \(error)", attributes: ["source": "StretchView"])
             }
         }
     }

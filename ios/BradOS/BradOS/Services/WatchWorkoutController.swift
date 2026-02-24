@@ -42,9 +42,7 @@ class WatchWorkoutController: NSObject, ObservableObject {
 
     private func setupWatchConnectivity() {
         guard WCSession.isSupported() else {
-            #if DEBUG
-            print("[WatchWorkoutController] WatchConnectivity not supported")
-            #endif
+            DebugLogger.info("WatchConnectivity not supported", attributes: ["source": "WatchWorkoutController"])
             return
         }
 
@@ -52,9 +50,7 @@ class WatchWorkoutController: NSObject, ObservableObject {
         wcSession?.delegate = self
         wcSession?.activate()
 
-        #if DEBUG
-        print("[WatchWorkoutController] WatchConnectivity session activating...")
-        #endif
+        DebugLogger.info("WatchConnectivity session activating...", attributes: ["source": "WatchWorkoutController"])
     }
 
     // MARK: - Public Methods
@@ -127,9 +123,7 @@ class WatchWorkoutController: NSObject, ObservableObject {
             session.sendMessage(message, replyHandler: nil, errorHandler: nil)
         }
 
-        #if DEBUG
-        print("[WatchWorkoutController] Workout cancelled")
-        #endif
+        DebugLogger.info("Workout cancelled", attributes: ["source": "WatchWorkoutController"])
     }
 
     // MARK: - Workout Context Methods
@@ -144,14 +138,10 @@ class WatchWorkoutController: NSObject, ObservableObject {
             let data = try JSONEncoder().encode(context)
             let message: [String: Any] = [WCMessageKey.workoutContext: data]
             session.sendMessage(message, replyHandler: nil, errorHandler: { error in
-                #if DEBUG
-                print("[WatchWorkoutController] Failed to send workout context: \(error)")
-                #endif
+                DebugLogger.error("Failed to send workout context: \(error)", attributes: ["source": "WatchWorkoutController"])
             })
         } catch {
-            #if DEBUG
-            print("[WatchWorkoutController] Failed to encode workout context: \(error)")
-            #endif
+            DebugLogger.error("Failed to encode workout context: \(error)", attributes: ["source": "WatchWorkoutController"])
         }
     }
 
@@ -163,14 +153,10 @@ class WatchWorkoutController: NSObject, ObservableObject {
             let data = try JSONEncoder().encode(update)
             let message: [String: Any] = [WCMessageKey.exerciseUpdate: data]
             session.sendMessage(message, replyHandler: nil, errorHandler: { error in
-                #if DEBUG
-                print("[WatchWorkoutController] Failed to send exercise update: \(error)")
-                #endif
+                DebugLogger.error("Failed to send exercise update: \(error)", attributes: ["source": "WatchWorkoutController"])
             })
         } catch {
-            #if DEBUG
-            print("[WatchWorkoutController] Failed to encode exercise update: \(error)")
-            #endif
+            DebugLogger.error("Failed to encode exercise update: \(error)", attributes: ["source": "WatchWorkoutController"])
         }
     }
 
@@ -226,14 +212,10 @@ class WatchWorkoutController: NSObject, ObservableObject {
             let data = try JSONEncoder().encode(event)
             let message: [String: Any] = [WCMessageKey.restTimerEvent: data]
             session.sendMessage(message, replyHandler: nil, errorHandler: { error in
-                #if DEBUG
-                print("[WatchWorkoutController] Failed to send rest timer event: \(error)")
-                #endif
+                DebugLogger.error("Failed to send rest timer event: \(error)", attributes: ["source": "WatchWorkoutController"])
             })
         } catch {
-            #if DEBUG
-            print("[WatchWorkoutController] Failed to encode rest timer: \(error)")
-            #endif
+            DebugLogger.error("Failed to encode rest timer: \(error)", attributes: ["source": "WatchWorkoutController"])
         }
     }
 }
@@ -249,34 +231,26 @@ extension WatchWorkoutController: WCSessionDelegate {
     ) {
         Task { @MainActor in
             if let error = error {
-                #if DEBUG
-                print("[WatchWorkoutController] WCSession activation failed: \(error)")
-                #endif
+                DebugLogger.error("WCSession activation failed: \(error)", attributes: ["source": "WatchWorkoutController"])
                 return
             }
 
             self.isWatchReachable = session.isReachable
             self.isWatchPairedButUnreachable = session.isPaired && !session.isReachable
 
-            #if DEBUG
-            print("[WatchWorkoutController] WCSession activated:")
-            print("  - Paired: \(session.isPaired)")
-            print("  - Watch app installed: \(session.isWatchAppInstalled)")
-            print("  - Reachable: \(session.isReachable)")
-            #endif
+            DebugLogger.info("WCSession activated:", attributes: ["source": "WatchWorkoutController"])
+            DebugLogger.info("  - Paired: \(session.isPaired)")
+            DebugLogger.info("  - Watch app installed: \(session.isWatchAppInstalled)")
+            DebugLogger.info("  - Reachable: \(session.isReachable)")
         }
     }
 
     nonisolated func sessionDidBecomeInactive(_ session: WCSession) {
-        #if DEBUG
-        print("[WatchWorkoutController] WCSession became inactive")
-        #endif
+        DebugLogger.info("WCSession became inactive", attributes: ["source": "WatchWorkoutController"])
     }
 
     nonisolated func sessionDidDeactivate(_ session: WCSession) {
-        #if DEBUG
-        print("[WatchWorkoutController] WCSession deactivated")
-        #endif
+        DebugLogger.info("WCSession deactivated", attributes: ["source": "WatchWorkoutController"])
         // Reactivate for future use
         session.activate()
     }
@@ -287,7 +261,7 @@ extension WatchWorkoutController: WCSessionDelegate {
             self.isWatchPairedButUnreachable = session.isPaired && !session.isReachable
             #if DEBUG
             let reachable = session.isReachable
-            print("[WatchWorkoutController] Watch reachability changed: \(reachable)")
+            DebugLogger.info("Watch reachability changed: \(reachable)", attributes: ["source": "WatchWorkoutController"])
             #endif
         }
     }
@@ -321,9 +295,7 @@ extension WatchWorkoutController: WCSessionDelegate {
         if (message["summary"] as? Data) != nil {
             isWorkoutActive = false
 
-            #if DEBUG
-            print("[WatchWorkoutController] Received workout summary from Watch")
-            #endif
+            DebugLogger.info("Received workout summary from Watch", attributes: ["source": "WatchWorkoutController"])
         }
 
         // Handle workout state changes
@@ -340,9 +312,7 @@ extension WatchWorkoutController: WCSessionDelegate {
                 userInfo: ["setId": request.setId, "exerciseId": request.exerciseId]
             )
 
-            #if DEBUG
-            print("[WatchWorkoutController] Watch requested set log: \(request.setId)")
-            #endif
+            DebugLogger.info("Watch requested set log: \(request.setId)", attributes: ["source": "WatchWorkoutController"])
         }
     }
 }

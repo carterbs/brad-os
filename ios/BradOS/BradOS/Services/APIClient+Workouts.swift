@@ -144,17 +144,17 @@ extension APIClient {
     }
 
     func getPlanDays(planId: String) async throws -> [PlanDay] {
-        print("[APIClient] getPlanDays: fetching days for plan \(planId)")
+        DebugLogger.info("getPlanDays: fetching days for plan \(planId)", attributes: ["source": "APIClient"])
         let days: [PlanDay] = try await get("/plans/\(planId)/days")
-        print("[APIClient] getPlanDays: got \(days.count) days for plan \(planId)")
+        DebugLogger.info("getPlanDays: got \(days.count) days for plan \(planId)", attributes: ["source": "APIClient"])
         var enrichedDays: [PlanDay] = []
         for var day in days {
             do {
                 let exercises: [PlanDayExercise] = try await get("/plans/\(planId)/days/\(day.id)/exercises")
                 day.exercises = exercises
-                print("[APIClient] getPlanDays: day \(day.id) has \(exercises.count) exercises")
+                DebugLogger.info("getPlanDays: day \(day.id) has \(exercises.count) exercises", attributes: ["source": "APIClient"])
             } catch {
-                print("[APIClient] getPlanDays: FAILED to decode exercises for day \(day.id): \(error)")
+                DebugLogger.error("getPlanDays: FAILED to decode exercises for day \(day.id): \(error)", attributes: ["source": "APIClient"])
                 // Continue with empty exercises rather than failing the entire plan
                 day.exercises = []
             }

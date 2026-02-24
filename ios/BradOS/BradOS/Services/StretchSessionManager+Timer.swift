@@ -26,9 +26,7 @@ extension StretchSessionManager {
         guard status == .paused, let pausedAt = pausedAt else { return }
         let pauseDuration = Date().timeIntervalSince(pausedAt)
         if pauseDuration >= pauseTimeoutSeconds {
-            #if DEBUG
-            print("[StretchSessionManager] Auto-ending session due to 30 minute pause timeout")
-            #endif
+            DebugLogger.info("Auto-ending session due to 30 minute pause timeout", attributes: ["source": "StretchSessionManager"])
             endSession()
         }
     }

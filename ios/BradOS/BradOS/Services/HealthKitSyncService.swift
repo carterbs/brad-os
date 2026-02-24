@@ -53,7 +53,7 @@ class HealthKitSyncService: ObservableObject {
     /// Sync only if enough time has passed since last sync
     func syncIfNeeded() async {
         guard needsSync else {
-            print("[HealthKitSyncService] Skipping sync — last sync was \(Int(Date().timeIntervalSince(lastSyncDate ?? .distantPast)))s ago")
+            DebugLogger.warn("Skipping sync — last sync was \(Int(Date().timeIntervalSince(lastSyncDate ?? .distantPast)))s ago", attributes: ["source": "HealthKitSyncService"])
             return
         }
         await sync()
@@ -62,7 +62,7 @@ class HealthKitSyncService: ObservableObject {
     /// Force a sync regardless of timing
     func sync() async {
         guard !isSyncing else {
-            print("[HealthKitSyncService] Already syncing, skipping")
+            DebugLogger.warn("Already syncing, skipping", attributes: ["source": "HealthKitSyncService"])
             return
         }
 
@@ -73,7 +73,7 @@ class HealthKitSyncService: ObservableObject {
         do {
             // Ensure we have authorization
             guard healthKitManager.isAuthorized else {
-                print("[HealthKitSyncService] HealthKit not authorized")
+                DebugLogger.info("HealthKit not authorized", attributes: ["source": "HealthKitSyncService"])
                 lastError = "HealthKit not authorized"
                 return
             }
@@ -98,9 +98,9 @@ class HealthKitSyncService: ObservableObject {
             lastSyncDate = Date()
             UserDefaults.standard.set(lastSyncDate, forKey: lastSyncKey)
 
-            print("[HealthKitSyncService] Sync completed successfully")
+            DebugLogger.info("Sync completed successfully", attributes: ["source": "HealthKitSyncService"])
         } catch {
-            print("[HealthKitSyncService] Sync failed: \(error)")
+            DebugLogger.error("Sync failed: \(error)", attributes: ["source": "HealthKitSyncService"])
             lastError = error.localizedDescription
         }
     }
@@ -152,9 +152,9 @@ class HealthKitSyncService: ObservableObject {
             let recovery = try await healthKitManager.calculateRecoveryScore()
             let baseline = await healthKitManager.getCachedBaseline()
             try await sendSyncRequest(recovery: recovery, baseline: baseline)
-            print("[HealthKitSyncService] Recovery sync completed")
+            DebugLogger.info("Recovery sync completed", attributes: ["source": "HealthKitSyncService"])
         } catch {
-            print("[HealthKitSyncService] Recovery sync failed: \(error)")
+            DebugLogger.error("Recovery sync failed: \(error)", attributes: ["source": "HealthKitSyncService"])
             lastError = error.localizedDescription
         }
     }
@@ -164,7 +164,7 @@ class HealthKitSyncService: ObservableObject {
         UserDefaults.standard.removeObject(forKey: hrvBackfillCompleteKey)
         UserDefaults.standard.removeObject(forKey: rhrBackfillCompleteKey)
         UserDefaults.standard.removeObject(forKey: sleepBackfillCompleteKey)
-        print("[HealthKitSyncService] Backfill flags reset — next sync will do full backfill")
+        DebugLogger.info("Backfill flags reset — next sync will do full backfill", attributes: ["source": "HealthKitSyncService"])
     }
 
     // MARK: - Private Methods
@@ -176,7 +176,7 @@ class HealthKitSyncService: ObservableObject {
             // Fetch weight history from HealthKit (90 days)
             let hkWeights = try await healthKitManager.fetchWeightHistory(days: 90)
             guard !hkWeights.isEmpty else {
-                print("[HealthKitSyncService] No HealthKit weight data to sync")
+                DebugLogger.info("No HealthKit weight data to sync", attributes: ["source": "HealthKitSyncService"])
                 return
             }
 
@@ -200,15 +200,15 @@ class HealthKitSyncService: ObservableObject {
             }
 
             guard !newEntries.isEmpty else {
-                print("[HealthKitSyncService] Weight data already up to date")
+                DebugLogger.info("Weight data already up to date", attributes: ["source": "HealthKitSyncService"])
                 return
             }
 
             let added = try await APIClient.shared.syncWeightBulk(weights: newEntries)
-            print("[HealthKitSyncService] Synced \(added) new weight entries to Firebase")
+            DebugLogger.info("Synced \(added) new weight entries to Firebase", attributes: ["source": "HealthKitSyncService"])
         } catch {
             // Don't fail the overall sync if weight sync fails
-            print("[HealthKitSyncService] Weight sync failed (non-fatal): \(error)")
+            DebugLogger.error("Weight sync failed (non-fatal): \(error)", attributes: ["source": "HealthKitSyncService"])
         }
     }
 }

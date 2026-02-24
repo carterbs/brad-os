@@ -178,7 +178,7 @@ struct GuidedMeditationActiveView: View {
             saveSessionState()
         } catch {
             // If pipeline build fails, still allow manual end
-            print("Failed to build timeline: \(error)")
+            DebugLogger.error("Failed to build timeline: \(error)")
         }
     }
 

@@ -42,9 +42,7 @@ extension WorkoutView {
             }
         } catch {
             self.error = error
-            #if DEBUG
-            print("[WorkoutView] Failed to load workout: \(error)")
-            #endif
+            DebugLogger.error("Failed to load workout: \(error)", attributes: ["source": "WorkoutView"])
         }
 
         isLoading = false
@@ -107,9 +105,7 @@ extension WorkoutView {
                 }
             }
         } catch {
-            #if DEBUG
-            print("[WorkoutView] Failed to start workout: \(error)")
-            #endif
+            DebugLogger.error("Failed to start workout: \(error)", attributes: ["source": "WorkoutView"])
         }
 
         isStarting = false
@@ -134,9 +130,7 @@ extension WorkoutView {
             dismissRestTimer()
             showingStretchPrompt = true
         } catch {
-            #if DEBUG
-            print("[WorkoutView] Failed to complete workout: \(error)")
-            #endif
+            DebugLogger.error("Failed to complete workout: \(error)", attributes: ["source": "WorkoutView"])
         }
 
         isCompleting = false
@@ -158,9 +152,7 @@ extension WorkoutView {
             stateManager.clearState()
             dismissRestTimer()
         } catch {
-            #if DEBUG
-            print("[WorkoutView] Failed to skip workout: \(error)")
-            #endif
+            DebugLogger.error("Failed to skip workout: \(error)", attributes: ["source": "WorkoutView"])
         }
 
         isSkipping = false
@@ -193,9 +185,7 @@ extension WorkoutView {
         } catch {
             // Rollback on failure
             updateSetInWorkout(setId: set.id, status: .pending, actualWeight: nil, actualReps: nil)
-            #if DEBUG
-            print("[WorkoutView] Failed to log set: \(error)")
-            #endif
+            DebugLogger.error("Failed to log set: \(error)", attributes: ["source": "WorkoutView"])
         }
     }
 
@@ -213,9 +203,7 @@ extension WorkoutView {
                 actualWeight: set.actualWeight,
                 actualReps: set.actualReps
             )
-            #if DEBUG
-            print("[WorkoutView] Failed to unlog set: \(error)")
-            #endif
+            DebugLogger.error("Failed to unlog set: \(error)", attributes: ["source": "WorkoutView"])
         }
     }
 
@@ -228,9 +216,7 @@ extension WorkoutView {
         } catch {
             // Rollback
             updateSetInWorkout(setId: set.id, status: .pending, actualWeight: nil, actualReps: nil)
-            #if DEBUG
-            print("[WorkoutView] Failed to skip set: \(error)")
-            #endif
+            DebugLogger.error("Failed to skip set: \(error)", attributes: ["source": "WorkoutView"])
         }
     }
 
@@ -241,9 +227,7 @@ extension WorkoutView {
                 appendSetToExercise(exerciseId: exerciseId, set: newSet)
             }
         } catch {
-            #if DEBUG
-            print("[WorkoutView] Failed to add set: \(error)")
-            #endif
+            DebugLogger.error("Failed to add set: \(error)", attributes: ["source": "WorkoutView"])
         }
     }
 
@@ -252,9 +236,7 @@ extension WorkoutView {
             _ = try await apiClient.removeSet(workoutId: workoutId, exerciseId: exerciseId)
             removeLastPendingSetFromExercise(exerciseId: exerciseId)
         } catch {
-            #if DEBUG
-            print("[WorkoutView] Failed to remove set: \(error)")
-            #endif
+            DebugLogger.error("Failed to remove set: \(error)", attributes: ["source": "WorkoutView"])
         }
     }
 }

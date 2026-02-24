@@ -149,7 +149,7 @@ extension MeditationActiveView {
                     saveSessionState()
                 }
             } catch {
-                print("Failed to play cue: \(error)")
+                DebugLogger.error("Failed to play cue: \(error)")
                 await MainActor.run {
                     scheduledCues[index].played = true  // Skip failed cues
                     isPlayingCue = false

@@ -103,9 +103,9 @@ final class StravaAuthManager: NSObject, ObservableObject {
         loadExistingTokens()
 
         if clientId.isEmpty || clientSecret.isEmpty {
-            print("[StravaAuthManager] Warning: Strava credentials not configured")
+            DebugLogger.warn("Warning: Strava credentials not configured", attributes: ["source": "StravaAuthManager"])
         } else {
-            print("[StravaAuthManager] Initialized with client ID: \(clientId.prefix(8))...")
+            DebugLogger.info("Initialized with client ID: \(clientId.prefix(8))...", attributes: ["source": "StravaAuthManager"])
         }
     }
 
@@ -127,18 +127,18 @@ final class StravaAuthManager: NSObject, ObservableObject {
         do {
             // Build authorization URL
             let authURL = try buildAuthURL()
-            print("[StravaAuthManager] Starting OAuth flow with URL: \(authURL)")
+            DebugLogger.info("Starting OAuth flow with URL: \(authURL)", attributes: ["source": "StravaAuthManager"])
 
             // Present authentication session
             let callbackURL = try await presentAuthSession(url: authURL)
 
             // Extract authorization code from callback
             let code = try extractAuthorizationCode(from: callbackURL)
-            print("[StravaAuthManager] Received authorization code")
+            DebugLogger.info("Received authorization code", attributes: ["source": "StravaAuthManager"])
 
             // Exchange code for tokens
             let tokens = try await exchangeCodeForTokens(code: code)
-            print("[StravaAuthManager] Token exchange successful for athlete: \(tokens.athleteId)")
+            DebugLogger.info("Token exchange successful for athlete: \(tokens.athleteId)", attributes: ["source": "StravaAuthManager"])
 
             // Save tokens to keychain
             try keychainService.saveStravaTokens(tokens)
@@ -150,7 +150,7 @@ final class StravaAuthManager: NSObject, ObservableObject {
             isConnected = true
             athleteId = tokens.athleteId
 
-            print("[StravaAuthManager] Successfully connected to Strava")
+            DebugLogger.info("Successfully connected to Strava", attributes: ["source": "StravaAuthManager"])
         } catch {
             self.error = error.localizedDescription
             throw error
@@ -159,7 +159,7 @@ final class StravaAuthManager: NSObject, ObservableObject {
 
     /// Disconnect from Strava
     func disconnect() async throws {
-        print("[StravaAuthManager] Disconnecting from Strava")
+        DebugLogger.info("Disconnecting from Strava", attributes: ["source": "StravaAuthManager"])
 
         // Delete tokens from keychain
         try keychainService.deleteStravaTokens()
@@ -169,17 +169,17 @@ final class StravaAuthManager: NSObject, ObservableObject {
         athleteId = nil
         error = nil
 
-        print("[StravaAuthManager] Disconnected from Strava")
+        DebugLogger.info("Disconnected from Strava", attributes: ["source": "StravaAuthManager"])
     }
 
     /// Handle callback URL from deep link
     func handleCallbackURL(_ url: URL) {
         guard url.scheme == "bradosapp", url.host == "strava-callback" else {
-            print("[StravaAuthManager] Ignoring non-Strava callback URL: \(url)")
+            DebugLogger.info("Ignoring non-Strava callback URL: \(url)", attributes: ["source": "StravaAuthManager"])
             return
         }
 
-        print("[StravaAuthManager] Handling Strava callback URL")
+        DebugLogger.info("Handling Strava callback URL", attributes: ["source": "StravaAuthManager"])
 
         // Resume the pending continuation if we have one
         // Note: ASWebAuthenticationSession usually handles this automatically,
@@ -197,9 +197,9 @@ final class StravaAuthManager: NSObject, ObservableObject {
     private func syncTokensToBackend(_ tokens: StravaTokens) async {
         do {
             try await APIClient.shared.syncStravaTokens(tokens)
-            print("[StravaAuthManager] Tokens synced to backend")
+            DebugLogger.info("Tokens synced to backend", attributes: ["source": "StravaAuthManager"])
         } catch {
-            print("[StravaAuthManager] Failed to sync tokens to backend (non-fatal): \(error.localizedDescription)")
+            DebugLogger.error("Failed to sync tokens to backend (non-fatal): \(error.localizedDescription)", attributes: ["source": "StravaAuthManager"])
         }
     }
 
@@ -209,7 +209,7 @@ final class StravaAuthManager: NSObject, ObservableObject {
             if let tokens = try keychainService.loadStravaTokens() {
                 isConnected = true
                 athleteId = tokens.athleteId
-                print("[StravaAuthManager] Loaded existing tokens for athlete: \(tokens.athleteId)")
+                DebugLogger.info("Loaded existing tokens for athlete: \(tokens.athleteId)", attributes: ["source": "StravaAuthManager"])
 
                 // Sync existing tokens to backend (handles migration for pre-sync users)
                 Task {
@@ -218,11 +218,11 @@ final class StravaAuthManager: NSObject, ObservableObject {
 
                 // Check if tokens need refresh
                 if tokens.isExpired {
-                    print("[StravaAuthManager] Tokens are expired, will refresh on next use")
+                    DebugLogger.error("Tokens are expired, will refresh on next use", attributes: ["source": "StravaAuthManager"])
                 }
             }
         } catch {
-            print("[StravaAuthManager] Failed to load existing tokens: \(error)")
+            DebugLogger.error("Failed to load existing tokens: \(error)", attributes: ["source": "StravaAuthManager"])
         }
     }
 

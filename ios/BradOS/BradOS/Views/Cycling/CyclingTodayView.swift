@@ -154,7 +154,7 @@ struct CyclingTodayView: View {
             let snapshot = try await DefaultAPIClient.concrete.getLatestRecovery()
             recovery = snapshot?.toRecoveryData()
         } catch {
-            print("[CyclingTodayView] Failed to load recovery: \(error)")
+            DebugLogger.error("Failed to load recovery: \(error)", attributes: ["source": "CyclingTodayView"])
         }
 
         // Load coach recommendation using Firebase recovery
