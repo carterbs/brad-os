@@ -1,1105 +1,930 @@
-# Stretching + Meditation: Add iOS Tests to Reach 4+ Files Each
+# Barcode + CalendarActivity + Meal + ExerciseHistory: Add iOS Tests for 4 Untested BradOSCore Models
 
 ## Why
 
-Stretching has 2 test files and Meditation has 1 test file. Both have untested models in BradOSCore — `StretchDefinition`, `StretchRegionData`, `CompletedStretch`, `StretchRegionConfig`, all four `GuidedMeditation*` types, and `MeditationStats`. Getting each feature to 4+ test files strengthens overall iOS test coverage from B- to B with zero refactoring — all target types already live in BradOSCore and are immediately testable.
+Four BradOSCore model files have zero test coverage: `Barcode.swift` (BarcodeType, Barcode,
+CreateBarcodeDTO, UpdateBarcodeDTO), `CalendarActivity.swift` (ActivityType, CalendarActivity,
+ActivitySummary, CalendarDayData), `Meal.swift` (MealType, Meal), and `APIModels.swift`'s
+exercise-history cluster (ExerciseHistory, ExerciseHistoryEntry, HistorySet, PersonalRecord).
+Each file has snake_case CodingKeys (a common decode-bug surface), custom decoders with default
+values, and computed properties — exactly the logic that needs explicit test coverage. Adding 4
+test files eliminates the remaining untested model gap and continues the iOS coverage improvement
+from B toward B+.
 
 ## What
 
-Add 5 new test files (2 stretching, 3 meditation) covering untested BradOSCore models. No source code changes needed — every type to test is already `public` in BradOSCore with `Codable` conformance, computed properties, and mock data.
+Add 4 new test-only Swift files covering untested BradOSCore model types. No source code changes
+needed — every type to test is already `public` in BradOSCore with `Codable` conformance,
+computed properties, and mock data.
 
 ### Current State
 
-| Feature | Test Files | What's Tested |
-|---------|-----------|---------------|
-| Stretching | `StretchSessionTests.swift` (13 tests) | StretchSession, BodyRegion, StretchSessionConfig |
-| Stretching | `StretchUrgencyTests.swift` (9 tests) | StretchUrgency urgency calculations |
-| Meditation | `MeditationSessionTests.swift` (12 tests) | MeditationSession, MeditationDuration |
+| File | Types | Test Coverage |
+|------|-------|---------------|
+| Barcode.swift | BarcodeType, Barcode, CreateBarcodeDTO, UpdateBarcodeDTO | ❌ None |
+| CalendarActivity.swift | ActivityType, CalendarActivity, ActivitySummary, CalendarDayData | ❌ None |
+| Meal.swift | MealType, Meal | ❌ None |
+| APIModels.swift (exercise history) | ExerciseHistory, ExerciseHistoryEntry, HistorySet, PersonalRecord | ❌ None |
 
 ### Target State (after this task)
 
-| Feature | Test Files | Total |
-|---------|-----------|-------|
-| Stretching | 2 existing + 2 new | **4** |
-| Meditation | 1 existing + 3 new | **4** |
+| New Test File | Types Covered | Tests |
+|---------------|--------------|-------|
+| BarcodeTests.swift | BarcodeType, Barcode, CreateBarcodeDTO, UpdateBarcodeDTO | ~13 |
+| CalendarActivityTests.swift | ActivityType, CalendarActivity, ActivitySummary, CalendarDayData | ~14 |
+| MealTests.swift | MealType, Meal | ~11 |
+| ExerciseHistoryTests.swift | ExerciseHistory, ExerciseHistoryEntry, HistorySet, PersonalRecord | ~12 |
+| **Total new** | | **~50** |
 
 ## Files
 
 All new files are test-only — no source modifications required.
 
-### Stretching Test File 1
+### Test File 1
 
-#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/StretchDefinitionTests.swift`
+#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/BarcodeTests.swift`
 
-Tests `StretchDefinition` and `StretchRegionData` — two Codable model types with properties, optional fields, and Hashable conformance.
+Tests `BarcodeType`, `Barcode`, `CreateBarcodeDTO`, and `UpdateBarcodeDTO` — four types with
+snake_case CodingKeys, enum raw values, and computed `displayName`.
 
 ```swift
 import Testing
 import Foundation
 @testable import BradOSCore
 
-@Suite("StretchDefinition")
-struct StretchDefinitionTests {
+@Suite("BarcodeType")
+struct BarcodeTypeTests {
 
-    // MARK: - Init & Properties
+    // MARK: - Display Names
 
-    @Test("init sets all properties correctly")
-    func initSetsProperties() {
-        let def = StretchDefinition(
-            id: "stretch-1",
-            name: "Cat-Cow",
-            description: "Spinal mobility stretch",
-            bilateral: false,
-            image: "cat-cow.jpg"
-        )
-        #expect(def.id == "stretch-1")
-        #expect(def.name == "Cat-Cow")
-        #expect(def.description == "Spinal mobility stretch")
-        #expect(def.bilateral == false)
-        #expect(def.image == "cat-cow.jpg")
+    @Test("code128 displayName is 'Code 128'")
+    func code128DisplayName() {
+        #expect(BarcodeType.code128.displayName == "Code 128")
     }
 
-    @Test("image defaults to nil")
-    func imageDefaultsToNil() {
-        let def = StretchDefinition(
-            id: "s1", name: "Stretch", description: "Desc", bilateral: true
-        )
-        #expect(def.image == nil)
+    @Test("code39 displayName is 'Code 39'")
+    func code39DisplayName() {
+        #expect(BarcodeType.code39.displayName == "Code 39")
+    }
+
+    @Test("qr displayName is 'QR Code'")
+    func qrDisplayName() {
+        #expect(BarcodeType.qr.displayName == "QR Code")
+    }
+
+    // MARK: - CaseIterable
+
+    @Test("allCases has 3 elements")
+    func allCasesCount() {
+        #expect(BarcodeType.allCases.count == 3)
     }
 
     // MARK: - Codable
 
-    @Test("decodes from JSON with all fields")
-    func decodesFullJSON() throws {
-        let json = """
-        {
-            "id": "s-1",
-            "name": "Pigeon Pose",
-            "description": "Deep hip opener",
-            "bilateral": true,
-            "image": "pigeon.png"
-        }
-        """.data(using: .utf8)!
-
-        let def = try makeDecoder().decode(StretchDefinition.self, from: json)
-        #expect(def.id == "s-1")
-        #expect(def.name == "Pigeon Pose")
-        #expect(def.bilateral == true)
-        #expect(def.image == "pigeon.png")
+    @Test("decodes from raw string 'code128'")
+    func decodesCode128() throws {
+        let json = "\"code128\"".data(using: .utf8)!
+        let type = try makeDecoder().decode(BarcodeType.self, from: json)
+        #expect(type == .code128)
     }
 
-    @Test("decodes from JSON without optional image")
-    func decodesWithoutImage() throws {
-        let json = """
-        {
-            "id": "s-2",
-            "name": "Neck Roll",
-            "description": "Gentle neck stretch",
-            "bilateral": false
-        }
-        """.data(using: .utf8)!
-
-        let def = try makeDecoder().decode(StretchDefinition.self, from: json)
-        #expect(def.id == "s-2")
-        #expect(def.image == nil)
-    }
-
-    @Test("encodes and decodes roundtrip")
-    func encodesDecodesRoundtrip() throws {
-        let original = StretchDefinition(
-            id: "rt-1", name: "Cobra", description: "Back stretch",
-            bilateral: false, image: "cobra.jpg"
-        )
-        let data = try makeEncoder().encode(original)
-        let decoded = try makeDecoder().decode(StretchDefinition.self, from: data)
-        #expect(decoded.id == original.id)
-        #expect(decoded.name == original.name)
-        #expect(decoded.bilateral == original.bilateral)
-        #expect(decoded.image == original.image)
-    }
-
-    // MARK: - Hashable / Identifiable
-
-    @Test("conforms to Identifiable via id property")
-    func identifiable() {
-        let def = StretchDefinition(
-            id: "unique-id", name: "X", description: "Y", bilateral: false
-        )
-        #expect(def.id == "unique-id")
-    }
-
-    @Test("equal definitions have same hash")
-    func hashableEquality() {
-        let a = StretchDefinition(
-            id: "s1", name: "A", description: "B", bilateral: true, image: nil
-        )
-        let b = StretchDefinition(
-            id: "s1", name: "A", description: "B", bilateral: true, image: nil
-        )
-        #expect(a == b)
-        #expect(a.hashValue == b.hashValue)
+    @Test("encodes to raw string 'qr'")
+    func encodesQR() throws {
+        let data = try makeEncoder().encode(BarcodeType.qr)
+        let str = String(data: data, encoding: .utf8)!
+        #expect(str == "\"qr\"")
     }
 }
 
-@Suite("StretchRegionData")
-struct StretchRegionDataTests {
+@Suite("Barcode")
+struct BarcodeTests {
 
-    @Test("init sets all properties including nested stretches")
+    // MARK: - Init & Properties
+
+    @Test("init sets all properties")
     func initSetsProperties() {
-        let stretch = StretchDefinition(
-            id: "s1", name: "Trap Stretch", description: "Upper trap",
-            bilateral: true
+        let now = Date()
+        let barcode = Barcode(
+            id: "b-1",
+            label: "Gym",
+            value: "12345",
+            barcodeType: .code128,
+            color: "#FF0000",
+            sortOrder: 0,
+            createdAt: now,
+            updatedAt: now
         )
-        let region = StretchRegionData(
-            id: "neck-region",
-            region: .neck,
-            displayName: "Neck",
-            iconName: "person.crop.circle",
-            stretches: [stretch]
-        )
-        #expect(region.id == "neck-region")
-        #expect(region.region == .neck)
-        #expect(region.stretches.count == 1)
-        #expect(region.stretches.first?.name == "Trap Stretch")
+        #expect(barcode.id == "b-1")
+        #expect(barcode.label == "Gym")
+        #expect(barcode.value == "12345")
+        #expect(barcode.barcodeType == .code128)
+        #expect(barcode.color == "#FF0000")
+        #expect(barcode.sortOrder == 0)
     }
 
-    @Test("decodes from server JSON with nested stretches")
-    func decodesFromServerJSON() throws {
-        let json = """
-        {
-            "id": "back-region",
-            "region": "back",
-            "displayName": "Back",
-            "iconName": "figure.stand",
-            "stretches": [
-                {
-                    "id": "s1",
-                    "name": "Cat-Cow",
-                    "description": "Spinal flex",
-                    "bilateral": false
-                },
-                {
-                    "id": "s2",
-                    "name": "Child Pose",
-                    "description": "Back release",
-                    "bilateral": false,
-                    "image": "child-pose.png"
-                }
-            ]
-        }
-        """.data(using: .utf8)!
+    // MARK: - Codable
 
-        let region = try makeDecoder().decode(StretchRegionData.self, from: json)
-        #expect(region.region == .back)
-        #expect(region.stretches.count == 2)
-        #expect(region.stretches[1].image == "child-pose.png")
-    }
-
-    @Test("encodes and decodes roundtrip")
-    func roundtrip() throws {
-        let original = StretchRegionData(
-            id: "glutes-region", region: .glutes,
-            displayName: "Glutes", iconName: "figure.cooldown",
-            stretches: [
-                StretchDefinition(
-                    id: "s1", name: "Pigeon", description: "Hip opener",
-                    bilateral: true
-                )
-            ]
-        )
-        let data = try makeEncoder().encode(original)
-        let decoded = try makeDecoder().decode(StretchRegionData.self, from: data)
-        #expect(decoded.id == original.id)
-        #expect(decoded.region == original.region)
-        #expect(decoded.stretches.count == 1)
-    }
-
-    @Test("decodes with empty stretches array")
-    func decodesEmptyStretches() throws {
-        let json = """
-        {
-            "id": "empty-region",
-            "region": "calves",
-            "displayName": "Calves",
-            "iconName": "shoe",
-            "stretches": []
-        }
-        """.data(using: .utf8)!
-
-        let region = try makeDecoder().decode(StretchRegionData.self, from: json)
-        #expect(region.stretches.isEmpty)
-    }
-}
-```
-
-**Test count: ~12** (7 StretchDefinition + 4 StretchRegionData)
-
----
-
-### Stretching Test File 2
-
-#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/CompletedStretchTests.swift`
-
-Tests `CompletedStretch` (computed `id`, encoding/decoding, skippedSegments) and `StretchRegionConfig` (computed `id`, Codable).
-
-```swift
-import Testing
-import Foundation
-@testable import BradOSCore
-
-@Suite("CompletedStretch")
-struct CompletedStretchTests {
-
-    @Test("computed id combines region and stretchId")
-    func computedId() {
-        let stretch = CompletedStretch(
-            region: .hamstrings,
-            stretchId: "stretch-42",
-            stretchName: "Standing Hamstring",
-            durationSeconds: 60,
-            skippedSegments: 0
-        )
-        #expect(stretch.id == "hamstrings-stretch-42")
-    }
-
-    @Test("computed id uses snake_case for hipFlexors region")
-    func computedIdHipFlexors() {
-        let stretch = CompletedStretch(
-            region: .hipFlexors,
-            stretchId: "s1",
-            stretchName: "Lunge Stretch",
-            durationSeconds: 120,
-            skippedSegments: 1
-        )
-        #expect(stretch.id == "hip_flexors-s1")
-    }
-
-    @Test("skippedSegments can be 0, 1, or 2")
-    func skippedSegmentsValues() {
-        for skip in [0, 1, 2] {
-            let stretch = CompletedStretch(
-                region: .back, stretchId: "s1", stretchName: "Cobra",
-                durationSeconds: 60, skippedSegments: skip
-            )
-            #expect(stretch.skippedSegments == skip)
-        }
-    }
-
-    @Test("decodes from JSON")
+    @Test("decodes from JSON with snake_case keys")
     func decodesFromJSON() throws {
         let json = """
         {
-            "region": "shoulders",
-            "stretchId": "s-10",
-            "stretchName": "Shoulder Cross",
-            "durationSeconds": 60,
-            "skippedSegments": 1
+            "id": "b-2",
+            "label": "Library",
+            "value": "ABC123",
+            "barcode_type": "code39",
+            "color": "#FACC15",
+            "sort_order": 1,
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-02T00:00:00Z"
         }
         """.data(using: .utf8)!
-
-        let stretch = try makeDecoder().decode(CompletedStretch.self, from: json)
-        #expect(stretch.region == .shoulders)
-        #expect(stretch.stretchId == "s-10")
-        #expect(stretch.stretchName == "Shoulder Cross")
-        #expect(stretch.durationSeconds == 60)
-        #expect(stretch.skippedSegments == 1)
+        let barcode = try makeDecoder().decode(Barcode.self, from: json)
+        #expect(barcode.id == "b-2")
+        #expect(barcode.label == "Library")
+        #expect(barcode.barcodeType == .code39)
+        #expect(barcode.sortOrder == 1)
     }
 
-    @Test("encodes and decodes roundtrip")
-    func roundtrip() throws {
-        let original = CompletedStretch(
-            region: .quads, stretchId: "q1", stretchName: "Quad Pull",
-            durationSeconds: 120, skippedSegments: 0
+    @Test("Codable roundtrip preserves all fields")
+    func codableRoundtrip() throws {
+        let original = Barcode(
+            id: "b-3",
+            label: "Test",
+            value: "XYZ",
+            barcodeType: .qr,
+            color: "#FFFFFF",
+            sortOrder: 2,
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_001)
         )
         let data = try makeEncoder().encode(original)
-        let decoded = try makeDecoder().decode(CompletedStretch.self, from: data)
-        #expect(decoded.region == original.region)
-        #expect(decoded.stretchId == original.stretchId)
-        #expect(decoded.stretchName == original.stretchName)
-        #expect(decoded.durationSeconds == original.durationSeconds)
-        #expect(decoded.skippedSegments == original.skippedSegments)
+        let decoded = try makeDecoder().decode(Barcode.self, from: data)
+        #expect(decoded.id == original.id)
+        #expect(decoded.barcodeType == original.barcodeType)
+        #expect(decoded.sortOrder == original.sortOrder)
     }
 
-    @Test("Hashable conformance for equal instances")
-    func hashable() {
-        let a = CompletedStretch(
-            region: .neck, stretchId: "n1", stretchName: "Neck Tilt",
-            durationSeconds: 60, skippedSegments: 0
+    // MARK: - Hashable
+
+    @Test("Barcode is usable in Set")
+    func hashableInSet() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let b1 = Barcode(
+            id: "x", label: "A", value: "1",
+            barcodeType: .qr, color: "#000", sortOrder: 0,
+            createdAt: now, updatedAt: now
         )
-        let b = CompletedStretch(
-            region: .neck, stretchId: "n1", stretchName: "Neck Tilt",
-            durationSeconds: 60, skippedSegments: 0
+        let b2 = Barcode(
+            id: "x", label: "A", value: "1",
+            barcodeType: .qr, color: "#000", sortOrder: 0,
+            createdAt: now, updatedAt: now
         )
-        #expect(a == b)
+        let set: Set<Barcode> = [b1, b2]
+        #expect(set.count == 1)
     }
 
-    @Test("StretchSession decodes with stretches array")
-    func sessionWithStretches() throws {
-        let json = """
-        {
-            "id": "session-1",
-            "completedAt": "2026-02-20T15:00:00Z",
-            "totalDurationSeconds": 480,
-            "regionsCompleted": 4,
-            "regionsSkipped": 0,
-            "stretches": [
-                {
-                    "region": "neck",
-                    "stretchId": "s1",
-                    "stretchName": "Neck Tilt",
-                    "durationSeconds": 60,
-                    "skippedSegments": 0
-                },
-                {
-                    "region": "back",
-                    "stretchId": "s2",
-                    "stretchName": "Cat-Cow",
-                    "durationSeconds": 60,
-                    "skippedSegments": 1
-                }
-            ]
-        }
-        """.data(using: .utf8)!
+    // MARK: - Mock Data
 
-        let session = try makeDecoder().decode(StretchSession.self, from: json)
-        #expect(session.stretches?.count == 2)
-        #expect(session.stretches?.first?.region == .neck)
-        #expect(session.stretches?.last?.skippedSegments == 1)
+    @Test("mockBarcodes has 2 entries")
+    func mockBarcodesCount() {
+        #expect(Barcode.mockBarcodes.count == 2)
+    }
+
+    @Test("first mockBarcode is code128 type")
+    func firstMockBarcodeType() {
+        #expect(Barcode.mockBarcodes[0].barcodeType == .code128)
     }
 }
 
-@Suite("StretchRegionConfig")
-struct StretchRegionConfigTests {
+@Suite("CreateBarcodeDTO")
+struct CreateBarcodeDTOTests {
 
-    @Test("computed id is region rawValue")
-    func computedId() {
-        let config = StretchRegionConfig(
-            region: .hamstrings, durationSeconds: 60, enabled: true
+    @Test("encodes barcodeType as string rawValue via snake_case key")
+    func encodesBarcodeTypeAsString() throws {
+        let dto = CreateBarcodeDTO(
+            label: "Test", value: "123", barcodeType: .qr, color: "#000"
         )
-        #expect(config.id == "hamstrings")
+        let data = try makeEncoder().encode(dto)
+        let obj = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(obj["barcode_type"] as? String == "qr")
     }
 
-    @Test("computed id for hipFlexors uses snake_case")
-    func computedIdHipFlexors() {
-        let config = StretchRegionConfig(
-            region: .hipFlexors, durationSeconds: 120, enabled: false
+    @Test("sortOrder defaults to 0")
+    func sortOrderDefault() throws {
+        let dto = CreateBarcodeDTO(
+            label: "X", value: "Y", barcodeType: .code128, color: "#FFF"
         )
-        #expect(config.id == "hip_flexors")
+        let data = try makeEncoder().encode(dto)
+        let obj = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(obj["sort_order"] as? Int == 0)
+    }
+}
+
+@Suite("UpdateBarcodeDTO")
+struct UpdateBarcodeDTOTests {
+
+    @Test("all-nil init omits all fields in JSON output")
+    func allNilOmitsFields() throws {
+        let dto = UpdateBarcodeDTO()
+        let data = try makeEncoder().encode(dto)
+        let obj = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(obj.isEmpty)
     }
 
-    @Test("encodes and decodes roundtrip")
-    func roundtrip() throws {
-        let original = StretchRegionConfig(
-            region: .calves, durationSeconds: 120, enabled: true
-        )
-        let data = try makeEncoder().encode(original)
-        let decoded = try makeDecoder().decode(StretchRegionConfig.self, from: data)
-        #expect(decoded.region == original.region)
-        #expect(decoded.durationSeconds == original.durationSeconds)
-        #expect(decoded.enabled == original.enabled)
-    }
-
-    @Test("supports both 60 and 120 second durations")
-    func durationValues() {
-        let short = StretchRegionConfig(region: .neck, durationSeconds: 60, enabled: true)
-        let long = StretchRegionConfig(region: .neck, durationSeconds: 120, enabled: true)
-        #expect(short.durationSeconds == 60)
-        #expect(long.durationSeconds == 120)
-    }
-
-    @Test("Hashable conformance for equal configs")
-    func hashable() {
-        let a = StretchRegionConfig(region: .back, durationSeconds: 60, enabled: true)
-        let b = StretchRegionConfig(region: .back, durationSeconds: 60, enabled: true)
-        #expect(a == b)
-    }
-
-    @Test("StretchSessionConfig with mixed enabled regions")
-    func mixedEnabledRegions() throws {
-        var config = StretchSessionConfig.defaultConfig
-        config.regions[0].enabled = false  // disable first region
-        config.regions[1].durationSeconds = 120  // longer for second
-
-        let data = try makeEncoder().encode(config)
-        let decoded = try makeDecoder().decode(StretchSessionConfig.self, from: data)
-
-        #expect(decoded.regions[0].enabled == false)
-        #expect(decoded.regions[1].durationSeconds == 120)
-        #expect(decoded.regions[2].enabled == true)
-    }
-
-    @Test("StretchSessionConfig with Spotify URL")
-    func spotifyUrl() throws {
-        let config = StretchSessionConfig(
-            regions: [StretchRegionConfig(region: .neck, durationSeconds: 60, enabled: true)],
-            spotifyPlaylistUrl: "https://open.spotify.com/playlist/abc123"
-        )
-        let data = try makeEncoder().encode(config)
-        let decoded = try makeDecoder().decode(StretchSessionConfig.self, from: data)
-        #expect(decoded.spotifyPlaylistUrl == "https://open.spotify.com/playlist/abc123")
+    @Test("partial update encodes only set fields")
+    func partialUpdate() throws {
+        let dto = UpdateBarcodeDTO(label: "Updated", sortOrder: 3)
+        let data = try makeEncoder().encode(dto)
+        let obj = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(obj["label"] as? String == "Updated")
+        #expect(obj["sort_order"] as? Int == 3)
+        #expect(obj["value"] == nil)
     }
 }
 ```
 
-**Test count: ~14** (7 CompletedStretch + 7 StretchRegionConfig)
+### Test File 2
 
----
+#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/CalendarActivityTests.swift`
 
-### Meditation Test File 1
-
-#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/GuidedMeditationScriptTests.swift`
-
-Tests `GuidedMeditationScript` — the richest guided meditation type with `formattedDuration`, optional `segments`/`interjections`, and multiple properties.
+Tests `ActivityType`, `CalendarActivity`, `ActivitySummary`, and `CalendarDayData` — including
+display name computed properties, icon names, custom decoder with defaults, and day-level computed
+booleans.
 
 ```swift
 import Testing
 import Foundation
 @testable import BradOSCore
 
-@Suite("GuidedMeditationScript")
-struct GuidedMeditationScriptTests {
+@Suite("ActivityType")
+struct ActivityTypeTests {
+
+    // MARK: - Display Names
+
+    @Test("workout displayName is 'Lifting'")
+    func workoutDisplayName() {
+        #expect(ActivityType.workout.displayName == "Lifting")
+    }
+
+    @Test("stretch displayName is 'Stretch'")
+    func stretchDisplayName() {
+        #expect(ActivityType.stretch.displayName == "Stretch")
+    }
+
+    @Test("meditation displayName is 'Meditate'")
+    func meditationDisplayName() {
+        #expect(ActivityType.meditation.displayName == "Meditate")
+    }
+
+    // MARK: - Icon Names
+
+    @Test("workout iconName is 'dumbbell.fill'")
+    func workoutIconName() {
+        #expect(ActivityType.workout.iconName == "dumbbell.fill")
+    }
+
+    @Test("stretch iconName is 'figure.flexibility'")
+    func stretchIconName() {
+        #expect(ActivityType.stretch.iconName == "figure.flexibility")
+    }
+
+    @Test("meditation iconName is 'brain.head.profile'")
+    func meditationIconName() {
+        #expect(ActivityType.meditation.iconName == "brain.head.profile")
+    }
+
+    // MARK: - CaseIterable
+
+    @Test("allCases has 3 elements")
+    func allCasesCount() {
+        #expect(ActivityType.allCases.count == 3)
+    }
+
+    // MARK: - Codable
+
+    @Test("decodes from raw string 'workout'")
+    func decodesWorkout() throws {
+        let json = "\"workout\"".data(using: .utf8)!
+        let type = try makeDecoder().decode(ActivityType.self, from: json)
+        #expect(type == .workout)
+    }
+}
+
+@Suite("ActivitySummary")
+struct ActivitySummaryTests {
+
+    // MARK: - isDeload default via custom decoder
+
+    @Test("isDeload defaults to false when absent from JSON")
+    func isDeloadDefaultsFalse() throws {
+        let json = """
+        {
+            "day_name": "Push Day",
+            "exercise_count": 5
+        }
+        """.data(using: .utf8)!
+        let summary = try makeDecoder().decode(ActivitySummary.self, from: json)
+        #expect(summary.isDeload == false)
+    }
+
+    @Test("decodes workout summary fields with snake_case keys")
+    func decodesWorkoutFields() throws {
+        let json = """
+        {
+            "day_name": "Pull Day",
+            "exercise_count": 4,
+            "sets_completed": 12,
+            "total_sets": 16,
+            "week_number": 3,
+            "is_deload": false
+        }
+        """.data(using: .utf8)!
+        let summary = try makeDecoder().decode(ActivitySummary.self, from: json)
+        #expect(summary.dayName == "Pull Day")
+        #expect(summary.exerciseCount == 4)
+        #expect(summary.setsCompleted == 12)
+        #expect(summary.weekNumber == 3)
+    }
+
+    @Test("decodes stretch summary fields")
+    func decodesStretchFields() throws {
+        let json = """
+        {
+            "total_duration_seconds": 480,
+            "regions_completed": 6,
+            "regions_skipped": 1
+        }
+        """.data(using: .utf8)!
+        let summary = try makeDecoder().decode(ActivitySummary.self, from: json)
+        #expect(summary.totalDurationSeconds == 480)
+        #expect(summary.regionsCompleted == 6)
+        #expect(summary.regionsSkipped == 1)
+    }
+
+    @Test("decodes meditation summary fields")
+    func decodesMeditationFields() throws {
+        let json = """
+        {
+            "duration_seconds": 600,
+            "meditation_type": "basic-breathing"
+        }
+        """.data(using: .utf8)!
+        let summary = try makeDecoder().decode(ActivitySummary.self, from: json)
+        #expect(summary.durationSeconds == 600)
+        #expect(summary.meditationType == "basic-breathing")
+    }
+}
+
+@Suite("CalendarDayData")
+struct CalendarDayDataTests {
+
+    // MARK: - Computed activity-presence booleans
+
+    @Test("hasWorkout returns true when workout is present")
+    func hasWorkoutTrue() {
+        let activity = CalendarActivity(
+            id: "w-1", type: .workout, date: Date(), summary: ActivitySummary()
+        )
+        let day = CalendarDayData(date: Date(), activities: [activity])
+        #expect(day.hasWorkout == true)
+    }
+
+    @Test("hasWorkout returns false when no workout activity")
+    func hasWorkoutFalse() {
+        let stretch = CalendarActivity(
+            id: "s-1", type: .stretch, date: Date(), summary: ActivitySummary()
+        )
+        let day = CalendarDayData(date: Date(), activities: [stretch])
+        #expect(day.hasWorkout == false)
+    }
+
+    @Test("hasStretch returns true when stretch is present")
+    func hasStretchTrue() {
+        let activity = CalendarActivity(
+            id: "s-1", type: .stretch, date: Date(), summary: ActivitySummary()
+        )
+        let day = CalendarDayData(date: Date(), activities: [activity])
+        #expect(day.hasStretch == true)
+    }
+
+    @Test("hasMeditation returns true when meditation is present")
+    func hasMeditationTrue() {
+        let activity = CalendarActivity(
+            id: "m-1", type: .meditation, date: Date(), summary: ActivitySummary()
+        )
+        let day = CalendarDayData(date: Date(), activities: [activity])
+        #expect(day.hasMeditation == true)
+    }
+
+    @Test("empty activities day has all flags false")
+    func emptyDayAllFalse() {
+        let day = CalendarDayData(date: Date(), activities: [])
+        #expect(day.hasWorkout == false)
+        #expect(day.hasStretch == false)
+        #expect(day.hasMeditation == false)
+    }
+
+    @Test("day with all three types has all flags true")
+    func allTypesPresent() {
+        let activities = [
+            CalendarActivity(id: "w-1", type: .workout, date: Date(), summary: ActivitySummary()),
+            CalendarActivity(id: "s-1", type: .stretch, date: Date(), summary: ActivitySummary()),
+            CalendarActivity(id: "m-1", type: .meditation, date: Date(), summary: ActivitySummary()),
+        ]
+        let day = CalendarDayData(date: Date(), activities: activities)
+        #expect(day.hasWorkout == true)
+        #expect(day.hasStretch == true)
+        #expect(day.hasMeditation == true)
+    }
+}
+
+@Suite("CalendarActivity")
+struct CalendarActivityTests {
+
+    @Test("mockActivities has 3 entries")
+    func mockActivitiesCount() {
+        #expect(CalendarActivity.mockActivities.count == 3)
+    }
+
+    @Test("first mockActivity is workout type")
+    func firstMockActivityIsWorkout() {
+        #expect(CalendarActivity.mockActivities[0].type == .workout)
+    }
+
+    @Test("completedAt defaults to nil")
+    func completedAtDefaultNil() {
+        let activity = CalendarActivity(
+            id: "a-1", type: .stretch, date: Date(), summary: ActivitySummary()
+        )
+        #expect(activity.completedAt == nil)
+    }
+}
+```
+
+### Test File 3
+
+#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/MealTests.swift`
+
+Tests `MealType` and `Meal` — enum raw values, custom decoder with `prepAhead` default, snake_case
+keys, and optional fields.
+
+```swift
+import Testing
+import Foundation
+@testable import BradOSCore
+
+@Suite("MealType")
+struct MealTypeTests {
+
+    // MARK: - Raw Values
+
+    @Test("breakfast raw value is 'breakfast'")
+    func breakfastRawValue() {
+        #expect(MealType.breakfast.rawValue == "breakfast")
+    }
+
+    @Test("lunch raw value is 'lunch'")
+    func lunchRawValue() {
+        #expect(MealType.lunch.rawValue == "lunch")
+    }
+
+    @Test("dinner raw value is 'dinner'")
+    func dinnerRawValue() {
+        #expect(MealType.dinner.rawValue == "dinner")
+    }
+
+    // MARK: - CaseIterable
+
+    @Test("allCases has 3 elements")
+    func allCasesCount() {
+        #expect(MealType.allCases.count == 3)
+    }
+
+    // MARK: - Codable
+
+    @Test("decodes from raw string 'lunch'")
+    func decodesLunch() throws {
+        let json = "\"lunch\"".data(using: .utf8)!
+        let type = try makeDecoder().decode(MealType.self, from: json)
+        #expect(type == .lunch)
+    }
+}
+
+@Suite("Meal")
+struct MealTests {
 
     // MARK: - Init & Properties
 
     @Test("init sets all required properties")
     func initSetsProperties() {
-        let script = GuidedMeditationScript(
-            id: "script-1", category: "breathing", title: "Morning Calm",
-            subtitle: "Start your day with peace", orderIndex: 0,
-            durationSeconds: 600
+        let now = Date()
+        let meal = Meal(
+            id: "m-1",
+            name: "Chicken Bowl",
+            mealType: .lunch,
+            effort: 3,
+            hasRedMeat: false,
+            createdAt: now,
+            updatedAt: now
         )
-        #expect(script.id == "script-1")
-        #expect(script.category == "breathing")
-        #expect(script.title == "Morning Calm")
-        #expect(script.subtitle == "Start your day with peace")
-        #expect(script.orderIndex == 0)
-        #expect(script.durationSeconds == 600)
-        #expect(script.segments == nil)
-        #expect(script.interjections == nil)
+        #expect(meal.id == "m-1")
+        #expect(meal.name == "Chicken Bowl")
+        #expect(meal.mealType == .lunch)
+        #expect(meal.effort == 3)
+        #expect(meal.hasRedMeat == false)
+        #expect(meal.prepAhead == false)
+        #expect(meal.url == nil)
+        #expect(meal.lastPlanned == nil)
     }
 
-    @Test("init with segments and interjections")
-    func initWithOptionals() {
-        let segment = GuidedMeditationSegment(
-            id: "seg-1", startSeconds: 0, text: "Begin", phase: "opening"
-        )
-        let interjection = GuidedMeditationInterjection(
-            windowStartSeconds: 60, windowEndSeconds: 120,
-            textOptions: ["Notice your breath", "Feel your body"]
-        )
-        let script = GuidedMeditationScript(
-            id: "s1", category: "reactivity", title: "Test",
-            subtitle: "Sub", orderIndex: 1, durationSeconds: 300,
-            segments: [segment], interjections: [interjection]
-        )
-        #expect(script.segments?.count == 1)
-        #expect(script.interjections?.count == 1)
-    }
+    // MARK: - Custom Decoder
 
-    // MARK: - formattedDuration
-
-    @Test("formattedDuration converts seconds to minutes")
-    func formattedDuration10Min() {
-        let script = GuidedMeditationScript(
-            id: "s1", category: "c", title: "T", subtitle: "S",
-            orderIndex: 0, durationSeconds: 600
-        )
-        #expect(script.formattedDuration == "10 min")
-    }
-
-    @Test("formattedDuration for 5-minute script")
-    func formattedDuration5Min() {
-        let script = GuidedMeditationScript(
-            id: "s1", category: "c", title: "T", subtitle: "S",
-            orderIndex: 0, durationSeconds: 300
-        )
-        #expect(script.formattedDuration == "5 min")
-    }
-
-    @Test("formattedDuration for 20-minute script")
-    func formattedDuration20Min() {
-        let script = GuidedMeditationScript(
-            id: "s1", category: "c", title: "T", subtitle: "S",
-            orderIndex: 0, durationSeconds: 1200
-        )
-        #expect(script.formattedDuration == "20 min")
-    }
-
-    @Test("formattedDuration truncates sub-minute remainder")
-    func formattedDurationTruncates() {
-        let script = GuidedMeditationScript(
-            id: "s1", category: "c", title: "T", subtitle: "S",
-            orderIndex: 0, durationSeconds: 650  // 10 min 50 sec
-        )
-        // Integer division: 650/60 = 10
-        #expect(script.formattedDuration == "10 min")
-    }
-
-    // MARK: - Codable (listing format — no segments/interjections)
-
-    @Test("decodes from listing JSON without segments")
-    func decodesListingJSON() throws {
+    @Test("prepAhead defaults to false when absent from JSON")
+    func prepAheadDefaultsFalse() throws {
         let json = """
         {
-            "id": "gm-1",
-            "category": "breathing",
-            "title": "Deep Calm",
-            "subtitle": "A journey inward",
-            "orderIndex": 2,
-            "durationSeconds": 900
+            "id": "m-2",
+            "name": "Oatmeal",
+            "meal_type": "breakfast",
+            "effort": 1,
+            "has_red_meat": false,
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z"
         }
         """.data(using: .utf8)!
-
-        let script = try makeDecoder().decode(GuidedMeditationScript.self, from: json)
-        #expect(script.id == "gm-1")
-        #expect(script.category == "breathing")
-        #expect(script.orderIndex == 2)
-        #expect(script.segments == nil)
-        #expect(script.interjections == nil)
+        let meal = try makeDecoder().decode(Meal.self, from: json)
+        #expect(meal.prepAhead == false)
     }
 
-    // MARK: - Codable (detail format — with segments/interjections)
-
-    @Test("decodes from detail JSON with segments and interjections")
-    func decodesDetailJSON() throws {
+    @Test("decodes optional url field")
+    func decodesOptionalURL() throws {
         let json = """
         {
-            "id": "gm-2",
-            "category": "reactivity",
-            "title": "Observing Reactions",
-            "subtitle": "Notice without judgment",
-            "orderIndex": 0,
-            "durationSeconds": 600,
-            "segments": [
-                {"id": "seg-1", "startSeconds": 0, "text": "Welcome", "phase": "opening"},
-                {"id": "seg-2", "startSeconds": 30, "text": "Settle in", "phase": "opening"},
-                {"id": "seg-3", "startSeconds": 300, "text": "Slowly return", "phase": "closing"}
-            ],
-            "interjections": [
-                {
-                    "windowStartSeconds": 120,
-                    "windowEndSeconds": 240,
-                    "textOptions": ["Notice any tension", "Let thoughts pass"]
-                }
-            ]
+            "id": "m-3",
+            "name": "Salmon Bowl",
+            "meal_type": "dinner",
+            "effort": 4,
+            "has_red_meat": false,
+            "url": "https://example.com/salmon",
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z"
         }
         """.data(using: .utf8)!
-
-        let script = try makeDecoder().decode(GuidedMeditationScript.self, from: json)
-        #expect(script.segments?.count == 3)
-        #expect(script.segments?.first?.phase == "opening")
-        #expect(script.segments?.last?.phase == "closing")
-        #expect(script.interjections?.count == 1)
-        #expect(script.interjections?.first?.textOptions.count == 2)
+        let meal = try makeDecoder().decode(Meal.self, from: json)
+        #expect(meal.url == "https://example.com/salmon")
     }
 
-    @Test("encodes and decodes roundtrip without optionals")
-    func roundtripWithoutOptionals() throws {
-        let original = GuidedMeditationScript(
-            id: "rt-1", category: "breathing", title: "Calm",
-            subtitle: "Sub", orderIndex: 5, durationSeconds: 300
+    @Test("decodes hasRedMeat flag via has_red_meat snake_case key")
+    func decodesHasRedMeat() throws {
+        let json = """
+        {
+            "id": "m-4",
+            "name": "Steak",
+            "meal_type": "dinner",
+            "effort": 5,
+            "has_red_meat": true,
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z"
+        }
+        """.data(using: .utf8)!
+        let meal = try makeDecoder().decode(Meal.self, from: json)
+        #expect(meal.hasRedMeat == true)
+    }
+
+    // MARK: - Codable Roundtrip
+
+    @Test("Codable roundtrip preserves all fields including prepAhead")
+    func codableRoundtrip() throws {
+        let original = Meal(
+            id: "m-5",
+            name: "Pasta",
+            mealType: .dinner,
+            effort: 3,
+            hasRedMeat: false,
+            prepAhead: true,
+            url: "https://example.com/pasta",
+            lastPlanned: nil,
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
         )
         let data = try makeEncoder().encode(original)
-        let decoded = try makeDecoder().decode(GuidedMeditationScript.self, from: data)
+        let decoded = try makeDecoder().decode(Meal.self, from: data)
         #expect(decoded.id == original.id)
-        #expect(decoded.category == original.category)
-        #expect(decoded.title == original.title)
-        #expect(decoded.orderIndex == original.orderIndex)
-        #expect(decoded.durationSeconds == original.durationSeconds)
-    }
-
-    @Test("encodes and decodes roundtrip with segments")
-    func roundtripWithSegments() throws {
-        let original = GuidedMeditationScript(
-            id: "rt-2", category: "reactivity", title: "Focus",
-            subtitle: "S", orderIndex: 0, durationSeconds: 600,
-            segments: [
-                GuidedMeditationSegment(
-                    id: "seg-1", startSeconds: 0, text: "Begin", phase: "opening"
-                )
-            ],
-            interjections: [
-                GuidedMeditationInterjection(
-                    windowStartSeconds: 60, windowEndSeconds: 120,
-                    textOptions: ["Breathe deeply"]
-                )
-            ]
-        )
-        let data = try makeEncoder().encode(original)
-        let decoded = try makeDecoder().decode(GuidedMeditationScript.self, from: data)
-        #expect(decoded.segments?.count == 1)
-        #expect(decoded.interjections?.count == 1)
-        #expect(decoded.interjections?.first?.textOptions.first == "Breathe deeply")
-    }
-}
-```
-
-**Test count: ~11**
-
----
-
-### Meditation Test File 2
-
-#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/GuidedMeditationComponentTests.swift`
-
-Tests `GuidedMeditationSegment`, `GuidedMeditationInterjection`, and `GuidedMeditationCategoryResponse`.
-
-```swift
-import Testing
-import Foundation
-@testable import BradOSCore
-
-@Suite("GuidedMeditationSegment")
-struct GuidedMeditationSegmentTests {
-
-    @Test("init sets all properties")
-    func initSetsProperties() {
-        let segment = GuidedMeditationSegment(
-            id: "seg-1", startSeconds: 30,
-            text: "Take a deep breath", phase: "opening"
-        )
-        #expect(segment.id == "seg-1")
-        #expect(segment.startSeconds == 30)
-        #expect(segment.text == "Take a deep breath")
-        #expect(segment.phase == "opening")
-    }
-
-    @Test("decodes from JSON")
-    func decodesFromJSON() throws {
-        let json = """
-        {
-            "id": "seg-5",
-            "startSeconds": 180,
-            "text": "Now bring awareness to your body",
-            "phase": "teachings"
-        }
-        """.data(using: .utf8)!
-
-        let segment = try makeDecoder().decode(GuidedMeditationSegment.self, from: json)
-        #expect(segment.id == "seg-5")
-        #expect(segment.startSeconds == 180)
-        #expect(segment.phase == "teachings")
-    }
-
-    @Test("encodes and decodes roundtrip")
-    func roundtrip() throws {
-        let original = GuidedMeditationSegment(
-            id: "rt-seg", startSeconds: 0, text: "Welcome", phase: "opening"
-        )
-        let data = try makeEncoder().encode(original)
-        let decoded = try makeDecoder().decode(GuidedMeditationSegment.self, from: data)
-        #expect(decoded.id == original.id)
-        #expect(decoded.startSeconds == original.startSeconds)
-        #expect(decoded.text == original.text)
-        #expect(decoded.phase == original.phase)
-    }
-
-    @Test("supports all three phases")
-    func allPhases() {
-        let phases = ["opening", "teachings", "closing"]
-        for phase in phases {
-            let segment = GuidedMeditationSegment(
-                id: "s", startSeconds: 0, text: "Text", phase: phase
-            )
-            #expect(segment.phase == phase)
-        }
-    }
-
-    @Test("Identifiable uses id property")
-    func identifiable() {
-        let segment = GuidedMeditationSegment(
-            id: "unique-seg-id", startSeconds: 0, text: "T", phase: "opening"
-        )
-        #expect(segment.id == "unique-seg-id")
-    }
-}
-
-@Suite("GuidedMeditationInterjection")
-struct GuidedMeditationInterjectionTests {
-
-    @Test("init sets all properties")
-    func initSetsProperties() {
-        let interjection = GuidedMeditationInterjection(
-            windowStartSeconds: 60,
-            windowEndSeconds: 180,
-            textOptions: ["Notice your breath", "Feel the stillness"]
-        )
-        #expect(interjection.windowStartSeconds == 60)
-        #expect(interjection.windowEndSeconds == 180)
-        #expect(interjection.textOptions.count == 2)
-    }
-
-    @Test("decodes from JSON")
-    func decodesFromJSON() throws {
-        let json = """
-        {
-            "windowStartSeconds": 120,
-            "windowEndSeconds": 300,
-            "textOptions": ["Let go of tension", "Return to stillness", "Observe your thoughts"]
-        }
-        """.data(using: .utf8)!
-
-        let interjection = try makeDecoder().decode(
-            GuidedMeditationInterjection.self, from: json
-        )
-        #expect(interjection.windowStartSeconds == 120)
-        #expect(interjection.windowEndSeconds == 300)
-        #expect(interjection.textOptions.count == 3)
-        #expect(interjection.textOptions[0] == "Let go of tension")
-    }
-
-    @Test("encodes and decodes roundtrip")
-    func roundtrip() throws {
-        let original = GuidedMeditationInterjection(
-            windowStartSeconds: 30, windowEndSeconds: 90,
-            textOptions: ["Focus"]
-        )
-        let data = try makeEncoder().encode(original)
-        let decoded = try makeDecoder().decode(
-            GuidedMeditationInterjection.self, from: data
-        )
-        #expect(decoded.windowStartSeconds == original.windowStartSeconds)
-        #expect(decoded.windowEndSeconds == original.windowEndSeconds)
-        #expect(decoded.textOptions == original.textOptions)
-    }
-
-    @Test("handles empty textOptions array")
-    func emptyTextOptions() throws {
-        let json = """
-        {
-            "windowStartSeconds": 0,
-            "windowEndSeconds": 60,
-            "textOptions": []
-        }
-        """.data(using: .utf8)!
-
-        let interjection = try makeDecoder().decode(
-            GuidedMeditationInterjection.self, from: json
-        )
-        #expect(interjection.textOptions.isEmpty)
-    }
-
-    @Test("window end is after window start")
-    func windowOrdering() {
-        let interjection = GuidedMeditationInterjection(
-            windowStartSeconds: 60, windowEndSeconds: 180,
-            textOptions: ["A"]
-        )
-        #expect(interjection.windowEndSeconds > interjection.windowStartSeconds)
-    }
-}
-
-@Suite("GuidedMeditationCategoryResponse")
-struct GuidedMeditationCategoryResponseTests {
-
-    @Test("init sets all properties")
-    func initSetsProperties() {
-        let category = GuidedMeditationCategoryResponse(
-            id: "breathing", name: "Breathing", scriptCount: 5
-        )
-        #expect(category.id == "breathing")
-        #expect(category.name == "Breathing")
-        #expect(category.scriptCount == 5)
-    }
-
-    @Test("decodes from JSON")
-    func decodesFromJSON() throws {
-        let json = """
-        {
-            "id": "reactivity",
-            "name": "Reactivity",
-            "scriptCount": 8
-        }
-        """.data(using: .utf8)!
-
-        let category = try makeDecoder().decode(
-            GuidedMeditationCategoryResponse.self, from: json
-        )
-        #expect(category.id == "reactivity")
-        #expect(category.name == "Reactivity")
-        #expect(category.scriptCount == 8)
-    }
-
-    @Test("encodes and decodes roundtrip")
-    func roundtrip() throws {
-        let original = GuidedMeditationCategoryResponse(
-            id: "cat-1", name: "Focus", scriptCount: 3
-        )
-        let data = try makeEncoder().encode(original)
-        let decoded = try makeDecoder().decode(
-            GuidedMeditationCategoryResponse.self, from: data
-        )
-        #expect(decoded.id == original.id)
-        #expect(decoded.name == original.name)
-        #expect(decoded.scriptCount == original.scriptCount)
-    }
-
-    @Test("Identifiable uses id property")
-    func identifiable() {
-        let category = GuidedMeditationCategoryResponse(
-            id: "my-id", name: "N", scriptCount: 0
-        )
-        #expect(category.id == "my-id")
-    }
-}
-```
-
-**Test count: ~14** (5 Segment + 5 Interjection + 4 CategoryResponse)
-
----
-
-### Meditation Test File 3
-
-#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/MeditationStatsTests.swift`
-
-Tests `MeditationStats` — computed properties (`displayCurrentStreak`, `displayLongestStreak`), optional streak fields, mock data, and Codable.
-
-```swift
-import Testing
-import Foundation
-@testable import BradOSCore
-
-@Suite("MeditationStats")
-struct MeditationStatsTests {
-
-    // MARK: - Init & Properties
-
-    @Test("init sets required and optional properties")
-    func initSetsProperties() {
-        let stats = MeditationStats(
-            totalSessions: 42, totalMinutes: 315,
-            currentStreak: 7, longestStreak: 14
-        )
-        #expect(stats.totalSessions == 42)
-        #expect(stats.totalMinutes == 315)
-        #expect(stats.currentStreak == 7)
-        #expect(stats.longestStreak == 14)
-    }
-
-    @Test("streaks default to nil")
-    func streaksDefaultToNil() {
-        let stats = MeditationStats(
-            totalSessions: 10, totalMinutes: 50
-        )
-        #expect(stats.currentStreak == nil)
-        #expect(stats.longestStreak == nil)
-    }
-
-    // MARK: - Computed Properties
-
-    @Test("displayCurrentStreak returns value when present")
-    func displayCurrentStreakPresent() {
-        let stats = MeditationStats(
-            totalSessions: 10, totalMinutes: 50, currentStreak: 5
-        )
-        #expect(stats.displayCurrentStreak == 5)
-    }
-
-    @Test("displayCurrentStreak returns 0 when nil")
-    func displayCurrentStreakNil() {
-        let stats = MeditationStats(
-            totalSessions: 10, totalMinutes: 50
-        )
-        #expect(stats.displayCurrentStreak == 0)
-    }
-
-    @Test("displayLongestStreak returns value when present")
-    func displayLongestStreakPresent() {
-        let stats = MeditationStats(
-            totalSessions: 10, totalMinutes: 50, longestStreak: 21
-        )
-        #expect(stats.displayLongestStreak == 21)
-    }
-
-    @Test("displayLongestStreak returns 0 when nil")
-    func displayLongestStreakNil() {
-        let stats = MeditationStats(
-            totalSessions: 10, totalMinutes: 50
-        )
-        #expect(stats.displayLongestStreak == 0)
-    }
-
-    // MARK: - Codable
-
-    @Test("decodes from server JSON with streaks")
-    func decodesWithStreaks() throws {
-        let json = """
-        {
-            "totalSessions": 100,
-            "totalMinutes": 750,
-            "currentStreak": 12,
-            "longestStreak": 30
-        }
-        """.data(using: .utf8)!
-
-        let stats = try makeDecoder().decode(MeditationStats.self, from: json)
-        #expect(stats.totalSessions == 100)
-        #expect(stats.totalMinutes == 750)
-        #expect(stats.currentStreak == 12)
-        #expect(stats.longestStreak == 30)
-    }
-
-    @Test("decodes from server JSON without streaks")
-    func decodesWithoutStreaks() throws {
-        let json = """
-        {
-            "totalSessions": 5,
-            "totalMinutes": 25
-        }
-        """.data(using: .utf8)!
-
-        let stats = try makeDecoder().decode(MeditationStats.self, from: json)
-        #expect(stats.totalSessions == 5)
-        #expect(stats.totalMinutes == 25)
-        #expect(stats.currentStreak == nil)
-        #expect(stats.longestStreak == nil)
-    }
-
-    @Test("encodes and decodes roundtrip")
-    func roundtrip() throws {
-        let original = MeditationStats(
-            totalSessions: 42, totalMinutes: 315,
-            currentStreak: 7, longestStreak: 14
-        )
-        let data = try makeEncoder().encode(original)
-        let decoded = try makeDecoder().decode(MeditationStats.self, from: data)
-        #expect(decoded.totalSessions == original.totalSessions)
-        #expect(decoded.totalMinutes == original.totalMinutes)
-        #expect(decoded.currentStreak == original.currentStreak)
-        #expect(decoded.longestStreak == original.longestStreak)
-    }
-
-    @Test("encodes and decodes roundtrip with nil streaks")
-    func roundtripNilStreaks() throws {
-        let original = MeditationStats(
-            totalSessions: 1, totalMinutes: 5
-        )
-        let data = try makeEncoder().encode(original)
-        let decoded = try makeDecoder().decode(MeditationStats.self, from: data)
-        #expect(decoded.totalSessions == original.totalSessions)
-        #expect(decoded.currentStreak == nil)
-        #expect(decoded.longestStreak == nil)
+        #expect(decoded.mealType == original.mealType)
+        #expect(decoded.prepAhead == original.prepAhead)
+        #expect(decoded.url == original.url)
     }
 
     // MARK: - Mock Data
 
-    @Test("mockStats has valid data")
-    func mockStatsValid() {
-        let mock = MeditationStats.mockStats
-        #expect(mock.totalSessions == 42)
-        #expect(mock.totalMinutes == 315)
-        #expect(mock.currentStreak == 7)
-        #expect(mock.longestStreak == 14)
+    @Test("mockMeals has 4 entries")
+    func mockMealsCount() {
+        #expect(Meal.mockMeals.count == 4)
     }
 
-    @Test("mockStats display properties return streak values")
-    func mockStatsDisplayProperties() {
-        let mock = MeditationStats.mockStats
-        #expect(mock.displayCurrentStreak == 7)
-        #expect(mock.displayLongestStreak == 14)
+    @Test("at least one mockMeal has hasRedMeat true")
+    func mockMealsContainRedMeat() {
+        let hasRedMeat = Meal.mockMeals.contains { $0.hasRedMeat }
+        #expect(hasRedMeat == true)
+    }
+
+    @Test("mockMeals cover all three meal types")
+    func mockMealsCoverAllTypes() {
+        let types = Set(Meal.mockMeals.map { $0.mealType })
+        #expect(types.contains(.breakfast))
+        #expect(types.contains(.lunch))
+        #expect(types.contains(.dinner))
     }
 }
 ```
 
-**Test count: ~13**
+### Test File 4
 
----
+#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/ExerciseHistoryTests.swift`
 
-## Test Summary
+Tests `ExerciseHistory`, `ExerciseHistoryEntry`, `HistorySet`, and `PersonalRecord` — nested types,
+snake_case keys, and the computed `exercise` property that constructs an `Exercise` from history.
 
-| New File | Feature | Tests | What It Covers |
-|----------|---------|-------|----------------|
-| `StretchDefinitionTests.swift` | Stretching | ~12 | StretchDefinition (Codable, optional image, Hashable), StretchRegionData (nested stretches, Codable) |
-| `CompletedStretchTests.swift` | Stretching | ~14 | CompletedStretch (computed id, Codable, skippedSegments), StretchRegionConfig (computed id, Codable), StretchSessionConfig advanced scenarios |
-| `GuidedMeditationScriptTests.swift` | Meditation | ~11 | GuidedMeditationScript (formattedDuration, listing vs detail JSON, optional segments/interjections, Codable roundtrip) |
-| `GuidedMeditationComponentTests.swift` | Meditation | ~14 | GuidedMeditationSegment (phases, Codable), GuidedMeditationInterjection (window properties, empty options, Codable), GuidedMeditationCategoryResponse (Codable, Identifiable) |
-| `MeditationStatsTests.swift` | Meditation | ~13 | MeditationStats (displayCurrentStreak/displayLongestStreak nil fallback, Codable with/without optional streaks, mock validation) |
-| **Total new** | | **~64** | |
+```swift
+import Testing
+import Foundation
+@testable import BradOSCore
 
-### Final File Counts
+@Suite("HistorySet")
+struct HistorySetTests {
 
-| Feature | Before | After | Files |
-|---------|--------|-------|-------|
-| Stretching | 2 | **4** | StretchSessionTests, StretchUrgencyTests, **StretchDefinitionTests**, **CompletedStretchTests** |
-| Meditation | 1 | **4** | MeditationSessionTests, **GuidedMeditationScriptTests**, **GuidedMeditationComponentTests**, **MeditationStatsTests** |
+    @Test("init sets all properties")
+    func initSetsProperties() {
+        let historySet = HistorySet(setNumber: 1, weight: 135.0, reps: 10)
+        #expect(historySet.setNumber == 1)
+        #expect(historySet.weight == 135.0)
+        #expect(historySet.reps == 10)
+    }
+
+    @Test("decodes from JSON with snake_case set_number key")
+    func decodesFromJSON() throws {
+        let json = """
+        {
+            "set_number": 2,
+            "weight": 185.0,
+            "reps": 5
+        }
+        """.data(using: .utf8)!
+        let historySet = try makeDecoder().decode(HistorySet.self, from: json)
+        #expect(historySet.setNumber == 2)
+        #expect(historySet.weight == 185.0)
+        #expect(historySet.reps == 5)
+    }
+
+    @Test("Codable roundtrip preserves set_number")
+    func codableRoundtrip() throws {
+        let original = HistorySet(setNumber: 3, weight: 200.0, reps: 3)
+        let data = try makeEncoder().encode(original)
+        let decoded = try makeDecoder().decode(HistorySet.self, from: data)
+        #expect(decoded.setNumber == original.setNumber)
+        #expect(decoded.weight == original.weight)
+    }
+}
+
+@Suite("PersonalRecord")
+struct PersonalRecordTests {
+
+    @Test("init sets all properties")
+    func initSetsProperties() {
+        let date = Date(timeIntervalSince1970: 1_700_000_000)
+        let pr = PersonalRecord(weight: 225.0, reps: 1, date: date)
+        #expect(pr.weight == 225.0)
+        #expect(pr.reps == 1)
+        #expect(pr.date == date)
+    }
+
+    @Test("Codable roundtrip preserves all fields")
+    func codableRoundtrip() throws {
+        let original = PersonalRecord(
+            weight: 315.0,
+            reps: 5,
+            date: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        let data = try makeEncoder().encode(original)
+        let decoded = try makeDecoder().decode(PersonalRecord.self, from: data)
+        #expect(decoded.weight == original.weight)
+        #expect(decoded.reps == original.reps)
+        #expect(decoded.date == original.date)
+    }
+}
+
+@Suite("ExerciseHistory")
+struct ExerciseHistoryTests {
+
+    // MARK: - Computed exercise property
+
+    @Test("exercise computed property uses exerciseId as id")
+    func exerciseComputedId() {
+        let history = ExerciseHistory(
+            exerciseId: "ex-1",
+            exerciseName: "Squat",
+            entries: [],
+            personalRecord: nil
+        )
+        #expect(history.exercise.id == "ex-1")
+    }
+
+    @Test("exercise computed property uses exerciseName as name")
+    func exerciseComputedName() {
+        let history = ExerciseHistory(
+            exerciseId: "ex-2",
+            exerciseName: "Deadlift",
+            entries: [],
+            personalRecord: nil
+        )
+        #expect(history.exercise.name == "Deadlift")
+    }
+
+    @Test("exercise computed property defaults weightIncrement to 5")
+    func exerciseWeightIncrementDefault() {
+        let history = ExerciseHistory(
+            exerciseId: "ex-3",
+            exerciseName: "Bench Press",
+            entries: [],
+            personalRecord: nil
+        )
+        #expect(history.exercise.weightIncrement == 5)
+    }
+
+    // MARK: - Codable
+
+    @Test("decodes from JSON with snake_case exercise_id key")
+    func decodesFromJSON() throws {
+        let json = """
+        {
+            "exercise_id": "ex-100",
+            "exercise_name": "Overhead Press",
+            "entries": [],
+            "personal_record": null
+        }
+        """.data(using: .utf8)!
+        let history = try makeDecoder().decode(ExerciseHistory.self, from: json)
+        #expect(history.exerciseId == "ex-100")
+        #expect(history.exerciseName == "Overhead Press")
+        #expect(history.entries.isEmpty)
+        #expect(history.personalRecord == nil)
+    }
+
+    @Test("decodes nested PersonalRecord")
+    func decodesNestedPersonalRecord() throws {
+        let json = """
+        {
+            "exercise_id": "ex-200",
+            "exercise_name": "Squat",
+            "entries": [],
+            "personal_record": {
+                "weight": 405.0,
+                "reps": 1,
+                "date": "2026-01-15T10:00:00Z"
+            }
+        }
+        """.data(using: .utf8)!
+        let history = try makeDecoder().decode(ExerciseHistory.self, from: json)
+        #expect(history.personalRecord?.weight == 405.0)
+        #expect(history.personalRecord?.reps == 1)
+    }
+
+    // MARK: - Mock Data
+
+    @Test("mockHistory exerciseName is 'Bench Press'")
+    func mockHistoryName() {
+        #expect(ExerciseHistory.mockHistory.exerciseName == "Bench Press")
+    }
+
+    @Test("mockHistory personal record weight is 185")
+    func mockHistoryPRWeight() {
+        #expect(ExerciseHistory.mockHistory.personalRecord?.weight == 185)
+    }
+}
+
+@Suite("ExerciseHistoryEntry")
+struct ExerciseHistoryEntryTests {
+
+    @Test("id is computed from workoutId (snake_case workout_id)")
+    func idComputedFromWorkoutId() {
+        let entry = ExerciseHistoryEntry(
+            workoutId: "workout-abc",
+            date: Date(),
+            weekNumber: 1,
+            mesocycleId: "meso-1",
+            sets: [],
+            bestWeight: 100.0,
+            bestSetReps: 8
+        )
+        #expect(entry.id == "workout-abc")
+    }
+
+    @Test("decodes from JSON with snake_case keys")
+    func decodesFromJSON() throws {
+        let json = """
+        {
+            "workout_id": "w-999",
+            "date": "2026-01-10T00:00:00Z",
+            "week_number": 2,
+            "mesocycle_id": "meso-x",
+            "sets": [
+                { "set_number": 1, "weight": 150.0, "reps": 8 }
+            ],
+            "best_weight": 150.0,
+            "best_set_reps": 8
+        }
+        """.data(using: .utf8)!
+        let entry = try makeDecoder().decode(ExerciseHistoryEntry.self, from: json)
+        #expect(entry.workoutId == "w-999")
+        #expect(entry.weekNumber == 2)
+        #expect(entry.sets.count == 1)
+        #expect(entry.bestWeight == 150.0)
+    }
+}
+```
 
 ## QA
 
 ### Step 1: Run BradOSCore tests via SPM
 
 ```bash
-cd ios/BradOS/BradOSCore && swift test 2>&1 | tail -30
+cd ios/BradOS/BradOSCore && swift test 2>&1 | tail -40
 ```
 
-All tests must pass. Expect ~96+ total tests (existing ~34 + new ~64 — adjusted if actual counts differ slightly).
+All tests must pass. Expect ~110+ total tests (existing ~63 + new ~50). Run in a subagent to
+avoid verbose output consuming context.
 
-### Step 2: Verify test file counts
+### Step 2: Verify new test files exist
 
 ```bash
-# Stretching test files (expect 4)
-find ios/BradOS/BradOSCore/Tests -name "*Stretch*Tests.swift" -o -name "*CompletedStretch*Tests.swift" | wc -l
-
-# Meditation test files (expect 4)
-find ios/BradOS/BradOSCore/Tests -name "*Meditation*Tests.swift" -o -name "*GuidedMeditation*Tests.swift" | wc -l
+find ios/BradOS/BradOSCore/Tests -name "BarcodeTests.swift" \
+    -o -name "CalendarActivityTests.swift" \
+    -o -name "MealTests.swift" \
+    -o -name "ExerciseHistoryTests.swift" | sort
 ```
+
+Should return 4 paths.
 
 ### Step 3: Build full app via xcodebuild
 
 ```bash
-xcodebuild -project ios/BradOS/BradOS.xcodeproj \
-  -scheme BradOS \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-  -derivedDataPath ~/.cache/brad-os-derived-data \
-  -skipPackagePluginValidation \
-  build 2>&1 | tail -20
+cd ios/BradOS && xcodebuild build \
+    -scheme BradOS \
+    -destination 'platform=iOS Simulator,name=iPhone 16' \
+    -quiet 2>&1 | tail -20
 ```
 
-Must succeed — verifies no SwiftLint violations in test files and BradOSCore compiles cleanly.
+Must succeed with no SwiftLint violations introduced.
 
 ### Step 4: Run BradOSCoreTests via xcodebuild
 
 ```bash
-xcodebuild test \
-  -project ios/BradOS/BradOS.xcodeproj \
-  -scheme BradOS \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-  -derivedDataPath ~/.cache/brad-os-derived-data \
-  -skipPackagePluginValidation \
-  -only-testing:BradOSCoreTests \
-  2>&1 | tail -30
+cd ios/BradOS && xcodebuild test \
+    -scheme BradOS \
+    -destination 'platform=iOS Simulator,name=iPhone 16' \
+    -only-testing:BradOSCoreTests \
+    -quiet 2>&1 | tail -30
 ```
 
 All tests pass.
 
 ### Step 5: Run `npm run validate`
 
-Ensure TypeScript side is unaffected (no source changes to validate, but confirms nothing is broken).
+```bash
+npm run validate
+```
 
-### Step 6: Spot-check specific test behaviors
+Typecheck and lint must pass. Test/architecture failures are pre-existing environment sandbox
+issues unrelated to iOS model changes.
 
-Manually verify a few edge-case tests match expected behavior:
-- `CompletedStretch.id` for `hipFlexors` region produces `"hip_flexors-..."` (snake_case from rawValue)
-- `GuidedMeditationScript.formattedDuration` with 650 seconds produces `"10 min"` (integer division truncation)
-- `MeditationStats.displayCurrentStreak` returns 0 when `currentStreak` is nil (nil-coalescing fallback)
+### Step 6: Spot-check specific behaviors
+
+After `swift test`, verify these specific behaviors in the output:
+
+- `BarcodeType.code128.displayName` → `"Code 128"` (space, not "Code128")
+- `CalendarDayData` with only a stretch activity → `hasWorkout == false`, `hasStretch == true`
+- `Meal` decoded without `prep_ahead` field → `prepAhead == false` (custom decoder default)
+- `ExerciseHistoryEntry.id` == `workoutId` (computed from `workout_id` snake_case field)
+- `ExerciseHistory.exercise.weightIncrement` == `5` (hardcoded default in computed property)
+
+## Summary
+
+| New File | Types Tested | Tests |
+|----------|-------------|-------|
+| BarcodeTests.swift | BarcodeType (displayName, CaseIterable, Codable), Barcode (Codable snake_case, Hashable, mock), CreateBarcodeDTO (barcodeType as string, sortOrder default), UpdateBarcodeDTO (optional-field omission) | ~13 |
+| CalendarActivityTests.swift | ActivityType (displayName, iconName, CaseIterable), ActivitySummary (custom decoder, isDeload default, all three summary types), CalendarDayData (hasWorkout/hasStretch/hasMeditation), CalendarActivity (mock, completedAt default) | ~14 |
+| MealTests.swift | MealType (raw values, CaseIterable), Meal (custom decoder, prepAhead default, optional url/lastPlanned, hasRedMeat, Codable roundtrip, mock data) | ~11 |
+| ExerciseHistoryTests.swift | HistorySet (snake_case set_number, Codable), PersonalRecord (Codable roundtrip), ExerciseHistory (computed exercise id/name/weightIncrement, nested PR, mock), ExerciseHistoryEntry (id computed from workoutId) | ~12 |
+| **Total** | | **~50** |
 
 ## Conventions
 
-1. **Swift Testing framework** — `import Testing`, `@Suite`, `@Test`, `#expect`. NOT XCTest. Matches all existing BradOSCore tests.
-
-2. **Test file location** — `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/`. All new files go in the Models subdirectory matching the source file location.
-
-3. **Test helpers** — Use `makeEncoder()` and `makeDecoder()` from `TestHelpers.swift` for all JSON encoding/decoding tests.
-
-4. **No source file modifications** — This task is purely additive test files. Every type being tested is already `public` in BradOSCore.
-
-5. **No force unwrapping** — Use `#expect(x?.y == value)` pattern per SwiftLint rules.
-
-6. **No `swiftlint:disable`** — Fix code structure instead.
-
-7. **File length < 600 lines** — Each test file is well under this limit.
-
-8. **Function body < 60 lines** — Each test function is focused and short.
-
-9. **Git Worktree Workflow** — All changes in a worktree branch, merged to main after validation.
-
-10. **Subagent Usage** — Run `swift test`, `xcodebuild build`, and `xcodebuild test` in subagents to conserve context.
+1. **Swift Testing framework** — use `import Testing`, `@Suite`, `@Test`, `#expect`. NOT XCTest.
+2. **Test file location** — `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/`
+3. **JSON helpers** — use `makeEncoder()` / `makeDecoder()` from `TestHelpers.swift` for all
+   Codable tests.
+4. **No force unwrapping** — use `try` or `#expect(...) != nil` patterns.
+5. **No `swiftlint:disable`** — write code that passes SwiftLint by default.
+6. **File length < 600 lines**, function body < 60 lines.
+7. **Run `swift test` and `xcodebuild` in subagents** — they produce verbose output; tail the
+   last 30–40 lines and capture failures before reporting.
