@@ -169,6 +169,24 @@ describe('CalendarService', () => {
       const result = utcToLocalDate('2024-01-05T12:00:00Z', 0);
       expect(result).toBe('2024-01-05');
     });
+
+    it('should handle backward year boundary', () => {
+      // Jan 1 at 02:00 UTC, -5 hours (EST) → Dec 31 previous year at 21:00
+      const result = utcToLocalDate('2025-01-01T02:00:00Z', -300);
+      expect(result).toBe('2024-12-31');
+    });
+
+    it('should handle fractional timezone offset (UTC+5:30)', () => {
+      // 18:45 UTC + 5:30 = 00:15 next day in India (IST)
+      const result = utcToLocalDate('2024-06-15T18:45:00Z', 330);
+      expect(result).toBe('2024-06-16');
+    });
+
+    it('should handle extreme timezone offsets (UTC+14)', () => {
+      // 11:00 UTC + 14 hours = 01:00 next day (Line Islands)
+      const result = utcToLocalDate('2024-03-15T11:00:00Z', 840);
+      expect(result).toBe('2024-03-16');
+    });
   });
 
   describe('getMonthData', () => {
@@ -483,6 +501,246 @@ describe('CalendarService', () => {
       expect(workoutActivity).toBeDefined();
       const summary = workoutActivity?.summary as WorkoutActivitySummary | undefined;
       expect(summary?.dayName).toBe('Unknown');
+    });
+
+    it('should use scheduled_date as fallback if completed_at is null', async () => {
+      const workout = createWorkout({
+        ...workoutDefaults,
+        scheduled_date: '2024-01-20',
+        completed_at: null,
+      });
+      const sets = [createWorkoutSet(workoutSetDefaults)];
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
+      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
+      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+
+      const result = await service.getMonthData(2024, 1);
+
+      expect(result.days['2024-01-20']).toBeDefined();
+      expect(result.days['2024-01-15']).toBeUndefined();
+    });
+
+    it('should handle workout with no sets', async () => {
+      const workout = createWorkout(workoutDefaults);
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
+      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue([]);
+      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+
+      const result = await service.getMonthData(2024, 1);
+
+      const workoutActivity = result.days['2024-01-15']?.activities.find(
+        (a) => a.type === 'workout'
+      );
+      const summary = workoutActivity?.summary as WorkoutActivitySummary | undefined;
+      expect(summary?.exerciseCount).toBe(0);
+      expect(summary?.setsCompleted).toBe(0);
+      expect(summary?.totalSets).toBe(0);
+    });
+
+    it('should count only completed sets in setsCompleted', async () => {
+      const workout = createWorkout(workoutDefaults);
+      const sets = [
+        createWorkoutSet({ ...workoutSetDefaults, id: 's-1', status: 'completed' }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 's-2', status: 'skipped' }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 's-3', status: 'completed' }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 's-4', status: 'pending' }),
+      ];
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
+      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
+      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+
+      const result = await service.getMonthData(2024, 1);
+
+      const workoutActivity = result.days['2024-01-15']?.activities.find(
+        (a) => a.type === 'workout'
+      );
+      const summary = workoutActivity?.summary as WorkoutActivitySummary | undefined;
+      expect(summary?.setsCompleted).toBe(2);
+      expect(summary?.totalSets).toBe(4);
+    });
+
+    it('should prefix activity IDs with type name', async () => {
+      const workout = createWorkout({ ...workoutDefaults, id: 'w-abc' });
+      const sets = [createWorkoutSet(workoutSetDefaults)];
+      const stretchSession = createStretchSession({ ...stretchSessionDefaults, id: 's-xyz' });
+      const meditationSession = createMeditationSession({ ...meditationSessionDefaults, id: 'm-123' });
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
+      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
+      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([stretchSession]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([meditationSession]);
+
+      const result = await service.getMonthData(2024, 1);
+
+      const activities = result.days['2024-01-15']?.activities ?? [];
+      const ids = activities.map((a) => a.id);
+      expect(ids).toContain('workout-w-abc');
+      expect(ids).toContain('stretch-s-xyz');
+      expect(ids).toContain('meditation-m-123');
+    });
+
+    it('should create separate day entries for activities on different dates', async () => {
+      const stretch1 = createStretchSession({
+        ...stretchSessionDefaults,
+        id: 'str-1',
+        completedAt: '2024-01-10T12:00:00Z',
+      });
+      const stretch2 = createStretchSession({
+        ...stretchSessionDefaults,
+        id: 'str-2',
+        completedAt: '2024-01-20T12:00:00Z',
+      });
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([stretch1, stretch2]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+
+      const result = await service.getMonthData(2024, 1);
+
+      expect(Object.keys(result.days)).toHaveLength(2);
+      expect(result.days['2024-01-10']?.activities).toHaveLength(1);
+      expect(result.days['2024-01-20']?.activities).toHaveLength(1);
+    });
+
+    it('should sort activities with null completedAt before those with timestamps', async () => {
+      const workout = createWorkout({
+        ...workoutDefaults,
+        completed_at: null,
+        scheduled_date: '2024-01-15',
+      });
+      const sets = [createWorkoutSet(workoutSetDefaults)];
+      const stretchSession = createStretchSession({
+        ...stretchSessionDefaults,
+        completedAt: '2024-01-15T14:00:00Z',
+      });
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
+      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
+      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([stretchSession]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+
+      const result = await service.getMonthData(2024, 1);
+
+      const activities = result.days['2024-01-15']?.activities ?? [];
+      expect(activities).toHaveLength(2);
+      // null completedAt coerced to '' sorts before '2024-01-15T14:00:00Z'
+      expect(activities[0]?.type).toBe('workout');
+      expect(activities[1]?.type).toBe('stretch');
+    });
+
+    it('should return correct boundaries for 30-day month', async () => {
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+
+      const result = await service.getMonthData(2024, 4);
+
+      expect(result.startDate).toBe('2024-04-01');
+      expect(result.endDate).toBe('2024-04-30');
+    });
+
+    it('should only set hasWorkout flag when day has only workouts', async () => {
+      const workout = createWorkout(workoutDefaults);
+      const sets = [createWorkoutSet(workoutSetDefaults)];
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
+      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
+      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+
+      const result = await service.getMonthData(2024, 1);
+
+      const daySummary = result.days['2024-01-15']?.summary;
+      expect(daySummary?.hasWorkout).toBe(true);
+      expect(daySummary?.hasStretch).toBe(false);
+      expect(daySummary?.hasMeditation).toBe(false);
+      expect(daySummary?.totalActivities).toBe(1);
+    });
+
+    it('should pass through raw completedAt timestamp on activity', async () => {
+      const workout = createWorkout({
+        ...workoutDefaults,
+        completed_at: '2024-01-15T11:30:45.123Z',
+      });
+      const sets = [createWorkoutSet(workoutSetDefaults)];
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
+      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
+      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+
+      const result = await service.getMonthData(2024, 1);
+
+      const workoutActivity = result.days['2024-01-15']?.activities.find(
+        (a) => a.type === 'workout'
+      );
+      expect(workoutActivity?.completedAt).toBe('2024-01-15T11:30:45.123Z');
+    });
+
+    it('should default timezone offset to 0 when not provided', async () => {
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+
+      await service.getMonthData(2024, 6);
+
+      expect(mockWorkoutRepo.findCompletedInDateRange).toHaveBeenCalledWith(
+        '2024-06-01',
+        '2024-06-30',
+        0
+      );
+      expect(mockStretchSessionRepo.findInDateRange).toHaveBeenCalledWith(
+        '2024-06-01',
+        '2024-06-30',
+        0
+      );
+      expect(mockMeditationSessionRepo.findInDateRange).toHaveBeenCalledWith(
+        '2024-06-01',
+        '2024-06-30',
+        0
+      );
+    });
+
+    it('should call findById and findByWorkoutId for each workout', async () => {
+      const workout1 = createWorkout({ ...workoutDefaults, id: 'w-1', plan_day_id: 'pd-1' });
+      const workout2 = createWorkout({ ...workoutDefaults, id: 'w-2', plan_day_id: 'pd-2', completed_at: '2024-01-16T10:00:00Z', scheduled_date: '2024-01-16' });
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout1, workout2]);
+      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue([createWorkoutSet(workoutSetDefaults)]);
+      mockPlanDayRepo.findById
+        .mockResolvedValueOnce(createPlanDay({ id: 'pd-1', plan_id: 'plan-1', day_of_week: 1, name: 'Push Day', sort_order: 0 }))
+        .mockResolvedValueOnce(createPlanDay({ id: 'pd-2', plan_id: 'plan-1', day_of_week: 2, name: 'Pull Day', sort_order: 1 }));
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+
+      const result = await service.getMonthData(2024, 1);
+
+      // Verify per-workout repo calls
+      expect(mockPlanDayRepo.findById).toHaveBeenCalledTimes(2);
+      expect(mockPlanDayRepo.findById).toHaveBeenCalledWith('pd-1');
+      expect(mockPlanDayRepo.findById).toHaveBeenCalledWith('pd-2');
+      expect(mockWorkoutSetRepo.findByWorkoutId).toHaveBeenCalledTimes(2);
+      expect(mockWorkoutSetRepo.findByWorkoutId).toHaveBeenCalledWith('w-1');
+      expect(mockWorkoutSetRepo.findByWorkoutId).toHaveBeenCalledWith('w-2');
+
+      // Verify both workouts appear with correct plan day names
+      const push = result.days['2024-01-15']?.activities.find(a => a.id === 'workout-w-1');
+      const pull = result.days['2024-01-16']?.activities.find(a => a.id === 'workout-w-2');
+      expect((push?.summary as WorkoutActivitySummary).dayName).toBe('Push Day');
+      expect((pull?.summary as WorkoutActivitySummary).dayName).toBe('Pull Day');
     });
   });
 });
