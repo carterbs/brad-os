@@ -327,9 +327,16 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
       } catch { /* ignore */ }
 
       if (!success) {
-        logger.error(
-          `Step ${stepName} (codex) exited with code ${code}: ${stderr.slice(0, 200)}`,
-        );
+        // Extract meaningful error lines from stderr (skip the startup banner)
+        const errorLines = stderr
+          .split("\n")
+          .filter((line) => /^(ERROR|error|Warning|Reconnecting|fatal)/i.test(line.trim()))
+          .join("\n");
+        const errorDetail = errorLines || stderr.slice(-500);
+        logger.error(`Step ${stepName} (codex) exited with code ${code}`);
+        for (const line of errorDetail.split("\n").filter(Boolean)) {
+          logger.error(`  ${line}`);
+        }
       }
 
       logger.jsonl({
