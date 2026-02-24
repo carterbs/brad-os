@@ -2,11 +2,14 @@
 
 ## Setup
 
-Run the setup script to install dependencies for iOS Simulator testing:
+Run the setup script to verify iOS toolchain prerequisites and run a sanity build:
 
 ```bash
-./scripts/setup-ios-testing.sh
+./scripts/setup-ios-testing.sh              # Full setup + sanity build
+./scripts/setup-ios-testing.sh --skip-build  # Check tools only, skip build
 ```
+
+The script checks for `xcodebuild`, `xcodegen`, and `xcrun simctl`, generates the Xcode project from `project.yml`, boots an iPhone 17 Pro simulator, and runs a fast build to verify everything works.
 
 ## Building and Running
 
