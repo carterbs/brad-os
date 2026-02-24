@@ -1,0 +1,381 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// ---- Firestore mock chain ----
+
+const mockGet = vi.fn();
+const mockSet = vi.fn().mockResolvedValue(undefined);
+const mockOrderBy = vi.fn();
+const mockLimit = vi.fn();
+const mockWhere = vi.fn();
+const mockBatchSet = vi.fn();
+const mockBatchCommit = vi.fn().mockResolvedValue(undefined);
+
+const mockDocRef: Record<string, unknown> = {
+  get: mockGet,
+  set: mockSet,
+  collection: vi.fn(),
+};
+
+const mockCollectionRef = {
+  doc: vi.fn(() => mockDocRef),
+  orderBy: mockOrderBy,
+  where: mockWhere,
+  get: mockGet,
+};
+
+// Circular: docRef.collection -> collectionRef
+(mockDocRef['collection'] as ReturnType<typeof vi.fn>).mockReturnValue(mockCollectionRef);
+
+const mockDb = {
+  collection: vi.fn(() => mockCollectionRef),
+  batch: vi.fn(() => ({ set: mockBatchSet, commit: mockBatchCommit })),
+};
+
+// ---- Module mocks (must be before service import) ----
+
+vi.mock('../firebase.js', () => ({
+  getFirestoreDb: vi.fn(() => mockDb),
+  getCollectionName: vi.fn((name: string) => name),
+}));
+
+vi.mock('firebase-functions/logger', () => ({
+  info: vi.fn(),
+}));
+
+// ---- Import service under test ----
+
+import {
+  getRecoverySnapshot,
+  getLatestRecoverySnapshot,
+  getRecoveryHistory,
+  upsertRecoverySnapshot,
+  getRecoveryBaseline,
+  upsertRecoveryBaseline,
+  addWeightEntry,
+  addWeightEntries,
+  getWeightHistory,
+  getLatestWeight,
+} from './firestore-recovery.service.js';
+
+// ---- Test data ----
+
+const userId = 'user-123';
+
+const sampleSnapshot = {
+  date: '2026-02-09',
+  hrvMs: 42,
+  hrvVsBaseline: 16.7,
+  rhrBpm: 52,
+  rhrVsBaseline: -3,
+  sleepHours: 7.8,
+  sleepEfficiency: 92,
+  deepSleepPercent: 18,
+  score: 78,
+  state: 'ready' as const,
+  source: 'healthkit' as const,
+  syncedAt: '2026-02-09T12:00:00.000Z',
+};
+
+const sampleBaseline = {
+  hrvMedian: 45,
+  hrvStdDev: 8.2,
+  rhrMedian: 54,
+  calculatedAt: '2026-02-01T00:00:00.000Z',
+  sampleCount: 30,
+};
+
+const sampleWeight = {
+  date: '2026-02-09',
+  weightLbs: 175.5,
+  source: 'healthkit' as const,
+  syncedAt: '2026-02-09T12:00:00.000Z',
+};
+
+// ---- Helpers ----
+
+type DataFn = () => Record<string, unknown>;
+
+function docExists(data: Record<string, unknown>, id = 'doc-id'): {
+  exists: true;
+  data: DataFn;
+  id: string;
+} {
+  return { exists: true, data: (): Record<string, unknown> => ({ ...data }), id };
+}
+
+function docNotFound(): { exists: false; data: () => undefined } {
+  return { exists: false, data: (): undefined => undefined };
+}
+
+function queryResult(
+  docs: Array<{ id: string; data: DataFn }>,
+): { empty: boolean; docs: typeof docs } {
+  return { empty: docs.length === 0, docs };
+}
+
+// ---- Tests ----
+
+describe('firestore-recovery.service', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // Re-wire the default chain after clearAllMocks resets return values
+    mockDb.collection.mockReturnValue(mockCollectionRef);
+    mockDb.batch.mockReturnValue({ set: mockBatchSet, commit: mockBatchCommit });
+    mockCollectionRef.doc.mockReturnValue(mockDocRef);
+    (mockDocRef['collection'] as ReturnType<typeof vi.fn>).mockReturnValue(mockCollectionRef);
+    mockDocRef['get'] = mockGet;
+    mockDocRef['set'] = mockSet;
+
+    // Query chaining
+    mockOrderBy.mockReturnValue({ get: mockGet, limit: mockLimit });
+    mockLimit.mockReturnValue({ get: mockGet });
+    mockWhere.mockReturnValue({ orderBy: mockOrderBy });
+  });
+
+  // ============ Recovery Snapshots ============
+
+  describe('getRecoverySnapshot', () => {
+    it('returns snapshot when document exists', async () => {
+      mockGet.mockResolvedValueOnce(docExists(sampleSnapshot, '2026-02-09'));
+
+      const result = await getRecoverySnapshot(userId, '2026-02-09');
+
+      expect(result).toEqual(sampleSnapshot);
+      expect(mockDb.collection).toHaveBeenCalledWith('users');
+      expect(mockCollectionRef.doc).toHaveBeenCalledWith(userId);
+    });
+
+    it('returns null when document does not exist', async () => {
+      mockGet.mockResolvedValueOnce(docNotFound());
+
+      const result = await getRecoverySnapshot(userId, '2026-02-09');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getLatestRecoverySnapshot', () => {
+    it('returns the most recent snapshot', async () => {
+      mockGet.mockResolvedValueOnce(
+        queryResult([{ id: '2026-02-09', data: (): Record<string, unknown> => ({ ...sampleSnapshot }) }]),
+      );
+
+      const result = await getLatestRecoverySnapshot(userId);
+
+      expect(result).toEqual(sampleSnapshot);
+      expect(mockOrderBy).toHaveBeenCalledWith('date', 'desc');
+      expect(mockLimit).toHaveBeenCalledWith(1);
+    });
+
+    it('returns null when no snapshots exist', async () => {
+      mockGet.mockResolvedValueOnce(queryResult([]));
+
+      const result = await getLatestRecoverySnapshot(userId);
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('getRecoveryHistory', () => {
+    it('returns array of snapshots ordered by date desc', async () => {
+      const olderSnapshot = { ...sampleSnapshot, date: '2026-02-08', score: 65 };
+      mockGet.mockResolvedValueOnce(
+        queryResult([
+          { id: '2026-02-09', data: (): Record<string, unknown> => ({ ...sampleSnapshot }) },
+          { id: '2026-02-08', data: (): Record<string, unknown> => ({ ...olderSnapshot }) },
+        ]),
+      );
+
+      const result = await getRecoveryHistory(userId, 7);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]).toEqual(sampleSnapshot);
+      expect(result[1]).toEqual(olderSnapshot);
+      expect(mockOrderBy).toHaveBeenCalledWith('date', 'desc');
+      expect(mockLimit).toHaveBeenCalledWith(7);
+    });
+  });
+
+  describe('upsertRecoverySnapshot', () => {
+    it('writes snapshot and returns stored data with syncedAt', async () => {
+      mockSet.mockResolvedValueOnce(undefined);
+
+      const input = {
+        date: '2026-02-09',
+        hrvMs: 42,
+        hrvVsBaseline: 16.7,
+        rhrBpm: 52,
+        rhrVsBaseline: -3,
+        sleepHours: 7.8,
+        sleepEfficiency: 92,
+        deepSleepPercent: 18,
+        score: 78,
+        state: 'ready' as const,
+        source: 'healthkit' as const,
+      };
+
+      const result = await upsertRecoverySnapshot(userId, input);
+
+      expect(result.date).toBe('2026-02-09');
+      expect(result.score).toBe(78);
+      expect(result.state).toBe('ready');
+      expect(result.syncedAt).toBeDefined();
+      expect(mockCollectionRef.doc).toHaveBeenCalledWith('2026-02-09');
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          date: '2026-02-09',
+          score: 78,
+          state: 'ready',
+          source: 'healthkit',
+        }),
+      );
+    });
+  });
+
+  // ============ Recovery Baseline ============
+
+  describe('getRecoveryBaseline', () => {
+    it('returns baseline when document exists', async () => {
+      mockGet.mockResolvedValueOnce(docExists(sampleBaseline, 'recoveryBaseline'));
+
+      const result = await getRecoveryBaseline(userId);
+
+      expect(result).toEqual(sampleBaseline);
+    });
+
+    it('returns null when baseline is not set', async () => {
+      mockGet.mockResolvedValueOnce(docNotFound());
+
+      const result = await getRecoveryBaseline(userId);
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('upsertRecoveryBaseline', () => {
+    it('writes baseline and returns data with calculatedAt', async () => {
+      mockSet.mockResolvedValueOnce(undefined);
+
+      const input = {
+        hrvMedian: 45,
+        hrvStdDev: 8.2,
+        rhrMedian: 54,
+        sampleCount: 30,
+      };
+
+      const result = await upsertRecoveryBaseline(userId, input);
+
+      expect(result.hrvMedian).toBe(45);
+      expect(result.rhrMedian).toBe(54);
+      expect(result.sampleCount).toBe(30);
+      expect(result.calculatedAt).toBeDefined();
+      expect(mockCollectionRef.doc).toHaveBeenCalledWith('recoveryBaseline');
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          hrvMedian: 45,
+          hrvStdDev: 8.2,
+          rhrMedian: 54,
+          sampleCount: 30,
+        }),
+      );
+    });
+  });
+
+  // ============ Weight History ============
+
+  describe('addWeightEntry', () => {
+    it('writes single weight entry and returns with id', async () => {
+      mockSet.mockResolvedValueOnce(undefined);
+
+      const result = await addWeightEntry(userId, {
+        weightLbs: 175.5,
+        date: '2026-02-09',
+      });
+
+      expect(result.id).toBe('2026-02-09');
+      expect(result.weightLbs).toBe(175.5);
+      expect(result.date).toBe('2026-02-09');
+      expect(result.source).toBe('healthkit');
+      expect(result.syncedAt).toBeDefined();
+      expect(mockCollectionRef.doc).toHaveBeenCalledWith('2026-02-09');
+    });
+  });
+
+  describe('addWeightEntries', () => {
+    it('batches writes correctly for multiple entries', async () => {
+      mockBatchCommit.mockResolvedValueOnce(undefined);
+
+      const weights = [
+        { weightLbs: 175.0, date: '2026-02-07' },
+        { weightLbs: 175.5, date: '2026-02-08' },
+        { weightLbs: 176.0, date: '2026-02-09' },
+      ];
+
+      const result = await addWeightEntries(userId, weights);
+
+      expect(result).toBe(3);
+      expect(mockBatchSet).toHaveBeenCalledTimes(3);
+      expect(mockBatchCommit).toHaveBeenCalledTimes(1);
+
+      // Verify each entry was set with correct data
+      for (const weight of weights) {
+        expect(mockBatchSet).toHaveBeenCalledWith(
+          mockDocRef,
+          expect.objectContaining({
+            date: weight.date,
+            weightLbs: weight.weightLbs,
+            source: 'healthkit',
+          }),
+        );
+      }
+    });
+  });
+
+  describe('getWeightHistory', () => {
+    it('returns weight entries ordered by date desc', async () => {
+      const weight1 = { ...sampleWeight, date: '2026-02-09' };
+      const weight2 = { ...sampleWeight, date: '2026-02-08', weightLbs: 174.5 };
+      mockGet.mockResolvedValueOnce(
+        queryResult([
+          { id: '2026-02-09', data: (): Record<string, unknown> => ({ ...weight1 }) },
+          { id: '2026-02-08', data: (): Record<string, unknown> => ({ ...weight2 }) },
+        ]),
+      );
+
+      const result = await getWeightHistory(userId, 30);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]?.id).toBe('2026-02-09');
+      expect(result[0]?.weightLbs).toBe(175.5);
+      expect(result[1]?.id).toBe('2026-02-08');
+      expect(result[1]?.weightLbs).toBe(174.5);
+      expect(mockOrderBy).toHaveBeenCalledWith('date', 'desc');
+      expect(mockLimit).toHaveBeenCalledWith(30);
+    });
+  });
+
+  describe('getLatestWeight', () => {
+    it('returns the most recent weight entry', async () => {
+      mockGet.mockResolvedValueOnce(
+        queryResult([{ id: '2026-02-09', data: (): Record<string, unknown> => ({ ...sampleWeight }) }]),
+      );
+
+      const result = await getLatestWeight(userId);
+
+      expect(result).not.toBeNull();
+      expect(result?.id).toBe('2026-02-09');
+      expect(result?.weightLbs).toBe(175.5);
+      expect(mockOrderBy).toHaveBeenCalledWith('date', 'desc');
+      expect(mockLimit).toHaveBeenCalledWith(1);
+    });
+
+    it('returns null when no weight entries exist', async () => {
+      mockGet.mockResolvedValueOnce(queryResult([]));
+
+      const result = await getLatestWeight(userId);
+
+      expect(result).toBeNull();
+    });
+  });
+});

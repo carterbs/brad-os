@@ -287,6 +287,27 @@ export function createMockMealPlanSessionRepository(): MockMealPlanSessionReposi
   };
 }
 
+// ============ Guided Meditation Repository Mock ============
+
+export interface MockGuidedMeditationRepository extends MockBaseRepository {
+  getCategories: MockFn;
+  findAllByCategory: MockFn;
+  seed: MockFn;
+}
+
+export function createMockGuidedMeditationRepository(): MockGuidedMeditationRepository {
+  return {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findAll: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    getCategories: vi.fn(),
+    findAllByCategory: vi.fn(),
+    seed: vi.fn(),
+  };
+}
+
 // ============ All Repositories Mock ============
 
 export interface MockRepositories {
