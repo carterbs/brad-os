@@ -1,6 +1,6 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import type { WorkoutSet, LogWorkoutSetInput, ModifySetCountResult } from '../shared.js';
-import { NotFoundError, ValidationError } from '../middleware/error-handler.js';
+import { NotFoundError, ValidationError } from '../types/errors.js';
 import {
   WorkoutSetRepository,
   WorkoutRepository,
