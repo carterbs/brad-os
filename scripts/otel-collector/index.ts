@@ -52,7 +52,10 @@ function flattenAttributes(
 }
 
 function nanoToISO(nanoString: string): string {
-  const ms = Math.floor(Number(BigInt(nanoString) / BigInt(1_000_000)));
+  // Handle both integer strings ("1771902620625418000") and
+  // scientific notation ("1.771902620625418e+18") from iOS Swift's String(Double)
+  const nanoNum = Number(nanoString);
+  const ms = Math.floor(nanoNum / 1_000_000);
   return new Date(ms).toISOString();
 }
 
@@ -93,11 +96,11 @@ function handleTraces(body: string): number {
     const resource = flattenAttributes(resourceSpan.resource?.attributes);
     for (const scopeSpan of resourceSpan.scopeSpans ?? []) {
       for (const span of (scopeSpan.spans ?? []) as OTelSpan[]) {
-        const startMs = Number(
-          BigInt(span.startTimeUnixNano) / BigInt(1_000_000)
+        const startMs = Math.floor(
+          Number(span.startTimeUnixNano) / 1_000_000
         );
-        const endMs = Number(
-          BigInt(span.endTimeUnixNano) / BigInt(1_000_000)
+        const endMs = Math.floor(
+          Number(span.endTimeUnixNano) / 1_000_000
         );
         const line = JSON.stringify({
           name: span.name,

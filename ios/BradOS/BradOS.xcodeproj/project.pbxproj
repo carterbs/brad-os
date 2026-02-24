@@ -20,6 +20,7 @@
 		0DB7A1A824E9F05B1A3FA0C0 /* QueuedActionsButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6AD230687CA2537122F156C /* QueuedActionsButton.swift */; };
 		0E30621C5428BFE2F37746AF /* HealthKitSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36761A1FC08D5813476E0958 /* HealthKitSyncService.swift */; };
 		0E7B59F8EC54495D5AFD971E /* TodayCoachDetailView+Sections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 029378B1B953ECC6D2E24AC6 /* TodayCoachDetailView+Sections.swift */; };
+		10D873BC675A7582D50818E2 /* DebugSpanExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A40D415ABF11A83026B63EA /* DebugSpanExporter.swift */; };
 		1259C6E662B064549437CA75 /* BarcodeWalletView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44CA545D816A69914CAA801D /* BarcodeWalletView.swift */; };
 		12FFC4D283D2EFCFE77D8A8A /* CyclingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA13B528976D6158FAD1396F /* CyclingViewModel.swift */; };
 		165E1D28FB054A9CC2557515 /* LoadStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BC1E634DFF6AA2C64A0E1C2 /* LoadStateView.swift */; };
@@ -47,9 +48,11 @@
 		31987F115A5E471B11730A54 /* MealPlanWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06D0B8347A99B93E834A9FED /* MealPlanWidget.swift */; };
 		322C80E6C03891D58961B1EF /* CyclingAPIClientProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1CF9466E261248F84B8305 /* CyclingAPIClientProtocol.swift */; };
 		328E6FBABB08CF31FB025887 /* StretchSupportViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62E7BB00FEA56784F03E89F8 /* StretchSupportViews.swift */; };
+		347954A49AFFE5EC66DB606E /* OpenTelemetryApi in Frameworks */ = {isa = PBXBuildFile; productRef = 2C365D3E9A68924CE353D7B7 /* OpenTelemetryApi */; };
 		35D3E2A9780F237391241D01 /* StravaConnectionView+Sections.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A5ABDB9A6FF40B99D519918 /* StravaConnectionView+Sections.swift */; };
 		36BDCF58471798B9A4004C0D /* StretchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06FAC4C7BDEAE262B3CC404F /* StretchView.swift */; };
 		3702FCF6826CAE89C193FBAF /* WorkoutView+State.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA8E4411DD1899BDF442A5FD /* WorkoutView+State.swift */; };
+		37BD38C462D75BC7B182861A /* OpenTelemetrySdk in Frameworks */ = {isa = PBXBuildFile; productRef = 49D1DF46CB352E85209DFC85 /* OpenTelemetrySdk */; };
 		38D3D0B23693B9645D6A3719 /* BradOSCore+UI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F232BBA94FAC6CA005970E7 /* BradOSCore+UI.swift */; };
 		391F2B6A72126570D7F940FB /* HealthSyncView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98BC0F42E331525748292A4A /* HealthSyncView.swift */; };
 		3930C0FF9E4EF7421AD44DA2 /* MealPlanDashboardCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A5A2096504176F249FB0B8 /* MealPlanDashboardCard.swift */; };
@@ -61,6 +64,7 @@
 		42335B3A7132BA3BB2224097 /* TrainingBlockSetupView+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31359277B8C8FE5BDCA59D2C /* TrainingBlockSetupView+Helpers.swift */; };
 		42EE5173C656ADF9C1C695BE /* MealDayCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB12AF8EB986F19AD034CB01 /* MealDayCard.swift */; };
 		431CE65223D5711937A751A4 /* StatusBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F6E117271DD3981B357748D /* StatusBadge.swift */; };
+		47EF118C5B7551901E3EE7C7 /* DebugLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA3BA96C3ECD9B60D9CAE407 /* DebugLogger.swift */; };
 		4819F332AA63F1CC73662D46 /* SleepHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DE2C7BB07234EEE95ED3FEB /* SleepHistoryView.swift */; };
 		48B95D8E70ABEBCB27F73477 /* ShoppingListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91979ABDCADC3D6A75458062 /* ShoppingListView.swift */; };
 		492A066764F9296B5A4D2297 /* MeditationSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23CC9E869207D94370E11D97 /* MeditationSetupView.swift */; };
@@ -86,6 +90,7 @@
 		6D2BF99C81D7B1DBE00941A0 /* MeditationActiveView+Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F76F096883ADB7649F7A5C3 /* MeditationActiveView+Session.swift */; };
 		7086760953A967D06F2BAF10 /* GuidedMeditation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAB73F3D9DD5B217641D6828 /* GuidedMeditation.swift */; };
 		71F7E5CAE4CE0D1208A6EA4E /* Audio in Resources */ = {isa = PBXBuildFile; fileRef = 527CD29BA4D349413A9C8DCB /* Audio */; };
+		7830646A907886A60C95EDF0 /* DebugTracing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48367AAA8A17A7612172F65D /* DebugTracing.swift */; };
 		7A56E933CA16841AB5FD4EF7 /* CyclingTodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F592A2134BA93D5BC9EC1A1E /* CyclingTodayView.swift */; };
 		7B8201A2E04A9138838B59DC /* Stretch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 673839CCDD11228DB4DB6D4E /* Stretch.swift */; };
 		7DF6FB84198CA880C28A959A /* WeightGoalViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F15EAA6FE7C3883A879E6F3 /* WeightGoalViewModel.swift */; };
@@ -117,6 +122,7 @@
 		A397B3DA95F1A0DC9A40CE99 /* CritiqueInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B354AFB2BE0336D3A833D326 /* CritiqueInputView.swift */; };
 		A3A4FE87341AEDE6F7B75BAD /* MesoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61C6634C0A76C0DD68C01A0E /* MesoView.swift */; };
 		A4A68A7A9A8808841592FDD8 /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB25381B345B2FF366770B4F /* CalendarView.swift */; };
+		A4F58980ACB0F5D79034C463 /* DebugTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89A4252F4022342D62498FF8 /* DebugTelemetry.swift */; };
 		A6E15E924330849C5AF86348 /* WidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE6BEDED51B57B28D925208E /* WidgetBundle.swift */; };
 		A789B0443A126E93F89A03F2 /* CyclingHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B32C19CB0A73AE82221F6B2B /* CyclingHistoryView.swift */; };
 		A9CBFED4F42EFDDF2C0C6B24 /* TrainingBlockSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 233426DF2BD48E5CB18E73F3 /* TrainingBlockSetupView.swift */; };
@@ -181,6 +187,7 @@
 		FB11F03866D780D418E46211 /* TodayCoachCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6761D05F9F343584D09C9D1 /* TodayCoachCard.swift */; };
 		FC753E84EB9EA221AD4ACB4C /* ServiceTypeAliases.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95D04DC6CB28A0C4C2BCC2C /* ServiceTypeAliases.swift */; };
 		FD1BD932914A3DA70FBB91BA /* StretchDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA31BBE648C1B13E904E7BB4 /* StretchDataService.swift */; };
+		FE5DD6984399FDB2EB5F9CE8 /* DebugLogExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D50CEE554C8030F6A3CB19DB /* DebugLogExporter.swift */; };
 		FF3677C13838247AD5F7A2DD /* EfficiencyFactorChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F7282E428085A0EEE9FDABE /* EfficiencyFactorChart.swift */; };
 		FFF24A450C4D84EFFACB4F73 /* MeditationCompleteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE15CBAC22F7DA10D9FB2521 /* MeditationCompleteView.swift */; };
 /* End PBXBuildFile section */
@@ -279,6 +286,7 @@
 		42106456317977B0AA14180D /* StretchSessionManager+Timer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StretchSessionManager+Timer.swift"; sourceTree = "<group>"; };
 		44CA545D816A69914CAA801D /* BarcodeWalletView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeWalletView.swift; sourceTree = "<group>"; };
 		460D19A4C8322DAEFB0E907F /* BarcodeRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeRenderer.swift; sourceTree = "<group>"; };
+		48367AAA8A17A7612172F65D /* DebugTracing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugTracing.swift; sourceTree = "<group>"; };
 		4969BBC9A12B2A735D9E5B4D /* TTSAudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TTSAudioEngine.swift; sourceTree = "<group>"; };
 		49FF31397C3FAAB4210662D7 /* StretchSessionStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchSessionStorage.swift; sourceTree = "<group>"; };
 		4DFB9E814FDDB86E3CDF2C9E /* CyclingDashboardCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingDashboardCard.swift; sourceTree = "<group>"; };
@@ -311,6 +319,8 @@
 		8090949DCAEDF346741B4D5E /* WeightModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightModels.swift; sourceTree = "<group>"; };
 		860F464B6153DE259CA15B43 /* TextToSpeechViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextToSpeechViewModel.swift; sourceTree = "<group>"; };
 		8616F79EF7F50CF746815E39 /* AudioSessionManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionManager.swift; sourceTree = "<group>"; };
+		89A4252F4022342D62498FF8 /* DebugTelemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugTelemetry.swift; sourceTree = "<group>"; };
+		8A40D415ABF11A83026B63EA /* DebugSpanExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugSpanExporter.swift; sourceTree = "<group>"; };
 		8A5ABDB9A6FF40B99D519918 /* StravaConnectionView+Sections.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StravaConnectionView+Sections.swift"; sourceTree = "<group>"; };
 		8AF65E610B77AA6D4EF92D7F /* GuidedMeditationBrowserView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidedMeditationBrowserView.swift; sourceTree = "<group>"; };
 		8C03887944FB1FA369E921A7 /* RestTimerOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RestTimerOverlay.swift; sourceTree = "<group>"; };
@@ -379,7 +389,9 @@
 		D14E61BBD21F155014416196 /* CoachRecommendationCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoachRecommendationCard.swift; sourceTree = "<group>"; };
 		D1FD886F6F9131804F710038 /* LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
 		D4643A92CCBE1B9470038D7D /* GuidedMeditationPreparingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidedMeditationPreparingView.swift; sourceTree = "<group>"; };
+		D50CEE554C8030F6A3CB19DB /* DebugLogExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLogExporter.swift; sourceTree = "<group>"; };
 		DA31BBE648C1B13E904E7BB4 /* StretchDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchDataService.swift; sourceTree = "<group>"; };
+		DA3BA96C3ECD9B60D9CAE407 /* DebugLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLogger.swift; sourceTree = "<group>"; };
 		DA8E4411DD1899BDF442A5FD /* WorkoutView+State.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WorkoutView+State.swift"; sourceTree = "<group>"; };
 		E0541AD3BB9C7C96E443092E /* NowPlayingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingManager.swift; sourceTree = "<group>"; };
 		E3F97FE2F392FE1904E77C88 /* MealPlanTimelineProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealPlanTimelineProvider.swift; sourceTree = "<group>"; };
@@ -425,6 +437,8 @@
 			files = (
 				5D1E29AAE0F9402749492A0E /* BradOSCore in Frameworks */,
 				F1CA155CCE43823E7A2DE27A /* FirebaseAppCheck in Frameworks */,
+				347954A49AFFE5EC66DB606E /* OpenTelemetryApi in Frameworks */,
+				37BD38C462D75BC7B182861A /* OpenTelemetrySdk in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -731,6 +745,18 @@
 			path = Stretch;
 			sourceTree = "<group>";
 		};
+		ACC0C594FFA4E9B3432E61A3 /* Debug */ = {
+			isa = PBXGroup;
+			children = (
+				D50CEE554C8030F6A3CB19DB /* DebugLogExporter.swift */,
+				DA3BA96C3ECD9B60D9CAE407 /* DebugLogger.swift */,
+				8A40D415ABF11A83026B63EA /* DebugSpanExporter.swift */,
+				89A4252F4022342D62498FF8 /* DebugTelemetry.swift */,
+				48367AAA8A17A7612172F65D /* DebugTracing.swift */,
+			);
+			path = Debug;
+			sourceTree = "<group>";
+		};
 		B49E9686920EAEBED52375B5 /* BradOSWatch */ = {
 			isa = PBXGroup;
 			children = (
@@ -800,6 +826,7 @@
 				271C767D84E2084D97BABEDF /* App */,
 				31703FEA1368B9A28F4C0469 /* Audio */,
 				27DE064832740EFE6D2B9ED2 /* Components */,
+				ACC0C594FFA4E9B3432E61A3 /* Debug */,
 				902CB203F68951F01F41A400 /* Extensions */,
 				BB6728928AF4A316229CFE13 /* Models */,
 				C0B13940A74D2399F11588A6 /* Protocols */,
@@ -857,7 +884,7 @@
 			path = Lifting;
 			sourceTree = "<group>";
 		};
-		"TEMP_2C3E9BDB-4B7A-43C7-A9BD-84E6F656AAB8" /* Resources */ = {
+		"TEMP_53DA5451-966E-43FF-A2C5-83586C29E8E2" /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -888,6 +915,8 @@
 			packageProductDependencies = (
 				9212B9164743CD23CA9B7BBF /* BradOSCore */,
 				795777073D266F0F0EDA709F /* FirebaseAppCheck */,
+				2C365D3E9A68924CE353D7B7 /* OpenTelemetryApi */,
+				49D1DF46CB352E85209DFC85 /* OpenTelemetrySdk */,
 			);
 			productName = BradOS;
 			productReference = A7D525D24C778DAE1CFDEA08 /* BradOS.app */;
@@ -966,6 +995,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				7E4620193E8C2A93E0489FFA /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				5F6AEFF5F0EC412946C07B9F /* XCRemoteSwiftPackageReference "opentelemetry-swift-core" */,
 				16D2EC5983DFA6E50B5D556B /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */,
 				058D18E7D1EC3F6995E80819 /* XCLocalSwiftPackageReference "BradOSCore" */,
 			);
@@ -1034,6 +1064,11 @@
 				7A56E933CA16841AB5FD4EF7 /* CyclingTodayView.swift in Sources */,
 				12FFC4D283D2EFCFE77D8A8A /* CyclingViewModel.swift in Sources */,
 				E3A76BA49665F7677B89247B /* DayActivityCard.swift in Sources */,
+				FE5DD6984399FDB2EB5F9CE8 /* DebugLogExporter.swift in Sources */,
+				47EF118C5B7551901E3EE7C7 /* DebugLogger.swift in Sources */,
+				10D873BC675A7582D50818E2 /* DebugSpanExporter.swift in Sources */,
+				A4F58980ACB0F5D79034C463 /* DebugTelemetry.swift in Sources */,
+				7830646A907886A60C95EDF0 /* DebugTracing.swift in Sources */,
 				7E823C5A6C6C7363BD80288B /* DefaultServices.swift in Sources */,
 				FF3677C13838247AD5F7A2DD /* EfficiencyFactorChart.swift in Sources */,
 				90ABB2C6223CBAEA233D2853 /* EmptyStateView.swift in Sources */,
@@ -1515,6 +1550,14 @@
 				minimumVersion = 0.63.2;
 			};
 		};
+		5F6AEFF5F0EC412946C07B9F /* XCRemoteSwiftPackageReference "opentelemetry-swift-core" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/open-telemetry/opentelemetry-swift-core";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.3.0;
+			};
+		};
 		7E4620193E8C2A93E0489FFA /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
@@ -1535,6 +1578,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 16D2EC5983DFA6E50B5D556B /* XCRemoteSwiftPackageReference "SwiftLintPlugins" */;
 			productName = "plugin:SwiftLintBuildToolPlugin";
+		};
+		2C365D3E9A68924CE353D7B7 /* OpenTelemetryApi */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5F6AEFF5F0EC412946C07B9F /* XCRemoteSwiftPackageReference "opentelemetry-swift-core" */;
+			productName = OpenTelemetryApi;
+		};
+		49D1DF46CB352E85209DFC85 /* OpenTelemetrySdk */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5F6AEFF5F0EC412946C07B9F /* XCRemoteSwiftPackageReference "opentelemetry-swift-core" */;
+			productName = OpenTelemetrySdk;
 		};
 		795777073D266F0F0EDA709F /* FirebaseAppCheck */ = {
 			isa = XCSwiftPackageProductDependency;
