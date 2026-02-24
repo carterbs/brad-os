@@ -95,3 +95,4 @@ npm run lint:architecture  # Architecture enforcement (layer deps, schema bounda
 - **[Debugging Cloud Functions](docs/guides/debugging-cloud-functions.md)** — Ordered checklist: rewrite paths, deployment state, App Check
 - **[iOS Build and Run](docs/guides/ios-build-and-run.md)** — xcodebuild commands, simulator setup, SwiftLint via build, exploratory testing
 - **[Progressive Overload](docs/guides/progressive-overload.md)** — Business logic for workout progression, data architecture
+- **[Debug Telemetry](docs/guides/debug-telemetry.md)** — `npm run otel:start`, query `.otel/traces.jsonl` and `.otel/logs.jsonl` with Grep for structured iOS debugging
