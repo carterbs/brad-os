@@ -19,6 +19,7 @@ module.exports = {
       './tsconfig.json',
       './packages/*/tsconfig.json',
       './packages/*/tsconfig.eslint.json',
+      './scripts/tsconfig.eslint.json',
     ],
     tsconfigRootDir: __dirname,
   },
@@ -44,6 +45,5 @@ module.exports = {
     '*.config.ts',
     '.eslintrc.cjs',
     'vitest.workspace.ts',
-    'scripts/',
   ],
 };

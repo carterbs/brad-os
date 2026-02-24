@@ -98,6 +98,17 @@ describe('Exercises Handler', () => {
 
 The architecture linter (checks 15 and 16) enforces shared factory usage and prohibits inline ApiResponse definitions.
 
+## Focused Tests (.only) Policy
+
+**NEVER commit focused tests.** Using `it.only`, `describe.only`, `test.only`, `fit`, or `fdescribe` silently skips all other tests in the suite. vitest will report success even though most tests never ran.
+
+For debugging, use vitest's `--grep` flag instead:
+```bash
+npx vitest run --grep "test name pattern"
+```
+
+The architecture linter (check 18) enforces this — focused tests cause a build failure.
+
 ## QA / Simulator Testing
 
 When asked to QA on a simulator, always validate the feature END-TO-END using the MCP iOS simulator tools. Don't just verify the build passes — actually tap through the UI and confirm the feature works.

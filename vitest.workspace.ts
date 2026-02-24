@@ -12,4 +12,13 @@ export default defineWorkspace([
       globals: true,
     },
   },
+  {
+    test: {
+      name: 'scripts',
+      root: '.',
+      environment: 'node',
+      include: ['scripts/**/*.test.ts'],
+      globals: true,
+    },
+  },
 ]);

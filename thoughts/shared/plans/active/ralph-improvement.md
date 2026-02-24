@@ -1,454 +1,271 @@
-# Shared Test Bootstrap: Centralize Test Boilerplate and Graduate Lint Enforcement
+# Architecture Linter Self-Tests: Test the Guards, Add .only Detection
 
 ## Why
 
-This is the highest-leverage harness improvement because it addresses the **most pervasive code duplication in the entire codebase** and follows the project's own principle-to-linter graduation pipeline.
+The architecture linter (`scripts/lint-architecture.ts`) is the **backbone of quality enforcement** in this codebase. It is 1,466 lines of TypeScript implementing 16 checks that enforce every architectural invariant — layer dependencies, schema-at-boundary, type deduplication, iOS architecture layers, document staleness, test quality, and more. It runs in `npm run validate` and is the last gate before code merges.
 
-Current state (measured):
-- **26 files** define an identical inline `ApiResponse<T>` interface (~8 lines each = 208 duplicated lines)
-- **23 files** define inline `createTest*`/`createMock*` factory functions (~15-20 lines each = 350+ duplicated lines)
-- **18 files** define identical `vi.mock('../firebase.js')` boilerplate
-- **18 files** define identical `vi.mock('../middleware/app-check.js')` boilerplate
-- **ZERO handler or service test files** import from the shared `__tests__/utils/` directory
-- Architecture lint check #15 detects this as a **warning only** and reports 16 violations — but the golden principles document explicitly says conventions graduate to lint errors after repeated violations
+**It has zero tests.**
 
-The shared test utilities already exist in `__tests__/utils/` (fixtures.ts, mock-repository.ts, mock-express.ts) but are unused. This improvement:
-1. Fills gaps in the shared utilities (missing `ApiResponse`, missing meal planning fixtures/mocks)
-2. Migrates all 31 test files to use shared utilities
-3. Graduates lint check #15 from warning to error
-4. Adds a new check for inline `ApiResponse<T>` duplication
-5. Eliminates ~550+ lines of duplicated code
+This is the highest-leverage harness improvement because:
+
+1. **Every harness improvement modifies the linter.** Improvements #1 and #2 both added/modified checks. Future improvements will continue to do so. Without tests, each change risks silently breaking an existing check.
+
+2. **A broken check is invisible.** If `checkNoConsoleLog` silently starts returning `passed: true` for all files, nothing catches it. The linter output says "clean" and nobody knows the check stopped working. The codebase gradually degrades.
+
+3. **The check numbering has already drifted.** The inline comment at line 1050 says "Check 11" but so does line 987 — the comments are out of sync with the header. This is a canary: the linter is already accumulating drift that tests would catch.
+
+4. **`process.cwd()` vs `ROOT_DIR` inconsistency.** Some checks use `process.cwd()` for violation paths, others use `ROOT_DIR`. This makes violation messages unpredictable and untestable.
+
+5. **Scripts are excluded from ESLint.** Line 47 of `.eslintrc.cjs` ignores `scripts/`. The linter — the most critical infrastructure code — has no lint enforcement of its own. `any` types, missing return types, or floating promises would not be caught.
+
+6. **Missing `.only` detection is a critical gap.** The linter checks for `.skip`/`xit`/`xdescribe` (check 13) but NOT for `.only`/`test.only`/`fit`/`fdescribe`. If an agent commits `it.only(...)`, vitest runs only that one test — silently skipping hundreds of others. The build "passes" but coverage drops to near zero. This is a catastrophic silent failure mode.
 
 After this improvement:
-- Agents writing new tests have ONE canonical pattern to follow
-- The lint error catches any regression to inline patterns
-- Test files are shorter and more focused on test logic, not boilerplate
+- All 17 check functions have positive and negative test cases
+- Any change to a check is verified against known fixtures
+- The `.only` gap is closed (check 17)
+- Violation message paths are consistent and predictable
+- The linter code itself is ESLint-enforced
+- Future harness improvements can modify checks with confidence
 
 ## What
 
-### Phase 1: Add Missing Shared Test Utilities
+### Phase 1: Extract Check Functions into Testable Module
 
-#### 1a. Create `packages/functions/src/__tests__/utils/api-types.ts`
+The current `scripts/lint-architecture.ts` is a monolithic file where:
+- Module-level constants (`ROOT_DIR`, `FUNCTIONS_SRC`) are hardcoded
+- All 16 check functions reference these constants directly
+- `main()` calls `process.exit()`, making the module unsafe to import in tests
 
-The test-specific `ApiResponse<T>` type. This differs from `types/api.ts` (which uses discriminated unions with `success: true` / `success: false`) — tests need a "loose" combined type for assertion convenience.
+**Refactoring approach**: Split into two files:
+- `scripts/lint-checks.ts` — Exports all check functions, each accepting a `LinterConfig` parameter
+- `scripts/lint-architecture.ts` — Thin CLI runner that creates a config and calls checks
+
+#### 1a. Create `scripts/lint-checks.ts`
+
+This file exports:
 
 ```typescript
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+
+export interface LinterConfig {
+  rootDir: string;
+  functionsSrc: string;
+}
+
+export interface CheckResult {
+  name: string;
+  passed: boolean;
+  violations: string[];
+}
+
+export function createDefaultConfig(): LinterConfig {
+  const rootDir = path.resolve(import.meta.dirname ?? __dirname, '..');
+  return {
+    rootDir,
+    functionsSrc: path.join(rootDir, 'packages/functions/src'),
+  };
+}
+
+// All 16 existing check functions, refactored to accept config:
+export function checkLayerDeps(config: LinterConfig): CheckResult { ... }
+export function checkSchemaBoundary(config: LinterConfig): CheckResult { ... }
+export function checkTypeDedup(config: LinterConfig): CheckResult { ... }
+export function checkFirebaseRoutes(config: LinterConfig): CheckResult { ... }
+export function checkIosLayers(config: LinterConfig): CheckResult { ... }
+export function checkArchMapRefs(config: LinterConfig): CheckResult { ... }
+export function checkClaudeMdRefs(config: LinterConfig): CheckResult { ... }
+export function checkOrphanFeatures(config: LinterConfig): CheckResult { ... }
+export function checkPlanLifecycle(config: LinterConfig): CheckResult { ... }
+export function checkNoConsoleLog(config: LinterConfig): CheckResult { ... }
+export function checkNoRawUrlSession(config: LinterConfig): CheckResult { ... }
+export function checkTypesInTypesDir(config: LinterConfig): CheckResult { ... }
+export function checkSchemasInSchemasDir(config: LinterConfig): CheckResult { ... }
+export function checkNoSkippedTests(config: LinterConfig): CheckResult { ... }
+export function checkUntestedHighRisk(config: LinterConfig): CheckResult { ... }
+export function checkTestFactoryUsage(config: LinterConfig): CheckResult { ... }
+export function checkNoInlineApiResponse(config: LinterConfig): CheckResult { ... }
+
+// NEW check 17:
+export function checkNoFocusedTests(config: LinterConfig): CheckResult { ... }
+
+// Warning (non-blocking):
+export function checkQualityGradesFreshness(config: LinterConfig): { stale: boolean; message: string } { ... }
+```
+
+**Mechanical refactoring for each check function:**
+
+Every reference to the module-level `ROOT_DIR` becomes `config.rootDir`.
+Every reference to `FUNCTIONS_SRC` becomes `config.functionsSrc`.
+Every `path.relative(process.cwd(), ...)` becomes `path.relative(config.rootDir, ...)` for consistent violation paths.
+
+Example — `checkNoConsoleLog` before:
+```typescript
+function checkNoConsoleLog(): CheckResult {
+  const SRC_DIR = FUNCTIONS_SRC;
+  // ...
+  const relPath = path.relative(process.cwd(), file);
+```
+
+After:
+```typescript
+export function checkNoConsoleLog(config: LinterConfig): CheckResult {
+  const SRC_DIR = config.functionsSrc;
+  // ...
+  const relPath = path.relative(config.rootDir, file);
+```
+
+Apply this same transformation to all 16 functions. The logic inside each function stays identical — only the path sources change.
+
+**Also fix the check numbering comments.** Update inline comments to match the header:
+- Line ~987: `// Check 10: No raw URLSession in iOS` (currently says "Check 11" — wrong)
+- Line ~1050: `// Check 11: Domain types only in types/` (currently duplicates "Check 11" — fix to 11)
+- Line ~1100: `// Check 12: Zod schemas only in schemas/`
+- Line ~1168: `// Check 13: No skipped tests`
+- Line ~1224: `// Check 14: Untested high-risk files`
+- Line ~1279: `// Check 15: Shared test factory usage`
+- Line ~1327: `// Check 16: No inline ApiResponse in tests`
+- NEW: `// Check 17: No focused tests (.only)`
+
+#### 1b. Rewrite `scripts/lint-architecture.ts` as Thin Runner
+
+Replace the entire file with a thin runner that imports from `lint-checks.ts`:
+
+```typescript
+#!/usr/bin/env tsx
 /**
- * Test-specific API response type for supertest assertions.
+ * Architecture Enforcement Linter — CLI Runner
  *
- * This intentionally differs from the production ApiResponse/ApiError discriminated
- * union in types/api.ts. Tests need a single combined type because supertest responses
- * are parsed as unknown JSON — we can't use discriminated union narrowing.
+ * Imports check functions from lint-checks.ts and runs them in sequence.
+ * See lint-checks.ts for the actual check implementations.
  */
-export interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-    details?: unknown;
-  };
-}
-```
 
-No vitest import needed — this is a pure type file.
-
-#### 1b. Add meal planning fixtures to `packages/functions/src/__tests__/utils/fixtures.ts`
-
-Add factory functions for the 4 meal planning domain types used in handler tests. Add these after the existing meditation section (~line 220):
-
-```typescript
-// ============ Meal Fixtures ============
-
-export function createMeal(overrides?: Partial<Meal>): Meal {
-  return {
-    id: generateId('meal'),
-    name: 'Chicken Stir Fry',
-    meal_type: 'dinner',
-    effort: 5,
-    has_red_meat: false,
-    prep_ahead: false,
-    url: 'https://example.com/recipe',
-    last_planned: null,
-    ...createTimestamps(),
-    ...overrides,
-  };
-}
-
-export function createRecipe(overrides?: Partial<Recipe>): Recipe {
-  return {
-    id: generateId('recipe'),
-    name: 'Garlic Chicken',
-    description: 'A simple garlic chicken recipe',
-    prep_time: 15,
-    cook_time: 30,
-    servings: 4,
-    ingredients: [],
-    steps: [],
-    ...createTimestamps(),
-    ...overrides,
-  };
-}
-
-export function createIngredient(overrides?: Partial<Ingredient>): Ingredient {
-  return {
-    id: generateId('ingredient'),
-    name: 'Chicken Breast',
-    category: 'protein',
-    unit: 'lbs',
-    ...createTimestamps(),
-    ...overrides,
-  };
-}
-```
-
-Import the required types at the top of the file:
-```typescript
-import type { Meal } from '../../types/meal.js';
-import type { Recipe } from '../../types/recipe.js';
-import type { Ingredient } from '../../types/ingredient.js';
-```
-
-**Important**: Check the actual type definitions in `types/meal.ts`, `types/recipe.ts`, and `types/ingredient.ts` when implementing. The factory defaults above are based on the inline factories in handler tests — verify all required fields are covered.
-
-#### 1c. Add meal planning mock repos to `packages/functions/src/__tests__/utils/mock-repository.ts`
-
-Add after the existing MeditationSession section (~line 217):
-
-```typescript
-// ============ Meal Repository Mock ============
-
-export interface MockMealRepository extends MockBaseRepository {
-  findByType: MockFn;
-  updateLastPlanned: MockFn;
-}
-
-export function createMockMealRepository(): MockMealRepository {
-  return {
-    create: vi.fn(),
-    findById: vi.fn(),
-    findAll: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    findByType: vi.fn(),
-    updateLastPlanned: vi.fn(),
-  };
-}
-
-// ============ Recipe Repository Mock ============
-
-export interface MockRecipeRepository extends MockBaseRepository {
-  findByMealId: MockFn;
-}
-
-export function createMockRecipeRepository(): MockRecipeRepository {
-  return {
-    create: vi.fn(),
-    findById: vi.fn(),
-    findAll: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    findByMealId: vi.fn(),
-  };
-}
-
-// ============ Ingredient Repository Mock ============
-
-export interface MockIngredientRepository extends MockBaseRepository {
-  findByCategory: MockFn;
-}
-
-export function createMockIngredientRepository(): MockIngredientRepository {
-  return {
-    create: vi.fn(),
-    findById: vi.fn(),
-    findAll: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    findByCategory: vi.fn(),
-  };
-}
-
-// ============ MealPlan Session Repository Mock ============
-
-export interface MockMealPlanSessionRepository extends MockBaseRepository {
-  findByStatus: MockFn;
-}
-
-export function createMockMealPlanSessionRepository(): MockMealPlanSessionRepository {
-  return {
-    create: vi.fn(),
-    findById: vi.fn(),
-    findAll: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    findByStatus: vi.fn(),
-  };
-}
-```
-
-**Important**: Verify the actual repository interfaces by reading the repository source files (`repositories/meal.repository.ts`, etc.) before implementing. The mock must cover all methods the handler tests exercise.
-
-Also add these to the `MockRepositories` interface and `createMockRepositories()` function:
-```typescript
-export interface MockRepositories {
-  // ... existing repos ...
-  mealRepository: MockMealRepository;
-  recipeRepository: MockRecipeRepository;
-  ingredientRepository: MockIngredientRepository;
-  mealPlanSessionRepository: MockMealPlanSessionRepository;
-}
-```
-
-#### 1d. Update barrel export in `packages/functions/src/__tests__/utils/index.ts`
-
-Add the new module:
-```typescript
-// Test-specific API types
-export * from './api-types.js';
-```
-
-### Phase 2: Migrate Handler Tests (14 files)
-
-Each handler test file follows the same migration pattern. Here is the canonical **before/after** using `exercises.test.ts` as the example:
-
-**Before** (~65 lines of boilerplate):
-```typescript
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import request from 'supertest';
-import type { Response } from 'supertest';
-import type { Exercise } from '../shared.js';
-
-// Type for API response body
-interface ApiResponse<T = unknown> {              // ← INLINE: remove
-  success: boolean;
-  data?: T;
-  error?: { code: string; message: string; };
-}
-
-vi.mock('../firebase.js', () => ({                // ← KEEP: vitest hoisting
-  getFirestoreDb: vi.fn(),
-}));
-
-vi.mock('../middleware/app-check.js', () => ({     // ← KEEP: vitest hoisting
-  requireAppCheck: (_req: unknown, _res: unknown, next: () => void): void => next(),
-}));
-
-const mockExerciseRepo = {                        // ← INLINE: replace
-  findAll: vi.fn(),
-  findDefaultExercises: vi.fn(),
-  // ... 6 more methods
-};
-
-const mockWorkoutSetRepo = {                      // ← INLINE: replace
-  findCompletedByExerciseId: vi.fn(),
-};
-
-vi.mock('../repositories/exercise.repository.js', () => ({
-  ExerciseRepository: vi.fn().mockImplementation(() => mockExerciseRepo),
-}));
-
-vi.mock('../repositories/workout-set.repository.js', () => ({
-  WorkoutSetRepository: vi.fn().mockImplementation(() => mockWorkoutSetRepo),
-}));
-
-import { exercisesApp } from './exercises.js';
-
-function createTestExercise(overrides: Partial<Exercise> = {}): Exercise {  // ← INLINE: replace
-  return {
-    id: 'exercise-1',
-    name: 'Bench Press',
-    weight_increment: 5,
-    is_custom: false,
-    created_at: '2024-01-01T00:00:00.000Z',
-    updated_at: '2024-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
-```
-
-**After** (~25 lines of boilerplate):
-```typescript
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import request from 'supertest';
-import type { Response } from 'supertest';
 import {
-  type ApiResponse,
-  createExercise,
-  createMockExerciseRepository,
-  createMockWorkoutSetRepository,
-} from '../__tests__/utils/index.js';
-
-// Mock firebase before importing the handler
-vi.mock('../firebase.js', () => ({
-  getFirestoreDb: vi.fn(),
-}));
-
-// Mock app-check middleware
-vi.mock('../middleware/app-check.js', () => ({
-  requireAppCheck: (_req: unknown, _res: unknown, next: () => void): void => next(),
-}));
-
-// Mock the repositories
-const mockExerciseRepo = createMockExerciseRepository();
-const mockWorkoutSetRepo = createMockWorkoutSetRepository();
-
-vi.mock('../repositories/exercise.repository.js', () => ({
-  ExerciseRepository: vi.fn().mockImplementation(() => mockExerciseRepo),
-}));
-
-vi.mock('../repositories/workout-set.repository.js', () => ({
-  WorkoutSetRepository: vi.fn().mockImplementation(() => mockWorkoutSetRepo),
-}));
-
-// Import after mocks
-import { exercisesApp } from './exercises.js';
-```
-
-**Key migration rules:**
-
-1. **`ApiResponse<T>`**: Remove inline interface → import `type ApiResponse` from `..//__tests__/utils/index.js`
-2. **`vi.mock()` calls**: KEEP inline. Vitest hoists these — they cannot be extracted to shared modules.
-3. **Mock repo objects**: Replace inline object literals → call shared `createMock*Repository()`. The `vi.mock()` factory still references the local variable.
-4. **`createTest*` factories**: Replace → import `create*` from shared fixtures. If tests assert on hardcoded IDs like `'exercise-1'`, pass `{ id: 'exercise-1' }` as an override.
-5. **Type-only imports from `../shared.js`**: Remove if the test only used the type for factory typing. The shared `createExercise()` already returns `Exercise`.
-
-**Files to migrate (14 handler test files):**
-
-| File | ApiResponse | Factory Replacement | Mock Repo Replacement |
-|------|------------|--------------------|-----------------------|
-| `handlers/exercises.test.ts` | Yes | `createTestExercise` → `createExercise` | `mockExerciseRepo` → `createMockExerciseRepository()`, `mockWorkoutSetRepo` → `createMockWorkoutSetRepository()` |
-| `handlers/workouts.test.ts` | Yes | `createTestWorkout`, `createTestWorkoutSet` → shared | `mockWorkoutRepo` → `createMockWorkoutRepository()`, `mockWorkoutSetRepo` → `createMockWorkoutSetRepository()` |
-| `handlers/plans.test.ts` | Yes | `createTestPlan`, `createTestPlanDay`, `createTestPlanDayExercise`, `createTestMesocycle`, `createTestExercise` → shared | All 5 mock repos → shared factories |
-| `handlers/mesocycles.test.ts` | Yes | `createTestMesocycle` → `createMesocycle` | `mockMesocycleRepo` → `createMockMesocycleRepository()` |
-| `handlers/workoutSets.test.ts` | Yes | `createTestWorkoutSet` → `createWorkoutSet` | Mock repos → shared |
-| `handlers/stretchSessions.test.ts` | Yes | `createTestStretchSession` → `createStretchSession` | `mockStretchSessionRepo` → `createMockStretchSessionRepository()` |
-| `handlers/stretches.test.ts` | Yes | Inline stretch factories → shared | Mock repos → check if covered |
-| `handlers/meditationSessions.test.ts` | Yes | `createTestMeditationSession` → `createMeditationSession` | `mockMeditationSessionRepo` → `createMockMeditationSessionRepository()` |
-| `handlers/meals.test.ts` | Yes | `createTestMeal` → `createMeal` (new in Phase 1) | `mockMealRepo` → `createMockMealRepository()` (new in Phase 1) |
-| `handlers/ingredients.test.ts` | Yes | Inline factories → `createIngredient` (new) | `mockIngredientRepo` → `createMockIngredientRepository()` (new) |
-| `handlers/recipes.test.ts` | Yes | Inline factories → `createRecipe` (new) | `mockRecipeRepo` → `createMockRecipeRepository()` (new) |
-| `handlers/mealplans.test.ts` | Yes | Inline factories → shared | Mock repos → shared |
-| `handlers/calendar.test.ts` | Yes | Inline factories → shared where available | Service mocks stay inline |
-| `handlers/cycling.test.ts` | Yes | Inline `createTestActivity` etc. → shared if added, else keep | Service mocks stay inline (uses `vi.hoisted()`) |
-
-**Note on cycling/health/today-coach handler tests**: These tests mock **services** rather than repositories (e.g., `mockCyclingService` via `vi.hoisted()`). Service mocks are handler-specific and stay inline. Only the `ApiResponse<T>` and any `createTest*` factories should be migrated. If the inline factory creates domain objects that don't have shared fixtures yet, either:
-- Add the fixture to `fixtures.ts` if the type is reusable (e.g., `CyclingActivity`)
-- Leave the factory inline if it's truly handler-specific
-
-Also migrate `handlers/health.test.ts`, `handlers/health-sync.test.ts`, `handlers/cycling-coach.test.ts`, and `handlers/today-coach.test.ts` — at minimum replace their inline `ApiResponse<T>`.
-
-### Phase 3: Migrate Service Tests (9 files)
-
-Same pattern as handler tests. Service tests are in `packages/functions/src/services/`:
-
-| File | ApiResponse | Factory | Notes |
-|------|------------|---------|-------|
-| `workout-set.service.test.ts` | Check | `createTest*` → shared | Lifting fixtures exist |
-| `workout.service.test.ts` | Check | `createTest*` → shared | Lifting fixtures exist |
-| `progression.service.test.ts` | Check | `createTest*` → shared | Progression fixtures exist |
-| `dynamic-progression.service.test.ts` | Check | `createTest*` → shared | Progression fixtures exist |
-| `plan-modification.service.test.ts` | Check | `createTest*` → shared | Lifting fixtures exist |
-| `mesocycle.service.test.ts` | Check | `createTest*` → shared; also has `vi.mock('../firebase.js')` | |
-| `calendar.service.test.ts` | Check | `createTest*` → shared where available | Calendar fixtures may be handler-specific |
-| `mealplan-critique.service.test.ts` | Check | `createTest*` → shared | Meal planning fixtures new in Phase 1 |
-| `mealplan-operations.service.test.ts` | Check | `createTest*` → shared | Meal planning fixtures new in Phase 1 |
-
-For each file: read it first, identify which inline patterns can be replaced with shared imports, and apply the same migration rules from Phase 2.
-
-### Phase 4: Migrate Integration Tests — ApiResponse Only (8 files)
-
-Integration tests in `packages/functions/src/__tests__/integration/` use `supertest` against the real emulator. They don't mock firebase or repos. They DO have:
-- Inline `ApiResponse<T>` interface (same as handler tests)
-- Sometimes inline `Exercise`/`Workout` interfaces that duplicate `types/*.ts`
-
-Migration: Replace inline `ApiResponse<T>` with import from `../utils/index.js`. For inline domain type interfaces, replace with imports from `../../shared.js`.
-
-Files:
-- `__tests__/integration/exercises.integration.test.ts`
-- `__tests__/integration/workouts.integration.test.ts`
-- `__tests__/integration/plans.integration.test.ts`
-- `__tests__/integration/mesocycles.integration.test.ts`
-- `__tests__/integration/workoutSets.integration.test.ts`
-- `__tests__/integration/stretchSessions.integration.test.ts`
-- `__tests__/integration/meditationSessions.integration.test.ts`
-- `__tests__/integration/calendar.integration.test.ts`
-
-(Also check `health.integration.test.ts` if it exists.)
-
-### Phase 5: Graduate Architecture Lint Check
-
-#### 5a. Move check from warning to error in `scripts/lint-architecture.ts`
-
-At line ~1369-1371, move `checkTestFactoryUsage` from the `warningChecks` array to the `checks` array:
-
-```typescript
-// Before (line 1332-1348):
-const checks: Array<() => CheckResult> = [
-  // ... 15 existing checks ...
+  type LinterConfig,
+  type CheckResult,
+  createDefaultConfig,
+  checkLayerDeps,
+  checkSchemaBoundary,
+  checkTypeDedup,
+  checkFirebaseRoutes,
+  checkIosLayers,
+  checkArchMapRefs,
+  checkClaudeMdRefs,
+  checkOrphanFeatures,
+  checkPlanLifecycle,
+  checkNoConsoleLog,
+  checkNoRawUrlSession,
+  checkTypesInTypesDir,
+  checkSchemasInSchemasDir,
+  checkNoSkippedTests,
   checkUntestedHighRisk,
-];
-
-// After:
-const checks: Array<() => CheckResult> = [
-  // ... 15 existing checks ...
-  checkUntestedHighRisk,
-  checkTestFactoryUsage,  // Graduated from warning to error
-];
-```
-
-Remove it from `warningChecks` (line 1369-1371):
-```typescript
-// Before:
-const warningChecks: Array<() => CheckResult> = [
   checkTestFactoryUsage,
-];
+  checkNoInlineApiResponse,
+  checkNoFocusedTests,
+  checkQualityGradesFreshness,
+} from './lint-checks.js';
 
-// After:
-const warningChecks: Array<() => CheckResult> = [];
-```
+// Color helpers
+const green = (s: string): string => `\x1b[32m${s}\x1b[0m`;
+const yellow = (s: string): string => `\x1b[33m${s}\x1b[0m`;
+const red = (s: string): string => `\x1b[31m${s}\x1b[0m`;
+const bold = (s: string): string => `\x1b[1m${s}\x1b[0m`;
+const dim = (s: string): string => `\x1b[2m${s}\x1b[0m`;
 
-#### 5b. Add new check for inline ApiResponse in test files
+function main(): void {
+  const config = createDefaultConfig();
 
-Add a new check function after `checkTestFactoryUsage` (~line 1323):
+  console.log(bold('\n=== Architecture Enforcement ===\n'));
 
-```typescript
-// ─────────────────────────────────────────────────────────────────────────────
-// Check 17: No inline ApiResponse in test files
-//
-// Test files should import ApiResponse from __tests__/utils/api-types.ts
-// rather than defining their own inline interface.
-// ─────────────────────────────────────────────────────────────────────────────
-
-function checkNoInlineApiResponse(): CheckResult {
-  const name = 'No inline ApiResponse in tests';
-  const violations: string[] = [];
-
-  const testDirs = [
-    path.join(FUNCTIONS_SRC, 'handlers'),
-    path.join(FUNCTIONS_SRC, 'services'),
-    path.join(FUNCTIONS_SRC, 'repositories'),
-    path.join(FUNCTIONS_SRC, '__tests__', 'integration'),
+  const checks: Array<() => CheckResult> = [
+    () => checkLayerDeps(config),
+    () => checkSchemaBoundary(config),
+    () => checkTypeDedup(config),
+    () => checkFirebaseRoutes(config),
+    () => checkIosLayers(config),
+    () => checkArchMapRefs(config),
+    () => checkClaudeMdRefs(config),
+    () => checkOrphanFeatures(config),
+    () => checkPlanLifecycle(config),
+    () => checkNoConsoleLog(config),
+    () => checkNoRawUrlSession(config),
+    () => checkTypesInTypesDir(config),
+    () => checkSchemasInSchemasDir(config),
+    () => checkNoSkippedTests(config),
+    () => checkUntestedHighRisk(config),
+    () => checkTestFactoryUsage(config),
+    () => checkNoInlineApiResponse(config),
+    () => checkNoFocusedTests(config),
   ];
 
-  const inlinePattern = /^interface ApiResponse/m;
+  // ... rest of runner logic (results, summary, exit codes) stays the same ...
 
-  for (const dir of testDirs) {
-    if (!fs.existsSync(dir)) continue;
+  const freshness = checkQualityGradesFreshness(config);
+  // ... warning display logic stays the same ...
+}
 
-    const testFiles = fs.readdirSync(dir).filter(
-      (f) => f.endsWith('.test.ts') || f.endsWith('.spec.ts')
-    );
+main();
+```
 
-    for (const file of testFiles) {
-      const fullPath = path.join(dir, file);
-      const content = fs.readFileSync(fullPath, 'utf-8');
+The runner keeps the color helpers, result display, summary, and `process.exit()` calls. Only the check functions are imported from the other module.
 
-      if (inlinePattern.test(content)) {
-        const relPath = path.relative(ROOT_DIR, fullPath);
+### Phase 2: Add Check 17 — No Focused Tests (.only)
+
+Add to `scripts/lint-checks.ts`:
+
+```typescript
+// ─────────────────────────────────────────────────────────────────────────────
+// Check 17: No focused tests (.only)
+//
+// Tests must never be focused with .only — this silently skips all other tests.
+// If vitest runs with .only, only that single test executes and the rest are
+// skipped without any failure signal. This is worse than .skip because it's
+// completely invisible in CI output.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function checkNoFocusedTests(config: LinterConfig): CheckResult {
+  const name = 'No focused tests (.only)';
+
+  function collectTestFiles(dir: string): string[] {
+    const results: string[] = [];
+    if (!fs.existsSync(dir)) return results;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === 'node_modules') continue;
+        results.push(...collectTestFiles(fullPath));
+      } else if (
+        entry.isFile() &&
+        (entry.name.endsWith('.test.ts') || entry.name.endsWith('.spec.ts'))
+      ) {
+        results.push(fullPath);
+      }
+    }
+    return results;
+  }
+
+  const files = collectTestFiles(config.rootDir);
+  const violations: string[] = [];
+  const onlyPattern = /\b(it\.only|describe\.only|test\.only|fit|fdescribe)\s*\(/;
+
+  for (const file of files) {
+    const content = fs.readFileSync(file, 'utf-8');
+    const lines = content.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!;
+      if (/^\s*\/\//.test(line)) continue;
+
+      const match = onlyPattern.exec(line);
+      if (match) {
+        const relPath = path.relative(config.rootDir, file);
         violations.push(
-          `${relPath} defines inline ApiResponse interface.\n` +
-          `    Import from __tests__/utils/api-types.ts instead.`
+          `${relPath}:${i + 1} has a focused test (${match[1]}).\n` +
+          `    Rule: Never commit focused tests — .only silently skips all other tests in the suite.\n` +
+          `    Fix: Remove the .only modifier. If debugging, use vitest's --grep flag instead:\n` +
+          `         npx vitest run --grep "test name pattern"\n` +
+          `    See: docs/conventions/testing.md`
         );
       }
     }
@@ -458,197 +275,721 @@ function checkNoInlineApiResponse(): CheckResult {
 }
 ```
 
-Add `checkNoInlineApiResponse` to the `checks` array.
+This mirrors `checkNoSkippedTests` exactly in structure but catches the complementary problem: `.only` instead of `.skip`.
 
-### Phase 6: Update Documentation
+### Phase 3: Write Self-Tests
 
-#### 6a. Update `docs/conventions/testing.md`
+Create `scripts/lint-architecture.test.ts`. Each check gets at least two test cases: one that passes (clean fixture) and one that fails (violation fixture). Tests use `fs.mkdtempSync()` to create isolated fixture directories.
 
-Add a "Handler Test Pattern" section after the existing "Unit Tests" section:
+#### Test Harness Helpers
 
-```markdown
-## Handler Test Pattern (Canonical)
-
-All handler tests follow this structure. Import shared utilities instead of defining inline boilerplate.
-
-\`\`\`typescript
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import request from 'supertest';
-import type { Response } from 'supertest';
+```typescript
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import {
-  type ApiResponse,
-  createExercise,
-  createMockExerciseRepository,
-} from '../__tests__/utils/index.js';
+  type LinterConfig,
+  checkLayerDeps,
+  checkSchemaBoundary,
+  checkTypeDedup,
+  checkFirebaseRoutes,
+  checkIosLayers,
+  checkArchMapRefs,
+  checkClaudeMdRefs,
+  checkOrphanFeatures,
+  checkPlanLifecycle,
+  checkNoConsoleLog,
+  checkNoRawUrlSession,
+  checkTypesInTypesDir,
+  checkSchemasInSchemasDir,
+  checkNoSkippedTests,
+  checkUntestedHighRisk,
+  checkTestFactoryUsage,
+  checkNoInlineApiResponse,
+  checkNoFocusedTests,
+  checkQualityGradesFreshness,
+} from './lint-checks.js';
 
-// Firebase and app-check mocks MUST be inline (vitest hoists vi.mock calls)
-vi.mock('../firebase.js', () => ({
-  getFirestoreDb: vi.fn(),
-}));
-vi.mock('../middleware/app-check.js', () => ({
-  requireAppCheck: (_req: unknown, _res: unknown, next: () => void): void => next(),
-}));
+// Helper: create temp root with packages/functions/src structure
+function createFixture(): { config: LinterConfig; rootDir: string } {
+  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-test-'));
+  const functionsSrc = path.join(rootDir, 'packages/functions/src');
+  fs.mkdirSync(functionsSrc, { recursive: true });
+  return {
+    config: { rootDir, functionsSrc },
+    rootDir,
+  };
+}
 
-// Repository mocks — use shared factory, keep vi.mock inline
-const mockExerciseRepo = createMockExerciseRepository();
-vi.mock('../repositories/exercise.repository.js', () => ({
-  ExerciseRepository: vi.fn().mockImplementation(() => mockExerciseRepo),
-}));
+// Helper: write a file, creating parent dirs
+function writeFixture(rootDir: string, relPath: string, content: string): void {
+  const fullPath = path.join(rootDir, relPath);
+  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+  fs.writeFileSync(fullPath, content);
+}
 
-// Import handler AFTER mocks
-import { exercisesApp } from './exercises.js';
+// Helper: clean up temp dir
+function cleanup(rootDir: string): void {
+  fs.rmSync(rootDir, { recursive: true, force: true });
+}
+```
 
-describe('Exercises Handler', () => {
+#### Test Cases for Each Check
+
+Below are the concrete test cases. Each test is self-contained: it creates the minimal fixture, runs the check, and asserts on the result. The implementing agent should follow this pattern for ALL checks.
+
+**Check 1 — Layer Dependencies:**
+
+```typescript
+describe('checkLayerDeps', () => {
+  let rootDir: string;
+  let config: LinterConfig;
+
   beforeEach(() => {
-    vi.clearAllMocks();
+    ({ rootDir, config } = createFixture());
+  });
+  afterEach(() => cleanup(rootDir));
+
+  it('passes when handlers import from services and types', () => {
+    writeFixture(rootDir, 'packages/functions/src/types/exercise.ts',
+      'export interface Exercise { id: string; }');
+    writeFixture(rootDir, 'packages/functions/src/services/workout.service.ts',
+      "import { Exercise } from '../types/exercise.js';\nexport function getExercise(): Exercise { return { id: '1' }; }");
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
+      "import { getExercise } from '../services/workout.service.js';");
+
+    const result = checkLayerDeps(config);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
   });
 
-  it('should return all exercises', async () => {
-    const exercises = [createExercise({ id: '1' }), createExercise({ id: '2' })];
-    mockExerciseRepo.findAll.mockResolvedValue(exercises);
+  it('fails when a service imports from handlers', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
+      "export const app = {};");
+    writeFixture(rootDir, 'packages/functions/src/services/workout.service.ts',
+      "import { app } from '../handlers/exercises.js';");
 
-    const response = await request(exercisesApp).get('/');
-    const body = response.body as ApiResponse<Exercise[]>;
+    const result = checkLayerDeps(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0]).toContain('services');
+    expect(result.violations[0]).toContain('handlers');
+  });
 
-    expect(body.success).toBe(true);
-    expect(body.data).toHaveLength(2);
+  it('ignores test files', () => {
+    writeFixture(rootDir, 'packages/functions/src/services/workout.service.test.ts',
+      "import { app } from '../handlers/exercises.js';");
+
+    const result = checkLayerDeps(config);
+    expect(result.passed).toBe(true);
   });
 });
-\`\`\`
-
-**Key rules:**
-- **ApiResponse<T>**: Import from \`__tests__/utils/\`, never define inline
-- **vi.mock()**: MUST be inline in each test file (vitest hoisting — cannot be shared)
-- **Mock repos**: Use \`createMock*Repository()\` from shared utils, not inline objects
-- **Test fixtures**: Use \`create*\` from shared fixtures, not inline \`createTest*\` factories
-- **Handler import**: Must come AFTER all \`vi.mock()\` calls
-
-The architecture linter (check 16) enforces shared factory usage. Inline factories that match \`createMock*/createTest*/mock*Factory\` cause a build failure.
 ```
 
-#### 6b. Update `docs/golden-principles.md`
+**Check 2 — Schema-at-Boundary:**
 
-Move the test factory principle from "Enforced (by convention)" to "Enforced (linter/hook exists)":
+```typescript
+describe('checkSchemaBoundary', () => {
+  let rootDir: string;
+  let config: LinterConfig;
 
-Under `### Architecture [lint-architecture]`, add:
-```
-- Prefer shared test factories from `__tests__/utils/` over inline `createMock*`/`createTest*` definitions
-- No inline `ApiResponse` interface in test files — import from `__tests__/utils/api-types.ts`
+  beforeEach(() => {
+    ({ rootDir, config } = createFixture());
+  });
+  afterEach(() => cleanup(rootDir));
+
+  it('passes when POST routes have Zod validation', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
+      "app.post('/exercises', validate(createExerciseSchema), asyncHandler(async (req, res) => {}));");
+
+    const result = checkSchemaBoundary(config);
+    expect(result.passed).toBe(true);
+  });
+
+  it('fails when POST route lacks Zod validation', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
+      "app.post('/exercises', asyncHandler(async (req, res) => {}));");
+
+    const result = checkSchemaBoundary(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations[0]).toContain('without Zod validation');
+  });
+
+  it('allows action routes without validation', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/workouts.ts',
+      "app.post('/workouts/:id/complete', asyncHandler(async (req, res) => {}));");
+
+    const result = checkSchemaBoundary(config);
+    expect(result.passed).toBe(true);
+  });
+});
 ```
 
-Remove from the "Enforced (by convention)" section:
+**Check 3 — Type Deduplication:**
+
+```typescript
+describe('checkTypeDedup', () => {
+  // passes: Exercise defined only in types/
+  // fails: Exercise defined in both types/ and services/
+  // passes: re-export from shared.ts does not count as duplicate
+});
 ```
-- Prefer shared test factories from `__tests__/utils/` over inline `createMock*` definitions (warning-only lint, graduating)
+
+**Check 4 — Firebase Route Consistency:**
+
+```typescript
+describe('checkFirebaseRoutes', () => {
+  // passes: firebase.json source matches handler's stripPathPrefix
+  // fails: firebase.json source doesn't match handler's stripPathPrefix
+  // Fixtures: firebase.json + packages/functions/src/index.ts + handler file
+});
+```
+
+**Check 5 — iOS Architecture Layers:**
+
+```typescript
+describe('checkIosLayers', () => {
+  // passes: View references ViewModel, not Service
+  // fails: View directly references a Service class
+  // fails: Component references a ViewModel class
+  // passes: references in #Preview section are ignored
+  // Fixtures: ios/BradOS/BradOS/{Services,ViewModels,Views,Components}/*.swift
+});
+```
+
+**Check 6 — Architecture Map File References:**
+
+```typescript
+describe('checkArchMapRefs', () => {
+  // passes: all backtick-quoted paths in docs/architecture/*.md exist
+  // fails: a path references a file that doesn't exist
+});
+```
+
+**Check 7 — CLAUDE.md File Path References:**
+
+```typescript
+describe('checkClaudeMdRefs', () => {
+  // passes: all backtick-quoted paths in CLAUDE.md exist
+  // fails: a path references a missing file
+  // passes: paths inside code fences are ignored
+  // passes: template variables like <feature> are ignored
+});
+```
+
+**Check 8 — Orphan Features:**
+
+```typescript
+describe('checkOrphanFeatures', () => {
+  // passes: handler with routes has a matching architecture doc
+  // fails: handler with routes but no doc and not in feature map
+  // fails: handler maps to feature but doc doesn't exist
+});
+```
+
+**Check 9 — Plan Lifecycle:**
+
+```typescript
+describe('checkPlanLifecycle', () => {
+  // passes: plans in active/ and completed/ subdirs, index.md at root
+  // fails: plan .md file directly in thoughts/shared/plans/ root
+});
+```
+
+**Check 10 — No console.log:**
+
+```typescript
+describe('checkNoConsoleLog', () => {
+  let rootDir: string;
+  let config: LinterConfig;
+
+  beforeEach(() => {
+    ({ rootDir, config } = createFixture());
+  });
+  afterEach(() => cleanup(rootDir));
+
+  it('passes when using firebase logger', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
+      "import { logger } from 'firebase-functions/logger';\nlogger.info('hello');");
+
+    const result = checkNoConsoleLog(config);
+    expect(result.passed).toBe(true);
+  });
+
+  it('fails when using console.log', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
+      "console.log('debug');");
+
+    const result = checkNoConsoleLog(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations[0]).toContain('console');
+  });
+
+  it('ignores comments containing console.log', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
+      "// console.log('commented out');");
+
+    const result = checkNoConsoleLog(config);
+    expect(result.passed).toBe(true);
+  });
+
+  it('ignores test files', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "console.log('test debugging');");
+
+    const result = checkNoConsoleLog(config);
+    expect(result.passed).toBe(true);
+  });
+});
+```
+
+**Check 11 — No raw URLSession:**
+
+```typescript
+describe('checkNoRawUrlSession', () => {
+  // passes: no URLSession usage in Swift files
+  // fails: URLSession used in a View file
+  // passes: URLSession in APIClient.swift (allowlisted)
+  // passes: URLSession in StravaAuthManager.swift (allowlisted)
+  // Fixtures: ios/BradOS/BradOS/{Views,Services}/*.swift
+});
+```
+
+**Check 12 — Types in types/ directory:**
+
+```typescript
+describe('checkTypesInTypesDir', () => {
+  // passes: exported interface in types/ directory
+  // fails: exported interface in handlers/ directory
+  // passes: re-export from handlers does not trigger
+});
+```
+
+**Check 13 — Schemas in schemas/ directory:**
+
+```typescript
+describe('checkSchemasInSchemasDir', () => {
+  // passes: z.object() in schemas/ directory
+  // fails: z.object() in handlers/ directory
+});
+```
+
+**Check 14 — No skipped tests:**
+
+```typescript
+describe('checkNoSkippedTests', () => {
+  let rootDir: string;
+  let config: LinterConfig;
+
+  beforeEach(() => {
+    ({ rootDir, config } = createFixture());
+  });
+  afterEach(() => cleanup(rootDir));
+
+  it('passes for tests without skip', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe } from 'vitest';\ndescribe('test', () => { it('works', () => {}); });");
+
+    const result = checkNoSkippedTests(config);
+    expect(result.passed).toBe(true);
+  });
+
+  it('fails when it.skip is found', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe } from 'vitest';\ndescribe('test', () => { it.skip('broken', () => {}); });");
+
+    const result = checkNoSkippedTests(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations[0]).toContain('it.skip');
+  });
+
+  it('detects xit and xdescribe', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "xit('broken', () => {});\nxdescribe('broken suite', () => {});");
+
+    const result = checkNoSkippedTests(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations).toHaveLength(2);
+  });
+});
+```
+
+**Check 15 — Untested high-risk files:**
+
+```typescript
+describe('checkUntestedHighRisk', () => {
+  // passes: today-coach.ts handler has today-coach.test.ts
+  // fails: today-coach.ts handler has no test file
+  // passes: exercises.ts (not high-risk) has no test file — not flagged
+});
+```
+
+**Check 16 — Shared test factory usage:**
+
+```typescript
+describe('checkTestFactoryUsage', () => {
+  // passes: test imports from __tests__/utils/
+  // fails: test defines inline createMock* without importing shared utils
+  // passes: test defines inline factory AND imports from shared utils
+});
+```
+
+**Check 17 — No inline ApiResponse:**
+
+```typescript
+describe('checkNoInlineApiResponse', () => {
+  // passes: test imports ApiResponse from __tests__/utils/
+  // fails: test defines `interface ApiResponse` inline
+});
+```
+
+**Check 18 (NEW) — No focused tests:**
+
+```typescript
+describe('checkNoFocusedTests', () => {
+  let rootDir: string;
+  let config: LinterConfig;
+
+  beforeEach(() => {
+    ({ rootDir, config } = createFixture());
+  });
+  afterEach(() => cleanup(rootDir));
+
+  it('passes for tests without .only', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe } from 'vitest';\ndescribe('test', () => { it('works', () => {}); });");
+
+    const result = checkNoFocusedTests(config);
+    expect(result.passed).toBe(true);
+  });
+
+  it('fails when it.only is found', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe } from 'vitest';\ndescribe('test', () => { it.only('focused', () => {}); });");
+
+    const result = checkNoFocusedTests(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations[0]).toContain('it.only');
+  });
+
+  it('detects describe.only and test.only', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "describe.only('focused suite', () => {});\ntest.only('focused test', () => {});");
+
+    const result = checkNoFocusedTests(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations).toHaveLength(2);
+  });
+
+  it('detects fit and fdescribe (Jest aliases)', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "fit('focused', () => {});\nfdescribe('focused suite', () => {});");
+
+    const result = checkNoFocusedTests(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations).toHaveLength(2);
+  });
+
+  it('ignores .only in comments', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "// it.only('commented out');");
+
+    const result = checkNoFocusedTests(config);
+    expect(result.passed).toBe(true);
+  });
+});
+```
+
+**Quality Grades Freshness (warning check):**
+
+```typescript
+describe('checkQualityGradesFreshness', () => {
+  // stale: false when updated today
+  // stale: true when updated 10 days ago
+  // stale: true when file doesn't exist
+});
+```
+
+### Phase 4: Add Scripts Tests to Vitest Workspace
+
+Modify `vitest.workspace.ts` to add a second workspace entry for scripts:
+
+```typescript
+import { defineWorkspace } from 'vitest/config';
+
+export default defineWorkspace([
+  {
+    test: {
+      name: 'functions',
+      root: './packages/functions',
+      environment: 'node',
+      include: ['src/**/*.test.ts'],
+      exclude: ['src/__tests__/integration/**'],
+      setupFiles: ['./src/__tests__/vitest.setup.ts'],
+      globals: true,
+    },
+  },
+  {
+    test: {
+      name: 'scripts',
+      root: '.',
+      environment: 'node',
+      include: ['scripts/**/*.test.ts'],
+      globals: true,
+    },
+  },
+]);
+```
+
+This means `npx vitest run` will now also run scripts tests. The `scripts` workspace is lightweight — no special setup files needed.
+
+### Phase 5: Remove scripts/ from ESLint ignorePatterns
+
+Modify `.eslintrc.cjs` to stop ignoring scripts:
+
+```javascript
+ignorePatterns: [
+  'dist/',
+  'lib/',
+  'node_modules/',
+  '*.config.js',
+  '*.config.ts',
+  '.eslintrc.cjs',
+  'vitest.workspace.ts',
+  // 'scripts/' — REMOVED: scripts are now linted
+],
+```
+
+Create `scripts/tsconfig.eslint.json` so ESLint can type-check scripts:
+
+```json
+{
+  "extends": "../packages/functions/tsconfig.json",
+  "compilerOptions": {
+    "composite": false,
+    "rootDir": ".",
+    "outDir": "../dist/scripts",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false
+  },
+  "include": ["./**/*.ts"],
+  "exclude": ["**/*.test.ts"]
+}
+```
+
+Update `.eslintrc.cjs` to include this tsconfig in `parserOptions.project`:
+
+```javascript
+parserOptions: {
+  project: [
+    './tsconfig.json',
+    './packages/*/tsconfig.json',
+    './packages/*/tsconfig.eslint.json',
+    './scripts/tsconfig.eslint.json',  // NEW
+  ],
+},
+```
+
+**Note**: The linter code may have ESLint violations that were hidden by the ignore. The implementing agent should:
+1. Run `npx eslint scripts/ --ext .ts` after un-ignoring
+2. Fix any violations (likely: missing explicit return types on inner functions, `!` non-null assertions that need `?? fallback`)
+3. The `@typescript-eslint/no-non-null-assertion` rule is NOT in the eslint config (only `@typescript-eslint/strict` extends), so `!` assertions may be fine — check what `strict` includes
+4. If the `explicit-function-return-type` rule fires on inner helper functions (like the nested `collectFiles`), add return types to them
+
+### Phase 6: Update Validate Pipeline
+
+Modify `scripts/validate.sh` to ensure scripts tests are included.
+
+Since `npx vitest run` now picks up both workspaces (functions + scripts), no change is needed to the validate script itself — the existing `run_check "Unit tests" npx vitest run` will automatically run scripts tests too.
+
+Verify this by checking that the vitest output after the workspace change shows two workspaces:
+```
+ DEV  v1.x.x
+
+ ✓ functions > ... (X tests)
+ ✓ scripts > ... (Y tests)
+```
+
+### Phase 7: Update Documentation
+
+#### 7a. Update `docs/golden-principles.md`
+
+Add under `### Architecture [lint-architecture]`:
+```
+- No focused tests (`.only`, `test.only`, `fit`, `fdescribe`) — these silently skip the rest of the suite
+```
+
+#### 7b. Update header comment in `scripts/lint-checks.ts`
+
+The check list comment at the top of the module should list all 17 checks:
+
+```typescript
+/**
+ * Architecture Enforcement Check Functions
+ *
+ * Each function accepts a LinterConfig and returns a CheckResult.
+ * The CLI runner (lint-architecture.ts) calls these in sequence.
+ *
+ * Checks:
+ *   1. Layer dependency direction (types -> schemas -> repos -> services -> handlers)
+ *   2. Schema-at-boundary (write routes must have Zod validation)
+ *   3. Type deduplication (no duplicate type/interface definitions)
+ *   4. Firebase route consistency (rewrite paths match stripPathPrefix)
+ *   5. iOS architecture layers (Views->Services, Components->ViewModels)
+ *   6. Architecture map file references (docs/architecture/*.md paths exist)
+ *   7. CLAUDE.md file path references (backtick-quoted paths resolve)
+ *   8. Orphan features (handlers with routes have architecture docs)
+ *   9. Plan lifecycle (plans in active/ or completed/, not root)
+ *  10. No console.log in Cloud Functions
+ *  11. No raw URLSession in iOS (use shared APIClient)
+ *  12. Domain types only in types/ directory
+ *  13. Zod schemas only in schemas/ directory
+ *  14. No skipped tests
+ *  15. High-risk files must have tests
+ *  16. Prefer shared test factories over inline definitions
+ *  17. No inline ApiResponse in tests
+ *  18. No focused tests (.only)
+ */
+```
+
+Wait — the numbering shift. Adding checkNoFocusedTests makes 18 checks total. But the check numbering in the code should match:
+- Checks 1-16: existing checks (with the numbering comment fixes from Phase 1)
+- Check 17: `checkNoInlineApiResponse` (existing, renumber from 16 to 17)
+- Check 18: `checkNoFocusedTests` (new)
+
+Actually, re-reading the current code: the header already lists 16 checks (1-16), with `checkNoInlineApiResponse` as #16. The new `.only` check becomes #17. Here's the mapping:
+
+| # | Check Function | Status |
+|---|---|---|
+| 1-9 | checkLayerDeps through checkPlanLifecycle | Unchanged |
+| 10 | checkNoConsoleLog | Fix comment (currently misnumbered as "9" in header count) |
+| 11 | checkNoRawUrlSession | Fix inline comment (currently says "Check 11", correct) |
+| 12 | checkTypesInTypesDir | Fix inline comment (currently duplicates "Check 11") |
+| 13 | checkSchemasInSchemasDir | Fix inline comment |
+| 14 | checkNoSkippedTests | Currently says "Check 13" in inline comment → fix to 14 |
+| 15 | checkUntestedHighRisk | Currently says "Check 14" → fix to 15 |
+| 16 | checkTestFactoryUsage | Currently says "Check 15" → fix to 16 |
+| 17 | checkNoInlineApiResponse | Currently says "Check 16" → fix to 17 |
+| 18 | checkNoFocusedTests | **NEW** |
+
+**Important**: The header comment counts checks starting from 1, and the runner array defines execution order. Renumbering the inline comments to match the actual execution order is the fix. The implementing agent should read the current header comment, count the checks in the runner array, and make all inline comments consistent.
+
+#### 7c. Update `docs/conventions/testing.md`
+
+Add to the testing conventions after the existing "Test Policy (CRITICAL)" section:
+
+```markdown
+## Focused Tests (.only) Policy
+
+**NEVER commit focused tests.** Using `it.only`, `describe.only`, `test.only`, `fit`, or `fdescribe` silently skips all other tests in the suite. vitest will report success even though most tests never ran.
+
+For debugging, use vitest's `--grep` flag instead:
+```bash
+npx vitest run --grep "test name pattern"
+```
+
+The architecture linter (check 18) enforces this — focused tests cause a build failure.
 ```
 
 ## Files
 
 | File | Action | Description |
 |------|--------|-------------|
-| `packages/functions/src/__tests__/utils/api-types.ts` | **Create** | Test-friendly `ApiResponse<T>` interface (~15 lines) |
-| `packages/functions/src/__tests__/utils/fixtures.ts` | **Modify** | Add `createMeal`, `createRecipe`, `createIngredient` factory functions. Add type imports for Meal, Recipe, Ingredient. (~50 lines added) |
-| `packages/functions/src/__tests__/utils/mock-repository.ts` | **Modify** | Add `MockMealRepository`, `MockRecipeRepository`, `MockIngredientRepository`, `MockMealPlanSessionRepository` interfaces + factory functions. Update `MockRepositories` aggregate. (~80 lines added) |
-| `packages/functions/src/__tests__/utils/index.ts` | **Modify** | Add `export * from './api-types.js'` re-export (1 line) |
-| `packages/functions/src/handlers/exercises.test.ts` | **Modify** | Replace inline ApiResponse, createTestExercise, mockExerciseRepo, mockWorkoutSetRepo with shared imports |
-| `packages/functions/src/handlers/workouts.test.ts` | **Modify** | Same migration pattern |
-| `packages/functions/src/handlers/plans.test.ts` | **Modify** | Same pattern — has 5 inline mock repos and 5 inline factories |
-| `packages/functions/src/handlers/mesocycles.test.ts` | **Modify** | Same migration pattern |
-| `packages/functions/src/handlers/workoutSets.test.ts` | **Modify** | Same migration pattern |
-| `packages/functions/src/handlers/stretchSessions.test.ts` | **Modify** | Same migration pattern |
-| `packages/functions/src/handlers/stretches.test.ts` | **Modify** | Same migration pattern |
-| `packages/functions/src/handlers/meditationSessions.test.ts` | **Modify** | Same migration pattern |
-| `packages/functions/src/handlers/meals.test.ts` | **Modify** | Replace inline ApiResponse + createTestMeal + mockMealRepo with shared (new in Phase 1) |
-| `packages/functions/src/handlers/ingredients.test.ts` | **Modify** | Replace inline ApiResponse + factories + mockIngredientRepo with shared (new in Phase 1) |
-| `packages/functions/src/handlers/recipes.test.ts` | **Modify** | Replace inline ApiResponse + factories + mockRecipeRepo with shared (new in Phase 1) |
-| `packages/functions/src/handlers/mealplans.test.ts` | **Modify** | Replace inline ApiResponse + factories + mockMealPlanSessionRepo with shared |
-| `packages/functions/src/handlers/calendar.test.ts` | **Modify** | Replace inline ApiResponse + applicable factories |
-| `packages/functions/src/handlers/cycling.test.ts` | **Modify** | Replace inline ApiResponse + createTest* factories. Service mocks stay inline (uses vi.hoisted). |
-| `packages/functions/src/handlers/cycling-coach.test.ts` | **Modify** | Replace inline ApiResponse + applicable factories |
-| `packages/functions/src/handlers/health.test.ts` | **Modify** | Replace inline ApiResponse + applicable factories |
-| `packages/functions/src/handlers/health-sync.test.ts` | **Modify** | Replace inline ApiResponse + applicable factories |
-| `packages/functions/src/handlers/today-coach.test.ts` | **Modify** | Replace inline ApiResponse + applicable factories |
-| `packages/functions/src/services/workout-set.service.test.ts` | **Modify** | Replace inline createTest* factories with shared fixture imports |
-| `packages/functions/src/services/workout.service.test.ts` | **Modify** | Replace inline createTest* factories with shared fixture imports |
-| `packages/functions/src/services/progression.service.test.ts` | **Modify** | Replace inline createTest* factories with shared fixture imports |
-| `packages/functions/src/services/dynamic-progression.service.test.ts` | **Modify** | Replace inline createTest* factories with shared fixture imports |
-| `packages/functions/src/services/plan-modification.service.test.ts` | **Modify** | Replace inline createTest* factories with shared fixture imports |
-| `packages/functions/src/services/mesocycle.service.test.ts` | **Modify** | Replace inline factories. Also has inline firebase mock — keep inline. |
-| `packages/functions/src/services/calendar.service.test.ts` | **Modify** | Replace inline createTest* factories where shared alternatives exist |
-| `packages/functions/src/services/mealplan-critique.service.test.ts` | **Modify** | Replace inline factories with new shared meal planning fixtures |
-| `packages/functions/src/services/mealplan-operations.service.test.ts` | **Modify** | Replace inline factories with new shared meal planning fixtures |
-| `packages/functions/src/__tests__/integration/exercises.integration.test.ts` | **Modify** | Replace inline ApiResponse + inline Exercise interface with shared imports |
-| `packages/functions/src/__tests__/integration/workouts.integration.test.ts` | **Modify** | Replace inline ApiResponse with shared import |
-| `packages/functions/src/__tests__/integration/plans.integration.test.ts` | **Modify** | Replace inline ApiResponse with shared import |
-| `packages/functions/src/__tests__/integration/mesocycles.integration.test.ts` | **Modify** | Replace inline ApiResponse with shared import |
-| `packages/functions/src/__tests__/integration/workoutSets.integration.test.ts` | **Modify** | Replace inline ApiResponse with shared import |
-| `packages/functions/src/__tests__/integration/stretchSessions.integration.test.ts` | **Modify** | Replace inline ApiResponse with shared import |
-| `packages/functions/src/__tests__/integration/meditationSessions.integration.test.ts` | **Modify** | Replace inline ApiResponse with shared import |
-| `packages/functions/src/__tests__/integration/calendar.integration.test.ts` | **Modify** | Replace inline ApiResponse with shared import |
-| `packages/functions/src/__tests__/integration/health.integration.test.ts` | **Modify** | Replace inline ApiResponse with shared import (check if file exists) |
-| `scripts/lint-architecture.ts` | **Modify** | Graduate checkTestFactoryUsage to checks array; add checkNoInlineApiResponse; remove from warningChecks |
-| `docs/conventions/testing.md` | **Modify** | Add "Handler Test Pattern (Canonical)" section |
-| `docs/golden-principles.md` | **Modify** | Move test factory principle from "by convention" to "enforced" |
+| `scripts/lint-checks.ts` | **Create** | Exported check functions + LinterConfig interface + CheckResult interface + createDefaultConfig(). ~1400 lines (essentially the check logic from lint-architecture.ts, refactored to accept config params). |
+| `scripts/lint-architecture.ts` | **Rewrite** | Thin CLI runner (~100 lines). Imports all checks from lint-checks.ts, creates default config, runs checks, displays results, exits. |
+| `scripts/lint-architecture.test.ts` | **Create** | Vitest test file with ~40-50 test cases covering all 18 checks + quality grades freshness. ~600-800 lines. Uses temp directories as fixtures. |
+| `scripts/tsconfig.eslint.json` | **Create** | tsconfig for ESLint to type-check scripts directory (~12 lines). |
+| `vitest.workspace.ts` | **Modify** | Add `scripts` workspace entry (include: `scripts/**/*.test.ts`). |
+| `.eslintrc.cjs` | **Modify** | Remove `scripts/` from ignorePatterns. Add `scripts/tsconfig.eslint.json` to parserOptions.project. |
+| `docs/golden-principles.md` | **Modify** | Add "No focused tests" principle under "Architecture [lint-architecture]" section. |
+| `docs/conventions/testing.md` | **Modify** | Add "Focused Tests (.only) Policy" section explaining the rule and the `--grep` alternative. |
 
-**Total: 1 new file, ~41 modified files**
+**Total: 3 new files, 5 modified files**
 
 ## Tests
 
+### The test file IS the primary deliverable
+
+`scripts/lint-architecture.test.ts` should have test cases for every check function. At minimum:
+
+| Check | Test Cases | What They Verify |
+|-------|-----------|-----------------|
+| checkLayerDeps | 3 | Clean deps pass; service→handler fails; test files ignored |
+| checkSchemaBoundary | 3 | POST with validate passes; POST without fails; action routes ignored |
+| checkTypeDedup | 3 | Unique types pass; duplicates fail; re-exports not counted |
+| checkFirebaseRoutes | 2 | Matching config passes; mismatched stripPathPrefix fails |
+| checkIosLayers | 3 | Clean View passes; View→Service fails; #Preview section ignored |
+| checkArchMapRefs | 2 | Valid refs pass; broken refs fail |
+| checkClaudeMdRefs | 3 | Valid refs pass; broken refs fail; code fences ignored |
+| checkOrphanFeatures | 3 | Handler with doc passes; unmapped handler fails; missing doc fails |
+| checkPlanLifecycle | 2 | Plans in active/ pass; plan at root fails |
+| checkNoConsoleLog | 4 | Logger passes; console.log fails; comments ignored; tests ignored |
+| checkNoRawUrlSession | 3 | No URLSession passes; raw URLSession fails; allowlisted files pass |
+| checkTypesInTypesDir | 2 | Types in types/ pass; types in handlers/ fail |
+| checkSchemasInSchemasDir | 2 | Schemas in schemas/ pass; schemas in handlers/ fail |
+| checkNoSkippedTests | 3 | Normal tests pass; it.skip fails; xit/xdescribe detected |
+| checkUntestedHighRisk | 3 | High-risk with test passes; high-risk without fails; non-high-risk ignored |
+| checkTestFactoryUsage | 2 | Imports from utils pass; inline factories without imports fail |
+| checkNoInlineApiResponse | 2 | Import from utils passes; inline interface fails |
+| checkNoFocusedTests | 5 | Normal tests pass; it.only fails; describe.only/test.only/fit/fdescribe detected; comments ignored |
+| checkQualityGradesFreshness | 3 | Fresh date not stale; old date stale; missing file stale |
+
+**Total: ~48 test cases**
+
 ### Existing tests must continue to pass
 
-The primary verification is that **all existing tests still pass** after migration. Run:
+The refactoring does not change any check logic — only where the code lives and how paths are parameterized. All existing tests in `packages/functions/` must produce identical results.
 
-```bash
-npm run validate   # Full validation: typecheck + lint + test + architecture
-```
+### Architecture lint must pass against real codebase
 
-Every test assertion should produce identical results. The migration only changes WHERE boilerplate is defined, not WHAT the tests verify.
-
-### Architecture lint must pass with new checks
-
-After graduating check #15 and adding check #17:
-
-```bash
-npm run lint:architecture
-```
-
-Expected: All checks pass (0 violations, 0 warnings). If any test files still have inline patterns, the lint will catch them.
-
-### No new unit tests needed
-
-This is a test infrastructure refactoring — it changes how tests are organized, not what they test. The verification IS running the existing tests.
+After the refactoring, `npm run lint:architecture` must produce the same output as before (all 17 checks pass with 0 violations on the current codebase). The new check 18 (no focused tests) should also pass since no `.only` calls exist in the codebase.
 
 ## QA
 
-### Step 1: Verify shared utilities work in isolation
-
-Create a temporary test file that imports from shared utils to verify they compile:
+### Step 1: Verify the refactoring preserves behavior
 
 ```bash
-# Quick sanity check — import the new types and factories
-npx tsc -b
+# Before: run the old linter, save output
+npm run lint:architecture > /tmp/lint-before.txt 2>&1
+
+# After refactoring: run the new linter, save output
+npm run lint:architecture > /tmp/lint-after.txt 2>&1
+
+# Compare (should be identical except for the new check 18 line)
+diff /tmp/lint-before.txt /tmp/lint-after.txt
 ```
 
-### Step 2: Run full validation
+Expected: The only difference is the addition of check 18 ("No focused tests (.only): clean") in the output.
+
+### Step 2: Run all tests including scripts
+
+```bash
+npx vitest run
+```
+
+Expected: Two workspace sections appear in output:
+- `functions` — all existing tests pass
+- `scripts` — all new lint architecture tests pass
+
+### Step 3: Run full validation
 
 ```bash
 npm run validate
 ```
 
-Expected: All 4 checks pass (typecheck, lint, tests, architecture). Pay special attention to:
-- **TypeScript compilation**: Shared imports resolve correctly from handler/service/integration test paths
-- **ESLint**: No new lint errors from changed imports
-- **Tests**: All existing tests pass with identical assertions
-- **Architecture**: 0 violations, 0 warnings
+Expected: All checks pass (typecheck, lint, tests, architecture). Pay attention to:
+- **TypeScript**: `scripts/lint-checks.ts` and `scripts/lint-architecture.ts` compile
+- **ESLint**: Scripts directory now linted — no violations
+- **Tests**: Both workspaces pass
+- **Architecture**: All 18 checks clean
 
-### Step 3: Verify lint enforcement catches regression
+### Step 4: Verify .only detection catches violations
 
-Temporarily add an inline factory to a migrated test file:
-
+Temporarily add a focused test:
 ```typescript
-// In exercises.test.ts, temporarily add:
-function createTestExercise(): Exercise {
-  return { id: 'x', name: 'X' } as Exercise;
-}
+// In any test file, e.g., packages/functions/src/handlers/exercises.test.ts:
+it.only('focused', () => { expect(true).toBe(true); });
 ```
 
 Run:
@@ -656,15 +997,14 @@ Run:
 npm run lint:architecture
 ```
 
-Expected: Check 16 (Shared test factory usage) fails with 1 violation for `exercises.test.ts`.
+Expected: Check 18 fails with 1 violation pointing to the file and line number.
 
-### Step 4: Verify ApiResponse check catches regression
+### Step 5: Verify .only detection ignores comments
 
-Temporarily add an inline `ApiResponse` to a migrated test file:
-
+Temporarily add a commented-out .only:
 ```typescript
-// In exercises.test.ts, temporarily add:
-interface ApiResponse<T = unknown> { success: boolean; data?: T; }
+// In any test file:
+// it.only('commented out');
 ```
 
 Run:
@@ -672,46 +1012,48 @@ Run:
 npm run lint:architecture
 ```
 
-Expected: Check 17 (No inline ApiResponse) fails with 1 violation.
+Expected: Check 18 passes (comments are ignored).
 
-### Step 5: Revert intentional regressions
+### Step 6: Revert intentional test modifications
 
 ```bash
 git checkout -- packages/functions/src/handlers/exercises.test.ts
 ```
 
-### Step 6: Verify test count is unchanged
+### Step 7: Verify ESLint passes on scripts
 
 ```bash
-npx vitest run --reporter=verbose 2>&1 | tail -5
+npx eslint scripts/ --ext .ts
 ```
 
-Expected: Same number of test suites and tests as before the migration. No tests should be added or removed.
+Expected: 0 errors, 0 warnings. If there are violations from the un-ignoring, they should have been fixed in Phase 5.
+
+### Step 8: Verify test count is unchanged for functions workspace
+
+```bash
+npx vitest run --reporter=verbose 2>&1 | grep -c "✓\|✗"
+```
+
+Compare with the count before the change. The functions workspace should have the same number of tests. Only the scripts workspace adds new tests.
 
 ## Conventions
 
-The following project conventions apply:
-
-1. **Git Worktree Workflow** — All changes must be made in a worktree branch, not directly on main.
+1. **Git Worktree Workflow** — All changes in a worktree branch, not directly on main.
 
 2. **Subagent Usage** — Run `npm run validate` in subagents to conserve context.
 
-3. **No `any` types** — The shared `mock-repository.ts` has one existing `eslint-disable` for `MockFn` type alias (line 17-18). Do not introduce additional `any` usages. New mock repo interfaces should follow the same `MockFn` pattern.
+3. **Vitest not Jest** — All tests use vitest. Import `{ describe, it, expect }` explicitly from `'vitest'` (the scripts workspace uses `globals: true`, but explicit imports are preferred per `docs/conventions/testing.md`).
 
-4. **Explicit return types** — All new factory functions must have explicit return types (e.g., `createMeal(overrides?: Partial<Meal>): Meal`).
+4. **No `any` types** — The refactored check functions and test helpers must not use `any`. Use `unknown` for parsed JSON, assert with type narrowing.
 
-5. **File naming** — New file `api-types.ts` follows the existing pattern in `__tests__/utils/` (kebab-case).
+5. **Explicit return types** — All exported functions in `lint-checks.ts` must have explicit return types (`CheckResult`, `{ stale: boolean; message: string }`, etc.).
 
-6. **Principle-to-Linter Pipeline** — From `docs/golden-principles.md`: "When a convention-only principle is violated twice, it graduates to a linter rule." This improvement executes that pipeline for the test factory convention, which has been violated 23 times.
+6. **File naming** — `lint-checks.ts` follows the existing `lint-architecture.ts` kebab-case pattern.
 
-7. **TDD** — Since this is a refactoring that doesn't change behavior, running existing tests IS the verification. No new test files needed.
+7. **Principle-to-Linter Pipeline** — From `docs/golden-principles.md`: the `.only` detection is a new enforcement rule, added to the "Enforced (linter/hook exists)" section.
 
-8. **Domain types in types/ directory** — The new `ApiResponse` in `__tests__/utils/api-types.ts` is a test utility type, not a domain type. It intentionally differs from `types/api.ts` and lives in the test utils directory. The architecture linter checks types in `handlers/`, `services/`, and `repositories/` — not in `__tests__/`.
+8. **No floating promises** — The linter is synchronous (all `fs.readFileSync`), so no async concerns. Tests should also be synchronous.
 
-9. **Import from `../shared.js`** — Handler tests that import domain types should continue using `../shared.js`. The new `ApiResponse` import path is `../__tests__/utils/index.js` (for handler tests) or `../utils/index.js` (for integration tests).
+9. **`os.tmpdir()` for temp files** — Tests must use `os.tmpdir()` (or `$TMPDIR` in bash context) for fixture directories, never hardcoded `/tmp`. Clean up in `afterEach`.
 
-10. **Vitest mock hoisting** — `vi.mock()` calls are hoisted by vitest to the top of the file, before imports. This means:
-    - `vi.mock()` with a factory function MUST be in each test file (cannot be shared)
-    - The factory can reference `const` variables declared later in the file because vitest converts them to `var` declarations during transformation
-    - The mock implementation is a closure that reads the variable at call time (test execution), not at definition time
-    - This is why `const mockRepo = createMockExerciseRepository()` works even though `vi.mock()` is hoisted above it
+10. **Read before modifying** — The implementing agent must read the current `lint-architecture.ts` in full before refactoring. The plan provides the pattern; the agent must verify against the actual code.
