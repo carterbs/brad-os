@@ -122,7 +122,7 @@ These handlers/services have no corresponding test file:
 
 ### Test Coverage Gaps
 
-- [ ] **Today Coach handler + services** - Zero tests for the AI briefing pipeline (`today-coach.ts`, `today-coach.service.ts`, `today-coach-data.service.ts`).
+- [x] **Today Coach handler + services** - Handler, service, data service, and integration tests now cover the AI briefing pipeline.
 - [ ] **Guided Meditations handler** - No tests for `guidedMeditations.ts` (browse categories, fetch scripts).
 - [ ] **Firestore Recovery service** - No tests for `firestore-recovery.service.ts` (all health data CRUD).
 - [ ] **Firestore Cycling service** - No tests for `firestore-cycling.service.ts` (all cycling data CRUD).
