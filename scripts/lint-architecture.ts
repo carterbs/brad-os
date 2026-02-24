@@ -146,7 +146,8 @@ function checkLayerDeps(): CheckResult {
           `    Fix: 1. Move the needed type/function to a layer that ${layer} is allowed to import (e.g. packages/functions/src/types/).\n` +
           `         2. Update the import in ${relFile} to point to the new location.\n` +
           `         3. Delete the old definition if nothing else uses it.\n` +
-          `    Example: packages/functions/src/services/workout.service.ts correctly imports from types/ and repositories/, never from handlers/.`
+          `    Example: packages/functions/src/services/workout.service.ts correctly imports from types/ and repositories/, never from handlers/.\n` +
+          `    See: docs/conventions/typescript.md`
         );
       }
     }
@@ -222,7 +223,15 @@ function checkSchemaBoundary(): CheckResult {
           `    Fix: 1. Create or find a Zod schema in ${schemaDir} (e.g. ${schemaDir}<resource>.schema.ts).\n` +
           `         2. Import { validate } from '../middleware/validate.js' in the handler.\n` +
           `         3. Add validate(yourSchema) as middleware: app.${route.method.toLowerCase()}('${route.routePath}', validate(yourSchema), asyncHandler(...)).\n` +
-          `    Example: packages/functions/src/handlers/exercises.ts uses validate(createExerciseSchema) on its POST route.`
+          `    Example:\n` +
+          `         // packages/functions/src/schemas/exercise.schema.ts\n` +
+          `         export const createExerciseSchema = z.object({\n` +
+          `           name: z.string().min(1).max(100),\n` +
+          `           weightIncrement: z.number().positive().default(5),\n` +
+          `         });\n` +
+          `         // packages/functions/src/handlers/exercises.ts\n` +
+          `         app.post('/exercises', validate(createExerciseSchema), asyncHandler(...));\n` +
+          `    See: docs/conventions/api-patterns.md`
         );
       }
     }
@@ -314,6 +323,7 @@ function checkTypeDedup(): CheckResult {
       msg += `\n         2. Delete the duplicate definition(s) from the other file(s).`;
       msg += `\n         3. Update imports in consuming files to use: import { ${typeName} } from '../shared.js'`;
       msg += `\n    Example: packages/functions/src/types/meditation.ts is the single source of truth for MeditationSessionRecord.`;
+      msg += `\n    See: docs/conventions/typescript.md#type-deduplication`;
       violations.push(msg);
     }
   }
@@ -426,7 +436,8 @@ function checkFirebaseRoutes(): CheckResult {
         `    Fix: 1. Open packages/functions/src/handlers/${handlerFile}.ts.\n` +
         `         2. Change stripPathPrefix('${stripPrefixArg}') to stripPathPrefix('${expectedResource}'), or change createBaseApp('${stripPrefixArg}') to createBaseApp('${expectedResource}').\n` +
         `         3. Alternatively, update the firebase.json rewrite source path to end with /${stripPrefixArg}/** if that was the intended resource name.\n` +
-        `    Example: If firebase.json has '/api/dev/stretch-sessions/**', the handler must use createBaseApp('stretch-sessions').`
+        `    Example: If firebase.json has '/api/dev/stretch-sessions/**', the handler must use createBaseApp('stretch-sessions').\n` +
+        `    See: docs/guides/debugging-cloud-functions.md#ordered-checklist`
       );
     }
   }
@@ -557,7 +568,8 @@ function checkIosLayers(): CheckResult {
             `    Fix: 1. Create or find a ViewModel in ios/BradOS/BradOS/ViewModels/ that wraps ${stype}.\n` +
             `         2. Move the ${stype} usage from the View into that ViewModel.\n` +
             `         3. Have the View observe the ViewModel via @StateObject or @ObservedObject instead.\n` +
-            `    Example: ios/BradOS/BradOS/ViewModels/CyclingViewModel.swift wraps CyclingCoachClient so Views never reference it.`
+            `    Example: ios/BradOS/BradOS/ViewModels/CyclingViewModel.swift wraps CyclingCoachClient so Views never reference it.\n` +
+            `    See: docs/conventions/ios-swift.md`
           );
         }
       }
@@ -593,7 +605,8 @@ function checkIosLayers(): CheckResult {
             `    Fix: 1. Replace the ${vtype} reference with a plain parameter (e.g. a struct, array, or closure).\n` +
             `         2. Have the parent View that owns ${vtype} extract the needed data and pass it as a parameter.\n` +
             `         3. If the Component needs to trigger actions, pass a closure parameter instead of the whole ViewModel.\n` +
-            `    Example: Components/LoadStateView.swift accepts generic content closures instead of referencing any ViewModel directly.`
+            `    Example: Components/LoadStateView.swift accepts generic content closures instead of referencing any ViewModel directly.\n` +
+            `    See: docs/conventions/ios-swift.md`
           );
         }
       }
@@ -640,8 +653,12 @@ function checkArchMapRefs(): CheckResult {
 
         if (!fs.existsSync(fullPath)) {
           violations.push(
-            `docs/architecture/${archFile}:${i + 1} references \`${refPath}\` but file does not exist. ` +
-            `Update the path or remove the stale reference.`
+            `docs/architecture/${archFile}:${i + 1} references \`${refPath}\` but file does not exist.\n` +
+            `    Rule: All backtick-quoted file paths in architecture docs must resolve to real files on disk.\n` +
+            `    Fix: 1. If the file was renamed or moved, update the path in docs/architecture/${archFile}.\n` +
+            `         2. If the file was deleted, remove the reference from the doc.\n` +
+            `         3. Run \`git log --diff-filter=R -- '${refPath}'\` to find renames.\n` +
+            `    See: docs/golden-principles.md`
           );
         }
       }
@@ -705,8 +722,12 @@ function checkClaudeMdRefs(): CheckResult {
 
       if (!fs.existsSync(fullPath)) {
         violations.push(
-          `CLAUDE.md:${i + 1} references \`${refPath}\` but the path does not exist. ` +
-          `Update the reference or remove the stale pointer.`
+          `CLAUDE.md:${i + 1} references \`${refPath}\` but the path does not exist.\n` +
+          `    Rule: All backtick-quoted file paths in CLAUDE.md must resolve to real files or directories on disk.\n` +
+          `    Fix: 1. If the file was renamed or moved, update the path in CLAUDE.md.\n` +
+          `         2. If the file was deleted intentionally, remove the reference.\n` +
+          `         3. Run \`git log --diff-filter=R -- '${refPath}'\` to find renames.\n` +
+          `    See: docs/golden-principles.md`
         );
       }
     }
@@ -786,13 +807,35 @@ function checkOrphanFeatures(): CheckResult {
 
     if (featureName === undefined) {
       violations.push(
-        `packages/functions/src/handlers/${file} defines routes but has no entry in the handler-to-feature map. ` +
-        `Add a mapping in lint-architecture.ts (checkOrphanFeatures) and create docs/architecture/<feature>.md.`
+        `packages/functions/src/handlers/${file} defines routes but has no entry in the handler-to-feature map.\n` +
+        `    Rule: Every handler with Express routes must map to a feature and have an architecture doc.\n` +
+        `    Fix: 1. Add '${handlerName}': '<feature>' to handlerToFeature in scripts/lint-architecture.ts (checkOrphanFeatures).\n` +
+        `         2. Create docs/architecture/<feature>.md using the template below.\n` +
+        `    Example template for docs/architecture/<feature>.md:\n` +
+        `         # <Feature> Architecture\n` +
+        `         ## Data Flow\n` +
+        `         handler -> service -> repository -> Firestore\n` +
+        `         ## Key Files\n` +
+        `         - \`packages/functions/src/handlers/${file}\`\n` +
+        `         - \`packages/functions/src/services/<feature>.service.ts\`\n` +
+        `         - \`packages/functions/src/types/<feature>.ts\`\n` +
+        `    See: docs/golden-principles.md`
       );
     } else if (!archDocs.has(featureName)) {
       violations.push(
-        `packages/functions/src/handlers/${file} maps to feature '${featureName}' but docs/architecture/${featureName}.md does not exist. ` +
-        `Create the architecture doc using the format in docs/architecture/lifting.md as a template.`
+        `packages/functions/src/handlers/${file} maps to feature '${featureName}' but docs/architecture/${featureName}.md does not exist.\n` +
+        `    Rule: Every feature with handlers must have an architecture doc in docs/architecture/.\n` +
+        `    Fix: 1. Create docs/architecture/${featureName}.md.\n` +
+        `         2. Use docs/architecture/lifting.md as a template for structure.\n` +
+        `    Example template for docs/architecture/${featureName}.md:\n` +
+        `         # ${featureName.charAt(0).toUpperCase() + featureName.slice(1)} Architecture\n` +
+        `         ## Data Flow\n` +
+        `         handler -> service -> repository -> Firestore\n` +
+        `         ## Key Files\n` +
+        `         - \`packages/functions/src/handlers/${file}\`\n` +
+        `         - \`packages/functions/src/services/${featureName}.service.ts\`\n` +
+        `         - \`packages/functions/src/types/${featureName}.ts\`\n` +
+        `    See: docs/golden-principles.md`
       );
     }
   }
