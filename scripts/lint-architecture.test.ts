@@ -775,7 +775,7 @@ describe('checkNoFocusedTests', () => {
     expect(result.violations).toHaveLength(2);
   });
 
-  it('detects fit and fdescribe (Jest aliases)', () => {
+  it('detects f' + 'it and f' + 'describe (Jest aliases)', () => {
     // Use concatenation to avoid this test file itself triggering the linter
     const fixture = "f" + "it('focused', () => {});\n" + "f" + "describe('focused suite', () => {});";
     writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts', fixture);

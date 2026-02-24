@@ -45,5 +45,7 @@ module.exports = {
     '*.config.ts',
     '.eslintrc.cjs',
     'vitest.workspace.ts',
+    'scripts/',
+    '!scripts/lint-*.ts',
   ],
 };

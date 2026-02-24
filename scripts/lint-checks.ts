@@ -677,7 +677,8 @@ export function checkArchMapRefs(config: LinterConfig): CheckResult {
       const linePattern = new RegExp(pathPattern.source, pathPattern.flags);
 
       while ((match = linePattern.exec(line)) !== null) {
-        const refPath = match[1]!;
+        const refPath = match[1];
+        if (refPath === undefined) continue;
         const fullPath = path.join(config.rootDir, refPath);
 
         if (!fs.existsSync(fullPath)) {
@@ -723,7 +724,8 @@ export function checkClaudeMdRefs(config: LinterConfig): CheckResult {
   let inCodeFence = false;
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!;
+    const line = lines[i];
+    if (line === undefined) continue;
 
     // Toggle code fence state
     if (/^```/.test(line)) {
@@ -738,7 +740,8 @@ export function checkClaudeMdRefs(config: LinterConfig): CheckResult {
     const linePattern = new RegExp(pathPattern.source, pathPattern.flags);
 
     while ((match = linePattern.exec(line)) !== null) {
-      const refPath = match[1]!;
+      const refPath = match[1];
+      if (refPath === undefined) continue;
 
       // Skip paths with template variables like <feature>
       if (/<\w+>/.test(refPath)) continue;
@@ -985,7 +988,7 @@ export function checkQualityGradesFreshness(config: LinterConfig): { stale: bool
   const content = fs.readFileSync(QUALITY_GRADES, 'utf-8');
   const dateMatch = /Last updated:\s*(\d{4}-\d{2}-\d{2})/.exec(content);
 
-  if (!dateMatch?.[1]) {
+  if (dateMatch?.[1] === undefined) {
     return { stale: true, message: 'docs/quality-grades.md has no "Last updated" date. Run `npm run update:quality-grades` to refresh.' };
   }
 
@@ -1111,8 +1114,8 @@ export function checkTypesInTypesDir(config: LinterConfig): CheckResult {
         if (reExportPattern.test(line)) continue;
 
         const match = exportInterfacePattern.exec(line) ?? exportTypePattern.exec(line);
-        if (match) {
-          const typeName = match[1]!;
+        if (match?.[1] !== undefined) {
+          const typeName = match[1];
           const relPath = path.relative(config.rootDir, filePath);
           violations.push(
             `${relPath}:${i + 1} exports type '${typeName}' outside of types/ directory.\n` +
