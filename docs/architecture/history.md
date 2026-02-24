@@ -27,3 +27,9 @@ History reuses the same backend as Calendar:
 - DayDetailSheet supports navigation to workout detail (via AppState) and stretch session detail (via NavigationDestination)
 - MonthCalendarView accepts an optional `filter: ActivityType?` to show/hide activity dots
 - FilterChip component provides the horizontal filter pill UI
+
+## See Also
+- [Calendar](calendar.md) — shares calendar backend and ViewModel
+- [Lifting](lifting.md) — workout history entries
+- [Stretching](stretching.md) — stretch session history entries
+- [Meditation](meditation.md) — meditation session history entries

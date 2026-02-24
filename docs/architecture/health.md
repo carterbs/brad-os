@@ -55,3 +55,8 @@ HealthView/HealthMetricHistoryView -> HealthMetricHistoryViewModel -> APIClient 
 - Bulk sync endpoints support batch upsert with date-keyed documents (idempotent)
 - Recovery data feeds into the cycling coach for training adjustments
 - HealthKitSyncService handles both daily sync and historical backfill
+
+## See Also
+- [Today](today.md) — recovery/readiness shown in daily briefing
+- [Cycling](cycling.md) — VO2 max and efficiency factor metrics
+- [Profile](profile.md) — health settings and metric history views

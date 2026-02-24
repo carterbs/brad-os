@@ -58,3 +58,8 @@ View -> StretchSessionManager/StretchDataService -> APIClient -> Cloud Function 
 - Session recovery: StretchSessionStorage persists state so sessions survive app crashes
 - StretchUrgency in BradOSCore calculates days-since-last-stretch for dashboard display
 - Lock screen Now Playing integration via MPNowPlayingInfoCenter
+
+## See Also
+- [Lifting](lifting.md) — post-workout stretch prompt
+- [Today](today.md) — stretch status in daily briefing
+- [Calendar](calendar.md) — stretch session dates on calendar

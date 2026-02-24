@@ -14,6 +14,8 @@ Skipping tests masks real problems.
 Every feature must have comprehensive unit tests:
 
 ```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
 // Test file naming: *.test.ts or *.spec.ts
 // Co-locate tests: src/services/workout.service.test.ts
 
@@ -29,6 +31,7 @@ describe('WorkoutService', () => {
 ## Framework
 
 Use **vitest**, not jest. Follow existing test patterns.
+Always use explicit imports — `import { describe, it, expect, vi } from 'vitest'` — never rely on globals.
 
 ## TDD Workflow
 

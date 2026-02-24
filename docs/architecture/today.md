@@ -38,3 +38,11 @@ TodayCoachCard -> TodayCoachClient -> todayCoachApp handler -> TodayCoachDataSer
 - AI uses OpenAI (GPT) to generate personalized daily briefings with sections for each activity domain
 - Recovery data can come from request body (iOS HealthKit) or fallback to Firestore
 - 5-minute foreground reload interval to avoid redundant API calls
+
+## See Also
+- [Lifting](lifting.md) — workout data aggregated in daily briefing
+- [Cycling](cycling.md) — cycling data aggregated in daily briefing
+- [Meal Planning](meal-planning.md) — meal plan data shown on dashboard
+- [Stretching](stretching.md) — stretch status in daily briefing
+- [Meditation](meditation.md) — meditation status in daily briefing
+- [Health](health.md) — recovery/readiness data for coach recommendations

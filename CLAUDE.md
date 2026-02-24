@@ -8,11 +8,11 @@ A personal wellness tracking system with a native iOS app and Express API backen
 
 ```bash
 # 1. Create a worktree for your change
-mkdir -p ../lifting-worktrees
-git worktree add ../lifting-worktrees/<branch-name> -b <branch-name>
+mkdir -p /tmp/brad-os-worktrees
+git worktree add /tmp/brad-os-worktrees/<branch-name> -b <branch-name>
 
 # 2. Symlink node_modules (worktrees don't have their own)
-ln -s /Users/bradcarter/Documents/Dev/brad-os/node_modules ../lifting-worktrees/<branch-name>/node_modules
+ln -s /Users/bradcarter/Documents/Dev/brad-os/node_modules /tmp/brad-os-worktrees/<branch-name>/node_modules
 
 # 3. Make changes and verify
 # ... make changes ...
@@ -25,12 +25,14 @@ cd /Users/bradcarter/Documents/Dev/brad-os
 git merge <branch-name>
 
 # 6. Clean up the worktree
-git worktree remove ../lifting-worktrees/<branch-name>
+git worktree remove /tmp/brad-os-worktrees/<branch-name>
 git branch -d <branch-name>
 ```
 
 **Worktree Setup Requirements:**
 - Symlink `node_modules` from main (step 2 above). Only run `npm install` if the branch changes `package.json`.
+
+**TCC Safety:** Worktrees must NOT be under `~/Documents/` when used by subagents — macOS TCC blocks subprocess access. Always use `/tmp/brad-os-worktrees/`.
 
 This keeps main clean and allows easy rollback of changes.
 
