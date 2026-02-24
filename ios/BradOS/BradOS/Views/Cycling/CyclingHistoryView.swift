@@ -5,7 +5,7 @@ import SwiftUI
 /// History of cycling activities
 struct CyclingHistoryView: View {
     @EnvironmentObject var viewModel: CyclingViewModel
-    @EnvironmentObject var stravaAuth: StravaAuthManager
+    @EnvironmentObject var stravaAuth: StravaAuthService
 
     var body: some View {
         ScrollView {

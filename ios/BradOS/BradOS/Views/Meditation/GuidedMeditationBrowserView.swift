@@ -5,12 +5,12 @@ struct GuidedMeditationBrowserView: View {
     let onSelectScript: (GuidedMeditationScript) -> Void
     let onBack: () -> Void
 
-    @StateObject private var service = GuidedMeditationService.shared
+    @StateObject private var service = ServiceFactory.makeGuidedMeditationService()
     @State private var isLoading: Bool = true
     @State private var loadError: Error?
     @State private var completedScriptIds: Set<String> = []
 
-    private let apiClient: APIClientProtocol = APIClient.shared
+    private let apiClient: APIClientProtocol = DefaultAPIClient.instance
 
     var body: some View {
         VStack(spacing: 0) {

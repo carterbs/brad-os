@@ -53,7 +53,7 @@ struct MeditationActiveView: View {
     let storage = MeditationStorage.shared
     let audioEngine = MeditationAudioEngine.shared
     let nowPlaying = NowPlayingManager.shared
-    let manifestService = MeditationManifestService.shared
+    let manifestService = ServiceFactory.meditationManifestService
 
     init(
         duration: MeditationDuration,

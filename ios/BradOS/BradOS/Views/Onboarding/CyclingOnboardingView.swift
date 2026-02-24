@@ -55,7 +55,7 @@ enum OnboardingHoursOption: String, CaseIterable {
 struct CyclingOnboardingView: View {
     @Environment(\.dismiss) var dismiss
     @EnvironmentObject var cyclingVM: CyclingViewModel
-    @StateObject var coachClient = CyclingCoachClient()
+    @StateObject var coachClient = ServiceFactory.makeCyclingCoachClient()
 
     @State var currentStep: CyclingOnboardingStep = .ftp
     @State var ftpValue: String = ""

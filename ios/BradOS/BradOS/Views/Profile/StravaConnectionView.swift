@@ -3,7 +3,7 @@ import BradOSCore
 import FirebaseAppCheck
 
 struct StravaConnectionView: View {
-    @EnvironmentObject var stravaAuth: StravaAuthManager
+    @EnvironmentObject var stravaAuth: StravaAuthService
     @Environment(\.apiClient) private var apiClient: any APIClientProtocol
 
     @State var isSyncing = false
@@ -76,16 +76,8 @@ struct StravaConnectionView: View {
     func syncStravaActivities() async throws -> (
         imported: Int, skipped: Int, message: String
     ) {
-        // Use concrete APIClient for cycling methods (not in protocol yet)
-        guard let client = apiClient as? APIClient else {
-            throw NSError(
-                domain: "Strava",
-                code: -1,
-                userInfo: [
-                    NSLocalizedDescriptionKey: "API client not available"
-                ]
-            )
-        }
+        // Use concrete client for cycling methods (not in protocol yet)
+        let client = DefaultAPIClient.concrete
         let response = try await client.syncCyclingActivities()
         return (response.imported, response.skipped, response.message)
     }
@@ -177,7 +169,7 @@ struct StravaConnectionView: View {
         }
 
         do {
-            try KeychainService.shared.injectStravaTokens(
+            try ServiceFactory.keychainService.injectStravaTokens(
                 accessToken: debugAccessToken,
                 refreshToken: debugRefreshToken,
                 athleteId: athleteId

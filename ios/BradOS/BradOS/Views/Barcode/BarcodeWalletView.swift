@@ -3,7 +3,7 @@ import BradOSCore
 
 /// Management screen for barcode wallet — list, add, edit, delete
 struct BarcodeWalletView: View {
-    @StateObject private var viewModel = BarcodeWalletViewModel(apiClient: APIClient.shared)
+    @StateObject private var viewModel = ViewModelFactory.makeBarcodeWalletViewModel()
     @State private var showingAddSheet = false
     @State private var editingBarcode: Barcode?
 

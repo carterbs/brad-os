@@ -58,7 +58,7 @@ extension Array {
 
 /// View shown while TTS audio is being prepared before session starts
 struct StretchPreparationView: View {
-    @ObservedObject var audioPreparer: StretchAudioPreparer
+    @ObservedObject var audioPreparer: StretchAudioService
     let onCancel: () -> Void
 
     var body: some View {

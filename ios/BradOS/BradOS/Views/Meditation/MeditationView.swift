@@ -110,7 +110,7 @@ struct MeditationView: View {
     @State private var resolvedInterjections: [ResolvedInterjection] = []
 
     private let storage = MeditationStorage.shared
-    private let apiService = MeditationAPIService.shared
+    private let apiService = ServiceFactory.meditationAPIService
 
     var body: some View {
         NavigationStack {
@@ -253,7 +253,7 @@ struct MeditationView: View {
                                 selectedCategory = .reactivity
                                 Task {
                                     do {
-                                        let service = GuidedMeditationService.shared
+                                        let service = ServiceFactory.guidedMeditationService
                                         let fullScript = try await service.loadFullScript(id: scriptId)
                                         await MainActor.run {
                                             selectedScript = fullScript

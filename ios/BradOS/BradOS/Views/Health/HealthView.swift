@@ -12,8 +12,9 @@ struct HealthView: View {
         GridItem(.flexible())
     ]
 
-    init(apiClient: APIClientProtocol = APIClient.shared) {
-        _viewModel = StateObject(wrappedValue: CalendarViewModel(apiClient: apiClient))
+    init(apiClient: APIClientProtocol? = nil) {
+        let client = apiClient ?? DefaultAPIClient.instance
+        _viewModel = StateObject(wrappedValue: CalendarViewModel(apiClient: client))
     }
 
     var body: some View {

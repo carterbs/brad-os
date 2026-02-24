@@ -5,7 +5,7 @@ import BradOSCore
 /// Note: Session saving is handled by the parent StretchView (like MeditationView pattern)
 /// to avoid navigation issues when dismissing while async work is in progress.
 struct StretchCompleteView: View {
-    @ObservedObject var sessionManager: StretchSessionManager
+    @ObservedObject var sessionManager: StretchSessionService
     let isSaving: Bool
     let saveError: String?
     let onDone: () -> Void

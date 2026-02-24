@@ -10,7 +10,7 @@ struct MeditationSetupView: View {
     @State private var isLoadingLastSession: Bool = false
 
     private let storage = MeditationStorage.shared
-    private let apiService = MeditationAPIService.shared
+    private let apiService = ServiceFactory.meditationAPIService
 
     var body: some View {
         VStack(spacing: Theme.Spacing.space7) {

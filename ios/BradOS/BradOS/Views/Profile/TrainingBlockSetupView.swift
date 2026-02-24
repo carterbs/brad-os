@@ -32,7 +32,7 @@ enum HoursOption: String, CaseIterable {
 
 struct TrainingBlockSetupView: View {
     @EnvironmentObject var cyclingVM: CyclingViewModel
-    @StateObject var coachClient = CyclingCoachClient()
+    @StateObject var coachClient = ServiceFactory.makeCyclingCoachClient()
 
     @State var currentStep: WizardStep = .experience
     @State var experienceLevel: ExperienceLevel = .intermediate

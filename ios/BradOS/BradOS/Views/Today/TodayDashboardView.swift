@@ -4,9 +4,9 @@ import BradOSCore
 /// Main dashboard showing today's scheduled activities
 struct TodayDashboardView: View {
     @EnvironmentObject var appState: AppState
-    @EnvironmentObject var healthKitManager: HealthKitManager
+    @EnvironmentObject var healthKitManager: HealthKitService
     @EnvironmentObject var cyclingViewModel: CyclingViewModel
-    @StateObject private var viewModel = DashboardViewModel(apiClient: APIClient.shared)
+    @StateObject private var viewModel = ViewModelFactory.makeDashboardViewModel()
 
     /// Track last dashboard load to avoid redundant reloads on foreground
     @State private var lastLoadTime: Date?

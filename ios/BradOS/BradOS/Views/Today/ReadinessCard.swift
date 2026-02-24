@@ -7,8 +7,8 @@ import SwiftUI
 /// - This card reads recovery from Firebase via APIClient
 /// - HealthKit is only used for auth prompts (to enable the sync)
 struct ReadinessCard: View {
-    @EnvironmentObject var healthKit: HealthKitManager
-    @State private var syncService: HealthKitSyncService?
+    @EnvironmentObject var healthKit: HealthKitService
+    @State private var syncService: HealthSyncBridge?
     @State private var isShowingDetail = false
     @State private var recovery: RecoveryData?
     @State private var isLoading = false
@@ -55,7 +55,7 @@ struct ReadinessCard: View {
 
         // Initialize sync service if needed
         if syncService == nil {
-            syncService = HealthKitSyncService(healthKitManager: healthKit)
+            syncService = ServiceFactory.makeHealthSyncService(healthKit: healthKit)
         }
 
         // Sync HealthKit to Firebase first (ensures fresh data)
@@ -63,7 +63,7 @@ struct ReadinessCard: View {
 
         // Fetch the latest recovery snapshot from Firebase
         do {
-            let snapshot = try await APIClient.shared.getLatestRecovery()
+            let snapshot = try await DefaultAPIClient.concrete.getLatestRecovery()
             recovery = snapshot?.toRecoveryData()
         } catch {
             print("[ReadinessCard] Failed to load recovery from API: \(error)")
