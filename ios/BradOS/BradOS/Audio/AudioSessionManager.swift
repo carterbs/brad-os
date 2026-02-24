@@ -13,26 +13,15 @@ import Foundation
 // ║  2. Restore other apps' audio volume after narration finishes               ║
 // ║     (setActive(false, .notifyOthersOnDeactivation))                        ║
 // ║                                                                             ║
-<<<<<<< Updated upstream
 // ║  The session is configured once with ducking options, then activated/       ║
 // ║  deactivated per narration clip (Organic Maps pattern). Screen stays on     ║
 // ║  during stretch sessions via isIdleTimerDisabled — no keepalive needed.     ║
-=======
-// ║  4. Keep the audio session alive on lock screen via keepalive players       ║
-// ║     (callers must pause keepalive before playNarration so the session      ║
-// ║      can deactivate to notify podcast apps, then resume after)             ║
->>>>>>> Stashed changes
 // ║                                                                             ║
 // ║  WHAT WILL BREAK IF YOU CHANGE THINGS:                                      ║
 // ║  - Removing .duckOthers: music blasts over narration                        ║
 // ║  - Removing .interruptSpokenAudioAndMixWithOthers: podcasts garble          ║
 // ║    under narration instead of pausing cleanly                               ║
 // ║  - Removing .notifyOthersOnDeactivation: other apps stay ducked forever     ║
-<<<<<<< Updated upstream
-=======
-// ║  - Not pausing keepalive before playNarration: setActive(false) throws      ║
-// ║    because active players exist, podcast apps never get resume signal       ║
->>>>>>> Stashed changes
 // ║  - Bypassing this manager (direct AVAudioSession calls): creates session    ║
 // ║    conflicts, undefined ducking behavior, audio randomly stops              ║
 // ║                                                                             ║
@@ -119,11 +108,6 @@ final class AudioSessionManager {
     /// Activates the session (ducking other audio), plays the clip,
     /// then deactivates (restoring other audio volume).
     /// This is the single entry point for all narration across the app.
-<<<<<<< Updated upstream
-=======
-    /// Callers with keepalive players must pause them before calling this method
-    /// so the session can fully deactivate during restore (notifying podcast apps to resume).
->>>>>>> Stashed changes
     func playNarration(url: URL) async throws {
         stopNarration()
 
@@ -149,14 +133,8 @@ final class AudioSessionManager {
         narrationPlayer?.replaceCurrentItem(with: nil)
         narrationPlayer = nil
 
-<<<<<<< Updated upstream
         // Deactivate session — this restores other audio volume
         deactivate()
-=======
-        if shouldDuckExternalAudio {
-            restoreAfterDucking()
-        }
->>>>>>> Stashed changes
 
         if let playbackError {
             throw playbackError
@@ -223,48 +201,6 @@ final class AudioSessionManager {
         }
     }
 
-<<<<<<< Updated upstream
-=======
-    // MARK: - Ducking (private)
-    // WARNING: The exact combination of category/mode/options below was carefully researched
-    // and tested. Changing ANY option will break ducking, background audio, or both.
-    // See thoughts/shared/ios-audio-ducking-research.md for the full rationale.
-
-    /// Enable other-audio interruption/ducking before narration.
-    /// Uses voice prompt mode with ducking and mixing. Some apps pause instead of ducking.
-    private func enableDucking() throws {
-        NSLog("[AudioSession] enableDucking() - .voicePrompt, .duckOthers + .interruptSpokenAudioAndMixWithOthers")
-        onDuckingEvent?("enableDucking: .voicePrompt + .duckOthers + .interruptSpokenAudio")
-        try session.setCategory(
-            .playback,
-            mode: .voicePrompt,
-            options: [.duckOthers, .interruptSpokenAudioAndMixWithOthers]
-        )
-        try session.setActive(true)
-        NSLog("[AudioSession] enableDucking() - DONE, music ducked / spoken audio paused")
-        onDuckingEvent?("enableDucking: DONE - external audio should be ducked")
-    }
-
-    /// Restore other audio after narration by deactivating with `.notifyOthersOnDeactivation`.
-    /// This tells podcast apps to resume. The session stays inactive — callers must
-    /// reactivate (e.g. via `activateForMixing()`) when they need audio again.
-    /// Matches the pattern used by navigation apps (Organic Maps, Apple Maps).
-    private func restoreAfterDucking() {
-        NSLog("[AudioSession] restoreAfterDucking() - deactivating with notification")
-        onDuckingEvent?("restoreAfterDucking: deactivating with .notifyOthersOnDeactivation")
-        do {
-            try session.setActive(false, options: .notifyOthersOnDeactivation)
-            NSLog("[AudioSession] restoreAfterDucking() - DONE, session inactive")
-            onDuckingEvent?("restoreAfterDucking: DONE - session deactivated")
-        } catch {
-            NSLog("[AudioSession] restoreAfterDucking() - deactivation FAILED: %@",
-                  error.localizedDescription)
-            onDuckingEvent?("restoreAfterDucking: FAILED - \(error.localizedDescription)")
-        }
-        isConfigured = false
-    }
-
->>>>>>> Stashed changes
     // MARK: - Interruption Handling
 
     private func setupInterruptionObserver() {

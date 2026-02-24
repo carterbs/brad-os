@@ -72,28 +72,13 @@ class StretchAudioManager: ObservableObject {
     func playNarration(_ url: URL) async throws {
         NSLog("[StretchAudioManager] playNarration() - url: %@", url.lastPathComponent)
 
-        // Pause keepalive so the audio session can fully deactivate during restore
-        // (setActive(false) fails if any players are still active on the session).
-        // The narration audio itself keeps the app alive during playback.
-        keepalivePlayer?.pause()
-
         do {
             try await audioSession.playNarration(url: url)
             NSLog("[StretchAudioManager] playNarration() - completed successfully")
         } catch {
             NSLog("[StretchAudioManager] playNarration() - ERROR: %@", error.localizedDescription)
-            // Reactivate and resume keepalive even on error
-            try? audioSession.activateForMixing()
-            resumeKeepalivePlayback()
             throw error
         }
-<<<<<<< Updated upstream
-=======
-
-        // Reactivate session (was deactivated to notify podcast apps) and resume keepalive
-        try? audioSession.activateForMixing()
-        resumeKeepalivePlayback()
->>>>>>> Stashed changes
     }
 
     /// Plays narration without waiting for completion (fire-and-forget)
