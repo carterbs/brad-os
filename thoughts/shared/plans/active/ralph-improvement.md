@@ -1,110 +1,81 @@
-# Add Local Dev Quickstart Guide
+# Rewrite README.md Architecture and Development Sections
 
-**Why**: There is no single document that walks a new developer (or agent) through the full bootstrap sequence. The README has a minimal "Development" section with stale commands (`npm run dev` which actually runs emulators, no mention of `validate`, no XcodeGen step). CLAUDE.md has validation and iOS build info but scattered across sections. A dedicated 5-minute quickstart guide consolidates the happy path: install → validate → emulators → iOS build.
+**Why**: The README.md architecture section references `packages/server/` (Express + SQLite) and `packages/shared/` — neither exists. The backend is Firebase Cloud Functions at `packages/functions/` with Firestore. The iOS build command uses `-workspace` and `-sdk iphonesimulator`, both wrong (project uses `-project` and the `-sdk` flag breaks the watchOS companion build). These stale references mislead anyone (human or agent) reading the README as their first entry point.
 
 ---
 
 ## What
 
-Create `docs/guides/local-dev-quickstart.md` — a concise, linear guide covering:
+Rewrite two sections of `README.md` and fix the iOS build command:
 
-1. **Prerequisites** — Node 22, npm, Firebase CLI, Xcode + simulator, XcodeGen
-2. **Step 1: Clone & Install** — `git clone`, `npm install` (which also sets up git hooks via `postinstall`)
-3. **Step 2: Validate** — `npm run validate` to confirm the TypeScript + lint + test + architecture stack passes
-4. **Step 3: Start Emulators** — `npm run emulators` (persist mode) with a health-check curl to verify
-5. **Step 4: Build & Run iOS** — XcodeGen → xcodebuild → simctl install → simctl launch
-6. **Verify everything works** — curl the health endpoint, confirm iOS app loads in simulator
-7. **Next steps** — links to CLAUDE.md, conventions, and other guides
+### 1. Replace the Architecture section (lines 44–48)
 
-Then link it from `README.md` and `CLAUDE.md`.
-
----
-
-## Files
-
-### 1. `docs/guides/local-dev-quickstart.md` (CREATE)
-
-Full content of the new file:
-
+**Current (stale):**
 ```markdown
-# Local Dev Quickstart
+## Architecture
 
-Get brad-os running locally in ~5 minutes: install dependencies, validate the build, start emulators, and run the iOS app on a simulator.
-
-## Prerequisites
-
-| Tool | Version | Install |
-|------|---------|---------|
-| Node.js | 22.x | `brew install node@22` or [nvm](https://github.com/nvm-sh/nvm) |
-| npm | 10.x+ | Comes with Node |
-| Firebase CLI | Latest | `npm install -g firebase-tools` |
-| Xcode | 16+ | Mac App Store |
-| XcodeGen | Latest | `brew install xcodegen` |
-
-Verify:
-
-```bash
-node -v          # v22.x
-firebase --version
-xcodegen --version
-xcodebuild -version
+- **iOS App**: Native SwiftUI app at `ios/BradOS/`
+- **API Server**: Express + SQLite backend at `packages/server/`
+- **Shared Types**: Common schemas/types at `packages/shared/`
 ```
 
-## Step 1: Clone & Install
+**Replace with:**
+```markdown
+## Architecture
 
-```bash
-git clone <repo-url> brad-os
-cd brad-os
-npm install
+```
+brad-os/
+├── ios/BradOS/          # Native SwiftUI iOS app (XcodeGen project)
+│   ├── BradOS/          # Main app target
+│   ├── BradOSCore/      # Shared framework (models, services)
+│   ├── BradOSWatch/     # watchOS companion
+│   ├── BradOSWidget/    # Home screen widgets
+│   └── project.yml      # XcodeGen spec
+├── packages/functions/  # Firebase Cloud Functions (Express + Firestore)
+│   └── src/
+│       ├── routes/      # Express route handlers
+│       ├── schemas/     # Zod validation schemas
+│       ├── types/       # Shared TypeScript types
+│       └── services/    # Business logic
+├── docs/                # Conventions, architecture maps, guides
+└── scripts/             # Dev tooling (validate, seed, lint)
 ```
 
-`npm install` also runs `postinstall` which sets `core.hooksPath` to `hooks/` — this enables the pre-commit hook that enforces validation.
-
-## Step 2: Validate
-
-```bash
-npm run validate
+- **iOS App** — SwiftUI app with shared APIClient, App Check auth, and HealthKit integration
+- **Cloud Functions** — Express APIs deployed as Firebase Cloud Functions, backed by Firestore
+- **Emulators** — Local dev uses Firebase emulator suite (Functions on :5001, Firestore on :8080)
 ```
 
-This runs typecheck + lint + test + architecture checks. All output goes to `.validate/*.log` — you only see a pass/fail summary. If anything fails, inspect the log:
+This replaces the three stale bullet points with an accurate tree and description. Key corrections:
+- `packages/server/` → `packages/functions/` (Firebase Cloud Functions, not a standalone Express server)
+- `packages/shared/` removed (doesn't exist; types/schemas live inside `packages/functions/src/`)
+- Adds iOS sub-targets (BradOSCore, BradOSWatch, BradOSWidget) that actually exist
+- Adds the local emulator workflow which is how development actually works
+
+### 2. Fix the iOS App section (lines 64–73)
+
+**Current (stale):**
+```markdown
+## iOS App
 
 ```bash
-cat .validate/typecheck.log   # or test.log, lint.log, architecture.log
+# Build for simulator
+xcodebuild -workspace ios/BradOS/BradOS.xcworkspace \
+  -scheme BradOS \
+  -sdk iphonesimulator \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  build
+```
 ```
 
-A clean `validate` confirms your environment is set up correctly.
+**Replace with:**
+```markdown
+## iOS App
 
-## Step 3: Start Firebase Emulators
-
-```bash
-npm run emulators
-```
-
-This builds the Cloud Functions and starts the Firebase emulator suite:
-- **Functions:** http://127.0.0.1:5001
-- **Firestore:** http://127.0.0.1:8080
-- **Emulator UI:** http://127.0.0.1:4000
-
-Verify the functions are running:
+See **[iOS Build and Run](docs/guides/ios-build-and-run.md)** for the full guide.
 
 ```bash
-curl -sf http://127.0.0.1:5001/brad-os/us-central1/devHealth
-```
-
-Other emulator modes:
-
-| Command | Behavior |
-|---------|----------|
-| `npm run emulators` | Persist data across restarts (default) |
-| `npm run emulators:fresh` | Start with empty database |
-| `npm run emulators:seed` | Load seed data from `seed-data/` |
-
-## Step 4: Build & Run iOS App
-
-Generate the Xcode project, build for the simulator, and launch:
-
-```bash
-# Generate project from project.yml
+# Generate Xcode project from project.yml
 cd ios/BradOS && xcodegen generate && cd ../..
 
 # Build for simulator
@@ -115,100 +86,39 @@ xcodebuild -project ios/BradOS/BradOS.xcodeproj \
   -skipPackagePluginValidation \
   build
 
-# Install and launch on booted simulator
+# Install and launch
 xcrun simctl install booted ~/.cache/brad-os-derived-data/Build/Products/Debug-iphonesimulator/BradOS.app
 xcrun simctl launch booted com.bradcarter.brad-os
 ```
-
-**Notes:**
-- Do NOT pass `-sdk iphonesimulator` — it breaks the watchOS companion build.
-- `-skipPackagePluginValidation` is required for the SwiftLint SPM build plugin.
-- SwiftLint runs automatically during `xcodebuild build` — a successful build means zero lint errors.
-
-## You're Done!
-
-At this point you should have:
-- ✅ All validation checks passing
-- ✅ Firebase emulators running with a health endpoint responding
-- ✅ The iOS app running in the simulator and talking to local emulators
-
-## Next Steps
-
-- **[CLAUDE.md](../../CLAUDE.md)** — Project rules, worktree workflow, validation commands
-- **[iOS Build and Run](ios-build-and-run.md)** — Detailed iOS build commands and exploratory testing
-- **[Debugging Cloud Functions](debugging-cloud-functions.md)** — Troubleshooting endpoints
-- **[Debug Telemetry](debug-telemetry.md)** — OpenTelemetry traces for iOS debugging
-- **[Conventions](../conventions/)** — TypeScript, iOS/Swift, API, and testing conventions
 ```
 
-### 2. `README.md` (MODIFY)
+Key corrections:
+- `-workspace ios/BradOS/BradOS.xcworkspace` → `-project ios/BradOS/BradOS.xcodeproj` (per `docs/conventions/ios-swift.md`)
+- Remove `-sdk iphonesimulator` (breaks watchOS companion build, per `docs/guides/ios-build-and-run.md`)
+- Add `-derivedDataPath` and `-skipPackagePluginValidation` (required for SwiftLint SPM plugin)
+- Add XcodeGen step before building (project is generated from `project.yml`)
+- Add simctl install/launch commands (the README stopped at `build` without showing how to actually run the app)
+- Link to the full iOS Build and Run guide
 
-Add a quickstart link in the Development section. Replace the existing `## Development` section:
+### 3. Development section is already mostly correct — leave as-is
 
-**Current** (lines 51–59):
-```markdown
-## Development
+The current Development section (lines 52–62) already has `npm run validate`, `npm run emulators`, and correct command descriptions. The previous plan already fixed this section. No changes needed here.
 
-```bash
-npm install              # Install dependencies
-npm run dev              # Start API server (port 3001)
-npm run build            # Build all packages
-npm run typecheck        # TypeScript compilation
-npm run lint             # ESLint checks
-npm run test             # Unit tests
-```
-```
+---
 
-**Replace with:**
-```markdown
-## Development
+## Files
 
-See **[Local Dev Quickstart](docs/guides/local-dev-quickstart.md)** for the full 5-minute bootstrap flow.
+### `README.md` (MODIFY)
 
-```bash
-npm install              # Install dependencies (also sets up git hooks)
-npm run validate         # Full check: typecheck + lint + test + architecture
-npm run emulators        # Start Firebase emulators (port 5001)
-npm run build            # Build Cloud Functions
-npm run typecheck        # TypeScript compilation
-npm run lint             # ESLint checks
-npm run test             # Unit tests
-```
-```
+Three changes:
 
-Key changes:
-- Add link to the quickstart guide at the top of the section
-- Replace stale `npm run dev` with `npm run emulators` (they're the same script, but `emulators` is the real name)
-- Add `npm run validate` (the primary validation command)
-- Fix `npm run build` description (builds Cloud Functions, not "all packages")
-- Add note about git hooks to `npm install`
+1. **Replace lines 44–48** (Architecture section) with the tree diagram and corrected bullet points shown above.
 
-### 3. `CLAUDE.md` (MODIFY)
+2. **Replace lines 64–73** (iOS App section) with the corrected build commands shown above, including XcodeGen step, `-project` flag, no `-sdk` flag, `-derivedDataPath`, `-skipPackagePluginValidation`, simctl commands, and a link to the full guide.
 
-Add a quickstart link in the `## Guides` section. After the last guide entry (Debug Telemetry), add:
+3. **No changes to other sections.** The Features section, Screenshots section, and Development section are not in scope for this task.
 
-**Current** (lines 136–140):
-```markdown
-## Guides (see docs/guides/)
-
-- **[Debugging Cloud Functions](docs/guides/debugging-cloud-functions.md)** — Ordered checklist: rewrite paths, deployment state, App Check
-- **[iOS Build and Run](docs/guides/ios-build-and-run.md)** — xcodebuild commands, simulator setup, SwiftLint via build, exploratory testing
-- **[Progressive Overload](docs/guides/progressive-overload.md)** — Business logic for workout progression, data architecture
-- **[Debug Telemetry](docs/guides/debug-telemetry.md)** — `npm run otel:start`, query `.otel/traces.jsonl` and `.otel/logs.jsonl` with Grep for structured iOS debugging
-```
-
-**Replace with:**
-```markdown
-## Guides (see docs/guides/)
-
-- **[Local Dev Quickstart](docs/guides/local-dev-quickstart.md)** — 5-minute bootstrap: install → validate → emulators → iOS build
-- **[Debugging Cloud Functions](docs/guides/debugging-cloud-functions.md)** — Ordered checklist: rewrite paths, deployment state, App Check
-- **[iOS Build and Run](docs/guides/ios-build-and-run.md)** — xcodebuild commands, simulator setup, SwiftLint via build, exploratory testing
-- **[Progressive Overload](docs/guides/progressive-overload.md)** — Business logic for workout progression, data architecture
-- **[Debug Telemetry](docs/guides/debug-telemetry.md)** — `npm run otel:start`, query `.otel/traces.jsonl` and `.otel/logs.jsonl` with Grep for structured iOS debugging
-```
-
-The quickstart is listed first because it's the entry point for new developers/agents.
+**No other files are created or modified.** This is a single-file documentation fix.
 
 ---
 
@@ -216,9 +126,7 @@ The quickstart is listed first because it's the entry point for new developers/a
 
 This is a documentation-only change — no application code is modified. No vitest unit tests are needed.
 
-**Verify no existing tests break** by running `npm run validate` after making changes. The architecture linter checks for broken internal references in some cases, so confirm it passes.
-
-**Manual link verification** (in QA below) replaces automated tests for this change.
+**Verify no existing tests break** by running `npm run validate` after making changes. The architecture linter checks for broken internal references, so confirm it passes.
 
 ---
 
@@ -230,47 +138,56 @@ npm run validate
 # All checks should pass — this is a docs-only change
 ```
 
-### 2. Verify all internal links in the new guide resolve
-Check that every relative link in `docs/guides/local-dev-quickstart.md` points to a real file:
+### 2. Verify the new Architecture section matches reality
 ```bash
-# These files must exist:
-ls docs/guides/ios-build-and-run.md
-ls docs/guides/debugging-cloud-functions.md
-ls docs/guides/debug-telemetry.md
-ls docs/conventions/
-ls CLAUDE.md
+# Every path referenced in the tree must exist:
+ls ios/BradOS/BradOS/           # Main app target
+ls ios/BradOS/BradOSCore/       # Shared framework
+ls ios/BradOS/BradOSWatch/      # watchOS companion
+ls ios/BradOS/BradOSWidget/     # Widget target
+ls ios/BradOS/project.yml       # XcodeGen spec
+ls packages/functions/src/routes/
+ls packages/functions/src/schemas/
+ls packages/functions/src/types/
+ls packages/functions/src/services/
+ls docs/
+ls scripts/
+
+# These stale paths must NOT exist:
+ls packages/server/ 2>&1 | grep "No such file"   # Should not exist
+ls packages/shared/ 2>&1 | grep "No such file"   # Should not exist
 ```
 
-### 3. Verify the README link resolves
+### 3. Verify the iOS build command is correct
+Cross-check against `docs/guides/ios-build-and-run.md` and `docs/conventions/ios-swift.md`:
+- Uses `-project` (not `-workspace`) ✓
+- No `-sdk iphonesimulator` flag ✓
+- Has `-derivedDataPath ~/.cache/brad-os-derived-data` ✓
+- Has `-skipPackagePluginValidation` ✓
+- XcodeGen generate step before build ✓
+- simctl install/launch with correct bundle ID `com.bradcarter.brad-os` ✓
+
+### 4. Verify internal links resolve
 ```bash
-# From the repo root, this file must exist:
-ls docs/guides/local-dev-quickstart.md
+ls docs/guides/ios-build-and-run.md       # Link from iOS App section
+ls docs/guides/local-dev-quickstart.md    # Link from Development section
 ```
 
-### 4. Verify the CLAUDE.md link resolves
+### 5. Verify stale references are fully removed
 ```bash
-# Same file, same check — already confirmed above
-ls docs/guides/local-dev-quickstart.md
+# Search for any remaining stale references in README.md:
+grep -n "packages/server" README.md       # Should return nothing
+grep -n "packages/shared" README.md       # Should return nothing
+grep -n "SQLite" README.md                # Should return nothing
+grep -n "xcworkspace" README.md           # Should return nothing
+grep -n "\-sdk iphonesimulator" README.md # Should return nothing
 ```
-
-### 5. Verify commands in the guide are accurate
-Cross-check each command in the quickstart against the actual project config:
-- `npm run validate` — exists in `package.json` ✓
-- `npm run emulators` — exists in `package.json` ✓
-- `npm run emulators:fresh` — exists in `package.json` ✓
-- `npm run emulators:seed` — exists in `package.json` ✓
-- `xcodebuild -project ios/BradOS/BradOS.xcodeproj -scheme BradOS ...` — matches `docs/guides/ios-build-and-run.md` ✓
-- `xcrun simctl install booted ...` — matches `docs/guides/ios-build-and-run.md` ✓
-- Port numbers (5001, 8080, 4000) — match `firebase.json` emulator config ✓
-- Bundle ID `com.bradcarter.brad-os` — matches `docs/conventions/ios-swift.md` ✓
 
 ### 6. Diff review
 ```bash
 git diff main --stat
-# Expected: 3 files changed (1 new, 2 modified)
-#   docs/guides/local-dev-quickstart.md (new)
+# Expected: 1 file changed
 #   README.md (modified)
-#   CLAUDE.md (modified)
 
 git diff main
 # Review every changed line
@@ -284,5 +201,6 @@ git diff main
 2. **CLAUDE.md — Validation**: Run `npm run validate` before committing.
 3. **CLAUDE.md — Subagent usage**: Run validation in a subagent to conserve context.
 4. **CLAUDE.md — Self-review**: `git diff main` to review every changed line before committing.
-5. **CLAUDE.md — Agent legibility**: Push context into the repo (docs) rather than leaving it in chat. This guide directly serves that principle.
-6. **CLAUDE.md — QA**: Exercise what you built — verify links resolve, commands are accurate, and the guide matches reality.
+5. **CLAUDE.md — QA**: Exercise what you built — verify paths exist, stale references are gone, commands match the real guides.
+6. **docs/conventions/ios-swift.md**: Use `-project` not `-workspace`; bundle ID is `com.bradcarter.brad-os`.
+7. **docs/guides/ios-build-and-run.md**: Do NOT pass `-sdk`; DO pass `-skipPackagePluginValidation`.

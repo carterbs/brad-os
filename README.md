@@ -43,9 +43,27 @@ A personal operating system for tracking wellness and fitness. Built as a learni
 
 ## Architecture
 
-- **iOS App**: Native SwiftUI app at `ios/BradOS/`
-- **API Server**: Express + SQLite backend at `packages/server/`
-- **Shared Types**: Common schemas/types at `packages/shared/`
+```text
+brad-os/
+├── ios/BradOS/          # Native SwiftUI iOS app (XcodeGen project)
+│   ├── BradOS/          # Main app target
+│   ├── BradOSCore/      # Shared framework (models, services)
+│   ├── BradOSWatch/     # watchOS companion
+│   ├── BradOSWidget/    # Home screen widgets
+│   └── project.yml      # XcodeGen spec
+├── packages/functions/  # Firebase Cloud Functions (Express + Firestore)
+│   └── src/
+│       ├── routes/      # Express route handlers
+│       ├── schemas/     # Zod validation schemas
+│       ├── types/       # Shared TypeScript types
+│       └── services/    # Business logic
+├── docs/                # Conventions, architecture maps, guides
+└── scripts/             # Dev tooling (validate, seed, lint)
+```
+
+- **iOS App** — SwiftUI app with shared APIClient, App Check auth, and HealthKit integration
+- **Cloud Functions** — Express APIs deployed as Firebase Cloud Functions, backed by Firestore
+- **Emulators** — Local dev uses Firebase emulator suite (Functions on :5001, Firestore on :8080)
 
 ## Development
 
@@ -63,11 +81,21 @@ npm run test             # Unit tests
 
 ## iOS App
 
+See **[iOS Build and Run](docs/guides/ios-build-and-run.md)** for the full guide.
+
 ```bash
+# Generate Xcode project from project.yml
+cd ios/BradOS && xcodegen generate && cd ../..
+
 # Build for simulator
-xcodebuild -workspace ios/BradOS/BradOS.xcworkspace \
+xcodebuild -project ios/BradOS/BradOS.xcodeproj \
   -scheme BradOS \
-  -sdk iphonesimulator \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -derivedDataPath ~/.cache/brad-os-derived-data \
+  -skipPackagePluginValidation \
   build
+
+# Install and launch
+xcrun simctl install booted ~/.cache/brad-os-derived-data/Build/Products/Debug-iphonesimulator/BradOS.app
+xcrun simctl launch booted com.bradcarter.brad-os
 ```
