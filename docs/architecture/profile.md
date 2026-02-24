@@ -21,7 +21,7 @@ ProfileView -> NavigationLink destinations -> various ViewModels/Services -> API
   - `ios/BradOS/BradOS/Views/Profile/HealthSyncView.swift`
 - **ViewModels:**
   - `ios/BradOS/BradOS/ViewModels/WeightGoalViewModel.swift`
-  - `ios/BradOS/BradOS/ViewModels/HealthMetricHistoryViewModel.swift` (HealthMetricHistoryViewModel + SleepHistoryViewModel)
+  - `ios/BradOS/BradOSCore/Sources/BradOSCore/ViewModels/HealthMetricHistoryViewModel.swift` (HealthMetricHistoryViewModel + SleepHistoryViewModel)
   - `ios/BradOS/BradOS/ViewModels/TextToSpeechViewModel.swift`
   - `ios/BradOS/BradOS/ViewModels/CyclingViewModel.swift` (injected via EnvironmentObject)
 - **Services:**

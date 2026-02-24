@@ -10,7 +10,7 @@ struct HealthMetricHistoryView: View {
     private var metric: HealthMetric { viewModel.metric }
 
     init(_ metric: HealthMetric) {
-        _viewModel = State(initialValue: HealthMetricHistoryViewModel(metric, apiClient: APIClient.shared))
+        _viewModel = State(initialValue: HealthMetricHistoryViewModel(metric))
     }
 
     var body: some View {

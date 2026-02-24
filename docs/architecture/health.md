@@ -9,8 +9,8 @@ HealthView/HealthMetricHistoryView -> HealthMetricHistoryViewModel -> APIClient 
   - `ios/BradOS/BradOS/Views/Health/HealthView.swift` — main health dashboard
   - `ios/BradOS/BradOS/Views/Profile/HealthSyncView.swift` — sync status/controls
   - `ios/BradOS/BradOS/Views/Profile/HealthMetricHistoryView.swift` — metric history charts
-- **ViewModels:** `ios/BradOS/BradOS/ViewModels/HealthMetricHistoryViewModel.swift`
-- **Models:** `ios/BradOS/BradOS/Models/HealthSyncModels.swift`
+- **ViewModels:** `ios/BradOS/BradOSCore/Sources/BradOSCore/ViewModels/HealthMetricHistoryViewModel.swift`
+- **Models:** `ios/BradOS/BradOSCore/Sources/BradOSCore/Models/HealthChartModels.swift`
 - **Services:**
   - `ios/BradOS/BradOS/Services/HealthKitManager.swift` — HealthKit data access
   - `ios/BradOS/BradOS/Services/HealthKitManager+SleepRecovery.swift` — sleep/recovery queries

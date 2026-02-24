@@ -3,7 +3,7 @@ import Charts
 import BradOSCore
 
 struct SleepHistoryView: View {
-    @State private var viewModel = SleepHistoryViewModel(apiClient: APIClient.shared)
+    @State private var viewModel = SleepHistoryViewModel()
     @State private var selectedDate: Date?
 
     var body: some View {
