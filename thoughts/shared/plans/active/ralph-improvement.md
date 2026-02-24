@@ -1,116 +1,122 @@
-**Title**: Add first-cycle `CyclingViewModel` iOS unit tests for concurrent `loadData()` fan-out, weekly session matching, FTP save/load, and block completion
+**Title**: Add deterministic iOS unit coverage for `WeightGoalViewModel` regression math and goal persistence flows
 
-**Why**: Cycling is still tracked as having zero iOS tests in quality grading, and `CyclingViewModel` contains core user-facing logic (`loadData`, session completion matching, FTP flows, and block completion) that can regress silently without direct app-layer test coverage.
+**Why**: `WeightGoalViewModel` drives Profile/Health weight-goal UX, but its core prediction math (`updateTrend`/`updatePrediction`) and persistence paths (`loadWeightGoal`/`saveGoal`) are only lightly asserted today, leaving high-risk logic open to silent regressions.
 
 **What**
-Build out `BradOSTests` coverage for the existing `CyclingViewModel` behaviors at:
-- `ios/BradOS/BradOS/ViewModels/CyclingViewModel.swift:45` (`sessionsCompletedThisWeek`)
-- `ios/BradOS/BradOS/ViewModels/CyclingViewModel.swift:99` (`loadData()` concurrent fetch fan-out)
-- `ios/BradOS/BradOS/ViewModels/CyclingViewModel.swift:315` (`saveFTP`)
-- `ios/BradOS/BradOS/ViewModels/CyclingViewModel.swift:337` (`loadFTPHistory`)
-- `ios/BradOS/BradOS/ViewModels/CyclingViewModel.swift:287` (`completeCurrentBlock`)
+1. Expand test observability for weight-goal API interactions (test-only).
+- Target code paths:
+  - `ios/BradOS/BradOS/ViewModels/WeightGoalViewModel.swift:224` (`updateTrend`)
+  - `ios/BradOS/BradOS/ViewModels/WeightGoalViewModel.swift:235` (`updatePrediction`)
+  - `ios/BradOS/BradOS/ViewModels/WeightGoalViewModel.swift:189` (`loadWeightGoal` via `loadData`)
+  - `ios/BradOS/BradOS/ViewModels/WeightGoalViewModel.swift:316` (`saveGoal`)
+- Add call/request capture in `MockWeightGoalAPIClient` so tests can assert payloads and call counts instead of only final UI state.
 
-Implementation scope (tests + test doubles only):
-1. Expand cycling test doubles so tests can observe API call order/counts/arguments and gate async responses.
-2. Add a deterministic `loadData()` fan-out test that proves all six fetch endpoints start before any are released.
-3. Add/strengthen `sessionsCompletedThisWeek` matching tests for ordering, current-week filtering, and non-reuse behavior.
-4. Extend FTP tests to cover both save request formatting and history load success/failure.
-5. Add block completion success/failure/no-op coverage.
+2. Strengthen regression/prediction math tests with numeric assertions (not just nil/non-nil checks).
+- Validate exact/approx slope-derived outputs with tolerances (e.g., `abs(actual - expected) < 0.001`).
+- Cover both weight-loss and weight-gain goals.
+- Cover the 28-day regression window behavior (ensure older points do not skew trend).
+- Cover `updatePrediction` fallback branch when `trendSlope` is not precomputed and only 3-6 points are available.
+- Cover near-zero slope guard (`abs(dailyRate) <= 0.001`) returning not-on-track with `predictedDate == nil`.
 
-No production logic changes are planned unless a testability seam is strictly required to make assertions deterministic.
+3. Add explicit save/load behavior tests for persisted goals.
+- Load path: `loadData()` hydrates `existingGoal`, `targetWeight`, and parsed `targetDate` from `getWeightGoal()`.
+- Save path: `saveGoal()` sends correctly formatted payload:
+  - `targetDate` formatted as `yyyy-MM-dd`
+  - `startWeightLbs` / `startDate` reuse existing goal baseline when editing an existing goal
+  - baseline falls back to current weight (or latest smoothed weight) when creating first goal
+- Ensure invalid save inputs are no-op (no API call, no success flag).
+
+4. Keep scope constrained to tests/test doubles unless a hard testability seam is required.
+- No production behavior change is planned.
+- If deterministic assertions require a seam (for example, clock injection), add minimal non-behavioral constructor injection and cover it with tests.
 
 **Files**
 1. `ios/BradOS/BradOSTests/Helpers/AppTestDoubles.swift` (modify)
-- Extend `MockCyclingAPIClient` with explicit observability hooks used by tests:
-  - Add call tracking enum and counters, e.g.:
-    - `enum CyclingAPICall: String, CaseIterable { ... }`
-    - `private(set) var callCounts: [CyclingAPICall: Int]`
-  - Add argument capture fields:
-    - `private(set) var lastCreateFTPRequest: (value: Int, date: String, source: String)?`
-    - `private(set) var lastCompleteBlockID: String?`
-    - `private(set) var lastActivitiesLimit: Int?`
-  - Add optional async interception hook for fan-out gating:
-    - `var onCall: (@Sendable (CyclingAPICall) async -> Void)?`
-  - Ensure each cycling API method updates counter/captures before returning the configured result.
-- Add a tiny async gate helper (test-only) for fan-out assertions, e.g. an `actor` with:
-  - expected call set
-  - started call set
-  - `waitUntilAllStarted(timeoutNanoseconds:) async -> Bool`
-  - `waitUntilReleased() async`
-  - `releaseAll()`
-- Keep helpers reusable and SwiftLint-compliant (no inline suppression, no long methods).
+- Extend `MockWeightGoalAPIClient` with test observability fields:
+  - `private(set) var getLatestWeightCallCount: Int`
+  - `private(set) var getWeightHistoryCallCount: Int`
+  - `private(set) var getWeightGoalCallCount: Int`
+  - `private(set) var saveWeightGoalCallCount: Int`
+  - `private(set) var lastWeightHistoryDays: Int?`
+  - `private(set) var lastSaveWeightGoalRequest: (targetWeightLbs: Double, targetDate: String, startWeightLbs: Double, startDate: String)?`
+- Update protocol method implementations to increment counters/capture arguments before returning configured results.
 
-2. `ios/BradOS/BradOSTests/ViewModels/CyclingViewModelTests.swift` (modify)
-- Keep existing tests that already pass.
-- Add grouped tests for missing behaviors:
-  - `loadData` fan-out + population
-  - additional `sessionsCompletedThisWeek` edge matching
-  - FTP history load paths
-  - block completion paths
-- Prefer deterministic fixtures (`fixedDate`, `dateInCurrentWeek`) over ad hoc `Date()` where possible.
+2. `ios/BradOS/BradOSTests/ViewModels/WeightGoalViewModelTests.swift` (modify)
+- Keep existing tests, then add deterministic fixture helpers:
+  - `private func makeWeightEntries(startDate:startWeight:count:dailyDelta:) -> [WeightHistoryEntry]`
+  - `private func makePiecewiseWeightPoints(...) -> [WeightChartPoint]` for 28-day-window assertions
+- Add/expand tests listed in the **Tests** section below.
 
-3. `docs/quality-grades.md` (optional, if this task includes grade bookkeeping)
-- Update Cycling iOS test count from `0` to reflect the new `BradOSTests` suite status.
-- If the grading table is generated elsewhere, skip direct edits and leave a note in PR/summary instead.
+3. `ios/BradOS/BradOS/ViewModels/WeightGoalViewModel.swift` (only if strictly needed)
+- Optional minimal test seam only (for example `nowProvider: () -> Date` defaulting to `Date.init`) if exact-date assertions cannot be made stable without brittle timing assumptions.
+- Do not change math or persistence behavior.
 
 **Tests**
-Add/adjust the following `CyclingViewModelTests` cases (Swift Testing):
-1. `loadData fans out all cycling fetch calls concurrently before completion`
-- Arrange: configure `MockCyclingAPIClient` with non-empty results for activities/training-load/FTP/block/VO2max/EF; attach gate expecting six `loadData` calls.
-- Act: start `vm.loadData()` in a task, wait for gate to report all expected calls started, assert `vm.isLoading == true`, then release gate and await completion.
+Write/adjust Swift Testing cases in `WeightGoalViewModelTests`:
+1. `updateTrend computes expected negative slope from linear data`
+- Arrange 28+ smoothed points with known daily delta (example `-0.4 lbs/day`).
+- Assert `trendSlope` is non-nil and within tolerance of expected slope.
+
+2. `updateTrend uses only the most recent 28 points`
+- Arrange piecewise history where first segment trends up and last 28 points trend down.
+- Assert slope matches recent segment, proving suffix-window behavior.
+
+3. `updatePrediction computes daysRemaining and weeklyRate for loss goal`
+- Arrange linear downward trend, target below current, future target date.
 - Assert:
-  - all six calls were observed exactly once (`getCyclingActivities`, `getCyclingTrainingLoad`, `getCurrentFTP`, `getCurrentBlock`, `getVO2Max`, `getEFHistory`)
-  - `lastActivitiesLimit == 30`
-  - view-model state populated (`activities`, `trainingLoad`, `currentFTP`, `currentBlock`, `vo2maxHistory`, `efHistory`)
-  - chart derivations ran (`tssHistory` and `loadHistory` are non-nil)
-  - `isLoading == false` after completion.
+  - `prediction.predictedDate != nil`
+  - `abs(prediction.weeklyRateLbs - expectedWeeklyRate) < tolerance`
+  - `prediction.daysRemaining == expectedIntDays`
+  - `prediction.isOnTrack` matches target date comparison.
 
-2. `sessionsCompletedThisWeek ignores previous-week activities and stops at first unmatched session`
-- Arrange: weekly sessions requiring ordered types; include an activity from last week plus out-of-order current-week rides.
-- Assert `sessionsCompletedThisWeek` equals only the contiguous matched prefix.
+4. `updatePrediction supports gain goals when trend is positive`
+- Arrange current below target with positive slope.
+- Assert on-track prediction exists and numeric fields are consistent.
 
-3. `sessionsCompletedThisWeek does not reuse one activity for multiple sessions`
-- Arrange: two same-type sessions but only one matching activity.
-- Assert count is `1`.
+5. `updatePrediction fallback path works when trendSlope is nil but >=3 points exist`
+- Do not call `updateTrend`; provide 3-6 smoothed points.
+- Assert prediction still computes from internal regression fallback.
 
-4. `saveFTP success sends formatted payload and updates FTP fields`
-- Assert existing behavior (`true`, fields updated, `error == nil`) plus captured request:
-  - `lastCreateFTPRequest?.value` matches input
-  - `lastCreateFTPRequest?.date == "yyyy-MM-dd"` formatted date
-  - `lastCreateFTPRequest?.source` matches argument.
+6. `updatePrediction returns not-on-track when slope is near zero`
+- Arrange effectively flat trend.
+- Assert `predictedDate == nil`, `daysRemaining == nil`, `isOnTrack == false`.
 
-5. `loadFTPHistory success returns API history entries`
-- Arrange non-empty `ftpHistoryResult`.
-- Assert returned array matches configured entries.
+7. `loadData hydrates existing goal into target fields`
+- Configure mock `weightGoalResult` with known `WeightGoalResponse` and minimal weight history/latest weight responses.
+- Assert:
+  - `existingGoal` set
+  - `targetWeight` formatted from goal (`"%.0f"` behavior)
+  - `isoDateString(targetDate)` equals response date
+  - API calls were made (`getWeightGoalCallCount == 1`, `lastWeightHistoryDays == 365`).
 
-6. `loadFTPHistory failure returns empty array`
-- Arrange failing `ftpHistoryResult`.
-- Assert result is `[]` and no crash.
+8. `saveGoal sends formatted payload for new goal baseline`
+- Arrange no `existingGoal`, set `currentWeight`, `targetWeight`, `targetDate`.
+- Assert `lastSaveWeightGoalRequest` captured expected values and `saveSuccess == true`.
 
-7. `completeCurrentBlock success calls API and marks block completed`
-- Arrange active `currentBlock`.
-- Assert `lastCompleteBlockID` is current block id, `currentBlock?.status == .completed`, and `error == nil`.
+9. `saveGoal reuses existing start baseline when updating goal`
+- Arrange `existingGoal` with known `startDate`/`startWeightLbs` and different current weight.
+- Assert request reuses existing baseline fields rather than overwriting from current weight/date.
 
-8. `completeCurrentBlock failure keeps block active and sets user-facing error`
-- Arrange failing `completeBlockResult`.
-- Assert status remains `.active` and `error` contains `"Failed to complete block"`.
-
-9. `completeCurrentBlock with nil currentBlock is a no-op`
-- Assert API completion call count stays zero and no error is set.
+10. `saveGoal no-ops for invalid input`
+- Cases: non-numeric `targetWeight`; no current weight and empty smoothed history.
+- Assert `saveWeightGoalCallCount == 0`, `saveSuccess == false`.
 
 **QA**
-After implementation, exercise both targeted tests and runtime behavior:
-1. Run focused cycling tests:
+1. Generate project if needed:
+```bash
+cd ios/BradOS && xcodegen generate && cd ../..
+```
+2. Run focused test suite for this work:
 ```bash
 xcodebuild -project ios/BradOS/BradOS.xcodeproj \
   -scheme BradOS \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -derivedDataPath ~/.cache/brad-os-derived-data \
   -skipPackagePluginValidation \
-  -only-testing:BradOSTests/CyclingViewModelTests \
+  -only-testing:BradOSTests/WeightGoalViewModelTests \
   test
 ```
-2. Run full app test bundle to ensure no collateral breakage in shared helpers:
+3. Run full iOS unit bundle to catch helper regressions:
 ```bash
 xcodebuild -project ios/BradOS/BradOS.xcodeproj \
   -scheme BradOS \
@@ -120,7 +126,7 @@ xcodebuild -project ios/BradOS/BradOS.xcodeproj \
   -only-testing:BradOSTests \
   test
 ```
-3. Build app target (SwiftLint plugin + compile safety):
+4. Build app target (SwiftLint plugin + compile safety):
 ```bash
 xcodebuild -project ios/BradOS/BradOS.xcodeproj \
   -scheme BradOS \
@@ -129,23 +135,28 @@ xcodebuild -project ios/BradOS/BradOS.xcodeproj \
   -skipPackagePluginValidation \
   build
 ```
-4. Manual behavior smoke-check on simulator:
-- Open Cycling tab and confirm it loads without errors (covers `loadData` runtime path).
-- Open Profile -> FTP, save an FTP value, and verify updated value/history display.
-- Open Profile -> Training Block setup with an active block and trigger “complete block early”; verify UI reflects completion and no regressions.
+5. Manual runtime smoke (Profile/Health confidence check):
+- Launch app in simulator.
+- Navigate to `Profile -> Weight Goal`.
+- Confirm existing saved goal pre-fills target weight/date.
+- Change target weight/date, save, leave screen, return, and confirm persisted values reload.
+- Verify prediction card updates and remains coherent for both decreasing and increasing trends (using seeded/mock account states if available).
 
 **Conventions**
 1. `CLAUDE.md`
-- Follow app-layer TDD intent and keep changes narrowly scoped to test coverage.
-- QA is mandatory: include command-line and simulator checks, not tests alone.
+- Use TDD intent: add tests first, then only minimal code needed.
+- QA is mandatory; include simulator exercise, not just assertions.
+- For iOS edits, verify with `xcodebuild` and keep SwiftLint clean.
 
 2. `docs/conventions/testing.md`
-- Use Swift Testing (`import Testing`, `@Suite`, `@Test`, `#expect`), never focused/skipped tests.
-- Every new test must include meaningful assertions.
+- Use Swift Testing (`import Testing`, `@Suite`, `@Test`, `#expect`).
+- No `.only`, no skipped tests, and every test must have meaningful assertions.
 
 3. `docs/conventions/ios-swift.md`
-- Keep SwiftLint-clean code; do not add `swiftlint:disable` comments.
-- Use the existing shared app architecture and avoid adding alternate networking stacks.
+- No `swiftlint:disable` comments.
+- Keep helper code concise and within lint limits.
 
 4. `docs/guides/ios-build-and-run.md`
-- Use `-project ios/BradOS/BradOS.xcodeproj` (not workspace), include `-skipPackagePluginValidation`, and avoid `-sdk` in CLI builds/tests.
+- Use `-project ios/BradOS/BradOS.xcodeproj` (not workspace).
+- Include `-skipPackagePluginValidation`.
+- Do not pass `-sdk` in CLI builds/tests.
