@@ -201,11 +201,12 @@ When creating new types or models, ALWAYS search the entire codebase for existin
 
 ## When Implementing Features
 
-1. If a plan in `thoughts/shared/plans/` is **clearly related** to the task, read it for context on intent and constraints. Skip this step for bug fixes, small tweaks, or tasks with no obvious matching plan.
-2. Write tests BEFORE implementation (TDD)
-3. Start with types/schemas in `packages/functions/src/types/` and `packages/functions/src/schemas/`
-4. Run full test suite before considering complete
-5. Never use `any` - find or create proper types
+1. **Read the architecture map** for the feature you're working on: `docs/architecture/<feature>.md`. These ~30-line files show the full data flow (View → ViewModel → APIClient → Handler → Service → Firestore) with exact file paths at each layer. Available maps: `lifting`, `stretching`, `meditation`, `meal-planning`, `cycling`, `health`, `calendar`, `today`, `profile`, `history`.
+2. If a plan in `thoughts/shared/plans/` is **clearly related** to the task, read it for context on intent and constraints. Skip this step for bug fixes, small tweaks, or tasks with no obvious matching plan.
+3. Write tests BEFORE implementation (TDD)
+4. Start with types/schemas in `packages/functions/src/types/` and `packages/functions/src/schemas/`
+5. Run full test suite before considering complete
+6. Never use `any` - find or create proper types
 
 ## Validation
 
