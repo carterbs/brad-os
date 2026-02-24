@@ -1,233 +1,186 @@
-# CI Workflow: Validate + Integration Tests with Artifact Upload
+# Fix start-emulators.sh: Remove @brad-os/shared Build and Align Modes with npm Scripts
 
-**Why**: The project has comprehensive local validation (`npm run validate`) and 11 integration test suites against Firebase emulators, but zero CI automation. Every merge to `main` relies on the developer remembering to run checks locally. A GitHub Actions workflow catches regressions automatically and uploads `.validate/*.log` artifacts on failure so debugging agents (and humans) can inspect verbose output without re-running locally.
+**Why**: `scripts/start-emulators.sh` fails immediately because it runs `npm run build -w @brad-os/shared` — a workspace that doesn't exist (the only workspace is `packages/functions` with name `@brad-os/functions`). Additionally, the script's three modes (`--seed` default, `--fresh`, `--persist`) don't match the three `npm run emulators*` scripts in `package.json` (`emulators` = persist default, `emulators:fresh`, `emulators:seed`). This means a developer running `./scripts/start-emulators.sh` gets different behavior than `npm run emulators`, and the script can't start at all due to the broken build step.
 
-**What**
+**What**: Fix the build step, align the script's modes with the npm scripts, and make the default mode match `npm run emulators` (persist mode, not seed mode).
 
-A single GitHub Actions workflow (`ci.yml`) triggered on pushes to `main` and pull requests targeting `main`. Two jobs:
+---
 
-1. **validate** — Runs `npm run validate` (typecheck + lint + unit tests + architecture lint). On failure, uploads `.validate/*.log` as a downloadable artifact.
-2. **integration** — Builds the project, boots Firebase emulators in the background, waits for readiness, runs `npm run test:integration`, then uploads logs on failure.
+## Current State (Problems)
 
-Both jobs run on `ubuntu-latest` with Node.js 22 (matching the `nodejs22` Firebase runtime in `firebase.json`).
+### Problem 1: Non-existent workspace build
+```bash
+# Line 22 of start-emulators.sh — fails because @brad-os/shared doesn't exist
+npm run build -w @brad-os/shared
+```
+There is no `packages/shared/` directory. The only workspace is `packages/functions/` (`@brad-os/functions`).
+
+### Problem 2: Mode mismatch
+| Mode | `npm run emulators*` | `start-emulators.sh` |
+|------|---------------------|---------------------|
+| **Default** | `emulators` → persist (`--import=./emulator-data --export-on-exit=./emulator-data`) | `--seed` → seed (`--import=./seed-data`) |
+| Fresh | `emulators:fresh` → no flags | `--fresh` → no flags ✓ |
+| Seed | `emulators:seed` → `--import=./seed-data` | `--seed` → `--import=./seed-data` ✓ |
+| Persist | *(is the default)* | `--persist` → `--import=./emulator-data --export-on-exit=./emulator-data` ✓ |
+
+The default behavior differs: npm defaults to **persist**, the script defaults to **seed**.
+
+### Problem 3: Build command inconsistency
+- `package.json` `"build"` script: `npm run build -w @brad-os/functions`
+- `npm run emulators`: calls `npm run build` (the root script)
+- `start-emulators.sh`: calls `npm run build -w @brad-os/shared` then `npm run build -w @brad-os/functions` (two separate workspace builds, one of which doesn't exist)
 
 ---
 
 ## Files
 
-### 1. `.github/workflows/ci.yml` (create)
+### 1. `scripts/start-emulators.sh` (modify)
 
-```yaml
-name: CI
+Replace the entire file with:
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+```bash
+#!/bin/bash
+#
+# Start Firebase Emulators
+#
+# This script builds the functions and starts the Firebase emulators.
+# Modes match the npm run emulators* scripts in package.json.
+#
+# Usage:
+#   ./scripts/start-emulators.sh            # Persist data (matches: npm run emulators)
+#   ./scripts/start-emulators.sh --fresh    # Empty database  (matches: npm run emulators:fresh)
+#   ./scripts/start-emulators.sh --seed     # Seed data       (matches: npm run emulators:seed)
+#
 
-# Cancel in-progress runs for the same branch/PR
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+set -e
 
-jobs:
-  validate:
-    name: Validate (typecheck + lint + test + architecture)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-    steps:
-      - uses: actions/checkout@v4
+cd "$PROJECT_DIR"
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+echo "🔨 Building functions..."
+npm run build
 
-      - name: Install dependencies
-        run: npm ci
+# Parse arguments — default to persist mode (same as `npm run emulators`)
+MODE="${1:---persist}"
 
-      - name: Run validation
-        run: npm run validate
-
-      - name: Upload validation logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: validate-logs
-          path: .validate/*.log
-          retention-days: 7
-
-  integration:
-    name: Integration tests (Firebase emulators)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: validate
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Install firebase-tools
-        run: npm install -g firebase-tools
-
-      - name: Build functions
-        run: npm run build
-
-      - name: Start Firebase emulators
-        run: |
-          firebase emulators:start --project brad-os &
-          # Wait for functions emulator to be ready (port 5001)
-          echo "Waiting for emulators to start..."
-          timeout 60 bash -c '
-            until curl -sf http://127.0.0.1:5001/brad-os/us-central1/devHealth > /dev/null 2>&1; do
-              sleep 2
-            done
-          '
-          echo "Emulators ready."
-
-      - name: Run integration tests
-        run: npm run test:integration
-
-      - name: Upload integration test logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: integration-logs
-          path: |
-            .validate/*.log
-          retention-days: 7
+case "$MODE" in
+  --fresh)
+    echo "🚀 Starting emulators with fresh database..."
+    firebase emulators:start
+    ;;
+  --seed)
+    if [ -d "./seed-data" ]; then
+      echo "🌱 Starting emulators with seed data..."
+      firebase emulators:start --import=./seed-data
+    else
+      echo "⚠️  No seed-data directory found. Starting fresh..."
+      echo "   Run 'npm run seed:generate' while emulators are running to create seed data."
+      firebase emulators:start
+    fi
+    ;;
+  --persist|*)
+    echo "🚀 Starting emulators with persistent data..."
+    firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data
+    ;;
+esac
 ```
 
-**Design decisions explained:**
+**Changes from current file:**
 
-| Decision | Rationale |
-|----------|-----------|
-| Two separate jobs (`validate` → `integration`) | Fail fast on cheap checks before booting emulators. `needs: validate` skips integration if validation fails. |
-| `concurrency` with `cancel-in-progress` | Avoids wasting CI minutes when multiple pushes happen in quick succession. |
-| `npm ci` (not `npm install`) | Deterministic installs from lockfile, faster in CI. |
-| `firebase emulators:start` without `--import` | Uses fresh state (no seed data) matching `npm run emulators:fresh`. Integration tests create their own data. |
-| `--project brad-os` flag | Explicitly sets the project ID so the emulator URL matches the hardcoded `http://127.0.0.1:5001/brad-os/us-central1` in integration tests. Avoids needing `.firebaserc` auth. |
-| Health check loop with `timeout 60` | Polls the `devHealth` endpoint (same check integration tests use in `checkEmulatorRunning()`). 60s cap prevents hanging forever if the emulator fails to start. |
-| `firebase-tools` installed globally | It's not a devDependency — matches local dev setup where it's installed globally. |
-| `retention-days: 7` for artifacts | Keeps logs long enough for debugging but doesn't bloat storage. |
-| `timeout-minutes: 15/20` | Generous limits — validate typically takes ~20s locally, integration ~60s, but CI machines are slower and include install time. |
+1. **Remove line 21-22** (`npm run build -w @brad-os/shared`) — workspace doesn't exist.
+2. **Replace line 25** (`npm run build -w @brad-os/functions`) with `npm run build` — use the root build script for consistency with npm scripts. The root `build` already does `npm run build -w @brad-os/functions`.
+3. **Change default from `--seed` to `--persist`** — aligns with `npm run emulators` (the default npm script).
+4. **Reorder case branches** — `--persist` is now the default/fallback, `--seed` is explicit. Fresh stays the same.
+5. **Update header comments** — document the alignment with npm scripts.
 
-**What the workflow does NOT do:**
+### 2. No other files need changes
 
-- No iOS build (requires macOS runners, Xcode — separate concern)
-- No deployment (intentionally decoupled from CI validation)
-- No secrets or Firebase auth tokens (emulator runs locally, no cloud access needed)
-- No coverage upload (can be added later)
+The `package.json` npm scripts are already correct:
+- `"emulators"`: persist mode (default) ✓
+- `"emulators:fresh"`: fresh mode ✓
+- `"emulators:seed"`: seed mode ✓
 
----
-
-### 2. `package.json` (modify — optional enhancement)
-
-Add `firebase-tools` as a devDependency so CI can use `npx firebase` instead of a global install:
-
-```json
-"devDependencies": {
-  "firebase-tools": "^13.0.0"
-}
-```
-
-**However**, this changes the lockfile and may conflict with the globally-installed version used locally. **Recommendation: skip this for now** and use the global install approach in the workflow. This can be revisited later.
-
----
-
-### 3. `CLAUDE.md` (modify)
-
-Add a brief CI section after the "Validation" section so future agents know CI exists:
-
-```markdown
-## Continuous Integration
-
-GitHub Actions runs on every push to `main` and every PR:
-
-1. **validate** job — `npm run validate` (typecheck + lint + test + architecture)
-2. **integration** job — Boots Firebase emulators, runs `npm run test:integration`
-
-On failure, `.validate/*.log` artifacts are uploaded for inspection. See `.github/workflows/ci.yml`.
-```
+`firebase.json` emulator config is correct. `ci.yml` doesn't use `start-emulators.sh` (it calls `firebase emulators:start` directly). `wait-for-emulator.sh` is independent of this script.
 
 ---
 
 ## Tests
 
-This is an infrastructure change (CI config), not application code. No new unit tests are needed. The CI workflow **is itself the test** — it validates that the existing test suites pass in a clean environment.
+This is a shell script fix, not application code. No new vitest unit tests are needed (shell scripts aren't covered by the vitest test suite).
 
-**Verification approach:**
+**Verification is done via QA (below).**
 
-1. The workflow runs `npm run validate` which exercises all 4 check categories (typecheck, lint, test, architecture) — these already have extensive tests.
-2. The workflow runs `npm run test:integration` which exercises all 11 integration test suites against real Firebase emulators.
-3. The artifact upload step is verified by intentionally triggering a failure (see QA below).
+One thing to verify in existing tests: confirm no test or CI config references `@brad-os/shared`:
+- `ci.yml` uses `npm run build` — no reference to shared ✓
+- `package.json` `"build"` uses `-w @brad-os/functions` — no reference to shared ✓
+- No integration test references start-emulators.sh directly ✓
 
 ---
 
 ## QA
 
-### 1. Verify the workflow file is valid YAML
-
+### 1. Verify the build step succeeds
 ```bash
-# From the worktree root
-python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml'))" && echo "Valid YAML"
+# In the worktree, run just the build portion
+npm run build
+# Should succeed — builds @brad-os/functions via tsc
 ```
 
-Or use `actionlint` if available:
+### 2. Verify default mode (persist) matches npm run emulators
 ```bash
-npx actionlint .github/workflows/ci.yml
+# Run the script with no arguments
+./scripts/start-emulators.sh
+# Expected output:
+#   🔨 Building functions...
+#   🚀 Starting emulators with persistent data...
+# Emulators should start with --import=./emulator-data --export-on-exit=./emulator-data
+# This matches: npm run emulators
 ```
 
-### 2. Verify the workflow triggers correctly
+### 3. Verify --fresh mode
+```bash
+./scripts/start-emulators.sh --fresh
+# Expected output:
+#   🔨 Building functions...
+#   🚀 Starting emulators with fresh database...
+# Emulators should start with no import/export flags
+# This matches: npm run emulators:fresh
+```
 
-Push the branch and open a PR against `main`. Confirm the CI workflow appears in the GitHub Actions tab with both jobs listed.
+### 4. Verify --seed mode
+```bash
+./scripts/start-emulators.sh --seed
+# Expected output (if seed-data/ exists):
+#   🔨 Building functions...
+#   🌱 Starting emulators with seed data...
+# Expected output (if seed-data/ doesn't exist):
+#   🔨 Building functions...
+#   ⚠️  No seed-data directory found. Starting fresh...
+# This matches: npm run emulators:seed
+```
 
-### 3. Verify the validate job passes
+### 5. Verify the old broken command no longer runs
+```bash
+# Confirm @brad-os/shared is nowhere in the script
+grep -c "@brad-os/shared" scripts/start-emulators.sh
+# Expected: 0
+```
 
-The PR's CI run should show the `validate` job completing successfully with all 4 checks passing.
-
-### 4. Verify the integration job passes
-
-The `integration` job should:
-- Install firebase-tools
-- Build functions
-- Start emulators (visible in logs as "Emulators ready.")
-- Run all 11 integration test suites
-- Show green checkmark
-
-### 5. Verify artifact upload on failure
-
-To test this without breaking main, temporarily add a failing assertion to one test file in the PR branch, push, and confirm:
-- The workflow fails
-- The "validate-logs" artifact appears in the Actions run summary
-- Downloading the artifact yields the `.validate/*.log` files with verbose error output
-- Revert the intentional failure before merging
-
-### 6. Verify concurrency cancellation
-
-Push two commits in rapid succession to the same branch. Confirm the first run is cancelled and only the second completes.
+### 6. Verify emulators actually respond
+```bash
+# After starting with any mode, in a separate terminal:
+curl -sf http://127.0.0.1:5001/brad-os/us-central1/devHealth
+# Should return a health check response (HTTP 200)
+```
 
 ---
 
 ## Conventions
 
-1. **CLAUDE.md — Worktree workflow**: Create the workflow file in a worktree branch, validate, then merge to main.
-
-2. **CLAUDE.md — Validation**: Run `npm run validate` locally before committing to ensure the workflow file doesn't break anything.
-
-3. **CLAUDE.md — Subagent usage**: Run validation commands in subagents to conserve context.
-
-4. **CLAUDE.md — Self-review**: Review the diff before committing. Ensure the YAML is valid and the CLAUDE.md update is accurate.
-
-5. **docs/conventions/testing.md**: The CI workflow must run the same test commands as local development — `npm run validate` and `npm run test:integration` — not custom CI-only test scripts.
-
-6. **Project structure**: The `.github/workflows/` directory doesn't exist yet — it must be created along with the workflow file.
+1. **CLAUDE.md — Worktree workflow**: Make changes in a git worktree, not directly on main.
+2. **CLAUDE.md — Validation**: Run `npm run validate` before committing to ensure nothing is broken.
+3. **CLAUDE.md — Subagent usage**: Run validation in a subagent to conserve context.
+4. **CLAUDE.md — Self-review**: `git diff main` to review every changed line before committing.
+5. **CLAUDE.md — QA**: Exercise the script manually — don't just verify it parses. Actually start the emulators and hit the health endpoint.
