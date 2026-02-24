@@ -134,6 +134,7 @@ Code and docs are optimized for agent readability first. CLAUDE.md is a map, not
 
 ## Guides (see docs/guides/)
 
+- **[Local Dev Quickstart](docs/guides/local-dev-quickstart.md)** — 5-minute bootstrap: install → validate → emulators → iOS build
 - **[Debugging Cloud Functions](docs/guides/debugging-cloud-functions.md)** — Ordered checklist: rewrite paths, deployment state, App Check
 - **[iOS Build and Run](docs/guides/ios-build-and-run.md)** — xcodebuild commands, simulator setup, SwiftLint via build, exploratory testing
 - **[Progressive Overload](docs/guides/progressive-overload.md)** — Business logic for workout progression, data architecture

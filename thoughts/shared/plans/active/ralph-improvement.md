@@ -1,186 +1,288 @@
-# Fix start-emulators.sh: Remove @brad-os/shared Build and Align Modes with npm Scripts
+# Add Local Dev Quickstart Guide
 
-**Why**: `scripts/start-emulators.sh` fails immediately because it runs `npm run build -w @brad-os/shared` — a workspace that doesn't exist (the only workspace is `packages/functions` with name `@brad-os/functions`). Additionally, the script's three modes (`--seed` default, `--fresh`, `--persist`) don't match the three `npm run emulators*` scripts in `package.json` (`emulators` = persist default, `emulators:fresh`, `emulators:seed`). This means a developer running `./scripts/start-emulators.sh` gets different behavior than `npm run emulators`, and the script can't start at all due to the broken build step.
-
-**What**: Fix the build step, align the script's modes with the npm scripts, and make the default mode match `npm run emulators` (persist mode, not seed mode).
+**Why**: There is no single document that walks a new developer (or agent) through the full bootstrap sequence. The README has a minimal "Development" section with stale commands (`npm run dev` which actually runs emulators, no mention of `validate`, no XcodeGen step). CLAUDE.md has validation and iOS build info but scattered across sections. A dedicated 5-minute quickstart guide consolidates the happy path: install → validate → emulators → iOS build.
 
 ---
 
-## Current State (Problems)
+## What
 
-### Problem 1: Non-existent workspace build
-```bash
-# Line 22 of start-emulators.sh — fails because @brad-os/shared doesn't exist
-npm run build -w @brad-os/shared
-```
-There is no `packages/shared/` directory. The only workspace is `packages/functions/` (`@brad-os/functions`).
+Create `docs/guides/local-dev-quickstart.md` — a concise, linear guide covering:
 
-### Problem 2: Mode mismatch
-| Mode | `npm run emulators*` | `start-emulators.sh` |
-|------|---------------------|---------------------|
-| **Default** | `emulators` → persist (`--import=./emulator-data --export-on-exit=./emulator-data`) | `--seed` → seed (`--import=./seed-data`) |
-| Fresh | `emulators:fresh` → no flags | `--fresh` → no flags ✓ |
-| Seed | `emulators:seed` → `--import=./seed-data` | `--seed` → `--import=./seed-data` ✓ |
-| Persist | *(is the default)* | `--persist` → `--import=./emulator-data --export-on-exit=./emulator-data` ✓ |
+1. **Prerequisites** — Node 22, npm, Firebase CLI, Xcode + simulator, XcodeGen
+2. **Step 1: Clone & Install** — `git clone`, `npm install` (which also sets up git hooks via `postinstall`)
+3. **Step 2: Validate** — `npm run validate` to confirm the TypeScript + lint + test + architecture stack passes
+4. **Step 3: Start Emulators** — `npm run emulators` (persist mode) with a health-check curl to verify
+5. **Step 4: Build & Run iOS** — XcodeGen → xcodebuild → simctl install → simctl launch
+6. **Verify everything works** — curl the health endpoint, confirm iOS app loads in simulator
+7. **Next steps** — links to CLAUDE.md, conventions, and other guides
 
-The default behavior differs: npm defaults to **persist**, the script defaults to **seed**.
-
-### Problem 3: Build command inconsistency
-- `package.json` `"build"` script: `npm run build -w @brad-os/functions`
-- `npm run emulators`: calls `npm run build` (the root script)
-- `start-emulators.sh`: calls `npm run build -w @brad-os/shared` then `npm run build -w @brad-os/functions` (two separate workspace builds, one of which doesn't exist)
+Then link it from `README.md` and `CLAUDE.md`.
 
 ---
 
 ## Files
 
-### 1. `scripts/start-emulators.sh` (modify)
+### 1. `docs/guides/local-dev-quickstart.md` (CREATE)
 
-Replace the entire file with:
+Full content of the new file:
+
+```markdown
+# Local Dev Quickstart
+
+Get brad-os running locally in ~5 minutes: install dependencies, validate the build, start emulators, and run the iOS app on a simulator.
+
+## Prerequisites
+
+| Tool | Version | Install |
+|------|---------|---------|
+| Node.js | 22.x | `brew install node@22` or [nvm](https://github.com/nvm-sh/nvm) |
+| npm | 10.x+ | Comes with Node |
+| Firebase CLI | Latest | `npm install -g firebase-tools` |
+| Xcode | 16+ | Mac App Store |
+| XcodeGen | Latest | `brew install xcodegen` |
+
+Verify:
 
 ```bash
-#!/bin/bash
-#
-# Start Firebase Emulators
-#
-# This script builds the functions and starts the Firebase emulators.
-# Modes match the npm run emulators* scripts in package.json.
-#
-# Usage:
-#   ./scripts/start-emulators.sh            # Persist data (matches: npm run emulators)
-#   ./scripts/start-emulators.sh --fresh    # Empty database  (matches: npm run emulators:fresh)
-#   ./scripts/start-emulators.sh --seed     # Seed data       (matches: npm run emulators:seed)
-#
-
-set -e
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-
-cd "$PROJECT_DIR"
-
-echo "🔨 Building functions..."
-npm run build
-
-# Parse arguments — default to persist mode (same as `npm run emulators`)
-MODE="${1:---persist}"
-
-case "$MODE" in
-  --fresh)
-    echo "🚀 Starting emulators with fresh database..."
-    firebase emulators:start
-    ;;
-  --seed)
-    if [ -d "./seed-data" ]; then
-      echo "🌱 Starting emulators with seed data..."
-      firebase emulators:start --import=./seed-data
-    else
-      echo "⚠️  No seed-data directory found. Starting fresh..."
-      echo "   Run 'npm run seed:generate' while emulators are running to create seed data."
-      firebase emulators:start
-    fi
-    ;;
-  --persist|*)
-    echo "🚀 Starting emulators with persistent data..."
-    firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data
-    ;;
-esac
+node -v          # v22.x
+firebase --version
+xcodegen --version
+xcodebuild -version
 ```
 
-**Changes from current file:**
+## Step 1: Clone & Install
 
-1. **Remove line 21-22** (`npm run build -w @brad-os/shared`) — workspace doesn't exist.
-2. **Replace line 25** (`npm run build -w @brad-os/functions`) with `npm run build` — use the root build script for consistency with npm scripts. The root `build` already does `npm run build -w @brad-os/functions`.
-3. **Change default from `--seed` to `--persist`** — aligns with `npm run emulators` (the default npm script).
-4. **Reorder case branches** — `--persist` is now the default/fallback, `--seed` is explicit. Fresh stays the same.
-5. **Update header comments** — document the alignment with npm scripts.
+```bash
+git clone <repo-url> brad-os
+cd brad-os
+npm install
+```
 
-### 2. No other files need changes
+`npm install` also runs `postinstall` which sets `core.hooksPath` to `hooks/` — this enables the pre-commit hook that enforces validation.
 
-The `package.json` npm scripts are already correct:
-- `"emulators"`: persist mode (default) ✓
-- `"emulators:fresh"`: fresh mode ✓
-- `"emulators:seed"`: seed mode ✓
+## Step 2: Validate
 
-`firebase.json` emulator config is correct. `ci.yml` doesn't use `start-emulators.sh` (it calls `firebase emulators:start` directly). `wait-for-emulator.sh` is independent of this script.
+```bash
+npm run validate
+```
+
+This runs typecheck + lint + test + architecture checks. All output goes to `.validate/*.log` — you only see a pass/fail summary. If anything fails, inspect the log:
+
+```bash
+cat .validate/typecheck.log   # or test.log, lint.log, architecture.log
+```
+
+A clean `validate` confirms your environment is set up correctly.
+
+## Step 3: Start Firebase Emulators
+
+```bash
+npm run emulators
+```
+
+This builds the Cloud Functions and starts the Firebase emulator suite:
+- **Functions:** http://127.0.0.1:5001
+- **Firestore:** http://127.0.0.1:8080
+- **Emulator UI:** http://127.0.0.1:4000
+
+Verify the functions are running:
+
+```bash
+curl -sf http://127.0.0.1:5001/brad-os/us-central1/devHealth
+```
+
+Other emulator modes:
+
+| Command | Behavior |
+|---------|----------|
+| `npm run emulators` | Persist data across restarts (default) |
+| `npm run emulators:fresh` | Start with empty database |
+| `npm run emulators:seed` | Load seed data from `seed-data/` |
+
+## Step 4: Build & Run iOS App
+
+Generate the Xcode project, build for the simulator, and launch:
+
+```bash
+# Generate project from project.yml
+cd ios/BradOS && xcodegen generate && cd ../..
+
+# Build for simulator
+xcodebuild -project ios/BradOS/BradOS.xcodeproj \
+  -scheme BradOS \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -derivedDataPath ~/.cache/brad-os-derived-data \
+  -skipPackagePluginValidation \
+  build
+
+# Install and launch on booted simulator
+xcrun simctl install booted ~/.cache/brad-os-derived-data/Build/Products/Debug-iphonesimulator/BradOS.app
+xcrun simctl launch booted com.bradcarter.brad-os
+```
+
+**Notes:**
+- Do NOT pass `-sdk iphonesimulator` — it breaks the watchOS companion build.
+- `-skipPackagePluginValidation` is required for the SwiftLint SPM build plugin.
+- SwiftLint runs automatically during `xcodebuild build` — a successful build means zero lint errors.
+
+## You're Done!
+
+At this point you should have:
+- ✅ All validation checks passing
+- ✅ Firebase emulators running with a health endpoint responding
+- ✅ The iOS app running in the simulator and talking to local emulators
+
+## Next Steps
+
+- **[CLAUDE.md](../../CLAUDE.md)** — Project rules, worktree workflow, validation commands
+- **[iOS Build and Run](ios-build-and-run.md)** — Detailed iOS build commands and exploratory testing
+- **[Debugging Cloud Functions](debugging-cloud-functions.md)** — Troubleshooting endpoints
+- **[Debug Telemetry](debug-telemetry.md)** — OpenTelemetry traces for iOS debugging
+- **[Conventions](../conventions/)** — TypeScript, iOS/Swift, API, and testing conventions
+```
+
+### 2. `README.md` (MODIFY)
+
+Add a quickstart link in the Development section. Replace the existing `## Development` section:
+
+**Current** (lines 51–59):
+```markdown
+## Development
+
+```bash
+npm install              # Install dependencies
+npm run dev              # Start API server (port 3001)
+npm run build            # Build all packages
+npm run typecheck        # TypeScript compilation
+npm run lint             # ESLint checks
+npm run test             # Unit tests
+```
+```
+
+**Replace with:**
+```markdown
+## Development
+
+See **[Local Dev Quickstart](docs/guides/local-dev-quickstart.md)** for the full 5-minute bootstrap flow.
+
+```bash
+npm install              # Install dependencies (also sets up git hooks)
+npm run validate         # Full check: typecheck + lint + test + architecture
+npm run emulators        # Start Firebase emulators (port 5001)
+npm run build            # Build Cloud Functions
+npm run typecheck        # TypeScript compilation
+npm run lint             # ESLint checks
+npm run test             # Unit tests
+```
+```
+
+Key changes:
+- Add link to the quickstart guide at the top of the section
+- Replace stale `npm run dev` with `npm run emulators` (they're the same script, but `emulators` is the real name)
+- Add `npm run validate` (the primary validation command)
+- Fix `npm run build` description (builds Cloud Functions, not "all packages")
+- Add note about git hooks to `npm install`
+
+### 3. `CLAUDE.md` (MODIFY)
+
+Add a quickstart link in the `## Guides` section. After the last guide entry (Debug Telemetry), add:
+
+**Current** (lines 136–140):
+```markdown
+## Guides (see docs/guides/)
+
+- **[Debugging Cloud Functions](docs/guides/debugging-cloud-functions.md)** — Ordered checklist: rewrite paths, deployment state, App Check
+- **[iOS Build and Run](docs/guides/ios-build-and-run.md)** — xcodebuild commands, simulator setup, SwiftLint via build, exploratory testing
+- **[Progressive Overload](docs/guides/progressive-overload.md)** — Business logic for workout progression, data architecture
+- **[Debug Telemetry](docs/guides/debug-telemetry.md)** — `npm run otel:start`, query `.otel/traces.jsonl` and `.otel/logs.jsonl` with Grep for structured iOS debugging
+```
+
+**Replace with:**
+```markdown
+## Guides (see docs/guides/)
+
+- **[Local Dev Quickstart](docs/guides/local-dev-quickstart.md)** — 5-minute bootstrap: install → validate → emulators → iOS build
+- **[Debugging Cloud Functions](docs/guides/debugging-cloud-functions.md)** — Ordered checklist: rewrite paths, deployment state, App Check
+- **[iOS Build and Run](docs/guides/ios-build-and-run.md)** — xcodebuild commands, simulator setup, SwiftLint via build, exploratory testing
+- **[Progressive Overload](docs/guides/progressive-overload.md)** — Business logic for workout progression, data architecture
+- **[Debug Telemetry](docs/guides/debug-telemetry.md)** — `npm run otel:start`, query `.otel/traces.jsonl` and `.otel/logs.jsonl` with Grep for structured iOS debugging
+```
+
+The quickstart is listed first because it's the entry point for new developers/agents.
 
 ---
 
 ## Tests
 
-This is a shell script fix, not application code. No new vitest unit tests are needed (shell scripts aren't covered by the vitest test suite).
+This is a documentation-only change — no application code is modified. No vitest unit tests are needed.
 
-**Verification is done via QA (below).**
+**Verify no existing tests break** by running `npm run validate` after making changes. The architecture linter checks for broken internal references in some cases, so confirm it passes.
 
-One thing to verify in existing tests: confirm no test or CI config references `@brad-os/shared`:
-- `ci.yml` uses `npm run build` — no reference to shared ✓
-- `package.json` `"build"` uses `-w @brad-os/functions` — no reference to shared ✓
-- No integration test references start-emulators.sh directly ✓
+**Manual link verification** (in QA below) replaces automated tests for this change.
 
 ---
 
 ## QA
 
-### 1. Verify the build step succeeds
+### 1. Validate the build still passes
 ```bash
-# In the worktree, run just the build portion
-npm run build
-# Should succeed — builds @brad-os/functions via tsc
+npm run validate
+# All checks should pass — this is a docs-only change
 ```
 
-### 2. Verify default mode (persist) matches npm run emulators
+### 2. Verify all internal links in the new guide resolve
+Check that every relative link in `docs/guides/local-dev-quickstart.md` points to a real file:
 ```bash
-# Run the script with no arguments
-./scripts/start-emulators.sh
-# Expected output:
-#   🔨 Building functions...
-#   🚀 Starting emulators with persistent data...
-# Emulators should start with --import=./emulator-data --export-on-exit=./emulator-data
-# This matches: npm run emulators
+# These files must exist:
+ls docs/guides/ios-build-and-run.md
+ls docs/guides/debugging-cloud-functions.md
+ls docs/guides/debug-telemetry.md
+ls docs/conventions/
+ls CLAUDE.md
 ```
 
-### 3. Verify --fresh mode
+### 3. Verify the README link resolves
 ```bash
-./scripts/start-emulators.sh --fresh
-# Expected output:
-#   🔨 Building functions...
-#   🚀 Starting emulators with fresh database...
-# Emulators should start with no import/export flags
-# This matches: npm run emulators:fresh
+# From the repo root, this file must exist:
+ls docs/guides/local-dev-quickstart.md
 ```
 
-### 4. Verify --seed mode
+### 4. Verify the CLAUDE.md link resolves
 ```bash
-./scripts/start-emulators.sh --seed
-# Expected output (if seed-data/ exists):
-#   🔨 Building functions...
-#   🌱 Starting emulators with seed data...
-# Expected output (if seed-data/ doesn't exist):
-#   🔨 Building functions...
-#   ⚠️  No seed-data directory found. Starting fresh...
-# This matches: npm run emulators:seed
+# Same file, same check — already confirmed above
+ls docs/guides/local-dev-quickstart.md
 ```
 
-### 5. Verify the old broken command no longer runs
-```bash
-# Confirm @brad-os/shared is nowhere in the script
-grep -c "@brad-os/shared" scripts/start-emulators.sh
-# Expected: 0
-```
+### 5. Verify commands in the guide are accurate
+Cross-check each command in the quickstart against the actual project config:
+- `npm run validate` — exists in `package.json` ✓
+- `npm run emulators` — exists in `package.json` ✓
+- `npm run emulators:fresh` — exists in `package.json` ✓
+- `npm run emulators:seed` — exists in `package.json` ✓
+- `xcodebuild -project ios/BradOS/BradOS.xcodeproj -scheme BradOS ...` — matches `docs/guides/ios-build-and-run.md` ✓
+- `xcrun simctl install booted ...` — matches `docs/guides/ios-build-and-run.md` ✓
+- Port numbers (5001, 8080, 4000) — match `firebase.json` emulator config ✓
+- Bundle ID `com.bradcarter.brad-os` — matches `docs/conventions/ios-swift.md` ✓
 
-### 6. Verify emulators actually respond
+### 6. Diff review
 ```bash
-# After starting with any mode, in a separate terminal:
-curl -sf http://127.0.0.1:5001/brad-os/us-central1/devHealth
-# Should return a health check response (HTTP 200)
+git diff main --stat
+# Expected: 3 files changed (1 new, 2 modified)
+#   docs/guides/local-dev-quickstart.md (new)
+#   README.md (modified)
+#   CLAUDE.md (modified)
+
+git diff main
+# Review every changed line
 ```
 
 ---
 
 ## Conventions
 
-1. **CLAUDE.md — Worktree workflow**: Make changes in a git worktree, not directly on main.
-2. **CLAUDE.md — Validation**: Run `npm run validate` before committing to ensure nothing is broken.
+1. **CLAUDE.md — Worktree workflow**: Make all changes in a git worktree, not directly on main.
+2. **CLAUDE.md — Validation**: Run `npm run validate` before committing.
 3. **CLAUDE.md — Subagent usage**: Run validation in a subagent to conserve context.
 4. **CLAUDE.md — Self-review**: `git diff main` to review every changed line before committing.
-5. **CLAUDE.md — QA**: Exercise the script manually — don't just verify it parses. Actually start the emulators and hit the health endpoint.
+5. **CLAUDE.md — Agent legibility**: Push context into the repo (docs) rather than leaving it in chat. This guide directly serves that principle.
+6. **CLAUDE.md — QA**: Exercise what you built — verify links resolve, commands are accurate, and the guide matches reality.

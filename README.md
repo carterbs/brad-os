@@ -49,10 +49,13 @@ A personal operating system for tracking wellness and fitness. Built as a learni
 
 ## Development
 
+See **[Local Dev Quickstart](docs/guides/local-dev-quickstart.md)** for the full 5-minute bootstrap flow.
+
 ```bash
-npm install              # Install dependencies
-npm run dev              # Start API server (port 3001)
-npm run build            # Build all packages
+npm install              # Install dependencies (also sets up git hooks)
+npm run validate         # Full check: typecheck + lint + test + architecture
+npm run emulators        # Start Firebase emulators (port 5001)
+npm run build            # Build Cloud Functions
 npm run typecheck        # TypeScript compilation
 npm run lint             # ESLint checks
 npm run test             # Unit tests
