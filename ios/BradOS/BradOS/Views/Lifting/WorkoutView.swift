@@ -8,7 +8,7 @@ struct WorkoutView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.apiClient) var apiClient
     @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var watchWorkoutController: WatchWorkoutController
+    @EnvironmentObject var watchWorkoutController: WatchWorkoutService
 
     // Workout state
     @State var workout: Workout?
@@ -37,7 +37,7 @@ struct WorkoutView: View {
 
     // Managers for persistence and timer
     @StateObject var stateManager = WorkoutStateManager()
-    @StateObject var restTimer = RestTimerManager()
+    @StateObject var restTimer = ServiceFactory.makeRestTimerManager()
 
     var body: some View {
         ZStack {

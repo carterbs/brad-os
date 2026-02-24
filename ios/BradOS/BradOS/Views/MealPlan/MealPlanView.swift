@@ -6,9 +6,13 @@ struct MealPlanView: View {
     @EnvironmentObject var appState: AppState
     @StateObject private var viewModel: MealPlanViewModel
 
-    init(apiClient: APIClientProtocol = APIClient.shared) {
-        let recipeCache = RecipeCacheService(apiClient: apiClient)
-        _viewModel = StateObject(wrappedValue: MealPlanViewModel(apiClient: apiClient, recipeCache: recipeCache))
+    init(apiClient: APIClientProtocol? = nil) {
+        if let apiClient = apiClient {
+            let recipeCache = RecipeCacheService(apiClient: apiClient)
+            _viewModel = StateObject(wrappedValue: MealPlanViewModel(apiClient: apiClient, recipeCache: recipeCache))
+        } else {
+            _viewModel = StateObject(wrappedValue: ViewModelFactory.makeMealPlanViewModel())
+        }
     }
 
     var body: some View {

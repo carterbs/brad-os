@@ -2,8 +2,8 @@ import SwiftUI
 
 /// View for manually triggering HealthKit to Firebase sync for individual data types
 struct HealthSyncView: View {
-    @EnvironmentObject var healthKit: HealthKitManager
-    @State private var syncService: HealthKitSyncService?
+    @EnvironmentObject var healthKit: HealthKitService
+    @State private var syncService: HealthSyncBridge?
     @State private var syncingType: SyncType?
     @State private var lastResult: String?
     @State private var showResetConfirm = false
@@ -40,7 +40,7 @@ struct HealthSyncView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)
         .onAppear {
-            syncService = HealthKitSyncService(healthKitManager: healthKit)
+            syncService = ServiceFactory.makeHealthSyncService(healthKit: healthKit)
         }
         .alert("Reset Backfill?", isPresented: $showResetConfirm) {
             Button("Reset", role: .destructive) {

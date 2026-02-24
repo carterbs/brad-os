@@ -4,7 +4,7 @@ import BradOSCore
 
 /// Active stretch session view
 struct StretchActiveView: View {
-    @ObservedObject var sessionManager: StretchSessionManager
+    @ObservedObject var sessionManager: StretchSessionService
     let onCancel: () -> Void
 
     var body: some View {

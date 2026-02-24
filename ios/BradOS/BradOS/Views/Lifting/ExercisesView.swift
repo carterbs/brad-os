@@ -4,7 +4,7 @@ import BradOSCore
 
 /// View displaying exercise library with API integration
 struct ExercisesView: View {
-    @StateObject private var viewModel = ExercisesViewModel(apiClient: APIClient.shared)
+    @StateObject private var viewModel = ViewModelFactory.makeExercisesViewModel()
     @State private var searchText = ""
 
     private var filteredExercises: [Exercise] {

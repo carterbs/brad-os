@@ -6,7 +6,7 @@ struct GuidedMeditationPreparingView: View {
     let onReady: ([PreparedAudioSegment], [ResolvedInterjection]) -> Void
     let onCancel: () -> Void
 
-    @StateObject private var service = GuidedMeditationService.shared
+    @StateObject private var service = ServiceFactory.makeGuidedMeditationService()
     @State private var error: Error?
 
     var body: some View {

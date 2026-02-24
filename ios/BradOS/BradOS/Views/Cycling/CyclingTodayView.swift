@@ -5,13 +5,13 @@ import SwiftUI
 /// Today's cycling dashboard with recovery and coach recommendations
 struct CyclingTodayView: View {
     @EnvironmentObject var viewModel: CyclingViewModel
-    @EnvironmentObject var healthKit: HealthKitManager
-    @StateObject private var coachClient = CyclingCoachClient()
+    @EnvironmentObject var healthKit: HealthKitService
+    @StateObject private var coachClient = ServiceFactory.makeCyclingCoachClient()
 
     @State private var showOnboarding = false
     @State private var showSetupOnboarding = false
     @State private var recovery: RecoveryData?
-    @State private var syncService: HealthKitSyncService?
+    @State private var syncService: HealthSyncBridge?
 
     private var needsOnboarding: Bool {
         // Show onboarding if no FTP set AND no training block
@@ -143,7 +143,7 @@ struct CyclingTodayView: View {
     private func loadRecoveryAndCoach() async {
         // Initialize sync service if needed
         if syncService == nil {
-            syncService = HealthKitSyncService(healthKitManager: healthKit)
+            syncService = ServiceFactory.makeHealthSyncService(healthKit: healthKit)
         }
 
         // Sync HealthKit to Firebase first (ensures fresh data)
@@ -151,7 +151,7 @@ struct CyclingTodayView: View {
 
         // Load recovery from Firebase
         do {
-            let snapshot = try await APIClient.shared.getLatestRecovery()
+            let snapshot = try await DefaultAPIClient.concrete.getLatestRecovery()
             recovery = snapshot?.toRecoveryData()
         } catch {
             print("[CyclingTodayView] Failed to load recovery: \(error)")

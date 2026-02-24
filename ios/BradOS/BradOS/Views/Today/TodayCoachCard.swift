@@ -5,9 +5,9 @@ import SwiftUI
 /// Self-loading: syncs HealthKit to Firebase, fetches recovery, then calls the Today Coach API.
 /// Shows loading/error/content states inline on the dashboard.
 struct TodayCoachCard: View {
-    @EnvironmentObject var healthKit: HealthKitManager
-    @StateObject private var coachClient = TodayCoachClient()
-    @State private var syncService: HealthKitSyncService?
+    @EnvironmentObject var healthKit: HealthKitService
+    @StateObject private var coachClient = ServiceFactory.makeTodayCoachClient()
+    @State private var syncService: HealthSyncBridge?
     @State var recovery: RecoveryData?
     @State private var isLoadingRecovery = false
     @State private var isShowingDetail = false
@@ -61,7 +61,7 @@ struct TodayCoachCard: View {
             // Still load recovery for the badge display if we don't have it
             if recovery == nil {
                 do {
-                    let snapshot = try await APIClient.shared.getLatestRecovery()
+                    let snapshot = try await DefaultAPIClient.concrete.getLatestRecovery()
                     recovery = snapshot?.toRecoveryData()
                 } catch {
                     print("[TodayCoachCard] Failed to load recovery: \(error)")
@@ -74,7 +74,7 @@ struct TodayCoachCard: View {
 
         // Initialize sync service if needed
         if syncService == nil {
-            syncService = HealthKitSyncService(healthKitManager: healthKit)
+            syncService = ServiceFactory.makeHealthSyncService(healthKit: healthKit)
         }
 
         // Step 1: Sync HealthKit to Firebase only if needed
@@ -83,7 +83,7 @@ struct TodayCoachCard: View {
 
         // Step 2: Fetch the latest recovery snapshot from Firebase
         do {
-            let snapshot = try await APIClient.shared.getLatestRecovery()
+            let snapshot = try await DefaultAPIClient.concrete.getLatestRecovery()
             recovery = snapshot?.toRecoveryData()
         } catch {
             print("[TodayCoachCard] Failed to load recovery: \(error)")

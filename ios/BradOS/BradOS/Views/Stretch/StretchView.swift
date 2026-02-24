@@ -5,11 +5,11 @@ import BradOSCore
 struct StretchView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.scenePhase) private var scenePhase
-    @StateObject private var sessionManager = StretchSessionManager()
-    @StateObject private var dataService = StretchDataService()
-    @StateObject private var audioPreparer = StretchAudioPreparer()
+    @StateObject private var sessionManager = ServiceFactory.makeStretchSessionManager()
+    @StateObject private var dataService = ServiceFactory.makeStretchDataService()
+    @StateObject private var audioPreparer = ServiceFactory.makeStretchAudioPreparer()
 
-    @State private var config: StretchSessionConfig = StretchConfigStorage.shared.load()
+    @State private var config: StretchSessionConfig = ServiceFactory.loadStretchConfig()
     @State private var showCancelConfirmation = false
     @State private var showRecoveryPrompt = false
     @State private var recoveryInfo: (stretchName: String, regionName: String, progress: String)?
@@ -21,9 +21,9 @@ struct StretchView: View {
     @State private var saveError: String?
     @State private var hasSavedSession = false
 
-    private let configStorage = StretchConfigStorage.shared
-    private let sessionStorage = StretchSessionStorage.shared
-    private let apiClient: APIClientProtocol = APIClient.shared
+    private let configStorage = ServiceFactory.stretchConfigStorage
+    private let sessionStorage = ServiceFactory.stretchSessionStorage
+    private let apiClient: APIClientProtocol = DefaultAPIClient.instance
 
     var body: some View {
         NavigationStack {
