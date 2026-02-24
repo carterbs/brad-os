@@ -12,6 +12,7 @@ import {
   createWeightGoalSchema,
   calculateVO2MaxSchema,
   updateCyclingProfileSchema,
+  createCyclingActivitySchema,
   type CyclingActivity,
   type CreateTrainingBlockInput,
 } from '../shared.js';
@@ -209,6 +210,7 @@ app.get(
 // POST /cycling/activities
 app.post(
   '/activities',
+  validate(createCyclingActivitySchema),
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     const userId = getUserId(req);
     const body = req.body as Omit<CyclingActivity, 'id'>;

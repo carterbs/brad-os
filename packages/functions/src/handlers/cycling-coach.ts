@@ -20,6 +20,8 @@ import {
   type DailyTSS,
 } from '../services/training-load.service.js';
 import { generateScheduleSchema } from '../schemas/cycling.schema.js';
+import { coachRecommendRequestSchema } from '../schemas/recovery.schema.js';
+import { validate } from '../middleware/validate.js';
 import {
   buildLiftingContext,
   buildLiftingSchedule,
@@ -239,6 +241,7 @@ app.post(
 // POST /cycling-coach/recommend
 app.post(
   '/recommend',
+  validate(coachRecommendRequestSchema),
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     const userId = getUserId(req);
 

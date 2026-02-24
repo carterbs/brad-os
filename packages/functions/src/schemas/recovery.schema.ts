@@ -149,3 +149,13 @@ export const getRecoveryQuerySchema = z.object({
 });
 
 export type GetRecoveryQueryInput = z.infer<typeof getRecoveryQuerySchema>;
+
+// --- Coach Recommend Request Schema ---
+
+/**
+ * Schema for coach /recommend endpoints (cycling-coach, today-coach).
+ * Accepts an optional recovery snapshot without the `source` field.
+ */
+export const coachRecommendRequestSchema = z.object({
+  recovery: recoverySnapshotSchema.omit({ source: true }).optional(),
+});

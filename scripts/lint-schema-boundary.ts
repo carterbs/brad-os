@@ -33,6 +33,11 @@ const ACTION_SUFFIXES = [
   '/cancel',
   '/unlog',
   '/remove',
+  '/finalize',
+  '/add',
+  '/sync',
+  '/generate',
+  '/backfill-streams',
 ];
 
 function isActionRoute(routePath: string): boolean {
