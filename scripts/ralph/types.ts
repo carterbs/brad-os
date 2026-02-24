@@ -1,9 +1,4 @@
-export type StepName =
-  | "plan"
-  | "implement"
-  | "self-review"
-  | "agent-review"
-  | "merge";
+export type StepName = "plan" | "implement" | "review" | "merge";
 
 export interface Config {
   target: number;

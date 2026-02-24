@@ -67,42 +67,13 @@ QA (MANDATORY — do not skip this):
 When done, output a one-line summary starting with "DONE:" describing the improvement.`;
 }
 
-export function buildSelfReviewPrompt(): string {
-  return `You just implemented changes in this directory. Self-review your work.
-
-Context: Read docs/references/codex-agent-team-article.md to understand the philosophy.
-The goal of this harness improvement is to make the codebase more legible and enforceable
-for future agent runs — "entropy and garbage collection" applied proactively.
-
-IMPORTANT: Do NOT push to any remote. Do NOT run git push. Everything stays local.
-
-Steps:
-1. Run: git diff main --stat   (see what files changed)
-2. Run: git diff main           (read the full diff)
-3. Read CLAUDE.md and docs/conventions/ for project rules.
-4. Run: npm run typecheck && npm run lint && npm test
-5. Check for: correctness, test coverage, naming conventions, architecture violations.
-6. Ask: does this improvement actually increase agent velocity? Is it the kind of
-   tooling/harness work described in the article (linters, test infrastructure,
-   architecture enforcement, observability, dev-loop scaffolding)?
-7. QA: Actually run what was built. Not just tests — exercise the real thing:
-   - Script? Run it and check the output.
-   - Linter? Run it on the codebase.
-   - Utility? Use it end-to-end.
-   - Integration? Run it and verify it connects/outputs.
-   If it doesn't work in practice, fix it before proceeding.
-8. If you find issues, fix them directly and re-run validations.
-9. When all checks pass and QA confirms it works, output exactly: SELF_REVIEW_PASSED
-   If unfixable issues remain, output: SELF_REVIEW_FAILED followed by explanation.`;
-}
-
-export function buildAgentReviewPrompt(): string {
+export function buildReviewPrompt(): string {
   return `You are an independent reviewer. Review the changes in this worktree against main.
 
 Context: Read docs/references/codex-agent-team-article.md to understand the philosophy.
-This is the "agent-review" step of the Ralph Wiggum Loop. Your job is to ensure the
-improvement is high-leverage harness work that increases agent velocity — not product
-code changes or low-value busywork.
+This is the review step of the Ralph Wiggum Loop. Your job is to ensure the improvement
+is high-leverage harness work that increases agent velocity — not product code changes
+or low-value busywork.
 
 IMPORTANT: Do NOT push to any remote. Do NOT run git push. Everything stays local.
 
@@ -116,8 +87,9 @@ Steps:
    - Tests: Are new utilities fully tested? Are tests meaningful?
    - Conventions: Naming, file structure, no \`any\`, explicit return types?
    - Architecture: Layer dependencies respected? No product code modified unnecessarily?
-   - Leverage: Is this the kind of harness/tooling improvement that compounds —
-     linters, test infrastructure, architecture enforcement, dev-loop scaffolding?
+   - Leverage: Does this improvement actually increase agent velocity? Is it the kind
+     of harness/tooling work that compounds — linters, test infrastructure, architecture
+     enforcement, observability, dev-loop scaffolding?
    - QA: Was the thing actually run? Don't trust that tests alone prove it works.
      Run the script/linter/tool/integration yourself and verify real output.
 6. If you find issues, fix them directly in the files and re-run validations.
