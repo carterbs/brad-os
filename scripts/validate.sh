@@ -1,72 +1,74 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 
 # Unified validation pipeline for brad-os
-# Runs all quality checks in sequence, failing fast on first error.
+# Runs all quality checks IN PARALLEL, logs verbose output to .validate/*.log,
+# and prints a tiny pass/fail summary.
 #
 # Usage:
 #   npm run validate          # All checks (typecheck + lint + test + architecture)
 #   npm run validate:quick    # Fast checks only (typecheck + lint)
 
+LOG_DIR=".validate"
+rm -rf "$LOG_DIR"
+mkdir -p "$LOG_DIR"
+
+QUICK=false
+[[ "${1:-}" == "--quick" ]] && QUICK=true
+
+TOTAL_START=$(date +%s)
+
+# --- Define checks ---
+CHECKS=("typecheck" "lint")
+$QUICK || CHECKS+=("test" "architecture")
+
+run_check() {
+  local key="$1"
+  local start=$(date +%s)
+  local rc=0
+
+  case "$key" in
+    typecheck)    npx tsc -b                                                             > "$LOG_DIR/typecheck.log"    2>&1 || rc=$? ;;
+    lint)         npx eslint . --ext .ts                                                 > "$LOG_DIR/lint.log"         2>&1 || rc=$? ;;
+    test)         npx vitest run                                                         > "$LOG_DIR/test.log"         2>&1 || rc=$? ;;
+    architecture) npx tsx scripts/lint-architecture.ts > "$LOG_DIR/architecture.log" 2>&1 || rc=$? ;;
+  esac
+
+  local elapsed=$(( $(date +%s) - start ))
+  echo "$rc $elapsed" > "$LOG_DIR/$key.status"
+}
+
+# --- Launch all checks in parallel ---
+for check in "${CHECKS[@]}"; do
+  run_check "$check" &
+done
+wait
+
+# --- Summary ---
 BOLD='\033[1m'
 GREEN='\033[32m'
 RED='\033[31m'
 DIM='\033[2m'
 RESET='\033[0m'
 
-QUICK=false
-if [ "${1:-}" = "--quick" ]; then
-  QUICK=true
-fi
+TOTAL_ELAPSED=$(( $(date +%s) - TOTAL_START ))
+ALL_PASSED=true
 
-TOTAL_START=$(date +%s)
-PASSED=0
-FAILED=0
-
-run_check() {
-  local name="$1"
-  shift
-  local start=$(date +%s)
-
-  printf "${BOLD}▶ ${name}${RESET}\n"
-
-  if "$@"; then
-    local end=$(date +%s)
-    local elapsed=$((end - start))
-    printf "${GREEN}✓ ${name}${RESET} ${DIM}(${elapsed}s)${RESET}\n\n"
-    PASSED=$((PASSED + 1))
+printf "\n"
+for check in "${CHECKS[@]}"; do
+  read -r rc elapsed < "$LOG_DIR/$check.status"
+  if [ "$rc" -eq 0 ]; then
+    printf "  ${GREEN}✓ %-15s${RESET} ${DIM}%ss${RESET}\n" "$check" "$elapsed"
   else
-    local end=$(date +%s)
-    local elapsed=$((end - start))
-    printf "${RED}✗ ${name}${RESET} ${DIM}(${elapsed}s)${RESET}\n\n"
-    FAILED=$((FAILED + 1))
-
-    TOTAL_END=$(date +%s)
-    TOTAL_ELAPSED=$((TOTAL_END - TOTAL_START))
-
-    printf "\n${BOLD}--- Validation FAILED ---${RESET}\n"
-    printf "${RED}Failed at: ${name}${RESET}\n"
-    printf "${DIM}${PASSED} passed, ${FAILED} failed (${TOTAL_ELAPSED}s total)${RESET}\n"
-    exit 1
+    printf "  ${RED}✗ %-15s${RESET} ${DIM}%ss  → .validate/%s.log${RESET}\n" "$check" "$elapsed" "$check"
+    ALL_PASSED=false
   fi
-}
+done
 
-if [ "$QUICK" = true ]; then
-  printf "\n${BOLD}=== Quick Validation ===${RESET}\n\n"
+printf "\n"
+if $ALL_PASSED; then
+  printf "  ${GREEN}${BOLD}PASS${RESET} ${DIM}(%ss)${RESET}\n\n" "$TOTAL_ELAPSED"
 else
-  printf "\n${BOLD}=== Full Validation ===${RESET}\n\n"
+  printf "  ${RED}${BOLD}FAIL${RESET} ${DIM}(%ss)  Logs: .validate/*.log${RESET}\n\n" "$TOTAL_ELAPSED"
+  exit 1
 fi
-
-run_check "TypeScript compilation" npx tsc -b
-run_check "ESLint" npx eslint . --ext .ts
-
-if [ "$QUICK" = false ]; then
-  run_check "Unit tests" npx vitest run
-  run_check "Architecture enforcement" node --disable-warning=ExperimentalWarning scripts/lint-architecture.ts
-fi
-
-TOTAL_END=$(date +%s)
-TOTAL_ELAPSED=$((TOTAL_END - TOTAL_START))
-
-printf "\n${BOLD}--- Validation PASSED ---${RESET}\n"
-printf "${GREEN}All ${PASSED} checks passed${RESET} ${DIM}(${TOTAL_ELAPSED}s total)${RESET}\n"

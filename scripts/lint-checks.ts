@@ -1038,8 +1038,13 @@ export function checkNoRawUrlSession(config: LinterConfig): CheckResult {
   const violations: string[] = [];
   const urlSessionPattern = /\bURLSession\b/;
 
-  // Files allowed to use raw URLSession (external OAuth token exchanges, etc.)
-  const URLSESSION_ALLOWLIST = new Set(['APIClient.swift', 'StravaAuthManager.swift']);
+  // Files allowed to use raw URLSession (external OAuth token exchanges, debug-only OTel exporters, etc.)
+  const URLSESSION_ALLOWLIST = new Set([
+    'APIClient.swift',
+    'StravaAuthManager.swift',
+    'DebugLogExporter.swift',
+    'DebugSpanExporter.swift',
+  ]);
 
   for (const file of files) {
     const basename = path.basename(file);
