@@ -31,7 +31,7 @@ run_check() {
     typecheck)    npx tsc -b                                                             > "$LOG_DIR/typecheck.log"    2>&1 || rc=$? ;;
     lint)         npx eslint . --ext .ts                                                 > "$LOG_DIR/lint.log"         2>&1 || rc=$? ;;
     test)         npx vitest run                                                         > "$LOG_DIR/test.log"         2>&1 || rc=$? ;;
-    architecture) node --disable-warning=ExperimentalWarning scripts/lint-architecture.ts > "$LOG_DIR/architecture.log" 2>&1 || rc=$? ;;
+    architecture) npx tsx scripts/lint-architecture.ts > "$LOG_DIR/architecture.log" 2>&1 || rc=$? ;;
   esac
 
   local elapsed=$(( $(date +%s) - start ))
