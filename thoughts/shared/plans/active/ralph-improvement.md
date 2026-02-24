@@ -1,108 +1,114 @@
 # Title
-Expand CalendarViewModelTests for date-filtered activity retrieval and recent-activity ordering
+Add BradOSCore unit tests for BarcodeWalletViewModel CRUD success/failure state transitions
 
 ## Why
-`History` is graded with an explicit gap: filter logic is still untested (`docs/quality-grades.md:36`). `HistoryView` relies on `CalendarViewModel.activitiesForDate(_:filter:)` for day detail filtering (`ios/BradOS/BradOS/Views/History/HistoryView+Components.swift:117`), and `HealthView` relies on `recentActivities(limit:)` for “Recent Activity” ordering (`ios/BradOS/BradOS/Views/Health/HealthView.swift:111`). We need direct unit tests to lock this behavior down.
+`BarcodeWalletViewModel` drives user-visible loading/saving/error states for the Barcode Wallet screen, but it currently has no unit tests. Adding coverage for load/create/update/delete success and failure paths prevents regressions in `isLoading`, `isSaving`, and `error` behavior that the UI depends on.
 
 ## What
-Add focused tests in `CalendarViewModelTests.swift` for the two currently under-covered methods in `CalendarViewModel`:
-- `public func activitiesForDate(_ date: Date, filter: ActivityType?) -> [CalendarActivity]` (`CalendarViewModel.swift:112`)
-- `public func recentActivities(limit: Int = 3) -> [CalendarActivity]` (`CalendarViewModel.swift:129`)
+Build a new Swift Testing suite for `BarcodeWalletViewModel` that verifies both final outcomes and in-flight transitions for each async operation.
 
-Implementation details for the test expansion:
-1. Introduce local test helpers in `CalendarViewModelTests` to make fixtures deterministic and readable.
-- `private func makeDate(year: Int, month: Int, day: Int, hour: Int = 12, minute: Int = 0) -> Date`
-- `private func makeActivity(id: String, type: ActivityType, date: Date, completedAt: Date? = nil) -> CalendarActivity`
-- `private func key(for date: Date) -> String` (same `yyyy-MM-dd` formatter shape used by `activitiesForDate(_:)`)
+Current behavior to lock down:
+- `loadBarcodes()` sets `isLoading = true` and clears `error` before awaiting the API, then sets `isLoading = false` and either updates `barcodes` or sets `error` (`ios/BradOS/BradOSCore/Sources/BradOSCore/ViewModels/BarcodeWalletViewModel.swift:26`).
+- `createBarcode(...)` sets `isSaving = true`, clears `error`, appends on success, returns `Bool`, and sets `error` on failure (`.../BarcodeWalletViewModel.swift:41`).
+- `updateBarcode(...)` sets `isSaving = true`, clears `error`, updates matching local barcode on success, returns `Bool`, and sets `error` on failure (`.../BarcodeWalletViewModel.swift:70`).
+- `deleteBarcode(id:)` clears `error`, deletes remotely, removes local item on success, and sets `error` on failure; it does not use `isSaving` (`.../BarcodeWalletViewModel.swift:101`).
 
-2. Build explicit fixture data with mixed activity types and mixed `completedAt` presence.
-- Same-day set for filter tests: workout + stretch + meditation on one key.
-- Cross-day set for ordering tests: at least 4 activities with distinct effective timestamps (`completedAt ?? date`) so ordering is unambiguous.
-
-3. Add `activitiesForDate(_:filter:)` behavior tests.
-- `filter: nil` returns all activities for that date.
-- `filter: .workout` returns only workout entries for that date.
-- `filter: .stretch` and `filter: .meditation` each return only matching type.
-- Unknown date key returns empty even when a filter is passed.
-- Non-matching filter for an existing date returns empty.
-
-4. Add `recentActivities(limit:)` behavior tests.
-- Returns activities sorted descending by `(completedAt ?? date)` across all days (not per-day order).
-- Uses `date` fallback when `completedAt` is nil.
-- Honors explicit limit (example: `limit: 2` returns top 2 IDs in expected order).
-- Honors default limit of 3.
-- Returns all available activities if `limit` exceeds total count.
-- Returns empty for no activities.
-
-5. Keep existing tests unchanged except for harmless fixture/helper additions and test reordering for readability.
+Implementation approach:
+1. Add a new test file using Swift Testing (`@Suite`, `@Test`, `#expect`) and `@MainActor`, matching existing ViewModel tests (for example, `ProfileViewModelTests.swift` and `ExercisesViewModelTests.swift`).
+2. Use `MockAPIClient` for deterministic success/failure setup:
+- Success fixtures through `mockBarcodes` (`ios/BradOS/BradOSCore/Sources/BradOSCore/Services/MockAPIClient.swift:28`, `:497`, `:512`, `:530`, `:549`).
+- Failure fixtures through `MockAPIClient.failing(...)` (`.../MockAPIClient.swift:719`).
+- In-flight transition assertions by setting `mock.delay` / `withDelay(...)` (`.../MockAPIClient.swift:13`, `:62`, `:712`) and starting calls with `async let` so assertions can run before awaiting completion.
+3. Include local fixture helpers inside the test file for readability and stable assertions, e.g.:
+- `private func makeBarcode(id: String, label: String, value: String, barcodeType: BarcodeType = .code128, color: String = "#E879F9", sortOrder: Int = 0) -> Barcode`
+- Optional helper for fixed timestamps (`Date(timeIntervalSince1970: ...)`) to avoid brittle comparisons.
+4. Validate transitions explicitly, not just end state:
+- Pre-seed `vm.error = "Previous error"` and verify each operation clears it at start.
+- Assert `isLoading`/`isSaving` is `true` during delayed in-flight work, then `false` after completion.
+- Assert operation-specific failure strings exactly:
+  - `"Failed to load barcodes"`
+  - `"Failed to create barcode"`
+  - `"Failed to update barcode"`
+  - `"Failed to delete barcode"`
 
 ## Files
-- `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/ViewModels/CalendarViewModelTests.swift`
-  - Add fixture helper methods for deterministic dates, keyed `activitiesByDate` setup, and activity construction.
-  - Add new `@Test` cases covering filter behavior for `activitiesForDate(_:filter:)`.
-  - Add new `@Test` cases covering ordering and limit behavior for `recentActivities(limit:)`.
-  - Keep test style consistent with current Swift Testing usage (`@Suite`, `@Test`, `#expect`, `@MainActor`).
+- `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/ViewModels/BarcodeWalletViewModelTests.swift` (create)
+- Add a new `@Suite("BarcodeWalletViewModel")` with focused unit tests for load/create/update/delete success and failure paths.
+- Add small local fixture helpers (`makeBarcode`, optional `fixedDate`) in this file only.
+- No production/source changes are required for this task.
 
 ## Tests
-Add the following concrete unit tests in `CalendarViewModelTests`:
-1. `activitiesForDate with nil filter returns all activities for the day`
-- Setup one day containing 3 mixed activity types.
-- Assert returned count is 3 and IDs/types match expected set.
+Add these concrete test cases (or equivalent names) in `BarcodeWalletViewModelTests.swift`:
 
-2. `activitiesForDate with workout filter returns only workout activities`
-- Setup one day with workout/stretch/meditation.
-- Assert only workout IDs are returned.
+1. `initial state is empty and idle`
+- Verify `barcodes` is empty, `isLoading == false`, `isSaving == false`, `error == nil`.
 
-3. `activitiesForDate with stretch filter excludes non-stretch activities`
-- Same fixture shape; assert only stretch IDs.
+2. `loadBarcodes success updates list and clears loading/error`
+- Seed `mock.mockBarcodes` with known fixtures.
+- Start `async let load = vm.loadBarcodes()` with delay enabled.
+- While in flight: `#expect(vm.isLoading == true)` and `#expect(vm.error == nil)`.
+- After await: `#expect(vm.isLoading == false)`, `#expect(vm.error == nil)`, and `#expect(vm.barcodes == expected)`.
 
-4. `activitiesForDate with meditation filter excludes non-meditation activities`
-- Same fixture shape; assert only meditation IDs.
+3. `loadBarcodes failure sets error and clears loading`
+- Use failing mock + delay; pre-set `vm.error` to a stale value.
+- While in flight: `isLoading == true`, `error == nil`.
+- After await: `isLoading == false`, `error == "Failed to load barcodes"`, and prior `barcodes` remain unchanged.
 
-5. `activitiesForDate with filter returns empty when date has no activities`
-- Query an unseeded date; assert empty.
+4. `createBarcode success toggles isSaving and appends barcode`
+- Seed `vm.barcodes` / `mock.mockBarcodes` with initial data.
+- Start delayed create via `async let result = vm.createBarcode(...)`.
+- While in flight: `isSaving == true`, `error == nil`.
+- After await: `result == true`, `isSaving == false`, `error == nil`, `barcodes.count` increments, appended barcode fields match input label/value/type/color.
 
-6. `activitiesForDate with unmatched filter returns empty`
-- Seed date with only workout activity; query with `.stretch`; assert empty.
+5. `createBarcode failure toggles isSaving and sets error`
+- Use failing mock + delay and pre-set stale `error`.
+- While in flight: `isSaving == true`, `error == nil`.
+- After await: `result == false`, `isSaving == false`, `error == "Failed to create barcode"`, `barcodes` unchanged.
 
-7. `recentActivities sorts by completedAt when present and by date when completedAt is nil`
-- Seed activities across multiple day keys, with mixed `completedAt` nil/non-nil.
-- Assert exact returned ID order reflects descending `(completedAt ?? date)`.
+6. `updateBarcode success toggles isSaving and updates matching local barcode`
+- Seed one known barcode in both view model and mock.
+- Call delayed `updateBarcode(id:..., label:..., value:..., barcodeType:..., color:...)`.
+- While in flight: `isSaving == true`, `error == nil`.
+- After await: `result == true`, `isSaving == false`, `error == nil`, and matching barcode has updated fields.
 
-8. `recentActivities default limit returns top three`
-- Seed at least 4 sorted candidates.
-- Assert count is 3 and IDs equal first three expected.
+7. `updateBarcode failure toggles isSaving and sets error`
+- Use failing mock + delay (or missing id that triggers API notFound) with stale `error` pre-set.
+- While in flight: `isSaving == true`, `error == nil`.
+- After await: `result == false`, `isSaving == false`, `error == "Failed to update barcode"`, local data unchanged.
 
-9. `recentActivities applies explicit limit`
-- Using same data, call `limit: 2`.
-- Assert count is 2 and IDs equal top two expected.
+8. `deleteBarcode success clears error and removes local barcode`
+- Seed two barcodes; pre-set `vm.error` to stale value.
+- Call `deleteBarcode(id:)` for one id.
+- Verify `error` cleared to `nil` at operation start and remains nil on success.
+- Verify deleted barcode is removed from `vm.barcodes`.
+- Verify `isSaving` remains `false` (delete path does not set saving state).
 
-10. `recentActivities returns all when limit exceeds total` and `recentActivities returns empty when no data`
-- Assert both boundary conditions explicitly.
+9. `deleteBarcode failure sets error and keeps local barcode`
+- Use failing mock; pre-seed local barcodes and stale error.
+- Call `deleteBarcode(id:)`.
+- Verify final `error == "Failed to delete barcode"` and local list is unchanged.
+- Verify `isSaving` remains `false`.
 
 ## QA
-After implementation, verify in this order:
-1. Targeted unit suite:
-- `cd ios/BradOS/BradOSCore && swift test --filter CalendarViewModelTests`
-- Confirm new test names execute and pass, especially ordering/filter cases.
+1. Run focused BradOSCore tests for the new suite:
+- `cd ios/BradOS/BradOSCore && swift test --filter BarcodeWalletViewModelTests`
+- Confirm all new success/failure transition tests execute and pass.
 
-2. Full BradOSCore package tests:
+2. Run the full BradOSCore package tests to catch regressions:
 - `cd ios/BradOS/BradOSCore && swift test`
-- Confirm no regressions in other ViewModel/model tests.
 
-3. iOS lint/build gate for Swift changes (SwiftLint runs via build plugin):
+3. Run iOS project build gate so SwiftLint plugin executes (required for iOS-file changes):
 - `cd ios/BradOS && xcodegen generate && cd ../..`
 - `xcodebuild -project ios/BradOS/BradOS.xcodeproj -scheme BradOS -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath ~/.cache/brad-os-derived-data -skipPackagePluginValidation build`
-- Confirm build succeeds with zero SwiftLint violations.
 
-4. Behavior spot-check via assertions in test output:
-- Verify expected ordered IDs in `recentActivities` tests match fixture timestamps.
-- Verify each `ActivityType` filter path has at least one passing assertion proving exclusion of other types.
+4. Manual app smoke check (ensures no behavior drift outside tests):
+- Launch app in simulator, open Barcode Wallet, and verify list still loads plus add/edit/delete still function.
+- Confirm save button disable behavior still aligns with `isSaving` during add/edit flows.
 
 ## Conventions
-Apply these project conventions while implementing:
-- Keep testing comprehensive and do not skip/disable/focus tests (`docs/conventions/testing.md:5`, `docs/conventions/testing.md:103`).
-- Keep assertions meaningful in every added test (`docs/conventions/testing.md:115`).
-- Follow existing Swift test file style in this package: `Testing` framework macros (`@Suite`, `@Test`, `#expect`) and `@MainActor` on ViewModel tests.
-- Respect SwiftLint constraints for file/type/function length and no inline `swiftlint:disable` directives (`docs/conventions/ios-swift.md:20`, `docs/conventions/ios-swift.md:29`).
-- Because iOS files are touched, include an `xcodebuild` build pass to run SwiftLint plugin checks (`docs/guides/ios-build-and-run.md`).
+- Use Swift Testing with explicit assertions (`Testing`, `@Suite`, `@Test`, `#expect`) consistent with existing BradOSCore tests.
+- Do not skip/focus tests (`docs/conventions/testing.md`: test policy and focused test rules).
+- Ensure each test has meaningful assertions for both transition and final state (`docs/conventions/testing.md`: test quality policy).
+- Respect SwiftLint constraints and avoid inline `swiftlint:disable` directives (`docs/conventions/ios-swift.md`).
+- Because iOS Swift files are added, include `xcodebuild` validation to run SwiftLint build-tool checks (`docs/guides/ios-build-and-run.md:29-43`).
+- Keep changes scoped to BradOSCore test target conventions (`ios/BradOS/BradOSCore/Package.swift:15`).
