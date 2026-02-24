@@ -16,6 +16,7 @@ import {
   mergeToMain,
   countCompleted,
   commitAll,
+  hasNewCommits,
 } from "./git.js";
 import { readBacklog, popTask, backlogPath } from "./backlog.js";
 import type { AgentBackend, AgentConfig, Config, StepSummary } from "./types.js";
@@ -165,6 +166,7 @@ async function ralphLoopSingle(
     // ── 1. Planning ──
     // Resolve the task: --task flag > backlog > full ideation
     const taskText = config.task ?? currentTask;
+    let planSummary = "";
 
     if (taskText) {
       // Task is known — plan the implementation (skip ideation)
@@ -200,7 +202,10 @@ async function ralphLoopSingle(
       const planLine = planResult.outputText
         .split("\n")
         .find((l) => l.startsWith("PLAN:"));
-      if (planLine) logger.info(`  ${planLine}`);
+      if (planLine) {
+        logger.info(`  ${planLine}`);
+        planSummary = planLine.replace(/^PLAN:\s*/, "");
+      }
 
       const tokens = planResult.inputTokens + planResult.outputTokens;
       stepResults.push({
@@ -246,7 +251,10 @@ async function ralphLoopSingle(
       const planLine = planResult.outputText
         .split("\n")
         .find((l) => l.startsWith("PLAN:"));
-      if (planLine) logger.info(`  ${planLine}`);
+      if (planLine) {
+        logger.info(`  ${planLine}`);
+        planSummary = planLine.replace(/^PLAN:\s*/, "");
+      }
 
       const tokens = planResult.inputTokens + planResult.outputTokens;
       stepResults.push({
@@ -297,6 +305,7 @@ async function ralphLoopSingle(
     const doneLine = implResult.outputText
       .split("\n")
       .find((l) => l.startsWith("DONE:"));
+    const doneSummary = doneLine?.replace(/^DONE:\s*/, "") ?? "";
     if (doneLine) logger.success(`  ${doneLine}`);
 
     stepResults.push({
@@ -309,11 +318,19 @@ async function ralphLoopSingle(
     });
     logger.stepSummary("implement", stepResults[stepResults.length - 1]);
 
-    // Commit implementation
-    if (!commitAll(worktreePath, `harness: improvement #${n}`)) {
-      logger.error("No changes produced");
-      cleanup();
-      return false;
+    // Build descriptive commit message from plan + implementation output
+    const commitTitle = planSummary || `harness: improvement #${n}`;
+    const commitBody = doneSummary ? `\n${doneSummary}` : "";
+    const commitMsg = `${commitTitle}${commitBody}`;
+
+    // Commit implementation (codex may have already committed its own changes)
+    if (!commitAll(worktreePath, commitMsg)) {
+      // Check if the agent already made commits on this branch
+      if (!hasNewCommits(worktreePath)) {
+        logger.error("No changes produced");
+        cleanup();
+        return false;
+      }
     }
 
     // ── 3. Review loop ──
@@ -362,7 +379,7 @@ async function ralphLoopSingle(
       // Commit review fixes
       commitAll(
         worktreePath,
-        `harness: improvement #${n} \u2014 review fixes (cycle ${cycle})`,
+        `${commitTitle} \u2014 review fixes (cycle ${cycle})`,
       );
 
       // Accumulate review stats across cycles

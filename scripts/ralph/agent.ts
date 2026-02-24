@@ -268,6 +268,7 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
   const args = [
     "exec",
     "--dangerously-bypass-approvals-and-sandbox",
+    "--json",
     "--model", model,
     "-C", cwd,
     "-o", outputFile,
@@ -280,17 +281,72 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
     });
 
     let stderr = "";
+    let stdoutBuf = "";
+    let turns = 0;
+    let inputTokens = 0;
+    let outputTokens = 0;
+
+    const processJsonLine = (line: string): void => {
+      let event: Record<string, unknown>;
+      try {
+        event = JSON.parse(line) as Record<string, unknown>;
+      } catch {
+        return;
+      }
+
+      const type = event.type as string;
+      const item = event.item as Record<string, unknown> | undefined;
+
+      if (type === "item.started" && item?.type === "command_execution") {
+        const cmd = (item.command as string) ?? "";
+        const summary = cmd.length > 60 ? cmd.slice(0, 60) + "..." : cmd;
+        logger.tool("Bash", summary);
+        logger.jsonl({
+          event: "tool_call",
+          tool: "Bash",
+          summary,
+          step: stepName,
+          ts: new Date().toISOString(),
+        });
+      }
+
+      if (type === "item.completed" && item?.type === "command_execution") {
+        logger.jsonl({
+          event: "tool_result",
+          tool: "Bash",
+          step: stepName,
+          ts: new Date().toISOString(),
+        });
+      }
+
+      if (type === "item.completed" && item?.type === "agent_message" && config.verbose) {
+        const text = (item.text as string) ?? "";
+        if (text.length > 0) {
+          logger.verboseMsg(text.slice(0, 200));
+        }
+      }
+
+      if (type === "turn.completed") {
+        turns++;
+        const usage = event.usage as Record<string, number> | undefined;
+        if (usage) {
+          inputTokens += usage.input_tokens ?? 0;
+          outputTokens += usage.output_tokens ?? 0;
+        }
+      }
+    };
 
     // Pipe prompt via stdin to avoid ARG_MAX limits
     child.stdin.write(prompt);
     child.stdin.end();
 
+    // Parse JSONL events from stdout (--json mode)
     child.stdout?.on("data", (data: Buffer) => {
-      if (config.verbose) {
-        const text = data.toString().trim();
-        if (text.length > 0) {
-          logger.verboseMsg(text.slice(0, 200));
-        }
+      stdoutBuf += data.toString();
+      const lines = stdoutBuf.split("\n");
+      stdoutBuf = lines.pop() ?? "";
+      for (const line of lines) {
+        if (line.trim()) processJsonLine(line);
       }
     });
 
@@ -312,6 +368,10 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
 
     child.on("close", (code) => {
       abortController.signal.removeEventListener("abort", onAbort);
+
+      // Process any remaining buffered stdout
+      if (stdoutBuf.trim()) processJsonLine(stdoutBuf);
+
       const durationMs = Date.now() - startTime;
       const success = code === 0;
 
@@ -327,7 +387,6 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
       } catch { /* ignore */ }
 
       if (!success) {
-        // Extract meaningful error lines from stderr (skip the startup banner)
         const errorLines = stderr
           .split("\n")
           .filter((line) => /^(ERROR|error|Warning|Reconnecting|fatal)/i.test(line.trim()))
@@ -343,10 +402,10 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
         event: "step_end",
         step: stepName,
         backend: "codex",
-        turns: 0,
+        turns,
         cost_usd: 0,
-        input_tokens: 0,
-        output_tokens: 0,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
         duration_ms: durationMs,
         ts: new Date().toISOString(),
       });
@@ -354,10 +413,10 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
       resolve({
         success,
         backend: "codex",
-        turns: 0,
+        turns,
         costUsd: 0,
-        inputTokens: 0,
-        outputTokens: 0,
+        inputTokens,
+        outputTokens,
         durationMs,
         outputText,
       });
