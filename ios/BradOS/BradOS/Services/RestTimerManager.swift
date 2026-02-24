@@ -80,9 +80,9 @@ final class RestTimerManager: ObservableObject {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
             #if DEBUG
             if let error = error {
-                print("[RestTimerManager] Notification auth error: \(error)")
+                DebugLogger.error("Notification auth error: \(error)", attributes: ["source": "RestTimerManager"])
             } else {
-                print("[RestTimerManager] Notification auth granted: \(granted)")
+                DebugLogger.info("Notification auth granted: \(granted)", attributes: ["source": "RestTimerManager"])
             }
             #endif
         }
@@ -119,9 +119,7 @@ final class RestTimerManager: ObservableObject {
             try AudioSessionManager.shared.configure()
             try AudioSessionManager.shared.activate()
         } catch {
-            #if DEBUG
-            print("[RestTimerManager] Failed to configure audio session: \(error)")
-            #endif
+            DebugLogger.error("Failed to configure audio session: \(error)", attributes: ["source": "RestTimerManager"])
         }
     }
 
@@ -133,9 +131,7 @@ final class RestTimerManager: ObservableObject {
                 audioPlayer?.play()
                 return
             } catch {
-                #if DEBUG
-                print("[RestTimerManager] Failed to play custom sound: \(error)")
-                #endif
+                DebugLogger.error("Failed to play custom sound: \(error)", attributes: ["source": "RestTimerManager"])
             }
         }
 
@@ -165,7 +161,7 @@ final class RestTimerManager: ObservableObject {
         UNUserNotificationCenter.current().add(request) { error in
             #if DEBUG
             if let error = error {
-                print("[RestTimerManager] Failed to schedule notification: \(error)")
+                DebugLogger.error("Failed to schedule notification: \(error)", attributes: ["source": "RestTimerManager"])
             }
             #endif
         }

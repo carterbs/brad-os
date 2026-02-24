@@ -64,7 +64,7 @@ struct TodayCoachCard: View {
                     let snapshot = try await DefaultAPIClient.concrete.getLatestRecovery()
                     recovery = snapshot?.toRecoveryData()
                 } catch {
-                    print("[TodayCoachCard] Failed to load recovery: \(error)")
+                    DebugLogger.error("Failed to load recovery: \(error)", attributes: ["source": "TodayCoachCard"])
                 }
             }
             return
@@ -86,7 +86,7 @@ struct TodayCoachCard: View {
             let snapshot = try await DefaultAPIClient.concrete.getLatestRecovery()
             recovery = snapshot?.toRecoveryData()
         } catch {
-            print("[TodayCoachCard] Failed to load recovery: \(error)")
+            DebugLogger.error("Failed to load recovery: \(error)", attributes: ["source": "TodayCoachCard"])
         }
 
         isLoadingRecovery = false

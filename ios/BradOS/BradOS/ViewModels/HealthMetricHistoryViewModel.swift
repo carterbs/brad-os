@@ -255,7 +255,7 @@ class HealthMetricHistoryViewModel {
             updateTrend()
         } catch {
             self.error = metric.errorMessage
-            print("[\(metric.chartLabel)HistoryVM] Error: \(error)")
+            DebugLogger.error("[\(metric.chartLabel)HistoryVM] Error: \(error)")
         }
     }
 
@@ -375,7 +375,7 @@ class SleepHistoryViewModel {
             allHistory = deduped.reversed()
         } catch {
             self.error = "Failed to load sleep history"
-            print("[SleepHistoryVM] Error: \(error)")
+            DebugLogger.error("Error: \(error)", attributes: ["source": "SleepHistoryVM"])
         }
     }
 }

@@ -43,10 +43,10 @@ extension HealthKitSyncService {
             let totalAdded = try await syncInBatches(newEntries) { batch in
                 try await APIClient.shared.syncHRVBulk(entries: batch)
             }
-            print("[HealthKitSyncService] Synced \(totalAdded) HRV entries")
+            DebugLogger.info("Synced \(totalAdded) HRV entries", attributes: ["source": "HealthKitSyncService"])
             markBackfillComplete(forKey: hrvBackfillCompleteKey, done: backfillDone)
         } catch {
-            print("[HealthKitSyncService] HRV sync failed (non-fatal): \(error)")
+            DebugLogger.error("HRV sync failed (non-fatal): \(error)", attributes: ["source": "HealthKitSyncService"])
         }
     }
 
@@ -84,10 +84,10 @@ extension HealthKitSyncService {
             let totalAdded = try await syncInBatches(newEntries) { batch in
                 try await APIClient.shared.syncRHRBulk(entries: batch)
             }
-            print("[HealthKitSyncService] Synced \(totalAdded) RHR entries")
+            DebugLogger.info("Synced \(totalAdded) RHR entries", attributes: ["source": "HealthKitSyncService"])
             markBackfillComplete(forKey: rhrBackfillCompleteKey, done: backfillDone)
         } catch {
-            print("[HealthKitSyncService] RHR sync failed (non-fatal): \(error)")
+            DebugLogger.error("RHR sync failed (non-fatal): \(error)", attributes: ["source": "HealthKitSyncService"])
         }
     }
 
@@ -128,10 +128,10 @@ extension HealthKitSyncService {
             let totalAdded = try await syncInBatches(newEntries) { batch in
                 try await APIClient.shared.syncSleepBulk(entries: batch)
             }
-            print("[HealthKitSyncService] Synced \(totalAdded) sleep entries")
+            DebugLogger.info("Synced \(totalAdded) sleep entries", attributes: ["source": "HealthKitSyncService"])
             markBackfillComplete(forKey: sleepBackfillCompleteKey, done: backfillDone)
         } catch {
-            print("[HealthKitSyncService] Sleep sync failed (non-fatal): \(error)")
+            DebugLogger.error("Sleep sync failed (non-fatal): \(error)", attributes: ["source": "HealthKitSyncService"])
         }
     }
 

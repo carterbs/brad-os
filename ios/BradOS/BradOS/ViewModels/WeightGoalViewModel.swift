@@ -143,7 +143,7 @@ class WeightGoalViewModel {
             let entry = try await apiClient.getLatestWeight()
             return entry?.weightLbs
         } catch {
-            print("[WeightGoalVM] Error loading latest weight: \(error)")
+            DebugLogger.error("Error loading latest weight: \(error)", attributes: ["source": "WeightGoalVM"])
             return nil
         }
     }
@@ -178,7 +178,7 @@ class WeightGoalViewModel {
             allSmoothedHistory = []
         } catch {
             self.error = "Failed to load weight history"
-            print("[WeightGoalVM] Error loading history: \(error)")
+            DebugLogger.error("Error loading history: \(error)", attributes: ["source": "WeightGoalVM"])
         }
     }
 
@@ -335,7 +335,7 @@ class WeightGoalViewModel {
             saveSuccess = true
         } catch {
             self.error = "Failed to save goal"
-            print("[WeightGoalVM] Error saving goal: \(error)")
+            DebugLogger.error("Error saving goal: \(error)", attributes: ["source": "WeightGoalVM"])
         }
     }
 

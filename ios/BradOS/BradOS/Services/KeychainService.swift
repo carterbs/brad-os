@@ -81,7 +81,7 @@ final class KeychainService {
             throw KeychainError.unhandledError(status: status)
         }
 
-        print("[KeychainService] Saved data for key: \(key)")
+        DebugLogger.info("Saved data for key: \(key)", attributes: ["source": "KeychainService"])
     }
 
     /// Load data from the keychain
@@ -124,7 +124,7 @@ final class KeychainService {
             throw KeychainError.unhandledError(status: status)
         }
 
-        print("[KeychainService] Deleted data for key: \(key)")
+        DebugLogger.info("Deleted data for key: \(key)", attributes: ["source": "KeychainService"])
     }
 
     // MARK: - Strava Token Convenience Methods
@@ -137,7 +137,7 @@ final class KeychainService {
             throw KeychainError.encodingError
         }
         try save(key: stravaTokensKey, data: data)
-        print("[KeychainService] Saved Strava tokens for athlete: \(tokens.athleteId)")
+        DebugLogger.info("Saved Strava tokens for athlete: \(tokens.athleteId)", attributes: ["source": "KeychainService"])
     }
 
     /// Load Strava tokens from the keychain
@@ -158,7 +158,7 @@ final class KeychainService {
     /// Delete Strava tokens from the keychain
     func deleteStravaTokens() throws {
         try delete(key: stravaTokensKey)
-        print("[KeychainService] Deleted Strava tokens")
+        DebugLogger.info("Deleted Strava tokens", attributes: ["source": "KeychainService"])
     }
 
     // MARK: - Debug Token Injection
@@ -182,7 +182,7 @@ final class KeychainService {
         )
 
         try saveStravaTokens(tokens)
-        print("[KeychainService] DEBUG: Injected Strava tokens for athlete: \(athleteId)")
+        DebugLogger.info("DEBUG: Injected Strava tokens for athlete: \(athleteId)", attributes: ["source": "KeychainService"])
     }
     #endif
 }

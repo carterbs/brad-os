@@ -109,7 +109,7 @@ final class MeditationAPIService: ObservableObject {
             let data = try JSONEncoder().encode(pendingUploads)
             UserDefaults.standard.set(data, forKey: pendingUploadsKey)
         } catch {
-            print("[MeditationAPIService] Failed to save pending uploads: \(error)")
+            DebugLogger.error("Failed to save pending uploads: \(error)", attributes: ["source": "MeditationAPIService"])
         }
     }
 
@@ -121,7 +121,7 @@ final class MeditationAPIService: ObservableObject {
         do {
             pendingUploads = try JSONDecoder().decode([MeditationSession].self, from: data)
         } catch {
-            print("[MeditationAPIService] Failed to load pending uploads: \(error)")
+            DebugLogger.error("Failed to load pending uploads: \(error)", attributes: ["source": "MeditationAPIService"])
             pendingUploads = []
         }
     }

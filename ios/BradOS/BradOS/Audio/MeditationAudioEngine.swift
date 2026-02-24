@@ -199,6 +199,6 @@ final class MeditationAudioEngine: ObservableObject {
 
     private func log(_ message: String) {
         let timestamp = Self.logFormatter.string(from: Date())
-        print("\(timestamp) \(message)")
+        DebugLogger.info("\(timestamp) \(message)")
     }
 }

@@ -82,7 +82,7 @@ final class APIClient: APIClientProtocol {
             self.session = URLSession(configuration: config)
         }
 
-        print("[APIClient] Initialized with baseURL: \(configuration.baseURL.absoluteString)")
+        DebugLogger.info("Initialized with baseURL: \(configuration.baseURL.absoluteString)", attributes: ["source": "APIClient"])
 
         self.decoder = JSONDecoder()
         self.decoder.dateDecodingStrategy = .custom { decoder in
@@ -232,7 +232,7 @@ final class APIClient: APIClientProtocol {
 
         // Skip App Check for emulator (localhost) - server bypasses verification in emulator mode
         if configuration.isEmulator {
-            print("🔧 [APIClient] Skipping App Check for emulator")
+            DebugLogger.warn("Skipping App Check for emulator", attributes: ["source": "APIClient"])
         } else {
             // Attach App Check token to request
             do {
@@ -240,19 +240,31 @@ final class APIClient: APIClientProtocol {
                 request.setValue(token.token, forHTTPHeaderField: "X-Firebase-AppCheck")
             } catch {
                 // Log warning but continue - server will reject if enforcement is on
-                print("⚠️ [APIClient] Failed to get App Check token: \(error.localizedDescription)")
+                DebugLogger.error("Failed to get App Check token: \(error.localizedDescription)", attributes: ["source": "APIClient"])
             }
         }
 
-        print("🌐 [APIClient] \(request.httpMethod ?? "?") \(request.url?.absoluteString ?? "?")")
+        let method = request.httpMethod ?? "?"
+        let urlString = request.url?.absoluteString ?? "?"
+        let path = request.url?.path ?? "?"
+        let span = DebugTracing.startSpan("\(method) \(path)", kind: .client, attributes: [
+            "http.method": method,
+            "http.url": urlString
+        ])
+        DebugLogger.info("\(method) \(urlString)", attributes: ["source": "APIClient"])
         do {
             let (data, response) = try await session.data(for: request)
             if let httpResponse = response as? HTTPURLResponse {
-                print("🌐 [APIClient] Response: \(httpResponse.statusCode) (\(data.count) bytes)")
+                span.setAttribute(key: "http.status_code", value: "\(httpResponse.statusCode)")
+                span.setAttribute(key: "http.response_bytes", value: "\(data.count)")
+                DebugLogger.info("Response: \(httpResponse.statusCode) (\(data.count) bytes)", attributes: ["source": "APIClient"])
             }
+            span.end()
             return (data, response)
         } catch {
-            print("🌐 [APIClient] Network error: \(error.localizedDescription)")
+            span.setError(error)
+            span.end()
+            DebugLogger.error("Network error: \(error.localizedDescription)", attributes: ["source": "APIClient"])
             throw APIError.network(error)
         }
     }
@@ -264,7 +276,7 @@ final class APIClient: APIClientProtocol {
         if cacheTTL != nil, !cacheKey.isEmpty, let cached = responseCache.get(cacheKey) {
             do {
                 let apiResponse = try decoder.decode(APIResponse<T>.self, from: cached)
-                print("🌐 [APIClient] CACHE HIT \(request.url?.path ?? "")")
+                DebugLogger.info("CACHE HIT \(request.url?.path ?? "")", attributes: ["source": "APIClient"])
                 return apiResponse.data
             } catch {
                 // Cache decode failed (type mismatch?), fall through to network
@@ -284,12 +296,10 @@ final class APIClient: APIClientProtocol {
             return apiResponse.data
         } catch let decodingError {
             // Log the raw response for debugging
-            #if DEBUG
             if let jsonString = String(data: data, encoding: .utf8) {
-                print("[APIClient] Failed to decode response: \(jsonString)")
-                print("[APIClient] Decoding error: \(decodingError)")
+                DebugLogger.error("Failed to decode response: \(jsonString)", attributes: ["source": "APIClient"])
+                DebugLogger.error("Decoding error: \(decodingError)", attributes: ["source": "APIClient"])
             }
-            #endif
             throw APIError.decoding(decodingError)
         }
     }
@@ -301,7 +311,7 @@ final class APIClient: APIClientProtocol {
         if cacheTTL != nil, !cacheKey.isEmpty, let cached = responseCache.get(cacheKey) {
             do {
                 let apiResponse = try decoder.decode(APIResponse<T?>.self, from: cached)
-                print("🌐 [APIClient] CACHE HIT \(request.url?.path ?? "")")
+                DebugLogger.info("CACHE HIT \(request.url?.path ?? "")", attributes: ["source": "APIClient"])
                 return apiResponse.data
             } catch {
                 // Cache decode failed, fall through to network

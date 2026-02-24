@@ -154,7 +154,7 @@ class StretchSessionManager: ObservableObject {
         isReadyForAudioPrep = false
 
         guard !selectedStretches.isEmpty else {
-            print("No stretches selected")
+            DebugLogger.info("No stretches selected")
             return
         }
 

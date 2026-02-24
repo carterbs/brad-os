@@ -44,7 +44,7 @@ final class MeditationManifestService {
             let decoder = JSONDecoder()
             return try decoder.decode(MeditationManifest.self, from: data)
         } catch {
-            print("Failed to load manifest from bundle: \(error)")
+            DebugLogger.error("Failed to load manifest from bundle: \(error)")
             return nil
         }
     }

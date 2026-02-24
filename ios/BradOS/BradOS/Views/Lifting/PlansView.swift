@@ -78,7 +78,7 @@ struct PlansView: View {
                     let days = try await apiClient.getPlanDays(planId: fetchedPlans[i].id)
                     fetchedPlans[i].days = days
                 } catch {
-                    print("[PlansView] Failed to load days for plan \(fetchedPlans[i].id): \(error)")
+                    DebugLogger.error("Failed to load days for plan \(fetchedPlans[i].id): \(error)", attributes: ["source": "PlansView"])
                 }
             }
             plans = fetchedPlans

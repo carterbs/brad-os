@@ -69,9 +69,7 @@ struct MesoView: View {
             completedMesocycles = all.filter { $0.status == .completed || $0.status == .cancelled }
         } catch {
             self.error = error
-            #if DEBUG
-            print("[MesoView] Failed to load mesocycle data: \(error)")
-            #endif
+            DebugLogger.error("Failed to load mesocycle data: \(error)", attributes: ["source": "MesoView"])
         }
 
         isLoading = false
@@ -321,9 +319,7 @@ struct ActiveMesocycleCard: View {
             _ = try await apiClient.cancelMesocycle(id: mesocycle.id)
             onRefresh()
         } catch {
-            #if DEBUG
-            print("[ActiveMesocycleCard] Failed to cancel mesocycle: \(error)")
-            #endif
+            DebugLogger.error("Failed to cancel mesocycle: \(error)", attributes: ["source": "ActiveMesocycleCard"])
         }
         isCancelling = false
     }

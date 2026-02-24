@@ -24,7 +24,7 @@ final class MeditationStorage {
             let data = try encoder.encode(state)
             userDefaults.set(data, forKey: sessionStateKey)
         } catch {
-            print("Failed to save meditation state: \(error)")
+            DebugLogger.error("Failed to save meditation state: \(error)")
         }
     }
 
@@ -36,7 +36,7 @@ final class MeditationStorage {
         do {
             return try decoder.decode(MeditationSessionPersisted.self, from: data)
         } catch {
-            print("Failed to load meditation state: \(error)")
+            DebugLogger.error("Failed to load meditation state: \(error)")
             clearMeditationState()
             return nil
         }
@@ -101,7 +101,7 @@ final class MeditationStorage {
             let data = try encoder.encode(config)
             userDefaults.set(data, forKey: configKey)
         } catch {
-            print("Failed to save meditation config: \(error)")
+            DebugLogger.error("Failed to save meditation config: \(error)")
         }
     }
 
@@ -113,7 +113,7 @@ final class MeditationStorage {
         do {
             return try decoder.decode(MeditationConfig.self, from: data)
         } catch {
-            print("Failed to load meditation config: \(error)")
+            DebugLogger.error("Failed to load meditation config: \(error)")
             return .default
         }
     }

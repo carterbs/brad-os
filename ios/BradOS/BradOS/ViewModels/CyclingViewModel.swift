@@ -117,7 +117,7 @@ class CyclingViewModel: ObservableObject {
         do {
             activities = try await apiClient.getCyclingActivities(limit: 30)
         } catch {
-            print("[CyclingVM] Failed to fetch activities: \(error)")
+            DebugLogger.error("Failed to fetch activities: \(error)", attributes: ["source": "CyclingVM"])
         }
     }
 
@@ -126,7 +126,7 @@ class CyclingViewModel: ObservableObject {
             let response = try await apiClient.getCyclingTrainingLoad()
             trainingLoad = TrainingLoadModel(atl: response.atl, ctl: response.ctl, tsb: response.tsb)
         } catch {
-            print("[CyclingVM] Failed to fetch training load: \(error)")
+            DebugLogger.error("Failed to fetch training load: \(error)", attributes: ["source": "CyclingVM"])
         }
     }
 
@@ -139,7 +139,7 @@ class CyclingViewModel: ObservableObject {
                 ftpLastTested = formatter.date(from: ftp.date)
             }
         } catch {
-            print("[CyclingVM] Failed to fetch FTP: \(error)")
+            DebugLogger.error("Failed to fetch FTP: \(error)", attributes: ["source": "CyclingVM"])
         }
     }
 
@@ -167,7 +167,7 @@ class CyclingViewModel: ObservableObject {
                 )
             }
         } catch {
-            print("[CyclingVM] Failed to fetch block: \(error)")
+            DebugLogger.error("Failed to fetch block: \(error)", attributes: ["source": "CyclingVM"])
         }
     }
 
@@ -177,7 +177,7 @@ class CyclingViewModel: ObservableObject {
             vo2maxEstimate = response.latest
             vo2maxHistory = response.history
         } catch {
-            print("[CyclingVM] Failed to fetch VO2 max: \(error)")
+            DebugLogger.error("Failed to fetch VO2 max: \(error)", attributes: ["source": "CyclingVM"])
         }
     }
 
@@ -185,7 +185,7 @@ class CyclingViewModel: ObservableObject {
         do {
             efHistory = try await apiClient.getEFHistory()
         } catch {
-            print("[CyclingVM] Failed to fetch EF history: \(error)")
+            DebugLogger.error("Failed to fetch EF history: \(error)", attributes: ["source": "CyclingVM"])
         }
     }
 
@@ -279,7 +279,7 @@ class CyclingViewModel: ObservableObject {
             loadChartData()
         } catch {
             self.error = "Failed to create training block: \(error.localizedDescription)"
-            print("[CyclingVM] Failed to create block: \(error)")
+            DebugLogger.error("Failed to create block: \(error)", attributes: ["source": "CyclingVM"])
         }
     }
 
@@ -305,7 +305,7 @@ class CyclingViewModel: ObservableObject {
             )
         } catch {
             self.error = "Failed to complete block: \(error.localizedDescription)"
-            print("[CyclingVM] Failed to complete block: \(error)")
+            DebugLogger.error("Failed to complete block: \(error)", attributes: ["source": "CyclingVM"])
         }
     }
 
@@ -328,7 +328,7 @@ class CyclingViewModel: ObservableObject {
             return true
         } catch {
             self.error = "Failed to save FTP: \(error.localizedDescription)"
-            print("[CyclingVM] Failed to save FTP: \(error)")
+            DebugLogger.error("Failed to save FTP: \(error)", attributes: ["source": "CyclingVM"])
             return false
         }
     }
@@ -338,7 +338,7 @@ class CyclingViewModel: ObservableObject {
         do {
             return try await apiClient.getFTPHistory()
         } catch {
-            print("[CyclingVM] Failed to load FTP history: \(error)")
+            DebugLogger.error("Failed to load FTP history: \(error)", attributes: ["source": "CyclingVM"])
             return []
         }
     }
