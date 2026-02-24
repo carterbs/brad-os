@@ -32,6 +32,8 @@ git branch -d <branch-name>
 
 This keeps main clean and allows easy rollback of changes.
 
+**Pre-commit hook enforcement:** A pre-commit hook in `hooks/pre-commit` blocks direct commits to `main`. Merge commits are allowed automatically (detected via `MERGE_HEAD`). For other cases, use `ALLOW_MAIN_COMMIT=1 git commit ...` to override.
+
 ## Subagent Usage (MANDATORY)
 
 **All validation commands MUST be run in subagents to conserve context.**
