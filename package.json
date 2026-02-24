@@ -28,6 +28,7 @@
     "emulators:seed": "npm run build && firebase emulators:start --import=./seed-data",
     "test:integration": "vitest run --config vitest.integration.config.ts --no-file-parallelism",
     "test:integration:watch": "vitest --config vitest.integration.config.ts --no-file-parallelism",
+    "test:integration:emulator": "bash scripts/run-integration-tests.sh",
     "seed:generate": "npx tsx scripts/generate-seed-data.ts",
     "validate": "bash scripts/validate.sh",
     "validate:quick": "bash scripts/validate.sh --quick",

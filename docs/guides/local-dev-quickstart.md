@@ -76,6 +76,14 @@ Other emulator modes:
 | `npm run emulators:fresh` | Start with empty database |
 | `npm run emulators:seed` | Load seed data from `seed-data/` |
 
+### Run integration tests (one command)
+
+```bash
+npm run test:integration:emulator
+```
+
+This starts emulators in the background, waits for readiness, runs all integration tests, and tears down automatically. No separate terminal needed.
+
 ## Step 4: Build & Run iOS App
 
 Generate the Xcode project, build for the simulator, and launch:
