@@ -10,6 +10,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { execSync } from 'node:child_process';
 
 const ROOT_DIR = path.resolve(import.meta.dirname ?? __dirname, '..');
 const FUNCTIONS_SRC = path.join(ROOT_DIR, 'packages/functions/src');
@@ -119,7 +120,7 @@ const IOS_TEST_DOMAIN_MAP: Record<string, string> = {
 // Risk assessment for untested files
 const HIGH_RISK_PATTERNS = ['today-coach', 'openai', 'ai', 'coach'];
 const MEDIUM_RISK_PATTERNS = ['firestore', 'crud', 'recovery', 'sync', 'guided'];
-const LOW_RISK_PATTERNS = ['debug', 'barcode', 'tts', 'context', 'lifting-context'];
+const LOW_RISK_PATTERNS = ['debug', 'barcode', 'tts'];
 
 // ── Collect functions ─────────────────────────────────────────────────────────
 
@@ -386,7 +387,7 @@ function getServiceDescription(name: string): string {
     'firestore-cycling.service': 'all cycling data CRUD',
     'today-coach.service': 'OpenAI integration',
     'today-coach-data.service': 'aggregates all domain data',
-    'lifting-context.service': 'reads lifting schedule for coach',
+    'lifting-context.service': 'feeds cycling coach + today briefing with lifting data',
   };
   return descriptions[name] ?? 'service logic';
 }
@@ -489,7 +490,7 @@ const DOMAIN_META: Record<string, DomainMeta> = {
   'cycling': { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
   'stretching': { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
   'calendar': { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
-  'meditation': { apiComplete: 'Partial', iosComplete: 'Yes', isShared: false },
+  'meditation': { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
   'health': { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false, customNotes: 'Health Sync' },
   'today': { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
   'history': { apiComplete: 'Yes', iosComplete: 'Yes', isShared: true, customNotes: 'Reuses Calendar backend/ViewModel. No additional tests needed, but filter logic is untested.' },
@@ -592,7 +593,7 @@ function aggregateDomainCoverage(coverageData: Map<string, CoverageSummaryFile> 
   return domainCoverage;
 }
 
-function buildNotes(
+function buildMechanicalNotes(
   domain: string,
   counts: DomainTestCounts | undefined,
   untestedInDomain: UntestedFile[],
@@ -625,23 +626,133 @@ function buildNotes(
     }
   }
 
-  // Add domain-specific context
-  const domainContext: Record<string, string> = {
-    'lifting': 'Most mature domain. Full progressive overload system.',
-    'meal-planning': 'Widget + cache + AI critique flow complete.',
-    'cycling': 'Complex Strava + AI coach system.',
-    'stretching': 'TTS audio pipeline untested on backend.',
-    'calendar': 'Lightweight aggregation layer. Adequate for scope.',
-    'meditation': '`guidedMeditations` and `tts` handlers have zero tests.',
-    'health': 'No iOS unit tests.',
-    'today': '`today-coach` handler has zero tests. `today-coach.service.ts` and `today-coach-data.service.ts` untested.',
-  };
+  return parts.join(' ');
+}
 
-  if (domainContext[domain]) {
-    parts.push(domainContext[domain]!);
+// ── AI-generated annotations via claude -p ──────────────────────────────────
+
+interface AIAnnotations {
+  domainNotes: Record<string, string>;
+  techDebt: string;
+  recentlyCompleted: string;
+}
+
+function callClaude(prompt: string): string | null {
+  // Strip CLAUDECODE env var so claude -p works when invoked from within a Claude Code session
+  const env = { ...process.env };
+  delete env['CLAUDECODE'];
+
+  try {
+    return execSync('claude -p --model sonnet', {
+      input: prompt,
+      encoding: 'utf-8',
+      timeout: 5 * 60_000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env,
+    });
+  } catch (err) {
+    console.warn(`  Warning: claude -p failed (${(err as Error).message})`);
+    return null;
+  }
+}
+
+function generateAIAnnotations(
+  grades: DomainGrade[],
+  untested: UntestedFile[],
+  backendTests: Map<string, DomainTestCounts>,
+  existingTechDebt: string,
+  existingRecentlyCompleted: string,
+): AIAnnotations {
+  // Build a flat list of all tested files so claude can cross-reference against tech debt claims
+  const testedFiles: { file: string; domain: string }[] = [];
+  for (const [domain, counts] of backendTests) {
+    if (domain === 'other') continue;
+    for (const h of counts.handlers) testedFiles.push({ file: `handlers/${h}.test.ts`, domain: formatDomainName(domain) });
+    for (const s of counts.services) testedFiles.push({ file: `services/${s}.service.test.ts`, domain: formatDomainName(domain) });
+    for (const r of counts.repositories) testedFiles.push({ file: `repositories/${r}.repository.test.ts`, domain: formatDomainName(domain) });
+    for (const i of counts.integration) testedFiles.push({ file: `__tests__/integration/${i}.integration.test.ts`, domain: formatDomainName(domain) });
   }
 
-  return parts.join(' ');
+  const metricsForClaude = grades
+    .filter((g) => !DOMAIN_META[g.domain]?.isShared)
+    .map((g) => ({
+      domain: formatDomainName(g.domain),
+      key: g.domain,
+      grade: g.grade,
+      backendTests: g.backendTestCount,
+      iosTests: g.iosTestCount,
+      coverage: g.coveragePct,
+      apiComplete: g.apiComplete,
+      untestedFiles: untested
+        .filter((u) => u.domain === formatDomainName(g.domain))
+        .map((u) => ({ file: u.file, risk: u.risk })),
+    }));
+
+  const prompt = `You are updating a quality grades document for a personal wellness iOS + Express app. You have three jobs.
+
+## Job 1: Domain Notes
+For each non-shared domain, write ONE short sentence (max 15 words) highlighting its most notable quality characteristic. Don't restate numbers already in the table.
+
+## Job 2: Update Active Tech Debt
+IMPORTANT: Start from the EXISTING tech debt section below and make MINIMAL, TARGETED changes:
+- If a "- [ ]" item is now resolved (a previously missing test file now exists per the metrics), change it to "- [x]" and move it to recently completed
+- Keep ALL subsections (### Backend Refactor, ### Test Coverage Gaps, ### Feature Gaps, ### Other) even if unchanged
+- Keep ALL items that are still open — do NOT remove or reword them
+- You MAY add new "- [ ]" items if the metrics reveal a gap not already listed
+- Do NOT rewrite or simplify existing items
+
+## Job 3: Update Recently Completed
+IMPORTANT: Keep ALL existing "- [x]" items exactly as-is. Only ADD newly resolved items moved from tech debt. Append new items at the TOP of the list.
+
+## Current metrics:
+${JSON.stringify(metricsForClaude, null, 2)}
+
+## Untested files (no test file exists):
+${JSON.stringify(untested.map((u) => ({ file: u.file, domain: u.domain, risk: u.risk })), null, 2)}
+
+## Files that DO have tests (use this to resolve stale tech debt items):
+${JSON.stringify(testedFiles, null, 2)}
+
+## Existing Active Tech Debt section (PRESERVE THIS STRUCTURE):
+${existingTechDebt}
+
+## Existing Recently Completed section (KEEP ALL ITEMS):
+${existingRecentlyCompleted}
+
+## Response format
+Return ONLY a JSON object with exactly these three keys, no markdown fences:
+{
+  "domainNotes": {"lifting": "note", "cycling": "note", ...},
+  "techDebt": "full markdown for Active Tech Debt (after ## heading). MUST keep all ### subsections.",
+  "recentlyCompleted": "full markdown for Recently Completed (after ## heading). MUST keep all existing items."
+}`;
+
+  console.log('  Generating AI annotations via claude -p...');
+  const result = callClaude(prompt);
+
+  if (!result) {
+    console.warn('  Skipping AI annotations');
+    return { domainNotes: {}, techDebt: existingTechDebt, recentlyCompleted: existingRecentlyCompleted };
+  }
+
+  try {
+    const jsonMatch = result.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.warn('  Warning: could not parse claude response, keeping existing sections');
+      return { domainNotes: {}, techDebt: existingTechDebt, recentlyCompleted: existingRecentlyCompleted };
+    }
+    const parsed = JSON.parse(jsonMatch[0]) as AIAnnotations;
+
+    // Validate structure
+    if (!parsed.domainNotes || typeof parsed.domainNotes !== 'object') parsed.domainNotes = {};
+    if (!parsed.techDebt || typeof parsed.techDebt !== 'string') parsed.techDebt = existingTechDebt;
+    if (!parsed.recentlyCompleted || typeof parsed.recentlyCompleted !== 'string') parsed.recentlyCompleted = existingRecentlyCompleted;
+
+    return parsed;
+  } catch {
+    console.warn('  Warning: failed to parse AI response JSON, keeping existing sections');
+    return { domainNotes: {}, techDebt: existingTechDebt, recentlyCompleted: existingRecentlyCompleted };
+  }
 }
 
 // ── Build test file inventory section ───────────────────────────────────────
@@ -841,9 +952,20 @@ function main(): void {
       apiComplete: meta.apiComplete,
       iosComplete: meta.iosComplete,
       coveragePct,
-      notes: buildNotes(domain, backendCounts, untestedInDomain),
+      notes: buildMechanicalNotes(domain, backendCounts, untestedInDomain),
     });
   }
+
+  // Generate AI-powered annotations (domain notes + tech debt + recently completed)
+  const ai = generateAIAnnotations(grades, untested, backendTests, curatedSections.techDebt, curatedSections.recentlyCompleted);
+  for (const g of grades) {
+    const aiNote = ai.domainNotes[g.domain];
+    if (aiNote) {
+      g.notes = g.notes ? `${g.notes} ${aiNote}` : aiNote;
+    }
+  }
+  curatedSections.techDebt = ai.techDebt;
+  curatedSections.recentlyCompleted = ai.recentlyCompleted;
 
   // Print summary
   for (const g of grades) {
