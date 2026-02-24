@@ -1,186 +1,239 @@
-# Fix start-emulators.sh: Remove @brad-os/shared Build and Align Modes with npm Scripts
+# Rewrite README.md to match current Firebase Functions + iOS architecture
 
-**Why**: `scripts/start-emulators.sh` fails immediately because it runs `npm run build -w @brad-os/shared` — a workspace that doesn't exist (the only workspace is `packages/functions` with name `@brad-os/functions`). Additionally, the script's three modes (`--seed` default, `--fresh`, `--persist`) don't match the three `npm run emulators*` scripts in `package.json` (`emulators` = persist default, `emulators:fresh`, `emulators:seed`). This means a developer running `./scripts/start-emulators.sh` gets different behavior than `npm run emulators`, and the script can't start at all due to the broken build step.
+## Why
 
-**What**: Fix the build step, align the script's modes with the npm scripts, and make the default mode match `npm run emulators` (persist mode, not seed mode).
+The README's Architecture and Development sections are stale. They reference `packages/server/` (an Express + SQLite backend that no longer exists) and `packages/shared/` (removed). The actual backend is Firebase Cloud Functions at `packages/functions/`. The development commands are also wrong — `npm run dev` starts Firebase emulators, not a standalone Express server on port 3001. The `xcodebuild` invocation uses `-workspace` and `-sdk` flags that are incorrect. A new contributor (human or agent) reading the README gets a misleading picture of the project.
 
----
+## What
 
-## Current State (Problems)
-
-### Problem 1: Non-existent workspace build
-```bash
-# Line 22 of start-emulators.sh — fails because @brad-os/shared doesn't exist
-npm run build -w @brad-os/shared
-```
-There is no `packages/shared/` directory. The only workspace is `packages/functions/` (`@brad-os/functions`).
-
-### Problem 2: Mode mismatch
-| Mode | `npm run emulators*` | `start-emulators.sh` |
-|------|---------------------|---------------------|
-| **Default** | `emulators` → persist (`--import=./emulator-data --export-on-exit=./emulator-data`) | `--seed` → seed (`--import=./seed-data`) |
-| Fresh | `emulators:fresh` → no flags | `--fresh` → no flags ✓ |
-| Seed | `emulators:seed` → `--import=./seed-data` | `--seed` → `--import=./seed-data` ✓ |
-| Persist | *(is the default)* | `--persist` → `--import=./emulator-data --export-on-exit=./emulator-data` ✓ |
-
-The default behavior differs: npm defaults to **persist**, the script defaults to **seed**.
-
-### Problem 3: Build command inconsistency
-- `package.json` `"build"` script: `npm run build -w @brad-os/functions`
-- `npm run emulators`: calls `npm run build` (the root script)
-- `start-emulators.sh`: calls `npm run build -w @brad-os/shared` then `npm run build -w @brad-os/functions` (two separate workspace builds, one of which doesn't exist)
+Rewrite the **Architecture** and **Development** sections of `README.md`, update the **iOS App** section to match the current build flags from `docs/guides/ios-build-and-run.md`, and add a brief **CI** section. Keep the existing **Screenshots** and **Features** sections untouched — they're still accurate.
 
 ---
 
 ## Files
 
-### 1. `scripts/start-emulators.sh` (modify)
+| File | Action | What changes |
+|------|--------|-------------|
+| `README.md` | Modify | Rewrite Architecture (lines 44-48), Development (lines 50-59), iOS App (lines 61-69); add CI section at end |
 
-Replace the entire file with:
+Only one file is modified. No new files are created.
 
-```bash
-#!/bin/bash
-#
-# Start Firebase Emulators
-#
-# This script builds the functions and starts the Firebase emulators.
-# Modes match the npm run emulators* scripts in package.json.
-#
-# Usage:
-#   ./scripts/start-emulators.sh            # Persist data (matches: npm run emulators)
-#   ./scripts/start-emulators.sh --fresh    # Empty database  (matches: npm run emulators:fresh)
-#   ./scripts/start-emulators.sh --seed     # Seed data       (matches: npm run emulators:seed)
-#
+---
 
-set -e
+## Detailed Changes
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+### 1. Architecture section (replace lines 44-48)
 
-cd "$PROJECT_DIR"
+**Current (stale):**
+```markdown
+## Architecture
 
-echo "🔨 Building functions..."
-npm run build
-
-# Parse arguments — default to persist mode (same as `npm run emulators`)
-MODE="${1:---persist}"
-
-case "$MODE" in
-  --fresh)
-    echo "🚀 Starting emulators with fresh database..."
-    firebase emulators:start
-    ;;
-  --seed)
-    if [ -d "./seed-data" ]; then
-      echo "🌱 Starting emulators with seed data..."
-      firebase emulators:start --import=./seed-data
-    else
-      echo "⚠️  No seed-data directory found. Starting fresh..."
-      echo "   Run 'npm run seed:generate' while emulators are running to create seed data."
-      firebase emulators:start
-    fi
-    ;;
-  --persist|*)
-    echo "🚀 Starting emulators with persistent data..."
-    firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data
-    ;;
-esac
+- **iOS App**: Native SwiftUI app at `ios/BradOS/`
+- **API Server**: Express + SQLite backend at `packages/server/`
+- **Shared Types**: Common schemas/types at `packages/shared/`
 ```
 
-**Changes from current file:**
+**Replace with:**
+```markdown
+## Architecture
 
-1. **Remove line 21-22** (`npm run build -w @brad-os/shared`) — workspace doesn't exist.
-2. **Replace line 25** (`npm run build -w @brad-os/functions`) with `npm run build` — use the root build script for consistency with npm scripts. The root `build` already does `npm run build -w @brad-os/functions`.
-3. **Change default from `--seed` to `--persist`** — aligns with `npm run emulators` (the default npm script).
-4. **Reorder case branches** — `--persist` is now the default/fallback, `--seed` is explicit. Fresh stays the same.
-5. **Update header comments** — document the alignment with npm scripts.
+```
+brad-os/
+├── ios/BradOS/          # Native SwiftUI app (iPhone, Apple Watch, Widget)
+│   ├── BradOS/          # Main iOS app
+│   ├── BradOSCore/      # Shared Swift package (models, networking)
+│   ├── BradOSWatch/     # watchOS companion (workout tracking)
+│   └── BradOSWidget/    # Home screen widget (meal plan)
+├── packages/functions/  # Firebase Cloud Functions (Express + Firestore)
+├── scripts/             # Build, validation, and tooling scripts
+└── docs/                # Architecture maps, conventions, guides
+```
 
-### 2. No other files need changes
+- **iOS App** — SwiftUI targeting iPhone and Apple Watch. XcodeGen manages the project file from `project.yml`. BradOSCore is a local Swift package for shared models and the API client.
+- **Backend** — Express apps deployed as Firebase Cloud Functions (Node 22). Each API domain (health, exercises, plans, mesocycles, workouts, meals, cycling, etc.) is a separate function with dev/prod variants. Firestore is the database.
+- **Monorepo** — npm workspaces. TypeScript types, Zod schemas, and tests live alongside handlers in `packages/functions/src/`.
+```
 
-The `package.json` npm scripts are already correct:
-- `"emulators"`: persist mode (default) ✓
-- `"emulators:fresh"`: fresh mode ✓
-- `"emulators:seed"`: seed mode ✓
+**Why each change matters:**
+- `packages/server/` → `packages/functions/` — the server package was replaced by Firebase Functions
+- `packages/shared/` removed — shared types now live inside `packages/functions/src/types/` and `packages/functions/src/schemas/`
+- "Express + SQLite" → "Express + Firestore" — the database migrated from SQLite to Firestore
+- Directory tree added — gives instant orientation to the monorepo layout
+- Watch/Widget/Core mentioned — these targets exist and are non-obvious
 
-`firebase.json` emulator config is correct. `ci.yml` doesn't use `start-emulators.sh` (it calls `firebase emulators:start` directly). `wait-for-emulator.sh` is independent of this script.
+### 2. Development section (replace lines 50-59)
+
+**Current (stale):**
+```markdown
+## Development
+
+```bash
+npm install              # Install dependencies
+npm run dev              # Start API server (port 3001)
+npm run build            # Build all packages
+npm run typecheck        # TypeScript compilation
+npm run lint             # ESLint checks
+npm run test             # Unit tests
+```
+```
+
+**Replace with:**
+```markdown
+## Development
+
+```bash
+npm install              # Install dependencies
+npm run dev              # Build functions + start Firebase emulators (Firestore, Functions, Hosting)
+npm run validate         # Full check: typecheck + lint + test + architecture
+npm run validate:quick   # Fast check: typecheck + lint only
+npm run typecheck        # TypeScript compilation
+npm run lint             # ESLint (use --fix to auto-fix)
+npm test                 # Unit tests (vitest)
+```
+
+### Deploying
+
+```bash
+npm run deploy:functions:dev   # Deploy dev functions to Firebase
+npm run deploy:functions:prod  # Deploy prod functions to Firebase
+```
+```
+
+**Why each change matters:**
+- `npm run dev` description corrected: it starts Firebase emulators, not "API server (port 3001)"
+- `npm run build` removed from quick-reference: it's an intermediate step handled by `dev` and `deploy`, not a standalone developer command
+- `npm run validate` added: this is the primary developer command per CLAUDE.md
+- `npm run validate:quick` added: the fast alternative
+- `npm test` (not `npm run test`): matches what developers actually type
+- "(vitest)" added: clarifies the test runner
+- Deploy commands added: these are the real deployment mechanism, not ad-hoc `npm run build`
+
+### 3. iOS App section (replace lines 61-69)
+
+**Current (stale):**
+```markdown
+## iOS App
+
+```bash
+# Build for simulator
+xcodebuild -workspace ios/BradOS/BradOS.xcworkspace \
+  -scheme BradOS \
+  -sdk iphonesimulator \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  build
+```
+```
+
+**Replace with:**
+```markdown
+## iOS App
+
+The iOS project uses [XcodeGen](https://github.com/yonaskolb/XcodeGen) — regenerate the Xcode project after changing `project.yml`:
+
+```bash
+cd ios/BradOS && xcodegen generate && cd ../..
+```
+
+Build for simulator:
+
+```bash
+xcodebuild -project ios/BradOS/BradOS.xcodeproj \
+  -scheme BradOS \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -derivedDataPath ~/.cache/brad-os-derived-data \
+  -skipPackagePluginValidation \
+  build
+```
+```
+
+**Why each change matters:**
+- `-workspace` → `-project`: there is no `.xcworkspace`; the project uses `.xcodeproj` generated by XcodeGen
+- `-sdk iphonesimulator` removed: this flag breaks the watchOS companion build (per `docs/guides/ios-build-and-run.md`)
+- `-derivedDataPath` added: keeps build artifacts in a consistent location
+- `-skipPackagePluginValidation` added: required for SwiftLint SPM build plugin in CLI builds
+- XcodeGen note added: developers need to know the project file is generated, not hand-maintained
+
+### 4. Add CI section (new, after iOS App)
+
+```markdown
+## CI
+
+GitHub Actions runs on every push to `main` and PR:
+
+1. **Validate** — `npm run validate` (typecheck + lint + test + architecture)
+2. **Integration** — Firebase emulators + `npm run test:integration`
+```
+
+**Why:** The project has CI, and the README should mention it. This is deliberately brief — full details are in `.github/workflows/ci.yml` and CLAUDE.md.
 
 ---
 
 ## Tests
 
-This is a shell script fix, not application code. No new vitest unit tests are needed (shell scripts aren't covered by the vitest test suite).
-
-**Verification is done via QA (below).**
-
-One thing to verify in existing tests: confirm no test or CI config references `@brad-os/shared`:
-- `ci.yml` uses `npm run build` — no reference to shared ✓
-- `package.json` `"build"` uses `-w @brad-os/functions` — no reference to shared ✓
-- No integration test references start-emulators.sh directly ✓
+No tests are needed. This change is purely documentation — no code, types, schemas, or behavior changes.
 
 ---
 
 ## QA
 
-### 1. Verify the build step succeeds
+### 1. Verify stale references are gone
 ```bash
-# In the worktree, run just the build portion
-npm run build
-# Should succeed — builds @brad-os/functions via tsc
+# Must return 0 matches each:
+grep -c "packages/server" README.md     # → 0
+grep -c "packages/shared" README.md     # → 0
+grep -c "port 3001" README.md           # → 0
+grep -c "SQLite" README.md              # → 0
+grep -c "xcworkspace" README.md         # → 0
+grep -c "\-sdk iphonesimulator" README.md  # → 0
 ```
 
-### 2. Verify default mode (persist) matches npm run emulators
+### 2. Verify every npm command exists
 ```bash
-# Run the script with no arguments
-./scripts/start-emulators.sh
-# Expected output:
-#   🔨 Building functions...
-#   🚀 Starting emulators with persistent data...
-# Emulators should start with --import=./emulator-data --export-on-exit=./emulator-data
-# This matches: npm run emulators
+# Every command referenced in the Development section must exist in package.json:
+for cmd in dev validate validate:quick typecheck lint test deploy:functions:dev deploy:functions:prod; do
+  node -e "const pkg=require('./package.json'); if(!pkg.scripts['$cmd']) { console.error('MISSING: $cmd'); process.exit(1); }"
+done
+# All should pass
 ```
 
-### 3. Verify --fresh mode
+### 3. Verify directory tree matches reality
 ```bash
-./scripts/start-emulators.sh --fresh
-# Expected output:
-#   🔨 Building functions...
-#   🚀 Starting emulators with fresh database...
-# Emulators should start with no import/export flags
-# This matches: npm run emulators:fresh
+# Each directory in the tree must exist:
+ls -d ios/BradOS/BradOS/
+ls -d ios/BradOS/BradOSCore/
+ls -d ios/BradOS/BradOSWatch/
+ls -d ios/BradOS/BradOSWidget/
+ls -d packages/functions/
+ls -d scripts/
+ls -d docs/
+# All should succeed
 ```
 
-### 4. Verify --seed mode
+### 4. Verify xcodebuild command matches the guide
 ```bash
-./scripts/start-emulators.sh --seed
-# Expected output (if seed-data/ exists):
-#   🔨 Building functions...
-#   🌱 Starting emulators with seed data...
-# Expected output (if seed-data/ doesn't exist):
-#   🔨 Building functions...
-#   ⚠️  No seed-data directory found. Starting fresh...
-# This matches: npm run emulators:seed
+# The build command in README should match docs/guides/ios-build-and-run.md
+# Specifically: -project (not -workspace), no -sdk flag, has -skipPackagePluginValidation
+grep "\-project ios/BradOS/BradOS.xcodeproj" README.md        # → match
+grep "\-skipPackagePluginValidation" README.md                 # → match
+grep "\-derivedDataPath" README.md                             # → match
 ```
 
-### 5. Verify the old broken command no longer runs
-```bash
-# Confirm @brad-os/shared is nowhere in the script
-grep -c "@brad-os/shared" scripts/start-emulators.sh
-# Expected: 0
-```
+### 5. Cross-reference with CLAUDE.md
+Read both files and verify no contradictions:
+- Both say `npm run dev` starts Firebase emulators ✓
+- Both say vitest for tests ✓
+- Both reference `npm run validate` as the primary check ✓
+- Both mention the same CI jobs ✓
 
-### 6. Verify emulators actually respond
-```bash
-# After starting with any mode, in a separate terminal:
-curl -sf http://127.0.0.1:5001/brad-os/us-central1/devHealth
-# Should return a health check response (HTTP 200)
-```
+### 6. Markdown rendering check
+Verify the markdown renders correctly — balanced code fences, the directory tree displays in a code block, and the table (if any) is well-formed. Check with `cat README.md` and visually inspect.
 
 ---
 
 ## Conventions
 
-1. **CLAUDE.md — Worktree workflow**: Make changes in a git worktree, not directly on main.
-2. **CLAUDE.md — Validation**: Run `npm run validate` before committing to ensure nothing is broken.
-3. **CLAUDE.md — Subagent usage**: Run validation in a subagent to conserve context.
-4. **CLAUDE.md — Self-review**: `git diff main` to review every changed line before committing.
-5. **CLAUDE.md — QA**: Exercise the script manually — don't just verify it parses. Actually start the emulators and hit the health endpoint.
+- **CLAUDE.md — Edit existing files**: Only `README.md` is modified. No new files created.
+- **CLAUDE.md — Validation**: Run `npm run validate` before committing (though this is a docs-only change, it won't hurt).
+- **CLAUDE.md — Self-review**: `git diff main` to review every changed line before committing.
+- **CLAUDE.md — QA**: Exercise what you built — run the QA checks above, don't just eyeball it.
+- **Agent legibility**: The README should give a correct first impression of the project. Detailed developer workflows stay in CLAUDE.md and `docs/`.

@@ -43,28 +43,63 @@ A personal operating system for tracking wellness and fitness. Built as a learni
 
 ## Architecture
 
-- **iOS App**: Native SwiftUI app at `ios/BradOS/`
-- **API Server**: Express + SQLite backend at `packages/server/`
-- **Shared Types**: Common schemas/types at `packages/shared/`
+```text
+brad-os/
+├── ios/BradOS/          # Native SwiftUI app (iPhone, Apple Watch, Widget)
+│   ├── BradOS/          # Main iOS app
+│   ├── BradOSCore/      # Shared Swift package (models, networking)
+│   ├── BradOSWatch/     # watchOS companion (workout tracking)
+│   └── BradOSWidget/    # Home screen widget (meal plan)
+├── packages/functions/  # Firebase Cloud Functions (Express + Firestore)
+├── scripts/             # Build, validation, and tooling scripts
+└── docs/                # Architecture maps, conventions, guides
+```
+
+- **iOS App** — SwiftUI targeting iPhone and Apple Watch. XcodeGen manages the project file from `project.yml`. BradOSCore is a local Swift package for shared models and the API client.
+- **Backend** — Express apps deployed as Firebase Cloud Functions (Node 22). Each API domain (health, exercises, plans, mesocycles, workouts, meals, cycling, etc.) is a separate function with dev/prod variants. Firestore is the database.
+- **Monorepo** — npm workspaces. TypeScript types, Zod schemas, and tests live alongside handlers in `packages/functions/src/`.
 
 ## Development
 
 ```bash
 npm install              # Install dependencies
-npm run dev              # Start API server (port 3001)
-npm run build            # Build all packages
+npm run dev              # Build functions + start Firebase emulators (Firestore, Functions, Hosting)
+npm run validate         # Full check: typecheck + lint + test + architecture
+npm run validate:quick   # Fast check: typecheck + lint only
 npm run typecheck        # TypeScript compilation
-npm run lint             # ESLint checks
-npm run test             # Unit tests
+npm run lint             # ESLint (use --fix to auto-fix)
+npm test                 # Unit tests (vitest)
+```
+
+### Deploying
+
+```bash
+npm run deploy:functions:dev   # Deploy dev functions to Firebase
+npm run deploy:functions:prod  # Deploy prod functions to Firebase
 ```
 
 ## iOS App
 
+The iOS project uses [XcodeGen](https://github.com/yonaskolb/XcodeGen) — regenerate the Xcode project after changing `project.yml`:
+
 ```bash
-# Build for simulator
-xcodebuild -workspace ios/BradOS/BradOS.xcworkspace \
+cd ios/BradOS && xcodegen generate && cd ../..
+```
+
+Build for simulator:
+
+```bash
+xcodebuild -project ios/BradOS/BradOS.xcodeproj \
   -scheme BradOS \
-  -sdk iphonesimulator \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -derivedDataPath ~/.cache/brad-os-derived-data \
+  -skipPackagePluginValidation \
   build
 ```
+
+## CI
+
+GitHub Actions runs on every push to `main` and PR:
+
+1. **Validate** — `npm run validate` (typecheck + lint + test + architecture)
+2. **Integration** — Firebase emulators + `npm run test:integration`
