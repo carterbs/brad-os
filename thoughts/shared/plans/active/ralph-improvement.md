@@ -1,152 +1,108 @@
 # Title
-Add missing Firestore repository unit tests for guided meditation, barcode, and meal-plan sessions
+Expand CalendarViewModelTests for date-filtered activity retrieval and recent-activity ordering
 
 ## Why
-These are the only production repositories in `packages/functions/src/repositories/` (excluding `index.ts` and `base.repository.ts`) that currently have no unit tests. Adding them closes the repository test gap and protects CRUD/query behavior used by meditation and meal-planning handlers.
+`History` is graded with an explicit gap: filter logic is still untested (`docs/quality-grades.md:36`). `HistoryView` relies on `CalendarViewModel.activitiesForDate(_:filter:)` for day detail filtering (`ios/BradOS/BradOS/Views/History/HistoryView+Components.swift:117`), and `HealthView` relies on `recentActivities(limit:)` for “Recent Activity” ordering (`ios/BradOS/BradOS/Views/Health/HealthView.swift:111`). We need direct unit tests to lock this behavior down.
 
 ## What
-Implement three new repository test files that follow the existing repository test harness pattern (`createFirestoreMocks`, `setupFirebaseMock`, `createMockDoc`, `createMockQuerySnapshot`, `createMockQuery`) and cover both custom methods and inherited `BaseRepository` behaviors.
+Add focused tests in `CalendarViewModelTests.swift` for the two currently under-covered methods in `CalendarViewModel`:
+- `public func activitiesForDate(_ date: Date, filter: ActivityType?) -> [CalendarActivity]` (`CalendarViewModel.swift:112`)
+- `public func recentActivities(limit: Int = 3) -> [CalendarActivity]` (`CalendarViewModel.swift:129`)
 
-1. Cover all methods in `GuidedMeditationRepository`:
-- `create(data: CreateGuidedMeditationScriptDTO): Promise<GuidedMeditationScript>`
-- `findAll(): Promise<GuidedMeditationScript[]>`
-- `findAllByCategory(category: string): Promise<Omit<GuidedMeditationScript, 'segments' | 'interjections'>[]>`
-- `getCategories(): Promise<GuidedMeditationCategory[]>`
-- `update(id: string, data: Partial<CreateGuidedMeditationScriptDTO>): Promise<GuidedMeditationScript | null>`
-- `seed(scripts: CreateGuidedMeditationScriptDTO[]): Promise<GuidedMeditationScript[]>`
-- inherited behavior exercised via `findById` and `delete`
+Implementation details for the test expansion:
+1. Introduce local test helpers in `CalendarViewModelTests` to make fixtures deterministic and readable.
+- `private func makeDate(year: Int, month: Int, day: Int, hour: Int = 12, minute: Int = 0) -> Date`
+- `private func makeActivity(id: String, type: ActivityType, date: Date, completedAt: Date? = nil) -> CalendarActivity`
+- `private func key(for date: Date) -> String` (same `yyyy-MM-dd` formatter shape used by `activitiesForDate(_:)`)
 
-2. Cover all methods in `BarcodeRepository`:
-- `create(data: CreateBarcodeDTO): Promise<Barcode>` (including `sort_order` default)
-- `findAll(): Promise<Barcode[]>`
-- inherited `findById`, `update`, and `delete` from `BaseRepository`
+2. Build explicit fixture data with mixed activity types and mixed `completedAt` presence.
+- Same-day set for filter tests: workout + stretch + meditation on one key.
+- Cross-day set for ordering tests: at least 4 activities with distinct effective timestamps (`completedAt ?? date`) so ordering is unambiguous.
 
-3. Cover all methods in `MealPlanSessionRepository`:
-- `create(data: CreateMealPlanSessionDTO): Promise<MealPlanSession>`
-- `findAll(): Promise<MealPlanSession[]>`
-- `appendHistory(sessionId: string, message: ConversationMessage): Promise<MealPlanSession | null>`
-- `updatePlan(sessionId: string, entries: MealPlanEntry[]): Promise<MealPlanSession | null>`
-- `applyCritiqueUpdates(sessionId: string, userMessage: ConversationMessage, assistantMessage: ConversationMessage, updatedPlan: MealPlanEntry[]): Promise<void>`
-- inherited `findById`, `update`, and `delete`
+3. Add `activitiesForDate(_:filter:)` behavior tests.
+- `filter: nil` returns all activities for that date.
+- `filter: .workout` returns only workout entries for that date.
+- `filter: .stretch` and `filter: .meditation` each return only matching type.
+- Unknown date key returns empty even when a filter is passed.
+- Non-matching filter for an existing date returns empty.
 
-4. Mocking specifics to include in implementation:
-- Keep `vi.resetModules()` + dynamic import in `beforeEach` so `vi.doMock` is applied before repository module load.
-- For `guided-meditation.repository.ts` (imports `randomUUID` from `'crypto'`), use `vi.doMock('crypto', () => ({ randomUUID: vi.fn(...) }))`.
-- For `mealplan-session.repository.ts`, mock `FieldValue.arrayUnion` from `firebase-admin/firestore` (via `vi.doMock` or spy) and assert it is called with expected message arguments.
-- For `seed()` tests, override `mockDb.batch` and `mockCollection.doc` to return deterministic generated doc refs and validate `batch.set`/`batch.commit` calls.
+4. Add `recentActivities(limit:)` behavior tests.
+- Returns activities sorted descending by `(completedAt ?? date)` across all days (not per-day order).
+- Uses `date` fallback when `completedAt` is nil.
+- Honors explicit limit (example: `limit: 2` returns top 2 IDs in expected order).
+- Honors default limit of 3.
+- Returns all available activities if `limit` exceeds total count.
+- Returns empty for no activities.
+
+5. Keep existing tests unchanged except for harmless fixture/helper additions and test reordering for readability.
 
 ## Files
-Create the following files only:
-
-- `packages/functions/src/repositories/guided-meditation.repository.test.ts`
-  - Repository test suite using `packages/functions/src/test-utils/index.ts` helpers.
-  - Covers create/query/update/seed paths, category aggregation, and base `findById`/`delete` behavior.
-  - Includes deterministic UUID mocking for segment ID generation.
-
-- `packages/functions/src/repositories/barcode.repository.test.ts`
-  - Repository test suite using `packages/functions/src/test-utils/index.ts` helpers.
-  - Covers barcode creation, default `sort_order`, ordered listing, and inherited base CRUD behavior (`findById`, `update`, `delete`).
-
-- `packages/functions/src/repositories/mealplan-session.repository.test.ts`
-  - Repository test suite using `packages/functions/src/test-utils/index.ts` helpers.
-  - Covers session creation/listing, history append, plan updates, critique update path, and inherited base CRUD behavior.
-  - Verifies `FieldValue.arrayUnion` usage for history mutations.
-
-Do not modify repository source files unless a test reveals a real defect.
+- `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/ViewModels/CalendarViewModelTests.swift`
+  - Add fixture helper methods for deterministic dates, keyed `activitiesByDate` setup, and activity construction.
+  - Add new `@Test` cases covering filter behavior for `activitiesForDate(_:filter:)`.
+  - Add new `@Test` cases covering ordering and limit behavior for `recentActivities(limit:)`.
+  - Keep test style consistent with current Swift Testing usage (`@Suite`, `@Test`, `#expect`, `@MainActor`).
 
 ## Tests
-Write tests with explicit assertions for each behavior below.
+Add the following concrete unit tests in `CalendarViewModelTests`:
+1. `activitiesForDate with nil filter returns all activities for the day`
+- Setup one day containing 3 mixed activity types.
+- Assert returned count is 3 and IDs/types match expected set.
 
-1. `guided-meditation.repository.test.ts`
-- `create`
-  - writes full script payload with `created_at`/`updated_at`.
-  - generates segment `id` values via mocked UUIDs.
-  - returns generated document `id`.
-- `findAll`
-  - calls `orderBy('orderIndex')` and returns mapped docs.
-  - returns `[]` for empty snapshot.
-- `findAllByCategory`
-  - calls `where('category', '==', category)` then `orderBy('orderIndex')`.
-  - returns lightweight projection without `segments`/`interjections`.
-- `getCategories`
-  - aggregates counts across repeated categories.
-  - returns `[]` for no scripts.
-- `update`
-  - returns `null` when script does not exist.
-  - returns existing entity and skips `doc.update` when payload has no defined fields.
-  - updates scalar fields + `updated_at`.
-  - regenerates segment IDs when `segments` is provided.
-- `seed`
-  - uses `db.batch()` and commits exactly once.
-  - calls `batch.set` once per input script.
-  - returns created scripts with generated doc IDs.
-  - adds timestamps and generated segment IDs to seeded payloads.
-- inherited
-  - `findById` returns entity and returns `null` for missing doc.
-  - `delete` returns `true` for existing doc and `false` for missing doc.
+2. `activitiesForDate with workout filter returns only workout activities`
+- Setup one day with workout/stretch/meditation.
+- Assert only workout IDs are returned.
 
-2. `barcode.repository.test.ts`
-- `create`
-  - writes expected fields and timestamps.
-  - defaults `sort_order` to `0` when omitted.
-  - preserves provided `sort_order` when present.
-- `findAll`
-  - calls `orderBy('sort_order')` and maps docs.
-  - returns `[]` for empty snapshot.
-- inherited
-  - `findById` found/not-found behavior.
-  - `update` updates defined fields and injects `updated_at`.
-  - `update` returns existing entity when no fields supplied.
-  - `delete` true/false behavior.
+3. `activitiesForDate with stretch filter excludes non-stretch activities`
+- Same fixture shape; assert only stretch IDs.
 
-3. `mealplan-session.repository.test.ts`
-- `create`
-  - writes `plan`, `meals_snapshot`, `history`, `is_finalized`, plus timestamps.
-  - returns generated document ID.
-- `findAll`
-  - calls `orderBy('created_at', 'desc')` and maps docs.
-  - returns `[]` for empty snapshot.
-- `appendHistory`
-  - returns `null` and does not call update when session missing.
-  - calls `FieldValue.arrayUnion(message)` and updates `updated_at` when found.
-  - returns refreshed entity from second read.
-- `updatePlan`
-  - returns `null` when missing.
-  - updates `plan` + `updated_at` and returns refreshed entity when found.
-- `applyCritiqueUpdates`
-  - calls one `doc.update` with `FieldValue.arrayUnion(userMessage, assistantMessage)`, `plan`, and `updated_at`.
-  - resolves without return value.
-- inherited
-  - `findById` found/not-found behavior.
-  - `update` and `delete` success + not-found paths.
+4. `activitiesForDate with meditation filter excludes non-meditation activities`
+- Same fixture shape; assert only meditation IDs.
+
+5. `activitiesForDate with filter returns empty when date has no activities`
+- Query an unseeded date; assert empty.
+
+6. `activitiesForDate with unmatched filter returns empty`
+- Seed date with only workout activity; query with `.stretch`; assert empty.
+
+7. `recentActivities sorts by completedAt when present and by date when completedAt is nil`
+- Seed activities across multiple day keys, with mixed `completedAt` nil/non-nil.
+- Assert exact returned ID order reflects descending `(completedAt ?? date)`.
+
+8. `recentActivities default limit returns top three`
+- Seed at least 4 sorted candidates.
+- Assert count is 3 and IDs equal first three expected.
+
+9. `recentActivities applies explicit limit`
+- Using same data, call `limit: 2`.
+- Assert count is 2 and IDs equal top two expected.
+
+10. `recentActivities returns all when limit exceeds total` and `recentActivities returns empty when no data`
+- Assert both boundary conditions explicitly.
 
 ## QA
-After implementation, run and inspect all of the following:
+After implementation, verify in this order:
+1. Targeted unit suite:
+- `cd ios/BradOS/BradOSCore && swift test --filter CalendarViewModelTests`
+- Confirm new test names execute and pass, especially ordering/filter cases.
 
-1. Full validation (project-standard):
-- `npm run validate`
-- If failure occurs, inspect `.validate/test.log`, `.validate/typecheck.log`, and `.validate/lint.log` for root cause.
+2. Full BradOSCore package tests:
+- `cd ios/BradOS/BradOSCore && swift test`
+- Confirm no regressions in other ViewModel/model tests.
 
-2. Confirm the three new repository suites are executed:
-- `rg "guided-meditation\.repository\.test|barcode\.repository\.test|mealplan-session\.repository\.test" .validate/test.log`
-- Verify each file appears with passing tests.
+3. iOS lint/build gate for Swift changes (SwiftLint runs via build plugin):
+- `cd ios/BradOS && xcodegen generate && cd ../..`
+- `xcodebuild -project ios/BradOS/BradOS.xcodeproj -scheme BradOS -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath ~/.cache/brad-os-derived-data -skipPackagePluginValidation build`
+- Confirm build succeeds with zero SwiftLint violations.
 
-3. Verify repository coverage gap is closed:
-- `cd packages/functions/src/repositories && for f in *.ts; do if [[ "$f" == *.test.ts || "$f" == "index.ts" || "$f" == "base.repository.ts" ]]; then continue; fi; base="${f%.ts}"; if [[ ! -f "${base}.test.ts" ]]; then echo "$f"; fi; done`
-- Expected output: no lines.
-
-4. Targeted behavior spot-check (from test names/results):
-- Guided meditation segment IDs are regenerated on create/update/seed.
-- Barcode `sort_order` defaults to `0`.
-- Meal-plan session history updates use `FieldValue.arrayUnion` for append and critique paths.
+4. Behavior spot-check via assertions in test output:
+- Verify expected ordered IDs in `recentActivities` tests match fixture timestamps.
+- Verify each `ActivityType` filter path has at least one passing assertion proving exclusion of other types.
 
 ## Conventions
-Apply these project rules while implementing:
-
-- Use Vitest with explicit imports (`describe`, `it`, `expect`, `vi`, `beforeEach`) per `docs/conventions/testing.md`.
-- Do not skip/focus tests (`.skip`, `.only`, `fit`, `fdescribe`).
-- Keep meaningful assertions in every test case; no placeholder tests.
-- Reuse shared Firestore test helpers from `packages/functions/src/test-utils/` instead of ad-hoc inline mocks.
-- Keep TypeScript strict: no `any`, prefer typed `Partial<Firestore>` / `Partial<CollectionReference>` / `Partial<DocumentReference>`.
-- Follow existing naming/location pattern: `packages/functions/src/repositories/<repo>.repository.test.ts`.
-- Keep repository modules imported only after `vi.doMock` setup when module-level imports (`crypto`, `firebase`) must be mocked.
+Apply these project conventions while implementing:
+- Keep testing comprehensive and do not skip/disable/focus tests (`docs/conventions/testing.md:5`, `docs/conventions/testing.md:103`).
+- Keep assertions meaningful in every added test (`docs/conventions/testing.md:115`).
+- Follow existing Swift test file style in this package: `Testing` framework macros (`@Suite`, `@Test`, `#expect`) and `@MainActor` on ViewModel tests.
+- Respect SwiftLint constraints for file/type/function length and no inline `swiftlint:disable` directives (`docs/conventions/ios-swift.md:20`, `docs/conventions/ios-swift.md:29`).
+- Because iOS files are touched, include an `xcodebuild` build pass to run SwiftLint plugin checks (`docs/guides/ios-build-and-run.md`).

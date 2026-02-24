@@ -4,6 +4,31 @@ import Foundation
 
 @Suite("CalendarViewModel")
 struct CalendarViewModelTests {
+    private func makeDate(year: Int, month: Int, day: Int, hour: Int = 12, minute: Int = 0) -> Date {
+        var components = DateComponents()
+        components.year = year
+        components.month = month
+        components.day = day
+        components.hour = hour
+        components.minute = minute
+        components.second = 0
+
+        let calendar = Calendar.current
+        guard let date = calendar.date(from: components) else {
+            fatalError("Invalid date components: \(year)-\(month)-\(day) \(hour):\(minute)")
+        }
+        return date
+    }
+
+    private func makeActivity(id: String, type: ActivityType, date: Date, completedAt: Date? = nil) -> CalendarActivity {
+        CalendarActivity(id: id, type: type, date: date, completedAt: completedAt, summary: ActivitySummary())
+    }
+
+    private func key(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
 
     @Test("timezoneOffset calculates correctly")
     @MainActor
@@ -98,6 +123,208 @@ struct CalendarViewModelTests {
         #expect(vm.shouldShowActivity(type: "workout") == false)
         #expect(vm.shouldShowActivity(type: "stretch") == false)
         #expect(vm.shouldShowActivity(type: "meditation") == true)
+    }
+
+    @Test("activitiesForDate with nil filter returns all activities for the day")
+    @MainActor
+    func activitiesForDateWithNilFilterReturnsAllActivities() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        let date = makeDate(year: 2026, month: 3, day: 14)
+        let workout = makeActivity(id: "w-1", type: .workout, date: date, completedAt: date)
+        let stretch = makeActivity(id: "s-1", type: .stretch, date: date, completedAt: date)
+        let meditation = makeActivity(id: "m-1", type: .meditation, date: date, completedAt: date)
+        vm.activitiesByDate[key(for: date)] = [workout, stretch, meditation]
+
+        let activities = vm.activitiesForDate(date)
+
+        #expect(activities.count == 3)
+        #expect(activities.map(\.id) == ["w-1", "s-1", "m-1"])
+        #expect(activities.map(\.type) == [.workout, .stretch, .meditation])
+    }
+
+    @Test("activitiesForDate with workout filter returns only workout activities")
+    @MainActor
+    func activitiesForDateWorkoutFilterReturnsOnlyWorkouts() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        let date = makeDate(year: 2026, month: 3, day: 14)
+        vm.activitiesByDate[key(for: date)] = [
+            makeActivity(id: "w-1", type: .workout, date: date),
+            makeActivity(id: "s-1", type: .stretch, date: date),
+            makeActivity(id: "m-1", type: .meditation, date: date),
+        ]
+
+        let activities = vm.activitiesForDate(date, filter: .workout)
+
+        #expect(activities.count == 1)
+        #expect(activities.map(\.id) == ["w-1"])
+        #expect(activities.allSatisfy { $0.type == .workout })
+    }
+
+    @Test("activitiesForDate with stretch filter excludes non-stretch activities")
+    @MainActor
+    func activitiesForDateStretchFilterReturnsOnlyStretch() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        let date = makeDate(year: 2026, month: 3, day: 14)
+        vm.activitiesByDate[key(for: date)] = [
+            makeActivity(id: "w-1", type: .workout, date: date),
+            makeActivity(id: "s-1", type: .stretch, date: date),
+            makeActivity(id: "m-1", type: .meditation, date: date),
+        ]
+
+        let activities = vm.activitiesForDate(date, filter: .stretch)
+
+        #expect(activities.count == 1)
+        #expect(activities.map(\.id) == ["s-1"])
+        #expect(activities.allSatisfy { $0.type == .stretch })
+    }
+
+    @Test("activitiesForDate with meditation filter excludes non-meditation activities")
+    @MainActor
+    func activitiesForDateMeditationFilterReturnsOnlyMeditation() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        let date = makeDate(year: 2026, month: 3, day: 14)
+        vm.activitiesByDate[key(for: date)] = [
+            makeActivity(id: "w-1", type: .workout, date: date),
+            makeActivity(id: "s-1", type: .stretch, date: date),
+            makeActivity(id: "m-1", type: .meditation, date: date),
+        ]
+
+        let activities = vm.activitiesForDate(date, filter: .meditation)
+
+        #expect(activities.count == 1)
+        #expect(activities.map(\.id) == ["m-1"])
+        #expect(activities.allSatisfy { $0.type == .meditation })
+    }
+
+    @Test("activitiesForDate with filter returns empty when date has no activities")
+    @MainActor
+    func activitiesForDateWithUnknownDateReturnsEmptyWithFilter() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        let date = makeDate(year: 2026, month: 3, day: 14)
+        let otherDate = makeDate(year: 2026, month: 3, day: 15)
+        vm.activitiesByDate[key(for: date)] = [makeActivity(id: "w-1", type: .workout, date: date)]
+
+        let activities = vm.activitiesForDate(otherDate, filter: .workout)
+
+        #expect(activities.isEmpty)
+    }
+
+    @Test("activitiesForDate with unmatched filter returns empty")
+    @MainActor
+    func activitiesForDateUnmatchedFilterReturnsEmpty() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        let date = makeDate(year: 2026, month: 3, day: 14)
+        vm.activitiesByDate[key(for: date)] = [makeActivity(id: "w-1", type: .workout, date: date)]
+
+        let activities = vm.activitiesForDate(date, filter: .stretch)
+
+        #expect(activities.isEmpty)
+    }
+
+    @Test("recentActivities sorts by completedAt when present and by date when completedAt is nil")
+    @MainActor
+    func recentActivitiesSortsByCompletedAtOrDate() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        let dateJan1 = makeDate(year: 2026, month: 3, day: 14, hour: 10)
+        let dateJan2 = makeDate(year: 2026, month: 3, day: 15, hour: 9)
+        let dateJan3 = makeDate(year: 2026, month: 3, day: 16, hour: 12)
+        let dateJan4 = makeDate(year: 2026, month: 3, day: 17, hour: 8)
+
+        let workoutA = makeActivity(id: "a", type: .workout, date: dateJan1, completedAt: makeDate(year: 2026, month: 3, day: 1, hour: 18))
+        let stretchA = makeActivity(id: "b", type: .stretch, date: dateJan2, completedAt: nil)
+        let meditationA = makeActivity(id: "c", type: .meditation, date: dateJan3, completedAt: dateJan3)
+        let workoutB = makeActivity(id: "d", type: .workout, date: dateJan4, completedAt: nil)
+
+        vm.activitiesByDate = [
+            key(for: dateJan1): [workoutA],
+            key(for: dateJan2): [stretchA],
+            key(for: dateJan3): [meditationA],
+            key(for: dateJan4): [workoutB],
+        ]
+
+        let activities = vm.recentActivities(limit: 10)
+
+        #expect(activities.map(\.id) == ["d", "c", "b", "a"])
+    }
+
+    @Test("recentActivities default limit returns top three")
+    @MainActor
+    func recentActivitiesDefaultLimitReturnsTopThree() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        let dateJan1 = makeDate(year: 2026, month: 3, day: 14, hour: 10)
+        let dateJan2 = makeDate(year: 2026, month: 3, day: 15, hour: 9)
+        let dateJan3 = makeDate(year: 2026, month: 3, day: 16, hour: 12)
+        let dateJan4 = makeDate(year: 2026, month: 3, day: 17, hour: 8)
+
+        vm.activitiesByDate = [
+            key(for: dateJan1): [
+                makeActivity(id: "a", type: .workout, date: dateJan1, completedAt: makeDate(year: 2026, month: 3, day: 1, hour: 18))
+            ],
+            key(for: dateJan2): [
+                makeActivity(id: "b", type: .stretch, date: dateJan2),
+            ],
+            key(for: dateJan3): [
+                makeActivity(id: "c", type: .meditation, date: dateJan3, completedAt: dateJan3)
+            ],
+            key(for: dateJan4): [
+                makeActivity(id: "d", type: .workout, date: dateJan4),
+            ],
+        ]
+
+        let activities = vm.recentActivities()
+
+        #expect(activities.count == 3)
+        #expect(activities.map(\.id) == ["d", "c", "b"])
+    }
+
+    @Test("recentActivities applies explicit limit")
+    @MainActor
+    func recentActivitiesExplicitLimitReturnsExpected() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        let dateJan1 = makeDate(year: 2026, month: 3, day: 14, hour: 10)
+        let dateJan2 = makeDate(year: 2026, month: 3, day: 15, hour: 9)
+        let dateJan3 = makeDate(year: 2026, month: 3, day: 16, hour: 12)
+        let dateJan4 = makeDate(year: 2026, month: 3, day: 17, hour: 8)
+
+        vm.activitiesByDate = [
+            key(for: dateJan1): [makeActivity(id: "a", type: .workout, date: dateJan1)],
+            key(for: dateJan2): [makeActivity(id: "b", type: .stretch, date: dateJan2)],
+            key(for: dateJan3): [makeActivity(id: "c", type: .meditation, date: dateJan3, completedAt: dateJan3)],
+            key(for: dateJan4): [makeActivity(id: "d", type: .workout, date: dateJan4)],
+        ]
+
+        let activities = vm.recentActivities(limit: 2)
+
+        #expect(activities.count == 2)
+        #expect(activities.map(\.id) == ["d", "c"])
+    }
+
+    @Test("recentActivities returns all when limit exceeds total")
+    @MainActor
+    func recentActivitiesReturnsAllWhenLimitExceedsTotal() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        let date = makeDate(year: 2026, month: 3, day: 15)
+        vm.activitiesByDate = [
+            key(for: date): [
+                makeActivity(id: "a", type: .workout, date: date),
+                makeActivity(id: "b", type: .stretch, date: date),
+            ]
+        ]
+
+        let activities = vm.recentActivities(limit: 10)
+
+        #expect(activities.count == 2)
+        #expect(activities.map(\.id) == ["a", "b"])
+    }
+
+    @Test("recentActivities returns empty when no data")
+    @MainActor
+    func recentActivitiesReturnsEmptyWhenNoData() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+
+        let activities = vm.recentActivities(limit: 5)
+
+        #expect(activities.isEmpty)
     }
 
     @Test("activitiesForDate returns empty for no data")
