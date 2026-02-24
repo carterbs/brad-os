@@ -116,15 +116,20 @@ final class MockCyclingAPIClient: CyclingAPIClientProtocol {
     var onCall: (@Sendable (CyclingAPICall) async -> Void)?
 
     var completeBlockCalled = false
+    private let stateLock = NSLock()
 
     private func trackCall(_ call: CyclingAPICall) async {
+        stateLock.lock()
         callCounts[call, default: 0] += 1
+        stateLock.unlock()
         await onCall?(call)
     }
 
     func getCyclingActivities(limit: Int?) async throws -> [CyclingActivityModel] {
         await trackCall(.getCyclingActivities)
+        stateLock.lock()
         lastActivitiesLimit = limit
+        stateLock.unlock()
         return try cyclingActivitiesResult.get()
     }
 
@@ -140,7 +145,9 @@ final class MockCyclingAPIClient: CyclingAPIClientProtocol {
 
     func createFTP(value: Int, date: String, source: String) async throws -> FTPEntryResponse {
         await trackCall(.createFTP)
+        stateLock.lock()
         lastCreateFTPRequest = (value: value, date: date, source: source)
+        stateLock.unlock()
         return try createFTPResult.get()
     }
 
@@ -170,10 +177,14 @@ final class MockCyclingAPIClient: CyclingAPIClientProtocol {
 
     func completeBlock(id: String) async throws {
         await trackCall(.completeBlock)
+        stateLock.lock()
         lastCompleteBlockID = id
+        stateLock.unlock()
         do {
             try completeBlockResult.get()
+            stateLock.lock()
             completeBlockCalled = true
+            stateLock.unlock()
         } catch {
             throw error
         }
