@@ -1,5 +1,5 @@
 import { appendFileSync } from "node:fs";
-import type { LogEvent, StepName, StepSummary } from "./types.js";
+import type { AgentBackend, LogEvent, StepName, StepSummary } from "./types.js";
 
 const DIM = "\x1b[2m";
 const RESET = "\x1b[0m";
@@ -11,6 +11,11 @@ const BOLD = "\x1b[1m";
 
 function ts(): string {
   return new Date().toLocaleTimeString("en-US", { hour12: false });
+}
+
+function formatCost(backend: AgentBackend, costUsd: number, tokens: number): string {
+  if (backend === "codex") return "N/A";
+  return `$${costUsd.toFixed(2)}, ${Math.round(tokens / 1000)}k tok`;
 }
 
 export class Logger {
@@ -62,11 +67,12 @@ export class Logger {
 
   stepSummary(
     step: StepName,
-    r: { turns: number; costUsd: number; tokens: number; durationMs: number },
+    r: { backend: AgentBackend; turns: number; costUsd: number; tokens: number; durationMs: number },
   ): void {
     const secs = Math.round(r.durationMs / 1000);
+    const cost = formatCost(r.backend, r.costUsd, r.tokens);
     this.info(
-      `  \u2713 ${step} done (${secs}s, ${r.turns} turns, $${r.costUsd.toFixed(2)}, ${Math.round(r.tokens / 1000)}k tok)`,
+      `  \u2713 ${step} done (${secs}s, ${r.turns} turns, ${cost})`,
     );
   }
 
@@ -75,6 +81,7 @@ export class Logger {
     const totalCost = steps.reduce((s, r) => s + r.costUsd, 0);
     const totalTokens = steps.reduce((s, r) => s + r.tokens, 0);
     const totalDuration = steps.reduce((s, r) => s + r.durationMs, 0);
+    const hasAnyCost = steps.some((s) => s.backend === "claude");
 
     const line = (msg: string): void => {
       console.log(`${DIM}[${ts()}]${RESET} ${msg}`);
@@ -86,17 +93,29 @@ export class Logger {
     for (const s of steps) {
       const secs = Math.round(s.durationMs / 1000);
       const label = (s.step + ":").padEnd(15);
-      const tok = Math.round(s.tokens / 1000);
-      line(
-        `\u2503 ${label} ${String(secs).padStart(4)}s ${String(s.turns).padStart(4)} turns  $${s.costUsd.toFixed(2).padStart(5)}  ${String(tok).padStart(4)}k tok`,
-      );
+      if (s.backend === "codex") {
+        line(
+          `\u2503 ${label} ${String(secs).padStart(4)}s ${String(s.turns).padStart(4)} turns  ${" N/A".padStart(6)}  ${"N/A".padStart(8)}  [codex]`,
+        );
+      } else {
+        const tok = Math.round(s.tokens / 1000);
+        line(
+          `\u2503 ${label} ${String(secs).padStart(4)}s ${String(s.turns).padStart(4)} turns  $${s.costUsd.toFixed(2).padStart(5)}  ${String(tok).padStart(4)}k tok`,
+        );
+      }
     }
 
     const totalSecs = Math.round(totalDuration / 1000);
-    const totalTok = Math.round(totalTokens / 1000);
-    line(
-      `\u2503 ${"Total:".padEnd(15)} ${String(totalSecs).padStart(4)}s ${String(totalTurns).padStart(4)} turns  $${totalCost.toFixed(2).padStart(5)}  ${String(totalTok).padStart(4)}k tok`,
-    );
+    if (hasAnyCost) {
+      const totalTok = Math.round(totalTokens / 1000);
+      line(
+        `\u2503 ${"Total:".padEnd(15)} ${String(totalSecs).padStart(4)}s ${String(totalTurns).padStart(4)} turns  $${totalCost.toFixed(2).padStart(5)}  ${String(totalTok).padStart(4)}k tok`,
+      );
+    } else {
+      line(
+        `\u2503 ${"Total:".padEnd(15)} ${String(totalSecs).padStart(4)}s ${String(totalTurns).padStart(4)} turns`,
+      );
+    }
     line("\u2517\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501");
   }
 }
