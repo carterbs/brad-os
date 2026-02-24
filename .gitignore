@@ -76,3 +76,6 @@ packages/functions/shared/
 
 # OpenTelemetry debug data
 .otel/
+
+# Validation logs
+.validate/
