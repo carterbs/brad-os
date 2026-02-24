@@ -1,778 +1,1105 @@
-# Health Sync: Add iOS Tests for HealthKit Sync Layer
+# Stretching + Meditation: Add iOS Tests to Reach 4+ Files Each
 
 ## Why
 
-The HealthKit sync layer has zero iOS test coverage. It contains critical business logic — recovery score calculation (70% HRV + 20% RHR + 10% sleep weighting), baseline computation (60-day rolling medians with standard deviation), chart utilities (SMA, linear regression, date deduplication), and two ViewModels that filter/transform data. All of this is untested. Adding tests reaches Medium iOS coverage and catches regressions in the scoring algorithm that directly affects training recommendations.
+Stretching has 2 test files and Meditation has 1 test file. Both have untested models in BradOSCore — `StretchDefinition`, `StretchRegionData`, `CompletedStretch`, `StretchRegionConfig`, all four `GuidedMeditation*` types, and `MeditationStats`. Getting each feature to 4+ test files strengthens overall iOS test coverage from B- to B with zero refactoring — all target types already live in BradOSCore and are immediately testable.
 
 ## What
 
-Move pure health data models and chart utilities from the main app target into BradOSCore (where the test infrastructure lives), add health API methods to `APIClientProtocol`/`MockAPIClient`, refactor ViewModels for dependency injection, then write comprehensive tests covering:
+Add 5 new test files (2 stretching, 3 meditation) covering untested BradOSCore models. No source code changes needed — every type to test is already `public` in BradOSCore with `Codable` conformance, computed properties, and mock data.
 
-1. **RecoveryData** — score calculation, state thresholds, edge cases
-2. **RecoveryBaseline** — median/stddev calculation, default baseline
-3. **SleepMetrics** — efficiency and deep sleep percentage computed properties
-4. **HealthSyncModels** — Codable encoding/decoding round-trips
-5. **Chart utilities** — SMA, linear regression, date parsing, deduplication
-6. **HealthMetricHistoryViewModel** — data loading, range filtering, trend calculation
-7. **SleepHistoryViewModel** — data loading, averages, range filtering
+### Current State
 
-## Architecture Constraint
+| Feature | Test Files | What's Tested |
+|---------|-----------|---------------|
+| Stretching | `StretchSessionTests.swift` (13 tests) | StretchSession, BodyRegion, StretchSessionConfig |
+| Stretching | `StretchUrgencyTests.swift` (9 tests) | StretchUrgency urgency calculations |
+| Meditation | `MeditationSessionTests.swift` (12 tests) | MeditationSession, MeditationDuration |
 
-Tests live in `BradOSCoreTests` (SPM test target). Only code inside `BradOSCore/Sources/` is testable from that target. Currently, all health models and ViewModels live in the main app target (`ios/BradOS/BradOS/`). They must be moved to `BradOSCore/Sources/BradOSCore/` to be testable, following the established pattern (e.g., `Workout`, `DashboardViewModel` are already in BradOSCore).
+### Target State (after this task)
+
+| Feature | Test Files | Total |
+|---------|-----------|-------|
+| Stretching | 2 existing + 2 new | **4** |
+| Meditation | 1 existing + 3 new | **4** |
 
 ## Files
 
-### Phase 1: Move Pure Data Models to BradOSCore
+All new files are test-only — no source modifications required.
 
-#### CREATE: `ios/BradOS/BradOSCore/Sources/BradOSCore/Models/RecoveryData.swift`
+### Stretching Test File 1
 
-Move from `ios/BradOS/BradOS/Models/RecoveryData.swift`. Contains these types (add `public` access to all types, properties, initializers, and methods):
+#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/StretchDefinitionTests.swift`
 
-- `enum RecoveryState: String, Codable, CaseIterable` — `.ready`/`.moderate`/`.recover` with `displayName` computed property
-- `struct RecoveryData: Codable, Equatable` — full recovery assessment with `static func calculate(date:hrvMs:hrvBaseline:rhrBpm:sleepMetrics:) -> RecoveryData`
-- `struct RecoveryBaseline: Codable, Equatable` — 60-day rolling medians with `static func calculate(hrvReadings:rhrReadings:)`, `static var default`, and private `standardDeviation()` helper
-- `struct SleepMetrics: Equatable` — sleep stage breakdown with computed `efficiency` and `deepPercent`
-- `struct HRVReading: Equatable` — date + valueMs
-- `struct RHRReading: Equatable` — date + valueBpm
-
-These types have zero dependencies on HealthKit or app-specific code — pure data + pure calculation logic. The only change needed is adding `public` access modifiers.
-
-Key memberwise initializers to add explicitly (since Swift auto-generates internal ones):
-
-```swift
-public struct RecoveryData: Codable, Equatable {
-    public let date: Date
-    public let hrvMs: Double
-    public let hrvVsBaseline: Double
-    public let rhrBpm: Double
-    public let rhrVsBaseline: Double
-    public let sleepHours: Double
-    public let sleepEfficiency: Double
-    public let deepSleepPercent: Double
-    public let score: Int
-    public let state: RecoveryState
-
-    public init(date: Date, hrvMs: Double, hrvVsBaseline: Double,
-                rhrBpm: Double, rhrVsBaseline: Double, sleepHours: Double,
-                sleepEfficiency: Double, deepSleepPercent: Double,
-                score: Int, state: RecoveryState) { ... }
-
-    public static func calculate(...) -> RecoveryData { ... }
-}
-
-public struct SleepMetrics: Equatable {
-    public var inBed: TimeInterval = 0
-    public var totalSleep: TimeInterval = 0
-    public var core: TimeInterval = 0
-    public var deep: TimeInterval = 0
-    public var rem: TimeInterval = 0
-    public var awake: TimeInterval = 0
-    public var efficiency: Double { ... }
-    public var deepPercent: Double { ... }
-    public init(inBed: TimeInterval = 0, totalSleep: TimeInterval = 0,
-                core: TimeInterval = 0, deep: TimeInterval = 0,
-                rem: TimeInterval = 0, awake: TimeInterval = 0) { ... }
-}
-```
-
-**After moving:** Delete `ios/BradOS/BradOS/Models/RecoveryData.swift` from the main app target. Add `import BradOSCore` to files that reference these types.
-
-#### CREATE: `ios/BradOS/BradOSCore/Sources/BradOSCore/Models/HealthSyncModels.swift`
-
-Move from `ios/BradOS/BradOS/Models/HealthSyncModels.swift`. Add `public` access. Contains:
-
-- `struct HRVSyncEntry: Encodable` — date, avgMs, minMs, maxMs, sampleCount, source
-- `struct HRVHistoryEntry: Codable, Identifiable` — id, date, avgMs
-- `struct RHRSyncEntry: Encodable` — date, avgBpm, sampleCount, source
-- `struct RHRHistoryEntry: Codable, Identifiable` — id, date, avgBpm
-- `struct SleepSyncEntry: Encodable` — full sleep stage breakdown for sync
-- `struct SleepHistoryEntry: Codable, Identifiable` — sleep data from backend
-
-Pure Codable DTOs with no dependencies.
-
-**After moving:** Delete `ios/BradOS/BradOS/Models/HealthSyncModels.swift`. Add `import BradOSCore` where needed.
-
-### Phase 2: Move Chart Utilities to BradOSCore
-
-#### CREATE: `ios/BradOS/BradOSCore/Sources/BradOSCore/Models/HealthChartModels.swift`
-
-Extract from top of `ios/BradOS/BradOS/ViewModels/HealthMetricHistoryViewModel.swift`. All types and free functions get `public` access:
-
-```swift
-import Foundation
-
-public enum HealthChartRange: String, CaseIterable {
-    case oneWeek = "1W"
-    case twoWeeks = "2W"
-    case oneMonth = "1M"
-    case sixMonths = "6M"
-    case oneYear = "1Y"
-
-    public var days: Int {
-        switch self {
-        case .oneWeek: return 7
-        case .twoWeeks: return 14
-        case .oneMonth: return 30
-        case .sixMonths: return 180
-        case .oneYear: return 365
-        }
-    }
-}
-
-public struct HealthMetricChartPoint: Identifiable {
-    public let id = UUID()
-    public let date: Date
-    public let value: Double
-    public init(date: Date, value: Double) { ... }
-}
-
-public struct SleepChartPoint: Identifiable {
-    public let id = UUID()
-    public let date: Date
-    public let totalHours: Double
-    public let coreHours: Double
-    public let deepHours: Double
-    public let remHours: Double
-    public let efficiency: Double
-    public init(date: Date, totalHours: Double, coreHours: Double,
-                deepHours: Double, remHours: Double, efficiency: Double) { ... }
-}
-
-public func calculateSMA(points: [HealthMetricChartPoint], window: Int) -> [HealthMetricChartPoint]
-// Logic unchanged from original
-
-public func linearRegressionSlope(points: [HealthMetricChartPoint]) -> Double
-// Logic unchanged from original
-
-public func parseDatePoints(_ items: [(dateString: String, value: Double)]) -> [HealthMetricChartPoint]
-// Logic unchanged from original
-```
-
-### Phase 3: Add Health API Methods to Protocol + Mock
-
-#### MODIFY: `ios/BradOS/BradOSCore/Sources/BradOSCore/Protocols/APIClientProtocol.swift`
-
-Add at end of protocol, before closing brace:
-
-```swift
-    // MARK: - Health Sync
-
-    /// Get HRV history entries
-    func getHRVHistory(days: Int) async throws -> [HRVHistoryEntry]
-
-    /// Get RHR history entries
-    func getRHRHistory(days: Int) async throws -> [RHRHistoryEntry]
-
-    /// Get sleep history entries
-    func getSleepHistory(days: Int) async throws -> [SleepHistoryEntry]
-```
-
-#### MODIFY: `ios/BradOS/BradOSCore/Sources/BradOSCore/Services/MockAPIClient.swift`
-
-Add mock data properties after existing mock data:
-
-```swift
-    public var mockHRVHistory: [HRVHistoryEntry] = []
-    public var mockRHRHistory: [RHRHistoryEntry] = []
-    public var mockSleepHistory: [SleepHistoryEntry] = []
-```
-
-Add implementations after existing methods:
-
-```swift
-    // MARK: - Health Sync
-
-    public func getHRVHistory(days: Int) async throws -> [HRVHistoryEntry] {
-        await simulateDelay()
-        try checkForError()
-        return mockHRVHistory
-    }
-
-    public func getRHRHistory(days: Int) async throws -> [RHRHistoryEntry] {
-        await simulateDelay()
-        try checkForError()
-        return mockRHRHistory
-    }
-
-    public func getSleepHistory(days: Int) async throws -> [SleepHistoryEntry] {
-        await simulateDelay()
-        try checkForError()
-        return mockSleepHistory
-    }
-```
-
-Update `init()` to populate with mock entries:
-
-```swift
-    mockHRVHistory = HRVHistoryEntry.mockEntries
-    mockRHRHistory = RHRHistoryEntry.mockEntries
-    mockSleepHistory = SleepHistoryEntry.mockEntries
-```
-
-Update `static var empty` to include:
-
-```swift
-    client.mockHRVHistory = []
-    client.mockRHRHistory = []
-    client.mockSleepHistory = []
-```
-
-#### MODIFY: `ios/BradOS/BradOS/Services/APIClient+Cycling.swift` (or wherever real health API methods live)
-
-Ensure the real `APIClient` conforms to the new protocol methods. The methods `getHRVHistory(days:)`, `getRHRHistory(days:)`, `getSleepHistory(days:)` likely already exist on `APIClient` — they just need to satisfy the protocol requirement. If `APIClient` already has these methods and conforms to `APIClientProtocol`, no changes needed here. If it doesn't conform (uses a separate extension without protocol), add the conformance.
-
-#### CREATE: `ios/BradOS/BradOSCore/Sources/BradOSCore/Models/HealthSyncModels+Mock.swift`
-
-Mock data extensions for previews and test setup:
-
-```swift
-import Foundation
-
-public extension HRVHistoryEntry {
-    static let mockEntries: [HRVHistoryEntry] = {
-        let today = Date()
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        return (0..<30).map { dayOffset in
-            let date = Calendar.current.date(byAdding: .day, value: -dayOffset, to: today)!
-            return HRVHistoryEntry(
-                id: "hrv-\(dayOffset)",
-                date: formatter.string(from: date),
-                avgMs: 35.0 + Double.random(in: -10...10)
-            )
-        }
-    }()
-}
-
-public extension RHRHistoryEntry {
-    static let mockEntries: [RHRHistoryEntry] = {
-        // Same pattern, avgBpm: 58.0 + Double.random(in: -5...5)
-    }()
-}
-
-public extension SleepHistoryEntry {
-    static let mockEntries: [SleepHistoryEntry] = {
-        // Same pattern with realistic sleep stage data
-    }()
-}
-```
-
-### Phase 4: Move ViewModels to BradOSCore
-
-#### CREATE: `ios/BradOS/BradOSCore/Sources/BradOSCore/ViewModels/HealthMetricHistoryViewModel.swift`
-
-Refactored from `ios/BradOS/BradOS/ViewModels/HealthMetricHistoryViewModel.swift`. Key changes from original:
-
-1. **Dependency injection**: `init(_ metric: HealthMetric, apiClient: any APIClientProtocol)` instead of using `APIClient.shared`
-2. **Remove DebugLogger**: Replace `DebugLogger.error(...)` with simple `print(...)` — errors are already stored in `self.error` for UI display
-3. **HealthMetric enum**: Move here with `Theme` color references replaced by `ThemeColors` equivalents (ThemeColors is in BradOSCore):
-   - `Theme.interactivePrimary` → `ThemeColors.lifting` (same blue accent)
-   - `Theme.destructive` → `Color.red`
-4. **All types `public`**: `HealthMetric`, `HealthMetricHistoryViewModel`, `SleepHistoryViewModel`
-5. **Make `fileprivate` properties `public`**: `errorMessage` and `defaultYRange` on `HealthMetric`
-
-```swift
-import Foundation
-import SwiftUI
-
-public enum HealthMetric {
-    case hrv
-    case rhr
-
-    public var navigationTitle: String { /* unchanged */ }
-    public var currentSectionTitle: String { /* unchanged */ }
-    public var trendTitle: String { /* unchanged */ }
-    public var icon: String { /* unchanged - SF Symbol names are just strings */ }
-    public var color: Color {
-        switch self {
-        case .hrv: return ThemeColors.lifting
-        case .rhr: return Color.red
-        }
-    }
-    public var unit: String { /* unchanged */ }
-    public var noDataText: String { /* unchanged */ }
-    public var chartLabel: String { /* unchanged */ }
-    public var iconBeforeValue: Bool { /* unchanged */ }
-    public var errorMessage: String { /* was fileprivate, now public */ }
-    public var defaultYRange: (min: Double, max: Double) { /* was fileprivate, now public */ }
-}
-
-@MainActor
-@Observable
-public class HealthMetricHistoryViewModel {
-    public let metric: HealthMetric
-    public var allHistory: [HealthMetricChartPoint] = []
-    public var allSmoothedHistory: [HealthMetricChartPoint] = []
-    public var selectedRange: HealthChartRange = .sixMonths
-    public var isLoading = false
-    public var error: String?
-    public var trendSlope: Double?
-
-    private let apiClient: any APIClientProtocol
-
-    public init(_ metric: HealthMetric, apiClient: any APIClientProtocol) {
-        self.metric = metric
-        self.apiClient = apiClient
-    }
-
-    public var history: [HealthMetricChartPoint] { /* filter by selectedRange — unchanged */ }
-    public var smoothedHistory: [HealthMetricChartPoint] { /* unchanged */ }
-    public var currentValue: Double? { /* unchanged */ }
-    public var projectedTrendPoints: [HealthMetricChartPoint] { /* unchanged */ }
-    public var chartYDomain: ClosedRange<Double> { /* unchanged */ }
-
-    public func loadData() async {
-        // Same logic but uses self.apiClient instead of APIClient.shared
-        // Replace DebugLogger.error with print
-    }
-
-    private func updateTrend() { /* unchanged */ }
-}
-
-@MainActor
-@Observable
-public class SleepHistoryViewModel {
-    public var allHistory: [SleepChartPoint] = []
-    public var selectedRange: HealthChartRange = .sixMonths
-    public var isLoading = false
-    public var error: String?
-
-    private let apiClient: any APIClientProtocol
-
-    public init(apiClient: any APIClientProtocol) {
-        self.apiClient = apiClient
-    }
-
-    public var history: [SleepChartPoint] { /* unchanged */ }
-    public var currentEntry: SleepChartPoint? { /* unchanged */ }
-    public var averageSleepHours: Double? { /* unchanged */ }
-    public var averageEfficiency: Double? { /* unchanged */ }
-    public var totalSleepPoints: [HealthMetricChartPoint] { /* unchanged */ }
-    public var smoothedTotalSleep: [HealthMetricChartPoint] { /* unchanged */ }
-    public var chartYDomain: ClosedRange<Double> { /* unchanged */ }
-
-    public func loadData() async {
-        // Same logic but uses self.apiClient
-        // Replace DebugLogger.error with print
-    }
-}
-```
-
-**After moving:** Delete the ViewModel code and utility functions from `ios/BradOS/BradOS/ViewModels/HealthMetricHistoryViewModel.swift` (the file should be fully deleted since everything moves to BradOSCore across two files: HealthChartModels.swift and this ViewModel file).
-
-### Phase 5: Update Main App References
-
-These files need `import BradOSCore` added and potentially minor call-site updates:
-
-| File | Changes |
-|------|---------|
-| `ios/BradOS/BradOS/Services/HealthKitManager.swift` | Add `import BradOSCore` (uses `HRVReading`, `RHRReading`, `RecoveryBaseline`) |
-| `ios/BradOS/BradOS/Services/HealthKitManager+SleepRecovery.swift` | Add `import BradOSCore` (uses `SleepMetrics`, `RecoveryData`, `RecoveryBaseline`) |
-| `ios/BradOS/BradOS/Services/HealthKitSyncService.swift` | Add `import BradOSCore` (uses `RecoveryData`, `RecoveryBaseline`, sync model types) |
-| `ios/BradOS/BradOS/Services/HealthKitSyncService+HistorySync.swift` | Add `import BradOSCore` (uses `HRVSyncEntry`, `RHRSyncEntry`, `SleepSyncEntry`, etc.) |
-| `ios/BradOS/BradOS/Views/Profile/HealthMetricHistoryView.swift` | Add `import BradOSCore`. Update VM init: `HealthMetricHistoryViewModel(metric, apiClient: APIClient.shared)` |
-| `ios/BradOS/BradOS/Views/Profile/HealthSyncView.swift` | Add `import BradOSCore` if it references moved types |
-| `ios/BradOS/BradOS/Views/Health/HealthView.swift` | Add `import BradOSCore` if it references `HealthMetric` or chart types |
-| Any Sleep history view that creates `SleepHistoryViewModel` | Update: `SleepHistoryViewModel(apiClient: APIClient.shared)` |
-
-#### DELETE these files (replaced by BradOSCore versions):
-
-- `ios/BradOS/BradOS/Models/RecoveryData.swift`
-- `ios/BradOS/BradOS/Models/HealthSyncModels.swift`
-- `ios/BradOS/BradOS/ViewModels/HealthMetricHistoryViewModel.swift`
-
-### Phase 6: Regenerate Xcode Project
-
-```bash
-cd ios/BradOS && xcodegen generate
-```
-
-The main app's `project.yml` uses source globs, so deleted files disappear automatically. BradOSCore uses SPM with directory-based source discovery, so new files are auto-included.
-
-### Phase 7: Write Tests
-
-#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/RecoveryDataTests.swift`
-
-~20 tests covering:
+Tests `StretchDefinition` and `StretchRegionData` — two Codable model types with properties, optional fields, and Hashable conformance.
 
 ```swift
 import Testing
+import Foundation
 @testable import BradOSCore
 
-@Suite("RecoveryData")
-struct RecoveryDataTests {
+@Suite("StretchDefinition")
+struct StretchDefinitionTests {
 
-    // MARK: - RecoveryState
-    @Test("RecoveryState displayName returns correct strings")
-    // Verify .ready → "Ready", .moderate → "Moderate", .recover → "Recover"
+    // MARK: - Init & Properties
 
-    @Test("RecoveryState raw values are correct for Codable")
-    // Verify .ready → "ready", .moderate → "moderate", .recover → "recover"
+    @Test("init sets all properties correctly")
+    func initSetsProperties() {
+        let def = StretchDefinition(
+            id: "stretch-1",
+            name: "Cat-Cow",
+            description: "Spinal mobility stretch",
+            bilateral: false,
+            image: "cat-cow.jpg"
+        )
+        #expect(def.id == "stretch-1")
+        #expect(def.name == "Cat-Cow")
+        #expect(def.description == "Spinal mobility stretch")
+        #expect(def.bilateral == false)
+        #expect(def.image == "cat-cow.jpg")
+    }
 
-    // MARK: - RecoveryData.calculate — Score & State
-    @Test("calculate returns 'ready' state for above-baseline HRV and good sleep")
-    // HRV=50 (baseline 40, stddev 10), RHR=55 (baseline 60), sleep 7.5h/87% eff/20% deep → score≥70
+    @Test("image defaults to nil")
+    func imageDefaultsToNil() {
+        let def = StretchDefinition(
+            id: "s1", name: "Stretch", description: "Desc", bilateral: true
+        )
+        #expect(def.image == nil)
+    }
 
-    @Test("calculate returns 'moderate' state for near-baseline values")
-    // HRV=38, RHR=62, mediocre sleep → 50≤score<70
+    // MARK: - Codable
 
-    @Test("calculate returns 'recover' state for well-below-baseline HRV")
-    // HRV=15, RHR=75, poor sleep → score<50
+    @Test("decodes from JSON with all fields")
+    func decodesFullJSON() throws {
+        let json = """
+        {
+            "id": "s-1",
+            "name": "Pigeon Pose",
+            "description": "Deep hip opener",
+            "bilateral": true,
+            "image": "pigeon.png"
+        }
+        """.data(using: .utf8)!
 
-    @Test("calculate score is clamped 0-100")
-    // HRV=200 (extremely high) → score ≤ 100
+        let def = try makeDecoder().decode(StretchDefinition.self, from: json)
+        #expect(def.id == "s-1")
+        #expect(def.name == "Pigeon Pose")
+        #expect(def.bilateral == true)
+        #expect(def.image == "pigeon.png")
+    }
 
-    // MARK: - RecoveryData.calculate — Component Values
-    @Test("calculate hrvVsBaseline is percentage difference from median")
-    // HRV=48, median=40 → (48-40)/40*100 = 20%
+    @Test("decodes from JSON without optional image")
+    func decodesWithoutImage() throws {
+        let json = """
+        {
+            "id": "s-2",
+            "name": "Neck Roll",
+            "description": "Gentle neck stretch",
+            "bilateral": false
+        }
+        """.data(using: .utf8)!
 
-    @Test("calculate rhrVsBaseline is BPM difference from median")
-    // RHR=65, median=60 → 65-60 = 5.0
+        let def = try makeDecoder().decode(StretchDefinition.self, from: json)
+        #expect(def.id == "s-2")
+        #expect(def.image == nil)
+    }
 
-    @Test("calculate converts sleep totalSleep seconds to hours")
-    // totalSleep=7.5*3600 → sleepHours=7.5
+    @Test("encodes and decodes roundtrip")
+    func encodesDecodesRoundtrip() throws {
+        let original = StretchDefinition(
+            id: "rt-1", name: "Cobra", description: "Back stretch",
+            bilateral: false, image: "cobra.jpg"
+        )
+        let data = try makeEncoder().encode(original)
+        let decoded = try makeDecoder().decode(StretchDefinition.self, from: data)
+        #expect(decoded.id == original.id)
+        #expect(decoded.name == original.name)
+        #expect(decoded.bilateral == original.bilateral)
+        #expect(decoded.image == original.image)
+    }
 
-    // MARK: - RecoveryData.calculate — Edge Cases
-    @Test("calculate handles zero stddev baseline gracefully")
-    // stdDev=0 → should not crash, HRV delta defaults to 0
+    // MARK: - Hashable / Identifiable
 
-    @Test("calculate handles zero median baseline gracefully")
-    // median=0 → should not crash, no divide-by-zero
+    @Test("conforms to Identifiable via id property")
+    func identifiable() {
+        let def = StretchDefinition(
+            id: "unique-id", name: "X", description: "Y", bilateral: false
+        )
+        #expect(def.id == "unique-id")
+    }
 
-    // MARK: - RecoveryBaseline
-    @Test("RecoveryBaseline.calculate computes median and stddev")
-    // [30,35,40,45,50] → median=40, stddev>0; [55,58,60,62,65] → median=60
+    @Test("equal definitions have same hash")
+    func hashableEquality() {
+        let a = StretchDefinition(
+            id: "s1", name: "A", description: "B", bilateral: true, image: nil
+        )
+        let b = StretchDefinition(
+            id: "s1", name: "A", description: "B", bilateral: true, image: nil
+        )
+        #expect(a == b)
+        #expect(a.hashValue == b.hashValue)
+    }
+}
 
-    @Test("RecoveryBaseline.calculate with empty arrays returns zeros")
-    // [] → median=0, stddev=0
+@Suite("StretchRegionData")
+struct StretchRegionDataTests {
 
-    @Test("RecoveryBaseline.calculate with single value returns that value")
-    // [42] → median=42, stddev=0
+    @Test("init sets all properties including nested stretches")
+    func initSetsProperties() {
+        let stretch = StretchDefinition(
+            id: "s1", name: "Trap Stretch", description: "Upper trap",
+            bilateral: true
+        )
+        let region = StretchRegionData(
+            id: "neck-region",
+            region: .neck,
+            displayName: "Neck",
+            iconName: "person.crop.circle",
+            stretches: [stretch]
+        )
+        #expect(region.id == "neck-region")
+        #expect(region.region == .neck)
+        #expect(region.stretches.count == 1)
+        #expect(region.stretches.first?.name == "Trap Stretch")
+    }
 
-    @Test("RecoveryBaseline.default returns documented values")
-    // hrvMedian=36.0, hrvStdDev=15.0, rhrMedian=60.0
+    @Test("decodes from server JSON with nested stretches")
+    func decodesFromServerJSON() throws {
+        let json = """
+        {
+            "id": "back-region",
+            "region": "back",
+            "displayName": "Back",
+            "iconName": "figure.stand",
+            "stretches": [
+                {
+                    "id": "s1",
+                    "name": "Cat-Cow",
+                    "description": "Spinal flex",
+                    "bilateral": false
+                },
+                {
+                    "id": "s2",
+                    "name": "Child Pose",
+                    "description": "Back release",
+                    "bilateral": false,
+                    "image": "child-pose.png"
+                }
+            ]
+        }
+        """.data(using: .utf8)!
 
-    // MARK: - SleepMetrics
-    @Test("SleepMetrics efficiency is totalSleep/inBed percentage")
-    // inBed=8h, totalSleep=7h → 87.5%
+        let region = try makeDecoder().decode(StretchRegionData.self, from: json)
+        #expect(region.region == .back)
+        #expect(region.stretches.count == 2)
+        #expect(region.stretches[1].image == "child-pose.png")
+    }
 
-    @Test("SleepMetrics efficiency is 0 when inBed is 0")
+    @Test("encodes and decodes roundtrip")
+    func roundtrip() throws {
+        let original = StretchRegionData(
+            id: "glutes-region", region: .glutes,
+            displayName: "Glutes", iconName: "figure.cooldown",
+            stretches: [
+                StretchDefinition(
+                    id: "s1", name: "Pigeon", description: "Hip opener",
+                    bilateral: true
+                )
+            ]
+        )
+        let data = try makeEncoder().encode(original)
+        let decoded = try makeDecoder().decode(StretchRegionData.self, from: data)
+        #expect(decoded.id == original.id)
+        #expect(decoded.region == original.region)
+        #expect(decoded.stretches.count == 1)
+    }
 
-    @Test("SleepMetrics deepPercent is deep/totalSleep percentage")
-    // totalSleep=7h, deep=1.4h → 20%
+    @Test("decodes with empty stretches array")
+    func decodesEmptyStretches() throws {
+        let json = """
+        {
+            "id": "empty-region",
+            "region": "calves",
+            "displayName": "Calves",
+            "iconName": "shoe",
+            "stretches": []
+        }
+        """.data(using: .utf8)!
 
-    @Test("SleepMetrics deepPercent is 0 when totalSleep is 0")
-
-    @Test("SleepMetrics default initializer has all zeros")
-
-    // MARK: - Codable Round-Trip
-    @Test("RecoveryData encodes and decodes correctly")
-    // Create via .calculate(), encode, decode, verify score/state/hrvMs match
-
-    @Test("RecoveryBaseline encodes and decodes correctly")
-    // Round-trip, verify equality
+        let region = try makeDecoder().decode(StretchRegionData.self, from: json)
+        #expect(region.stretches.isEmpty)
+    }
 }
 ```
 
-#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/HealthSyncModelsTests.swift`
+**Test count: ~12** (7 StretchDefinition + 4 StretchRegionData)
 
-~9 tests covering JSON encoding/decoding:
+---
+
+### Stretching Test File 2
+
+#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/CompletedStretchTests.swift`
+
+Tests `CompletedStretch` (computed `id`, encoding/decoding, skippedSegments) and `StretchRegionConfig` (computed `id`, Codable).
 
 ```swift
-@Suite("HealthSyncModels")
-struct HealthSyncModelsTests {
+import Testing
+import Foundation
+@testable import BradOSCore
 
-    @Test("HRVSyncEntry encodes to JSON with correct keys")
-    // Encode, parse as dictionary, verify date/avgMs/source keys
+@Suite("CompletedStretch")
+struct CompletedStretchTests {
 
-    @Test("HRVHistoryEntry decodes from JSON")
-    // Decode from JSON string, verify id/date/avgMs
+    @Test("computed id combines region and stretchId")
+    func computedId() {
+        let stretch = CompletedStretch(
+            region: .hamstrings,
+            stretchId: "stretch-42",
+            stretchName: "Standing Hamstring",
+            durationSeconds: 60,
+            skippedSegments: 0
+        )
+        #expect(stretch.id == "hamstrings-stretch-42")
+    }
 
-    @Test("HRVHistoryEntry Identifiable uses id property")
+    @Test("computed id uses snake_case for hipFlexors region")
+    func computedIdHipFlexors() {
+        let stretch = CompletedStretch(
+            region: .hipFlexors,
+            stretchId: "s1",
+            stretchName: "Lunge Stretch",
+            durationSeconds: 120,
+            skippedSegments: 1
+        )
+        #expect(stretch.id == "hip_flexors-s1")
+    }
 
-    @Test("RHRSyncEntry encodes to JSON with correct keys")
-    // Verify avgBpm, sampleCount keys
+    @Test("skippedSegments can be 0, 1, or 2")
+    func skippedSegmentsValues() {
+        for skip in [0, 1, 2] {
+            let stretch = CompletedStretch(
+                region: .back, stretchId: "s1", stretchName: "Cobra",
+                durationSeconds: 60, skippedSegments: skip
+            )
+            #expect(stretch.skippedSegments == skip)
+        }
+    }
 
-    @Test("RHRHistoryEntry round-trip encoding")
-    // Encode, decode, verify values match
+    @Test("decodes from JSON")
+    func decodesFromJSON() throws {
+        let json = """
+        {
+            "region": "shoulders",
+            "stretchId": "s-10",
+            "stretchName": "Shoulder Cross",
+            "durationSeconds": 60,
+            "skippedSegments": 1
+        }
+        """.data(using: .utf8)!
 
-    @Test("SleepSyncEntry encodes all fields")
-    // Verify all 9 fields present in JSON
+        let stretch = try makeDecoder().decode(CompletedStretch.self, from: json)
+        #expect(stretch.region == .shoulders)
+        #expect(stretch.stretchId == "s-10")
+        #expect(stretch.stretchName == "Shoulder Cross")
+        #expect(stretch.durationSeconds == 60)
+        #expect(stretch.skippedSegments == 1)
+    }
 
-    @Test("SleepHistoryEntry decodes from JSON")
-    // Decode, verify totalSleepMinutes, deepMinutes, sleepEfficiency
+    @Test("encodes and decodes roundtrip")
+    func roundtrip() throws {
+        let original = CompletedStretch(
+            region: .quads, stretchId: "q1", stretchName: "Quad Pull",
+            durationSeconds: 120, skippedSegments: 0
+        )
+        let data = try makeEncoder().encode(original)
+        let decoded = try makeDecoder().decode(CompletedStretch.self, from: data)
+        #expect(decoded.region == original.region)
+        #expect(decoded.stretchId == original.stretchId)
+        #expect(decoded.stretchName == original.stretchName)
+        #expect(decoded.durationSeconds == original.durationSeconds)
+        #expect(decoded.skippedSegments == original.skippedSegments)
+    }
 
-    @Test("SleepHistoryEntry Identifiable uses id property")
+    @Test("Hashable conformance for equal instances")
+    func hashable() {
+        let a = CompletedStretch(
+            region: .neck, stretchId: "n1", stretchName: "Neck Tilt",
+            durationSeconds: 60, skippedSegments: 0
+        )
+        let b = CompletedStretch(
+            region: .neck, stretchId: "n1", stretchName: "Neck Tilt",
+            durationSeconds: 60, skippedSegments: 0
+        )
+        #expect(a == b)
+    }
 
-    @Test("SleepHistoryEntry round-trip preserves all fields")
+    @Test("StretchSession decodes with stretches array")
+    func sessionWithStretches() throws {
+        let json = """
+        {
+            "id": "session-1",
+            "completedAt": "2026-02-20T15:00:00Z",
+            "totalDurationSeconds": 480,
+            "regionsCompleted": 4,
+            "regionsSkipped": 0,
+            "stretches": [
+                {
+                    "region": "neck",
+                    "stretchId": "s1",
+                    "stretchName": "Neck Tilt",
+                    "durationSeconds": 60,
+                    "skippedSegments": 0
+                },
+                {
+                    "region": "back",
+                    "stretchId": "s2",
+                    "stretchName": "Cat-Cow",
+                    "durationSeconds": 60,
+                    "skippedSegments": 1
+                }
+            ]
+        }
+        """.data(using: .utf8)!
+
+        let session = try makeDecoder().decode(StretchSession.self, from: json)
+        #expect(session.stretches?.count == 2)
+        #expect(session.stretches?.first?.region == .neck)
+        #expect(session.stretches?.last?.skippedSegments == 1)
+    }
+}
+
+@Suite("StretchRegionConfig")
+struct StretchRegionConfigTests {
+
+    @Test("computed id is region rawValue")
+    func computedId() {
+        let config = StretchRegionConfig(
+            region: .hamstrings, durationSeconds: 60, enabled: true
+        )
+        #expect(config.id == "hamstrings")
+    }
+
+    @Test("computed id for hipFlexors uses snake_case")
+    func computedIdHipFlexors() {
+        let config = StretchRegionConfig(
+            region: .hipFlexors, durationSeconds: 120, enabled: false
+        )
+        #expect(config.id == "hip_flexors")
+    }
+
+    @Test("encodes and decodes roundtrip")
+    func roundtrip() throws {
+        let original = StretchRegionConfig(
+            region: .calves, durationSeconds: 120, enabled: true
+        )
+        let data = try makeEncoder().encode(original)
+        let decoded = try makeDecoder().decode(StretchRegionConfig.self, from: data)
+        #expect(decoded.region == original.region)
+        #expect(decoded.durationSeconds == original.durationSeconds)
+        #expect(decoded.enabled == original.enabled)
+    }
+
+    @Test("supports both 60 and 120 second durations")
+    func durationValues() {
+        let short = StretchRegionConfig(region: .neck, durationSeconds: 60, enabled: true)
+        let long = StretchRegionConfig(region: .neck, durationSeconds: 120, enabled: true)
+        #expect(short.durationSeconds == 60)
+        #expect(long.durationSeconds == 120)
+    }
+
+    @Test("Hashable conformance for equal configs")
+    func hashable() {
+        let a = StretchRegionConfig(region: .back, durationSeconds: 60, enabled: true)
+        let b = StretchRegionConfig(region: .back, durationSeconds: 60, enabled: true)
+        #expect(a == b)
+    }
+
+    @Test("StretchSessionConfig with mixed enabled regions")
+    func mixedEnabledRegions() throws {
+        var config = StretchSessionConfig.defaultConfig
+        config.regions[0].enabled = false  // disable first region
+        config.regions[1].durationSeconds = 120  // longer for second
+
+        let data = try makeEncoder().encode(config)
+        let decoded = try makeDecoder().decode(StretchSessionConfig.self, from: data)
+
+        #expect(decoded.regions[0].enabled == false)
+        #expect(decoded.regions[1].durationSeconds == 120)
+        #expect(decoded.regions[2].enabled == true)
+    }
+
+    @Test("StretchSessionConfig with Spotify URL")
+    func spotifyUrl() throws {
+        let config = StretchSessionConfig(
+            regions: [StretchRegionConfig(region: .neck, durationSeconds: 60, enabled: true)],
+            spotifyPlaylistUrl: "https://open.spotify.com/playlist/abc123"
+        )
+        let data = try makeEncoder().encode(config)
+        let decoded = try makeDecoder().decode(StretchSessionConfig.self, from: data)
+        #expect(decoded.spotifyPlaylistUrl == "https://open.spotify.com/playlist/abc123")
+    }
 }
 ```
 
-#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/HealthChartModelsTests.swift`
+**Test count: ~14** (7 CompletedStretch + 7 StretchRegionConfig)
 
-~15 tests covering chart utility functions:
+---
+
+### Meditation Test File 1
+
+#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/GuidedMeditationScriptTests.swift`
+
+Tests `GuidedMeditationScript` — the richest guided meditation type with `formattedDuration`, optional `segments`/`interjections`, and multiple properties.
 
 ```swift
-@Suite("HealthChartModels")
-struct HealthChartModelsTests {
+import Testing
+import Foundation
+@testable import BradOSCore
 
-    // MARK: - HealthChartRange
-    @Test("HealthChartRange.days returns correct values")
-    // oneWeek=7, twoWeeks=14, oneMonth=30, sixMonths=180, oneYear=365
+@Suite("GuidedMeditationScript")
+struct GuidedMeditationScriptTests {
 
-    @Test("HealthChartRange raw values are display strings")
-    // "1W", "2W", "1M", "6M", "1Y"
+    // MARK: - Init & Properties
 
-    @Test("HealthChartRange.allCases has 5 cases")
+    @Test("init sets all required properties")
+    func initSetsProperties() {
+        let script = GuidedMeditationScript(
+            id: "script-1", category: "breathing", title: "Morning Calm",
+            subtitle: "Start your day with peace", orderIndex: 0,
+            durationSeconds: 600
+        )
+        #expect(script.id == "script-1")
+        #expect(script.category == "breathing")
+        #expect(script.title == "Morning Calm")
+        #expect(script.subtitle == "Start your day with peace")
+        #expect(script.orderIndex == 0)
+        #expect(script.durationSeconds == 600)
+        #expect(script.segments == nil)
+        #expect(script.interjections == nil)
+    }
 
-    // MARK: - calculateSMA
-    @Test("calculateSMA with window=3 computes rolling average")
-    // [10,20,30,40,50] window=3 → [10, 15, 20, 30, 40]
+    @Test("init with segments and interjections")
+    func initWithOptionals() {
+        let segment = GuidedMeditationSegment(
+            id: "seg-1", startSeconds: 0, text: "Begin", phase: "opening"
+        )
+        let interjection = GuidedMeditationInterjection(
+            windowStartSeconds: 60, windowEndSeconds: 120,
+            textOptions: ["Notice your breath", "Feel your body"]
+        )
+        let script = GuidedMeditationScript(
+            id: "s1", category: "reactivity", title: "Test",
+            subtitle: "Sub", orderIndex: 1, durationSeconds: 300,
+            segments: [segment], interjections: [interjection]
+        )
+        #expect(script.segments?.count == 1)
+        #expect(script.interjections?.count == 1)
+    }
 
-    @Test("calculateSMA returns original points when fewer than 2")
-    // Single point → returned as-is
+    // MARK: - formattedDuration
 
-    @Test("calculateSMA returns empty for empty input")
+    @Test("formattedDuration converts seconds to minutes")
+    func formattedDuration10Min() {
+        let script = GuidedMeditationScript(
+            id: "s1", category: "c", title: "T", subtitle: "S",
+            orderIndex: 0, durationSeconds: 600
+        )
+        #expect(script.formattedDuration == "10 min")
+    }
 
-    @Test("calculateSMA window=1 returns original values")
+    @Test("formattedDuration for 5-minute script")
+    func formattedDuration5Min() {
+        let script = GuidedMeditationScript(
+            id: "s1", category: "c", title: "T", subtitle: "S",
+            orderIndex: 0, durationSeconds: 300
+        )
+        #expect(script.formattedDuration == "5 min")
+    }
 
-    // MARK: - linearRegressionSlope
-    @Test("linearRegressionSlope for perfectly increasing data")
-    // 2 units/day → slope ≈ 2.0
+    @Test("formattedDuration for 20-minute script")
+    func formattedDuration20Min() {
+        let script = GuidedMeditationScript(
+            id: "s1", category: "c", title: "T", subtitle: "S",
+            orderIndex: 0, durationSeconds: 1200
+        )
+        #expect(script.formattedDuration == "20 min")
+    }
 
-    @Test("linearRegressionSlope for flat data returns ~0")
+    @Test("formattedDuration truncates sub-minute remainder")
+    func formattedDurationTruncates() {
+        let script = GuidedMeditationScript(
+            id: "s1", category: "c", title: "T", subtitle: "S",
+            orderIndex: 0, durationSeconds: 650  // 10 min 50 sec
+        )
+        // Integer division: 650/60 = 10
+        #expect(script.formattedDuration == "10 min")
+    }
 
-    @Test("linearRegressionSlope for decreasing data returns negative")
-    // -1.5 units/day → slope ≈ -1.5
+    // MARK: - Codable (listing format — no segments/interjections)
 
-    @Test("linearRegressionSlope returns 0 for empty/single point")
+    @Test("decodes from listing JSON without segments")
+    func decodesListingJSON() throws {
+        let json = """
+        {
+            "id": "gm-1",
+            "category": "breathing",
+            "title": "Deep Calm",
+            "subtitle": "A journey inward",
+            "orderIndex": 2,
+            "durationSeconds": 900
+        }
+        """.data(using: .utf8)!
 
-    // MARK: - parseDatePoints
-    @Test("parseDatePoints converts date strings to sorted points")
-    // Out-of-order dates → sorted ascending
+        let script = try makeDecoder().decode(GuidedMeditationScript.self, from: json)
+        #expect(script.id == "gm-1")
+        #expect(script.category == "breathing")
+        #expect(script.orderIndex == 2)
+        #expect(script.segments == nil)
+        #expect(script.interjections == nil)
+    }
 
-    @Test("parseDatePoints deduplicates by date keeping latest")
-    // Two entries for same date → keeps the later one
+    // MARK: - Codable (detail format — with segments/interjections)
 
-    @Test("parseDatePoints skips invalid date strings")
-    // "not-a-date" → filtered out
+    @Test("decodes from detail JSON with segments and interjections")
+    func decodesDetailJSON() throws {
+        let json = """
+        {
+            "id": "gm-2",
+            "category": "reactivity",
+            "title": "Observing Reactions",
+            "subtitle": "Notice without judgment",
+            "orderIndex": 0,
+            "durationSeconds": 600,
+            "segments": [
+                {"id": "seg-1", "startSeconds": 0, "text": "Welcome", "phase": "opening"},
+                {"id": "seg-2", "startSeconds": 30, "text": "Settle in", "phase": "opening"},
+                {"id": "seg-3", "startSeconds": 300, "text": "Slowly return", "phase": "closing"}
+            ],
+            "interjections": [
+                {
+                    "windowStartSeconds": 120,
+                    "windowEndSeconds": 240,
+                    "textOptions": ["Notice any tension", "Let thoughts pass"]
+                }
+            ]
+        }
+        """.data(using: .utf8)!
 
-    @Test("parseDatePoints returns empty for empty input")
+        let script = try makeDecoder().decode(GuidedMeditationScript.self, from: json)
+        #expect(script.segments?.count == 3)
+        #expect(script.segments?.first?.phase == "opening")
+        #expect(script.segments?.last?.phase == "closing")
+        #expect(script.interjections?.count == 1)
+        #expect(script.interjections?.first?.textOptions.count == 2)
+    }
+
+    @Test("encodes and decodes roundtrip without optionals")
+    func roundtripWithoutOptionals() throws {
+        let original = GuidedMeditationScript(
+            id: "rt-1", category: "breathing", title: "Calm",
+            subtitle: "Sub", orderIndex: 5, durationSeconds: 300
+        )
+        let data = try makeEncoder().encode(original)
+        let decoded = try makeDecoder().decode(GuidedMeditationScript.self, from: data)
+        #expect(decoded.id == original.id)
+        #expect(decoded.category == original.category)
+        #expect(decoded.title == original.title)
+        #expect(decoded.orderIndex == original.orderIndex)
+        #expect(decoded.durationSeconds == original.durationSeconds)
+    }
+
+    @Test("encodes and decodes roundtrip with segments")
+    func roundtripWithSegments() throws {
+        let original = GuidedMeditationScript(
+            id: "rt-2", category: "reactivity", title: "Focus",
+            subtitle: "S", orderIndex: 0, durationSeconds: 600,
+            segments: [
+                GuidedMeditationSegment(
+                    id: "seg-1", startSeconds: 0, text: "Begin", phase: "opening"
+                )
+            ],
+            interjections: [
+                GuidedMeditationInterjection(
+                    windowStartSeconds: 60, windowEndSeconds: 120,
+                    textOptions: ["Breathe deeply"]
+                )
+            ]
+        )
+        let data = try makeEncoder().encode(original)
+        let decoded = try makeDecoder().decode(GuidedMeditationScript.self, from: data)
+        #expect(decoded.segments?.count == 1)
+        #expect(decoded.interjections?.count == 1)
+        #expect(decoded.interjections?.first?.textOptions.first == "Breathe deeply")
+    }
 }
 ```
 
-#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/ViewModels/HealthMetricHistoryViewModelTests.swift`
+**Test count: ~11**
 
-~12 tests covering ViewModel behavior with MockAPIClient:
+---
+
+### Meditation Test File 2
+
+#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/GuidedMeditationComponentTests.swift`
+
+Tests `GuidedMeditationSegment`, `GuidedMeditationInterjection`, and `GuidedMeditationCategoryResponse`.
 
 ```swift
-@Suite("HealthMetricHistoryViewModel")
-struct HealthMetricHistoryViewModelTests {
+import Testing
+import Foundation
+@testable import BradOSCore
 
-    // MARK: - Initial State
-    @Test("initial state is empty with no loading")
-    @MainActor
-    // Verify allHistory empty, isLoading false, error nil, currentValue nil, trendSlope nil
+@Suite("GuidedMeditationSegment")
+struct GuidedMeditationSegmentTests {
 
-    // MARK: - Data Loading
-    @Test("loadData populates allHistory from HRV API")
-    @MainActor
-    // Mock 10 HRV entries → allHistory populated, error nil
+    @Test("init sets all properties")
+    func initSetsProperties() {
+        let segment = GuidedMeditationSegment(
+            id: "seg-1", startSeconds: 30,
+            text: "Take a deep breath", phase: "opening"
+        )
+        #expect(segment.id == "seg-1")
+        #expect(segment.startSeconds == 30)
+        #expect(segment.text == "Take a deep breath")
+        #expect(segment.phase == "opening")
+    }
 
-    @Test("loadData populates allHistory from RHR API")
-    @MainActor
-    // Mock 10 RHR entries with .rhr metric → allHistory populated
+    @Test("decodes from JSON")
+    func decodesFromJSON() throws {
+        let json = """
+        {
+            "id": "seg-5",
+            "startSeconds": 180,
+            "text": "Now bring awareness to your body",
+            "phase": "teachings"
+        }
+        """.data(using: .utf8)!
 
-    @Test("loadData sets error on API failure")
-    @MainActor
-    // MockAPIClient.failing() → error set, allHistory empty, isLoading false
+        let segment = try makeDecoder().decode(GuidedMeditationSegment.self, from: json)
+        #expect(segment.id == "seg-5")
+        #expect(segment.startSeconds == 180)
+        #expect(segment.phase == "teachings")
+    }
 
-    @Test("loadData calculates smoothed history (7-day SMA)")
-    @MainActor
-    // 14 entries → allSmoothedHistory populated, same count as allHistory
+    @Test("encodes and decodes roundtrip")
+    func roundtrip() throws {
+        let original = GuidedMeditationSegment(
+            id: "rt-seg", startSeconds: 0, text: "Welcome", phase: "opening"
+        )
+        let data = try makeEncoder().encode(original)
+        let decoded = try makeDecoder().decode(GuidedMeditationSegment.self, from: data)
+        #expect(decoded.id == original.id)
+        #expect(decoded.startSeconds == original.startSeconds)
+        #expect(decoded.text == original.text)
+        #expect(decoded.phase == original.phase)
+    }
 
-    // MARK: - Range Filtering
-    @Test("history filters by selectedRange")
-    @MainActor
-    // 60 days of data: oneWeek → ≤8, oneMonth → ~30, sixMonths → all 60
+    @Test("supports all three phases")
+    func allPhases() {
+        let phases = ["opening", "teachings", "closing"]
+        for phase in phases {
+            let segment = GuidedMeditationSegment(
+                id: "s", startSeconds: 0, text: "Text", phase: phase
+            )
+            #expect(segment.phase == phase)
+        }
+    }
+
+    @Test("Identifiable uses id property")
+    func identifiable() {
+        let segment = GuidedMeditationSegment(
+            id: "unique-seg-id", startSeconds: 0, text: "T", phase: "opening"
+        )
+        #expect(segment.id == "unique-seg-id")
+    }
+}
+
+@Suite("GuidedMeditationInterjection")
+struct GuidedMeditationInterjectionTests {
+
+    @Test("init sets all properties")
+    func initSetsProperties() {
+        let interjection = GuidedMeditationInterjection(
+            windowStartSeconds: 60,
+            windowEndSeconds: 180,
+            textOptions: ["Notice your breath", "Feel the stillness"]
+        )
+        #expect(interjection.windowStartSeconds == 60)
+        #expect(interjection.windowEndSeconds == 180)
+        #expect(interjection.textOptions.count == 2)
+    }
+
+    @Test("decodes from JSON")
+    func decodesFromJSON() throws {
+        let json = """
+        {
+            "windowStartSeconds": 120,
+            "windowEndSeconds": 300,
+            "textOptions": ["Let go of tension", "Return to stillness", "Observe your thoughts"]
+        }
+        """.data(using: .utf8)!
+
+        let interjection = try makeDecoder().decode(
+            GuidedMeditationInterjection.self, from: json
+        )
+        #expect(interjection.windowStartSeconds == 120)
+        #expect(interjection.windowEndSeconds == 300)
+        #expect(interjection.textOptions.count == 3)
+        #expect(interjection.textOptions[0] == "Let go of tension")
+    }
+
+    @Test("encodes and decodes roundtrip")
+    func roundtrip() throws {
+        let original = GuidedMeditationInterjection(
+            windowStartSeconds: 30, windowEndSeconds: 90,
+            textOptions: ["Focus"]
+        )
+        let data = try makeEncoder().encode(original)
+        let decoded = try makeDecoder().decode(
+            GuidedMeditationInterjection.self, from: data
+        )
+        #expect(decoded.windowStartSeconds == original.windowStartSeconds)
+        #expect(decoded.windowEndSeconds == original.windowEndSeconds)
+        #expect(decoded.textOptions == original.textOptions)
+    }
+
+    @Test("handles empty textOptions array")
+    func emptyTextOptions() throws {
+        let json = """
+        {
+            "windowStartSeconds": 0,
+            "windowEndSeconds": 60,
+            "textOptions": []
+        }
+        """.data(using: .utf8)!
+
+        let interjection = try makeDecoder().decode(
+            GuidedMeditationInterjection.self, from: json
+        )
+        #expect(interjection.textOptions.isEmpty)
+    }
+
+    @Test("window end is after window start")
+    func windowOrdering() {
+        let interjection = GuidedMeditationInterjection(
+            windowStartSeconds: 60, windowEndSeconds: 180,
+            textOptions: ["A"]
+        )
+        #expect(interjection.windowEndSeconds > interjection.windowStartSeconds)
+    }
+}
+
+@Suite("GuidedMeditationCategoryResponse")
+struct GuidedMeditationCategoryResponseTests {
+
+    @Test("init sets all properties")
+    func initSetsProperties() {
+        let category = GuidedMeditationCategoryResponse(
+            id: "breathing", name: "Breathing", scriptCount: 5
+        )
+        #expect(category.id == "breathing")
+        #expect(category.name == "Breathing")
+        #expect(category.scriptCount == 5)
+    }
+
+    @Test("decodes from JSON")
+    func decodesFromJSON() throws {
+        let json = """
+        {
+            "id": "reactivity",
+            "name": "Reactivity",
+            "scriptCount": 8
+        }
+        """.data(using: .utf8)!
+
+        let category = try makeDecoder().decode(
+            GuidedMeditationCategoryResponse.self, from: json
+        )
+        #expect(category.id == "reactivity")
+        #expect(category.name == "Reactivity")
+        #expect(category.scriptCount == 8)
+    }
+
+    @Test("encodes and decodes roundtrip")
+    func roundtrip() throws {
+        let original = GuidedMeditationCategoryResponse(
+            id: "cat-1", name: "Focus", scriptCount: 3
+        )
+        let data = try makeEncoder().encode(original)
+        let decoded = try makeDecoder().decode(
+            GuidedMeditationCategoryResponse.self, from: data
+        )
+        #expect(decoded.id == original.id)
+        #expect(decoded.name == original.name)
+        #expect(decoded.scriptCount == original.scriptCount)
+    }
+
+    @Test("Identifiable uses id property")
+    func identifiable() {
+        let category = GuidedMeditationCategoryResponse(
+            id: "my-id", name: "N", scriptCount: 0
+        )
+        #expect(category.id == "my-id")
+    }
+}
+```
+
+**Test count: ~14** (5 Segment + 5 Interjection + 4 CategoryResponse)
+
+---
+
+### Meditation Test File 3
+
+#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/MeditationStatsTests.swift`
+
+Tests `MeditationStats` — computed properties (`displayCurrentStreak`, `displayLongestStreak`), optional streak fields, mock data, and Codable.
+
+```swift
+import Testing
+import Foundation
+@testable import BradOSCore
+
+@Suite("MeditationStats")
+struct MeditationStatsTests {
+
+    // MARK: - Init & Properties
+
+    @Test("init sets required and optional properties")
+    func initSetsProperties() {
+        let stats = MeditationStats(
+            totalSessions: 42, totalMinutes: 315,
+            currentStreak: 7, longestStreak: 14
+        )
+        #expect(stats.totalSessions == 42)
+        #expect(stats.totalMinutes == 315)
+        #expect(stats.currentStreak == 7)
+        #expect(stats.longestStreak == 14)
+    }
+
+    @Test("streaks default to nil")
+    func streaksDefaultToNil() {
+        let stats = MeditationStats(
+            totalSessions: 10, totalMinutes: 50
+        )
+        #expect(stats.currentStreak == nil)
+        #expect(stats.longestStreak == nil)
+    }
 
     // MARK: - Computed Properties
-    @Test("currentValue returns last point's value")
-    @MainActor
 
-    @Test("trendSlope is nil with insufficient data")
-    @MainActor
-    // <7 smoothed points → trendSlope nil
+    @Test("displayCurrentStreak returns value when present")
+    func displayCurrentStreakPresent() {
+        let stats = MeditationStats(
+            totalSessions: 10, totalMinutes: 50, currentStreak: 5
+        )
+        #expect(stats.displayCurrentStreak == 5)
+    }
 
-    @Test("trendSlope is computed with sufficient data")
-    @MainActor
-    // 28+ data points → trendSlope is a Double
+    @Test("displayCurrentStreak returns 0 when nil")
+    func displayCurrentStreakNil() {
+        let stats = MeditationStats(
+            totalSessions: 10, totalMinutes: 50
+        )
+        #expect(stats.displayCurrentStreak == 0)
+    }
 
-    @Test("chartYDomain provides padded range")
-    @MainActor
-    // Domain lower bound < min value, upper bound > max value
+    @Test("displayLongestStreak returns value when present")
+    func displayLongestStreakPresent() {
+        let stats = MeditationStats(
+            totalSessions: 10, totalMinutes: 50, longestStreak: 21
+        )
+        #expect(stats.displayLongestStreak == 21)
+    }
 
-    @Test("projectedTrendPoints are empty when no trend")
-    @MainActor
+    @Test("displayLongestStreak returns 0 when nil")
+    func displayLongestStreakNil() {
+        let stats = MeditationStats(
+            totalSessions: 10, totalMinutes: 50
+        )
+        #expect(stats.displayLongestStreak == 0)
+    }
 
-    @Test("projectedTrendPoints extend 14 days when trend exists")
-    @MainActor
+    // MARK: - Codable
+
+    @Test("decodes from server JSON with streaks")
+    func decodesWithStreaks() throws {
+        let json = """
+        {
+            "totalSessions": 100,
+            "totalMinutes": 750,
+            "currentStreak": 12,
+            "longestStreak": 30
+        }
+        """.data(using: .utf8)!
+
+        let stats = try makeDecoder().decode(MeditationStats.self, from: json)
+        #expect(stats.totalSessions == 100)
+        #expect(stats.totalMinutes == 750)
+        #expect(stats.currentStreak == 12)
+        #expect(stats.longestStreak == 30)
+    }
+
+    @Test("decodes from server JSON without streaks")
+    func decodesWithoutStreaks() throws {
+        let json = """
+        {
+            "totalSessions": 5,
+            "totalMinutes": 25
+        }
+        """.data(using: .utf8)!
+
+        let stats = try makeDecoder().decode(MeditationStats.self, from: json)
+        #expect(stats.totalSessions == 5)
+        #expect(stats.totalMinutes == 25)
+        #expect(stats.currentStreak == nil)
+        #expect(stats.longestStreak == nil)
+    }
+
+    @Test("encodes and decodes roundtrip")
+    func roundtrip() throws {
+        let original = MeditationStats(
+            totalSessions: 42, totalMinutes: 315,
+            currentStreak: 7, longestStreak: 14
+        )
+        let data = try makeEncoder().encode(original)
+        let decoded = try makeDecoder().decode(MeditationStats.self, from: data)
+        #expect(decoded.totalSessions == original.totalSessions)
+        #expect(decoded.totalMinutes == original.totalMinutes)
+        #expect(decoded.currentStreak == original.currentStreak)
+        #expect(decoded.longestStreak == original.longestStreak)
+    }
+
+    @Test("encodes and decodes roundtrip with nil streaks")
+    func roundtripNilStreaks() throws {
+        let original = MeditationStats(
+            totalSessions: 1, totalMinutes: 5
+        )
+        let data = try makeEncoder().encode(original)
+        let decoded = try makeDecoder().decode(MeditationStats.self, from: data)
+        #expect(decoded.totalSessions == original.totalSessions)
+        #expect(decoded.currentStreak == nil)
+        #expect(decoded.longestStreak == nil)
+    }
+
+    // MARK: - Mock Data
+
+    @Test("mockStats has valid data")
+    func mockStatsValid() {
+        let mock = MeditationStats.mockStats
+        #expect(mock.totalSessions == 42)
+        #expect(mock.totalMinutes == 315)
+        #expect(mock.currentStreak == 7)
+        #expect(mock.longestStreak == 14)
+    }
+
+    @Test("mockStats display properties return streak values")
+    func mockStatsDisplayProperties() {
+        let mock = MeditationStats.mockStats
+        #expect(mock.displayCurrentStreak == 7)
+        #expect(mock.displayLongestStreak == 14)
+    }
 }
 ```
 
-#### CREATE: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/ViewModels/SleepHistoryViewModelTests.swift`
+**Test count: ~13**
 
-~12 tests covering SleepHistoryViewModel:
-
-```swift
-@Suite("SleepHistoryViewModel")
-struct SleepHistoryViewModelTests {
-
-    // MARK: - Initial State
-    @Test("initial state is empty")
-    @MainActor
-    // allHistory empty, isLoading false, error nil, currentEntry nil, averageSleepHours nil
-
-    // MARK: - Data Loading
-    @Test("loadData populates history from sleep API")
-    @MainActor
-
-    @Test("loadData sets error on failure")
-    @MainActor
-
-    @Test("loadData converts minutes to hours")
-    @MainActor
-    // 420 min → 7.0 hours, 240 min → 4.0 hours, etc.
-
-    @Test("loadData deduplicates entries by date")
-    @MainActor
-    // Two entries same date → 1 entry in allHistory
-
-    // MARK: - Computed Properties
-    @Test("averageSleepHours computes 7-day average")
-    @MainActor
-    // 7 entries × 420min = 7.0h avg
-
-    @Test("averageEfficiency computes 7-day average")
-    @MainActor
-    // 7 entries × 90% = 90.0%
-
-    @Test("currentEntry returns last history entry")
-    @MainActor
-
-    // MARK: - Range Filtering
-    @Test("history filters by selectedRange")
-    @MainActor
-
-    // MARK: - Chart Helpers
-    @Test("totalSleepPoints maps history to HealthMetricChartPoints")
-    @MainActor
-
-    @Test("smoothedTotalSleep applies 7-day SMA")
-    @MainActor
-
-    @Test("chartYDomain provides padded range")
-    @MainActor
-}
-```
+---
 
 ## Test Summary
 
-| Test File | Count | What It Covers |
-|-----------|-------|----------------|
-| `RecoveryDataTests.swift` | ~20 | Score calculation (all 3 states), baseline median/stddev, sleep metrics computed props, edge cases, Codable |
-| `HealthSyncModelsTests.swift` | ~9 | JSON encoding/decoding for all 6 DTO structs |
-| `HealthChartModelsTests.swift` | ~15 | SMA window math, linear regression, date parsing/dedup, HealthChartRange |
-| `HealthMetricHistoryViewModelTests.swift` | ~12 | VM loading, error handling, range filtering, trend computation |
-| `SleepHistoryViewModelTests.swift` | ~12 | VM loading, minute→hour conversion, dedup, averages, filtering |
-| **Total** | **~68** | **Full coverage of health sync pure logic and ViewModels** |
+| New File | Feature | Tests | What It Covers |
+|----------|---------|-------|----------------|
+| `StretchDefinitionTests.swift` | Stretching | ~12 | StretchDefinition (Codable, optional image, Hashable), StretchRegionData (nested stretches, Codable) |
+| `CompletedStretchTests.swift` | Stretching | ~14 | CompletedStretch (computed id, Codable, skippedSegments), StretchRegionConfig (computed id, Codable), StretchSessionConfig advanced scenarios |
+| `GuidedMeditationScriptTests.swift` | Meditation | ~11 | GuidedMeditationScript (formattedDuration, listing vs detail JSON, optional segments/interjections, Codable roundtrip) |
+| `GuidedMeditationComponentTests.swift` | Meditation | ~14 | GuidedMeditationSegment (phases, Codable), GuidedMeditationInterjection (window properties, empty options, Codable), GuidedMeditationCategoryResponse (Codable, Identifiable) |
+| `MeditationStatsTests.swift` | Meditation | ~13 | MeditationStats (displayCurrentStreak/displayLongestStreak nil fallback, Codable with/without optional streaks, mock validation) |
+| **Total new** | | **~64** | |
+
+### Final File Counts
+
+| Feature | Before | After | Files |
+|---------|--------|-------|-------|
+| Stretching | 2 | **4** | StretchSessionTests, StretchUrgencyTests, **StretchDefinitionTests**, **CompletedStretchTests** |
+| Meditation | 1 | **4** | MeditationSessionTests, **GuidedMeditationScriptTests**, **GuidedMeditationComponentTests**, **MeditationStatsTests** |
 
 ## QA
 
-### Step 1: Build BradOSCore tests via SPM
+### Step 1: Run BradOSCore tests via SPM
 
 ```bash
 cd ios/BradOS/BradOSCore && swift test 2>&1 | tail -30
 ```
 
-All tests must pass including the new health tests. This verifies the SPM package compiles and tests run.
+All tests must pass. Expect ~96+ total tests (existing ~34 + new ~64 — adjusted if actual counts differ slightly).
 
-### Step 2: Build full app via xcodebuild
+### Step 2: Verify test file counts
 
 ```bash
-cd ios/BradOS && xcodebuild build \
-  -project BradOS.xcodeproj \
-  -scheme BradOS \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
-  2>&1 | tail -20
+# Stretching test files (expect 4)
+find ios/BradOS/BradOSCore/Tests -name "*Stretch*Tests.swift" -o -name "*CompletedStretch*Tests.swift" | wc -l
+
+# Meditation test files (expect 4)
+find ios/BradOS/BradOSCore/Tests -name "*Meditation*Tests.swift" -o -name "*GuidedMeditation*Tests.swift" | wc -l
 ```
 
-Must succeed — verifies all `import BradOSCore` additions and deleted files don't break compilation.
-
-### Step 3: Run BradOSCoreTests via xcodebuild
+### Step 3: Build full app via xcodebuild
 
 ```bash
-cd ios/BradOS && xcodebuild test \
-  -project BradOS.xcodeproj \
+xcodebuild -project ios/BradOS/BradOS.xcodeproj \
   -scheme BradOS \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro' \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -derivedDataPath ~/.cache/brad-os-derived-data \
+  -skipPackagePluginValidation \
+  build 2>&1 | tail -20
+```
+
+Must succeed — verifies no SwiftLint violations in test files and BradOSCore compiles cleanly.
+
+### Step 4: Run BradOSCoreTests via xcodebuild
+
+```bash
+xcodebuild test \
+  -project ios/BradOS/BradOS.xcodeproj \
+  -scheme BradOS \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -derivedDataPath ~/.cache/brad-os-derived-data \
+  -skipPackagePluginValidation \
   -only-testing:BradOSCoreTests \
   2>&1 | tail -30
 ```
 
-All ~90 tests pass (existing 22 + new ~68).
+All tests pass.
 
-### Step 4: Run the app on simulator and exercise health features
+### Step 5: Run `npm run validate`
 
-Use `/explore-ios` or manual simulator testing:
+Ensure TypeScript side is unaffected (no source changes to validate, but confirms nothing is broken).
 
-1. **Profile → Health Sync** — verify all sync buttons still appear and are tappable
-2. **Health → tap HRV card** → HRV History view loads chart data
-3. **Health → tap RHR card** → RHR History view loads chart data
-4. **Health → tap Sleep card** → Sleep History view loads chart data
-5. **Verify range picker** — tap 1W/2W/1M/6M/1Y, chart updates
+### Step 6: Spot-check specific test behaviors
 
-This validates the refactored ViewModels with `APIClient.shared` injection work correctly at runtime.
-
-### Step 5: Spot-check recovery scoring
-
-Add a temporary print statement in `RecoveryDataTests` to verify exact scoring:
-- Baseline: hrvMedian=40, stdDev=10, rhrMedian=60
-- Input: HRV=50 (+1σ), RHR=55 (-1σ), sleep 7h/87%/20%
-- Expected HRV score: 50 + (1.0 * 25) = 75 → 75 * 0.7 = 52.5
-- Expected RHR score: 50 + (1.0 * 25) = 75 → 75 * 0.2 = 15.0
-- Expected sleep score: ~93 → 93 * 0.1 = 9.3
-- Total: ~76-77 → state = "ready"
-
-Verify the test produces this expected result.
-
-### Step 6: Run `npm run validate`
-
-Ensure TypeScript side is unaffected by the iOS changes.
+Manually verify a few edge-case tests match expected behavior:
+- `CompletedStretch.id` for `hipFlexors` region produces `"hip_flexors-..."` (snake_case from rawValue)
+- `GuidedMeditationScript.formattedDuration` with 650 seconds produces `"10 min"` (integer division truncation)
+- `MeditationStats.displayCurrentStreak` returns 0 when `currentStreak` is nil (nil-coalescing fallback)
 
 ## Conventions
 
-1. **Testing framework**: Swift Testing (`import Testing`, `@Suite`, `@Test`, `#expect`) — NOT XCTest. Matches all 22 existing BradOSCore tests.
+1. **Swift Testing framework** — `import Testing`, `@Suite`, `@Test`, `#expect`. NOT XCTest. Matches all existing BradOSCore tests.
 
-2. **Test file location**: `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/{Models,ViewModels}/` — matches existing directory structure.
+2. **Test file location** — `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/`. All new files go in the Models subdirectory matching the source file location.
 
-3. **Mock pattern**: Use `MockAPIClient` with configurable properties, `MockAPIClient.empty`, `MockAPIClient.failing()` — matches DashboardViewModelTests pattern.
+3. **Test helpers** — Use `makeEncoder()` and `makeDecoder()` from `TestHelpers.swift` for all JSON encoding/decoding tests.
 
-4. **`@MainActor` on async VM tests** — required for `@Observable` ViewModels. Matches CalendarViewModelTests, DashboardViewModelTests.
+4. **No source file modifications** — This task is purely additive test files. Every type being tested is already `public` in BradOSCore.
 
-5. **No force unwrapping** — use optional chaining and `?? 0` in assertions per SwiftLint rules.
+5. **No force unwrapping** — Use `#expect(x?.y == value)` pattern per SwiftLint rules.
 
-6. **No `swiftlint:disable`** — fix the code instead.
+6. **No `swiftlint:disable`** — Fix code structure instead.
 
-7. **All types in BradOSCore must be `public`** — required for cross-module access from tests via `@testable import`.
+7. **File length < 600 lines** — Each test file is well under this limit.
 
-8. **File length < 600 lines** — if a test file exceeds this, split into separate files (e.g., `RecoveryBaselineTests.swift`).
+8. **Function body < 60 lines** — Each test function is focused and short.
 
-9. **Function body < 60 lines** — keep individual test functions focused.
+9. **Git Worktree Workflow** — All changes in a worktree branch, merged to main after validation.
 
-10. **Run `xcodegen generate` after file moves** — project.yml uses XcodeGen for the main app target.
-
-11. **Git Worktree Workflow** — all changes in a worktree branch, merged to main after validation.
-
-12. **Subagent Usage** — run `swift test`, `xcodebuild`, and `npm run validate` in subagents to conserve context.
+10. **Subagent Usage** — Run `swift test`, `xcodebuild build`, and `xcodebuild test` in subagents to conserve context.
