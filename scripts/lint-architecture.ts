@@ -18,6 +18,8 @@
  *  11. Domain types only in types/ directory
  *  12. Zod schemas only in schemas/ directory
  *  13. No skipped tests
+ *  14. High-risk files must have tests (AI/coach handlers+services)
+ *  15. Prefer shared test factories over inline definitions (warning)
  *
  * Exits 0 only if ALL checks pass. Exits 1 if any fail.
  */
@@ -1218,6 +1220,109 @@ function checkNoSkippedTests(): CheckResult {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Check 14: Untested high-risk files
+//
+// Handlers and services matching high-risk patterns (AI, coach, OpenAI)
+// MUST have a corresponding .test.ts or .integration.test.ts file.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function checkUntestedHighRisk(): CheckResult {
+  const name = 'Untested high-risk files';
+  const HIGH_RISK = ['today-coach', 'openai', 'ai', 'coach'];
+  const violations: string[] = [];
+
+  const dirsToCheck = [
+    { dir: path.join(FUNCTIONS_SRC, 'handlers'), type: 'handler' as const },
+    { dir: path.join(FUNCTIONS_SRC, 'services'), type: 'service' as const },
+  ];
+
+  for (const { dir, type } of dirsToCheck) {
+    if (!fs.existsSync(dir)) continue;
+
+    const sourceFiles = fs.readdirSync(dir).filter(
+      (f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && !f.endsWith('.spec.ts') && f !== 'index.ts'
+    );
+
+    for (const file of sourceFiles) {
+      const name_ = file.replace('.ts', '');
+      const lowerName = name_.toLowerCase();
+
+      // Only check files matching high-risk patterns
+      if (!HIGH_RISK.some((p) => lowerName.includes(p))) continue;
+
+      // Check for co-located test
+      const testFile = path.join(dir, `${name_}.test.ts`);
+      // Check for integration test
+      const integrationTestFile = path.join(
+        FUNCTIONS_SRC,
+        '__tests__/integration',
+        `${name_.replace('.service', '')}.integration.test.ts`
+      );
+
+      if (!fs.existsSync(testFile) && !fs.existsSync(integrationTestFile)) {
+        const relPath = path.relative(ROOT_DIR, path.join(dir, file));
+        violations.push(
+          `${relPath} is a high-risk ${type} (matches: ${HIGH_RISK.filter((p) => lowerName.includes(p)).join(', ')}) with no test file.\n` +
+          `    Rule: High-risk files (AI integrations, coach logic) MUST have tests.\n` +
+          `    Fix: Create ${path.relative(ROOT_DIR, testFile)} with at least basic smoke tests.\n` +
+          `    See: docs/golden-principles.md`
+        );
+      }
+    }
+  }
+
+  return { name, passed: violations.length === 0, violations };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Check 15: Shared test factory usage (WARNING)
+//
+// Test files that define inline createMock*/createTest* factory functions
+// should prefer importing from __tests__/utils/ instead. Warning only.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function checkTestFactoryUsage(): CheckResult {
+  const name = 'Shared test factory usage';
+  const violations: string[] = [];
+
+  const testDirs = [
+    path.join(FUNCTIONS_SRC, 'handlers'),
+    path.join(FUNCTIONS_SRC, 'services'),
+    path.join(FUNCTIONS_SRC, 'repositories'),
+  ];
+
+  const factoryPattern = /^(?:export\s+)?(?:function|const)\s+(createMock\w+|createTest\w+|mock\w+Factory)/m;
+  const utilImportPattern = /from\s+['"].*__tests__\/utils/;
+
+  for (const dir of testDirs) {
+    if (!fs.existsSync(dir)) continue;
+
+    const testFiles = fs.readdirSync(dir).filter(
+      (f) => f.endsWith('.test.ts') || f.endsWith('.spec.ts')
+    );
+
+    for (const file of testFiles) {
+      const fullPath = path.join(dir, file);
+      const content = fs.readFileSync(fullPath, 'utf-8');
+
+      const hasInlineFactory = factoryPattern.test(content);
+      const importsFromUtils = utilImportPattern.test(content);
+
+      if (hasInlineFactory && !importsFromUtils) {
+        const relPath = path.relative(ROOT_DIR, fullPath);
+        violations.push(
+          `${relPath} defines inline test factories but doesn't import from __tests__/utils/.\n` +
+          `    Suggestion: Move reusable factories to packages/functions/src/__tests__/utils/ and import them.\n` +
+          `    See: docs/conventions/testing.md`
+        );
+      }
+    }
+  }
+
+  return { name, passed: violations.length === 0, violations };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1239,6 +1344,7 @@ function main(): void {
     checkTypesInTypesDir,
     checkSchemasInSchemasDir,
     checkNoSkippedTests,
+    checkUntestedHighRisk,
   ];
 
   const results: CheckResult[] = [];
@@ -1259,6 +1365,28 @@ function main(): void {
     }
   }
 
+  // Warning checks (non-blocking)
+  const warningChecks: Array<() => CheckResult> = [
+    checkTestFactoryUsage,
+  ];
+
+  const warningResults: CheckResult[] = [];
+  for (const check of warningChecks) {
+    const result = check();
+    warningResults.push(result);
+
+    if (result.passed) {
+      console.log(`${green('\u2713')} ${result.name}: ${green('clean')}`);
+    } else {
+      console.log(`${yellow('\u26a0')} ${result.name}: ${yellow(`${result.violations.length} warning(s)`)}`);
+      console.log();
+      for (const v of result.violations) {
+        console.log(`  ${dim(v)}`);
+      }
+      console.log();
+    }
+  }
+
   // Warnings (non-blocking)
   const freshness = checkQualityGradesFreshness();
   if (freshness.stale) {
@@ -1268,16 +1396,23 @@ function main(): void {
   // Summary
   const failed = results.filter((r) => !r.passed);
   const totalViolations = results.reduce((sum, r) => sum + r.violations.length, 0);
+  const totalWarnings = warningResults.reduce((sum, r) => sum + r.violations.length, 0);
 
   console.log(bold('\n--- Summary ---'));
 
   if (failed.length === 0) {
     console.log(green(`\nAll ${results.length}/${results.length} checks passed.\n`));
+    if (totalWarnings > 0) {
+      console.log(yellow(`${totalWarnings} warning(s) (non-blocking).`));
+    }
     process.exit(0);
   } else {
     console.log(
       red(`\n${failed.length}/${results.length} check(s) failed with ${totalViolations} total violation(s).\n`)
     );
+    if (totalWarnings > 0) {
+      console.log(yellow(`${totalWarnings} warning(s) (non-blocking).`));
+    }
     process.exit(1);
   }
 }
