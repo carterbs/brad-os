@@ -3,7 +3,77 @@ import Combine
 @testable import Brad_OS
 import BradOSCore
 
+// MARK: - Cycling API test gates
+
+actor CyclingAPICallGate {
+    private let expectedCalls: Set<CyclingAPICall>
+    private var startedCalls: Set<CyclingAPICall> = []
+    private var isReleased = false
+    private var releaseContinuations: [CheckedContinuation<Void, Never>] = []
+
+    init(expectedCalls: [CyclingAPICall]) {
+        self.expectedCalls = Set(expectedCalls)
+    }
+
+    init(expectedCalls: Set<CyclingAPICall> = Set(CyclingAPICall.allCases)) {
+        self.init(expectedCalls: Array(expectedCalls))
+    }
+
+    func markStarted(_ call: CyclingAPICall) {
+        startedCalls.insert(call)
+    }
+
+    func waitUntilAllStarted(timeoutNanoseconds: UInt64) async -> Bool {
+        if startedCalls.isSuperset(of: expectedCalls) {
+            return true
+        }
+
+        let deadline = DispatchTime.now().uptimeNanoseconds + timeoutNanoseconds
+        while !startedCalls.isSuperset(of: expectedCalls) {
+            if DispatchTime.now().uptimeNanoseconds >= deadline {
+                return false
+            }
+
+            let remaining = deadline - DispatchTime.now().uptimeNanoseconds
+            let delay = min(UInt64(25_000_000), remaining)
+            try? await Task.sleep(nanoseconds: delay)
+        }
+
+        return true
+    }
+
+    func waitUntilReleased() async {
+        if isReleased {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            releaseContinuations.append(continuation)
+        }
+    }
+
+    func releaseAll() {
+        isReleased = true
+        let continuations = releaseContinuations
+        releaseContinuations.removeAll()
+        continuations.forEach { $0.resume() }
+    }
+}
+
 // MARK: - Cycling API mock
+
+enum CyclingAPICall: String, CaseIterable {
+    case getCyclingActivities
+    case getCyclingTrainingLoad
+    case getCurrentFTP
+    case createFTP
+    case getFTPHistory
+    case getCurrentBlock
+    case createBlock
+    case completeBlock
+    case getVO2Max
+    case getEFHistory
+}
 
 final class MockCyclingAPIClient: CyclingAPIClientProtocol {
     // Results
@@ -38,30 +108,50 @@ final class MockCyclingAPIClient: CyclingAPIClientProtocol {
     )
     var efHistoryResult: Result<[EFDataPoint], Error> = .success([])
 
+    private(set) var callCounts: [CyclingAPICall: Int] = [:]
+    private(set) var lastCreateFTPRequest: (value: Int, date: String, source: String)?
+    private(set) var lastCompleteBlockID: String?
+    private(set) var lastActivitiesLimit: Int?
+
+    var onCall: (@Sendable (CyclingAPICall) async -> Void)?
+
     var completeBlockCalled = false
 
+    private func trackCall(_ call: CyclingAPICall) async {
+        callCounts[call, default: 0] += 1
+        await onCall?(call)
+    }
+
     func getCyclingActivities(limit: Int?) async throws -> [CyclingActivityModel] {
-        try cyclingActivitiesResult.get()
+        await trackCall(.getCyclingActivities)
+        lastActivitiesLimit = limit
+        return try cyclingActivitiesResult.get()
     }
 
     func getCyclingTrainingLoad() async throws -> CyclingTrainingLoadResponse {
-        try cyclingTrainingLoadResult.get()
+        await trackCall(.getCyclingTrainingLoad)
+        return try cyclingTrainingLoadResult.get()
     }
 
     func getCurrentFTP() async throws -> FTPEntryResponse? {
-        try currentFTPResult.get()
+        await trackCall(.getCurrentFTP)
+        return try currentFTPResult.get()
     }
 
     func createFTP(value: Int, date: String, source: String) async throws -> FTPEntryResponse {
-        try createFTPResult.get()
+        await trackCall(.createFTP)
+        lastCreateFTPRequest = (value: value, date: date, source: source)
+        return try createFTPResult.get()
     }
 
     func getFTPHistory() async throws -> [FTPEntryResponse] {
-        try ftpHistoryResult.get()
+        await trackCall(.getFTPHistory)
+        return try ftpHistoryResult.get()
     }
 
     func getCurrentBlock() async throws -> TrainingBlockResponse? {
-        try currentBlockResult.get()
+        await trackCall(.getCurrentBlock)
+        return try currentBlockResult.get()
     }
 
     func createBlock(
@@ -74,10 +164,13 @@ final class MockCyclingAPIClient: CyclingAPIClientProtocol {
         experienceLevel: ExperienceLevel?,
         weeklyHoursAvailable: Double?
     ) async throws -> TrainingBlockResponse {
-        try createBlockResult.get()
+        await trackCall(.createBlock)
+        return try createBlockResult.get()
     }
 
     func completeBlock(id: String) async throws {
+        await trackCall(.completeBlock)
+        lastCompleteBlockID = id
         do {
             try completeBlockResult.get()
             completeBlockCalled = true
@@ -87,11 +180,13 @@ final class MockCyclingAPIClient: CyclingAPIClientProtocol {
     }
 
     func getVO2Max() async throws -> VO2MaxResponse {
-        try vo2MaxResult.get()
+        await trackCall(.getVO2Max)
+        return try vo2MaxResult.get()
     }
 
     func getEFHistory() async throws -> [EFDataPoint] {
-        try efHistoryResult.get()
+        await trackCall(.getEFHistory)
+        return try efHistoryResult.get()
     }
 }
 

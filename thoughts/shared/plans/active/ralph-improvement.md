@@ -1,188 +1,151 @@
-# Title
-Add a `BradOSTests` app unit-test target so `ios/BradOS/BradOS` ViewModels are directly unit-testable
+**Title**: Add first-cycle `CyclingViewModel` iOS unit tests for concurrent `loadData()` fan-out, weekly session matching, FTP save/load, and block completion
 
-## Why
-`ios/BradOS/BradOS` contains app-only ViewModels (`CyclingViewModel`, `ExerciseHistoryViewModel`, `WeightGoalViewModel`, `TextToSpeechViewModel`) that are outside the `BradOSCore` Swift Package test suite. Today they are effectively excluded from CI-grade unit testing because the iOS app project has no app test bundle target wired into the `BradOS` scheme.
+**Why**: Cycling is still tracked as having zero iOS tests in quality grading, and `CyclingViewModel` contains core user-facing logic (`loadData`, session completion matching, FTP flows, and block completion) that can regress silently without direct app-layer test coverage.
 
-## What
-Implement app-layer unit-test wiring and baseline coverage in four concrete phases.
+**What**
+Build out `BradOSTests` coverage for the existing `CyclingViewModel` behaviors at:
+- `ios/BradOS/BradOS/ViewModels/CyclingViewModel.swift:45` (`sessionsCompletedThisWeek`)
+- `ios/BradOS/BradOS/ViewModels/CyclingViewModel.swift:99` (`loadData()` concurrent fetch fan-out)
+- `ios/BradOS/BradOS/ViewModels/CyclingViewModel.swift:315` (`saveFTP`)
+- `ios/BradOS/BradOS/ViewModels/CyclingViewModel.swift:337` (`loadFTPHistory`)
+- `ios/BradOS/BradOS/ViewModels/CyclingViewModel.swift:287` (`completeCurrentBlock`)
 
-1. Add an iOS app test bundle target and scheme test action.
-- Add `BradOSTests` as `type: bundle.unit-test` in `ios/BradOS/project.yml`.
-- Configure `platform: iOS` and test sources at `BradOSTests/`.
-- Add dependency on app target (`- target: BradOS`) so XcodeGen emits `TEST_HOST` / `BUNDLE_LOADER` correctly for `@testable import BradOS`.
-- Update `schemes.BradOS` to include:
-  - `build.targets.BradOSTests: [test]`
-  - `test.targets: [ { name: BradOSTests } ]`
-- Regenerate project from XcodeGen so `BradOS.xcodeproj` contains the new native target and scheme testables.
+Implementation scope (tests + test doubles only):
+1. Expand cycling test doubles so tests can observe API call order/counts/arguments and gate async responses.
+2. Add a deterministic `loadData()` fan-out test that proves all six fetch endpoints start before any are released.
+3. Add/strengthen `sessionsCompletedThisWeek` matching tests for ordering, current-week filtering, and non-reuse behavior.
+4. Extend FTP tests to cover both save request formatting and history load success/failure.
+5. Add block completion success/failure/no-op coverage.
 
-2. Add small app-layer testability seams where concrete singletons currently block deterministic tests.
-- Narrow cycling API dependency to cycling-only requirements so mocks do not have to implement all `APIClientProtocol` methods.
-  - Change signature in `ios/BradOS/BradOS/Protocols/CyclingAPIClientProtocol.swift` from:
-    - `protocol CyclingAPIClientProtocol: APIClientProtocol`
-    to:
-    - `protocol CyclingAPIClientProtocol`
-  - Keep method list unchanged and keep `extension APIClient: CyclingAPIClientProtocol {}`.
-- Add a dedicated weight-goal protocol for `WeightGoalViewModel`.
-  - New protocol file with methods:
-    - `func getLatestWeight() async throws -> WeightHistoryEntry?`
-    - `func getWeightHistory(days: Int) async throws -> [WeightHistoryEntry]`
-    - `func getWeightGoal() async throws -> WeightGoalResponse?`
-    - `func saveWeightGoal(targetWeightLbs: Double, targetDate: String, startWeightLbs: Double, startDate: String) async throws -> WeightGoalResponse`
-  - Add `extension APIClient: WeightGoalAPIClientProtocol {}`.
-  - Update `WeightGoalViewModel` to inject dependency:
-    - `init(apiClient: any WeightGoalAPIClientProtocol = APIClient.shared)`
-- Add an audio-engine protocol so `TextToSpeechViewModel` can be tested without real `AudioSessionManager`.
-  - Introduce protocol for playback + playing-state publisher (Combine-based), e.g.:
-    - `var isPlayingPublisher: AnyPublisher<Bool, Never> { get }`
-    - `func play(data: Data) async throws`
-    - `func stop()`
-  - Make `TTSAudioEngine` conform.
-  - Update `TextToSpeechViewModel` init to inject this engine with default `TTSAudioEngine()`.
+No production logic changes are planned unless a testability seam is strictly required to make assertions deterministic.
 
-3. Add new app-layer unit test suite under `BradOSTests` using Swift Testing (`Testing`, `@Suite`, `@Test`, `#expect`).
-- Add test files for each app-only ViewModel:
-  - `CyclingViewModelTests`
-  - `ExerciseHistoryViewModelTests`
-  - `WeightGoalViewModelTests`
-  - `TextToSpeechViewModelTests`
-- Add app-test helpers for deterministic mocks (API mocks + fake audio engine + date fixture helpers).
+**Files**
+1. `ios/BradOS/BradOSTests/Helpers/AppTestDoubles.swift` (modify)
+- Extend `MockCyclingAPIClient` with explicit observability hooks used by tests:
+  - Add call tracking enum and counters, e.g.:
+    - `enum CyclingAPICall: String, CaseIterable { ... }`
+    - `private(set) var callCounts: [CyclingAPICall: Int]`
+  - Add argument capture fields:
+    - `private(set) var lastCreateFTPRequest: (value: Int, date: String, source: String)?`
+    - `private(set) var lastCompleteBlockID: String?`
+    - `private(set) var lastActivitiesLimit: Int?`
+  - Add optional async interception hook for fan-out gating:
+    - `var onCall: (@Sendable (CyclingAPICall) async -> Void)?`
+  - Ensure each cycling API method updates counter/captures before returning the configured result.
+- Add a tiny async gate helper (test-only) for fan-out assertions, e.g. an `actor` with:
+  - expected call set
+  - started call set
+  - `waitUntilAllStarted(timeoutNanoseconds:) async -> Bool`
+  - `waitUntilReleased() async`
+  - `releaseAll()`
+- Keep helpers reusable and SwiftLint-compliant (no inline suppression, no long methods).
 
-4. Verify end-to-end developer workflow for app tests.
-- Confirm `xcodebuild ... test` executes `BradOSTests` from CLI.
-- Confirm default app constructors still work (no behavior change in production paths).
+2. `ios/BradOS/BradOSTests/ViewModels/CyclingViewModelTests.swift` (modify)
+- Keep existing tests that already pass.
+- Add grouped tests for missing behaviors:
+  - `loadData` fan-out + population
+  - additional `sessionsCompletedThisWeek` edge matching
+  - FTP history load paths
+  - block completion paths
+- Prefer deterministic fixtures (`fixedDate`, `dateInCurrentWeek`) over ad hoc `Date()` where possible.
 
-## Files
-Modify or create the following files.
+3. `docs/quality-grades.md` (optional, if this task includes grade bookkeeping)
+- Update Cycling iOS test count from `0` to reflect the new `BradOSTests` suite status.
+- If the grading table is generated elsewhere, skip direct edits and leave a note in PR/summary instead.
 
-1. `ios/BradOS/project.yml` (modify)
-- Add `targets.BradOSTests`:
-  - `type: bundle.unit-test`
-  - `platform: iOS`
-  - `sources: [ { path: BradOSTests } ]`
-  - `dependencies: [ { target: BradOS }, { package: BradOSCore } ]`
-- Update `schemes.BradOS` to include `BradOSTests` in test build + test action.
+**Tests**
+Add/adjust the following `CyclingViewModelTests` cases (Swift Testing):
+1. `loadData fans out all cycling fetch calls concurrently before completion`
+- Arrange: configure `MockCyclingAPIClient` with non-empty results for activities/training-load/FTP/block/VO2max/EF; attach gate expecting six `loadData` calls.
+- Act: start `vm.loadData()` in a task, wait for gate to report all expected calls started, assert `vm.isLoading == true`, then release gate and await completion.
+- Assert:
+  - all six calls were observed exactly once (`getCyclingActivities`, `getCyclingTrainingLoad`, `getCurrentFTP`, `getCurrentBlock`, `getVO2Max`, `getEFHistory`)
+  - `lastActivitiesLimit == 30`
+  - view-model state populated (`activities`, `trainingLoad`, `currentFTP`, `currentBlock`, `vo2maxHistory`, `efHistory`)
+  - chart derivations ran (`tssHistory` and `loadHistory` are non-nil)
+  - `isLoading == false` after completion.
 
-2. `ios/BradOS/BradOS.xcodeproj/project.pbxproj` (modify, generated)
-- Regenerated by `xcodegen generate`; includes:
-  - `PBXNativeTarget` for `BradOSTests`
-  - product `BradOSTests.xctest`
-  - test host wiring
-  - scheme test entries.
+2. `sessionsCompletedThisWeek ignores previous-week activities and stops at first unmatched session`
+- Arrange: weekly sessions requiring ordered types; include an activity from last week plus out-of-order current-week rides.
+- Assert `sessionsCompletedThisWeek` equals only the contiguous matched prefix.
 
-3. `ios/BradOS/BradOS.xcodeproj/xcshareddata/xcschemes/BradOS.xcscheme` (create/modify, generated if emitted)
-- Ensure `TestAction` includes `BradOSTests` and macro expansion uses `BradOS.app`.
+3. `sessionsCompletedThisWeek does not reuse one activity for multiple sessions`
+- Arrange: two same-type sessions but only one matching activity.
+- Assert count is `1`.
 
-4. `ios/BradOS/BradOS/Protocols/CyclingAPIClientProtocol.swift` (modify)
-- Remove `APIClientProtocol` inheritance while keeping existing cycling method signatures.
+4. `saveFTP success sends formatted payload and updates FTP fields`
+- Assert existing behavior (`true`, fields updated, `error == nil`) plus captured request:
+  - `lastCreateFTPRequest?.value` matches input
+  - `lastCreateFTPRequest?.date == "yyyy-MM-dd"` formatted date
+  - `lastCreateFTPRequest?.source` matches argument.
 
-5. `ios/BradOS/BradOS/Protocols/WeightGoalAPIClientProtocol.swift` (create)
-- New protocol for weight goal/history methods consumed by `WeightGoalViewModel`.
-- Add `extension APIClient: WeightGoalAPIClientProtocol {}`.
+5. `loadFTPHistory success returns API history entries`
+- Arrange non-empty `ftpHistoryResult`.
+- Assert returned array matches configured entries.
 
-6. `ios/BradOS/BradOS/ViewModels/WeightGoalViewModel.swift` (modify)
-- Replace concrete singleton dependency with injected protocol:
-  - add `private let apiClient: any WeightGoalAPIClientProtocol`
-  - add `init(apiClient: any WeightGoalAPIClientProtocol = APIClient.shared)`
-- Keep existing public behavior unchanged.
+6. `loadFTPHistory failure returns empty array`
+- Arrange failing `ftpHistoryResult`.
+- Assert result is `[]` and no crash.
 
-7. `ios/BradOS/BradOS/Audio/TTSAudioEngineProtocol.swift` (create)
-- New protocol abstraction for audio playback + playback state publisher.
+7. `completeCurrentBlock success calls API and marks block completed`
+- Arrange active `currentBlock`.
+- Assert `lastCompleteBlockID` is current block id, `currentBlock?.status == .completed`, and `error == nil`.
 
-8. `ios/BradOS/BradOS/Audio/TTSAudioEngine.swift` (modify)
-- Conform to new protocol and expose `isPlayingPublisher` via `$isPlaying.eraseToAnyPublisher()`.
+8. `completeCurrentBlock failure keeps block active and sets user-facing error`
+- Arrange failing `completeBlockResult`.
+- Assert status remains `.active` and `error` contains `"Failed to complete block"`.
 
-9. `ios/BradOS/BradOS/ViewModels/TextToSpeechViewModel.swift` (modify)
-- Inject audio engine dependency:
-  - `init(apiClient: APIClientProtocol = APIClient.shared, audioEngine: any TTSAudioEngineProtocol = TTSAudioEngine())`
-- Replace direct concrete engine usage with protocol-based calls/publisher subscription.
+9. `completeCurrentBlock with nil currentBlock is a no-op`
+- Assert API completion call count stays zero and no error is set.
 
-10. `ios/BradOS/BradOSTests/Helpers/AppTestDoubles.swift` (create)
-- `MockCyclingAPIClient` implementing `CyclingAPIClientProtocol`.
-- `MockWeightGoalAPIClient` implementing `WeightGoalAPIClientProtocol`.
-- `MockTTSAudioEngine` implementing `TTSAudioEngineProtocol`.
-- Lightweight fixture utilities for dates and model construction.
+**QA**
+After implementation, exercise both targeted tests and runtime behavior:
+1. Run focused cycling tests:
+```bash
+xcodebuild -project ios/BradOS/BradOS.xcodeproj \
+  -scheme BradOS \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -derivedDataPath ~/.cache/brad-os-derived-data \
+  -skipPackagePluginValidation \
+  -only-testing:BradOSTests/CyclingViewModelTests \
+  test
+```
+2. Run full app test bundle to ensure no collateral breakage in shared helpers:
+```bash
+xcodebuild -project ios/BradOS/BradOS.xcodeproj \
+  -scheme BradOS \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -derivedDataPath ~/.cache/brad-os-derived-data \
+  -skipPackagePluginValidation \
+  -only-testing:BradOSTests \
+  test
+```
+3. Build app target (SwiftLint plugin + compile safety):
+```bash
+xcodebuild -project ios/BradOS/BradOS.xcodeproj \
+  -scheme BradOS \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -derivedDataPath ~/.cache/brad-os-derived-data \
+  -skipPackagePluginValidation \
+  build
+```
+4. Manual behavior smoke-check on simulator:
+- Open Cycling tab and confirm it loads without errors (covers `loadData` runtime path).
+- Open Profile -> FTP, save an FTP value, and verify updated value/history display.
+- Open Profile -> Training Block setup with an active block and trigger “complete block early”; verify UI reflects completion and no regressions.
 
-11. `ios/BradOS/BradOSTests/ViewModels/CyclingViewModelTests.swift` (create)
-- Cycling app-layer tests for matching/completion/progression + API error surfaces.
+**Conventions**
+1. `CLAUDE.md`
+- Follow app-layer TDD intent and keep changes narrowly scoped to test coverage.
+- QA is mandatory: include command-line and simulator checks, not tests alone.
 
-12. `ios/BradOS/BradOSTests/ViewModels/ExerciseHistoryViewModelTests.swift` (create)
-- Exercise history viewmodel tests using `MockAPIClient` from `BradOSCore`.
+2. `docs/conventions/testing.md`
+- Use Swift Testing (`import Testing`, `@Suite`, `@Test`, `#expect`), never focused/skipped tests.
+- Every new test must include meaningful assertions.
 
-13. `ios/BradOS/BradOSTests/ViewModels/WeightGoalViewModelTests.swift` (create)
-- Weight-goal regression and save/load behavior tests via `MockWeightGoalAPIClient`.
+3. `docs/conventions/ios-swift.md`
+- Keep SwiftLint-clean code; do not add `swiftlint:disable` comments.
+- Use the existing shared app architecture and avoid adding alternate networking stacks.
 
-14. `ios/BradOS/BradOSTests/ViewModels/TextToSpeechViewModelTests.swift` (create)
-- TTS state-machine tests via mock API + mock audio engine.
-
-## Tests
-Write these concrete test cases.
-
-1. `CyclingViewModelTests`
-- `initial state is empty`:
-  - verifies default published state and computed flags (`hasFTP == false`, `nextSession == nil`).
-- `sessionsCompletedThisWeek matches sessions in order by type`:
-  - seeds weekly sessions + activities and verifies matched count logic.
-- `nextSession returns first incomplete weekly session`:
-  - verifies queue progression when some activities are completed.
-- `saveFTP success updates ftp fields and returns true`.
-- `saveFTP failure sets user-facing error and returns false`.
-
-2. `ExerciseHistoryViewModelTests`
-- `loadHistory success sets loaded state and sortedEntries newest-first`.
-- `loadHistory failure sets error state`.
-- `validateEditForm rejects empty name and non-positive increment`.
-- `updateExercise success trims name, clears updateError, and reloads history`.
-- `updateExercise failure sets updateError and resets isUpdating`.
-
-3. `WeightGoalViewModelTests`
-- `updateTrend requires at least 7 smoothed points`.
-- `updatePrediction yields on-track predicted date when slope moves toward target`.
-- `updatePrediction returns nil predictedDate when trend moves away from target`.
-- `saveGoal success stores existingGoal and sets saveSuccess`.
-- `saveGoal failure sets error and leaves saveSuccess false`.
-
-4. `TextToSpeechViewModelTests`
-- `canPlay false for blank text or non-idle state`.
-- `generateAndPlay no-ops when canPlay is false`.
-- `generateAndPlay success transitions to playing and clears error`.
-- `synthesize failure sets error and returns to idle`.
-- `audio engine stop resets state to idle`.
-
-## QA
-Exercise both automation and runtime behavior after implementation.
-
-1. Regenerate project and verify target wiring:
-- `cd ios/BradOS && xcodegen generate`
-- `xcodebuild -project BradOS.xcodeproj -list`
-- Confirm `Targets` includes `BradOSTests` and `BradOS` scheme has a `TestAction` testable.
-
-2. Run new app-layer unit tests only:
-- `xcodebuild -project ios/BradOS/BradOS.xcodeproj -scheme BradOS -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath ~/.cache/brad-os-derived-data -skipPackagePluginValidation -only-testing:BradOSTests test`
-
-3. Run full iOS build gate (SwiftLint plugin + compile safety):
-- `xcodebuild -project ios/BradOS/BradOS.xcodeproj -scheme BradOS -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath ~/.cache/brad-os-derived-data -skipPackagePluginValidation build`
-
-4. Manual smoke check in simulator (ensures DI defaults preserved):
-- Launch app and quickly touch flows using app-only ViewModels:
-  - Cycling tab opens and renders current block/history cards.
-  - Lifting -> Exercise History opens and loads chart/list.
-  - Profile -> Weight Goal opens and chart/prediction renders.
-  - Profile -> Text to Speech can start/stop without regression.
-
-## Conventions
-Apply these project conventions while implementing.
-
-1. Xcode project source of truth is `ios/BradOS/project.yml` (from `docs/conventions/ios-swift.md`).
-- Do not hand-edit Xcode settings first; edit YAML then regenerate with XcodeGen.
-
-2. SwiftLint rules are all errors (no inline suppressions).
-- Keep test and production files SwiftLint-clean; never add `swiftlint:disable` comments.
-
-3. Testing rules (`docs/conventions/testing.md`).
-- Use Swift Testing style already used in repo (`Testing`, `@Suite`, `@Test`, `#expect`).
-- No `.only`, no skipped tests, and every test must assert meaningful behavior.
-
-4. Architecture/golden principles.
-- Keep app HTTP through shared `APIClient` by protocol abstraction + default conformance (no parallel networking stack).
-- Keep changes focused on testability seams; no UI/service layering regressions.
+4. `docs/guides/ios-build-and-run.md`
+- Use `-project ios/BradOS/BradOS.xcodeproj` (not workspace), include `-skipPackagePluginValidation`, and avoid `-sdk` in CLI builds/tests.
