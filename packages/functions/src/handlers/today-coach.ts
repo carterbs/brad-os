@@ -14,8 +14,9 @@ import { createBaseApp } from '../middleware/create-resource-router.js';
 import { asyncHandler } from '../middleware/async-handler.js';
 import { buildTodayCoachContext } from '../services/today-coach-data.service.js';
 import { getTodayCoachRecommendation } from '../services/today-coach.service.js';
+import { validate } from '../middleware/validate.js';
 import * as recoveryService from '../services/firestore-recovery.service.js';
-import type { RecoverySnapshot } from '../shared.js';
+import { coachRecommendRequestSchema, type RecoverySnapshot } from '../shared.js';
 
 const openaiApiKey = defineSecret('OPENAI_API_KEY');
 
@@ -35,6 +36,7 @@ const app = createBaseApp('today-coach');
 // POST /today-coach/recommend
 app.post(
   '/recommend',
+  validate(coachRecommendRequestSchema),
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     const userId = getUserId(req);
 

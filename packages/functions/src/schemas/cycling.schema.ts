@@ -181,3 +181,42 @@ export const updateCyclingProfileSchema = z.object({
 });
 
 export type UpdateCyclingProfileInput = z.infer<typeof updateCyclingProfileSchema>;
+
+// --- Cycling Activity Creation Schema ---
+
+const cyclingActivityTypeSchema = z.enum([
+  'vo2max',
+  'threshold',
+  'fun',
+  'recovery',
+  'unknown',
+]);
+
+const cyclingActivitySourceSchema = z.enum(['strava']);
+
+/**
+ * Schema for creating a cycling activity.
+ * Validates the body of POST /cycling/activities.
+ */
+export const createCyclingActivitySchema = z.object({
+  stravaId: z.number().int().positive(),
+  userId: z.string().min(1).optional(),
+  date: z.string().min(1),
+  durationMinutes: z.number().positive(),
+  avgPower: z.number().min(0),
+  normalizedPower: z.number().min(0),
+  maxPower: z.number().min(0),
+  avgHeartRate: z.number().min(0),
+  maxHeartRate: z.number().min(0),
+  tss: z.number().min(0),
+  intensityFactor: z.number().min(0),
+  type: cyclingActivityTypeSchema,
+  source: cyclingActivitySourceSchema,
+  ef: z.number().positive().optional(),
+  peak5MinPower: z.number().positive().optional(),
+  peak20MinPower: z.number().positive().optional(),
+  hrCompleteness: z.number().min(0).max(100).optional(),
+  createdAt: z.string().min(1).optional(),
+});
+
+export type CreateCyclingActivityInput = z.infer<typeof createCyclingActivitySchema>;
