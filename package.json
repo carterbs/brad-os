@@ -27,6 +27,9 @@
     "seed:generate": "npx tsx scripts/generate-seed-data.ts",
     "lint:architecture": "tsx scripts/lint-architecture.ts",
     "update:quality-grades": "tsx scripts/update-quality-grades.ts",
+    "otel:start": "npx tsx scripts/otel-collector/index.ts &",
+    "otel:stop": "lsof -ti:4318 | xargs kill 2>/dev/null || true",
+    "otel:clean": "rm -rf .otel/",
     "postinstall": "git config core.hooksPath hooks"
   },
   "devDependencies": {
