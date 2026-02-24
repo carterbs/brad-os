@@ -1,9 +1,11 @@
 import { parseArgs } from "node:util";
-import { existsSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { Logger } from "./log.js";
 import { runStep } from "./agent.js";
 import {
+  buildBacklogRefillPrompt,
+  buildTaskPlanPrompt,
   buildPlanPrompt,
   buildImplPrompt,
   buildReviewPrompt,
@@ -15,6 +17,7 @@ import {
   countCompleted,
   commitAll,
 } from "./git.js";
+import { readBacklog, popTask, backlogPath } from "./backlog.js";
 import type { Config, StepSummary } from "./types.js";
 
 const REPO_DIR = "/Users/bradcarter/Documents/Dev/brad-os";
@@ -70,6 +73,7 @@ async function ralphLoopSingle(
   config: Config,
   logger: Logger,
   abortController: AbortController,
+  currentTask?: string,
 ): Promise<boolean> {
   const branchName = `${config.branchPrefix}-${String(n).padStart(3, "0")}`;
   const worktreePath = `${config.worktreeDir}/${branchName}`;
@@ -98,23 +102,55 @@ async function ralphLoopSingle(
     const stepResults: StepSummary[] = [];
 
     // ── 1. Planning ──
-    if (config.task) {
-      logger.info("[1/4] Writing task plan (user-directed)...");
-      const planDir = `${worktreePath}/thoughts/shared/plans/active`;
-      mkdirSync(planDir, { recursive: true });
-      writeFileSync(
-        `${planDir}/ralph-improvement.md`,
-        `# Task\n\n${config.task}\n`,
-      );
+    // Resolve the task: --task flag > backlog > full ideation
+    const taskText = config.task ?? currentTask;
+
+    if (taskText) {
+      // Task is known — plan the implementation (skip ideation)
+      logger.info(`[1/4] Planning for task: ${taskText.slice(0, 80)}...`);
+      const planResult = await runStep({
+        prompt: buildTaskPlanPrompt(taskText),
+        stepName: "plan",
+        improvement: n,
+        cwd: worktreePath,
+        config,
+        logger,
+        abortController,
+      });
+
+      if (!planResult.success) {
+        logger.error("Planning step failed");
+        cleanup();
+        return false;
+      }
+
+      if (
+        !existsSync(
+          `${worktreePath}/thoughts/shared/plans/active/ralph-improvement.md`,
+        )
+      ) {
+        logger.error("Planning agent failed to create ralph-improvement.md");
+        cleanup();
+        return false;
+      }
+
+      const planLine = planResult.outputText
+        .split("\n")
+        .find((l) => l.startsWith("PLAN:"));
+      if (planLine) logger.info(`  ${planLine}`);
+
+      const tokens = planResult.inputTokens + planResult.outputTokens;
       stepResults.push({
         step: "plan",
-        turns: 0,
-        costUsd: 0,
-        tokens: 0,
-        durationMs: 0,
+        turns: planResult.turns,
+        costUsd: planResult.costUsd,
+        tokens,
+        durationMs: planResult.durationMs,
       });
+      logger.stepSummary("plan", stepResults[stepResults.length - 1]);
     } else {
-      logger.info("[1/4] Planning...");
+      // No task — full ideation planning (scan codebase for gaps)
+      logger.info("[1/4] Planning (full ideation)...");
       const planResult = await runStep({
         prompt: buildPlanPrompt(n, config.target),
         stepName: "plan",
@@ -141,7 +177,6 @@ async function ralphLoopSingle(
         return false;
       }
 
-      // Extract plan title
       const planLine = planResult.outputText
         .split("\n")
         .find((l) => l.startsWith("PLAN:"));
@@ -368,15 +403,60 @@ async function main(): Promise<void> {
   logger.info(`  Max review cyc : ${config.maxReviewCycles}`);
   logger.info(`  Model          : claude-opus-4-6`);
   if (config.task) logger.info(`  Task           : ${config.task}`);
+  logger.info(`  Backlog        : ${readBacklog().length} tasks`);
   logger.info("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
 
   let completed = countCompleted(config.repoDir);
   logger.info(`Already completed: ${completed}/${config.target}`);
+  logger.info(`Backlog           : ${backlogPath()}`);
 
   let consecutiveFailures = 0;
 
   while (completed < config.target) {
     if (abortController.signal.aborted) break;
+
+    // ── Resolve task for this iteration ──
+    // Priority: --task flag > backlog > refill backlog then pop
+    let task: string | undefined = config.task;
+
+    if (!task) {
+      const backlog = readBacklog();
+      if (backlog.length === 0) {
+        // Backlog is empty — run refill session
+        logger.heading("Backlog empty — refilling with 10 tasks...");
+        const refillResult = await runStep({
+          prompt: buildBacklogRefillPrompt(),
+          stepName: "backlog-refill",
+          improvement: completed,
+          cwd: config.repoDir,
+          config,
+          logger,
+          abortController,
+        });
+
+        if (!refillResult.success) {
+          logger.error("Backlog refill failed");
+          process.exit(1);
+        }
+
+        const newBacklog = readBacklog();
+        logger.success(`Backlog refilled: ${newBacklog.length} tasks`);
+        for (const t of newBacklog) {
+          logger.info(`  - ${t}`);
+        }
+
+        if (newBacklog.length === 0) {
+          logger.error("Refill produced no tasks — stopping.");
+          process.exit(1);
+        }
+      }
+
+      task = popTask();
+      if (task) {
+        const remaining = readBacklog().length;
+        logger.info(`Popped task from backlog (${remaining} remaining): ${task}`);
+      }
+    }
 
     const next = completed + 1;
     const success = await ralphLoopSingle(
@@ -384,6 +464,7 @@ async function main(): Promise<void> {
       config,
       logger,
       abortController,
+      task,
     );
 
     if (success) {

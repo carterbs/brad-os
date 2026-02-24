@@ -1,4 +1,9 @@
-export type StepName = "plan" | "implement" | "review" | "merge";
+export type StepName =
+  | "backlog-refill"
+  | "plan"
+  | "implement"
+  | "review"
+  | "merge";
 
 export interface Config {
   target: number;

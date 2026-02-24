@@ -1,3 +1,82 @@
+export function buildBacklogRefillPrompt(): string {
+  return `You are generating a prioritized backlog of 10 improvement tasks for the brad-os project.
+Your job is ONLY to research the codebase and produce a list of tasks — do NOT implement anything.
+
+## Two categories of work
+
+1. **Quality grade improvements** — work that directly raises domain grades in docs/quality-grades.md.
+   This includes: adding missing tests for untested handlers/services, improving test coverage
+   for low-coverage domains, adding iOS unit tests where there are none, and closing tracked
+   tech debt items listed in the quality grades doc.
+
+2. **Harness/tooling improvements** — test infrastructure, CI tooling, linters, architecture
+   enforcement, dev-loop scaffolding, evaluation harnesses, or observability integrations
+   that make the codebase more legible to agents.
+
+## Prioritization
+
+Order tasks by **effort vs. impact**. Low-hanging fruit comes first:
+- A quick test file that bumps a domain from B to B+ beats a complex new linter.
+- Missing tests for existing handlers are usually easy wins with high grade impact.
+- Quality grade improvements should come AHEAD of harness improvements when the effort is similar.
+
+## Steps
+1. Read docs/quality-grades.md to understand current grades, gaps, and tech debt.
+2. Read CLAUDE.md and docs/conventions/ to understand the project rules and structure.
+3. Read docs/references/codex-agent-team-article.md to understand the harness philosophy.
+4. Read docs/ for architecture context.
+5. Scan the codebase for untested files, low-coverage domains, and harness gaps.
+6. Produce 10 tasks ordered by effort/impact ratio (easiest high-impact tasks first).
+
+## Output format
+
+Write the result to scripts/ralph/backlog.md in the current directory. The format is one task
+per line, each prefixed with "- ". Each task should be a concise but specific description
+(1-2 sentences) — enough for a planning agent to understand what to build without re-scanning
+the entire codebase.
+
+Example format:
+- Add unit tests for the todayCoach handler and todayCoachService (Today domain, currently B — untested high-risk handler)
+- Add iOS unit tests for CyclingViewModel and CyclingService (Cycling domain, currently B- — zero iOS tests)
+- Create an architecture lint rule that enforces iOS ViewModels never import SwiftUI directly
+
+Do NOT include tasks that duplicate existing work. Check what already exists before proposing.
+
+After writing scripts/ralph/backlog.md, output: BACKLOG: 10 tasks written`;
+}
+
+export function buildTaskPlanPrompt(task: string): string {
+  return `You are planning an implementation for the brad-os project.
+Your job is ONLY to write a plan — do NOT implement anything. Do NOT create
+or modify any source files except thoughts/shared/plans/active/ralph-improvement.md.
+
+The task has already been chosen for you. Do NOT re-evaluate whether this is the right
+task or look for alternatives. Just plan HOW to implement it.
+
+## Task
+${task}
+
+## Steps
+1. Read CLAUDE.md and docs/conventions/ to understand the project rules and structure.
+2. Read relevant docs/ and source files to understand the area this task touches.
+3. Write a detailed implementation plan to thoughts/shared/plans/active/ralph-improvement.md.
+
+thoughts/shared/plans/active/ralph-improvement.md must contain:
+- **Title**: One-line description of the improvement
+- **Why**: Why this improvement matters (brief — the task is already decided)
+- **What**: Exactly what to build, with specifics (not vague hand-waving)
+- **Files**: Every file to create or modify, with what goes in each
+- **Tests**: What tests to write and what they verify
+- **QA**: How to exercise the thing after building it (not just "run tests")
+- **Conventions**: Any project conventions from CLAUDE.md/docs that apply
+
+The plan should be detailed enough that a separate agent can implement it without
+needing to re-research the codebase. Include file paths, function signatures,
+and concrete examples where helpful.
+
+After writing thoughts/shared/plans/active/ralph-improvement.md, output the title line as: PLAN: <title>`;
+}
+
 export function buildPlanPrompt(n: number, target: number): string {
   return `You are planning harness improvement #${n} of ${target} for the brad-os project.
 Your job is ONLY to research and write a plan — do NOT implement anything. Do NOT create
