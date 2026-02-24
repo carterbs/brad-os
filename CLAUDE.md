@@ -69,7 +69,7 @@ npm run lint:architecture  # Architecture enforcement (layer deps, schema bounda
 ## When Implementing Features
 
 1. **Read the architecture map** for the feature: `docs/architecture/<feature>.md`. Available maps: `lifting`, `stretching`, `meditation`, `meal-planning`, `cycling`, `health`, `calendar`, `today`, `profile`, `history`.
-2. If a plan in `thoughts/shared/plans/` is **clearly related**, read it for context. Skip for bug fixes or small tweaks.
+2. If a plan in `thoughts/shared/plans/active/` is **clearly related**, read it for context. Skip for bug fixes or small tweaks. See `thoughts/shared/plans/index.md` for a full plan inventory.
 3. Write tests BEFORE implementation (TDD)
 4. Start with types/schemas in `packages/functions/src/types/` and `packages/functions/src/schemas/`
 5. Run full test suite before considering complete

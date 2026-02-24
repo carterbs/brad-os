@@ -801,6 +801,41 @@ function checkOrphanFeatures(): CheckResult {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Check 9: Plan Lifecycle (plans must be in active/ or completed/)
+//
+// Prevents plans from being dumped directly in thoughts/shared/plans/.
+// Only index.md is allowed at the root level.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function checkPlanLifecycle(): CheckResult {
+  const name = 'Plan lifecycle';
+  const PLANS_DIR = path.join(ROOT_DIR, 'thoughts/shared/plans');
+
+  if (!fs.existsSync(PLANS_DIR)) {
+    return { name, passed: true, violations: [] };
+  }
+
+  const violations: string[] = [];
+  const ALLOWED_ROOT_FILES = new Set(['index.md']);
+
+  const entries = fs.readdirSync(PLANS_DIR, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.isFile() && entry.name.endsWith('.md') && !ALLOWED_ROOT_FILES.has(entry.name)) {
+      violations.push(
+        `thoughts/shared/plans/${entry.name} is a plan file in the root directory.\n` +
+        `    Rule: Plans must live in thoughts/shared/plans/active/ or thoughts/shared/plans/completed/, not the root.\n` +
+        `    Fix: Move the file to the appropriate subdirectory:\n` +
+        `         git mv thoughts/shared/plans/${entry.name} thoughts/shared/plans/active/${entry.name}   # if in progress\n` +
+        `         git mv thoughts/shared/plans/${entry.name} thoughts/shared/plans/completed/${entry.name} # if shipped\n` +
+        `    Then update thoughts/shared/plans/index.md with a summary row.`
+      );
+    }
+  }
+
+  return { name, passed: violations.length === 0, violations };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -816,6 +851,7 @@ function main(): void {
     checkArchMapRefs,
     checkClaudeMdRefs,
     checkOrphanFeatures,
+    checkPlanLifecycle,
   ];
 
   const results: CheckResult[] = [];
