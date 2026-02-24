@@ -1,0 +1,47 @@
+# Golden Principles
+
+Invariants for the Brad OS codebase. Every line is verifiable by a linter or code review.
+
+## Enforced (linter/hook exists)
+
+### TypeScript [eslint]
+- No `any` types — use or create a proper type
+- Explicit return types on all functions
+- No floating or misused promises
+- Use `??` over `||`, use `?.` over manual checks
+- Strict boolean expressions — no implicit truthiness
+
+### Architecture [lint-architecture]
+- Layer imports flow one direction: types -> schemas -> repos -> services -> handlers
+- POST/PUT/PATCH handlers must have Zod validation (schema-at-boundary)
+- No duplicate type/interface definitions across files — consolidate in `types/`
+- `firebase.json` rewrite paths must match `stripPathPrefix()` arguments
+- iOS Views must not reference Service types — go through ViewModels
+- iOS Components must not reference ViewModel types — receive data via parameters
+
+### Swift [swiftlint via xcodebuild]
+- No force unwrapping (`!`) — use `guard let` or `?? default`
+- No optional booleans (`Bool?`) — use `decodeIfPresent ?? false` for Codable
+- Max 600 lines/file, 500 lines/type, 60 lines/function
+- No inline `swiftlint:disable` — fix the code or change the rule globally
+
+### Git [pre-commit hook]
+- No direct commits to main — use worktree workflow
+- No secrets in staged changes — gitleaks scans on every commit
+
+## Enforced (by convention, linter planned)
+
+- Firebase logger only (`info`/`warn`/`error` from `firebase-functions/logger`), never `console.log` in Cloud Functions
+- All iOS HTTP goes through shared APIClient with App Check — no one-off URLSession calls
+- Domain types live in `packages/functions/src/types/`, imported via `shared.ts`
+- Zod schemas live in `packages/functions/src/schemas/`, one file per resource
+- TDD: write tests before implementation, never skip or disable tests to fix a build
+- API inputs validated with Zod at the handler boundary, not in services
+- RESTful routes for CRUD, verb-suffix routes (`/start`, `/complete`) for actions
+
+## Principle-to-Linter Pipeline
+
+When a convention-only principle is violated twice, it graduates to a linter rule:
+1. File an issue describing the repeat violation
+2. Add a check function to `scripts/lint-architecture.ts`
+3. Move the principle from "by convention" to "enforced" in this document
