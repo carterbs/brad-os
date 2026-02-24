@@ -1,17 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Response } from 'supertest';
-import type { Exercise } from '../shared.js';
-
-// Type for API response body
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
+import {
+  type ApiResponse,
+  createExercise,
+  createMockExerciseRepository,
+  createMockWorkoutSetRepository,
+} from '../__tests__/utils/index.js';
 
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({
@@ -24,20 +19,8 @@ vi.mock('../middleware/app-check.js', () => ({
 }));
 
 // Mock the repositories
-const mockExerciseRepo = {
-  findAll: vi.fn(),
-  findDefaultExercises: vi.fn(),
-  findCustomExercises: vi.fn(),
-  findById: vi.fn(),
-  create: vi.fn(),
-  update: vi.fn(),
-  delete: vi.fn(),
-  isInUse: vi.fn(),
-};
-
-const mockWorkoutSetRepo = {
-  findCompletedByExerciseId: vi.fn(),
-};
+const mockExerciseRepo = createMockExerciseRepository();
+const mockWorkoutSetRepo = createMockWorkoutSetRepository();
 
 vi.mock('../repositories/exercise.repository.js', () => ({
   ExerciseRepository: vi.fn().mockImplementation(() => mockExerciseRepo),
@@ -50,19 +33,6 @@ vi.mock('../repositories/workout-set.repository.js', () => ({
 // Import after mocks
 import { exercisesApp } from './exercises.js';
 
-// Helper to create test exercise
-function createTestExercise(overrides: Partial<Exercise> = {}): Exercise {
-  return {
-    id: 'exercise-1',
-    name: 'Bench Press',
-    weight_increment: 5,
-    is_custom: false,
-    created_at: '2024-01-01T00:00:00.000Z',
-    updated_at: '2024-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
-
 describe('Exercises Handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -71,8 +41,8 @@ describe('Exercises Handler', () => {
   describe('GET /exercises', () => {
     it('should return all exercises', async () => {
       const exercises = [
-        createTestExercise({ id: '1', name: 'Bench Press' }),
-        createTestExercise({ id: '2', name: 'Squat' }),
+        createExercise({ id: '1', name: 'Bench Press' }),
+        createExercise({ id: '2', name: 'Squat' }),
       ];
       mockExerciseRepo.findAll.mockResolvedValue(exercises);
 
@@ -102,8 +72,8 @@ describe('Exercises Handler', () => {
   describe('GET /exercises/default', () => {
     it('should return default exercises', async () => {
       const defaultExercises = [
-        createTestExercise({ id: '1', name: 'Bench Press', is_custom: false }),
-        createTestExercise({ id: '2', name: 'Squat', is_custom: false }),
+        createExercise({ id: '1', name: 'Bench Press', is_custom: false }),
+        createExercise({ id: '2', name: 'Squat', is_custom: false }),
       ];
       mockExerciseRepo.findDefaultExercises.mockResolvedValue(defaultExercises);
 
@@ -133,8 +103,8 @@ describe('Exercises Handler', () => {
   describe('GET /exercises/custom', () => {
     it('should return custom exercises', async () => {
       const customExercises = [
-        createTestExercise({ id: '1', name: 'Custom Exercise 1', is_custom: true }),
-        createTestExercise({ id: '2', name: 'Custom Exercise 2', is_custom: true }),
+        createExercise({ id: '1', name: 'Custom Exercise 1', is_custom: true }),
+        createExercise({ id: '2', name: 'Custom Exercise 2', is_custom: true }),
       ];
       mockExerciseRepo.findCustomExercises.mockResolvedValue(customExercises);
 
@@ -163,7 +133,7 @@ describe('Exercises Handler', () => {
 
   describe('GET /exercises/:id', () => {
     it('should return exercise by id', async () => {
-      const exercise = createTestExercise({ id: 'exercise-123' });
+      const exercise = createExercise({ id: 'exercise-123' });
       mockExerciseRepo.findById.mockResolvedValue(exercise);
 
       const response = await request(exercisesApp).get('/exercise-123');
@@ -194,7 +164,7 @@ describe('Exercises Handler', () => {
 
   describe('POST /exercises', () => {
     it('should create exercise with valid data', async () => {
-      const createdExercise = createTestExercise({
+      const createdExercise = createExercise({
         id: 'new-exercise',
         name: 'New Exercise',
         weight_increment: 10,
@@ -223,7 +193,7 @@ describe('Exercises Handler', () => {
     });
 
     it('should create exercise with default values', async () => {
-      const createdExercise = createTestExercise({
+      const createdExercise = createExercise({
         id: 'new-exercise',
         name: 'Minimal Exercise',
         weight_increment: 5,
@@ -301,7 +271,7 @@ describe('Exercises Handler', () => {
 
   describe('PUT /exercises/:id', () => {
     it('should update exercise with valid data', async () => {
-      const updatedExercise = createTestExercise({
+      const updatedExercise = createExercise({
         id: 'exercise-123',
         name: 'Updated Name',
         weight_increment: 10,
@@ -324,7 +294,7 @@ describe('Exercises Handler', () => {
     });
 
     it('should update exercise with partial data', async () => {
-      const updatedExercise = createTestExercise({
+      const updatedExercise = createExercise({
         id: 'exercise-123',
         name: 'Only Name Updated',
       });
@@ -382,7 +352,7 @@ describe('Exercises Handler', () => {
 
   describe('GET /exercises/:id/history', () => {
     it('should return exercise history with entries and personal record', async () => {
-      const exercise = createTestExercise({ id: 'exercise-123', name: 'Bench Press' });
+      const exercise = createExercise({ id: 'exercise-123', name: 'Bench Press' });
       mockExerciseRepo.findById.mockResolvedValue(exercise);
       mockWorkoutSetRepo.findCompletedByExerciseId.mockResolvedValue([
         {
@@ -435,7 +405,7 @@ describe('Exercises Handler', () => {
     });
 
     it('should return empty history when no completed sets', async () => {
-      const exercise = createTestExercise({ id: 'exercise-123' });
+      const exercise = createExercise({ id: 'exercise-123' });
       mockExerciseRepo.findById.mockResolvedValue(exercise);
       mockWorkoutSetRepo.findCompletedByExerciseId.mockResolvedValue([]);
 

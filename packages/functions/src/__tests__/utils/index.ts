@@ -21,3 +21,6 @@ export * from './fixtures.js';
 
 // Mock Express utilities
 export * from './mock-express.js';
+
+// Test-specific API types
+export * from './api-types.js';

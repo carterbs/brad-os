@@ -1,17 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Response } from 'supertest';
-import type { Plan, PlanDay, PlanDayExercise, Mesocycle, Exercise } from '../shared.js';
-
-// Type for API response body
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
+import { type ApiResponse, createPlan, createPlanDay, createPlanDayExercise, createMesocycle, createExercise, createMockPlanRepository, createMockPlanDayRepository, createMockPlanDayExerciseRepository, createMockMesocycleRepository, createMockExerciseRepository } from '../__tests__/utils/index.js';
 
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({
@@ -24,38 +14,11 @@ vi.mock('../middleware/app-check.js', () => ({
 }));
 
 // Mock repositories
-const mockPlanRepo = {
-  findAll: vi.fn(),
-  findById: vi.fn(),
-  create: vi.fn(),
-  update: vi.fn(),
-  delete: vi.fn(),
-  isInUse: vi.fn(),
-};
-
-const mockPlanDayRepo = {
-  findByPlanId: vi.fn(),
-  findById: vi.fn(),
-  create: vi.fn(),
-  update: vi.fn(),
-  delete: vi.fn(),
-};
-
-const mockPlanDayExerciseRepo = {
-  findByPlanDayId: vi.fn(),
-  findById: vi.fn(),
-  create: vi.fn(),
-  update: vi.fn(),
-  delete: vi.fn(),
-};
-
-const mockMesocycleRepo = {
-  findByPlanId: vi.fn(),
-};
-
-const mockExerciseRepo = {
-  findAll: vi.fn(),
-};
+const mockPlanRepo = createMockPlanRepository();
+const mockPlanDayRepo = createMockPlanDayRepository();
+const mockPlanDayExerciseRepo = createMockPlanDayExerciseRepository();
+const mockMesocycleRepo = createMockMesocycleRepository();
+const mockExerciseRepo = createMockExerciseRepository();
 
 vi.mock('../repositories/index.js', () => ({
   PlanRepository: vi.fn().mockImplementation(() => mockPlanRepo),
@@ -77,74 +40,6 @@ vi.mock('../services/index.js', () => ({
 // Import after mocks
 import { plansApp } from './plans.js';
 
-// Helper to create test plan
-function createTestPlan(overrides: Partial<Plan> = {}): Plan {
-  return {
-    id: 'plan-1',
-    name: 'Push Pull Legs',
-    duration_weeks: 6,
-    created_at: '2024-01-01T00:00:00.000Z',
-    updated_at: '2024-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
-
-// Helper to create test plan day
-function createTestPlanDay(overrides: Partial<PlanDay> = {}): PlanDay {
-  return {
-    id: 'day-1',
-    plan_id: 'plan-1',
-    day_of_week: 1,
-    name: 'Push Day',
-    sort_order: 0,
-    ...overrides,
-  };
-}
-
-// Helper to create test plan day exercise
-function createTestPlanDayExercise(overrides: Partial<PlanDayExercise> = {}): PlanDayExercise {
-  return {
-    id: 'pde-1',
-    plan_day_id: 'day-1',
-    exercise_id: 'exercise-1',
-    sets: 3,
-    reps: 10,
-    weight: 100,
-    rest_seconds: 90,
-    sort_order: 0,
-    min_reps: 8,
-    max_reps: 12,
-    ...overrides,
-  };
-}
-
-// Helper to create test mesocycle
-function createTestMesocycle(overrides: Partial<Mesocycle> = {}): Mesocycle {
-  return {
-    id: 'mesocycle-1',
-    plan_id: 'plan-1',
-    start_date: '2024-01-01',
-    current_week: 1,
-    status: 'active',
-    created_at: '2024-01-01T00:00:00.000Z',
-    updated_at: '2024-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
-
-// Helper to create test exercise
-function createTestExercise(overrides: Partial<Exercise> = {}): Exercise {
-  return {
-    id: 'exercise-1',
-    name: 'Bench Press',
-    weight_increment: 5,
-    is_custom: false,
-    created_at: '2024-01-01T00:00:00.000Z',
-    updated_at: '2024-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
-
 describe('Plans Handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -155,8 +50,8 @@ describe('Plans Handler', () => {
   describe('GET /plans', () => {
     it('should return all plans', async () => {
       const plans = [
-        createTestPlan({ id: '1', name: 'Plan A' }),
-        createTestPlan({ id: '2', name: 'Plan B' }),
+        createPlan({ id: '1', name: 'Plan A' }),
+        createPlan({ id: '2', name: 'Plan B' }),
       ];
       mockPlanRepo.findAll.mockResolvedValue(plans);
 
@@ -185,7 +80,7 @@ describe('Plans Handler', () => {
 
   describe('GET /plans/:id', () => {
     it('should return plan by id', async () => {
-      const plan = createTestPlan({ id: 'plan-123' });
+      const plan = createPlan({ id: 'plan-123' });
       mockPlanRepo.findById.mockResolvedValue(plan);
 
       const response = await request(plansApp).get('/plan-123');
@@ -216,7 +111,7 @@ describe('Plans Handler', () => {
 
   describe('POST /plans', () => {
     it('should create plan with valid data', async () => {
-      const createdPlan = createTestPlan({ id: 'new-plan', name: 'New Plan' });
+      const createdPlan = createPlan({ id: 'new-plan', name: 'New Plan' });
       mockPlanRepo.create.mockResolvedValue(createdPlan);
 
       const response = await request(plansApp)
@@ -231,7 +126,7 @@ describe('Plans Handler', () => {
     });
 
     it('should create plan with default duration', async () => {
-      const createdPlan = createTestPlan({ id: 'new-plan', name: 'Minimal Plan' });
+      const createdPlan = createPlan({ id: 'new-plan', name: 'Minimal Plan' });
       mockPlanRepo.create.mockResolvedValue(createdPlan);
 
       const response = await request(plansApp)
@@ -281,8 +176,8 @@ describe('Plans Handler', () => {
 
   describe('PUT /plans/:id', () => {
     it('should update plan with valid data', async () => {
-      const existingPlan = createTestPlan({ id: 'plan-123' });
-      const updatedPlan = createTestPlan({ id: 'plan-123', name: 'Updated Plan' });
+      const existingPlan = createPlan({ id: 'plan-123' });
+      const updatedPlan = createPlan({ id: 'plan-123', name: 'Updated Plan' });
       mockPlanRepo.findById.mockResolvedValue(existingPlan);
       mockMesocycleRepo.findByPlanId.mockResolvedValue([]);
       mockPlanRepo.update.mockResolvedValue(updatedPlan);
@@ -299,12 +194,12 @@ describe('Plans Handler', () => {
     });
 
     it('should sync to mesocycle when plan has active mesocycle', async () => {
-      const existingPlan = createTestPlan({ id: 'plan-123' });
-      const updatedPlan = createTestPlan({ id: 'plan-123', name: 'Updated Plan' });
-      const activeMesocycle = createTestMesocycle({ plan_id: 'plan-123', status: 'active' });
-      const planDays = [createTestPlanDay({ plan_id: 'plan-123' })];
-      const planExercises = [createTestPlanDayExercise()];
-      const exercises = [createTestExercise()];
+      const existingPlan = createPlan({ id: 'plan-123' });
+      const updatedPlan = createPlan({ id: 'plan-123', name: 'Updated Plan' });
+      const activeMesocycle = createMesocycle({ plan_id: 'plan-123', status: 'active' });
+      const planDays = [createPlanDay({ plan_id: 'plan-123' })];
+      const planExercises = [createPlanDayExercise()];
+      const exercises = [createExercise()];
 
       mockPlanRepo.findById.mockResolvedValue(existingPlan);
       mockMesocycleRepo.findByPlanId.mockResolvedValue([activeMesocycle]);
@@ -388,10 +283,10 @@ describe('Plans Handler', () => {
 
   describe('GET /plans/:planId/days', () => {
     it('should return days for plan', async () => {
-      const plan = createTestPlan({ id: 'plan-123' });
+      const plan = createPlan({ id: 'plan-123' });
       const days = [
-        createTestPlanDay({ id: 'day-1', plan_id: 'plan-123' }),
-        createTestPlanDay({ id: 'day-2', plan_id: 'plan-123' }),
+        createPlanDay({ id: 'day-1', plan_id: 'plan-123' }),
+        createPlanDay({ id: 'day-2', plan_id: 'plan-123' }),
       ];
       mockPlanRepo.findById.mockResolvedValue(plan);
       mockPlanDayRepo.findByPlanId.mockResolvedValue(days);
@@ -416,7 +311,7 @@ describe('Plans Handler', () => {
     });
 
     it('should return empty array when no days exist', async () => {
-      const plan = createTestPlan({ id: 'plan-123' });
+      const plan = createPlan({ id: 'plan-123' });
       mockPlanRepo.findById.mockResolvedValue(plan);
       mockPlanDayRepo.findByPlanId.mockResolvedValue([]);
 
@@ -432,8 +327,8 @@ describe('Plans Handler', () => {
 
   describe('POST /plans/:planId/days', () => {
     it('should create day for plan', async () => {
-      const plan = createTestPlan({ id: 'plan-123' });
-      const createdDay = createTestPlanDay({ id: 'new-day', plan_id: 'plan-123' });
+      const plan = createPlan({ id: 'plan-123' });
+      const createdDay = createPlanDay({ id: 'new-day', plan_id: 'plan-123' });
       mockPlanRepo.findById.mockResolvedValue(plan);
       mockPlanDayRepo.create.mockResolvedValue(createdDay);
 
@@ -475,7 +370,7 @@ describe('Plans Handler', () => {
     });
 
     it('should return 400 for invalid day_of_week', async () => {
-      const plan = createTestPlan({ id: 'plan-123' });
+      const plan = createPlan({ id: 'plan-123' });
       mockPlanRepo.findById.mockResolvedValue(plan);
 
       const response: Response = await request(plansApp)
@@ -492,7 +387,7 @@ describe('Plans Handler', () => {
     });
 
     it('should return 400 for missing name', async () => {
-      const plan = createTestPlan({ id: 'plan-123' });
+      const plan = createPlan({ id: 'plan-123' });
       mockPlanRepo.findById.mockResolvedValue(plan);
 
       const response: Response = await request(plansApp)
@@ -510,7 +405,7 @@ describe('Plans Handler', () => {
 
   describe('PUT /plans/:planId/days/:dayId', () => {
     it('should update day successfully', async () => {
-      const updatedDay = createTestPlanDay({ id: 'day-123', name: 'Updated Day' });
+      const updatedDay = createPlanDay({ id: 'day-123', name: 'Updated Day' });
       mockPlanDayRepo.update.mockResolvedValue(updatedDay);
 
       const response = await request(plansApp)
@@ -572,10 +467,10 @@ describe('Plans Handler', () => {
 
   describe('GET /plans/:planId/days/:dayId/exercises', () => {
     it('should return exercises for day', async () => {
-      const day = createTestPlanDay({ id: 'day-123' });
+      const day = createPlanDay({ id: 'day-123' });
       const exercises = [
-        createTestPlanDayExercise({ id: 'pde-1', plan_day_id: 'day-123' }),
-        createTestPlanDayExercise({ id: 'pde-2', plan_day_id: 'day-123' }),
+        createPlanDayExercise({ id: 'pde-1', plan_day_id: 'day-123' }),
+        createPlanDayExercise({ id: 'pde-2', plan_day_id: 'day-123' }),
       ];
       mockPlanDayRepo.findById.mockResolvedValue(day);
       mockPlanDayExerciseRepo.findByPlanDayId.mockResolvedValue(exercises);
@@ -600,7 +495,7 @@ describe('Plans Handler', () => {
     });
 
     it('should return empty array when no exercises exist', async () => {
-      const day = createTestPlanDay({ id: 'day-123' });
+      const day = createPlanDay({ id: 'day-123' });
       mockPlanDayRepo.findById.mockResolvedValue(day);
       mockPlanDayExerciseRepo.findByPlanDayId.mockResolvedValue([]);
 
@@ -616,8 +511,8 @@ describe('Plans Handler', () => {
 
   describe('POST /plans/:planId/days/:dayId/exercises', () => {
     it('should create exercise for day', async () => {
-      const day = createTestPlanDay({ id: 'day-123' });
-      const createdExercise = createTestPlanDayExercise({
+      const day = createPlanDay({ id: 'day-123' });
+      const createdExercise = createPlanDayExercise({
         id: 'new-pde',
         plan_day_id: 'day-123',
       });
@@ -639,8 +534,8 @@ describe('Plans Handler', () => {
     });
 
     it('should create exercise with custom values', async () => {
-      const day = createTestPlanDay({ id: 'day-123' });
-      const createdExercise = createTestPlanDayExercise({
+      const day = createPlanDay({ id: 'day-123' });
+      const createdExercise = createPlanDayExercise({
         id: 'new-pde',
         sets: 4,
         reps: 12,
@@ -689,7 +584,7 @@ describe('Plans Handler', () => {
     });
 
     it('should return 400 for missing exercise_id', async () => {
-      const day = createTestPlanDay({ id: 'day-123' });
+      const day = createPlanDay({ id: 'day-123' });
       mockPlanDayRepo.findById.mockResolvedValue(day);
 
       const response: Response = await request(plansApp)
@@ -702,7 +597,7 @@ describe('Plans Handler', () => {
     });
 
     it('should return 400 for non-positive sets', async () => {
-      const day = createTestPlanDay({ id: 'day-123' });
+      const day = createPlanDay({ id: 'day-123' });
       mockPlanDayRepo.findById.mockResolvedValue(day);
 
       const response: Response = await request(plansApp)
@@ -721,7 +616,7 @@ describe('Plans Handler', () => {
 
   describe('PUT /plans/:planId/days/:dayId/exercises/:exerciseId', () => {
     it('should update exercise successfully', async () => {
-      const updatedExercise = createTestPlanDayExercise({
+      const updatedExercise = createPlanDayExercise({
         id: 'pde-123',
         sets: 5,
         reps: 8,

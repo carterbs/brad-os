@@ -1,18 +1,12 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import type { Firestore } from 'firebase-admin/firestore';
-import type {
-  Workout,
-  WorkoutSet,
-  PlanDay,
-  PlanDayExercise,
-  Exercise,
-} from '../shared.js';
 import { WorkoutService } from './workout.service.js';
 import { WorkoutRepository } from '../repositories/workout.repository.js';
 import { WorkoutSetRepository } from '../repositories/workout-set.repository.js';
 import { PlanDayRepository } from '../repositories/plan-day.repository.js';
 import { PlanDayExerciseRepository } from '../repositories/plan-day-exercise.repository.js';
 import { ExerciseRepository } from '../repositories/exercise.repository.js';
+import { createWorkout, createPlanDay, createPlanDayExercise, createExercise, createWorkoutSet } from '../__tests__/utils/index.js';
 
 // Mock all repositories
 vi.mock('../repositories/workout.repository.js');
@@ -43,25 +37,49 @@ describe('WorkoutService', () => {
     findById: Mock;
   };
 
+  // Shared default overrides matching original inline factory/fixture defaults
+  const workoutDefaults = {
+    id: 'workout-1',
+    mesocycle_id: 'meso-1',
+    plan_day_id: 'plan-day-1',
+    week_number: 1,
+    scheduled_date: '2024-01-15',
+    status: 'pending' as const,
+    started_at: null,
+    completed_at: null,
+  };
+
+  const workoutSetDefaults = {
+    id: 'set-1',
+    workout_id: 'workout-1',
+    exercise_id: 'exercise-1',
+    set_number: 1,
+    target_reps: 8,
+    target_weight: 100,
+    actual_reps: null,
+    actual_weight: null,
+    status: 'pending' as const,
+  };
+
   // Fixtures
-  const mockPlanDay: PlanDay = {
+  const mockPlanDay = createPlanDay({
     id: 'plan-day-1',
     plan_id: 'plan-1',
     day_of_week: 1,
     name: 'Push Day',
     sort_order: 0,
-  };
+  });
 
-  const mockExercise: Exercise = {
+  const mockExercise = createExercise({
     id: 'exercise-1',
     name: 'Bench Press',
     weight_increment: 5,
     is_custom: false,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
-  };
+  });
 
-  const mockPlanDayExercise: PlanDayExercise = {
+  const mockPlanDayExercise = createPlanDayExercise({
     id: 'pde-1',
     plan_day_id: 'plan-day-1',
     exercise_id: 'exercise-1',
@@ -72,31 +90,6 @@ describe('WorkoutService', () => {
     sort_order: 0,
     min_reps: 8,
     max_reps: 12,
-  };
-
-  const createMockWorkout = (overrides: Partial<Workout> = {}): Workout => ({
-    id: 'workout-1',
-    mesocycle_id: 'meso-1',
-    plan_day_id: 'plan-day-1',
-    week_number: 1,
-    scheduled_date: '2024-01-15',
-    status: 'pending',
-    started_at: null,
-    completed_at: null,
-    ...overrides,
-  });
-
-  const createMockWorkoutSet = (overrides: Partial<WorkoutSet> = {}): WorkoutSet => ({
-    id: 'set-1',
-    workout_id: 'workout-1',
-    exercise_id: 'exercise-1',
-    set_number: 1,
-    target_reps: 8,
-    target_weight: 100,
-    actual_reps: null,
-    actual_weight: null,
-    status: 'pending',
-    ...overrides,
   });
 
   beforeEach(() => {
@@ -147,10 +140,10 @@ describe('WorkoutService', () => {
     });
 
     it('should return workout with exercises grouped', async () => {
-      const workout = createMockWorkout();
+      const workout = createWorkout(workoutDefaults);
       const sets = [
-        createMockWorkoutSet({ id: 'set-1', set_number: 1 }),
-        createMockWorkoutSet({ id: 'set-2', set_number: 2 }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-1', set_number: 1 }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-2', set_number: 2 }),
       ];
 
       mockWorkoutRepo.findById.mockResolvedValue(workout);
@@ -170,11 +163,11 @@ describe('WorkoutService', () => {
     });
 
     it('should sort sets by set_number within each exercise', async () => {
-      const workout = createMockWorkout();
+      const workout = createWorkout(workoutDefaults);
       const sets = [
-        createMockWorkoutSet({ id: 'set-3', set_number: 3 }),
-        createMockWorkoutSet({ id: 'set-1', set_number: 1 }),
-        createMockWorkoutSet({ id: 'set-2', set_number: 2 }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-3', set_number: 3 }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-1', set_number: 1 }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-2', set_number: 2 }),
       ];
 
       mockWorkoutRepo.findById.mockResolvedValue(workout);
@@ -191,11 +184,11 @@ describe('WorkoutService', () => {
     });
 
     it('should count completed sets correctly', async () => {
-      const workout = createMockWorkout({ status: 'in_progress' });
+      const workout = createWorkout({ ...workoutDefaults, status: 'in_progress' });
       const sets = [
-        createMockWorkoutSet({ id: 'set-1', set_number: 1, status: 'completed', actual_reps: 8, actual_weight: 100 }),
-        createMockWorkoutSet({ id: 'set-2', set_number: 2, status: 'completed', actual_reps: 8, actual_weight: 100 }),
-        createMockWorkoutSet({ id: 'set-3', set_number: 3, status: 'pending' }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-1', set_number: 1, status: 'completed', actual_reps: 8, actual_weight: 100 }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-2', set_number: 2, status: 'completed', actual_reps: 8, actual_weight: 100 }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-3', set_number: 3, status: 'pending' }),
       ];
 
       mockWorkoutRepo.findById.mockResolvedValue(workout);
@@ -221,8 +214,8 @@ describe('WorkoutService', () => {
     });
 
     it('should return the next pending workout with exercises', async () => {
-      const workout = createMockWorkout();
-      const sets = [createMockWorkoutSet()];
+      const workout = createWorkout(workoutDefaults);
+      const sets = [createWorkoutSet(workoutSetDefaults)];
 
       mockWorkoutRepo.findNextPending.mockResolvedValue(workout);
       mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
@@ -238,12 +231,13 @@ describe('WorkoutService', () => {
     });
 
     it('should prefer in_progress workout over pending', async () => {
-      const inProgressWorkout = createMockWorkout({
+      const inProgressWorkout = createWorkout({
+        ...workoutDefaults,
         id: 'workout-in-progress',
         status: 'in_progress',
         started_at: '2024-01-15T10:00:00Z',
       });
-      const sets = [createMockWorkoutSet({ workout_id: 'workout-in-progress' })];
+      const sets = [createWorkoutSet({ ...workoutSetDefaults, workout_id: 'workout-in-progress' })];
 
       mockWorkoutRepo.findNextPending.mockResolvedValue(inProgressWorkout);
       mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
@@ -268,7 +262,7 @@ describe('WorkoutService', () => {
     });
 
     it('should throw error if workout is already in progress', async () => {
-      const workout = createMockWorkout({ status: 'in_progress' });
+      const workout = createWorkout({ ...workoutDefaults, status: 'in_progress' });
       mockWorkoutRepo.findById.mockResolvedValue(workout);
 
       await expect(service.start('workout-1')).rejects.toThrow(
@@ -277,7 +271,7 @@ describe('WorkoutService', () => {
     });
 
     it('should throw error if workout is completed', async () => {
-      const workout = createMockWorkout({ status: 'completed' });
+      const workout = createWorkout({ ...workoutDefaults, status: 'completed' });
       mockWorkoutRepo.findById.mockResolvedValue(workout);
 
       await expect(service.start('workout-1')).rejects.toThrow(
@@ -286,7 +280,7 @@ describe('WorkoutService', () => {
     });
 
     it('should throw error if workout is skipped', async () => {
-      const workout = createMockWorkout({ status: 'skipped' });
+      const workout = createWorkout({ ...workoutDefaults, status: 'skipped' });
       mockWorkoutRepo.findById.mockResolvedValue(workout);
 
       await expect(service.start('workout-1')).rejects.toThrow(
@@ -295,8 +289,9 @@ describe('WorkoutService', () => {
     });
 
     it('should transition pending workout to in_progress', async () => {
-      const workout = createMockWorkout();
-      const updatedWorkout = createMockWorkout({
+      const workout = createWorkout(workoutDefaults);
+      const updatedWorkout = createWorkout({
+        ...workoutDefaults,
         status: 'in_progress',
         started_at: '2024-01-15T10:00:00Z',
       });
@@ -316,8 +311,9 @@ describe('WorkoutService', () => {
     });
 
     it('should set started_at timestamp when starting', async () => {
-      const workout = createMockWorkout();
-      const updatedWorkout = createMockWorkout({
+      const workout = createWorkout(workoutDefaults);
+      const updatedWorkout = createWorkout({
+        ...workoutDefaults,
         status: 'in_progress',
         started_at: '2024-01-15T10:00:00Z',
       });
@@ -339,22 +335,25 @@ describe('WorkoutService', () => {
     });
 
     it('should apply dynamic progression to pending sets', async () => {
-      const workout = createMockWorkout({ week_number: 2 });
-      const previousWorkout = createMockWorkout({
+      const workout = createWorkout({ ...workoutDefaults, week_number: 2 });
+      const previousWorkout = createWorkout({
+        ...workoutDefaults,
         id: 'prev-workout',
         week_number: 1,
         status: 'completed',
       });
       const previousSets = [
-        createMockWorkoutSet({
+        createWorkoutSet({
+          ...workoutSetDefaults,
           workout_id: 'prev-workout',
           status: 'completed',
           actual_reps: 10,
           actual_weight: 100,
         }),
       ];
-      const currentSets = [createMockWorkoutSet()];
-      const updatedWorkout = createMockWorkout({
+      const currentSets = [createWorkoutSet(workoutSetDefaults)];
+      const updatedWorkout = createWorkout({
+        ...workoutDefaults,
         status: 'in_progress',
         started_at: '2024-01-15T10:00:00Z',
       });
@@ -375,7 +374,7 @@ describe('WorkoutService', () => {
     });
 
     it('should throw error if update fails', async () => {
-      const workout = createMockWorkout();
+      const workout = createWorkout(workoutDefaults);
 
       mockWorkoutRepo.findById.mockResolvedValue(workout);
       mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue([]);
@@ -398,7 +397,7 @@ describe('WorkoutService', () => {
     });
 
     it('should throw error if workout is pending', async () => {
-      const workout = createMockWorkout({ status: 'pending' });
+      const workout = createWorkout({ ...workoutDefaults, status: 'pending' });
       mockWorkoutRepo.findById.mockResolvedValue(workout);
 
       await expect(service.complete('workout-1')).rejects.toThrow(
@@ -407,7 +406,7 @@ describe('WorkoutService', () => {
     });
 
     it('should throw error if workout is already completed', async () => {
-      const workout = createMockWorkout({ status: 'completed' });
+      const workout = createWorkout({ ...workoutDefaults, status: 'completed' });
       mockWorkoutRepo.findById.mockResolvedValue(workout);
 
       await expect(service.complete('workout-1')).rejects.toThrow(
@@ -416,7 +415,7 @@ describe('WorkoutService', () => {
     });
 
     it('should throw error if workout is skipped', async () => {
-      const workout = createMockWorkout({ status: 'skipped' });
+      const workout = createWorkout({ ...workoutDefaults, status: 'skipped' });
       mockWorkoutRepo.findById.mockResolvedValue(workout);
 
       await expect(service.complete('workout-1')).rejects.toThrow(
@@ -425,8 +424,9 @@ describe('WorkoutService', () => {
     });
 
     it('should transition in_progress workout to completed', async () => {
-      const workout = createMockWorkout({ status: 'in_progress', started_at: '2024-01-15T10:00:00Z' });
-      const completedWorkout = createMockWorkout({
+      const workout = createWorkout({ ...workoutDefaults, status: 'in_progress', started_at: '2024-01-15T10:00:00Z' });
+      const completedWorkout = createWorkout({
+        ...workoutDefaults,
         status: 'completed',
         started_at: '2024-01-15T10:00:00Z',
         completed_at: '2024-01-15T11:00:00Z',
@@ -445,8 +445,9 @@ describe('WorkoutService', () => {
     });
 
     it('should set completed_at timestamp', async () => {
-      const workout = createMockWorkout({ status: 'in_progress', started_at: '2024-01-15T10:00:00Z' });
-      const completedWorkout = createMockWorkout({
+      const workout = createWorkout({ ...workoutDefaults, status: 'in_progress', started_at: '2024-01-15T10:00:00Z' });
+      const completedWorkout = createWorkout({
+        ...workoutDefaults,
         status: 'completed',
         completed_at: '2024-01-15T11:00:00Z',
       });
@@ -466,7 +467,7 @@ describe('WorkoutService', () => {
     });
 
     it('should throw error if update fails', async () => {
-      const workout = createMockWorkout({ status: 'in_progress', started_at: '2024-01-15T10:00:00Z' });
+      const workout = createWorkout({ ...workoutDefaults, status: 'in_progress', started_at: '2024-01-15T10:00:00Z' });
 
       mockWorkoutRepo.findById.mockResolvedValue(workout);
       mockWorkoutRepo.update.mockResolvedValue(null);
@@ -487,7 +488,7 @@ describe('WorkoutService', () => {
     });
 
     it('should throw error if workout is completed', async () => {
-      const workout = createMockWorkout({ status: 'completed' });
+      const workout = createWorkout({ ...workoutDefaults, status: 'completed' });
       mockWorkoutRepo.findById.mockResolvedValue(workout);
 
       await expect(service.skip('workout-1')).rejects.toThrow(
@@ -496,7 +497,7 @@ describe('WorkoutService', () => {
     });
 
     it('should throw error if workout is already skipped', async () => {
-      const workout = createMockWorkout({ status: 'skipped' });
+      const workout = createWorkout({ ...workoutDefaults, status: 'skipped' });
       mockWorkoutRepo.findById.mockResolvedValue(workout);
 
       await expect(service.skip('workout-1')).rejects.toThrow(
@@ -505,8 +506,8 @@ describe('WorkoutService', () => {
     });
 
     it('should transition pending workout to skipped', async () => {
-      const workout = createMockWorkout({ status: 'pending' });
-      const skippedWorkout = createMockWorkout({ status: 'skipped' });
+      const workout = createWorkout({ ...workoutDefaults, status: 'pending' });
+      const skippedWorkout = createWorkout({ ...workoutDefaults, status: 'skipped' });
 
       mockWorkoutRepo.findById.mockResolvedValue(workout);
       mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue([]);
@@ -519,8 +520,8 @@ describe('WorkoutService', () => {
     });
 
     it('should transition in_progress workout to skipped', async () => {
-      const workout = createMockWorkout({ status: 'in_progress', started_at: '2024-01-15T10:00:00Z' });
-      const skippedWorkout = createMockWorkout({ status: 'skipped' });
+      const workout = createWorkout({ ...workoutDefaults, status: 'in_progress', started_at: '2024-01-15T10:00:00Z' });
+      const skippedWorkout = createWorkout({ ...workoutDefaults, status: 'skipped' });
 
       mockWorkoutRepo.findById.mockResolvedValue(workout);
       mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue([]);
@@ -532,12 +533,12 @@ describe('WorkoutService', () => {
     });
 
     it('should mark all pending sets as skipped', async () => {
-      const workout = createMockWorkout({ status: 'pending' });
+      const workout = createWorkout({ ...workoutDefaults, status: 'pending' });
       const pendingSets = [
-        createMockWorkoutSet({ id: 'set-1', status: 'pending' }),
-        createMockWorkoutSet({ id: 'set-2', status: 'pending' }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-1', status: 'pending' }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-2', status: 'pending' }),
       ];
-      const skippedWorkout = createMockWorkout({ status: 'skipped' });
+      const skippedWorkout = createWorkout({ ...workoutDefaults, status: 'skipped' });
 
       mockWorkoutRepo.findById.mockResolvedValue(workout);
       mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(pendingSets);
@@ -552,13 +553,13 @@ describe('WorkoutService', () => {
     });
 
     it('should not modify already completed sets when skipping', async () => {
-      const workout = createMockWorkout({ status: 'in_progress', started_at: '2024-01-15T10:00:00Z' });
+      const workout = createWorkout({ ...workoutDefaults, status: 'in_progress', started_at: '2024-01-15T10:00:00Z' });
       const mixedSets = [
-        createMockWorkoutSet({ id: 'set-1', status: 'completed', actual_reps: 8, actual_weight: 100 }),
-        createMockWorkoutSet({ id: 'set-2', status: 'pending' }),
-        createMockWorkoutSet({ id: 'set-3', status: 'pending' }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-1', status: 'completed', actual_reps: 8, actual_weight: 100 }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-2', status: 'pending' }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-3', status: 'pending' }),
       ];
-      const skippedWorkout = createMockWorkout({ status: 'skipped' });
+      const skippedWorkout = createWorkout({ ...workoutDefaults, status: 'skipped' });
 
       mockWorkoutRepo.findById.mockResolvedValue(workout);
       mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(mixedSets);
@@ -572,7 +573,7 @@ describe('WorkoutService', () => {
     });
 
     it('should throw error if update fails', async () => {
-      const workout = createMockWorkout({ status: 'pending' });
+      const workout = createWorkout({ ...workoutDefaults, status: 'pending' });
 
       mockWorkoutRepo.findById.mockResolvedValue(workout);
       mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue([]);
@@ -635,10 +636,10 @@ describe('WorkoutService', () => {
 
   describe('warmup sets in getById response', () => {
     it('should include warmup_sets on each exercise', async () => {
-      const workout = createMockWorkout();
+      const workout = createWorkout(workoutDefaults);
       const sets = [
-        createMockWorkoutSet({ id: 'set-1', set_number: 1, target_weight: 100 }),
-        createMockWorkoutSet({ id: 'set-2', set_number: 2, target_weight: 100 }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-1', set_number: 1, target_weight: 100 }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-2', set_number: 2, target_weight: 100 }),
       ];
 
       mockWorkoutRepo.findById.mockResolvedValue(workout);
@@ -656,9 +657,9 @@ describe('WorkoutService', () => {
 
     it('should not include warmup_sets for low-weight exercises', async () => {
       // Use in_progress to avoid dynamic progression overriding target_weight
-      const workout = createMockWorkout({ status: 'in_progress' });
+      const workout = createWorkout({ ...workoutDefaults, status: 'in_progress' });
       const sets = [
-        createMockWorkoutSet({ id: 'set-1', set_number: 1, target_weight: 15 }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-1', set_number: 1, target_weight: 15 }),
       ];
 
       mockWorkoutRepo.findById.mockResolvedValue(workout);
@@ -673,11 +674,11 @@ describe('WorkoutService', () => {
     });
 
     it('should not count warmup sets in total_sets or completed_sets', async () => {
-      const workout = createMockWorkout({ status: 'in_progress' });
+      const workout = createWorkout({ ...workoutDefaults, status: 'in_progress' });
       const sets = [
-        createMockWorkoutSet({ id: 'set-1', set_number: 1, status: 'completed', actual_reps: 8, actual_weight: 100 }),
-        createMockWorkoutSet({ id: 'set-2', set_number: 2, status: 'pending' }),
-        createMockWorkoutSet({ id: 'set-3', set_number: 3, status: 'pending' }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-1', set_number: 1, status: 'completed', actual_reps: 8, actual_weight: 100 }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-2', set_number: 2, status: 'pending' }),
+        createWorkoutSet({ ...workoutSetDefaults, id: 'set-3', set_number: 3, status: 'pending' }),
       ];
 
       mockWorkoutRepo.findById.mockResolvedValue(workout);

@@ -1,15 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
-
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-    details?: unknown[];
-  };
-}
+import { type ApiResponse } from '../__tests__/utils/index.js';
 
 // Mock the recovery service
 const mockRecoveryService = vi.hoisted(() => ({

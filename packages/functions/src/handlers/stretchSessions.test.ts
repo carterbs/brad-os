@@ -2,16 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Response } from 'supertest';
 import type { StretchSessionRecord, BodyRegion, CompletedStretch } from '../shared.js';
-
-// Type for API response body
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
+import { type ApiResponse, createStretchSession, createMockStretchSessionRepository } from '../__tests__/utils/index.js';
 
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({
@@ -24,12 +15,7 @@ vi.mock('../middleware/app-check.js', () => ({
 }));
 
 // Mock repository
-const mockStretchSessionRepo = {
-  findAll: vi.fn(),
-  findById: vi.fn(),
-  findLatest: vi.fn(),
-  create: vi.fn(),
-};
+const mockStretchSessionRepo = createMockStretchSessionRepository();
 
 vi.mock('../repositories/stretchSession.repository.js', () => ({
   StretchSessionRepository: vi.fn().mockImplementation(() => mockStretchSessionRepo),
@@ -37,34 +23,6 @@ vi.mock('../repositories/stretchSession.repository.js', () => ({
 
 // Import after mocks
 import { stretchSessionsApp } from './stretchSessions.js';
-
-// Helper to create test stretch session
-function createTestStretchSession(overrides: Partial<StretchSessionRecord> = {}): StretchSessionRecord {
-  return {
-    id: 'session-1',
-    completedAt: '2024-01-15T10:30:00.000Z',
-    totalDurationSeconds: 600,
-    regionsCompleted: 8,
-    regionsSkipped: 0,
-    stretches: [
-      {
-        region: 'neck' as BodyRegion,
-        stretchId: 'neck-forward-tilt',
-        stretchName: 'Neck Forward Tilt',
-        durationSeconds: 60,
-        skippedSegments: 0,
-      },
-      {
-        region: 'shoulders' as BodyRegion,
-        stretchId: 'shoulder-stretch',
-        stretchName: 'Shoulder Stretch',
-        durationSeconds: 60,
-        skippedSegments: 0,
-      },
-    ],
-    ...overrides,
-  };
-}
 
 // Helper to create valid request body
 function createValidRequestBody(): Record<string, unknown> {
@@ -92,7 +50,7 @@ describe('StretchSessions Handler', () => {
 
   describe('POST /stretch-sessions', () => {
     it('should create stretch session with valid data', async () => {
-      const createdSession = createTestStretchSession({ id: 'new-session' });
+      const createdSession = createStretchSession({ id: 'new-session' });
       mockStretchSessionRepo.create.mockResolvedValue(createdSession);
 
       const response = await request(stretchSessionsApp)
@@ -138,7 +96,7 @@ describe('StretchSessions Handler', () => {
         regionsSkipped: 5,
         stretches,
       };
-      const createdSession = createTestStretchSession(requestBody);
+      const createdSession = createStretchSession(requestBody);
       mockStretchSessionRepo.create.mockResolvedValue(createdSession);
 
       const response = await request(stretchSessionsApp)
@@ -300,7 +258,7 @@ describe('StretchSessions Handler', () => {
           stretchesArray[0].region = region;
         }
 
-        const createdSession = createTestStretchSession();
+        const createdSession = createStretchSession();
         mockStretchSessionRepo.create.mockResolvedValue(createdSession);
 
         const response = await request(stretchSessionsApp)
@@ -315,8 +273,8 @@ describe('StretchSessions Handler', () => {
   describe('GET /stretch-sessions', () => {
     it('should return all stretch sessions', async () => {
       const sessions = [
-        createTestStretchSession({ id: '1' }),
-        createTestStretchSession({ id: '2' }),
+        createStretchSession({ id: '1' }),
+        createStretchSession({ id: '2' }),
       ];
       mockStretchSessionRepo.findAll.mockResolvedValue(sessions);
 
@@ -345,7 +303,7 @@ describe('StretchSessions Handler', () => {
 
   describe('GET /stretch-sessions/latest', () => {
     it('should return latest stretch session', async () => {
-      const latestSession = createTestStretchSession({ id: 'latest' });
+      const latestSession = createStretchSession({ id: 'latest' });
       mockStretchSessionRepo.findLatest.mockResolvedValue(latestSession);
 
       const response = await request(stretchSessionsApp).get('/latest');
@@ -373,7 +331,7 @@ describe('StretchSessions Handler', () => {
 
   describe('GET /stretch-sessions/:id', () => {
     it('should return stretch session by id', async () => {
-      const session = createTestStretchSession({ id: 'session-123' });
+      const session = createStretchSession({ id: 'session-123' });
       mockStretchSessionRepo.findById.mockResolvedValue(session);
 
       const response = await request(stretchSessionsApp).get('/session-123');

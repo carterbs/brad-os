@@ -1,41 +1,30 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { DynamicProgressionService } from './dynamic-progression.service.js';
-import type {
-  ExerciseProgression,
-  PreviousWeekPerformance,
-} from '../shared.js';
+import type { PreviousWeekPerformance } from '../shared.js';
+import {
+  createExerciseProgression,
+  createPreviousWeekPerformance,
+} from '../__tests__/utils/index.js';
 
 describe('DynamicProgressionService', () => {
   let service: DynamicProgressionService;
 
-  // Standard test exercise with base values
-  const createTestExercise = (
-    overrides: Partial<ExerciseProgression> = {}
-  ): ExerciseProgression => ({
+  // Shared defaults matching the original inline factory values
+  const exerciseDefaults = {
     exerciseId: 'exercise-1',
     planExerciseId: 'plan-exercise-1',
     baseWeight: 100,
     baseReps: 8,
-    baseSets: 3,
-    weightIncrement: 5,
-    minReps: 8,
-    maxReps: 12,
-    ...overrides,
-  });
+  };
 
-  const createPerformance = (
-    overrides: Partial<PreviousWeekPerformance> = {}
-  ): PreviousWeekPerformance => ({
+  const performanceDefaults = {
     exerciseId: 'exercise-1',
     weekNumber: 0,
     targetWeight: 100,
     targetReps: 8,
     actualWeight: 100,
     actualReps: 8,
-    hitTarget: true,
-    consecutiveFailures: 0,
-    ...overrides,
-  });
+  };
 
   beforeEach(() => {
     service = new DynamicProgressionService();
@@ -44,7 +33,7 @@ describe('DynamicProgressionService', () => {
   describe('calculateNextWeekTargets', () => {
     describe('First week (no previous data)', () => {
       it('should return base values with first_week reason', () => {
-        const exercise = createTestExercise();
+        const exercise = createExerciseProgression(exerciseDefaults);
 
         const result = service.calculateNextWeekTargets(exercise, null, false);
 
@@ -56,7 +45,8 @@ describe('DynamicProgressionService', () => {
       });
 
       it('should use custom base values', () => {
-        const exercise = createTestExercise({
+        const exercise = createExerciseProgression({
+          ...exerciseDefaults,
           baseWeight: 135,
           baseReps: 10,
           baseSets: 4,
@@ -72,8 +62,8 @@ describe('DynamicProgressionService', () => {
 
     describe('Deload week', () => {
       it('should apply 85% weight on deload week', () => {
-        const exercise = createTestExercise();
-        const performance = createPerformance({ actualWeight: 100 });
+        const exercise = createExerciseProgression(exerciseDefaults);
+        const performance = createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 100 });
 
         const result = service.calculateNextWeekTargets(
           exercise,
@@ -88,8 +78,8 @@ describe('DynamicProgressionService', () => {
       });
 
       it('should apply 50% volume on deload week', () => {
-        const exercise = createTestExercise({ baseSets: 4 });
-        const performance = createPerformance();
+        const exercise = createExerciseProgression({ ...exerciseDefaults, baseSets: 4 });
+        const performance = createPreviousWeekPerformance(performanceDefaults);
 
         const result = service.calculateNextWeekTargets(
           exercise,
@@ -102,8 +92,8 @@ describe('DynamicProgressionService', () => {
       });
 
       it('should have minimum 1 set on deload', () => {
-        const exercise = createTestExercise({ baseSets: 1 });
-        const performance = createPerformance();
+        const exercise = createExerciseProgression({ ...exerciseDefaults, baseSets: 1 });
+        const performance = createPreviousWeekPerformance(performanceDefaults);
 
         const result = service.calculateNextWeekTargets(
           exercise,
@@ -115,8 +105,8 @@ describe('DynamicProgressionService', () => {
       });
 
       it('should use minReps on deload week', () => {
-        const exercise = createTestExercise({ minReps: 6 });
-        const performance = createPerformance({ actualReps: 10 });
+        const exercise = createExerciseProgression({ ...exerciseDefaults, minReps: 6 });
+        const performance = createPreviousWeekPerformance({ ...performanceDefaults, actualReps: 10 });
 
         const result = service.calculateNextWeekTargets(
           exercise,
@@ -128,8 +118,8 @@ describe('DynamicProgressionService', () => {
       });
 
       it('should round deload weight to nearest 2.5', () => {
-        const exercise = createTestExercise();
-        const performance = createPerformance({ actualWeight: 135 });
+        const exercise = createExerciseProgression(exerciseDefaults);
+        const performance = createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 135 });
 
         const result = service.calculateNextWeekTargets(
           exercise,
@@ -144,12 +134,14 @@ describe('DynamicProgressionService', () => {
 
     describe('Hit max reps - progression', () => {
       it('should add weight and drop to minReps when hitting maxReps', () => {
-        const exercise = createTestExercise({
+        const exercise = createExerciseProgression({
+          ...exerciseDefaults,
           minReps: 8,
           maxReps: 12,
           weightIncrement: 5,
         });
-        const performance = createPerformance({
+        const performance = createPreviousWeekPerformance({
+          ...performanceDefaults,
           actualWeight: 100,
           actualReps: 12, // Hit max reps
           targetReps: 10,
@@ -167,8 +159,9 @@ describe('DynamicProgressionService', () => {
       });
 
       it('should add weight when exceeding maxReps', () => {
-        const exercise = createTestExercise({ maxReps: 12 });
-        const performance = createPerformance({
+        const exercise = createExerciseProgression({ ...exerciseDefaults, maxReps: 12 });
+        const performance = createPreviousWeekPerformance({
+          ...performanceDefaults,
           actualWeight: 100,
           actualReps: 15, // Exceeded max reps
         });
@@ -184,11 +177,13 @@ describe('DynamicProgressionService', () => {
       });
 
       it('should use custom weight increment', () => {
-        const exercise = createTestExercise({
+        const exercise = createExerciseProgression({
+          ...exerciseDefaults,
           maxReps: 12,
           weightIncrement: 10,
         });
-        const performance = createPerformance({
+        const performance = createPreviousWeekPerformance({
+          ...performanceDefaults,
           actualWeight: 100,
           actualReps: 12,
         });
@@ -205,8 +200,9 @@ describe('DynamicProgressionService', () => {
 
     describe('Hit target - increment reps', () => {
       it('should increment reps when hitting target', () => {
-        const exercise = createTestExercise({ maxReps: 12 });
-        const performance = createPerformance({
+        const exercise = createExerciseProgression({ ...exerciseDefaults, maxReps: 12 });
+        const performance = createPreviousWeekPerformance({
+          ...performanceDefaults,
           actualWeight: 100,
           actualReps: 10,
           targetReps: 10,
@@ -224,8 +220,9 @@ describe('DynamicProgressionService', () => {
       });
 
       it('should increment reps when exceeding target but not maxReps', () => {
-        const exercise = createTestExercise({ maxReps: 12 });
-        const performance = createPerformance({
+        const exercise = createExerciseProgression({ ...exerciseDefaults, maxReps: 12 });
+        const performance = createPreviousWeekPerformance({
+          ...performanceDefaults,
           actualWeight: 100,
           actualReps: 11, // Exceeded target but not max
           targetReps: 10,
@@ -242,8 +239,9 @@ describe('DynamicProgressionService', () => {
       });
 
       it('should cap reps at maxReps when incrementing', () => {
-        const exercise = createTestExercise({ maxReps: 12 });
-        const performance = createPerformance({
+        const exercise = createExerciseProgression({ ...exerciseDefaults, maxReps: 12 });
+        const performance = createPreviousWeekPerformance({
+          ...performanceDefaults,
           actualWeight: 100,
           actualReps: 11, // One below max
           targetReps: 11,
@@ -261,8 +259,9 @@ describe('DynamicProgressionService', () => {
 
     describe('Hold - met minimum but not target', () => {
       it('should hold at same targets when meeting minReps but not target', () => {
-        const exercise = createTestExercise({ minReps: 8 });
-        const performance = createPerformance({
+        const exercise = createExerciseProgression({ ...exerciseDefaults, minReps: 8 });
+        const performance = createPreviousWeekPerformance({
+          ...performanceDefaults,
           actualWeight: 100,
           actualReps: 9, // Above min but below target
           targetReps: 10,
@@ -280,8 +279,9 @@ describe('DynamicProgressionService', () => {
       });
 
       it('should hold when exactly hitting minReps', () => {
-        const exercise = createTestExercise({ minReps: 8 });
-        const performance = createPerformance({
+        const exercise = createExerciseProgression({ ...exerciseDefaults, minReps: 8 });
+        const performance = createPreviousWeekPerformance({
+          ...performanceDefaults,
           actualWeight: 100,
           actualReps: 8, // Exactly minReps
           targetReps: 10,
@@ -301,12 +301,14 @@ describe('DynamicProgressionService', () => {
 
     describe('Regression after 2 consecutive failures', () => {
       it('should regress weight after 2 consecutive failures', () => {
-        const exercise = createTestExercise({
+        const exercise = createExerciseProgression({
+          ...exerciseDefaults,
           minReps: 8,
           weightIncrement: 5,
           baseWeight: 100,
         });
-        const performance = createPerformance({
+        const performance = createPreviousWeekPerformance({
+          ...performanceDefaults,
           actualWeight: 110,
           actualReps: 6, // Below minReps
           consecutiveFailures: 2,
@@ -324,12 +326,14 @@ describe('DynamicProgressionService', () => {
       });
 
       it('should not regress below baseWeight', () => {
-        const exercise = createTestExercise({
+        const exercise = createExerciseProgression({
+          ...exerciseDefaults,
           minReps: 8,
           weightIncrement: 5,
           baseWeight: 100,
         });
-        const performance = createPerformance({
+        const performance = createPreviousWeekPerformance({
+          ...performanceDefaults,
           actualWeight: 100, // At base weight
           actualReps: 6,
           consecutiveFailures: 2,
@@ -346,8 +350,9 @@ describe('DynamicProgressionService', () => {
       });
 
       it('should not regress with only 1 consecutive failure', () => {
-        const exercise = createTestExercise({ minReps: 8 });
-        const performance = createPerformance({
+        const exercise = createExerciseProgression({ ...exerciseDefaults, minReps: 8 });
+        const performance = createPreviousWeekPerformance({
+          ...performanceDefaults,
           actualWeight: 110,
           actualReps: 6,
           consecutiveFailures: 1, // Only 1 failure
@@ -364,11 +369,13 @@ describe('DynamicProgressionService', () => {
       });
 
       it('should regress with more than 2 consecutive failures', () => {
-        const exercise = createTestExercise({
+        const exercise = createExerciseProgression({
+          ...exerciseDefaults,
           minReps: 8,
           weightIncrement: 5,
         });
-        const performance = createPerformance({
+        const performance = createPreviousWeekPerformance({
+          ...performanceDefaults,
           actualWeight: 120,
           actualReps: 5,
           consecutiveFailures: 3, // More than threshold
@@ -387,8 +394,9 @@ describe('DynamicProgressionService', () => {
 
     describe('Hold when below minReps with insufficient failures', () => {
       it('should hold with minReps when below minReps but not enough failures', () => {
-        const exercise = createTestExercise({ minReps: 8 });
-        const performance = createPerformance({
+        const exercise = createExerciseProgression({ ...exerciseDefaults, minReps: 8 });
+        const performance = createPreviousWeekPerformance({
+          ...performanceDefaults,
           actualWeight: 100,
           actualReps: 5, // Below minReps
           consecutiveFailures: 0,
@@ -416,8 +424,8 @@ describe('DynamicProgressionService', () => {
 
     it('should count consecutive failures at same weight', () => {
       const history: PreviousWeekPerformance[] = [
-        createPerformance({ actualWeight: 100, actualReps: 6 }),
-        createPerformance({ actualWeight: 100, actualReps: 5 }),
+        createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 100, actualReps: 6 }),
+        createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 100, actualReps: 5 }),
       ];
 
       const result = service.calculateConsecutiveFailures(history, 100, 8);
@@ -427,8 +435,8 @@ describe('DynamicProgressionService', () => {
 
     it('should stop counting when weight changes', () => {
       const history: PreviousWeekPerformance[] = [
-        createPerformance({ actualWeight: 100, actualReps: 6 }),
-        createPerformance({ actualWeight: 95, actualReps: 5 }), // Different weight
+        createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 100, actualReps: 6 }),
+        createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 95, actualReps: 5 }), // Different weight
       ];
 
       const result = service.calculateConsecutiveFailures(history, 100, 8);
@@ -438,9 +446,9 @@ describe('DynamicProgressionService', () => {
 
     it('should stop counting at first success', () => {
       const history: PreviousWeekPerformance[] = [
-        createPerformance({ actualWeight: 100, actualReps: 6 }), // Fail
-        createPerformance({ actualWeight: 100, actualReps: 9 }), // Success
-        createPerformance({ actualWeight: 100, actualReps: 5 }), // Fail (ignored)
+        createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 100, actualReps: 6 }), // Fail
+        createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 100, actualReps: 9 }), // Success
+        createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 100, actualReps: 5 }), // Fail (ignored)
       ];
 
       const result = service.calculateConsecutiveFailures(history, 100, 8);
@@ -450,8 +458,8 @@ describe('DynamicProgressionService', () => {
 
     it('should return 0 when first entry is success', () => {
       const history: PreviousWeekPerformance[] = [
-        createPerformance({ actualWeight: 100, actualReps: 10 }), // Success
-        createPerformance({ actualWeight: 100, actualReps: 5 }), // Fail (ignored)
+        createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 100, actualReps: 10 }), // Success
+        createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 100, actualReps: 5 }), // Fail (ignored)
       ];
 
       const result = service.calculateConsecutiveFailures(history, 100, 8);
@@ -461,8 +469,8 @@ describe('DynamicProgressionService', () => {
 
     it('should use minReps as threshold', () => {
       const history: PreviousWeekPerformance[] = [
-        createPerformance({ actualWeight: 100, actualReps: 7 }), // Fail (< 8)
-        createPerformance({ actualWeight: 100, actualReps: 8 }), // Success (= 8)
+        createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 100, actualReps: 7 }), // Fail (< 8)
+        createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 100, actualReps: 8 }), // Success (= 8)
       ];
 
       const result = service.calculateConsecutiveFailures(history, 100, 8);
@@ -472,8 +480,8 @@ describe('DynamicProgressionService', () => {
 
     it('should handle different weight than history', () => {
       const history: PreviousWeekPerformance[] = [
-        createPerformance({ actualWeight: 95, actualReps: 6 }),
-        createPerformance({ actualWeight: 95, actualReps: 5 }),
+        createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 95, actualReps: 6 }),
+        createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 95, actualReps: 5 }),
       ];
 
       // Looking for failures at 100, but history is at 95
@@ -591,8 +599,8 @@ describe('DynamicProgressionService', () => {
     it('should track consecutive failures from history', () => {
       const completedSets = [{ actualWeight: 100, actualReps: 6 }]; // Below minReps
       const performanceHistory: PreviousWeekPerformance[] = [
-        createPerformance({ actualWeight: 100, actualReps: 5 }),
-        createPerformance({ actualWeight: 100, actualReps: 6 }),
+        createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 100, actualReps: 5 }),
+        createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 100, actualReps: 6 }),
       ];
 
       const result = service.buildPreviousWeekPerformance(
@@ -612,8 +620,8 @@ describe('DynamicProgressionService', () => {
     it('should reset consecutive failures when hitting minReps', () => {
       const completedSets = [{ actualWeight: 100, actualReps: 9 }]; // Above minReps
       const performanceHistory: PreviousWeekPerformance[] = [
-        createPerformance({ actualWeight: 100, actualReps: 5 }),
-        createPerformance({ actualWeight: 100, actualReps: 6 }),
+        createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 100, actualReps: 5 }),
+        createPreviousWeekPerformance({ ...performanceDefaults, actualWeight: 100, actualReps: 6 }),
       ];
 
       const result = service.buildPreviousWeekPerformance(

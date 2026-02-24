@@ -1,17 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Response } from 'supertest';
-import type { Meal } from '../shared.js';
-
-// Type for API response body
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
+import {
+  type ApiResponse,
+  createMeal,
+  createMockMealRepository,
+} from '../__tests__/utils/index.js';
 
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({
@@ -24,15 +18,7 @@ vi.mock('../middleware/app-check.js', () => ({
 }));
 
 // Mock the repository
-const mockMealRepo = {
-  findAll: vi.fn(),
-  findById: vi.fn(),
-  findByType: vi.fn(),
-  create: vi.fn(),
-  update: vi.fn(),
-  updateLastPlanned: vi.fn(),
-  delete: vi.fn(),
-};
+const mockMealRepo = createMockMealRepository();
 
 vi.mock('../repositories/meal.repository.js', () => ({
   MealRepository: vi.fn().mockImplementation(() => mockMealRepo),
@@ -40,23 +26,6 @@ vi.mock('../repositories/meal.repository.js', () => ({
 
 // Import after mocks
 import { mealsApp } from './meals.js';
-
-// Helper to create test meal
-function createTestMeal(overrides: Partial<Meal> = {}): Meal {
-  return {
-    id: 'meal-1',
-    name: 'Chicken Stir Fry',
-    meal_type: 'dinner',
-    effort: 5,
-    has_red_meat: false,
-    prep_ahead: false,
-    url: 'https://example.com/recipe',
-    last_planned: null,
-    created_at: '2024-01-01T00:00:00.000Z',
-    updated_at: '2024-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
 
 describe('Meals Handler', () => {
   beforeEach(() => {
@@ -66,8 +35,8 @@ describe('Meals Handler', () => {
   describe('GET /meals', () => {
     it('should return all meals', async () => {
       const meals = [
-        createTestMeal({ id: '1', name: 'Chicken Stir Fry' }),
-        createTestMeal({ id: '2', name: 'Oatmeal', meal_type: 'breakfast', effort: 1 }),
+        createMeal({ id: '1', name: 'Chicken Stir Fry' }),
+        createMeal({ id: '2', name: 'Oatmeal', meal_type: 'breakfast', effort: 1 }),
       ];
       mockMealRepo.findAll.mockResolvedValue(meals);
 
@@ -96,7 +65,7 @@ describe('Meals Handler', () => {
 
   describe('GET /meals/:id', () => {
     it('should return meal by id', async () => {
-      const meal = createTestMeal({ id: 'meal-123' });
+      const meal = createMeal({ id: 'meal-123' });
       mockMealRepo.findById.mockResolvedValue(meal);
 
       const response = await request(mealsApp).get('/meal-123');
@@ -127,7 +96,7 @@ describe('Meals Handler', () => {
 
   describe('POST /meals', () => {
     it('should create meal with valid data', async () => {
-      const createdMeal = createTestMeal({
+      const createdMeal = createMeal({
         id: 'new-meal',
         name: 'Grilled Salmon',
         meal_type: 'dinner',
@@ -271,7 +240,7 @@ describe('Meals Handler', () => {
 
   describe('PUT /meals/:id', () => {
     it('should update meal with valid data', async () => {
-      const updatedMeal = createTestMeal({
+      const updatedMeal = createMeal({
         id: 'meal-123',
         name: 'Updated Stir Fry',
         effort: 7,
@@ -294,7 +263,7 @@ describe('Meals Handler', () => {
     });
 
     it('should update meal with partial data', async () => {
-      const updatedMeal = createTestMeal({
+      const updatedMeal = createMeal({
         id: 'meal-123',
         name: 'Only Name Updated',
       });

@@ -1,19 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Response } from 'supertest';
-import type { Workout, WorkoutSet } from '../shared.js';
 import type { WorkoutWithExercises } from '../services/index.js';
 import { NotFoundError, ValidationError } from '../middleware/error-handler.js';
-
-// Type for API response body
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
+import { type ApiResponse, createWorkout, createWorkoutSet } from '../__tests__/utils/index.js';
 
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({
@@ -69,21 +59,6 @@ vi.mock('../services/index.js', () => ({
 // Import after mocks
 import { workoutsApp } from './workouts.js';
 
-// Helper to create test workout
-function createTestWorkout(overrides: Partial<Workout> = {}): Workout {
-  return {
-    id: 'workout-1',
-    mesocycle_id: 'mesocycle-1',
-    plan_day_id: 'plan-day-1',
-    week_number: 1,
-    scheduled_date: '2024-01-15',
-    status: 'pending',
-    started_at: null,
-    completed_at: null,
-    ...overrides,
-  };
-}
-
 // Helper to create test workout with exercises
 function createTestWorkoutWithExercises(overrides: Partial<WorkoutWithExercises> = {}): WorkoutWithExercises {
   return {
@@ -97,22 +72,6 @@ function createTestWorkoutWithExercises(overrides: Partial<WorkoutWithExercises>
     completed_at: null,
     plan_day_name: 'Push Day',
     exercises: [],
-    ...overrides,
-  };
-}
-
-// Helper to create test workout set
-function createTestWorkoutSet(overrides: Partial<WorkoutSet> = {}): WorkoutSet {
-  return {
-    id: 'set-1',
-    workout_id: 'workout-1',
-    exercise_id: 'exercise-1',
-    set_number: 1,
-    target_reps: 10,
-    target_weight: 100,
-    actual_reps: null,
-    actual_weight: null,
-    status: 'pending',
     ...overrides,
   };
 }
@@ -153,8 +112,8 @@ describe('Workouts Handler', () => {
   describe('GET /workouts', () => {
     it('should return all workouts', async () => {
       const workouts = [
-        createTestWorkout({ id: '1' }),
-        createTestWorkout({ id: '2' }),
+        createWorkout({ id: '1' }),
+        createWorkout({ id: '2' }),
       ];
       mockWorkoutRepo.findAll.mockResolvedValue(workouts);
 
@@ -213,7 +172,7 @@ describe('Workouts Handler', () => {
 
   describe('POST /workouts', () => {
     it('should create workout with valid data', async () => {
-      const createdWorkout = createTestWorkout({ id: 'new-workout' });
+      const createdWorkout = createWorkout({ id: 'new-workout' });
       mockWorkoutRepo.create.mockResolvedValue(createdWorkout);
 
       const response = await request(workoutsApp)
@@ -282,7 +241,7 @@ describe('Workouts Handler', () => {
 
   describe('PUT /workouts/:id', () => {
     it('should update workout status', async () => {
-      const updatedWorkout = createTestWorkout({
+      const updatedWorkout = createWorkout({
         id: 'workout-123',
         status: 'in_progress',
         started_at: '2024-01-15T10:00:00.000Z',
@@ -334,7 +293,7 @@ describe('Workouts Handler', () => {
 
   describe('PUT /workouts/:id/start', () => {
     it('should start workout successfully', async () => {
-      const startedWorkout = createTestWorkout({
+      const startedWorkout = createWorkout({
         id: 'workout-123',
         status: 'in_progress',
         started_at: '2024-01-15T10:00:00.000Z',
@@ -391,7 +350,7 @@ describe('Workouts Handler', () => {
 
   describe('PUT /workouts/:id/complete', () => {
     it('should complete workout successfully', async () => {
-      const completedWorkout = createTestWorkout({
+      const completedWorkout = createWorkout({
         id: 'workout-123',
         status: 'completed',
         completed_at: '2024-01-15T11:00:00.000Z',
@@ -431,7 +390,7 @@ describe('Workouts Handler', () => {
 
   describe('PUT /workouts/:id/skip', () => {
     it('should skip workout successfully', async () => {
-      const skippedWorkout = createTestWorkout({
+      const skippedWorkout = createWorkout({
         id: 'workout-123',
         status: 'skipped',
       });
@@ -491,10 +450,10 @@ describe('Workouts Handler', () => {
 
   describe('GET /workouts/:workoutId/sets', () => {
     it('should return sets for workout', async () => {
-      const workout = createTestWorkout({ id: 'workout-123' });
+      const workout = createWorkout({ id: 'workout-123' });
       const sets = [
-        createTestWorkoutSet({ id: 'set-1', workout_id: 'workout-123' }),
-        createTestWorkoutSet({ id: 'set-2', workout_id: 'workout-123' }),
+        createWorkoutSet({ id: 'set-1', workout_id: 'workout-123' }),
+        createWorkoutSet({ id: 'set-2', workout_id: 'workout-123' }),
       ];
       mockWorkoutRepo.findById.mockResolvedValue(workout);
       mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
@@ -520,7 +479,7 @@ describe('Workouts Handler', () => {
     });
 
     it('should return empty array when no sets exist', async () => {
-      const workout = createTestWorkout({ id: 'workout-123' });
+      const workout = createWorkout({ id: 'workout-123' });
       mockWorkoutRepo.findById.mockResolvedValue(workout);
       mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue([]);
 
@@ -536,8 +495,8 @@ describe('Workouts Handler', () => {
 
   describe('POST /workouts/:workoutId/sets', () => {
     it('should create set for workout', async () => {
-      const workout = createTestWorkout({ id: 'workout-123' });
-      const createdSet = createTestWorkoutSet({
+      const workout = createWorkout({ id: 'workout-123' });
+      const createdSet = createWorkoutSet({
         id: 'new-set',
         workout_id: 'workout-123',
       });
@@ -578,7 +537,7 @@ describe('Workouts Handler', () => {
     });
 
     it('should return 400 for invalid set data', async () => {
-      const workout = createTestWorkout({ id: 'workout-123' });
+      const workout = createWorkout({ id: 'workout-123' });
       mockWorkoutRepo.findById.mockResolvedValue(workout);
 
       const response: Response = await request(workoutsApp)
@@ -598,7 +557,7 @@ describe('Workouts Handler', () => {
 
   describe('PUT /workouts/sets/:id/log (legacy)', () => {
     it('should log set with valid data', async () => {
-      const loggedSet = createTestWorkoutSet({
+      const loggedSet = createWorkoutSet({
         id: 'set-123',
         actual_reps: 10,
         actual_weight: 100,
@@ -655,7 +614,7 @@ describe('Workouts Handler', () => {
 
   describe('PUT /workouts/sets/:id/skip (legacy)', () => {
     it('should skip set successfully', async () => {
-      const skippedSet = createTestWorkoutSet({
+      const skippedSet = createWorkoutSet({
         id: 'set-123',
         status: 'skipped',
       });
@@ -706,7 +665,7 @@ describe('Workouts Handler', () => {
   describe('POST /workouts/:workoutId/exercises/:exerciseId/sets/add', () => {
     it('should add set to exercise successfully', async () => {
       const result = {
-        currentWorkoutSet: createTestWorkoutSet(),
+        currentWorkoutSet: createWorkoutSet(),
         futureWorkoutsAffected: 5,
         futureSetsModified: 5,
       };

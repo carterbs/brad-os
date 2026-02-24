@@ -1,13 +1,7 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import type { Firestore } from 'firebase-admin/firestore';
 import type {
-  Mesocycle,
-  Plan,
-  PlanDay,
-  PlanDayExercise,
-  Exercise,
   Workout,
-  WorkoutSet,
   CreateWorkoutDTO,
 } from '../shared.js';
 import { MesocycleService } from './mesocycle.service.js';
@@ -18,6 +12,7 @@ import { PlanDayExerciseRepository } from '../repositories/plan-day-exercise.rep
 import { ExerciseRepository } from '../repositories/exercise.repository.js';
 import { WorkoutRepository } from '../repositories/workout.repository.js';
 import { WorkoutSetRepository } from '../repositories/workout-set.repository.js';
+import { createPlan, createPlanDay, createPlanDayExercise, createExercise, createMesocycle, createWorkout, createWorkoutSet } from '../__tests__/utils/index.js';
 
 // Mock repositories
 vi.mock('../repositories/mesocycle.repository.js');
@@ -71,23 +66,23 @@ describe('MesocycleService', () => {
   };
 
   // Fixtures
-  const mockPlan: Plan = {
+  const mockPlan = createPlan({
     id: 'plan-1',
     name: 'Push/Pull/Legs',
     duration_weeks: 6,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
-  };
+  });
 
-  const mockPlanDay: PlanDay = {
+  const mockPlanDay = createPlanDay({
     id: 'plan-day-1',
     plan_id: 'plan-1',
     day_of_week: 1,
     name: 'Push Day',
     sort_order: 0,
-  };
+  });
 
-  const mockPlanDayExercise: PlanDayExercise = {
+  const mockPlanDayExercise = createPlanDayExercise({
     id: 'pde-1',
     plan_day_id: 'plan-day-1',
     exercise_id: 'exercise-1',
@@ -98,41 +93,40 @@ describe('MesocycleService', () => {
     sort_order: 0,
     min_reps: 8,
     max_reps: 12,
-  };
+  });
 
-  const mockExercise: Exercise = {
+  const mockExercise = createExercise({
     id: 'exercise-1',
     name: 'Bench Press',
     weight_increment: 5,
     is_custom: false,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
-  };
+  });
 
-  const createMockMesocycle = (overrides: Partial<Mesocycle> = {}): Mesocycle => ({
+  // Shared default overrides matching original inline factory defaults
+  const mesocycleDefaults = {
     id: 'meso-1',
     plan_id: 'plan-1',
     start_date: '2024-01-15',
     current_week: 1,
-    status: 'pending',
+    status: 'pending' as const,
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
-    ...overrides,
-  });
+  };
 
-  const createMockWorkout = (overrides: Partial<Workout> = {}): Workout => ({
+  const workoutDefaults = {
     id: 'workout-1',
     mesocycle_id: 'meso-1',
     plan_day_id: 'plan-day-1',
     week_number: 1,
     scheduled_date: '2024-01-15',
-    status: 'pending',
+    status: 'pending' as const,
     started_at: null,
     completed_at: null,
-    ...overrides,
-  });
+  };
 
-  const createMockWorkoutSet = (overrides: Partial<WorkoutSet> = {}): WorkoutSet => ({
+  const workoutSetDefaults = {
     id: 'set-1',
     workout_id: 'workout-1',
     exercise_id: 'exercise-1',
@@ -141,9 +135,8 @@ describe('MesocycleService', () => {
     target_weight: 100,
     actual_reps: null,
     actual_weight: null,
-    status: 'pending',
-    ...overrides,
-  });
+    status: 'pending' as const,
+  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -225,7 +218,7 @@ describe('MesocycleService', () => {
     });
 
     it('should create mesocycle in pending status', async () => {
-      const createdMesocycle = createMockMesocycle();
+      const createdMesocycle = createMesocycle(mesocycleDefaults);
 
       mockPlanRepo.findById.mockResolvedValue(mockPlan);
       mockPlanDayRepo.findByPlanId.mockResolvedValue([mockPlanDay]);
@@ -241,7 +234,7 @@ describe('MesocycleService', () => {
     });
 
     it('should pass start_date to repository', async () => {
-      const createdMesocycle = createMockMesocycle();
+      const createdMesocycle = createMesocycle(mesocycleDefaults);
 
       mockPlanRepo.findById.mockResolvedValue(mockPlan);
       mockPlanDayRepo.findByPlanId.mockResolvedValue([mockPlanDay]);
@@ -265,7 +258,7 @@ describe('MesocycleService', () => {
     });
 
     it('should throw error if mesocycle is not pending', async () => {
-      const activeMesocycle = createMockMesocycle({ status: 'active' });
+      const activeMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'active' });
       mockMesocycleRepo.findById.mockResolvedValue(activeMesocycle);
 
       await expect(service.start('meso-1')).rejects.toThrow(
@@ -274,8 +267,8 @@ describe('MesocycleService', () => {
     });
 
     it('should throw error if already has an active mesocycle', async () => {
-      const pendingMesocycle = createMockMesocycle({ status: 'pending' });
-      const existingActive = createMockMesocycle({ id: 'meso-2', status: 'active' });
+      const pendingMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'pending' });
+      const existingActive = createMesocycle({ ...mesocycleDefaults, id: 'meso-2', status: 'active' });
 
       mockMesocycleRepo.findById.mockResolvedValue(pendingMesocycle);
       mockMesocycleRepo.findActive.mockResolvedValue([existingActive]);
@@ -286,7 +279,7 @@ describe('MesocycleService', () => {
     });
 
     it('should throw error if exercise not found during workout generation', async () => {
-      const pendingMesocycle = createMockMesocycle({ status: 'pending' });
+      const pendingMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'pending' });
 
       mockMesocycleRepo.findById.mockResolvedValue(pendingMesocycle);
       mockMesocycleRepo.findActive.mockResolvedValue([]);
@@ -300,8 +293,8 @@ describe('MesocycleService', () => {
     });
 
     it('should generate workouts for 7 weeks', async () => {
-      const pendingMesocycle = createMockMesocycle({ status: 'pending' });
-      const activeMesocycle = createMockMesocycle({ status: 'active' });
+      const pendingMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'pending' });
+      const activeMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'active' });
 
       mockMesocycleRepo.findById.mockResolvedValue(pendingMesocycle);
       mockMesocycleRepo.findActive.mockResolvedValue([]);
@@ -320,8 +313,8 @@ describe('MesocycleService', () => {
     });
 
     it('should generate sets for each workout using batched writes', async () => {
-      const pendingMesocycle = createMockMesocycle({ status: 'pending' });
-      const activeMesocycle = createMockMesocycle({ status: 'active' });
+      const pendingMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'pending' });
+      const activeMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'active' });
 
       mockMesocycleRepo.findById.mockResolvedValue(pendingMesocycle);
       mockMesocycleRepo.findActive.mockResolvedValue([]);
@@ -341,8 +334,8 @@ describe('MesocycleService', () => {
     });
 
     it('should apply progressive overload to generated sets', async () => {
-      const pendingMesocycle = createMockMesocycle({ status: 'pending' });
-      const activeMesocycle = createMockMesocycle({ status: 'active' });
+      const pendingMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'pending' });
+      const activeMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'active' });
       const createdWorkouts: Workout[] = [];
 
       mockMesocycleRepo.findById.mockResolvedValue(pendingMesocycle);
@@ -376,8 +369,8 @@ describe('MesocycleService', () => {
     });
 
     it('should update mesocycle status to active', async () => {
-      const pendingMesocycle = createMockMesocycle({ status: 'pending' });
-      const activeMesocycle = createMockMesocycle({ status: 'active' });
+      const pendingMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'pending' });
+      const activeMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'active' });
 
       mockMesocycleRepo.findById.mockResolvedValue(pendingMesocycle);
       mockMesocycleRepo.findActive.mockResolvedValue([]);
@@ -396,7 +389,7 @@ describe('MesocycleService', () => {
     });
 
     it('should throw error if update fails', async () => {
-      const pendingMesocycle = createMockMesocycle({ status: 'pending' });
+      const pendingMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'pending' });
 
       mockMesocycleRepo.findById.mockResolvedValue(pendingMesocycle);
       mockMesocycleRepo.findActive.mockResolvedValue([]);
@@ -424,9 +417,9 @@ describe('MesocycleService', () => {
     });
 
     it('should return active mesocycle with details', async () => {
-      const activeMesocycle = createMockMesocycle({ status: 'active' });
-      const workouts = [createMockWorkout()];
-      const sets = [createMockWorkoutSet()];
+      const activeMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'active' });
+      const workouts = [createWorkout(workoutDefaults)];
+      const sets = [createWorkoutSet(workoutSetDefaults)];
 
       mockMesocycleRepo.findActive.mockResolvedValue([activeMesocycle]);
       mockMesocycleRepo.findById.mockResolvedValue(activeMesocycle);
@@ -453,12 +446,12 @@ describe('MesocycleService', () => {
     });
 
     it('should return mesocycle with week summaries', async () => {
-      const mesocycle = createMockMesocycle({ status: 'active' });
+      const mesocycle = createMesocycle({ ...mesocycleDefaults, status: 'active' });
       const workouts = [
-        createMockWorkout({ id: 'w1', week_number: 1 }),
-        createMockWorkout({ id: 'w2', week_number: 2 }),
+        createWorkout({ ...workoutDefaults, id: 'w1', week_number: 1 }),
+        createWorkout({ ...workoutDefaults, id: 'w2', week_number: 2 }),
       ];
-      const sets = [createMockWorkoutSet()];
+      const sets = [createWorkoutSet(workoutSetDefaults)];
 
       mockMesocycleRepo.findById.mockResolvedValue(mesocycle);
       mockPlanRepo.findById.mockResolvedValue(mockPlan);
@@ -475,15 +468,15 @@ describe('MesocycleService', () => {
     });
 
     it('should include workout summaries in each week', async () => {
-      const mesocycle = createMockMesocycle({ status: 'active' });
+      const mesocycle = createMesocycle({ ...mesocycleDefaults, status: 'active' });
       const workouts = [
-        createMockWorkout({ id: 'w1', week_number: 1, status: 'completed', completed_at: '2024-01-15T10:00:00Z' }),
-        createMockWorkout({ id: 'w2', week_number: 1, status: 'pending' }),
+        createWorkout({ ...workoutDefaults, id: 'w1', week_number: 1, status: 'completed', completed_at: '2024-01-15T10:00:00Z' }),
+        createWorkout({ ...workoutDefaults, id: 'w2', week_number: 1, status: 'pending' }),
       ];
       const sets = [
-        createMockWorkoutSet({ status: 'completed', actual_reps: 8, actual_weight: 100 }),
-        createMockWorkoutSet({ status: 'completed', actual_reps: 8, actual_weight: 100 }),
-        createMockWorkoutSet({ status: 'pending' }),
+        createWorkoutSet({ ...workoutSetDefaults, status: 'completed', actual_reps: 8, actual_weight: 100 }),
+        createWorkoutSet({ ...workoutSetDefaults, status: 'completed', actual_reps: 8, actual_weight: 100 }),
+        createWorkoutSet({ ...workoutSetDefaults, status: 'pending' }),
       ];
 
       mockMesocycleRepo.findById.mockResolvedValue(mesocycle);
@@ -499,13 +492,13 @@ describe('MesocycleService', () => {
     });
 
     it('should calculate total and completed workouts', async () => {
-      const mesocycle = createMockMesocycle({ status: 'active' });
+      const mesocycle = createMesocycle({ ...mesocycleDefaults, status: 'active' });
       const workouts = [
-        createMockWorkout({ id: 'w1', week_number: 1, status: 'completed' }),
-        createMockWorkout({ id: 'w2', week_number: 1, status: 'completed' }),
-        createMockWorkout({ id: 'w3', week_number: 2, status: 'pending' }),
+        createWorkout({ ...workoutDefaults, id: 'w1', week_number: 1, status: 'completed' }),
+        createWorkout({ ...workoutDefaults, id: 'w2', week_number: 1, status: 'completed' }),
+        createWorkout({ ...workoutDefaults, id: 'w3', week_number: 2, status: 'pending' }),
       ];
-      const sets = [createMockWorkoutSet()];
+      const sets = [createWorkoutSet(workoutSetDefaults)];
 
       mockMesocycleRepo.findById.mockResolvedValue(mesocycle);
       mockPlanRepo.findById.mockResolvedValue(mockPlan);
@@ -530,7 +523,7 @@ describe('MesocycleService', () => {
     });
 
     it('should throw error if mesocycle is not active', async () => {
-      const pendingMesocycle = createMockMesocycle({ status: 'pending' });
+      const pendingMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'pending' });
       mockMesocycleRepo.findById.mockResolvedValue(pendingMesocycle);
 
       await expect(service.complete('meso-1')).rejects.toThrow(
@@ -539,7 +532,7 @@ describe('MesocycleService', () => {
     });
 
     it('should throw error if mesocycle is already completed', async () => {
-      const completedMesocycle = createMockMesocycle({ status: 'completed' });
+      const completedMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'completed' });
       mockMesocycleRepo.findById.mockResolvedValue(completedMesocycle);
 
       await expect(service.complete('meso-1')).rejects.toThrow(
@@ -548,8 +541,8 @@ describe('MesocycleService', () => {
     });
 
     it('should transition active mesocycle to completed', async () => {
-      const activeMesocycle = createMockMesocycle({ status: 'active' });
-      const completedMesocycle = createMockMesocycle({ status: 'completed' });
+      const activeMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'active' });
+      const completedMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'completed' });
 
       mockMesocycleRepo.findById.mockResolvedValue(activeMesocycle);
       mockMesocycleRepo.update.mockResolvedValue(completedMesocycle);
@@ -561,7 +554,7 @@ describe('MesocycleService', () => {
     });
 
     it('should throw error if update fails', async () => {
-      const activeMesocycle = createMockMesocycle({ status: 'active' });
+      const activeMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'active' });
 
       mockMesocycleRepo.findById.mockResolvedValue(activeMesocycle);
       mockMesocycleRepo.update.mockResolvedValue(null);
@@ -582,7 +575,7 @@ describe('MesocycleService', () => {
     });
 
     it('should throw error if mesocycle is not active', async () => {
-      const pendingMesocycle = createMockMesocycle({ status: 'pending' });
+      const pendingMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'pending' });
       mockMesocycleRepo.findById.mockResolvedValue(pendingMesocycle);
 
       await expect(service.cancel('meso-1')).rejects.toThrow(
@@ -591,7 +584,7 @@ describe('MesocycleService', () => {
     });
 
     it('should throw error if mesocycle is cancelled', async () => {
-      const cancelledMesocycle = createMockMesocycle({ status: 'cancelled' });
+      const cancelledMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'cancelled' });
       mockMesocycleRepo.findById.mockResolvedValue(cancelledMesocycle);
 
       await expect(service.cancel('meso-1')).rejects.toThrow(
@@ -600,8 +593,8 @@ describe('MesocycleService', () => {
     });
 
     it('should transition active mesocycle to cancelled', async () => {
-      const activeMesocycle = createMockMesocycle({ status: 'active' });
-      const cancelledMesocycle = createMockMesocycle({ status: 'cancelled' });
+      const activeMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'active' });
+      const cancelledMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'cancelled' });
 
       mockMesocycleRepo.findById.mockResolvedValue(activeMesocycle);
       mockMesocycleRepo.update.mockResolvedValue(cancelledMesocycle);
@@ -613,8 +606,8 @@ describe('MesocycleService', () => {
     });
 
     it('should preserve data when cancelled (not delete workouts)', async () => {
-      const activeMesocycle = createMockMesocycle({ status: 'active' });
-      const cancelledMesocycle = createMockMesocycle({ status: 'cancelled' });
+      const activeMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'active' });
+      const cancelledMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'cancelled' });
 
       mockMesocycleRepo.findById.mockResolvedValue(activeMesocycle);
       mockMesocycleRepo.update.mockResolvedValue(cancelledMesocycle);
@@ -626,7 +619,7 @@ describe('MesocycleService', () => {
     });
 
     it('should throw error if update fails', async () => {
-      const activeMesocycle = createMockMesocycle({ status: 'active' });
+      const activeMesocycle = createMesocycle({ ...mesocycleDefaults, status: 'active' });
 
       mockMesocycleRepo.findById.mockResolvedValue(activeMesocycle);
       mockMesocycleRepo.update.mockResolvedValue(null);
@@ -640,8 +633,8 @@ describe('MesocycleService', () => {
   describe('list', () => {
     it('should return all mesocycles', async () => {
       const mesocycles = [
-        createMockMesocycle({ id: 'meso-1', status: 'active' }),
-        createMockMesocycle({ id: 'meso-2', status: 'completed' }),
+        createMesocycle({ ...mesocycleDefaults, id: 'meso-1', status: 'active' }),
+        createMesocycle({ ...mesocycleDefaults, id: 'meso-2', status: 'completed' }),
       ];
 
       mockMesocycleRepo.findAll.mockResolvedValue(mesocycles);

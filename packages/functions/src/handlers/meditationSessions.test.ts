@@ -1,17 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Response } from 'supertest';
-import type { MeditationSessionRecord } from '../shared.js';
-
-// Type for API response body
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
+import { type ApiResponse, createMeditationSession, createMockMeditationSessionRepository } from '../__tests__/utils/index.js';
 
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({
@@ -24,13 +14,7 @@ vi.mock('../middleware/app-check.js', () => ({
 }));
 
 // Mock repository
-const mockMeditationSessionRepo = {
-  findAll: vi.fn(),
-  findById: vi.fn(),
-  findLatest: vi.fn(),
-  create: vi.fn(),
-  getStats: vi.fn(),
-};
+const mockMeditationSessionRepo = createMockMeditationSessionRepository();
 
 vi.mock('../repositories/meditationSession.repository.js', () => ({
   MeditationSessionRepository: vi.fn().mockImplementation(() => mockMeditationSessionRepo),
@@ -38,19 +22,6 @@ vi.mock('../repositories/meditationSession.repository.js', () => ({
 
 // Import after mocks
 import { meditationSessionsApp } from './meditationSessions.js';
-
-// Helper to create test meditation session
-function createTestMeditationSession(overrides: Partial<MeditationSessionRecord> = {}): MeditationSessionRecord {
-  return {
-    id: 'session-1',
-    completedAt: '2024-01-15T08:00:00.000Z',
-    sessionType: 'basic-breathing',
-    plannedDurationSeconds: 600,
-    actualDurationSeconds: 580,
-    completedFully: true,
-    ...overrides,
-  };
-}
 
 // Helper to create valid request body
 function createValidRequestBody(): Record<string, unknown> {
@@ -70,7 +41,7 @@ describe('MeditationSessions Handler', () => {
 
   describe('POST /meditation-sessions', () => {
     it('should create meditation session with valid data', async () => {
-      const createdSession = createTestMeditationSession({ id: 'new-session' });
+      const createdSession = createMeditationSession({ id: 'new-session' });
       mockMeditationSessionRepo.create.mockResolvedValue(createdSession);
 
       const response = await request(meditationSessionsApp)
@@ -93,7 +64,7 @@ describe('MeditationSessions Handler', () => {
         actualDurationSeconds: 300,
         completedFully: false,
       };
-      const createdSession = createTestMeditationSession(requestBody);
+      const createdSession = createMeditationSession(requestBody);
       mockMeditationSessionRepo.create.mockResolvedValue(createdSession);
 
       const response = await request(meditationSessionsApp)
@@ -112,7 +83,7 @@ describe('MeditationSessions Handler', () => {
         actualDurationSeconds: 0,
         completedFully: false,
       };
-      const createdSession = createTestMeditationSession(requestBody);
+      const createdSession = createMeditationSession(requestBody);
       mockMeditationSessionRepo.create.mockResolvedValue(createdSession);
 
       const response = await request(meditationSessionsApp)
@@ -266,8 +237,8 @@ describe('MeditationSessions Handler', () => {
   describe('GET /meditation-sessions', () => {
     it('should return all meditation sessions', async () => {
       const sessions = [
-        createTestMeditationSession({ id: '1' }),
-        createTestMeditationSession({ id: '2' }),
+        createMeditationSession({ id: '1' }),
+        createMeditationSession({ id: '2' }),
       ];
       mockMeditationSessionRepo.findAll.mockResolvedValue(sessions);
 
@@ -325,7 +296,7 @@ describe('MeditationSessions Handler', () => {
 
   describe('GET /meditation-sessions/latest', () => {
     it('should return latest meditation session', async () => {
-      const latestSession = createTestMeditationSession({ id: 'latest' });
+      const latestSession = createMeditationSession({ id: 'latest' });
       mockMeditationSessionRepo.findLatest.mockResolvedValue(latestSession);
 
       const response = await request(meditationSessionsApp).get('/latest');
@@ -353,7 +324,7 @@ describe('MeditationSessions Handler', () => {
 
   describe('GET /meditation-sessions/:id', () => {
     it('should return meditation session by id', async () => {
-      const session = createTestMeditationSession({ id: 'session-123' });
+      const session = createMeditationSession({ id: 'session-123' });
       mockMeditationSessionRepo.findById.mockResolvedValue(session);
 
       const response = await request(meditationSessionsApp).get('/session-123');

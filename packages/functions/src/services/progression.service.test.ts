@@ -1,24 +1,18 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ProgressionService } from './progression.service.js';
-import type { ExerciseProgression, CompletionStatus } from '../shared.js';
+import type { CompletionStatus } from '../shared.js';
+import { createExerciseProgression } from '../__tests__/utils/index.js';
 
 describe('ProgressionService', () => {
   let service: ProgressionService;
 
-  // Standard test exercise with base values
-  const createTestExercise = (
-    overrides: Partial<ExerciseProgression> = {}
-  ): ExerciseProgression => ({
+  // Shared defaults matching the original inline factory values
+  const defaults = {
     exerciseId: 'exercise-1',
     planExerciseId: 'plan-exercise-1',
     baseWeight: 100,
     baseReps: 8,
-    baseSets: 3,
-    weightIncrement: 5,
-    minReps: 8,
-    maxReps: 12,
-    ...overrides,
-  });
+  };
 
   beforeEach(() => {
     service = new ProgressionService();
@@ -27,7 +21,7 @@ describe('ProgressionService', () => {
   describe('calculateTargetsForWeek', () => {
     describe('Week 0 - Baseline', () => {
       it('should return base values for week 0', () => {
-        const exercise = createTestExercise();
+        const exercise = createExerciseProgression(defaults);
         const result = service.calculateTargetsForWeek(exercise, 0, true);
 
         expect(result.targetWeight).toBe(100);
@@ -38,7 +32,7 @@ describe('ProgressionService', () => {
       });
 
       it('should return base values for week 0 regardless of previous completion', () => {
-        const exercise = createTestExercise();
+        const exercise = createExerciseProgression(defaults);
         const result = service.calculateTargetsForWeek(exercise, 0, false);
 
         expect(result.targetWeight).toBe(100);
@@ -47,7 +41,8 @@ describe('ProgressionService', () => {
       });
 
       it('should include exercise and plan exercise IDs', () => {
-        const exercise = createTestExercise({
+        const exercise = createExerciseProgression({
+          ...defaults,
           exerciseId: 'bench-press',
           planExerciseId: 'plan-bench-1',
         });
@@ -60,7 +55,7 @@ describe('ProgressionService', () => {
 
     describe('Odd weeks (1, 3, 5) - Add rep', () => {
       it('should add 1 rep on week 1 when previous week completed', () => {
-        const exercise = createTestExercise();
+        const exercise = createExerciseProgression(defaults);
         const result = service.calculateTargetsForWeek(exercise, 1, true);
 
         expect(result.targetWeight).toBe(100); // Same weight
@@ -70,7 +65,7 @@ describe('ProgressionService', () => {
       });
 
       it('should add 1 rep on week 3 when previous week completed', () => {
-        const exercise = createTestExercise();
+        const exercise = createExerciseProgression(defaults);
         const result = service.calculateTargetsForWeek(exercise, 3, true);
 
         expect(result.targetWeight).toBe(105); // Already had one weight increase
@@ -79,7 +74,7 @@ describe('ProgressionService', () => {
       });
 
       it('should add 1 rep on week 5 when previous week completed', () => {
-        const exercise = createTestExercise();
+        const exercise = createExerciseProgression(defaults);
         const result = service.calculateTargetsForWeek(exercise, 5, true);
 
         expect(result.targetWeight).toBe(110); // Two weight increases
@@ -90,7 +85,7 @@ describe('ProgressionService', () => {
 
     describe('Even weeks (2, 4) - Add weight, reset reps', () => {
       it('should add weight and reset reps on week 2 when previous week completed', () => {
-        const exercise = createTestExercise();
+        const exercise = createExerciseProgression(defaults);
         const result = service.calculateTargetsForWeek(exercise, 2, true);
 
         expect(result.targetWeight).toBe(105); // +5 lbs
@@ -100,7 +95,7 @@ describe('ProgressionService', () => {
       });
 
       it('should add weight and reset reps on week 4 when previous week completed', () => {
-        const exercise = createTestExercise();
+        const exercise = createExerciseProgression(defaults);
         const result = service.calculateTargetsForWeek(exercise, 4, true);
 
         expect(result.targetWeight).toBe(110); // +10 lbs total (2x increment)
@@ -109,7 +104,7 @@ describe('ProgressionService', () => {
       });
 
       it('should use custom weight increment', () => {
-        const exercise = createTestExercise({ weightIncrement: 10 });
+        const exercise = createExerciseProgression({ ...defaults, weightIncrement: 10 });
         const result = service.calculateTargetsForWeek(exercise, 2, true);
 
         expect(result.targetWeight).toBe(110); // +10 lbs
@@ -119,7 +114,7 @@ describe('ProgressionService', () => {
 
     describe('Incomplete week handling', () => {
       it('should hold at previous targets when week 0 incomplete (moving to week 1)', () => {
-        const exercise = createTestExercise();
+        const exercise = createExerciseProgression(defaults);
         const result = service.calculateTargetsForWeek(exercise, 1, false);
 
         expect(result.targetWeight).toBe(100); // Same as week 0
@@ -129,7 +124,7 @@ describe('ProgressionService', () => {
       });
 
       it('should hold at previous targets when week 1 incomplete (moving to week 2)', () => {
-        const exercise = createTestExercise();
+        const exercise = createExerciseProgression(defaults);
         const result = service.calculateTargetsForWeek(exercise, 2, false);
 
         // Should stay at week 1 values (not progress to week 2)
@@ -139,7 +134,7 @@ describe('ProgressionService', () => {
       });
 
       it('should hold at previous targets when week 3 incomplete (moving to week 4)', () => {
-        const exercise = createTestExercise();
+        const exercise = createExerciseProgression(defaults);
         const result = service.calculateTargetsForWeek(exercise, 4, false);
 
         // Should stay at week 3 values
@@ -148,7 +143,7 @@ describe('ProgressionService', () => {
       });
 
       it('should not regress on incomplete weeks', () => {
-        const exercise = createTestExercise();
+        const exercise = createExerciseProgression(defaults);
         const result = service.calculateTargetsForWeek(exercise, 3, false);
 
         // Should stay at week 2 values (not go below)
@@ -159,7 +154,7 @@ describe('ProgressionService', () => {
 
     describe('Deload week (week 6)', () => {
       it('should apply 85% weight on deload week when previous completed', () => {
-        const exercise = createTestExercise();
+        const exercise = createExerciseProgression(defaults);
         const result = service.calculateTargetsForWeek(exercise, 6, true);
 
         // Week 5 has 110 lbs, deload is 85% rounded to 2.5
@@ -170,7 +165,7 @@ describe('ProgressionService', () => {
       });
 
       it('should apply 50% volume (sets) on deload week', () => {
-        const exercise = createTestExercise({ baseSets: 4 });
+        const exercise = createExerciseProgression({ ...defaults, baseSets: 4 });
         const result = service.calculateTargetsForWeek(exercise, 6, true);
 
         // 4 * 0.5 = 2 sets
@@ -178,7 +173,7 @@ describe('ProgressionService', () => {
       });
 
       it('should have minimum 1 set on deload week', () => {
-        const exercise = createTestExercise({ baseSets: 1 });
+        const exercise = createExerciseProgression({ ...defaults, baseSets: 1 });
         const result = service.calculateTargetsForWeek(exercise, 6, true);
 
         // 1 * 0.5 = 0.5, ceil = 1, max(1, 1) = 1
@@ -186,7 +181,7 @@ describe('ProgressionService', () => {
       });
 
       it('should use week 5 reps when previous week completed', () => {
-        const exercise = createTestExercise();
+        const exercise = createExerciseProgression(defaults);
         const result = service.calculateTargetsForWeek(exercise, 6, true);
 
         // Week 5 has 9 reps (base 8 + 1)
@@ -194,7 +189,7 @@ describe('ProgressionService', () => {
       });
 
       it('should use week 4 values when week 5 incomplete', () => {
-        const exercise = createTestExercise();
+        const exercise = createExerciseProgression(defaults);
         const result = service.calculateTargetsForWeek(exercise, 6, false);
 
         // Week 4 has 110 lbs, 8 reps
@@ -204,7 +199,7 @@ describe('ProgressionService', () => {
       });
 
       it('should round deload weight to nearest 2.5 lbs', () => {
-        const exercise = createTestExercise({ baseWeight: 135 });
+        const exercise = createExerciseProgression({ ...defaults, baseWeight: 135 });
         const result = service.calculateTargetsForWeek(exercise, 6, true);
 
         // Week 5: 135 + 10 = 145 lbs
@@ -216,7 +211,7 @@ describe('ProgressionService', () => {
 
   describe('calculateProgressionHistory', () => {
     it('should generate 7 weeks of targets (weeks 0-6)', () => {
-      const exercise = createTestExercise();
+      const exercise = createExerciseProgression(defaults);
       const completionHistory: CompletionStatus[] = [];
 
       const result = service.calculateProgressionHistory(
@@ -234,7 +229,7 @@ describe('ProgressionService', () => {
     });
 
     it('should handle empty completion history (assume all completed)', () => {
-      const exercise = createTestExercise();
+      const exercise = createExerciseProgression(defaults);
       const completionHistory: CompletionStatus[] = [];
 
       const result = service.calculateProgressionHistory(
@@ -253,7 +248,7 @@ describe('ProgressionService', () => {
     });
 
     it('should carry forward incomplete weeks', () => {
-      const exercise = createTestExercise();
+      const exercise = createExerciseProgression(defaults);
       const completionHistory: CompletionStatus[] = [
         {
           exerciseId: 'exercise-1',
@@ -282,7 +277,7 @@ describe('ProgressionService', () => {
     });
 
     it('should correctly identify week 0 previous as completed', () => {
-      const exercise = createTestExercise();
+      const exercise = createExerciseProgression(defaults);
       const completionHistory: CompletionStatus[] = [];
 
       const result = service.calculateProgressionHistory(
@@ -296,7 +291,8 @@ describe('ProgressionService', () => {
     });
 
     it('should preserve exercise and plan IDs in all targets', () => {
-      const exercise = createTestExercise({
+      const exercise = createExerciseProgression({
+        ...defaults,
         exerciseId: 'squat',
         planExerciseId: 'plan-squat-1',
       });
@@ -314,7 +310,7 @@ describe('ProgressionService', () => {
     });
 
     it('should mark only week 6 as deload', () => {
-      const exercise = createTestExercise();
+      const exercise = createExerciseProgression(defaults);
       const completionHistory: CompletionStatus[] = [];
 
       const result = service.calculateProgressionHistory(
@@ -329,7 +325,7 @@ describe('ProgressionService', () => {
     });
 
     it('should apply deload even if previous weeks incomplete', () => {
-      const exercise = createTestExercise();
+      const exercise = createExerciseProgression(defaults);
       const completionHistory: CompletionStatus[] = [
         {
           exerciseId: 'exercise-1',

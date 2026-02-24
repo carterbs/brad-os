@@ -1,16 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Ingredient } from '../shared.js';
-
-// Type for API response body
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
+import {
+  type ApiResponse,
+  createIngredient,
+  createMockIngredientRepository,
+} from '../__tests__/utils/index.js';
 
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({
@@ -23,13 +18,7 @@ vi.mock('../middleware/app-check.js', () => ({
 }));
 
 // Mock the repository
-const mockIngredientRepo = {
-  findAll: vi.fn(),
-  findById: vi.fn(),
-  create: vi.fn(),
-  update: vi.fn(),
-  delete: vi.fn(),
-};
+const mockIngredientRepo = createMockIngredientRepository();
 
 vi.mock('../repositories/ingredient.repository.js', () => ({
   IngredientRepository: vi.fn().mockImplementation(() => mockIngredientRepo),
@@ -37,18 +26,6 @@ vi.mock('../repositories/ingredient.repository.js', () => ({
 
 // Import after mocks
 import { ingredientsApp } from './ingredients.js';
-
-// Helper to create test ingredient
-function createTestIngredient(overrides: Partial<Ingredient> = {}): Ingredient {
-  return {
-    id: 'ing-1',
-    name: 'Chicken Breast',
-    store_section: 'Meat',
-    created_at: '2024-01-01T00:00:00.000Z',
-    updated_at: '2024-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
 
 describe('Ingredients Handler', () => {
   beforeEach(() => {
@@ -58,8 +35,8 @@ describe('Ingredients Handler', () => {
   describe('GET /ingredients', () => {
     it('should return all ingredients', async () => {
       const ingredients = [
-        createTestIngredient({ id: 'ing-1', name: 'Chicken Breast', store_section: 'Meat' }),
-        createTestIngredient({ id: 'ing-2', name: 'Rice', store_section: 'Grains' }),
+        createIngredient({ id: 'ing-1', name: 'Chicken Breast', store_section: 'Meat' }),
+        createIngredient({ id: 'ing-2', name: 'Rice', store_section: 'Grains' }),
       ];
       mockIngredientRepo.findAll.mockResolvedValue(ingredients);
 
@@ -87,7 +64,7 @@ describe('Ingredients Handler', () => {
 
     it('should return ingredients with correct shape', async () => {
       const ingredients = [
-        createTestIngredient({
+        createIngredient({
           id: 'ing-1',
           name: 'Olive Oil',
           store_section: 'Oils',

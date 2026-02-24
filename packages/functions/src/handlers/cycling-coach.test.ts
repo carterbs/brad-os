@@ -1,16 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Response } from 'supertest';
-
-// Type for API response body
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
+import { type ApiResponse } from '../__tests__/utils/index.js';
 
 // Mock services - use vi.hoisted to define before vi.mock hoisting
 const mockCyclingService = vi.hoisted(() => ({

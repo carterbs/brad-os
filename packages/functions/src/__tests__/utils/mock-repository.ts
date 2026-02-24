@@ -216,6 +216,77 @@ export function createMockMeditationSessionRepository(): MockMeditationSessionRe
   };
 }
 
+// ============ Meal Repository Mock ============
+
+export interface MockMealRepository extends MockBaseRepository {
+  findByType: MockFn;
+  updateLastPlanned: MockFn;
+}
+
+export function createMockMealRepository(): MockMealRepository {
+  return {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findAll: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    findByType: vi.fn(),
+    updateLastPlanned: vi.fn(),
+  };
+}
+
+// ============ Recipe Repository Mock ============
+
+export interface MockRecipeRepository extends MockBaseRepository {
+  findByMealIds: MockFn;
+}
+
+export function createMockRecipeRepository(): MockRecipeRepository {
+  return {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findAll: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    findByMealIds: vi.fn(),
+  };
+}
+
+// ============ Ingredient Repository Mock ============
+
+export interface MockIngredientRepository extends MockBaseRepository {}
+
+export function createMockIngredientRepository(): MockIngredientRepository {
+  return {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findAll: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  };
+}
+
+// ============ MealPlan Session Repository Mock ============
+
+export interface MockMealPlanSessionRepository extends MockBaseRepository {
+  appendHistory: MockFn;
+  updatePlan: MockFn;
+  applyCritiqueUpdates: MockFn;
+}
+
+export function createMockMealPlanSessionRepository(): MockMealPlanSessionRepository {
+  return {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findAll: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    appendHistory: vi.fn(),
+    updatePlan: vi.fn(),
+    applyCritiqueUpdates: vi.fn(),
+  };
+}
+
 // ============ All Repositories Mock ============
 
 export interface MockRepositories {
@@ -228,6 +299,10 @@ export interface MockRepositories {
   planDayExerciseRepository: MockPlanDayExerciseRepository;
   stretchSessionRepository: MockStretchSessionRepository;
   meditationSessionRepository: MockMeditationSessionRepository;
+  mealRepository: MockMealRepository;
+  recipeRepository: MockRecipeRepository;
+  ingredientRepository: MockIngredientRepository;
+  mealPlanSessionRepository: MockMealPlanSessionRepository;
 }
 
 export function createMockRepositories(): MockRepositories {
@@ -241,5 +316,9 @@ export function createMockRepositories(): MockRepositories {
     planDayExerciseRepository: createMockPlanDayExerciseRepository(),
     stretchSessionRepository: createMockStretchSessionRepository(),
     meditationSessionRepository: createMockMeditationSessionRepository(),
+    mealRepository: createMockMealRepository(),
+    recipeRepository: createMockRecipeRepository(),
+    ingredientRepository: createMockIngredientRepository(),
+    mealPlanSessionRepository: createMockMealPlanSessionRepository(),
   };
 }

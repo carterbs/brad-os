@@ -20,6 +20,11 @@ import type {
   WorkoutStatus,
   WorkoutSetStatus,
   MesocycleStatus,
+  Meal,
+  Recipe,
+  Ingredient,
+  MealPlanSession,
+  MealPlanEntry,
 } from '../../shared.js';
 import type {
   ExerciseProgression,
@@ -210,6 +215,74 @@ export function createMeditationSession(
     plannedDurationSeconds: 600,
     actualDurationSeconds: 600,
     completedFully: true,
+    ...overrides,
+  };
+}
+
+// ============ Meal Fixtures ============
+
+export function createMeal(overrides?: Partial<Meal>): Meal {
+  return {
+    id: generateId('meal'),
+    name: 'Chicken Stir Fry',
+    meal_type: 'dinner',
+    effort: 5,
+    has_red_meat: false,
+    prep_ahead: false,
+    url: 'https://example.com/recipe',
+    last_planned: null,
+    ...createTimestamps(),
+    ...overrides,
+  };
+}
+
+export function createRecipe(overrides?: Partial<Recipe>): Recipe {
+  return {
+    id: generateId('recipe'),
+    meal_id: generateId('meal'),
+    ingredients: [
+      { ingredient_id: 'ing-1', quantity: 200, unit: 'g' },
+    ],
+    steps: [
+      { step_number: 1, instruction: 'Cook the chicken' },
+    ],
+    ...createTimestamps(),
+    ...overrides,
+  };
+}
+
+export function createIngredient(overrides?: Partial<Ingredient>): Ingredient {
+  return {
+    id: generateId('ingredient'),
+    name: 'Chicken Breast',
+    store_section: 'Meat',
+    ...createTimestamps(),
+    ...overrides,
+  };
+}
+
+export function createMealPlanEntry(overrides?: Partial<MealPlanEntry>): MealPlanEntry {
+  return {
+    day_index: 0,
+    meal_type: 'dinner',
+    meal_id: generateId('meal'),
+    meal_name: 'Chicken Stir Fry',
+    ...overrides,
+  };
+}
+
+export function createMealPlanSession(overrides?: Partial<MealPlanSession>): MealPlanSession {
+  return {
+    id: generateId('session'),
+    plan: [
+      createMealPlanEntry({ day_index: 0, meal_type: 'breakfast', meal_name: 'Oatmeal' }),
+      createMealPlanEntry({ day_index: 0, meal_type: 'lunch', meal_name: 'Sandwich' }),
+      createMealPlanEntry({ day_index: 0, meal_type: 'dinner', meal_name: 'Chicken Stir Fry' }),
+    ],
+    meals_snapshot: [],
+    history: [],
+    is_finalized: false,
+    ...createTimestamps(),
     ...overrides,
   };
 }

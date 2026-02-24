@@ -7,16 +7,7 @@ import type {
   TrainingBlock,
   WeightGoal,
 } from '../shared.js';
-
-// Type for API response body
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
+import { type ApiResponse } from '../__tests__/utils/index.js';
 
 // Mock the cycling service - use vi.hoisted to define before vi.mock hoisting
 const mockCyclingService = vi.hoisted(() => ({

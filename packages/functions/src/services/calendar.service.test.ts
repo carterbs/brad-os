@@ -1,11 +1,6 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import type { Firestore } from 'firebase-admin/firestore';
 import type {
-  Workout,
-  WorkoutSet,
-  PlanDay,
-  StretchSessionRecord,
-  MeditationSessionRecord,
   WorkoutActivitySummary,
 } from '../shared.js';
 import { CalendarService, utcToLocalDate } from './calendar.service.js';
@@ -14,6 +9,7 @@ import { WorkoutSetRepository } from '../repositories/workout-set.repository.js'
 import { PlanDayRepository } from '../repositories/plan-day.repository.js';
 import { StretchSessionRepository } from '../repositories/stretchSession.repository.js';
 import { MeditationSessionRepository } from '../repositories/meditationSession.repository.js';
+import { createWorkout, createWorkoutSet, createStretchSession, createMeditationSession, createPlanDay } from '../__tests__/utils/index.js';
 
 // Mock repositories
 vi.mock('../repositories/workout.repository.js');
@@ -40,28 +36,19 @@ describe('CalendarService', () => {
     findInDateRange: Mock;
   };
 
-  // Fixtures
-  const mockPlanDay: PlanDay = {
-    id: 'plan-day-1',
-    plan_id: 'plan-1',
-    day_of_week: 1,
-    name: 'Push Day',
-    sort_order: 0,
-  };
-
-  const createMockWorkout = (overrides: Partial<Workout> = {}): Workout => ({
+  // Shared default overrides matching original inline factory defaults
+  const workoutDefaults = {
     id: 'workout-1',
     mesocycle_id: 'meso-1',
     plan_day_id: 'plan-day-1',
     week_number: 1,
     scheduled_date: '2024-01-15',
-    status: 'completed',
+    status: 'completed' as const,
     started_at: '2024-01-15T10:00:00Z',
     completed_at: '2024-01-15T11:00:00Z',
-    ...overrides,
-  });
+  };
 
-  const createMockWorkoutSet = (overrides: Partial<WorkoutSet> = {}): WorkoutSet => ({
+  const workoutSetDefaults = {
     id: 'set-1',
     workout_id: 'workout-1',
     exercise_id: 'exercise-1',
@@ -70,28 +57,34 @@ describe('CalendarService', () => {
     target_weight: 100,
     actual_reps: 8,
     actual_weight: 100,
-    status: 'completed',
-    ...overrides,
-  });
+    status: 'completed' as const,
+  };
 
-  const createMockStretchSession = (overrides: Partial<StretchSessionRecord> = {}): StretchSessionRecord => ({
+  const stretchSessionDefaults = {
     id: 'stretch-1',
     completedAt: '2024-01-15T14:00:00Z',
     totalDurationSeconds: 600,
     regionsCompleted: 5,
     regionsSkipped: 1,
-    stretches: [],
-    ...overrides,
-  });
+    stretches: [] as [],
+  };
 
-  const createMockMeditationSession = (overrides: Partial<MeditationSessionRecord> = {}): MeditationSessionRecord => ({
+  const meditationSessionDefaults = {
     id: 'meditation-1',
     completedAt: '2024-01-15T07:00:00Z',
-    sessionType: 'basic-breathing',
+    sessionType: 'basic-breathing' as const,
     plannedDurationSeconds: 600,
     actualDurationSeconds: 600,
     completedFully: true,
-    ...overrides,
+  };
+
+  // Fixtures
+  const mockPlanDay = createPlanDay({
+    id: 'plan-day-1',
+    plan_id: 'plan-1',
+    day_of_week: 1,
+    name: 'Push Day',
+    sort_order: 0,
   });
 
   beforeEach(() => {
@@ -180,10 +173,10 @@ describe('CalendarService', () => {
 
   describe('getMonthData', () => {
     it('should return activities grouped by date', async () => {
-      const workout = createMockWorkout();
-      const sets = [createMockWorkoutSet()];
-      const stretchSession = createMockStretchSession();
-      const meditationSession = createMockMeditationSession();
+      const workout = createWorkout(workoutDefaults);
+      const sets = [createWorkoutSet(workoutSetDefaults)];
+      const stretchSession = createStretchSession(stretchSessionDefaults);
+      const meditationSession = createMeditationSession(meditationSessionDefaults);
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
       mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
@@ -198,11 +191,11 @@ describe('CalendarService', () => {
     });
 
     it('should include workout activities with summary', async () => {
-      const workout = createMockWorkout({ week_number: 2 });
+      const workout = createWorkout({ ...workoutDefaults, week_number: 2 });
       const sets = [
-        createMockWorkoutSet({ exercise_id: 'ex-1', status: 'completed' }),
-        createMockWorkoutSet({ exercise_id: 'ex-1', status: 'completed' }),
-        createMockWorkoutSet({ exercise_id: 'ex-2', status: 'completed' }),
+        createWorkoutSet({ ...workoutSetDefaults, exercise_id: 'ex-1', status: 'completed' }),
+        createWorkoutSet({ ...workoutSetDefaults, exercise_id: 'ex-1', status: 'completed' }),
+        createWorkoutSet({ ...workoutSetDefaults, exercise_id: 'ex-2', status: 'completed' }),
       ];
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
@@ -229,7 +222,8 @@ describe('CalendarService', () => {
     });
 
     it('should include stretch activities with summary', async () => {
-      const stretchSession = createMockStretchSession({
+      const stretchSession = createStretchSession({
+        ...stretchSessionDefaults,
         totalDurationSeconds: 720,
         regionsCompleted: 6,
         regionsSkipped: 2,
@@ -254,7 +248,8 @@ describe('CalendarService', () => {
     });
 
     it('should include meditation activities with summary', async () => {
-      const meditationSession = createMockMeditationSession({
+      const meditationSession = createMeditationSession({
+        ...meditationSessionDefaults,
         sessionType: 'body-scan',
         actualDurationSeconds: 1200,
       });
@@ -277,10 +272,10 @@ describe('CalendarService', () => {
     });
 
     it('should include all activity types in day summary', async () => {
-      const workout = createMockWorkout();
-      const sets = [createMockWorkoutSet()];
-      const stretchSession = createMockStretchSession();
-      const meditationSession = createMockMeditationSession();
+      const workout = createWorkout(workoutDefaults);
+      const sets = [createWorkoutSet(workoutSetDefaults)];
+      const stretchSession = createStretchSession(stretchSessionDefaults);
+      const meditationSession = createMeditationSession(meditationSessionDefaults);
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
       mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
@@ -299,9 +294,9 @@ describe('CalendarService', () => {
     });
 
     it('should group multiple activities on same date', async () => {
-      const workout1 = createMockWorkout({ id: 'w1', completed_at: '2024-01-15T09:00:00Z' });
-      const workout2 = createMockWorkout({ id: 'w2', completed_at: '2024-01-15T17:00:00Z' });
-      const sets = [createMockWorkoutSet()];
+      const workout1 = createWorkout({ ...workoutDefaults, id: 'w1', completed_at: '2024-01-15T09:00:00Z' });
+      const workout2 = createWorkout({ ...workoutDefaults, id: 'w2', completed_at: '2024-01-15T17:00:00Z' });
+      const sets = [createWorkoutSet(workoutSetDefaults)];
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout1, workout2]);
       mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
@@ -315,10 +310,10 @@ describe('CalendarService', () => {
     });
 
     it('should sort activities within a day by completion time', async () => {
-      const workout = createMockWorkout({ completed_at: '2024-01-15T14:00:00Z' });
-      const sets = [createMockWorkoutSet()];
-      const stretchSession = createMockStretchSession({ completedAt: '2024-01-15T16:00:00Z' });
-      const meditationSession = createMockMeditationSession({ completedAt: '2024-01-15T07:00:00Z' });
+      const workout = createWorkout({ ...workoutDefaults, completed_at: '2024-01-15T14:00:00Z' });
+      const sets = [createWorkoutSet(workoutSetDefaults)];
+      const stretchSession = createStretchSession({ ...stretchSessionDefaults, completedAt: '2024-01-15T16:00:00Z' });
+      const meditationSession = createMeditationSession({ ...meditationSessionDefaults, completedAt: '2024-01-15T07:00:00Z' });
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
       mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
@@ -379,11 +374,12 @@ describe('CalendarService', () => {
     });
 
     it('should use scheduled_date as fallback if completed_at is empty', async () => {
-      const workout = createMockWorkout({
+      const workout = createWorkout({
+        ...workoutDefaults,
         scheduled_date: '2024-01-20',
         completed_at: '',
       });
-      const sets = [createMockWorkoutSet()];
+      const sets = [createWorkoutSet(workoutSetDefaults)];
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
       mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
@@ -431,8 +427,8 @@ describe('CalendarService', () => {
     });
 
     it('should mark deload week workouts correctly', async () => {
-      const deloadWorkout = createMockWorkout({ week_number: 7 });
-      const sets = [createMockWorkoutSet()];
+      const deloadWorkout = createWorkout({ ...workoutDefaults, week_number: 7 });
+      const sets = [createWorkoutSet(workoutSetDefaults)];
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([deloadWorkout]);
       mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
@@ -453,7 +449,8 @@ describe('CalendarService', () => {
     it('should convert UTC timestamps to local dates using timezone offset', async () => {
       // Activity at UTC 03:00, with -5 hour offset (EST)
       // Should appear on previous day
-      const stretchSession = createMockStretchSession({
+      const stretchSession = createStretchSession({
+        ...stretchSessionDefaults,
         completedAt: '2024-01-15T03:00:00Z',
       });
 
@@ -469,8 +466,8 @@ describe('CalendarService', () => {
     });
 
     it('should handle plan day not found gracefully', async () => {
-      const workout = createMockWorkout();
-      const sets = [createMockWorkoutSet()];
+      const workout = createWorkout(workoutDefaults);
+      const sets = [createWorkoutSet(workoutSetDefaults)];
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
       mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);

@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
+import { type ApiResponse } from '../utils/index.js';
 
 // Functions emulator runs at port 5001
 // URLs follow pattern: http://127.0.0.1:5001/{project-id}/us-central1/{functionName}
@@ -22,11 +23,6 @@ interface Exercise {
   is_custom: boolean;
   created_at: string;
   updated_at: string;
-}
-
-interface ApiResponse<T> {
-  success: boolean;
-  data: T;
 }
 
 interface ApiError {

@@ -8,6 +8,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
+import { type ApiResponse } from '../utils/index.js';
 
 const FUNCTIONS_URL = 'http://127.0.0.1:5001/brad-os/us-central1';
 const HEALTH_URL = `${FUNCTIONS_URL}/devHealth`;
@@ -21,11 +22,6 @@ interface MeditationSession {
   actualDurationSeconds: number;
   completedFully: boolean;
   created_at: string;
-}
-
-interface ApiResponse<T> {
-  success: boolean;
-  data: T;
 }
 
 interface ApiError {

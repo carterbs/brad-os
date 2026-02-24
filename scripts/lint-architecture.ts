@@ -1323,6 +1323,50 @@ function checkTestFactoryUsage(): CheckResult {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Check 17: No inline ApiResponse in test files
+//
+// Test files should import ApiResponse from __tests__/utils/api-types.ts
+// rather than defining their own inline interface.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function checkNoInlineApiResponse(): CheckResult {
+  const name = 'No inline ApiResponse in tests';
+  const violations: string[] = [];
+
+  const testDirs = [
+    path.join(FUNCTIONS_SRC, 'handlers'),
+    path.join(FUNCTIONS_SRC, 'services'),
+    path.join(FUNCTIONS_SRC, 'repositories'),
+    path.join(FUNCTIONS_SRC, '__tests__', 'integration'),
+  ];
+
+  const inlinePattern = /^interface ApiResponse/m;
+
+  for (const dir of testDirs) {
+    if (!fs.existsSync(dir)) continue;
+
+    const testFiles = fs.readdirSync(dir).filter(
+      (f) => f.endsWith('.test.ts') || f.endsWith('.spec.ts')
+    );
+
+    for (const file of testFiles) {
+      const fullPath = path.join(dir, file);
+      const content = fs.readFileSync(fullPath, 'utf-8');
+
+      if (inlinePattern.test(content)) {
+        const relPath = path.relative(ROOT_DIR, fullPath);
+        violations.push(
+          `${relPath} defines inline ApiResponse interface.\n` +
+          `    Import from __tests__/utils/api-types.ts instead.`
+        );
+      }
+    }
+  }
+
+  return { name, passed: violations.length === 0, violations };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1345,6 +1389,8 @@ function main(): void {
     checkSchemasInSchemasDir,
     checkNoSkippedTests,
     checkUntestedHighRisk,
+    checkTestFactoryUsage,
+    checkNoInlineApiResponse,
   ];
 
   const results: CheckResult[] = [];
@@ -1366,9 +1412,7 @@ function main(): void {
   }
 
   // Warning checks (non-blocking)
-  const warningChecks: Array<() => CheckResult> = [
-    checkTestFactoryUsage,
-  ];
+  const warningChecks: Array<() => CheckResult> = [];
 
   const warningResults: CheckResult[] = [];
   for (const check of warningChecks) {

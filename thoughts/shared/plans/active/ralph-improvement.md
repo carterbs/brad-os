@@ -1,338 +1,717 @@
-# Unified Validation Pipeline + Pre-commit Quality Gate
+# Shared Test Bootstrap: Centralize Test Boilerplate and Graduate Lint Enforcement
 
 ## Why
 
-This is the highest-leverage harness improvement because it closes the biggest gap in the current development loop: **code quality is not enforced at commit time, and there is no single command to run all checks.**
+This is the highest-leverage harness improvement because it addresses the **most pervasive code duplication in the entire codebase** and follows the project's own principle-to-linter graduation pipeline.
 
-Current state:
-- Pre-commit hook (`hooks/pre-commit`) only validates worktree branching and scans for secrets via gitleaks
-- Agents and humans must independently remember to run 4 separate commands: `npm run typecheck`, `npm run lint`, `npm test`, `npm run lint:architecture`
-- CLAUDE.md documents these commands but there's no enforcement — an agent can commit code that fails typecheck, lint, tests, or architecture checks
-- There is no unified "did I break anything?" command
+Current state (measured):
+- **26 files** define an identical inline `ApiResponse<T>` interface (~8 lines each = 208 duplicated lines)
+- **23 files** define inline `createTest*`/`createMock*` factory functions (~15-20 lines each = 350+ duplicated lines)
+- **18 files** define identical `vi.mock('../firebase.js')` boilerplate
+- **18 files** define identical `vi.mock('../middleware/app-check.js')` boilerplate
+- **ZERO handler or service test files** import from the shared `__tests__/utils/` directory
+- Architecture lint check #15 detects this as a **warning only** and reports 16 violations — but the golden principles document explicitly says conventions graduate to lint errors after repeated violations
+
+The shared test utilities already exist in `__tests__/utils/` (fixtures.ts, mock-repository.ts, mock-express.ts) but are unused. This improvement:
+1. Fills gaps in the shared utilities (missing `ApiResponse`, missing meal planning fixtures/mocks)
+2. Migrates all 31 test files to use shared utilities
+3. Graduates lint check #15 from warning to error
+4. Adds a new check for inline `ApiResponse<T>` duplication
+5. Eliminates ~550+ lines of duplicated code
 
 After this improvement:
-- `npm run validate` runs all 4 checks in sequence with fail-fast and timing output
-- Pre-commit hook catches type errors and lint violations before they reach the repository
-- Agents need to know ONE command instead of FOUR
-- The pre-commit hook acts as a safety net even when agents forget to validate
-
-Measured timings (cold start on this codebase):
-- `tsc -b`: ~2.5s (incremental, faster on warm builds)
-- `eslint . --ext .ts`: ~7.3s (full codebase)
-- `vitest run`: ~6.1s
-- `lint:architecture`: ~0.2s
-- **Total: ~16s** — acceptable for a pre-merge validation command
+- Agents writing new tests have ONE canonical pattern to follow
+- The lint error catches any regression to inline patterns
+- Test files are shorter and more focused on test logic, not boilerplate
 
 ## What
 
-### 1. `scripts/validate.sh` — Unified validation runner
+### Phase 1: Add Missing Shared Test Utilities
 
-A shell script that runs all quality checks in optimal order with:
-- **Fail-fast**: stops at first failure (no wasting time on later checks)
-- **Timing**: reports elapsed time per check and total
-- **Clear output**: colored pass/fail markers, summary line
-- **Exit code**: 0 only if ALL checks pass
-- **Optional `--quick` flag**: runs only typecheck + lint (no tests), for rapid iteration
+#### 1a. Create `packages/functions/src/__tests__/utils/api-types.ts`
 
-Check order (fastest-to-fail first):
-1. TypeScript compilation (`tsc -b`) — catches type errors in ~2.5s
-2. ESLint (`eslint . --ext .ts`) — catches style/safety violations
-3. Unit tests (`vitest run`) — catches logic errors
-4. Architecture enforcement (`tsx scripts/lint-architecture.ts`) — catches structural violations
+The test-specific `ApiResponse<T>` type. This differs from `types/api.ts` (which uses discriminated unions with `success: true` / `success: false`) — tests need a "loose" combined type for assertion convenience.
 
-```bash
-#!/bin/bash
-set -euo pipefail
+```typescript
+/**
+ * Test-specific API response type for supertest assertions.
+ *
+ * This intentionally differs from the production ApiResponse/ApiError discriminated
+ * union in types/api.ts. Tests need a single combined type because supertest responses
+ * are parsed as unknown JSON — we can't use discriminated union narrowing.
+ */
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: {
+    code: string;
+    message: string;
+    details?: unknown;
+  };
+}
+```
 
-# Unified validation pipeline for brad-os
-# Runs all quality checks in sequence, failing fast on first error.
-#
-# Usage:
-#   npm run validate          # All checks (typecheck + lint + test + architecture)
-#   npm run validate:quick    # Fast checks only (typecheck + lint)
+No vitest import needed — this is a pure type file.
 
-BOLD='\033[1m'
-GREEN='\033[32m'
-RED='\033[31m'
-DIM='\033[2m'
-RESET='\033[0m'
+#### 1b. Add meal planning fixtures to `packages/functions/src/__tests__/utils/fixtures.ts`
 
-QUICK=false
-if [ "${1:-}" = "--quick" ]; then
-  QUICK=true
-fi
+Add factory functions for the 4 meal planning domain types used in handler tests. Add these after the existing meditation section (~line 220):
 
-TOTAL_START=$(date +%s)
-PASSED=0
-FAILED=0
+```typescript
+// ============ Meal Fixtures ============
 
-run_check() {
-  local name="$1"
-  shift
-  local start=$(date +%s)
-
-  printf "${BOLD}▶ ${name}${RESET}\n"
-
-  if "$@"; then
-    local end=$(date +%s)
-    local elapsed=$((end - start))
-    printf "${GREEN}✓ ${name}${RESET} ${DIM}(${elapsed}s)${RESET}\n\n"
-    PASSED=$((PASSED + 1))
-  else
-    local end=$(date +%s)
-    local elapsed=$((end - start))
-    printf "${RED}✗ ${name}${RESET} ${DIM}(${elapsed}s)${RESET}\n\n"
-    FAILED=$((FAILED + 1))
-
-    TOTAL_END=$(date +%s)
-    TOTAL_ELAPSED=$((TOTAL_END - TOTAL_START))
-
-    printf "\n${BOLD}--- Validation FAILED ---${RESET}\n"
-    printf "${RED}Failed at: ${name}${RESET}\n"
-    printf "${DIM}${PASSED} passed, ${FAILED} failed (${TOTAL_ELAPSED}s total)${RESET}\n"
-    exit 1
-  fi
+export function createMeal(overrides?: Partial<Meal>): Meal {
+  return {
+    id: generateId('meal'),
+    name: 'Chicken Stir Fry',
+    meal_type: 'dinner',
+    effort: 5,
+    has_red_meat: false,
+    prep_ahead: false,
+    url: 'https://example.com/recipe',
+    last_planned: null,
+    ...createTimestamps(),
+    ...overrides,
+  };
 }
 
-if [ "$QUICK" = true ]; then
-  printf "\n${BOLD}=== Quick Validation ===${RESET}\n\n"
-else
-  printf "\n${BOLD}=== Full Validation ===${RESET}\n\n"
-fi
+export function createRecipe(overrides?: Partial<Recipe>): Recipe {
+  return {
+    id: generateId('recipe'),
+    name: 'Garlic Chicken',
+    description: 'A simple garlic chicken recipe',
+    prep_time: 15,
+    cook_time: 30,
+    servings: 4,
+    ingredients: [],
+    steps: [],
+    ...createTimestamps(),
+    ...overrides,
+  };
+}
 
-run_check "TypeScript compilation" npx tsc -b
-run_check "ESLint" npx eslint . --ext .ts
-
-if [ "$QUICK" = false ]; then
-  run_check "Unit tests" npx vitest run
-  run_check "Architecture enforcement" npx tsx scripts/lint-architecture.ts
-fi
-
-TOTAL_END=$(date +%s)
-TOTAL_ELAPSED=$((TOTAL_END - TOTAL_START))
-
-printf "\n${BOLD}--- Validation PASSED ---${RESET}\n"
-printf "${GREEN}All ${PASSED} checks passed${RESET} ${DIM}(${TOTAL_ELAPSED}s total)${RESET}\n"
+export function createIngredient(overrides?: Partial<Ingredient>): Ingredient {
+  return {
+    id: generateId('ingredient'),
+    name: 'Chicken Breast',
+    category: 'protein',
+    unit: 'lbs',
+    ...createTimestamps(),
+    ...overrides,
+  };
+}
 ```
 
-**Key design decisions:**
-- Uses `npx` for commands instead of `npm run` to avoid double-nesting npm output
-- Fail-fast prevents wasting time running tests when types are broken
-- `--quick` flag enables reuse in pre-commit without code duplication
-- Shell script (not TypeScript) because it's pure orchestration — no parsing needed
-
-### 2. Enhanced `hooks/pre-commit` — Quality gate at commit time
-
-Add quality checks after the existing worktree gate and gitleaks scan. The pre-commit runs the **quick** subset (typecheck + staged-file lint) to keep commits fast (~5s overhead).
-
-**After the existing `gitleaks protect --staged --verbose` line, append:**
-
-```bash
-# --- Quick quality checks (typecheck + lint staged files) ---
-# These catch the most common errors before they enter the repo.
-
-echo ""
-echo "Running quality checks..."
-
-# 1. TypeScript compilation (incremental, fast for small changes)
-if ! npx tsc -b; then
-  echo ""
-  echo "ERROR: TypeScript compilation failed. Fix type errors before committing."
-  echo "  Run 'npm run typecheck' to see full output."
-  exit 1
-fi
-echo "✓ TypeScript compilation passed"
-
-# 2. ESLint on staged .ts files only (proportional to change size)
-STAGED_TS=$(git diff --cached --name-only --diff-filter=ACM -- '*.ts' | grep -v '\.config\.ts$' | grep -v 'scripts/' || true)
-if [ -n "$STAGED_TS" ]; then
-  if ! echo "$STAGED_TS" | xargs npx eslint; then
-    echo ""
-    echo "ERROR: ESLint errors found in staged files."
-    echo "  Run 'npm run lint:fix' to auto-fix, then re-stage."
-    exit 1
-  fi
-  echo "✓ ESLint passed (staged files)"
-else
-  echo "✓ ESLint skipped (no staged .ts files)"
-fi
-
-# 3. Architecture enforcement (very fast, ~0.2s)
-if ! npx tsx scripts/lint-architecture.ts; then
-  echo ""
-  echo "ERROR: Architecture violations found."
-  echo "  Run 'npm run lint:architecture' for details."
-  exit 1
-fi
-echo "✓ Architecture check passed"
-
-echo ""
-echo "All pre-commit checks passed."
+Import the required types at the top of the file:
+```typescript
+import type { Meal } from '../../types/meal.js';
+import type { Recipe } from '../../types/recipe.js';
+import type { Ingredient } from '../../types/ingredient.js';
 ```
 
-**Key design decisions:**
-- ESLint runs **only on staged `.ts` files** (not the whole codebase) for speed. Uses `git diff --cached --name-only --diff-filter=ACM` to get only Added/Copied/Modified files.
-- Excludes `*.config.ts` and `scripts/` from staged lint (matching `.eslintrc.cjs` ignorePatterns)
-- Does NOT run full test suite in pre-commit (too slow at ~6s; tests run via `npm run validate` before merge)
-- Architecture lint is included because it's extremely fast (~0.2s) and catches structural issues
-- `npx tsc -b` uses incremental compilation — subsequent runs after a full build are near-instant for small changes
+**Important**: Check the actual type definitions in `types/meal.ts`, `types/recipe.ts`, and `types/ingredient.ts` when implementing. The factory defaults above are based on the inline factories in handler tests — verify all required fields are covered.
 
-### 3. Package.json changes — New npm scripts
+#### 1c. Add meal planning mock repos to `packages/functions/src/__tests__/utils/mock-repository.ts`
 
-Add to the `"scripts"` section in `package.json`:
+Add after the existing MeditationSession section (~line 217):
 
-```json
-"validate": "bash scripts/validate.sh",
-"validate:quick": "bash scripts/validate.sh --quick",
+```typescript
+// ============ Meal Repository Mock ============
+
+export interface MockMealRepository extends MockBaseRepository {
+  findByType: MockFn;
+  updateLastPlanned: MockFn;
+}
+
+export function createMockMealRepository(): MockMealRepository {
+  return {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findAll: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    findByType: vi.fn(),
+    updateLastPlanned: vi.fn(),
+  };
+}
+
+// ============ Recipe Repository Mock ============
+
+export interface MockRecipeRepository extends MockBaseRepository {
+  findByMealId: MockFn;
+}
+
+export function createMockRecipeRepository(): MockRecipeRepository {
+  return {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findAll: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    findByMealId: vi.fn(),
+  };
+}
+
+// ============ Ingredient Repository Mock ============
+
+export interface MockIngredientRepository extends MockBaseRepository {
+  findByCategory: MockFn;
+}
+
+export function createMockIngredientRepository(): MockIngredientRepository {
+  return {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findAll: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    findByCategory: vi.fn(),
+  };
+}
+
+// ============ MealPlan Session Repository Mock ============
+
+export interface MockMealPlanSessionRepository extends MockBaseRepository {
+  findByStatus: MockFn;
+}
+
+export function createMockMealPlanSessionRepository(): MockMealPlanSessionRepository {
+  return {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findAll: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    findByStatus: vi.fn(),
+  };
+}
 ```
 
-### 4. CLAUDE.md update — Simplify validation guidance
+**Important**: Verify the actual repository interfaces by reading the repository source files (`repositories/meal.repository.ts`, etc.) before implementing. The mock must cover all methods the handler tests exercise.
 
-Replace the current Validation section:
+Also add these to the `MockRepositories` interface and `createMockRepositories()` function:
+```typescript
+export interface MockRepositories {
+  // ... existing repos ...
+  mealRepository: MockMealRepository;
+  recipeRepository: MockRecipeRepository;
+  ingredientRepository: MockIngredientRepository;
+  mealPlanSessionRepository: MockMealPlanSessionRepository;
+}
+```
+
+#### 1d. Update barrel export in `packages/functions/src/__tests__/utils/index.ts`
+
+Add the new module:
+```typescript
+// Test-specific API types
+export * from './api-types.js';
+```
+
+### Phase 2: Migrate Handler Tests (14 files)
+
+Each handler test file follows the same migration pattern. Here is the canonical **before/after** using `exercises.test.ts` as the example:
+
+**Before** (~65 lines of boilerplate):
+```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import request from 'supertest';
+import type { Response } from 'supertest';
+import type { Exercise } from '../shared.js';
+
+// Type for API response body
+interface ApiResponse<T = unknown> {              // ← INLINE: remove
+  success: boolean;
+  data?: T;
+  error?: { code: string; message: string; };
+}
+
+vi.mock('../firebase.js', () => ({                // ← KEEP: vitest hoisting
+  getFirestoreDb: vi.fn(),
+}));
+
+vi.mock('../middleware/app-check.js', () => ({     // ← KEEP: vitest hoisting
+  requireAppCheck: (_req: unknown, _res: unknown, next: () => void): void => next(),
+}));
+
+const mockExerciseRepo = {                        // ← INLINE: replace
+  findAll: vi.fn(),
+  findDefaultExercises: vi.fn(),
+  // ... 6 more methods
+};
+
+const mockWorkoutSetRepo = {                      // ← INLINE: replace
+  findCompletedByExerciseId: vi.fn(),
+};
+
+vi.mock('../repositories/exercise.repository.js', () => ({
+  ExerciseRepository: vi.fn().mockImplementation(() => mockExerciseRepo),
+}));
+
+vi.mock('../repositories/workout-set.repository.js', () => ({
+  WorkoutSetRepository: vi.fn().mockImplementation(() => mockWorkoutSetRepo),
+}));
+
+import { exercisesApp } from './exercises.js';
+
+function createTestExercise(overrides: Partial<Exercise> = {}): Exercise {  // ← INLINE: replace
+  return {
+    id: 'exercise-1',
+    name: 'Bench Press',
+    weight_increment: 5,
+    is_custom: false,
+    created_at: '2024-01-01T00:00:00.000Z',
+    updated_at: '2024-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+```
+
+**After** (~25 lines of boilerplate):
+```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import request from 'supertest';
+import type { Response } from 'supertest';
+import {
+  type ApiResponse,
+  createExercise,
+  createMockExerciseRepository,
+  createMockWorkoutSetRepository,
+} from '../__tests__/utils/index.js';
+
+// Mock firebase before importing the handler
+vi.mock('../firebase.js', () => ({
+  getFirestoreDb: vi.fn(),
+}));
+
+// Mock app-check middleware
+vi.mock('../middleware/app-check.js', () => ({
+  requireAppCheck: (_req: unknown, _res: unknown, next: () => void): void => next(),
+}));
+
+// Mock the repositories
+const mockExerciseRepo = createMockExerciseRepository();
+const mockWorkoutSetRepo = createMockWorkoutSetRepository();
+
+vi.mock('../repositories/exercise.repository.js', () => ({
+  ExerciseRepository: vi.fn().mockImplementation(() => mockExerciseRepo),
+}));
+
+vi.mock('../repositories/workout-set.repository.js', () => ({
+  WorkoutSetRepository: vi.fn().mockImplementation(() => mockWorkoutSetRepo),
+}));
+
+// Import after mocks
+import { exercisesApp } from './exercises.js';
+```
+
+**Key migration rules:**
+
+1. **`ApiResponse<T>`**: Remove inline interface → import `type ApiResponse` from `..//__tests__/utils/index.js`
+2. **`vi.mock()` calls**: KEEP inline. Vitest hoists these — they cannot be extracted to shared modules.
+3. **Mock repo objects**: Replace inline object literals → call shared `createMock*Repository()`. The `vi.mock()` factory still references the local variable.
+4. **`createTest*` factories**: Replace → import `create*` from shared fixtures. If tests assert on hardcoded IDs like `'exercise-1'`, pass `{ id: 'exercise-1' }` as an override.
+5. **Type-only imports from `../shared.js`**: Remove if the test only used the type for factory typing. The shared `createExercise()` already returns `Exercise`.
+
+**Files to migrate (14 handler test files):**
+
+| File | ApiResponse | Factory Replacement | Mock Repo Replacement |
+|------|------------|--------------------|-----------------------|
+| `handlers/exercises.test.ts` | Yes | `createTestExercise` → `createExercise` | `mockExerciseRepo` → `createMockExerciseRepository()`, `mockWorkoutSetRepo` → `createMockWorkoutSetRepository()` |
+| `handlers/workouts.test.ts` | Yes | `createTestWorkout`, `createTestWorkoutSet` → shared | `mockWorkoutRepo` → `createMockWorkoutRepository()`, `mockWorkoutSetRepo` → `createMockWorkoutSetRepository()` |
+| `handlers/plans.test.ts` | Yes | `createTestPlan`, `createTestPlanDay`, `createTestPlanDayExercise`, `createTestMesocycle`, `createTestExercise` → shared | All 5 mock repos → shared factories |
+| `handlers/mesocycles.test.ts` | Yes | `createTestMesocycle` → `createMesocycle` | `mockMesocycleRepo` → `createMockMesocycleRepository()` |
+| `handlers/workoutSets.test.ts` | Yes | `createTestWorkoutSet` → `createWorkoutSet` | Mock repos → shared |
+| `handlers/stretchSessions.test.ts` | Yes | `createTestStretchSession` → `createStretchSession` | `mockStretchSessionRepo` → `createMockStretchSessionRepository()` |
+| `handlers/stretches.test.ts` | Yes | Inline stretch factories → shared | Mock repos → check if covered |
+| `handlers/meditationSessions.test.ts` | Yes | `createTestMeditationSession` → `createMeditationSession` | `mockMeditationSessionRepo` → `createMockMeditationSessionRepository()` |
+| `handlers/meals.test.ts` | Yes | `createTestMeal` → `createMeal` (new in Phase 1) | `mockMealRepo` → `createMockMealRepository()` (new in Phase 1) |
+| `handlers/ingredients.test.ts` | Yes | Inline factories → `createIngredient` (new) | `mockIngredientRepo` → `createMockIngredientRepository()` (new) |
+| `handlers/recipes.test.ts` | Yes | Inline factories → `createRecipe` (new) | `mockRecipeRepo` → `createMockRecipeRepository()` (new) |
+| `handlers/mealplans.test.ts` | Yes | Inline factories → shared | Mock repos → shared |
+| `handlers/calendar.test.ts` | Yes | Inline factories → shared where available | Service mocks stay inline |
+| `handlers/cycling.test.ts` | Yes | Inline `createTestActivity` etc. → shared if added, else keep | Service mocks stay inline (uses `vi.hoisted()`) |
+
+**Note on cycling/health/today-coach handler tests**: These tests mock **services** rather than repositories (e.g., `mockCyclingService` via `vi.hoisted()`). Service mocks are handler-specific and stay inline. Only the `ApiResponse<T>` and any `createTest*` factories should be migrated. If the inline factory creates domain objects that don't have shared fixtures yet, either:
+- Add the fixture to `fixtures.ts` if the type is reusable (e.g., `CyclingActivity`)
+- Leave the factory inline if it's truly handler-specific
+
+Also migrate `handlers/health.test.ts`, `handlers/health-sync.test.ts`, `handlers/cycling-coach.test.ts`, and `handlers/today-coach.test.ts` — at minimum replace their inline `ApiResponse<T>`.
+
+### Phase 3: Migrate Service Tests (9 files)
+
+Same pattern as handler tests. Service tests are in `packages/functions/src/services/`:
+
+| File | ApiResponse | Factory | Notes |
+|------|------------|---------|-------|
+| `workout-set.service.test.ts` | Check | `createTest*` → shared | Lifting fixtures exist |
+| `workout.service.test.ts` | Check | `createTest*` → shared | Lifting fixtures exist |
+| `progression.service.test.ts` | Check | `createTest*` → shared | Progression fixtures exist |
+| `dynamic-progression.service.test.ts` | Check | `createTest*` → shared | Progression fixtures exist |
+| `plan-modification.service.test.ts` | Check | `createTest*` → shared | Lifting fixtures exist |
+| `mesocycle.service.test.ts` | Check | `createTest*` → shared; also has `vi.mock('../firebase.js')` | |
+| `calendar.service.test.ts` | Check | `createTest*` → shared where available | Calendar fixtures may be handler-specific |
+| `mealplan-critique.service.test.ts` | Check | `createTest*` → shared | Meal planning fixtures new in Phase 1 |
+| `mealplan-operations.service.test.ts` | Check | `createTest*` → shared | Meal planning fixtures new in Phase 1 |
+
+For each file: read it first, identify which inline patterns can be replaced with shared imports, and apply the same migration rules from Phase 2.
+
+### Phase 4: Migrate Integration Tests — ApiResponse Only (8 files)
+
+Integration tests in `packages/functions/src/__tests__/integration/` use `supertest` against the real emulator. They don't mock firebase or repos. They DO have:
+- Inline `ApiResponse<T>` interface (same as handler tests)
+- Sometimes inline `Exercise`/`Workout` interfaces that duplicate `types/*.ts`
+
+Migration: Replace inline `ApiResponse<T>` with import from `../utils/index.js`. For inline domain type interfaces, replace with imports from `../../shared.js`.
+
+Files:
+- `__tests__/integration/exercises.integration.test.ts`
+- `__tests__/integration/workouts.integration.test.ts`
+- `__tests__/integration/plans.integration.test.ts`
+- `__tests__/integration/mesocycles.integration.test.ts`
+- `__tests__/integration/workoutSets.integration.test.ts`
+- `__tests__/integration/stretchSessions.integration.test.ts`
+- `__tests__/integration/meditationSessions.integration.test.ts`
+- `__tests__/integration/calendar.integration.test.ts`
+
+(Also check `health.integration.test.ts` if it exists.)
+
+### Phase 5: Graduate Architecture Lint Check
+
+#### 5a. Move check from warning to error in `scripts/lint-architecture.ts`
+
+At line ~1369-1371, move `checkTestFactoryUsage` from the `warningChecks` array to the `checks` array:
+
+```typescript
+// Before (line 1332-1348):
+const checks: Array<() => CheckResult> = [
+  // ... 15 existing checks ...
+  checkUntestedHighRisk,
+];
+
+// After:
+const checks: Array<() => CheckResult> = [
+  // ... 15 existing checks ...
+  checkUntestedHighRisk,
+  checkTestFactoryUsage,  // Graduated from warning to error
+];
+```
+
+Remove it from `warningChecks` (line 1369-1371):
+```typescript
+// Before:
+const warningChecks: Array<() => CheckResult> = [
+  checkTestFactoryUsage,
+];
+
+// After:
+const warningChecks: Array<() => CheckResult> = [];
+```
+
+#### 5b. Add new check for inline ApiResponse in test files
+
+Add a new check function after `checkTestFactoryUsage` (~line 1323):
+
+```typescript
+// ─────────────────────────────────────────────────────────────────────────────
+// Check 17: No inline ApiResponse in test files
+//
+// Test files should import ApiResponse from __tests__/utils/api-types.ts
+// rather than defining their own inline interface.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function checkNoInlineApiResponse(): CheckResult {
+  const name = 'No inline ApiResponse in tests';
+  const violations: string[] = [];
+
+  const testDirs = [
+    path.join(FUNCTIONS_SRC, 'handlers'),
+    path.join(FUNCTIONS_SRC, 'services'),
+    path.join(FUNCTIONS_SRC, 'repositories'),
+    path.join(FUNCTIONS_SRC, '__tests__', 'integration'),
+  ];
+
+  const inlinePattern = /^interface ApiResponse/m;
+
+  for (const dir of testDirs) {
+    if (!fs.existsSync(dir)) continue;
+
+    const testFiles = fs.readdirSync(dir).filter(
+      (f) => f.endsWith('.test.ts') || f.endsWith('.spec.ts')
+    );
+
+    for (const file of testFiles) {
+      const fullPath = path.join(dir, file);
+      const content = fs.readFileSync(fullPath, 'utf-8');
+
+      if (inlinePattern.test(content)) {
+        const relPath = path.relative(ROOT_DIR, fullPath);
+        violations.push(
+          `${relPath} defines inline ApiResponse interface.\n` +
+          `    Import from __tests__/utils/api-types.ts instead.`
+        );
+      }
+    }
+  }
+
+  return { name, passed: violations.length === 0, violations };
+}
+```
+
+Add `checkNoInlineApiResponse` to the `checks` array.
+
+### Phase 6: Update Documentation
+
+#### 6a. Update `docs/conventions/testing.md`
+
+Add a "Handler Test Pattern" section after the existing "Unit Tests" section:
 
 ```markdown
-## Validation
+## Handler Test Pattern (Canonical)
 
-Run all checks with a single command:
+All handler tests follow this structure. Import shared utilities instead of defining inline boilerplate.
 
-\`\`\`bash
-npm run validate          # Full: typecheck + lint + test + architecture
-npm run validate:quick    # Fast: typecheck + lint only
+\`\`\`typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import request from 'supertest';
+import type { Response } from 'supertest';
+import {
+  type ApiResponse,
+  createExercise,
+  createMockExerciseRepository,
+} from '../__tests__/utils/index.js';
+
+// Firebase and app-check mocks MUST be inline (vitest hoists vi.mock calls)
+vi.mock('../firebase.js', () => ({
+  getFirestoreDb: vi.fn(),
+}));
+vi.mock('../middleware/app-check.js', () => ({
+  requireAppCheck: (_req: unknown, _res: unknown, next: () => void): void => next(),
+}));
+
+// Repository mocks — use shared factory, keep vi.mock inline
+const mockExerciseRepo = createMockExerciseRepository();
+vi.mock('../repositories/exercise.repository.js', () => ({
+  ExerciseRepository: vi.fn().mockImplementation(() => mockExerciseRepo),
+}));
+
+// Import handler AFTER mocks
+import { exercisesApp } from './exercises.js';
+
+describe('Exercises Handler', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('should return all exercises', async () => {
+    const exercises = [createExercise({ id: '1' }), createExercise({ id: '2' })];
+    mockExerciseRepo.findAll.mockResolvedValue(exercises);
+
+    const response = await request(exercisesApp).get('/');
+    const body = response.body as ApiResponse<Exercise[]>;
+
+    expect(body.success).toBe(true);
+    expect(body.data).toHaveLength(2);
+  });
+});
 \`\`\`
 
-The pre-commit hook automatically runs quick validation (typecheck + staged-file lint + architecture).
-For a complete check before merging, always run `npm run validate`.
+**Key rules:**
+- **ApiResponse<T>**: Import from \`__tests__/utils/\`, never define inline
+- **vi.mock()**: MUST be inline in each test file (vitest hoisting — cannot be shared)
+- **Mock repos**: Use \`createMock*Repository()\` from shared utils, not inline objects
+- **Test fixtures**: Use \`create*\` from shared fixtures, not inline \`createTest*\` factories
+- **Handler import**: Must come AFTER all \`vi.mock()\` calls
 
-Individual checks (rarely needed separately):
-\`\`\`bash
-npm run typecheck           # TypeScript compilation
-npm run lint                # ESLint (use --fix to auto-fix)
-npm test                    # Unit tests (vitest)
-npm run lint:architecture   # Architecture enforcement
-\`\`\`
+The architecture linter (check 16) enforces shared factory usage. Inline factories that match \`createMock*/createTest*/mock*Factory\` cause a build failure.
 ```
 
-Also update the "Subagent Usage" section example:
+#### 6b. Update `docs/golden-principles.md`
 
-```markdown
-Example:
-\`\`\`
-Task tool with subagent_type=Bash:
-  prompt: "Run npm run validate in /path/to/worktree and report results"
-\`\`\`
+Move the test factory principle from "Enforced (by convention)" to "Enforced (linter/hook exists)":
+
+Under `### Architecture [lint-architecture]`, add:
+```
+- Prefer shared test factories from `__tests__/utils/` over inline `createMock*`/`createTest*` definitions
+- No inline `ApiResponse` interface in test files — import from `__tests__/utils/api-types.ts`
+```
+
+Remove from the "Enforced (by convention)" section:
+```
+- Prefer shared test factories from `__tests__/utils/` over inline `createMock*` definitions (warning-only lint, graduating)
 ```
 
 ## Files
 
 | File | Action | Description |
 |------|--------|-------------|
-| `scripts/validate.sh` | **Create** | Unified validation runner (~60 lines bash). Runs typecheck → lint → test → architecture with fail-fast, timing, colored output. Supports `--quick` flag. |
-| `hooks/pre-commit` | **Modify** | Append quality checks after existing gitleaks line: typecheck + staged-file ESLint + architecture lint. ~30 lines added. |
-| `package.json` | **Modify** | Add `"validate"` and `"validate:quick"` scripts. 2 lines added to `"scripts"` block. |
-| `CLAUDE.md` | **Modify** | Simplify Validation section to recommend `npm run validate`. Update subagent example. ~15 lines changed. |
+| `packages/functions/src/__tests__/utils/api-types.ts` | **Create** | Test-friendly `ApiResponse<T>` interface (~15 lines) |
+| `packages/functions/src/__tests__/utils/fixtures.ts` | **Modify** | Add `createMeal`, `createRecipe`, `createIngredient` factory functions. Add type imports for Meal, Recipe, Ingredient. (~50 lines added) |
+| `packages/functions/src/__tests__/utils/mock-repository.ts` | **Modify** | Add `MockMealRepository`, `MockRecipeRepository`, `MockIngredientRepository`, `MockMealPlanSessionRepository` interfaces + factory functions. Update `MockRepositories` aggregate. (~80 lines added) |
+| `packages/functions/src/__tests__/utils/index.ts` | **Modify** | Add `export * from './api-types.js'` re-export (1 line) |
+| `packages/functions/src/handlers/exercises.test.ts` | **Modify** | Replace inline ApiResponse, createTestExercise, mockExerciseRepo, mockWorkoutSetRepo with shared imports |
+| `packages/functions/src/handlers/workouts.test.ts` | **Modify** | Same migration pattern |
+| `packages/functions/src/handlers/plans.test.ts` | **Modify** | Same pattern — has 5 inline mock repos and 5 inline factories |
+| `packages/functions/src/handlers/mesocycles.test.ts` | **Modify** | Same migration pattern |
+| `packages/functions/src/handlers/workoutSets.test.ts` | **Modify** | Same migration pattern |
+| `packages/functions/src/handlers/stretchSessions.test.ts` | **Modify** | Same migration pattern |
+| `packages/functions/src/handlers/stretches.test.ts` | **Modify** | Same migration pattern |
+| `packages/functions/src/handlers/meditationSessions.test.ts` | **Modify** | Same migration pattern |
+| `packages/functions/src/handlers/meals.test.ts` | **Modify** | Replace inline ApiResponse + createTestMeal + mockMealRepo with shared (new in Phase 1) |
+| `packages/functions/src/handlers/ingredients.test.ts` | **Modify** | Replace inline ApiResponse + factories + mockIngredientRepo with shared (new in Phase 1) |
+| `packages/functions/src/handlers/recipes.test.ts` | **Modify** | Replace inline ApiResponse + factories + mockRecipeRepo with shared (new in Phase 1) |
+| `packages/functions/src/handlers/mealplans.test.ts` | **Modify** | Replace inline ApiResponse + factories + mockMealPlanSessionRepo with shared |
+| `packages/functions/src/handlers/calendar.test.ts` | **Modify** | Replace inline ApiResponse + applicable factories |
+| `packages/functions/src/handlers/cycling.test.ts` | **Modify** | Replace inline ApiResponse + createTest* factories. Service mocks stay inline (uses vi.hoisted). |
+| `packages/functions/src/handlers/cycling-coach.test.ts` | **Modify** | Replace inline ApiResponse + applicable factories |
+| `packages/functions/src/handlers/health.test.ts` | **Modify** | Replace inline ApiResponse + applicable factories |
+| `packages/functions/src/handlers/health-sync.test.ts` | **Modify** | Replace inline ApiResponse + applicable factories |
+| `packages/functions/src/handlers/today-coach.test.ts` | **Modify** | Replace inline ApiResponse + applicable factories |
+| `packages/functions/src/services/workout-set.service.test.ts` | **Modify** | Replace inline createTest* factories with shared fixture imports |
+| `packages/functions/src/services/workout.service.test.ts` | **Modify** | Replace inline createTest* factories with shared fixture imports |
+| `packages/functions/src/services/progression.service.test.ts` | **Modify** | Replace inline createTest* factories with shared fixture imports |
+| `packages/functions/src/services/dynamic-progression.service.test.ts` | **Modify** | Replace inline createTest* factories with shared fixture imports |
+| `packages/functions/src/services/plan-modification.service.test.ts` | **Modify** | Replace inline createTest* factories with shared fixture imports |
+| `packages/functions/src/services/mesocycle.service.test.ts` | **Modify** | Replace inline factories. Also has inline firebase mock — keep inline. |
+| `packages/functions/src/services/calendar.service.test.ts` | **Modify** | Replace inline createTest* factories where shared alternatives exist |
+| `packages/functions/src/services/mealplan-critique.service.test.ts` | **Modify** | Replace inline factories with new shared meal planning fixtures |
+| `packages/functions/src/services/mealplan-operations.service.test.ts` | **Modify** | Replace inline factories with new shared meal planning fixtures |
+| `packages/functions/src/__tests__/integration/exercises.integration.test.ts` | **Modify** | Replace inline ApiResponse + inline Exercise interface with shared imports |
+| `packages/functions/src/__tests__/integration/workouts.integration.test.ts` | **Modify** | Replace inline ApiResponse with shared import |
+| `packages/functions/src/__tests__/integration/plans.integration.test.ts` | **Modify** | Replace inline ApiResponse with shared import |
+| `packages/functions/src/__tests__/integration/mesocycles.integration.test.ts` | **Modify** | Replace inline ApiResponse with shared import |
+| `packages/functions/src/__tests__/integration/workoutSets.integration.test.ts` | **Modify** | Replace inline ApiResponse with shared import |
+| `packages/functions/src/__tests__/integration/stretchSessions.integration.test.ts` | **Modify** | Replace inline ApiResponse with shared import |
+| `packages/functions/src/__tests__/integration/meditationSessions.integration.test.ts` | **Modify** | Replace inline ApiResponse with shared import |
+| `packages/functions/src/__tests__/integration/calendar.integration.test.ts` | **Modify** | Replace inline ApiResponse with shared import |
+| `packages/functions/src/__tests__/integration/health.integration.test.ts` | **Modify** | Replace inline ApiResponse with shared import (check if file exists) |
+| `scripts/lint-architecture.ts` | **Modify** | Graduate checkTestFactoryUsage to checks array; add checkNoInlineApiResponse; remove from warningChecks |
+| `docs/conventions/testing.md` | **Modify** | Add "Handler Test Pattern (Canonical)" section |
+| `docs/golden-principles.md` | **Modify** | Move test factory principle from "by convention" to "enforced" |
+
+**Total: 1 new file, ~41 modified files**
 
 ## Tests
 
-There are no unit tests to write for shell scripts in this project's test framework (vitest tests TypeScript, not bash). Instead, correctness is verified through the QA procedure below.
+### Existing tests must continue to pass
 
-However, the architecture enforcement already has an implicit integration test: `npm run lint:architecture` exercises all 15 checks and exits non-zero on violations. The validate script wraps this — if it passes, the pipeline works.
+The primary verification is that **all existing tests still pass** after migration. Run:
 
-**What would indicate a regression:**
-- A commit reaches main with failing typecheck → pre-commit hook didn't run or was bypassed
-- `npm run validate` exits 0 when a check fails → validate.sh has a bug
-- Pre-commit takes >10s → ESLint is running on too many files (should only be staged)
+```bash
+npm run validate   # Full validation: typecheck + lint + test + architecture
+```
+
+Every test assertion should produce identical results. The migration only changes WHERE boilerplate is defined, not WHAT the tests verify.
+
+### Architecture lint must pass with new checks
+
+After graduating check #15 and adding check #17:
+
+```bash
+npm run lint:architecture
+```
+
+Expected: All checks pass (0 violations, 0 warnings). If any test files still have inline patterns, the lint will catch them.
+
+### No new unit tests needed
+
+This is a test infrastructure refactoring — it changes how tests are organized, not what they test. The verification IS running the existing tests.
 
 ## QA
 
-### Step 1: Verify `npm run validate` works on clean codebase
+### Step 1: Verify shared utilities work in isolation
+
+Create a temporary test file that imports from shared utils to verify they compile:
+
+```bash
+# Quick sanity check — import the new types and factories
+npx tsc -b
+```
+
+### Step 2: Run full validation
 
 ```bash
 npm run validate
 ```
 
-Expected: All 4 checks pass, shows timing per check and total, exits 0.
+Expected: All 4 checks pass (typecheck, lint, tests, architecture). Pay special attention to:
+- **TypeScript compilation**: Shared imports resolve correctly from handler/service/integration test paths
+- **ESLint**: No new lint errors from changed imports
+- **Tests**: All existing tests pass with identical assertions
+- **Architecture**: 0 violations, 0 warnings
 
-### Step 2: Verify `npm run validate:quick` skips tests
+### Step 3: Verify lint enforcement catches regression
 
-```bash
-npm run validate:quick
+Temporarily add an inline factory to a migrated test file:
+
+```typescript
+// In exercises.test.ts, temporarily add:
+function createTestExercise(): Exercise {
+  return { id: 'x', name: 'X' } as Exercise;
+}
 ```
 
-Expected: Only typecheck + lint run. No test output. Faster than full validate.
-
-### Step 3: Verify fail-fast behavior
-
-Temporarily introduce a type error (e.g., `const x: number = "hello"` in any `.ts` file):
-
+Run:
 ```bash
-npm run validate
+npm run lint:architecture
 ```
 
-Expected: Fails at "TypeScript compilation", does NOT proceed to lint/test/architecture.
+Expected: Check 16 (Shared test factory usage) fails with 1 violation for `exercises.test.ts`.
 
-### Step 4: Verify pre-commit catches type errors
+### Step 4: Verify ApiResponse check catches regression
 
-```bash
-# In a worktree branch (not main):
-echo 'const x: number = "hello";' >> packages/functions/src/types/exercise.ts
-git add packages/functions/src/types/exercise.ts
-git commit -m "test: intentional type error"
+Temporarily add an inline `ApiResponse` to a migrated test file:
+
+```typescript
+// In exercises.test.ts, temporarily add:
+interface ApiResponse<T = unknown> { success: boolean; data?: T; }
 ```
 
-Expected: Commit is rejected with "TypeScript compilation failed" message.
-
-### Step 5: Verify pre-commit catches lint errors
-
+Run:
 ```bash
-# In a worktree branch:
-echo 'export function foo() { return 1 }' >> packages/functions/src/types/exercise.ts
-git add packages/functions/src/types/exercise.ts
-git commit -m "test: intentional lint error"
+npm run lint:architecture
 ```
 
-Expected: Commit is rejected with ESLint errors (missing explicit return type).
+Expected: Check 17 (No inline ApiResponse) fails with 1 violation.
 
-### Step 6: Verify pre-commit is fast
-
-```bash
-# Stage a small change and time the commit
-time git commit -m "test: timing check"
-```
-
-Expected: Pre-commit overhead is <5s (mostly typecheck at ~2.5s + architecture at ~0.2s + staged lint proportional to changed files).
-
-### Step 7: Verify existing pre-commit checks still work
+### Step 5: Revert intentional regressions
 
 ```bash
-# On main branch (should be blocked by worktree gate):
-git checkout main
-echo "test" >> README.md
-git add README.md
-git commit -m "test: should be blocked"
+git checkout -- packages/functions/src/handlers/exercises.test.ts
 ```
 
-Expected: Blocked by "Direct commits to main are not allowed" (the new checks don't interfere with existing ones).
-
-### Step 8: Revert all intentional errors
+### Step 6: Verify test count is unchanged
 
 ```bash
-git checkout -- packages/functions/src/types/exercise.ts
+npx vitest run --reporter=verbose 2>&1 | tail -5
 ```
+
+Expected: Same number of test suites and tests as before the migration. No tests should be added or removed.
 
 ## Conventions
 
-The following project conventions from CLAUDE.md and docs/conventions apply:
+The following project conventions apply:
 
-1. **Git Worktree Workflow** — All changes must be in a worktree. The pre-commit hook changes must not break the existing worktree gate. Test the implementation in a worktree.
+1. **Git Worktree Workflow** — All changes must be made in a worktree branch, not directly on main.
 
-2. **Subagent Usage** — Run `npm run validate` in subagents to conserve context. The CLAUDE.md update should reflect this.
+2. **Subagent Usage** — Run `npm run validate` in subagents to conserve context.
 
-3. **No `any` types** — The validate.sh script is bash, not TypeScript, so this doesn't apply directly. But any TypeScript changes must comply.
+3. **No `any` types** — The shared `mock-repository.ts` has one existing `eslint-disable` for `MockFn` type alias (line 17-18). Do not introduce additional `any` usages. New mock repo interfaces should follow the same `MockFn` pattern.
 
-4. **Pre-commit hook in `hooks/`** — The project uses `git config core.hooksPath hooks` (set in postinstall). Modifications go to `hooks/pre-commit`, not `.git/hooks/pre-commit`.
+4. **Explicit return types** — All new factory functions must have explicit return types (e.g., `createMeal(overrides?: Partial<Meal>): Meal`).
 
-5. **ESLint ignores `scripts/`** — The validate.sh script is in `scripts/` which is already in `.eslintrc.cjs` ignorePatterns. The staged-file lint in pre-commit must also exclude `scripts/` files to match this behavior.
+5. **File naming** — New file `api-types.ts` follows the existing pattern in `__tests__/utils/` (kebab-case).
 
-6. **Fail-fast principle** — From golden-principles.md: the validate pipeline should stop at the first failure. This is more useful than running all checks and showing all errors at once, because later checks often produce cascading noise from earlier failures.
+6. **Principle-to-Linter Pipeline** — From `docs/golden-principles.md`: "When a convention-only principle is violated twice, it graduates to a linter rule." This improvement executes that pipeline for the test factory convention, which has been violated 23 times.
 
-7. **Principle-to-Linter Pipeline** — From golden-principles.md: if the pre-commit catches repeat violations, consider adding new checks to lint-architecture.ts. The pre-commit is the enforcement layer; lint-architecture is the analysis layer.
+7. **TDD** — Since this is a refactoring that doesn't change behavior, running existing tests IS the verification. No new test files needed.
+
+8. **Domain types in types/ directory** — The new `ApiResponse` in `__tests__/utils/api-types.ts` is a test utility type, not a domain type. It intentionally differs from `types/api.ts` and lives in the test utils directory. The architecture linter checks types in `handlers/`, `services/`, and `repositories/` — not in `__tests__/`.
+
+9. **Import from `../shared.js`** — Handler tests that import domain types should continue using `../shared.js`. The new `ApiResponse` import path is `../__tests__/utils/index.js` (for handler tests) or `../utils/index.js` (for integration tests).
+
+10. **Vitest mock hoisting** — `vi.mock()` calls are hoisted by vitest to the top of the file, before imports. This means:
+    - `vi.mock()` with a factory function MUST be in each test file (cannot be shared)
+    - The factory can reference `const` variables declared later in the file because vitest converts them to `var` declarations during transformation
+    - The mock implementation is a closure that reads the variable at call time (test execution), not at definition time
+    - This is why `const mockRepo = createMockExerciseRepository()` works even though `vi.mock()` is hoisted above it

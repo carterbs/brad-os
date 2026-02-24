@@ -1,49 +1,34 @@
 import { describe, it, expect } from 'vitest';
 import type { Meal, MealPlanEntry, CritiqueOperation } from '../shared.js';
+import { createMeal, createMealPlanEntry } from '../__tests__/utils/index.js';
 import { applyOperations } from './mealplan-operations.service.js';
-
-function createTestMeal(overrides: Partial<Meal> = {}): Meal {
-  return {
-    id: 'meal-1',
-    name: 'Test Meal',
-    meal_type: 'dinner',
-    effort: 5,
-    has_red_meat: false,
-    prep_ahead: false,
-    url: '',
-    last_planned: null,
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z',
-    ...overrides,
-  };
-}
 
 function createTestPlan(): MealPlanEntry[] {
   return [
-    { day_index: 0, meal_type: 'breakfast', meal_id: 'meal-b1', meal_name: 'Oatmeal' },
-    { day_index: 0, meal_type: 'lunch', meal_id: 'meal-l1', meal_name: 'Sandwich' },
-    { day_index: 0, meal_type: 'dinner', meal_id: 'meal-d1', meal_name: 'Pasta' },
-    { day_index: 1, meal_type: 'breakfast', meal_id: 'meal-b2', meal_name: 'Eggs' },
-    { day_index: 1, meal_type: 'lunch', meal_id: 'meal-l2', meal_name: 'Salad' },
-    { day_index: 1, meal_type: 'dinner', meal_id: 'meal-d2', meal_name: 'Steak' },
-    { day_index: 2, meal_type: 'breakfast', meal_id: 'meal-b3', meal_name: 'Toast' },
-    { day_index: 2, meal_type: 'lunch', meal_id: 'meal-l3', meal_name: 'Soup' },
-    { day_index: 2, meal_type: 'dinner', meal_id: null, meal_name: null },
+    createMealPlanEntry({ day_index: 0, meal_type: 'breakfast', meal_id: 'meal-b1', meal_name: 'Oatmeal' }),
+    createMealPlanEntry({ day_index: 0, meal_type: 'lunch', meal_id: 'meal-l1', meal_name: 'Sandwich' }),
+    createMealPlanEntry({ day_index: 0, meal_type: 'dinner', meal_id: 'meal-d1', meal_name: 'Pasta' }),
+    createMealPlanEntry({ day_index: 1, meal_type: 'breakfast', meal_id: 'meal-b2', meal_name: 'Eggs' }),
+    createMealPlanEntry({ day_index: 1, meal_type: 'lunch', meal_id: 'meal-l2', meal_name: 'Salad' }),
+    createMealPlanEntry({ day_index: 1, meal_type: 'dinner', meal_id: 'meal-d2', meal_name: 'Steak' }),
+    createMealPlanEntry({ day_index: 2, meal_type: 'breakfast', meal_id: 'meal-b3', meal_name: 'Toast' }),
+    createMealPlanEntry({ day_index: 2, meal_type: 'lunch', meal_id: 'meal-l3', meal_name: 'Soup' }),
+    createMealPlanEntry({ day_index: 2, meal_type: 'dinner', meal_id: null, meal_name: null }),
   ];
 }
 
 function createTestMeals(): Meal[] {
   return [
-    createTestMeal({ id: 'meal-b1', name: 'Oatmeal', meal_type: 'breakfast', effort: 1 }),
-    createTestMeal({ id: 'meal-l1', name: 'Sandwich', meal_type: 'lunch', effort: 1 }),
-    createTestMeal({ id: 'meal-d1', name: 'Pasta', meal_type: 'dinner', effort: 4 }),
-    createTestMeal({ id: 'meal-b2', name: 'Eggs', meal_type: 'breakfast', effort: 2 }),
-    createTestMeal({ id: 'meal-l2', name: 'Salad', meal_type: 'lunch', effort: 1 }),
-    createTestMeal({ id: 'meal-d2', name: 'Steak', meal_type: 'dinner', effort: 5, has_red_meat: true, prep_ahead: false }),
-    createTestMeal({ id: 'meal-b3', name: 'Toast', meal_type: 'breakfast', effort: 1 }),
-    createTestMeal({ id: 'meal-l3', name: 'Soup', meal_type: 'lunch', effort: 2 }),
-    createTestMeal({ id: 'meal-new', name: 'Chicken Stir Fry', meal_type: 'dinner', effort: 5 }),
-    createTestMeal({ id: 'meal-extra', name: 'Tacos', meal_type: 'dinner', effort: 4 }),
+    createMeal({ id: 'meal-b1', name: 'Oatmeal', meal_type: 'breakfast', effort: 1 }),
+    createMeal({ id: 'meal-l1', name: 'Sandwich', meal_type: 'lunch', effort: 1 }),
+    createMeal({ id: 'meal-d1', name: 'Pasta', meal_type: 'dinner', effort: 4 }),
+    createMeal({ id: 'meal-b2', name: 'Eggs', meal_type: 'breakfast', effort: 2 }),
+    createMeal({ id: 'meal-l2', name: 'Salad', meal_type: 'lunch', effort: 1 }),
+    createMeal({ id: 'meal-d2', name: 'Steak', meal_type: 'dinner', effort: 5, has_red_meat: true, prep_ahead: false }),
+    createMeal({ id: 'meal-b3', name: 'Toast', meal_type: 'breakfast', effort: 1 }),
+    createMeal({ id: 'meal-l3', name: 'Soup', meal_type: 'lunch', effort: 2 }),
+    createMeal({ id: 'meal-new', name: 'Chicken Stir Fry', meal_type: 'dinner', effort: 5 }),
+    createMeal({ id: 'meal-extra', name: 'Tacos', meal_type: 'dinner', effort: 4 }),
   ];
 }
 
@@ -211,13 +196,13 @@ describe('MealPlan Operations Service', () => {
         { day_index: 1, meal_type: 'dinner', meal_id: 'meal-d2', meal_name: 'Steak' },
       ];
       const meals: Meal[] = [
-        createTestMeal({ id: 'meal-pa1', name: 'Prep Breakfast', meal_type: 'breakfast', effort: 1, prep_ahead: true }),
-        createTestMeal({ id: 'meal-pa2', name: 'Prep Lunch 1', meal_type: 'lunch', effort: 1, prep_ahead: true }),
-        createTestMeal({ id: 'meal-pa3', name: 'Prep Lunch 2', meal_type: 'lunch', effort: 1, prep_ahead: true }),
-        createTestMeal({ id: 'meal-d1', name: 'Pasta', meal_type: 'dinner', effort: 4 }),
-        createTestMeal({ id: 'meal-b1', name: 'Oatmeal', meal_type: 'breakfast', effort: 1 }),
-        createTestMeal({ id: 'meal-d2', name: 'Steak', meal_type: 'dinner', effort: 5 }),
-        createTestMeal({ id: 'meal-pa4', name: 'Another Prep Meal', meal_type: 'dinner', effort: 4, prep_ahead: true }),
+        createMeal({ id: 'meal-pa1', name: 'Prep Breakfast', meal_type: 'breakfast', effort: 1, prep_ahead: true }),
+        createMeal({ id: 'meal-pa2', name: 'Prep Lunch 1', meal_type: 'lunch', effort: 1, prep_ahead: true }),
+        createMeal({ id: 'meal-pa3', name: 'Prep Lunch 2', meal_type: 'lunch', effort: 1, prep_ahead: true }),
+        createMeal({ id: 'meal-d1', name: 'Pasta', meal_type: 'dinner', effort: 4 }),
+        createMeal({ id: 'meal-b1', name: 'Oatmeal', meal_type: 'breakfast', effort: 1 }),
+        createMeal({ id: 'meal-d2', name: 'Steak', meal_type: 'dinner', effort: 5 }),
+        createMeal({ id: 'meal-pa4', name: 'Another Prep Meal', meal_type: 'dinner', effort: 4, prep_ahead: true }),
       ];
 
       // Try to swap day 0 dinner to a prep-ahead meal (would make 4 total)
@@ -242,10 +227,10 @@ describe('MealPlan Operations Service', () => {
         { day_index: 2, meal_type: 'lunch', meal_id: 'meal-pa3', meal_name: 'Prep Lunch 3' },
       ];
       const meals: Meal[] = [
-        createTestMeal({ id: 'meal-pa1', name: 'Prep Lunch 1', meal_type: 'lunch', effort: 1, prep_ahead: true }),
-        createTestMeal({ id: 'meal-pa2', name: 'Prep Lunch 2', meal_type: 'lunch', effort: 1, prep_ahead: true }),
-        createTestMeal({ id: 'meal-pa3', name: 'Prep Lunch 3', meal_type: 'lunch', effort: 1, prep_ahead: true }),
-        createTestMeal({ id: 'meal-pa4', name: 'Prep Lunch 4', meal_type: 'lunch', effort: 1, prep_ahead: true }),
+        createMeal({ id: 'meal-pa1', name: 'Prep Lunch 1', meal_type: 'lunch', effort: 1, prep_ahead: true }),
+        createMeal({ id: 'meal-pa2', name: 'Prep Lunch 2', meal_type: 'lunch', effort: 1, prep_ahead: true }),
+        createMeal({ id: 'meal-pa3', name: 'Prep Lunch 3', meal_type: 'lunch', effort: 1, prep_ahead: true }),
+        createMeal({ id: 'meal-pa4', name: 'Prep Lunch 4', meal_type: 'lunch', effort: 1, prep_ahead: true }),
       ];
 
       // Replace one prep-ahead with another prep-ahead

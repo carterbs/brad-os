@@ -1,18 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Response } from 'supertest';
-import type { WorkoutSet } from '../shared.js';
 import { NotFoundError, ValidationError } from '../middleware/error-handler.js';
-
-// Type for API response body
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
+import { type ApiResponse, createWorkoutSet } from '../__tests__/utils/index.js';
 
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({
@@ -38,22 +28,6 @@ vi.mock('../services/index.js', () => ({
 // Import after mocks
 import { workoutSetsApp } from './workoutSets.js';
 
-// Helper to create test workout set
-function createTestWorkoutSet(overrides: Partial<WorkoutSet> = {}): WorkoutSet {
-  return {
-    id: 'set-1',
-    workout_id: 'workout-1',
-    exercise_id: 'exercise-1',
-    set_number: 1,
-    target_reps: 10,
-    target_weight: 100,
-    actual_reps: null,
-    actual_weight: null,
-    status: 'pending',
-    ...overrides,
-  };
-}
-
 describe('WorkoutSets Handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -61,7 +35,7 @@ describe('WorkoutSets Handler', () => {
 
   describe('PUT /workout-sets/:id/log', () => {
     it('should log set with valid data', async () => {
-      const loggedSet = createTestWorkoutSet({
+      const loggedSet = createWorkoutSet({
         id: 'set-123',
         actual_reps: 10,
         actual_weight: 100,
@@ -88,7 +62,7 @@ describe('WorkoutSets Handler', () => {
     });
 
     it('should log set with zero reps (failed set)', async () => {
-      const loggedSet = createTestWorkoutSet({
+      const loggedSet = createWorkoutSet({
         id: 'set-123',
         actual_reps: 0,
         actual_weight: 100,
@@ -111,7 +85,7 @@ describe('WorkoutSets Handler', () => {
     });
 
     it('should log set with zero weight (bodyweight exercise)', async () => {
-      const loggedSet = createTestWorkoutSet({
+      const loggedSet = createWorkoutSet({
         id: 'set-123',
         actual_reps: 15,
         actual_weight: 0,
@@ -256,7 +230,7 @@ describe('WorkoutSets Handler', () => {
 
   describe('PUT /workout-sets/:id/skip', () => {
     it('should skip set successfully', async () => {
-      const skippedSet = createTestWorkoutSet({
+      const skippedSet = createWorkoutSet({
         id: 'set-123',
         status: 'skipped',
       });
@@ -301,7 +275,7 @@ describe('WorkoutSets Handler', () => {
 
   describe('PUT /workout-sets/:id/unlog', () => {
     it('should unlog set successfully', async () => {
-      const unloggedSet = createTestWorkoutSet({
+      const unloggedSet = createWorkoutSet({
         id: 'set-123',
         actual_reps: null,
         actual_weight: null,

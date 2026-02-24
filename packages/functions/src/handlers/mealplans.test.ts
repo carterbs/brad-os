@@ -1,16 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
-import type { Meal, MealPlanSession, MealPlanEntry, CritiqueOperation } from '../shared.js';
-
-// Type for API response body
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
+import type { MealPlanSession, MealPlanEntry, CritiqueOperation } from '../shared.js';
+import {
+  type ApiResponse,
+  createMeal,
+  createMealPlanSession,
+  createMealPlanEntry,
+  createMockMealRepository,
+  createMockMealPlanSessionRepository,
+} from '../__tests__/utils/index.js';
 
 interface GenerateResponse {
   session_id: string;
@@ -39,25 +37,8 @@ vi.mock('../middleware/app-check.js', () => ({
 }));
 
 // Mock the repositories
-const mockMealRepo = {
-  findAll: vi.fn(),
-  findById: vi.fn(),
-  create: vi.fn(),
-  update: vi.fn(),
-  delete: vi.fn(),
-  updateLastPlanned: vi.fn(),
-};
-
-const mockSessionRepo = {
-  findAll: vi.fn(),
-  findById: vi.fn(),
-  create: vi.fn(),
-  update: vi.fn(),
-  delete: vi.fn(),
-  appendHistory: vi.fn(),
-  updatePlan: vi.fn(),
-  applyCritiqueUpdates: vi.fn(),
-};
+const mockMealRepo = createMockMealRepository();
+const mockSessionRepo = createMockMealPlanSessionRepository();
 
 vi.mock('../repositories/meal.repository.js', () => ({
   MealRepository: vi.fn().mockImplementation(() => mockMealRepo),
@@ -96,45 +77,23 @@ const mockProcessCritique = vi.mocked(processCritique);
 const mockApplyOperations = vi.mocked(applyOperations);
 
 // Helper to create test data
-function createTestMeals(): Meal[] {
+function createTestMeals(): import('../shared.js').Meal[] {
   return [
-    {
-      id: 'meal-1',
-      name: 'Oatmeal',
-      meal_type: 'breakfast',
-      effort: 1,
-      has_red_meat: false,
-      prep_ahead: false,
-      url: '',
-      last_planned: null,
-      created_at: '2024-01-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z',
-    },
-    {
-      id: 'meal-2',
-      name: 'Chicken Stir Fry',
-      meal_type: 'dinner',
-      effort: 5,
-      has_red_meat: false,
-      prep_ahead: false,
-      url: '',
-      last_planned: null,
-      created_at: '2024-01-01T00:00:00Z',
-      updated_at: '2024-01-01T00:00:00Z',
-    },
+    createMeal({ id: 'meal-1', name: 'Oatmeal', meal_type: 'breakfast', effort: 1, url: '' }),
+    createMeal({ id: 'meal-2', name: 'Chicken Stir Fry', meal_type: 'dinner', effort: 5, url: '' }),
   ];
 }
 
 function createTestPlan(): MealPlanEntry[] {
   return [
-    { day_index: 0, meal_type: 'breakfast', meal_id: 'meal-1', meal_name: 'Oatmeal' },
-    { day_index: 0, meal_type: 'lunch', meal_id: 'meal-3', meal_name: 'Sandwich' },
-    { day_index: 0, meal_type: 'dinner', meal_id: 'meal-2', meal_name: 'Chicken Stir Fry' },
+    createMealPlanEntry({ day_index: 0, meal_type: 'breakfast', meal_id: 'meal-1', meal_name: 'Oatmeal' }),
+    createMealPlanEntry({ day_index: 0, meal_type: 'lunch', meal_id: 'meal-3', meal_name: 'Sandwich' }),
+    createMealPlanEntry({ day_index: 0, meal_type: 'dinner', meal_id: 'meal-2', meal_name: 'Chicken Stir Fry' }),
   ];
 }
 
 function createTestSession(overrides: Partial<MealPlanSession> = {}): MealPlanSession {
-  return {
+  return createMealPlanSession({
     id: 'session-1',
     plan: createTestPlan(),
     meals_snapshot: createTestMeals(),
@@ -143,7 +102,7 @@ function createTestSession(overrides: Partial<MealPlanSession> = {}): MealPlanSe
     created_at: '2024-01-01T00:00:00Z',
     updated_at: '2024-01-01T00:00:00Z',
     ...overrides,
-  };
+  });
 }
 
 describe('Mealplans Handler', () => {

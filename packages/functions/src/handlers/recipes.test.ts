@@ -1,16 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Recipe } from '../shared.js';
-
-// Type for API response body
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
+import {
+  type ApiResponse,
+  createRecipe,
+  createMockRecipeRepository,
+} from '../__tests__/utils/index.js';
 
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({
@@ -23,14 +18,7 @@ vi.mock('../middleware/app-check.js', () => ({
 }));
 
 // Mock the repository
-const mockRecipeRepo = {
-  findAll: vi.fn(),
-  findById: vi.fn(),
-  findByMealIds: vi.fn(),
-  create: vi.fn(),
-  update: vi.fn(),
-  delete: vi.fn(),
-};
+const mockRecipeRepo = createMockRecipeRepository();
 
 vi.mock('../repositories/recipe.repository.js', () => ({
   RecipeRepository: vi.fn().mockImplementation(() => mockRecipeRepo),
@@ -38,23 +26,6 @@ vi.mock('../repositories/recipe.repository.js', () => ({
 
 // Import after mocks
 import { recipesApp } from './recipes.js';
-
-// Helper to create test recipe
-function createTestRecipe(overrides: Partial<Recipe> = {}): Recipe {
-  return {
-    id: 'recipe-1',
-    meal_id: 'meal-1',
-    ingredients: [
-      { ingredient_id: 'ing-1', quantity: 200, unit: 'g' },
-    ],
-    steps: [
-      { step_number: 1, instruction: 'Cook the chicken' },
-    ],
-    created_at: '2024-01-01T00:00:00.000Z',
-    updated_at: '2024-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
 
 describe('Recipes Handler', () => {
   beforeEach(() => {
@@ -64,8 +35,8 @@ describe('Recipes Handler', () => {
   describe('GET /recipes', () => {
     it('should return all recipes', async () => {
       const recipes = [
-        createTestRecipe({ id: 'recipe-1', meal_id: 'meal-1' }),
-        createTestRecipe({ id: 'recipe-2', meal_id: 'meal-2' }),
+        createRecipe({ id: 'recipe-1', meal_id: 'meal-1' }),
+        createRecipe({ id: 'recipe-2', meal_id: 'meal-2' }),
       ];
       mockRecipeRepo.findAll.mockResolvedValue(recipes);
 
@@ -93,7 +64,7 @@ describe('Recipes Handler', () => {
 
     it('should return recipes with correct shape', async () => {
       const recipes = [
-        createTestRecipe({
+        createRecipe({
           id: 'recipe-1',
           meal_id: 'meal-1',
           ingredients: [
@@ -126,7 +97,7 @@ describe('Recipes Handler', () => {
 
     it('should handle recipes with null steps', async () => {
       const recipes = [
-        createTestRecipe({
+        createRecipe({
           id: 'recipe-1',
           steps: null,
         }),

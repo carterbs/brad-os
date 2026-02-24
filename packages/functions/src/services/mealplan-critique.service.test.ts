@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { MealPlanSession, MealPlanEntry, ConversationMessage } from '../shared.js';
-import type { Meal } from '../shared.js';
+import { createMeal, createMealPlanEntry, createMealPlanSession } from '../__tests__/utils/index.js';
 
 // Mock OpenAI before importing the service
 const mockCreate = vi.fn();
@@ -16,46 +16,26 @@ vi.mock('openai', () => ({
 
 import { processCritique, buildSystemMessage, buildMessages } from './mealplan-critique.service.js';
 
-function createTestMeal(overrides: Partial<Meal> = {}): Meal {
-  return {
-    id: 'meal-1',
-    name: 'Test Meal',
-    meal_type: 'dinner',
-    effort: 5,
-    has_red_meat: false,
-    prep_ahead: false,
-    url: '',
-    last_planned: null,
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z',
-    ...overrides,
-  };
-}
-
 function createTestPlan(): MealPlanEntry[] {
   return [
-    { day_index: 0, meal_type: 'breakfast', meal_id: 'meal-b1', meal_name: 'Oatmeal' },
-    { day_index: 0, meal_type: 'lunch', meal_id: 'meal-l1', meal_name: 'Sandwich' },
-    { day_index: 0, meal_type: 'dinner', meal_id: 'meal-d1', meal_name: 'Pasta' },
+    createMealPlanEntry({ day_index: 0, meal_type: 'breakfast', meal_id: 'meal-b1', meal_name: 'Oatmeal' }),
+    createMealPlanEntry({ day_index: 0, meal_type: 'lunch', meal_id: 'meal-l1', meal_name: 'Sandwich' }),
+    createMealPlanEntry({ day_index: 0, meal_type: 'dinner', meal_id: 'meal-d1', meal_name: 'Pasta' }),
   ];
 }
 
 function createTestSession(overrides: Partial<MealPlanSession> = {}): MealPlanSession {
-  return {
+  return createMealPlanSession({
     id: 'session-1',
     plan: createTestPlan(),
     meals_snapshot: [
-      createTestMeal({ id: 'meal-b1', name: 'Oatmeal', meal_type: 'breakfast', effort: 1 }),
-      createTestMeal({ id: 'meal-l1', name: 'Sandwich', meal_type: 'lunch', effort: 1 }),
-      createTestMeal({ id: 'meal-d1', name: 'Pasta', meal_type: 'dinner', effort: 4 }),
-      createTestMeal({ id: 'meal-d2', name: 'Steak', meal_type: 'dinner', effort: 5, has_red_meat: true, prep_ahead: false }),
+      createMeal({ id: 'meal-b1', name: 'Oatmeal', meal_type: 'breakfast', effort: 1 }),
+      createMeal({ id: 'meal-l1', name: 'Sandwich', meal_type: 'lunch', effort: 1 }),
+      createMeal({ id: 'meal-d1', name: 'Pasta', meal_type: 'dinner', effort: 4 }),
+      createMeal({ id: 'meal-d2', name: 'Steak', meal_type: 'dinner', effort: 5, has_red_meat: true, prep_ahead: false }),
     ],
-    history: [],
-    is_finalized: false,
-    created_at: '2024-01-01T00:00:00Z',
-    updated_at: '2024-01-01T00:00:00Z',
     ...overrides,
-  };
+  });
 }
 
 describe('MealPlan Critique Service', () => {

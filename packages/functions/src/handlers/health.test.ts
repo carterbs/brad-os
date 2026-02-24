@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Response } from 'supertest';
+import { type ApiResponse } from '../__tests__/utils/index.js';
 
 // Type for health response data
 interface HealthData {
@@ -8,16 +9,6 @@ interface HealthData {
   timestamp: string;
   version: string;
   environment: string;
-}
-
-// Type for API response body
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
 }
 
 // Import the handler - no mocks needed for health endpoint

@@ -1,17 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Response } from 'supertest';
-import type { Mesocycle, MesocycleWithDetails } from '../shared.js';
-
-// Type for API response body
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
+import type { MesocycleWithDetails } from '../shared.js';
+import { type ApiResponse, createMesocycle } from '../__tests__/utils/index.js';
 
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({
@@ -41,30 +32,11 @@ vi.mock('../services/mesocycle.service.js', () => ({
 // Import after mocks
 import { mesocyclesApp } from './mesocycles.js';
 
-// Helper to create test mesocycle
-function createTestMesocycle(overrides: Partial<Mesocycle> = {}): Mesocycle {
-  return {
-    id: 'mesocycle-1',
-    plan_id: 'plan-1',
-    start_date: '2024-01-01',
-    current_week: 1,
-    status: 'pending',
-    created_at: '2024-01-01T00:00:00.000Z',
-    updated_at: '2024-01-01T00:00:00.000Z',
-    ...overrides,
-  };
-}
-
 // Helper to create test mesocycle with details
 function createTestMesocycleWithDetails(overrides: Partial<MesocycleWithDetails> = {}): MesocycleWithDetails {
   return {
-    id: 'mesocycle-1',
-    plan_id: 'plan-1',
-    start_date: '2024-01-01',
-    current_week: 1,
+    ...createMesocycle(),
     status: 'active',
-    created_at: '2024-01-01T00:00:00.000Z',
-    updated_at: '2024-01-01T00:00:00.000Z',
     plan_name: 'Push Pull Legs',
     weeks: [],
     total_workouts: 18,
@@ -81,8 +53,8 @@ describe('Mesocycles Handler', () => {
   describe('GET /mesocycles', () => {
     it('should return all mesocycles', async () => {
       const mesocycles = [
-        createTestMesocycle({ id: '1' }),
-        createTestMesocycle({ id: '2' }),
+        createMesocycle({ id: '1' }),
+        createMesocycle({ id: '2' }),
       ];
       mockMesocycleService.list.mockResolvedValue(mesocycles);
 
@@ -170,7 +142,7 @@ describe('Mesocycles Handler', () => {
 
   describe('POST /mesocycles', () => {
     it('should create mesocycle with valid data', async () => {
-      const createdMesocycle = createTestMesocycle({ id: 'new-mesocycle' });
+      const createdMesocycle = createMesocycle({ id: 'new-mesocycle' });
       mockMesocycleService.create.mockResolvedValue(createdMesocycle);
 
       const response = await request(mesocyclesApp)
@@ -304,7 +276,7 @@ describe('Mesocycles Handler', () => {
 
   describe('PUT /mesocycles/:id/start', () => {
     it('should start mesocycle successfully', async () => {
-      const startedMesocycle = createTestMesocycle({
+      const startedMesocycle = createMesocycle({
         id: 'mesocycle-123',
         status: 'active',
       });
@@ -364,7 +336,7 @@ describe('Mesocycles Handler', () => {
 
   describe('PUT /mesocycles/:id/complete', () => {
     it('should complete mesocycle successfully', async () => {
-      const completedMesocycle = createTestMesocycle({
+      const completedMesocycle = createMesocycle({
         id: 'mesocycle-123',
         status: 'completed',
       });
@@ -409,7 +381,7 @@ describe('Mesocycles Handler', () => {
 
   describe('PUT /mesocycles/:id/cancel', () => {
     it('should cancel mesocycle successfully', async () => {
-      const cancelledMesocycle = createTestMesocycle({
+      const cancelledMesocycle = createMesocycle({
         id: 'mesocycle-123',
         status: 'cancelled',
       });
