@@ -1,6 +1,7 @@
 import Foundation
 import BradOSCore
 import FirebaseAppCheck
+import FirebaseCore
 
 /// Empty body for POST/PUT requests that don't need a body
 struct EmptyBody: Encodable {}
@@ -234,13 +235,23 @@ final class APIClient: APIClientProtocol {
         if configuration.isEmulator {
             DebugLogger.warn("Skipping App Check for emulator", attributes: ["source": "APIClient"])
         } else {
+            let isTestHost = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            let hasFirebaseApp = FirebaseApp.app() != nil
             // Attach App Check token to request
-            do {
-                let token = try await AppCheck.appCheck().token(forcingRefresh: false)
-                request.setValue(token.token, forHTTPHeaderField: "X-Firebase-AppCheck")
-            } catch {
-                // Log warning but continue - server will reject if enforcement is on
-                DebugLogger.error("Failed to get App Check token: \(error.localizedDescription)", attributes: ["source": "APIClient"])
+            if isTestHost || !hasFirebaseApp {
+                if isTestHost {
+                    DebugLogger.info("Skipping App Check in XCTest host", attributes: ["source": "APIClient"])
+                } else {
+                    DebugLogger.warn("Skipping App Check because FirebaseApp is not configured", attributes: ["source": "APIClient"])
+                }
+            } else {
+                do {
+                    let token = try await AppCheck.appCheck().token(forcingRefresh: false)
+                    request.setValue(token.token, forHTTPHeaderField: "X-Firebase-AppCheck")
+                } catch {
+                    // Log warning but continue - server will reject if enforcement is on
+                    DebugLogger.error("Failed to get App Check token: \(error.localizedDescription)", attributes: ["source": "APIClient"])
+                }
             }
         }
 

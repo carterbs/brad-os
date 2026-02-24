@@ -1,6 +1,6 @@
 import Foundation
 import Combine
-@testable import BradOS
+@testable import Brad_OS
 import BradOSCore
 
 // MARK: - Cycling API mock

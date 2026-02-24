@@ -20,16 +20,19 @@ struct BradOSApp: App {
     private static let healthKitSyncTaskId = "com.bradcarter.brad-os.healthkit-sync"
 
     init() {
-        // Configure App Check BEFORE FirebaseApp.configure()
-        // Simulators use debug provider, physical devices use DeviceCheck
-        #if targetEnvironment(simulator)
-        let providerFactory = AppCheckDebugProviderFactory()
-        #else
-        let providerFactory = DeviceCheckProviderFactory()
-        #endif
+        let isTestHost = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        if !isTestHost {
+            // Configure App Check BEFORE FirebaseApp.configure()
+            // Simulators use debug provider, physical devices use DeviceCheck
+            #if targetEnvironment(simulator)
+            let providerFactory = AppCheckDebugProviderFactory()
+            #else
+            let providerFactory = DeviceCheckProviderFactory()
+            #endif
 
-        AppCheck.setAppCheckProviderFactory(providerFactory)
-        FirebaseApp.configure()
+            AppCheck.setAppCheckProviderFactory(providerFactory)
+            FirebaseApp.configure()
+        }
 
         // Initialize debug telemetry (no-op in release builds)
         DebugTelemetry.shared.setup()

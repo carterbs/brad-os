@@ -1,4 +1,5 @@
 import SwiftUI
+import BradOSCore
 
 /// Detailed recovery view showing score breakdown, metrics, and training recommendation
 struct RecoveryDetailView: View {

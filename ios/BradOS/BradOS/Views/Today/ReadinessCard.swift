@@ -1,4 +1,5 @@
 import SwiftUI
+import BradOSCore
 
 /// Dashboard card displaying recovery/readiness status from Firebase.
 ///

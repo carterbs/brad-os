@@ -1376,7 +1376,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.bradcarter.BradOSTests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BradOS.app/BradOS";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Brad OS.app/Brad OS";
 			};
 			name = Release;
 		};
@@ -1559,7 +1559,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.bradcarter.BradOSTests;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BradOS.app/BradOS";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Brad OS.app/Brad OS";
 			};
 			name = Debug;
 		};

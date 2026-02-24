@@ -1,4 +1,5 @@
 import SwiftUI
+import BradOSCore
 
 /// Dashboard card displaying the AI Today Coach daily briefing.
 ///

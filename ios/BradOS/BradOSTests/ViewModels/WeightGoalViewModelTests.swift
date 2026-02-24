@@ -1,5 +1,5 @@
 import Testing
-@testable import BradOS
+@testable import Brad_OS
 import BradOSCore
 import Foundation
 

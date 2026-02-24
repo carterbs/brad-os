@@ -98,6 +98,10 @@ targets:
     dependencies:
       - target: BradOS
       - package: BradOSCore
+    settings:
+      base:
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Brad OS.app/Brad OS"
+        BUNDLE_LOADER: "$(TEST_HOST)"
 
   BradOSWidget:
     type: app-extension

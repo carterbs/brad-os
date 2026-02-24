@@ -1,4 +1,5 @@
 import SwiftUI
+import BradOSCore
 
 /// Full-screen detail view for Today Coach showing expanded sections for each domain.
 struct TodayCoachDetailView: View {

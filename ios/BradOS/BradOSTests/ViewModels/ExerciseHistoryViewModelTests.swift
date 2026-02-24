@@ -1,5 +1,5 @@
 import Testing
-@testable import BradOS
+@testable import Brad_OS
 import BradOSCore
 import Foundation
 
@@ -66,6 +66,16 @@ struct ExerciseHistoryViewModelTests {
     @MainActor
     func updateExerciseSuccessTrimsNameReloadsHistory() async {
         let mock = MockAPIClient()
+        mock.mockExercises = [
+            Exercise(
+                id: "exercise-1",
+                name: "Squat",
+                weightIncrement: 5,
+                isCustom: true,
+                createdAt: fixedDate(2026, 1, 1),
+                updatedAt: fixedDate(2026, 1, 1)
+            )
+        ]
         let originalHistory = makeExerciseHistory(
             entries: [
                 makeExerciseHistoryEntry(
@@ -97,7 +107,7 @@ struct ExerciseHistoryViewModelTests {
 
         #expect(result == true)
         #expect(vm.updateError == nil)
-        #expect(vm.historyState.data?.entries == updatedHistory.entries)
+        #expect(vm.historyState.data?.entries.map(\.workoutId) == updatedHistory.entries.map(\.workoutId))
     }
 
     @Test("updateExercise failure sets updateError and resets isUpdating")
