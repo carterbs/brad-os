@@ -1,332 +1,455 @@
-# Add Today Coach Integration Test to Reach Medium (4+) Backend Test Threshold
+# Test barcodes.ts and mealplan-debug.ts to Clear Meal Planning hasUntested Flag
 
 ## Why
 
-The Today domain currently has 3 backend test files (Low threshold). Adding one more reaches the Medium (4+) threshold, which is a direct input to the quality grade calculation in `scripts/update-quality-grades.ts`. The Today Coach endpoint (`POST /recommend`) is the only complex domain with 3+ tests that has **zero integration tests** — every other domain at this maturity level has integration tests. This fills a genuine testing gap while upgrading the test count.
+The quality grading script (`scripts/update-quality-grades.ts`) detects `handlers/barcodes.ts` and `handlers/mealplan-debug.ts` as untested handler files in the Meal Planning domain. This sets `hasUntested = true`, which downgrades the base grade from A to B+ (offset by the assertion density bonus back to A currently, but fragile). Adding test files for both handlers clears the `hasUntested` flag, making the A grade structural rather than dependent on the density bonus.
 
 ## What
 
-Add `packages/functions/src/__tests__/integration/today-coach.integration.test.ts` — an integration test file that hits the `devTodayCoach` function endpoint through HTTP, validating the full request pipeline.
+Add two handler test files following the established pattern in the codebase. Also add the supporting test utilities (mock repository factory and fixture) that `barcodes.test.ts` needs.
 
-### Endpoint Under Test
+### 1. `barcodes.test.ts` — Full CRUD Handler Tests
 
-`POST http://127.0.0.1:5001/brad-os/us-central1/devTodayCoach/recommend`
+`barcodes.ts` uses `createResourceRouter()` which generates GET /, GET /:id, POST /, PUT /:id, DELETE /:id. The test follows the exact pattern of `meals.test.ts`:
+- Mock `firebase.js`, `middleware/app-check.js`, and `repositories/barcode.repository.js`
+- Use `createMockBarcodeRepository()` factory (to be added)
+- Use `createBarcode()` fixture (to be added)
+- Use `supertest` to exercise all 5 CRUD routes
+- Validate schema enforcement (barcode_type enum, hex color regex, label/value min/max length)
 
-The handler (`handlers/today-coach.ts`) does the following:
-1. Validates the request body via `coachRecommendRequestSchema` (Zod middleware)
-2. Extracts `x-user-id` header (defaults to `'default-user'`)
-3. Gets recovery data from `req.body.recovery` or falls back to Firestore
-4. Calls `buildTodayCoachContext()` to aggregate all domain data
-5. Gets the `OPENAI_API_KEY` secret
-6. Calls `getTodayCoachRecommendation()` → OpenAI API
-7. Returns `{ success: true, data: recommendation }`
+### 2. `mealplan-debug.test.ts` — Smoke Test for Debug UI
 
-**Key constraint**: The Firebase emulator won't have the `OPENAI_API_KEY` secret configured. When `openaiApiKey.value()` returns empty/falsy, the handler returns `500 CONFIG_ERROR`. This is fine — the integration test validates everything UP TO the OpenAI call, which is the whole request pipeline (validation, recovery lookup, context aggregation).
-
-### Test Cases
-
-The integration test should include these test cases:
-
-1. **Emulator health check** — `beforeAll` verifies the emulator is running (same pattern as all other integration tests)
-
-2. **Returns RECOVERY_NOT_SYNCED when no recovery data exists** — `POST /recommend` with empty body `{}` and no recovery in Firestore → `400` with `RECOVERY_NOT_SYNCED`
-
-3. **Accepts recovery in request body** — `POST /recommend` with `{ recovery: { ... valid snapshot ... } }` → Either `200` with recommendation data (if API key available) or `500 CONFIG_ERROR` (expected in emulator). Verify it gets past validation.
-
-4. **Validates recovery snapshot — rejects invalid score** — `POST /recommend` with `{ recovery: { score: 200, ... } }` (score > 100) → `400` validation error from Zod schema
-
-5. **Validates recovery snapshot — rejects missing required fields** — `POST /recommend` with `{ recovery: { score: 50 } }` (missing hrvMs, rhrBpm, etc.) → `400` validation error
-
-6. **Validates recovery snapshot — rejects invalid state** — `POST /recommend` with `{ recovery: { ..., state: 'invalid' } }` → `400` validation error
-
-7. **Accepts request with custom user ID header** — `POST /recommend` with `x-user-id: test-integration-user` and valid recovery → verifies the endpoint doesn't reject custom user IDs
-
-8. **Accepts request with timezone offset header** — `POST /recommend` with `x-timezone-offset: -300` and valid recovery → verifies the header is accepted
-
-### Important Behaviors to Assert
-
-For test cases where recovery is valid (cases 3, 7, 8), the emulator won't have an OpenAI API key, so the expected behavior is:
-- **If response is 200**: Validate that `response.body.success === true` and `response.body.data.dailyBriefing` exists (string). This means the function has a fallback or the emulator has the key.
-- **If response is 500**: Validate that `response.body.error.code === 'CONFIG_ERROR'`. This is the expected emulator behavior — the test proves the entire pipeline up to the OpenAI call works.
-
-The test should handle BOTH outcomes by checking the status code and branching assertions accordingly. This pattern makes the test work in both emulator (no key) and CI (key configured) environments.
+`mealplan-debug.ts` is a simple Express app serving static HTML on GET /. It does NOT use `stripPathPrefix`, `express.json()`, or App Check middleware. The test is minimal:
+- Import `mealplanDebugApp` directly (no firebase/app-check mocks needed)
+- Use `supertest` to hit GET /
+- Verify 200 status, HTML content-type, and that the response contains key HTML markers
 
 ## Files
 
-### New File: `packages/functions/src/__tests__/integration/today-coach.integration.test.ts`
+### New: `packages/functions/src/handlers/barcodes.test.ts`
 
 ```typescript
-/**
- * Integration Tests for Today Coach API
- *
- * These tests run against the Firebase emulator.
- * Prerequisites:
- * - Emulator running: npm run emulators:fresh
- * - Run tests: npm run test:integration
- */
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import request from 'supertest';
+import type { Response } from 'supertest';
+import {
+  type ApiResponse,
+  createBarcode,
+  createMockBarcodeRepository,
+} from '../__tests__/utils/index.js';
 
-import { describe, it, expect, beforeAll } from 'vitest';
-import { type ApiResponse } from '../utils/index.js';
+// Mock firebase before importing the handler
+vi.mock('../firebase.js', () => ({
+  getFirestoreDb: vi.fn(),
+}));
 
-const FUNCTIONS_URL = 'http://127.0.0.1:5001/brad-os/us-central1';
-const HEALTH_URL = `${FUNCTIONS_URL}/devHealth`;
-const TODAY_COACH_URL = `${FUNCTIONS_URL}/devTodayCoach`;
+// Mock app-check middleware
+vi.mock('../middleware/app-check.js', () => ({
+  requireAppCheck: (_req: unknown, _res: unknown, next: () => void): void => next(),
+}));
 
-// Valid recovery snapshot matching coachRecommendRequestSchema
-// (recoverySnapshotSchema without 'source' field)
-const VALID_RECOVERY = {
-  date: '2026-02-24',
-  hrvMs: 55,
-  hrvVsBaseline: 5,
-  rhrBpm: 58,
-  rhrVsBaseline: -2,
-  sleepHours: 7.5,
-  sleepEfficiency: 92,
-  deepSleepPercent: 22,
-  score: 75,
-  state: 'ready' as const,
-};
+// Mock the repository
+const mockBarcodeRepo = createMockBarcodeRepository();
 
-interface TodayCoachRecommendation {
-  dailyBriefing: string;
-  sections: Record<string, unknown>;
-  warnings: unknown[];
-}
+vi.mock('../repositories/barcode.repository.js', () => ({
+  BarcodeRepository: vi.fn().mockImplementation(() => mockBarcodeRepo),
+}));
 
-interface ApiError {
-  success: boolean;
-  error: {
-    code: string;
-    message: string;
-  };
-}
+// Import after mocks
+import { barcodesApp } from './barcodes.js';
 
-async function checkEmulatorRunning(): Promise<boolean> {
-  try {
-    const response = await fetch(HEALTH_URL);
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
-
-describe('Today Coach API (Integration)', () => {
-  beforeAll(async () => {
-    const isRunning = await checkEmulatorRunning();
-    if (!isRunning) {
-      throw new Error(
-        'Firebase emulator is not running.\n' +
-          'Start it with: npm run emulators:fresh\n' +
-          'Then run tests with: npm run test:integration'
-      );
-    }
+describe('Barcodes Handler', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  it('should return RECOVERY_NOT_SYNCED when no recovery data exists', async () => {
-    const response = await fetch(`${TODAY_COACH_URL}/recommend`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({}),
+  describe('GET /barcodes', () => {
+    it('should return all barcodes', async () => {
+      const barcodes = [
+        createBarcode({ id: '1', label: 'Costco', sort_order: 0 }),
+        createBarcode({ id: '2', label: 'Gym', sort_order: 1 }),
+      ];
+      mockBarcodeRepo.findAll.mockResolvedValue(barcodes);
+
+      const response = await request(barcodesApp).get('/');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ success: true, data: barcodes });
+      expect(mockBarcodeRepo.findAll).toHaveBeenCalledTimes(1);
     });
 
-    expect(response.status).toBe(400);
-    const result = (await response.json()) as ApiError;
-    expect(result.success).toBe(false);
-    expect(result.error.code).toBe('RECOVERY_NOT_SYNCED');
+    it('should return empty array when no barcodes exist', async () => {
+      mockBarcodeRepo.findAll.mockResolvedValue([]);
+
+      const response = await request(barcodesApp).get('/');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ success: true, data: [] });
+    });
   });
 
-  it('should accept valid recovery in request body', async () => {
-    const response = await fetch(`${TODAY_COACH_URL}/recommend`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recovery: VALID_RECOVERY }),
+  describe('GET /barcodes/:id', () => {
+    it('should return barcode by id', async () => {
+      const barcode = createBarcode({ id: 'bc-123' });
+      mockBarcodeRepo.findById.mockResolvedValue(barcode);
+
+      const response = await request(barcodesApp).get('/bc-123');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ success: true, data: barcode });
+      expect(mockBarcodeRepo.findById).toHaveBeenCalledWith('bc-123');
     });
 
-    // In emulator without OpenAI key: 500 CONFIG_ERROR
-    // With key: 200 with recommendation
-    if (response.status === 200) {
-      const result = (await response.json()) as ApiResponse<TodayCoachRecommendation>;
-      expect(result.success).toBe(true);
-      expect(typeof result.data.dailyBriefing).toBe('string');
-    } else {
-      expect(response.status).toBe(500);
-      const result = (await response.json()) as ApiError;
-      expect(result.error.code).toBe('CONFIG_ERROR');
-    }
+    it('should return 404 when barcode not found', async () => {
+      mockBarcodeRepo.findById.mockResolvedValue(null);
+
+      const response = await request(barcodesApp).get('/non-existent');
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Barcode with id non-existent not found' },
+      });
+    });
   });
 
-  it('should reject recovery with invalid score (out of range)', async () => {
-    const invalidRecovery = { ...VALID_RECOVERY, score: 200 };
+  describe('POST /barcodes', () => {
+    it('should create barcode with valid data', async () => {
+      const created = createBarcode({
+        id: 'new-bc',
+        label: 'Costco',
+        value: '12345678',
+        barcode_type: 'code128',
+        color: '#FF5733',
+        sort_order: 0,
+      });
+      mockBarcodeRepo.create.mockResolvedValue(created);
 
-    const response = await fetch(`${TODAY_COACH_URL}/recommend`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recovery: invalidRecovery }),
+      const response = await request(barcodesApp).post('/').send({
+        label: 'Costco',
+        value: '12345678',
+        barcode_type: 'code128',
+        color: '#FF5733',
+        sort_order: 0,
+      });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toEqual({ success: true, data: created });
+      expect(mockBarcodeRepo.create).toHaveBeenCalledWith({
+        label: 'Costco',
+        value: '12345678',
+        barcode_type: 'code128',
+        color: '#FF5733',
+        sort_order: 0,
+      });
     });
 
-    expect(response.status).toBe(400);
-    const result = (await response.json()) as ApiError;
-    expect(result.success).toBe(false);
-    expect(result.error.code).toBe('VALIDATION_ERROR');
+    it('should return 400 for invalid barcode_type', async () => {
+      const response: Response = await request(barcodesApp).post('/').send({
+        label: 'Test',
+        value: '123',
+        barcode_type: 'invalid',
+        color: '#FF5733',
+      });
+      const body = response.body as ApiResponse;
+
+      expect(response.status).toBe(400);
+      expect(body.success).toBe(false);
+      expect(body.error?.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('should return 400 for invalid hex color', async () => {
+      const response: Response = await request(barcodesApp).post('/').send({
+        label: 'Test',
+        value: '123',
+        barcode_type: 'qr',
+        color: 'not-a-hex',
+      });
+      const body = response.body as ApiResponse;
+
+      expect(response.status).toBe(400);
+      expect(body.success).toBe(false);
+      expect(body.error?.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('should return 400 for missing label', async () => {
+      const response: Response = await request(barcodesApp).post('/').send({
+        value: '123',
+        barcode_type: 'qr',
+        color: '#FF5733',
+      });
+      const body = response.body as ApiResponse;
+
+      expect(response.status).toBe(400);
+      expect(body.success).toBe(false);
+      expect(body.error?.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('should return 400 for empty label', async () => {
+      const response: Response = await request(barcodesApp).post('/').send({
+        label: '',
+        value: '123',
+        barcode_type: 'qr',
+        color: '#FF5733',
+      });
+      const body = response.body as ApiResponse;
+
+      expect(response.status).toBe(400);
+      expect(body.success).toBe(false);
+      expect(body.error?.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('should return 400 for negative sort_order', async () => {
+      const response: Response = await request(barcodesApp).post('/').send({
+        label: 'Test',
+        value: '123',
+        barcode_type: 'qr',
+        color: '#FF5733',
+        sort_order: -1,
+      });
+      const body = response.body as ApiResponse;
+
+      expect(response.status).toBe(400);
+      expect(body.success).toBe(false);
+      expect(body.error?.code).toBe('VALIDATION_ERROR');
+    });
   });
 
-  it('should reject recovery with missing required fields', async () => {
-    const partialRecovery = { score: 50 };
+  describe('PUT /barcodes/:id', () => {
+    it('should update barcode with valid data', async () => {
+      const updated = createBarcode({ id: 'bc-123', label: 'Updated' });
+      mockBarcodeRepo.update.mockResolvedValue(updated);
 
-    const response = await fetch(`${TODAY_COACH_URL}/recommend`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recovery: partialRecovery }),
+      const response = await request(barcodesApp).put('/bc-123').send({ label: 'Updated' });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ success: true, data: updated });
+      expect(mockBarcodeRepo.update).toHaveBeenCalledWith('bc-123', { label: 'Updated' });
     });
 
-    expect(response.status).toBe(400);
-    const result = (await response.json()) as ApiError;
-    expect(result.success).toBe(false);
-    expect(result.error.code).toBe('VALIDATION_ERROR');
+    it('should return 404 when barcode not found', async () => {
+      mockBarcodeRepo.update.mockResolvedValue(null);
+
+      const response = await request(barcodesApp).put('/non-existent').send({ label: 'Updated' });
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Barcode with id non-existent not found' },
+      });
+    });
+
+    it('should return 400 for invalid hex color in update', async () => {
+      const response: Response = await request(barcodesApp).put('/bc-123').send({ color: 'bad' });
+      const body = response.body as ApiResponse;
+
+      expect(response.status).toBe(400);
+      expect(body.success).toBe(false);
+      expect(body.error?.code).toBe('VALIDATION_ERROR');
+    });
   });
 
-  it('should reject recovery with invalid state enum', async () => {
-    const invalidRecovery = { ...VALID_RECOVERY, state: 'invalid-state' };
+  describe('DELETE /barcodes/:id', () => {
+    it('should delete barcode successfully', async () => {
+      mockBarcodeRepo.delete.mockResolvedValue(true);
 
-    const response = await fetch(`${TODAY_COACH_URL}/recommend`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recovery: invalidRecovery }),
+      const response = await request(barcodesApp).delete('/bc-123');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ success: true, data: { deleted: true } });
+      expect(mockBarcodeRepo.delete).toHaveBeenCalledWith('bc-123');
     });
 
-    expect(response.status).toBe(400);
-    const result = (await response.json()) as ApiError;
-    expect(result.success).toBe(false);
-    expect(result.error.code).toBe('VALIDATION_ERROR');
-  });
+    it('should return 404 when barcode not found', async () => {
+      mockBarcodeRepo.delete.mockResolvedValue(false);
 
-  it('should accept request with custom user ID header', async () => {
-    const response = await fetch(`${TODAY_COACH_URL}/recommend`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-user-id': 'test-integration-user',
-      },
-      body: JSON.stringify({ recovery: VALID_RECOVERY }),
+      const response = await request(barcodesApp).delete('/non-existent');
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({
+        success: false,
+        error: { code: 'NOT_FOUND', message: 'Barcode with id non-existent not found' },
+      });
     });
-
-    // Should get past validation — either 200 or 500 CONFIG_ERROR
-    expect([200, 500]).toContain(response.status);
-
-    if (response.status === 200) {
-      const result = (await response.json()) as ApiResponse<TodayCoachRecommendation>;
-      expect(result.success).toBe(true);
-    } else {
-      const result = (await response.json()) as ApiError;
-      expect(result.error.code).toBe('CONFIG_ERROR');
-    }
-  });
-
-  it('should accept request with timezone offset header', async () => {
-    const response = await fetch(`${TODAY_COACH_URL}/recommend`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-timezone-offset': '-300',
-      },
-      body: JSON.stringify({ recovery: VALID_RECOVERY }),
-    });
-
-    // Should get past validation — either 200 or 500 CONFIG_ERROR
-    expect([200, 500]).toContain(response.status);
-  });
-
-  it('should reject recovery with negative sleep hours', async () => {
-    const invalidRecovery = { ...VALID_RECOVERY, sleepHours: -1 };
-
-    const response = await fetch(`${TODAY_COACH_URL}/recommend`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recovery: invalidRecovery }),
-    });
-
-    expect(response.status).toBe(400);
-    const result = (await response.json()) as ApiError;
-    expect(result.success).toBe(false);
-    expect(result.error.code).toBe('VALIDATION_ERROR');
   });
 });
 ```
 
-### No other files modified
+**Test count**: 15 test cases with ~45 `expect()` calls → density ~3.0x.
 
-This improvement only adds one new test file. No production code, schemas, or existing tests change.
+### New: `packages/functions/src/handlers/mealplan-debug.test.ts`
+
+```typescript
+import { describe, it, expect } from 'vitest';
+import request from 'supertest';
+import { mealplanDebugApp } from './mealplan-debug.js';
+
+describe('Meal Plan Debug Handler', () => {
+  describe('GET /mealplan-debug', () => {
+    it('should serve the debug UI HTML page', async () => {
+      const response = await request(mealplanDebugApp).get('/');
+
+      expect(response.status).toBe(200);
+      expect(response.type).toBe('text/html');
+      expect(response.text).toContain('Meal Plan Debug UI');
+    });
+
+    it('should include the generate, critique, and finalize controls', async () => {
+      const response = await request(mealplanDebugApp).get('/');
+
+      expect(response.text).toContain('generatePlan()');
+      expect(response.text).toContain('sendCritique()');
+      expect(response.text).toContain('finalizePlan()');
+    });
+
+    it('should include the plan table structure', async () => {
+      const response = await request(mealplanDebugApp).get('/');
+
+      expect(response.text).toContain('<th>Day</th>');
+      expect(response.text).toContain('<th>Breakfast</th>');
+      expect(response.text).toContain('<th>Lunch</th>');
+      expect(response.text).toContain('<th>Dinner</th>');
+    });
+  });
+});
+```
+
+**Test count**: 3 test cases with ~10 `expect()` calls → density ~3.3x.
+
+**Note**: `mealplan-debug.ts` does NOT use Firebase, App Check, or `stripPathPrefix` — it's a standalone Express app with CORS and a single GET route. No mocks needed.
+
+### Modified: `packages/functions/src/__tests__/utils/mock-repository.ts`
+
+Add a `MockBarcodeRepository` interface and `createMockBarcodeRepository()` factory. The barcode repository only has the base CRUD methods (same pattern as `MockIngredientRepository`).
+
+Insert after the existing `MockIngredientRepository` section (around line 267):
+
+```typescript
+// ============ Barcode Repository Mock ============
+
+export interface MockBarcodeRepository extends MockBaseRepository {}
+
+export function createMockBarcodeRepository(): MockBarcodeRepository {
+  return {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findAll: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  };
+}
+```
+
+Also add to the `MockRepositories` interface and `createMockRepositories()` function:
+- Add `barcodeRepository: MockBarcodeRepository;` to the interface
+- Add `barcodeRepository: createMockBarcodeRepository(),` to the factory
+
+### Modified: `packages/functions/src/__tests__/utils/fixtures.ts`
+
+Add a `createBarcode()` fixture factory. Insert after the `createIngredient()` function (around line 262), before the `createMealPlanEntry()` function:
+
+```typescript
+// ============ Barcode Fixtures ============
+
+export function createBarcode(overrides?: Partial<Barcode>): Barcode {
+  return {
+    id: generateId('barcode'),
+    label: 'Costco Membership',
+    value: '123456789012',
+    barcode_type: 'code128',
+    color: '#3B82F6',
+    sort_order: 0,
+    ...createTimestamps(),
+    ...overrides,
+  };
+}
+```
+
+Also add `Barcode` to the import from `'../../shared.js'` at the top of the file.
 
 ## Tests
 
-| # | Test Case | What It Verifies |
-|---|-----------|-----------------|
-| 1 | RECOVERY_NOT_SYNCED on empty body | Handler returns 400 when no recovery data in body or Firestore |
-| 2 | Accepts valid recovery in body | Full pipeline works through validation → context building (200 or 500 CONFIG_ERROR) |
-| 3 | Rejects invalid score (out of range) | Zod schema `coachRecommendRequestSchema` enforces `score: z.number().int().min(0).max(100)` |
-| 4 | Rejects missing required fields | Zod schema requires all recovery snapshot fields |
-| 5 | Rejects invalid state enum | Zod schema `recoveryStateSchema` only allows `'ready' \| 'moderate' \| 'recover'` |
-| 6 | Custom user ID header accepted | `x-user-id` header flows through without breaking the pipeline |
-| 7 | Timezone offset header accepted | `x-timezone-offset` header flows through without breaking the pipeline |
-| 8 | Rejects negative sleep hours | Zod schema enforces `sleepHours: z.number().min(0).max(24)` |
+| # | File | Test Case | What It Verifies |
+|---|------|-----------|-----------------|
+| 1 | barcodes.test.ts | GET / returns all barcodes | findAll called, 200 response with data array |
+| 2 | barcodes.test.ts | GET / returns empty array | Empty state handled correctly |
+| 3 | barcodes.test.ts | GET /:id returns barcode | findById called with correct id, 200 response |
+| 4 | barcodes.test.ts | GET /:id returns 404 | NotFoundError with displayName "Barcode" |
+| 5 | barcodes.test.ts | POST / creates with valid data | 201 response, create called with body |
+| 6 | barcodes.test.ts | POST / rejects invalid barcode_type | Zod enum validation ('code128', 'code39', 'qr') |
+| 7 | barcodes.test.ts | POST / rejects invalid hex color | Zod regex validation (`/^#[0-9A-Fa-f]{6}$/`) |
+| 8 | barcodes.test.ts | POST / rejects missing label | Zod required field validation |
+| 9 | barcodes.test.ts | POST / rejects empty label | Zod `.min(1)` validation |
+| 10 | barcodes.test.ts | POST / rejects negative sort_order | Zod `.nonnegative()` validation |
+| 11 | barcodes.test.ts | PUT /:id updates successfully | 200 response, update called with id and body |
+| 12 | barcodes.test.ts | PUT /:id returns 404 | NotFoundError when update returns null |
+| 13 | barcodes.test.ts | PUT /:id rejects invalid color | Update schema validates optional fields |
+| 14 | barcodes.test.ts | DELETE /:id deletes successfully | 200 with `{ deleted: true }` |
+| 15 | barcodes.test.ts | DELETE /:id returns 404 | NotFoundError when delete returns false |
+| 16 | mealplan-debug.test.ts | GET / serves HTML | 200 status, text/html content type, page title |
+| 17 | mealplan-debug.test.ts | GET / includes controls | Generate, critique, finalize JavaScript functions present |
+| 18 | mealplan-debug.test.ts | GET / includes table structure | Day/Breakfast/Lunch/Dinner headers present |
 
-**Expected assertion count**: ~18 `expect()` calls across 8 test cases → density ~2.3x (maintains the ≥2.0 threshold for positive grade adjustment).
+**Total**: 18 test cases, ~55 `expect()` calls. Density ~3.1x (well above the 2.0 threshold).
 
 ## QA
 
-### Step 1: Verify the test file is counted by the grade script
-
-Before running anything, manually trace through `scripts/update-quality-grades.ts` logic:
-- File: `__tests__/integration/today-coach.integration.test.ts`
-- `parts[0]` = `__tests__`, `parts[1]` = `integration` → integration branch
-- `basename` = `today-coach.integration` → `integrationName` = `today-coach`
-- `HANDLER_FEATURE_MAP['today-coach']` = `'today'` ✓
-
-Run the grade script to confirm:
-```bash
-npx tsx scripts/update-quality-grades.ts
-```
-Expected: Today domain shows `Medium (4)` instead of `Low (3)`.
-
-### Step 2: Run full validation (unit tests)
+### Step 1: Run full validation
 
 ```bash
 npm run validate
 ```
-Expected: All checks pass. The new integration test file is NOT included in the regular `npm test` run (it's in `__tests__/integration/` which is excluded from the default vitest config). It only runs via `npm run test:integration` with `vitest.integration.config.ts`.
 
-### Step 3: Run integration tests (if emulator available)
+Expected: All checks pass — typecheck, lint, test, architecture. The new test files should be discovered by vitest and included in the test run. Check `.validate/test.log` to confirm both new test files appear.
+
+### Step 2: Verify untested file detection is cleared
+
+Run the grade script:
 
 ```bash
-npm run emulators:fresh &
-# Wait for emulator to start
-npm run test:integration
+npx tsx scripts/update-quality-grades.ts
 ```
-Expected:
-- Test 1 (RECOVERY_NOT_SYNCED): PASS — 400 response
-- Tests 2, 6, 7 (valid recovery): PASS — either 200 (unlikely without key) or 500 CONFIG_ERROR
-- Tests 3, 4, 5, 8 (invalid recovery): PASS — 400 VALIDATION_ERROR from Zod
 
-### Step 4: Verify quality grade impact
+Then inspect `docs/quality-grades.md`:
+- The "Untested Files" table should NO LONGER list `handlers/barcodes.ts` or `handlers/mealplan-debug.ts`
+- Only `services/lifting-context.service.ts` should remain in the untested table
+- The Meal Planning row should still show grade **A** and the notes should no longer mention "2 untested file(s)"
+- Backend test count for Meal Planning should increase from 12 to 14
 
-After the grade script runs, inspect `docs/quality-grades.md`:
-- Today row should show `Medium (4)` in the Backend Tests column
-- The test inventory section should list `today-coach` under the Today Integration entries
-- The grade for Today should remain B (the base grade B- + density boost stays the same)
+### Step 3: Verify the test assertions are meaningful
+
+Run just the new test files to see their output:
+
+```bash
+npx vitest run packages/functions/src/handlers/barcodes.test.ts packages/functions/src/handlers/mealplan-debug.test.ts --reporter=verbose
+```
+
+Expected: All 18 tests pass. Each test should show a clear pass/fail, no skipped tests.
+
+### Step 4: Verify barcode schema validation edge cases
+
+In the test output, specifically confirm:
+- Invalid barcode_type `'invalid'` → 400 VALIDATION_ERROR
+- Non-hex color `'not-a-hex'` → 400 VALIDATION_ERROR
+- Empty label `''` → 400 VALIDATION_ERROR (min(1) enforces this)
+- Negative sort_order `-1` → 400 VALIDATION_ERROR (nonnegative() enforces this)
+
+These prove the Zod schemas from `barcode.schema.ts` are correctly wired through `createResourceRouter`.
 
 ### Step 5: Self-review
 
 ```bash
-git diff main --stat  # Should show exactly 1 new file
-git diff main         # Review every line of the new test file
+git diff main --stat  # Should show 4 files: 2 new test files + 2 modified utility files
+git diff main         # Review every changed line
 ```
 
 Verify:
 - No `any` types
-- All imports are explicit (`import { ... } from 'vitest'`)
-- No `.only` or `.skip` test modifiers
-- Every `it()` block contains at least one `expect()` call
-- File follows the integration test pattern from `calendar.integration.test.ts` and `meditationSessions.integration.test.ts`
+- All imports explicit (vitest, supertest, shared utils)
+- No `.only` or `.skip`
+- Every `it()` block has at least one `expect()`
+- Mock repository and fixture patterns match existing code exactly
+- `ApiResponse` imported from `../tests/utils/index.js` (not inline)
 
 ## Conventions
 
@@ -334,20 +457,23 @@ Verify:
 
 2. **Subagent Usage** — Run `npm run validate` in subagents to conserve context.
 
-3. **Vitest not Jest** — Use `import { describe, it, expect, beforeAll } from 'vitest'` explicitly.
+3. **Vitest not Jest** — Use `import { describe, it, expect, vi, beforeEach } from 'vitest'` explicitly.
 
-4. **No `any` types** — Use explicit interfaces (`ApiError`, `TodayCoachRecommendation`) for response typing.
+4. **No `any` types** — Use `ApiResponse` from shared test utilities for supertest response typing.
 
-5. **Integration test pattern** — Follow the exact structure of existing integration tests:
-   - `beforeAll` with emulator health check
-   - `FUNCTIONS_URL` constant at `http://127.0.0.1:5001/brad-os/us-central1`
-   - Use native `fetch` (not supertest — integration tests hit the real emulator, not Express apps)
-   - Import `ApiResponse` from `../utils/index.js`
+5. **Handler test pattern** — Follow `meals.test.ts` exactly:
+   - `vi.mock('../firebase.js')` and `vi.mock('../middleware/app-check.js')` before handler import
+   - Mock repository created at module level using factory from `__tests__/utils/`
+   - `vi.mock('../repositories/*.js')` with `vi.fn().mockImplementation(() => mockRepo)`
+   - Handler imported AFTER all `vi.mock()` calls (vitest hoisting requirement)
+   - `beforeEach(() => vi.clearAllMocks())`
 
-6. **Test Quality Policy** — Every test case must contain `expect()` assertions. No empty bodies. Architecture linter check 19 enforces this.
+6. **Shared test factories** (architecture check #16) — Use `createMockBarcodeRepository()` and `createBarcode()` from shared utils, not inline mocks.
 
-7. **Handler test naming** — Integration test file named `today-coach.integration.test.ts` to match handler name `today-coach` in `HANDLER_FEATURE_MAP`.
+7. **ApiResponse from shared utils** (architecture check #17) — Import `ApiResponse` from `../tests/utils/index.js`, never define inline.
 
-8. **Co-locate test utilities** — Use shared `ApiResponse` type from `__tests__/utils/`. Define test-specific types (like `TodayCoachRecommendation`) inline in the test file following the pattern of other integration tests.
+8. **Test quality** (architecture check #19) — Every `it()` block must contain `expect()` assertions. No empty test bodies.
 
-9. **Schema validation awareness** — The `coachRecommendRequestSchema` in `schemas/recovery.schema.ts` uses `recoverySnapshotSchema.omit({ source: true }).optional()`. The test's `VALID_RECOVERY` object intentionally omits the `source` field to match this schema.
+9. **No focused tests** (architecture check #18) — No `.only` or `.skip` modifiers.
+
+10. **Fixture pattern** — `createBarcode()` follows the standard shape: generate ID with `generateId('barcode')`, provide sensible defaults, spread `createTimestamps()`, accept `Partial<Barcode>` overrides.
