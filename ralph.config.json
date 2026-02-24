@@ -1,7 +1,18 @@
 {
   "branchPrefix": "harness-improvement",
-  "parallelism": 2,
+  "parallelism": 5,
   "maxTurns": 100,
-  "maxReviewCycles": 4,
-  "verbose": false
+  "maxReviewCycles": 2,
+  "verbose": false,
+  "agents": {
+    "plan": {
+      "model": "claude-opus-4-6"
+    },
+    "review": {
+      "model": "claude-sonnet-4-6"
+    },
+    "implement": {
+      "model": "gpt-5.3-codex-spark"
+    }
+  }
 }
