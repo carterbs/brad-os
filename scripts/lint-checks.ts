@@ -24,6 +24,7 @@
  *  17. No inline ApiResponse in tests
  *  18. No focused tests (.only)
  *  19. Test quality (no empty test bodies, no assertion-free test files)
+ *  20. Repository test coverage (every concrete repository has a colocated test)
  */
 
 import * as fs from 'node:fs';
@@ -1562,6 +1563,58 @@ export function checkTestQuality(config: LinterConfig): CheckResult {
         `         expect(result.success).toBe(true);\n` +
         `         expect(body.data).toHaveLength(2);\n` +
         `    See: docs/conventions/testing.md`
+      );
+    }
+  }
+
+  return { name, passed: violations.length === 0, violations };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Check 20: Repository test coverage
+//
+// Every non-abstract repository file must have a colocated .test.ts file.
+// Abstract base classes and type-only files are explicitly allowlisted.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function checkRepositoryTestCoverage(config: LinterConfig): CheckResult {
+  const name = 'Repository test coverage';
+
+  // Files that are intentionally untested (abstract classes, type-only files)
+  const ALLOWLIST: string[] = [
+    'base.repository.ts',
+  ];
+
+  const repoDir = path.join(config.functionsSrc, 'repositories');
+
+  if (!fs.existsSync(repoDir)) {
+    return { name, passed: true, violations: [] };
+  }
+
+  const violations: string[] = [];
+
+  const repoFiles = fs.readdirSync(repoDir).filter(
+    (f) =>
+      f.endsWith('.repository.ts') &&
+      !f.endsWith('.test.ts') &&
+      !f.endsWith('.spec.ts') &&
+      !ALLOWLIST.includes(f)
+  );
+
+  for (const file of repoFiles) {
+    const baseName = file.replace(/\.ts$/, '');
+    const testFile = `${baseName}.test.ts`;
+    const testPath = path.join(repoDir, testFile);
+
+    if (!fs.existsSync(testPath)) {
+      const relPath = path.relative(config.rootDir, path.join(repoDir, file));
+      const relTestPath = path.relative(config.rootDir, testPath);
+      violations.push(
+        `${relPath} has no colocated test file.\n` +
+        `    Rule: Every non-abstract repository must have a colocated .test.ts file.\n` +
+        `    Fix: Create ${relTestPath} with tests for all public methods.\n` +
+        `    If this file is intentionally untested (e.g., abstract base class),\n` +
+        `    add it to the ALLOWLIST in checkRepositoryTestCoverage().`
       );
     }
   }

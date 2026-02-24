@@ -24,6 +24,7 @@ import {
   checkNoFocusedTests,
   checkTestQuality,
   checkQualityGradesFreshness,
+  checkRepositoryTestCoverage,
 } from './lint-checks.js';
 
 // ── Test Helpers ─────────────────────────────────────────────────────────────
@@ -972,5 +973,83 @@ describe('checkQualityGradesFreshness', () => {
     const result = checkQualityGradesFreshness(config);
     expect(result.stale).toBe(true);
     expect(result.message).toContain('does not exist');
+  });
+});
+
+// ── Check 20: Repository test coverage ───────────────────────────────────────
+
+describe('checkRepositoryTestCoverage', () => {
+  let rootDir: string;
+  let config: LinterConfig;
+
+  beforeEach(() => {
+    ({ rootDir, config } = createFixture());
+  });
+  afterEach(() => cleanup(rootDir));
+
+  it('passes when all repository files have colocated tests', () => {
+    writeFixture(rootDir, 'packages/functions/src/repositories/exercise.repository.ts',
+      'export class ExerciseRepository {}');
+    writeFixture(rootDir, 'packages/functions/src/repositories/exercise.repository.test.ts',
+      "it('works', () => { expect(1).toBe(1); });");
+
+    const result = checkRepositoryTestCoverage(config);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('fails when a repository file has no colocated test', () => {
+    writeFixture(rootDir, 'packages/functions/src/repositories/exercise.repository.ts',
+      'export class ExerciseRepository {}');
+
+    const result = checkRepositoryTestCoverage(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0]).toContain('exercise.repository.ts');
+    expect(result.violations[0]).toContain('no colocated test file');
+  });
+
+  it('skips allowlisted files (base.repository.ts)', () => {
+    writeFixture(rootDir, 'packages/functions/src/repositories/base.repository.ts',
+      'export abstract class BaseRepository {}');
+
+    const result = checkRepositoryTestCoverage(config);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('passes when repositories directory does not exist', () => {
+    // config.functionsSrc/repositories does not exist in fixture
+    const result = checkRepositoryTestCoverage(config);
+    expect(result.passed).toBe(true);
+  });
+
+  it('reports multiple missing test files', () => {
+    writeFixture(rootDir, 'packages/functions/src/repositories/foo.repository.ts',
+      'export class FooRepository {}');
+    writeFixture(rootDir, 'packages/functions/src/repositories/bar.repository.ts',
+      'export class BarRepository {}');
+
+    const result = checkRepositoryTestCoverage(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations).toHaveLength(2);
+  });
+
+  it('ignores non-repository .ts files in the directory', () => {
+    writeFixture(rootDir, 'packages/functions/src/repositories/helpers.ts',
+      'export function helper() {}');
+
+    const result = checkRepositoryTestCoverage(config);
+    expect(result.passed).toBe(true);
+  });
+
+  it('does not flag test files themselves', () => {
+    writeFixture(rootDir, 'packages/functions/src/repositories/exercise.repository.ts',
+      'export class ExerciseRepository {}');
+    writeFixture(rootDir, 'packages/functions/src/repositories/exercise.repository.test.ts',
+      "it('works', () => { expect(1).toBe(1); });");
+
+    const result = checkRepositoryTestCoverage(config);
+    expect(result.passed).toBe(true);
   });
 });
