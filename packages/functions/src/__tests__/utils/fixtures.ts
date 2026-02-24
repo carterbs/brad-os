@@ -25,6 +25,7 @@ import type {
   Ingredient,
   MealPlanSession,
   MealPlanEntry,
+  Barcode,
 } from '../../shared.js';
 import type {
   ExerciseProgression,
@@ -256,6 +257,21 @@ export function createIngredient(overrides?: Partial<Ingredient>): Ingredient {
     id: generateId('ingredient'),
     name: 'Chicken Breast',
     store_section: 'Meat',
+    ...createTimestamps(),
+    ...overrides,
+  };
+}
+
+// ============ Barcode Fixtures ============
+
+export function createBarcode(overrides?: Partial<Barcode>): Barcode {
+  return {
+    id: generateId('barcode'),
+    label: 'Costco Membership',
+    value: '123456789012',
+    barcode_type: 'code128',
+    color: '#3B82F6',
+    sort_order: 0,
     ...createTimestamps(),
     ...overrides,
   };
