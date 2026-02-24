@@ -26,6 +26,8 @@ import {
   checkQualityGradesFreshness,
   checkRepositoryTestCoverage,
 } from './lint-checks.js';
+import { generateRewrites } from './rewrite-utils.js';
+import { type EndpointEntry } from '../packages/functions/src/endpoint-manifest.js';
 
 // ── Test Helpers ─────────────────────────────────────────────────────────────
 
@@ -187,41 +189,186 @@ describe('checkFirebaseRoutes', () => {
   });
   afterEach(() => cleanup(rootDir));
 
-  it('passes when firebase.json source matches handler stripPathPrefix', () => {
+  it('passes when firebase.json and exports match manifest', () => {
+    const manifest: EndpointEntry[] = [{ routePath: 'exercises', handlerFile: 'exercises' }];
     writeFixture(rootDir, 'firebase.json', JSON.stringify({
-      hosting: {
-        rewrites: [
-          { source: '/api/dev/exercises/**', function: 'devExercises' },
-        ],
-      },
-    }));
+      hosting: { rewrites: generateRewrites(manifest) },
+    }, null, 2));
+    writeFixture(rootDir, 'packages/functions/src/index.ts',
+      "import { exercisesApp } from './handlers/exercises.js';\n" +
+      'const { dev: devExercises, prod: prodExercises } = register(exercisesApp);\n' +
+      'export { devExercises, prodExercises };');
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
+      "import { createBaseApp } from '../shared.js';\n" +
+      "const app = createBaseApp('exercises');");
+
+    const result = checkFirebaseRoutes(config, manifest);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('fails when firebase.json has extra rewrites', () => {
+    const manifest: EndpointEntry[] = [{ routePath: 'exercises', handlerFile: 'exercises' }];
+    const rewrites = generateRewrites(manifest);
+    rewrites.push({ source: '/api/dev/extra', function: 'devExtra' });
+    rewrites.push({ source: '/api/dev/extra/**', function: 'devExtra' });
+    writeFixture(rootDir, 'firebase.json', JSON.stringify({ hosting: { rewrites } }, null, 2));
+    writeFixture(rootDir, 'packages/functions/src/index.ts',
+      "import { exercisesApp } from './handlers/exercises.js';\n" +
+      'const { dev: devExercises, prod: prodExercises } = register(exercisesApp);\n' +
+      'export { devExercises, prodExercises };');
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
+      "import { createBaseApp } from '../shared.js';\n" +
+      "const app = createBaseApp('exercises');");
+
+    const result = checkFirebaseRoutes(config, manifest);
+    expect(result.passed).toBe(false);
+    expect(result.violations[0]).toContain('Extra rewrite');
+  });
+
+  it('fails when firebase.json is missing rewrites from manifest', () => {
+    const manifest: EndpointEntry[] = [
+      { routePath: 'exercises', handlerFile: 'exercises' },
+      { routePath: 'calendar', handlerFile: 'calendar' },
+    ];
+    writeFixture(rootDir, 'firebase.json', JSON.stringify({
+      hosting: { rewrites: generateRewrites(manifest.slice(0, 1)) },
+    }, null, 2));
+    writeFixture(rootDir, 'packages/functions/src/index.ts',
+      "import { exercisesApp } from './handlers/exercises.js';\n" +
+      "import { calendarApp } from './handlers/calendar.js';\n" +
+      'const { dev: devExercises, prod: prodExercises } = register(exercisesApp);\n' +
+      'const { dev: devCalendar, prod: prodCalendar } = register(calendarApp);\n' +
+      'export { devExercises, prodExercises, devCalendar, prodCalendar };');
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
+      "import { createBaseApp } from '../shared.js';\n" +
+      "const app = createBaseApp('exercises');");
+    writeFixture(rootDir, 'packages/functions/src/handlers/calendar.ts',
+      "import { createBaseApp } from '../shared.js';\n" +
+      "const app = createBaseApp('calendar');");
+
+    const result = checkFirebaseRoutes(config, manifest);
+    expect(result.passed).toBe(false);
+    expect(result.violations.some((v) => v.includes('Missing rewrite'))).toBe(true);
+  });
+
+  it('fails when handler route does not match manifest routePath', () => {
+    const manifest: EndpointEntry[] = [{ routePath: 'exercises', handlerFile: 'exercises' }];
+    writeFixture(rootDir, 'firebase.json', JSON.stringify({
+      hosting: { rewrites: generateRewrites(manifest) },
+    }, null, 2));
+    writeFixture(rootDir, 'packages/functions/src/index.ts',
+      "import { exercisesApp } from './handlers/exercises.js';\n" +
+      'const { dev: devExercises, prod: prodExercises } = register(exercisesApp);\n' +
+      'export { devExercises, prodExercises };');
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
+      "import { createBaseApp } from '../shared.js';\n" +
+      "const app = createBaseApp('wrong-name');");
+
+    const result = checkFirebaseRoutes(config, manifest);
+    expect(result.passed).toBe(false);
+    expect(result.violations.some((v) => v.includes('manifest expects'))).toBe(true);
+  });
+
+  it('fails when handler file is missing', () => {
+    const manifest: EndpointEntry[] = [{ routePath: 'exercises', handlerFile: 'missing' }];
+    writeFixture(rootDir, 'firebase.json', JSON.stringify({
+      hosting: { rewrites: generateRewrites(manifest) },
+    }, null, 2));
+    writeFixture(rootDir, 'packages/functions/src/index.ts',
+      "import { exercisesApp as missingApp } from './handlers/missing.js';\n" +
+      'const { dev: devMissing, prod: prodMissing } = register(missingApp);\n' +
+      'export { devMissing, prodMissing };');
+
+    const result = checkFirebaseRoutes(config, manifest);
+    expect(result.passed).toBe(false);
+    expect(result.violations.some((v) => v.includes('Missing handler file'))).toBe(true);
+  });
+
+  it('fails when index.ts is missing handler import', () => {
+    const manifest: EndpointEntry[] = [{ routePath: 'exercises', handlerFile: 'exercises' }];
+    writeFixture(rootDir, 'firebase.json', JSON.stringify({
+      hosting: { rewrites: generateRewrites(manifest) },
+    }, null, 2));
+    writeFixture(rootDir, 'packages/functions/src/index.ts',
+      'const { dev: devExercises, prod: prodExercises } = register(exercisesApp);');
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
+      "import { createBaseApp } from '../shared.js';\n" +
+      "const app = createBaseApp('exercises');");
+
+    const result = checkFirebaseRoutes(config, manifest);
+    expect(result.passed).toBe(false);
+    expect(result.violations.some((v) => v.includes('Missing import'))).toBe(true);
+  });
+
+  it('fails when index.ts is missing handler export', () => {
+    const manifest: EndpointEntry[] = [{ routePath: 'exercises', handlerFile: 'exercises' }];
+    writeFixture(rootDir, 'firebase.json', JSON.stringify({
+      hosting: { rewrites: generateRewrites(manifest) },
+    }, null, 2));
     writeFixture(rootDir, 'packages/functions/src/index.ts',
       "import { exercisesApp } from './handlers/exercises.js';\n" +
       'const { dev: devExercises, prod: prodExercises } = register(exercisesApp);');
     writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
+      "import { createBaseApp } from '../shared.js';\n" +
       "const app = createBaseApp('exercises');");
 
-    const result = checkFirebaseRoutes(config);
+    const result = checkFirebaseRoutes(config, manifest);
+    expect(result.passed).toBe(false);
+    expect(result.violations.some((v) => v.includes('Missing export'))).toBe(true);
+  });
+
+  it('handles devOnly entries with no prod rewrite or export', () => {
+    const manifest: EndpointEntry[] = [
+      { routePath: '', handlerFile: 'mealplan-debug', devOnly: true, functionStem: 'MealplanDebug', customSource: '/debug' },
+    ];
+    writeFixture(rootDir, 'firebase.json', JSON.stringify({
+      hosting: { rewrites: generateRewrites(manifest) },
+    }, null, 2));
+    writeFixture(rootDir, 'packages/functions/src/index.ts',
+      "import { mealplanDebugApp } from './handlers/mealplan-debug.js';\n" +
+      'export const devMealplanDebug = onRequest({} as any, mealplanDebugApp);');
+    writeFixture(rootDir, 'packages/functions/src/handlers/mealplan-debug.ts',
+      "import { createBaseApp } from '../shared.js';\n" +
+      "const app = createBaseApp('');");
+
+    const result = checkFirebaseRoutes(config, manifest);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('handles customSource entries', () => {
+    const manifest: EndpointEntry[] = [{ routePath: 'exercises', handlerFile: 'exercises', customSource: '/custom/exercises' }];
+    writeFixture(rootDir, 'firebase.json', JSON.stringify({
+      hosting: { rewrites: generateRewrites(manifest) },
+    }, null, 2));
+    writeFixture(rootDir, 'packages/functions/src/index.ts',
+      "import { exercisesApp } from './handlers/exercises.js';\n" +
+      'const { dev: devExercises, prod: prodExercises } = register(exercisesApp);\n' +
+      'export { devExercises, prodExercises };');
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
+      "import { createBaseApp } from '../shared.js';\n" +
+      "const app = createBaseApp('exercises');");
+
+    const result = checkFirebaseRoutes(config, manifest);
     expect(result.passed).toBe(true);
   });
 
-  it('fails when stripPathPrefix does not match firebase.json source', () => {
+  it('handles functionStem overrides', () => {
+    const manifest: EndpointEntry[] = [{ routePath: 'exercises', handlerFile: 'exercises', functionStem: 'MainExercises' }];
     writeFixture(rootDir, 'firebase.json', JSON.stringify({
-      hosting: {
-        rewrites: [
-          { source: '/api/dev/exercises/**', function: 'devExercises' },
-        ],
-      },
-    }));
+      hosting: { rewrites: generateRewrites(manifest) },
+    }, null, 2));
     writeFixture(rootDir, 'packages/functions/src/index.ts',
       "import { exercisesApp } from './handlers/exercises.js';\n" +
-      'const { dev: devExercises, prod: prodExercises } = register(exercisesApp);');
+      'const { dev: devMainExercises, prod: prodMainExercises } = register(exercisesApp);\n' +
+      'export { devMainExercises, prodMainExercises };');
     writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
-      "const app = createBaseApp('wrong-name');");
+      "import { createBaseApp } from '../shared.js';\n" +
+      "const app = createBaseApp('exercises');");
 
-    const result = checkFirebaseRoutes(config);
-    expect(result.passed).toBe(false);
-    expect(result.violations[0]).toContain('stripPathPrefix');
+    const result = checkFirebaseRoutes(config, manifest);
+    expect(result.passed).toBe(true);
   });
 });
 

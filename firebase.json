@@ -50,20 +50,28 @@
         "function": "devExercises"
       },
       {
+        "source": "/api/dev/stretch-sessions",
+        "function": "devStretchSessions"
+      },
+      {
+        "source": "/api/dev/stretch-sessions/**",
+        "function": "devStretchSessions"
+      },
+      {
+        "source": "/api/dev/meditation-sessions",
+        "function": "devMeditationSessions"
+      },
+      {
+        "source": "/api/dev/meditation-sessions/**",
+        "function": "devMeditationSessions"
+      },
+      {
         "source": "/api/dev/plans",
         "function": "devPlans"
       },
       {
         "source": "/api/dev/plans/**",
         "function": "devPlans"
-      },
-      {
-        "source": "/api/dev/mesocycles",
-        "function": "devMesocycles"
-      },
-      {
-        "source": "/api/dev/mesocycles/**",
-        "function": "devMesocycles"
       },
       {
         "source": "/api/dev/workouts",
@@ -82,28 +90,20 @@
         "function": "devWorkoutSets"
       },
       {
-        "source": "/api/dev/stretch-sessions",
-        "function": "devStretchSessions"
-      },
-      {
-        "source": "/api/dev/stretch-sessions/**",
-        "function": "devStretchSessions"
-      },
-      {
-        "source": "/api/dev/meditation-sessions",
-        "function": "devMeditationSessions"
-      },
-      {
-        "source": "/api/dev/meditation-sessions/**",
-        "function": "devMeditationSessions"
-      },
-      {
         "source": "/api/dev/calendar",
         "function": "devCalendar"
       },
       {
         "source": "/api/dev/calendar/**",
         "function": "devCalendar"
+      },
+      {
+        "source": "/api/dev/mesocycles",
+        "function": "devMesocycles"
+      },
+      {
+        "source": "/api/dev/mesocycles/**",
+        "function": "devMesocycles"
       },
       {
         "source": "/api/dev/barcodes",
@@ -234,20 +234,28 @@
         "function": "prodExercises"
       },
       {
+        "source": "/api/prod/stretch-sessions",
+        "function": "prodStretchSessions"
+      },
+      {
+        "source": "/api/prod/stretch-sessions/**",
+        "function": "prodStretchSessions"
+      },
+      {
+        "source": "/api/prod/meditation-sessions",
+        "function": "prodMeditationSessions"
+      },
+      {
+        "source": "/api/prod/meditation-sessions/**",
+        "function": "prodMeditationSessions"
+      },
+      {
         "source": "/api/prod/plans",
         "function": "prodPlans"
       },
       {
         "source": "/api/prod/plans/**",
         "function": "prodPlans"
-      },
-      {
-        "source": "/api/prod/mesocycles",
-        "function": "prodMesocycles"
-      },
-      {
-        "source": "/api/prod/mesocycles/**",
-        "function": "prodMesocycles"
       },
       {
         "source": "/api/prod/workouts",
@@ -266,28 +274,20 @@
         "function": "prodWorkoutSets"
       },
       {
-        "source": "/api/prod/stretch-sessions",
-        "function": "prodStretchSessions"
-      },
-      {
-        "source": "/api/prod/stretch-sessions/**",
-        "function": "prodStretchSessions"
-      },
-      {
-        "source": "/api/prod/meditation-sessions",
-        "function": "prodMeditationSessions"
-      },
-      {
-        "source": "/api/prod/meditation-sessions/**",
-        "function": "prodMeditationSessions"
-      },
-      {
         "source": "/api/prod/calendar",
         "function": "prodCalendar"
       },
       {
         "source": "/api/prod/calendar/**",
         "function": "prodCalendar"
+      },
+      {
+        "source": "/api/prod/mesocycles",
+        "function": "prodMesocycles"
+      },
+      {
+        "source": "/api/prod/mesocycles/**",
+        "function": "prodMesocycles"
       },
       {
         "source": "/api/prod/barcodes",

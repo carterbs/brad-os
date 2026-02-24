@@ -33,6 +33,7 @@
     "validate:quick": "bash scripts/validate.sh --quick",
     "doctor": "bash scripts/doctor.sh",
     "lint:architecture": "tsx scripts/lint-architecture.ts",
+    "generate:rewrites": "tsx scripts/generate-firebase-rewrites.ts",
     "update:quality-grades": "tsx scripts/update-quality-grades.ts",
     "otel:start": "npx tsx scripts/otel-collector/index.ts &",
     "otel:stop": "lsof -ti:4318 | xargs kill 2>/dev/null || true",

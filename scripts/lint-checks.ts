@@ -29,6 +29,15 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import {
+  compareRewrites,
+  generateRewrites,
+  getAppExportName,
+  getDevFunctionName,
+  getProdFunctionName,
+  type FirebaseRewrite,
+} from './rewrite-utils.js';
+import type { EndpointEntry } from '../packages/functions/src/endpoint-manifest.js';
 
 export interface LinterConfig {
   rootDir: string;
@@ -47,6 +56,243 @@ export function createDefaultConfig(): LinterConfig {
     rootDir,
     functionsSrc: path.join(rootDir, 'packages/functions/src'),
   };
+}
+
+interface ParsedManifestResult {
+  manifest: EndpointEntry[];
+  violations: string[];
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function parseEndpointEntryString(field: string, block: string): string | null {
+  const regex = new RegExp(`${escapeRegExp(field)}\\s*:\\s*'([^']*)'`);
+  const match = regex.exec(block);
+  return match?.[1] ?? null;
+}
+
+function parseEndpointEntryBoolean(field: string, block: string): boolean | null {
+  const regex = new RegExp(`${escapeRegExp(field)}\\s*:\\s*(true|false)`);
+  const match = regex.exec(block);
+  if (match?.[1] === 'true') {
+    return true;
+  }
+  if (match?.[1] === 'false') {
+    return false;
+  }
+  return null;
+}
+
+function extractManifestArrayText(manifestText: string): string {
+  const manifestMatch = /export\s+const\s+ENDPOINT_MANIFEST\b/.exec(manifestText);
+  if (!manifestMatch || manifestMatch.index === undefined) return '';
+
+  const equalsIndex = manifestText.indexOf('=', manifestMatch.index);
+  if (equalsIndex === -1) {
+    return '';
+  }
+
+  const openBracket = manifestText.indexOf('[', equalsIndex);
+  if (openBracket === -1) return '';
+
+  let depth = 0;
+  let inSingleQuote = false;
+  let inDoubleQuote = false;
+  let inTemplate = false;
+  let inLineComment = false;
+  let inBlockComment = false;
+  let escaped = false;
+
+  for (let i = openBracket; i < manifestText.length; i++) {
+    const char = manifestText[i];
+    if (char === undefined) break;
+
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+
+    if (inLineComment && char === '\n') {
+      inLineComment = false;
+      continue;
+    }
+
+    if (inLineComment || inBlockComment) {
+      if (inBlockComment && char === '*' && manifestText[i + 1] === '/') {
+        inBlockComment = false;
+      }
+      continue;
+    }
+
+    if (char === "'" && !inDoubleQuote && !inTemplate) {
+      inSingleQuote = !inSingleQuote;
+      continue;
+    }
+    if (char === '"' && !inSingleQuote && !inTemplate) {
+      inDoubleQuote = !inDoubleQuote;
+      continue;
+    }
+    if (char === '`' && !inSingleQuote && !inDoubleQuote) {
+      inTemplate = !inTemplate;
+      continue;
+    }
+
+    if (char === '/' && manifestText[i + 1] === '/' && !inSingleQuote && !inDoubleQuote && !inTemplate) {
+      inLineComment = true;
+      continue;
+    }
+    if (char === '/' && manifestText[i + 1] === '*' && !inSingleQuote && !inDoubleQuote && !inTemplate) {
+      inBlockComment = true;
+      continue;
+    }
+
+    if (char === '[') {
+      depth += 1;
+      continue;
+    }
+    if (char === ']') {
+      depth -= 1;
+      if (depth === 0) {
+        return manifestText.slice(openBracket, i + 1);
+      }
+    }
+  }
+
+  return '';
+}
+
+function parseManifestArray(manifestText: string): ParsedManifestResult {
+  const manifestArrayText = extractManifestArrayText(manifestText);
+  if (!manifestArrayText) {
+    return {
+      manifest: [],
+      violations: ['Unable to parse ENDPOINT_MANIFEST array from endpoint-manifest.ts'],
+    };
+  }
+
+  const objectRegex = /\{[\s\S]*?\}/g;
+  const entries: EndpointEntry[] = [];
+
+  let match: RegExpExecArray | null;
+  while ((match = objectRegex.exec(manifestArrayText)) !== null) {
+    const block = match[0];
+    const routePath = parseEndpointEntryString('routePath', block);
+    const handlerFile = parseEndpointEntryString('handlerFile', block);
+    if (routePath === null || handlerFile === null) {
+      return {
+        manifest: [],
+        violations: ['Malformed manifest entry: missing routePath or handlerFile'],
+      };
+    }
+
+    const options = parseEndpointEntryString('options', block) as EndpointEntry['options'] | null;
+    const functionStem = parseEndpointEntryString('functionStem', block);
+    const customSource = parseEndpointEntryString('customSource', block);
+    const devOnly = parseEndpointEntryBoolean('devOnly', block);
+
+    const entry: EndpointEntry = {
+      routePath,
+      handlerFile,
+      ...(options === null ? {} : { options }),
+      ...(devOnly === null ? {} : { devOnly }),
+      ...(functionStem === null ? {} : { functionStem }),
+      ...(customSource === null ? {} : { customSource }),
+    };
+    entries.push(entry);
+  }
+
+  if (entries.length === 0) {
+    return {
+      manifest: [],
+      violations: ['ENDPOINT_MANIFEST is empty or malformed'],
+    };
+  }
+
+  return { manifest: entries, violations: [] };
+}
+
+function readManifestFromDisk(config: LinterConfig): ParsedManifestResult {
+  const manifestPath = path.join(config.functionsSrc, 'endpoint-manifest.ts');
+  if (!fs.existsSync(manifestPath)) {
+    return {
+      manifest: [],
+      violations: [`endpoint-manifest.ts not found at ${manifestPath}`],
+    };
+  }
+
+  const manifestText = fs.readFileSync(manifestPath, 'utf-8');
+  return parseManifestArray(manifestText);
+}
+
+function getHandlerRouteValue(handlerPath: string): string | null {
+  const content = fs.readFileSync(handlerPath, 'utf-8');
+
+  const createBaseAppMatch = /createBaseApp\(\s*['"]([^'"]+)['"]\s*\)/.exec(content);
+  if (createBaseAppMatch?.[1] !== undefined) {
+    return createBaseAppMatch[1];
+  }
+
+  const createResourceRouterMatch = /createResourceRouter\(\s*\{[\s\S]*?resourceName:\s*['"]([^'"]+)['"]/.exec(content);
+  if (createResourceRouterMatch?.[1] !== undefined) {
+    return createResourceRouterMatch[1];
+  }
+
+  const stripMatch = /stripPathPrefix\(\s*['"]([^'"]+)['"]\s*\)/.exec(content);
+  if (stripMatch?.[1] !== undefined) {
+    return stripMatch[1];
+  }
+
+  return null;
+}
+
+function parseFirebaseRewrites(firebasePath: string): FirebaseRewrite[] {
+  const firebaseText = fs.readFileSync(firebasePath, 'utf-8');
+  const firebaseConfig = JSON.parse(firebaseText) as {
+    hosting?: {
+      rewrites?: Array<{
+        source?: unknown;
+        function?: unknown;
+      }>;
+    };
+  };
+  const rewrites = firebaseConfig.hosting?.rewrites;
+  if (!Array.isArray(rewrites)) {
+    return [];
+  }
+
+  return rewrites
+    .filter((rewrite): rewrite is { source: string; function: string } =>
+      typeof rewrite.source === 'string' && typeof rewrite.function === 'string'
+    )
+    .map((rewrite) => ({ source: rewrite.source, function: rewrite.function }));
+}
+
+function hasHandlerImport(indexContent: string, entry: EndpointEntry): boolean {
+  const appExport = getAppExportName(entry);
+  const pattern = new RegExp(
+    `import\\s+\\{\\s*${escapeRegExp(appExport)}\\s*\\}\\s+from\\s+['"]\\.\\/handlers\\/${escapeRegExp(entry.handlerFile)}\\.js['"]`,
+    'm'
+  );
+  return pattern.test(indexContent);
+}
+
+function hasHandlerExport(indexContent: string, functionName: string): boolean {
+  const directExport = new RegExp(
+    `export\\s+(?:const|let|function)\\s+${escapeRegExp(functionName)}\\b`,
+    'm'
+  );
+  const groupedExport = new RegExp(
+    `export\\s*\\{[^}]*\\b${escapeRegExp(functionName)}\\b[^}]*\\}`,
+    'm'
+  );
+  return directExport.test(indexContent) || groupedExport.test(indexContent);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -349,11 +595,33 @@ export function checkTypeDedup(config: LinterConfig): CheckResult {
 // Check 4: Firebase Route Consistency
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function checkFirebaseRoutes(config: LinterConfig): CheckResult {
+export function checkFirebaseRoutes(
+  config: LinterConfig,
+  manifestOverride?: EndpointEntry[]
+): CheckResult {
   const name = 'Firebase route consistency';
   const FIREBASE_JSON = path.join(config.rootDir, 'firebase.json');
-  const HANDLERS_DIR = path.join(config.functionsSrc, 'handlers');
   const INDEX_TS = path.join(config.functionsSrc, 'index.ts');
+  const HANDLERS_DIR = path.join(config.functionsSrc, 'handlers');
+  const manifestSource = manifestOverride === undefined ? readManifestFromDisk(config) : {
+    manifest: manifestOverride,
+    violations: [],
+  };
+  const manifest = manifestSource.manifest;
+  const manifestViolations = manifestSource.violations;
+  if (manifest.length === 0 || manifestViolations.length > 0) {
+    const violations = [...manifestViolations];
+    if (manifest.length === 0) {
+      violations.push('No manifest entries found in ENDPOINT_MANIFEST.');
+    }
+    return {
+      name,
+      passed: false,
+      violations,
+    };
+  }
+
+  const violations: string[] = [];
 
   if (!fs.existsSync(FIREBASE_JSON)) {
     return { name, passed: false, violations: [`firebase.json not found at ${FIREBASE_JSON}`] };
@@ -362,111 +630,60 @@ export function checkFirebaseRoutes(config: LinterConfig): CheckResult {
     return { name, passed: false, violations: [`index.ts not found at ${INDEX_TS}`] };
   }
 
-  // Step 1: Read firebase.json rewrites
-  const firebaseConfig = JSON.parse(fs.readFileSync(FIREBASE_JSON, 'utf-8')) as Record<string, unknown>;
-  const hosting = firebaseConfig.hosting as Record<string, unknown> | undefined;
-  const rawRewrites = (hosting?.rewrites ?? []) as Array<Record<string, unknown>>;
-  const rewrites = rawRewrites.filter(
-    (r) => 'function' in r
-  ) as Array<{ source: string; function: string }>;
-
-  const rewriteByFunction = new Map<string, string>();
-  for (const r of rewrites) {
-    const existing = rewriteByFunction.get(r.function);
-    if (existing === undefined || r.source.endsWith('/**')) {
-      rewriteByFunction.set(r.function, r.source);
-    }
-  }
-
-  // Step 2: Parse index.ts
-  const indexContent = fs.readFileSync(INDEX_TS, 'utf-8');
-
-  const importPattern = /import\s+\{\s*(\w+)\s*\}\s+from\s+'\.\/handlers\/([\w-]+)\.js'/g;
-  const appToHandler = new Map<string, string>();
-  let importMatch: RegExpExecArray | null;
-  while ((importMatch = importPattern.exec(indexContent)) !== null) {
-    const appName = importMatch[1];
-    const handlerName = importMatch[2];
-    if (appName !== undefined && handlerName !== undefined) {
-      appToHandler.set(appName, handlerName);
-    }
-  }
-
-  const registerPattern = /const\s+\{\s*dev:\s*(\w+),\s*prod:\s*(\w+)\s*\}\s*=\s*register\((\w+)/g;
-  const functionToApp = new Map<string, string>();
-  let registerMatch: RegExpExecArray | null;
-  while ((registerMatch = registerPattern.exec(indexContent)) !== null) {
-    const devName = registerMatch[1];
-    const prodName = registerMatch[2];
-    const appRef = registerMatch[3];
-    if (devName !== undefined && prodName !== undefined && appRef !== undefined) {
-      functionToApp.set(devName, appRef);
-      functionToApp.set(prodName, appRef);
-    }
-  }
-
-  const standalonePattern = /export\s+const\s+(\w+)\s*=\s*onRequest\(\w+,\s*(\w+)\)/g;
-  let standaloneMatch: RegExpExecArray | null;
-  while ((standaloneMatch = standalonePattern.exec(indexContent)) !== null) {
-    const funcName = standaloneMatch[1];
-    const appRef = standaloneMatch[2];
-    if (funcName !== undefined && appRef !== undefined) {
-      functionToApp.set(funcName, appRef);
-    }
-  }
-
-  // Step 3: Check handler stripPathPrefix
-  function getStripPrefixArg(handlerFile: string): string | null {
-    const filePath = path.join(HANDLERS_DIR, `${handlerFile}.ts`);
-    if (!fs.existsSync(filePath)) return null;
-    const content = fs.readFileSync(filePath, 'utf-8');
-
-    const createBaseAppMatch = /createBaseApp\(\s*'([^']+)'\s*\)/.exec(content);
-    if (createBaseAppMatch?.[1] !== undefined) return createBaseAppMatch[1];
-
-    const createResourceRouterMatch = /createResourceRouter\(\s*\{[^}]*resourceName:\s*'([^']+)'/.exec(content);
-    if (createResourceRouterMatch?.[1] !== undefined) return createResourceRouterMatch[1];
-
-    const stripMatch = /stripPathPrefix\(\s*'([^']+)'\s*\)/.exec(content);
-    if (stripMatch?.[1] !== undefined) return stripMatch[1];
-
-    return null;
-  }
-
-  function extractResourceFromSource(source: string): string {
-    const cleanPath = source.replace(/\/\*+$/, '');
-    const segments = cleanPath.split('/');
-    return segments[segments.length - 1] ?? '';
-  }
-
-  // Step 4: Compare
-  const violations: string[] = [];
-  const devRewrites = [...rewriteByFunction.entries()].filter(([fn]) =>
-    fn.startsWith('dev')
-  );
-
-  for (const [funcName, source] of devRewrites) {
-    const appName = functionToApp.get(funcName);
-    if (appName === undefined) continue;
-
-    const handlerFile = appToHandler.get(appName);
-    if (handlerFile === undefined) continue;
-
-    const stripPrefixArg = getStripPrefixArg(handlerFile);
-    if (stripPrefixArg === null) continue;
-
-    const expectedResource = extractResourceFromSource(source);
-
-    if (stripPrefixArg !== expectedResource) {
+  // Sub-check A: handler files exist
+  for (const entry of manifest) {
+    const handlerFile = path.join(HANDLERS_DIR, `${entry.handlerFile}.ts`);
+    if (!fs.existsSync(handlerFile)) {
       violations.push(
-        `firebase.json rewrite '${source}' -> function '${funcName}' but handler uses stripPathPrefix('${stripPrefixArg}'). Expected stripPathPrefix('${expectedResource}').\n` +
-        `    Rule: The stripPathPrefix (or createBaseApp) argument must match the last path segment of the firebase.json rewrite source.\n` +
-        `    Fix: 1. Open packages/functions/src/handlers/${handlerFile}.ts.\n` +
-        `         2. Change stripPathPrefix('${stripPrefixArg}') to stripPathPrefix('${expectedResource}'), or change createBaseApp('${stripPrefixArg}') to createBaseApp('${expectedResource}').\n` +
-        `         3. Alternatively, update the firebase.json rewrite source path to end with /${stripPrefixArg}/** if that was the intended resource name.\n` +
-        `    Example: If firebase.json has '/api/dev/stretch-sessions/**', the handler must use createBaseApp('stretch-sessions').\n` +
-        `    See: docs/guides/debugging-cloud-functions.md#ordered-checklist`
+        `Missing handler file: packages/functions/src/handlers/${entry.handlerFile}.ts (routePath: '${entry.routePath}').`
       );
+    }
+  }
+
+  // Sub-check B: createBaseApp / stripPathPrefix parity
+  for (const entry of manifest) {
+    if (entry.routePath.length === 0) continue;
+
+    const handlerFile = path.join(HANDLERS_DIR, `${entry.handlerFile}.ts`);
+    if (!fs.existsSync(handlerFile)) continue;
+    const handlerRoute = getHandlerRouteValue(handlerFile);
+
+    if (handlerRoute === null) {
+      violations.push(`Handler '${entry.handlerFile}.ts' is missing createBaseApp/stripPathPrefix/createResourceRouter usage.`);
+      continue;
+    }
+
+    if (handlerRoute !== entry.routePath) {
+      violations.push(
+        `Handler '${entry.handlerFile}.ts' uses route '${handlerRoute}' but manifest expects '${entry.routePath}'.`
+      );
+    }
+  }
+
+  // Sub-check C: firebase.json rewrite parity
+  const expectedRewrites = generateRewrites(manifest);
+  const actualRewrites = parseFirebaseRewrites(FIREBASE_JSON);
+  const rewriteViolations = compareRewrites(expectedRewrites, actualRewrites);
+  for (const violation of rewriteViolations) {
+    violations.push(`firebase.json rewrite parity failed: ${violation}`);
+  }
+
+  // Sub-check D: index.ts coverage
+  const indexContent = fs.readFileSync(INDEX_TS, 'utf-8');
+  for (const entry of manifest) {
+    if (!hasHandlerImport(indexContent, entry)) {
+      violations.push(
+        `Missing import for ${getAppExportName(entry)} from './handlers/${entry.handlerFile}.js' in index.ts.`
+      );
+    }
+
+    const devFunctionName = getDevFunctionName(entry);
+    const prodFunctionName = getProdFunctionName(entry);
+    if (!hasHandlerExport(indexContent, devFunctionName)) {
+      violations.push(`Missing export '${devFunctionName}' in index.ts for route '${entry.routePath}'.`);
+    }
+    if (entry.devOnly !== true && !hasHandlerExport(indexContent, prodFunctionName)) {
+      violations.push(`Missing export '${prodFunctionName}' in index.ts for route '${entry.routePath}'.`);
     }
   }
 
