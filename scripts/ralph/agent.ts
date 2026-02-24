@@ -60,6 +60,40 @@ export interface RunStepOptions {
   abortController: AbortController;
 }
 
+function extractTextContent(value: unknown, depth: number = 0): string {
+  if (depth > 5 || value == null) return "";
+  if (typeof value === "string") return value;
+
+  if (Array.isArray(value)) {
+    return value
+      .map((v) => extractTextContent(v, depth + 1))
+      .filter((v) => v.length > 0)
+      .join("\n");
+  }
+
+  if (typeof value !== "object") return "";
+  const obj = value as Record<string, unknown>;
+
+  const textKeys = [
+    "text",
+    "output_text",
+    "last_agent_message",
+    "review_output",
+    "message",
+    "content",
+    "final_answer",
+    "summary_text",
+  ];
+
+  const parts: string[] = [];
+  for (const key of textKeys) {
+    const text = extractTextContent(obj[key], depth + 1);
+    if (text.length > 0) parts.push(text);
+  }
+
+  return parts.join("\n");
+}
+
 export async function runStep(options: RunStepOptions): Promise<StepResult> {
   switch (options.backend) {
     case "claude":
@@ -286,6 +320,10 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
     let inputTokens = 0;
     let outputTokens = 0;
     let lastAgentMessage = "";
+    let sawTurnCompleted = false;
+    let sawTurnFailed = false;
+    let spawnError = "";
+    const streamErrors: string[] = [];
 
     const processJsonLine = (line: string): void => {
       let event: Record<string, unknown>;
@@ -297,6 +335,7 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
 
       const type = event.type as string;
       const item = event.item as Record<string, unknown> | undefined;
+      const reviewOutput = extractTextContent(event.review_output);
 
       if (type === "item.started" && item?.type === "command_execution") {
         const cmd = (item.command as string) ?? "";
@@ -320,9 +359,12 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
         });
       }
 
-      // Capture every agent_message — last one wins as outputText fallback
-      if (type === "item.completed" && item?.type === "agent_message") {
-        const text = (item.text as string) ?? "";
+      // Capture every agent/review message — last one wins as outputText fallback
+      if (
+        type === "item.completed" &&
+        (item?.type === "agent_message" || item?.type === "review_output")
+      ) {
+        const text = extractTextContent(item);
         if (text.length > 0) {
           lastAgentMessage = text;
           if (config.verbose) {
@@ -331,12 +373,39 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
         }
       }
 
+      if (type === "review_output" && reviewOutput.length > 0) {
+        lastAgentMessage = reviewOutput;
+      }
+
       if (type === "turn.completed") {
+        sawTurnCompleted = true;
         turns++;
         const usage = event.usage as Record<string, number> | undefined;
         if (usage) {
           inputTokens += usage.input_tokens ?? 0;
           outputTokens += usage.output_tokens ?? 0;
+        }
+
+        const turnText = extractTextContent(event.last_agent_message);
+        if (turnText.length > 0) {
+          lastAgentMessage = turnText;
+        }
+      }
+
+      if (type === "turn.failed") {
+        sawTurnFailed = true;
+        const turnError = event.error as Record<string, unknown> | undefined;
+        const errMsg =
+          (typeof turnError?.message === "string" && turnError.message) ||
+          (typeof event.message === "string" && event.message) ||
+          "turn.failed";
+        streamErrors.push(errMsg);
+      }
+
+      if (type === "error") {
+        const errMsg = event.message as string | undefined;
+        if (typeof errMsg === "string" && errMsg.length > 0) {
+          streamErrors.push(errMsg);
         }
       }
     };
@@ -371,6 +440,11 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
     };
     abortController.signal.addEventListener("abort", onAbort);
 
+    child.on("error", (err: Error) => {
+      spawnError = err.message;
+      streamErrors.push(err.message);
+    });
+
     child.on("close", (code) => {
       abortController.signal.removeEventListener("abort", onAbort);
 
@@ -378,7 +452,11 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
       if (stdoutBuf.trim()) processJsonLine(stdoutBuf);
 
       const durationMs = Date.now() - startTime;
-      const success = code === 0;
+      const success =
+        code === 0 &&
+        !sawTurnFailed &&
+        !spawnError &&
+        (sawTurnCompleted || lastAgentMessage.length > 0);
 
       // Prefer -o file, fall back to last agent_message from JSONL stream
       let outputText = "";
@@ -400,8 +478,14 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
           .split("\n")
           .filter((line) => /^(ERROR|error|Warning|Reconnecting|fatal)/i.test(line.trim()))
           .join("\n");
-        const errorDetail = errorLines || stderr.slice(-500);
-        logger.error(`Step ${stepName} (codex) exited with code ${code}`);
+        const streamed = streamErrors.filter(Boolean).join("\n");
+        const fallback = stderr.slice(-500);
+        const errorDetail = [streamed, errorLines, fallback]
+          .filter((s) => s.length > 0)
+          .join("\n");
+        logger.error(
+          `Step ${stepName} (codex) failed (code=${code}, turn_completed=${sawTurnCompleted}, turn_failed=${sawTurnFailed})`,
+        );
         for (const line of errorDetail.split("\n").filter(Boolean)) {
           logger.error(`  ${line}`);
         }

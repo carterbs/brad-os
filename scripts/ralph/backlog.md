@@ -1,0 +1,11 @@
+- Add a CI workflow that runs `npm run validate`, boots Firebase emulators, executes `npm run test:integration`, and uploads `.validate/*.log` artifacts on failure for faster agent debugging.
+- Fix `scripts/start-emulators.sh` to stop building the non-existent `@brad-os/shared` workspace, then align its modes with `npm run emulators*` so local startup is reliable.
+- Add the missing `scripts/setup-ios-testing.sh` referenced by `docs/guides/ios-build-and-run.md`, including checks for `xcodegen` and a fast simulator build sanity check.
+- Add `scripts/doctor.sh` plus `npm run doctor` to verify required tooling (`node`, `npm`, `firebase`, `gitleaks`, `xcodegen`) and print exact install commands for missing dependencies.
+- Pin the root toolchain with `.nvmrc` and root `engines`, then fail fast in `preinstall` when Node is not on the supported major version to reduce environment drift.
+- Rewrite `README.md` architecture and development sections to match the current Firebase Functions + iOS setup (remove stale `packages/server` and legacy command references).
+- Add `docs/guides/local-dev-quickstart.md` with a 5-minute bootstrap flow (`install` -> `validate` -> `emulators` -> `iOS build`) and link it from `README.md` and `CLAUDE.md`.
+- Add a short root `AGENTS.md` as a table-of-contents map to `docs/`, `CLAUDE.md`, conventions, and guides so agents can discover build instructions with minimal context.
+- Add `docs/index.md` and a linter check that fails on broken internal markdown links or references to missing scripts/files (for example, `scripts/setup-ios-testing.sh`).
+- Add `npm run test:integration:emulator` that starts emulators in the background, waits with `scripts/wait-for-emulator.sh`, runs integration tests, and always tears down cleanly.
+- Generate `firebase.json` rewrites from a typed endpoint manifest (or handler export map) and validate parity in lint checks so route updates are not maintained by hand.
