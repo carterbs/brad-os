@@ -6,13 +6,13 @@
   "verbose": false,
   "agents": {
     "plan": {
-      "model": "claude-opus-4-6"
+      "model": "gpt-5.3-codex"
     },
     "review": {
       "model": "claude-sonnet-4-6"
     },
     "implement": {
-      "model": "gpt-5.3-codex-spark"
+      "model": "claude-haiku-4-6"
     }
   }
 }
