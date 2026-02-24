@@ -94,6 +94,28 @@ npm run lint:architecture   # Architecture enforcement
 - **Commit after each phase**: Smaller commits = easier rollback.
 - **Validate before committing**: Run typecheck, lint, and test before every commit.
 
+## QA (MANDATORY)
+
+After implementation, exercise what you built — don't just run tests and declare victory:
+- **Script/CLI tool**: Run it and verify correct output
+- **Linter/validator**: Run it against the codebase, show it catches violations
+- **API endpoint**: Hit it and verify the response
+- **UI change**: Build and run on simulator, verify visually
+- **Test utility**: Use it in a test, show it works end-to-end
+
+## Self-Review Before Committing
+
+Before your final commit, review your own work:
+1. `git diff main --stat` — check scope of changes
+2. `git diff main` — read every changed line
+3. Re-read relevant docs/conventions/ for the area you touched
+4. Run `npm run validate`
+5. Ask: does this actually achieve the goal? Is anything missing?
+
+## Agent Legibility
+
+Code and docs are optimized for agent readability first. CLAUDE.md is a map, not an encyclopedia — it points to deeper sources of truth in `docs/`. When making decisions that future agents need to understand, push the context into the repo (docs, comments, tests) rather than leaving it in chat or in your head. If a plan has a QA section, follow it — planning quality directly drives implementation quality.
+
 ## Conventions (see docs/conventions/)
 
 - **[TypeScript](docs/conventions/typescript.md)** — No `any`, explicit return types, strict null checks, Zod validation, file naming, type deduplication
