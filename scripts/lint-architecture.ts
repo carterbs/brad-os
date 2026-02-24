@@ -10,6 +10,9 @@
  *   3. Type deduplication (no duplicate type/interface definitions)
  *   4. Firebase route consistency (rewrite paths match stripPathPrefix)
  *   5. iOS architecture layers (Views->Services, Components->ViewModels)
+ *   6. Architecture map file references (docs/architecture/*.md paths exist on disk)
+ *   7. CLAUDE.md file path references (backtick-quoted paths resolve)
+ *   8. Orphan features (handlers with routes have architecture docs)
  *
  * Exits 0 only if ALL checks pass. Exits 1 if any fail.
  */
@@ -567,6 +570,203 @@ function checkIosLayers(): CheckResult {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Check 6: Architecture Map File References
+//
+// Parses file paths from docs/architecture/*.md and verifies they exist on disk.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function checkArchMapRefs(): CheckResult {
+  const name = 'Architecture map file references';
+  const ARCH_DIR = path.join(ROOT_DIR, 'docs/architecture');
+
+  if (!fs.existsSync(ARCH_DIR)) {
+    return { name, passed: true, violations: [] };
+  }
+
+  const archFiles = fs.readdirSync(ARCH_DIR).filter((f) => f.endsWith('.md'));
+  const violations: string[] = [];
+
+  // Match backtick-quoted file paths that look like project-relative paths
+  // e.g. `packages/functions/src/handlers/exercises.ts` or `ios/BradOS/BradOS/Views/Lifting/MesoView.swift`
+  const pathPattern = /`((?:packages|ios|scripts|docs|thoughts)\/[^`\s]+\.\w+)`/g;
+
+  for (const archFile of archFiles) {
+    const filePath = path.join(ARCH_DIR, archFile);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const lines = content.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!;
+      let match: RegExpExecArray | null;
+      const linePattern = new RegExp(pathPattern.source, pathPattern.flags);
+
+      while ((match = linePattern.exec(line)) !== null) {
+        const refPath = match[1]!;
+        const fullPath = path.join(ROOT_DIR, refPath);
+
+        if (!fs.existsSync(fullPath)) {
+          violations.push(
+            `docs/architecture/${archFile}:${i + 1} references \`${refPath}\` but file does not exist. ` +
+            `Update the path or remove the stale reference.`
+          );
+        }
+      }
+    }
+  }
+
+  return { name, passed: violations.length === 0, violations };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Check 7: CLAUDE.md File Path References
+//
+// Verifies backtick-quoted file/directory paths in CLAUDE.md resolve to real
+// files or directories on disk.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function checkClaudeMdRefs(): CheckResult {
+  const name = 'CLAUDE.md file path references';
+  const CLAUDE_MD = path.join(ROOT_DIR, 'CLAUDE.md');
+
+  if (!fs.existsSync(CLAUDE_MD)) {
+    return { name, passed: true, violations: [] };
+  }
+
+  const content = fs.readFileSync(CLAUDE_MD, 'utf-8');
+  const lines = content.split('\n');
+  const violations: string[] = [];
+
+  // Match backtick-quoted paths that look like project-relative references
+  // Includes both files (with extensions) and directories
+  const pathPattern = /`((?:packages|ios|scripts|docs|thoughts|hooks)\/[^`\s]+)`/g;
+
+  // Track whether we're inside a code fence
+  let inCodeFence = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+
+    // Toggle code fence state
+    if (/^```/.test(line)) {
+      inCodeFence = !inCodeFence;
+      continue;
+    }
+
+    // Skip lines inside code fences (example code, not real references)
+    if (inCodeFence) continue;
+
+    let match: RegExpExecArray | null;
+    const linePattern = new RegExp(pathPattern.source, pathPattern.flags);
+
+    while ((match = linePattern.exec(line)) !== null) {
+      const refPath = match[1]!;
+
+      // Skip paths with template variables like <feature>
+      if (/<\w+>/.test(refPath)) continue;
+
+      // Skip wildcard patterns like *.test.ts
+      if (/\*/.test(refPath)) continue;
+
+      const fullPath = path.join(ROOT_DIR, refPath);
+
+      if (!fs.existsSync(fullPath)) {
+        violations.push(
+          `CLAUDE.md:${i + 1} references \`${refPath}\` but the path does not exist. ` +
+          `Update the reference or remove the stale pointer.`
+        );
+      }
+    }
+  }
+
+  return { name, passed: violations.length === 0, violations };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Check 8: Orphan Features (handlers with routes but no architecture doc)
+//
+// Every handler file that defines Express routes should have a corresponding
+// architecture document in docs/architecture/.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function checkOrphanFeatures(): CheckResult {
+  const name = 'Orphan features';
+  const HANDLERS_DIR = path.join(FUNCTIONS_SRC, 'handlers');
+  const ARCH_DIR = path.join(ROOT_DIR, 'docs/architecture');
+
+  if (!fs.existsSync(HANDLERS_DIR)) {
+    return { name, passed: true, violations: [] };
+  }
+
+  // Collect existing architecture doc names (without .md)
+  const archDocs = new Set<string>();
+  if (fs.existsSync(ARCH_DIR)) {
+    for (const f of fs.readdirSync(ARCH_DIR)) {
+      if (f.endsWith('.md')) {
+        archDocs.add(f.replace('.md', ''));
+      }
+    }
+  }
+
+  // Map handler filenames to the architecture doc names that cover them.
+  // Some handlers are grouped under a single feature doc.
+  const handlerToFeature: Record<string, string> = {
+    'exercises': 'lifting',
+    'plans': 'lifting',
+    'mesocycles': 'lifting',
+    'workouts': 'lifting',
+    'workoutSets': 'lifting',
+    'stretches': 'stretching',
+    'stretchSessions': 'stretching',
+    'meditationSessions': 'meditation',
+    'guidedMeditations': 'meditation',
+    'tts': 'meditation',
+    'health-sync': 'health',
+    'health': 'health',
+    'calendar': 'calendar',
+    'today-coach': 'today',
+    'cycling': 'cycling',
+    'cycling-coach': 'cycling',
+    'strava-webhook': 'cycling',
+    'mealplans': 'meal-planning',
+    'meals': 'meal-planning',
+    'recipes': 'meal-planning',
+    'ingredients': 'meal-planning',
+    'barcodes': 'meal-planning',
+    'mealplan-debug': 'meal-planning',
+  };
+
+  const violations: string[] = [];
+  const handlerFiles = fs.readdirSync(HANDLERS_DIR).filter(
+    (f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && !f.endsWith('.spec.ts')
+  );
+
+  for (const file of handlerFiles) {
+    const handlerName = file.replace('.ts', '');
+    const content = fs.readFileSync(path.join(HANDLERS_DIR, file), 'utf-8');
+
+    // Only check handlers that define Express routes
+    const hasRoutes = /app\.(get|post|put|patch|delete)\s*\(/.test(content);
+    if (!hasRoutes) continue;
+
+    const featureName = handlerToFeature[handlerName];
+
+    if (featureName === undefined) {
+      violations.push(
+        `packages/functions/src/handlers/${file} defines routes but has no entry in the handler-to-feature map. ` +
+        `Add a mapping in lint-architecture.ts (checkOrphanFeatures) and create docs/architecture/<feature>.md.`
+      );
+    } else if (!archDocs.has(featureName)) {
+      violations.push(
+        `packages/functions/src/handlers/${file} maps to feature '${featureName}' but docs/architecture/${featureName}.md does not exist. ` +
+        `Create the architecture doc using the format in docs/architecture/lifting.md as a template.`
+      );
+    }
+  }
+
+  return { name, passed: violations.length === 0, violations };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -579,6 +779,9 @@ function main(): void {
     checkTypeDedup,
     checkFirebaseRoutes,
     checkIosLayers,
+    checkArchMapRefs,
+    checkClaudeMdRefs,
+    checkOrphanFeatures,
   ];
 
   const results: CheckResult[] = [];
