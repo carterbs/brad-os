@@ -29,6 +29,7 @@ data/
 logs/
 *.log
 npm-debug.log*
+ralph-loop.jsonl
 
 # Test coverage
 coverage/

@@ -1,3 +1,17 @@
-- Add `docs/index.md` and a linter check that fails on broken internal markdown links or references to missing scripts/files (for example, `scripts/setup-ios-testing.sh`).
-- Add `npm run test:integration:emulator` that starts emulators in the background, waits with `scripts/wait-for-emulator.sh`, runs integration tests, and always tears down cleanly.
-- Generate `firebase.json` rewrites from a typed endpoint manifest (or handler export map) and validate parity in lint checks so route updates are not maintained by hand.
+- Add BradOSCore iOS unit tests for Cycling flows (starting with `CyclingViewModel`) to close the explicit quality-doc gap and move Cycling iOS coverage off zero.
+- Add targeted History filter tests on shared Calendar/History view-model logic so the known untested filter behavior is covered.
+- Raise Meditation coverage from near-threshold (~51%) by adding backend tests for boundary/error branches in `meditationSessions` and `tts` flows.
+- Raise Today backend+UI confidence by adding tests for fallback behavior when AI responses are invalid, partial, or timeout-driven.
+- Expand Today iOS tests beyond `DashboardViewModelTests` to cover loading, error, and partial-data states for briefing/summary data.
+- Raise Health Sync backend coverage (currently 25%) by adding edge-case tests for `health-sync` handler routes and `firestore-recovery.service` paths (empty history, malformed payloads, not-found updates).
+- Add a Cycling integration test suite (`packages/functions/src/__tests__/integration/cycling.integration.test.ts`) covering core `/cycling` read/write flows and one failure path.
+- Raise Calendar from low test-count to medium/high by adding additional backend and iOS tests for timezone boundaries, month transitions, and sorting stability.
+- Update calendar aggregation to include cycling activities end-to-end, then extend `calendar` handler/service tests to assert mixed activity timelines.
+- Introduce a Cycling repository layer for `users/{uid}/cyclingActivities`-style subcollections and add repository tests to close the "Cycling repo layer" debt item.
+- Add dedicated body-weight logging and trend UI (entry + chart + recent trend states) instead of relying only on incidental WeightGoal surfaces.
+- Implement workout history + volume analytics UI gap: add a dedicated history surface that summarizes weekly volume and progression trends (not just per-exercise charts).
+- Finish BaseRepository refactor debt by auditing child repositories and removing any remaining duplicated `findById`/`update`/`delete` implementations.
+- Complete "Zod-only types" migration by removing duplicate DTO interfaces and standardizing on schema inference (`z.infer` + `.partial()` update schemas).
+- Finish CRUD router factory rollout by migrating remaining eligible handlers to `createResourceRouter`/`createBaseApp` patterns with typed service errors.
+- Extract shared backend test utilities into `packages/functions/src/test-utils/` and migrate duplicated Firestore mocks/fixtures across handler+service tests.
+- Update `CLAUDE.md` backend conventions to document the final BaseRepository, Zod-only, router factory, and shared test-util patterns after refactors land.
