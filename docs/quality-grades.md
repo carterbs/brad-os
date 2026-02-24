@@ -24,18 +24,18 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 
 ## Domain Grades
 
-| Domain | Grade | Backend Tests | iOS Tests | API Complete | iOS Complete | Notes |
-|--------|-------|---------------|-----------|--------------|--------------|-------|
-| Lifting | **A** | High (23) | Medium (6) | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. Most mature domain. Full progressive overload system. |
-| Meal Planning | **B+** | High (11) | Medium (7) | Yes | Yes | 4 handler, 3 service, 3 repo, 1 schema tests. 2 untested file(s). Widget + cache + AI critique flow complete. |
-| Cycling | **C+** | Medium (7) | Low (0) | Yes | Yes | 2 handler, 5 service tests. `cycling-coach` untested (high risk). Complex Strava + AI coach system. |
-| Stretching | **B-** | Medium (5) | Low (2) | Yes | Yes | 2 handler, 2 repo, 1 integration tests. TTS audio pipeline untested on backend. |
-| Calendar | **B-** | Low (3) | Low (1) | Yes | Yes | 1 handler, 1 service, 1 integration tests. Lightweight aggregation layer. Adequate for scope. |
-| Meditation | **C+** | Low (3) | Low (1) | Partial | Yes | 1 handler, 1 repo, 1 integration tests. 2 untested file(s). `guidedMeditations` and `tts` handlers have zero tests. |
-| Health Sync | **C+** | Low (3) | Low (0) | Yes | Yes | 2 handler, 1 integration tests. 1 untested file(s). No iOS unit tests. |
-| History | **B-** | (shared) | (shared) | Yes | Yes | Reuses Calendar backend/ViewModel. No additional tests needed, but filter logic is untested. |
-| Today | **C** | Low (0) | Low (1) | Yes | Yes | `today-coach`, `today-coach-data.service`, `today-coach.service` untested (high risk). `today-coach` handler has zero tests. `today-coach.service.ts` and `today-coach-data.service.ts` untested. |
-| Profile | **B-** | (shared) | (shared) | Yes | Yes | Settings hub, no own backend. Relies on health-sync and cycling backends. |
+| Domain | Grade | Backend Tests | iOS Tests | Coverage | API Complete | iOS Complete | Notes |
+|--------|-------|---------------|-----------|----------|--------------|--------------|-------|
+| Lifting | **A** | High (23) | Medium (6) | 92% | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. Most mature domain. Full progressive overload system. |
+| Meal Planning | **B+** | High (11) | Medium (7) | 71% | Yes | Yes | 4 handler, 3 service, 3 repo, 1 schema tests. 2 untested file(s). Widget + cache + AI critique flow complete. |
+| Cycling | **C** | Medium (7) | Low (0) | 48% | Yes | Yes | 2 handler, 5 service tests. `cycling-coach` untested (high risk). Complex Strava + AI coach system. |
+| Stretching | **B-** | Medium (5) | Low (2) | 99% | Yes | Yes | 2 handler, 2 repo, 1 integration tests. TTS audio pipeline untested on backend. |
+| Calendar | **B-** | Low (3) | Low (1) | 100% | Yes | Yes | 1 handler, 1 service, 1 integration tests. Lightweight aggregation layer. Adequate for scope. |
+| Meditation | **C+** | Low (3) | Low (1) | 51% | Partial | Yes | 1 handler, 1 repo, 1 integration tests. 2 untested file(s). `guidedMeditations` and `tts` handlers have zero tests. |
+| Health Sync | **C** | Low (3) | Low (0) | 25% | Yes | Yes | 2 handler, 1 integration tests. 1 untested file(s). No iOS unit tests. |
+| History | **B-** | (shared) | (shared) | -- | Yes | Yes | Reuses Calendar backend/ViewModel. No additional tests needed, but filter logic is untested. |
+| Today | **C-** | Low (0) | Low (1) | 0% | Yes | Yes | `today-coach`, `today-coach-data.service`, `today-coach.service` untested (high risk). `today-coach` handler has zero tests. `today-coach.service.ts` and `today-coach-data.service.ts` untested. |
+| Profile | **B-** | (shared) | (shared) | -- | Yes | Yes | Settings hub, no own backend. Relies on health-sync and cycling backends. |
 
 ---
 

@@ -32,6 +32,7 @@ npm-debug.log*
 
 # Test coverage
 coverage/
+packages/functions/coverage/
 
 # Playwright/E2E test artifacts
 playwright-report/
