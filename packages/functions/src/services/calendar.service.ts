@@ -6,6 +6,7 @@ import type {
   WorkoutActivitySummary,
   StretchActivitySummary,
   MeditationActivitySummary,
+  CyclingActivitySummary,
 } from '../shared.js';
 import {
   WorkoutRepository,
@@ -14,6 +15,7 @@ import {
   StretchSessionRepository,
   MeditationSessionRepository,
 } from '../repositories/index.js';
+import { getCyclingActivities } from './firestore-cycling.service.js';
 
 /**
  * Convert a UTC ISO timestamp to a local date string (YYYY-MM-DD) given a timezone offset.
@@ -63,9 +65,12 @@ export class CalendarService {
 
     // Query completed workouts, stretch sessions, and meditation sessions for the date range
     // Pass timezone offset so repositories can adjust UTC boundaries to match local dates
-    const workouts = await this.workoutRepo.findCompletedInDateRange(startDate, endDate, timezoneOffset);
-    const stretchSessions = await this.stretchSessionRepo.findInDateRange(startDate, endDate, timezoneOffset);
-    const meditationSessions = await this.meditationSessionRepo.findInDateRange(startDate, endDate, timezoneOffset);
+    const [workouts, stretchSessions, meditationSessions, cyclingActivities] = await Promise.all([
+      this.workoutRepo.findCompletedInDateRange(startDate, endDate, timezoneOffset),
+      this.stretchSessionRepo.findInDateRange(startDate, endDate, timezoneOffset),
+      this.meditationSessionRepo.findInDateRange(startDate, endDate, timezoneOffset),
+      getCyclingActivities('default-user'),
+    ]);
 
     // Transform to CalendarActivity[]
     const activities: CalendarActivity[] = [];
@@ -145,6 +150,29 @@ export class CalendarService {
       });
     }
 
+    // Transform cycling activities
+    for (const activity of cyclingActivities) {
+      const date = utcToLocalDate(activity.date, timezoneOffset);
+
+      if (date < startDate || date > endDate) {
+        continue;
+      }
+
+      const summary: CyclingActivitySummary = {
+        durationMinutes: activity.durationMinutes,
+        tss: activity.tss,
+        cyclingType: activity.type,
+      };
+
+      activities.push({
+        id: `cycling-${activity.id}`,
+        type: 'cycling',
+        date,
+        completedAt: activity.date,
+        summary,
+      });
+    }
+
     // Group activities by date
     const days: Record<string, CalendarDayData> = {};
 
@@ -159,6 +187,7 @@ export class CalendarService {
           hasWorkout: false,
           hasStretch: false,
           hasMeditation: false,
+          hasCycling: false,
         },
       };
 
@@ -176,6 +205,8 @@ export class CalendarService {
         dayData.summary.hasStretch = true;
       } else if (activity.type === 'meditation') {
         dayData.summary.hasMeditation = true;
+      } else if (activity.type === 'cycling') {
+        dayData.summary.hasCycling = true;
       }
     }
 

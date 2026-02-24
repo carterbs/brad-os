@@ -318,6 +318,8 @@ struct DayDetailSheet: View {
             }
         case .meditation:
             break
+        case .cycling:
+            break
         }
         dismiss()
     }

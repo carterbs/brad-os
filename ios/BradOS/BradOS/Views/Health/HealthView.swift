@@ -259,6 +259,11 @@ struct RecentActivityRow: View {
                 return DayActivityCard.formatMeditationType(meditationType)
             }
             return "Meditation"
+        case .cycling:
+            if let cyclingType = activity.summary.cyclingType {
+                return formatCyclingActivityTitle(cyclingType)
+            }
+            return "Cycling"
         }
     }
 
@@ -284,6 +289,16 @@ struct RecentActivityRow: View {
                 }
             }
             return ""
+        case .cycling:
+            let durationMinutes = activity.summary.durationMinutes ?? 0
+            let durationText = durationMinutes > 0 ? DayActivityCard.formatActivityMinutes(durationMinutes) : nil
+            if let tss = activity.summary.tss {
+                if let durationText {
+                    return "\(durationText), \(tss) TSS"
+                }
+                return "\(tss) TSS"
+            }
+            return durationText ?? ""
         }
     }
 
@@ -298,6 +313,16 @@ struct RecentActivityRow: View {
             formatter.dateFormat = "MMM d"
             return formatter.string(from: activity.date)
         }
+    }
+
+    private func formatCyclingActivityTitle(_ cyclingType: String) -> String {
+        if cyclingType.isEmpty {
+            return "Cycling"
+        }
+        let title = cyclingType
+            .replacingOccurrences(of: "-", with: " ")
+            .capitalized
+        return "Cycling (\(title))"
     }
 }
 

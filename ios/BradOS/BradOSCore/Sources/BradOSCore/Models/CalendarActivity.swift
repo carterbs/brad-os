@@ -5,12 +5,14 @@ public enum ActivityType: String, Codable, CaseIterable, Sendable {
     case workout
     case stretch
     case meditation
+    case cycling
 
     public var displayName: String {
         switch self {
         case .workout: return "Lifting"
         case .stretch: return "Stretch"
         case .meditation: return "Meditate"
+        case .cycling: return "Cycling"
         }
     }
 
@@ -19,6 +21,7 @@ public enum ActivityType: String, Codable, CaseIterable, Sendable {
         case .workout: return "dumbbell.fill"
         case .stretch: return "figure.flexibility"
         case .meditation: return "brain.head.profile"
+        case .cycling: return "figure.outdoor.cycle"
         }
     }
 }
@@ -65,6 +68,11 @@ public struct ActivitySummary: Codable, Hashable, Sendable {
     public var durationSeconds: Int?
     public var meditationType: String?
 
+    // Cycling fields
+    public var durationMinutes: Int?
+    public var tss: Int?
+    public var cyclingType: String?
+
     public init(
         dayName: String? = nil,
         exerciseCount: Int? = nil,
@@ -76,7 +84,10 @@ public struct ActivitySummary: Codable, Hashable, Sendable {
         regionsCompleted: Int? = nil,
         regionsSkipped: Int? = nil,
         durationSeconds: Int? = nil,
-        meditationType: String? = nil
+        meditationType: String? = nil,
+        durationMinutes: Int? = nil,
+        tss: Int? = nil,
+        cyclingType: String? = nil
     ) {
         self.dayName = dayName
         self.exerciseCount = exerciseCount
@@ -89,6 +100,9 @@ public struct ActivitySummary: Codable, Hashable, Sendable {
         self.regionsSkipped = regionsSkipped
         self.durationSeconds = durationSeconds
         self.meditationType = meditationType
+        self.durationMinutes = durationMinutes
+        self.tss = tss
+        self.cyclingType = cyclingType
     }
 
     public init(from decoder: Decoder) throws {
@@ -104,6 +118,9 @@ public struct ActivitySummary: Codable, Hashable, Sendable {
         regionsSkipped = try container.decodeIfPresent(Int.self, forKey: .regionsSkipped)
         durationSeconds = try container.decodeIfPresent(Int.self, forKey: .durationSeconds)
         meditationType = try container.decodeIfPresent(String.self, forKey: .meditationType)
+        durationMinutes = try container.decodeIfPresent(Int.self, forKey: .durationMinutes)
+        tss = try container.decodeIfPresent(Int.self, forKey: .tss)
+        cyclingType = try container.decodeIfPresent(String.self, forKey: .cyclingType)
     }
 }
 
@@ -127,6 +144,10 @@ public struct CalendarDayData: Codable, Hashable, Sendable {
 
     public var hasMeditation: Bool {
         activities.contains { $0.type == .meditation }
+    }
+
+    public var hasCycling: Bool {
+        activities.contains { $0.type == .cycling }
     }
 }
 
@@ -166,6 +187,17 @@ public extension CalendarActivity {
             summary: ActivitySummary(
                 durationSeconds: 600,
                 meditationType: "basic-breathing"
+            )
+        ),
+        CalendarActivity(
+            id: "cycling-1",
+            type: .cycling,
+            date: Calendar.current.date(byAdding: .day, value: -3, to: Date())!,
+            completedAt: Calendar.current.date(byAdding: .day, value: -3, to: Date())!,
+            summary: ActivitySummary(
+                durationMinutes: 45,
+                tss: 64,
+                cyclingType: "threshold"
             )
         )
     ]

@@ -1,162 +1,173 @@
-**Title**: Add deterministic iOS unit coverage for `WeightGoalViewModel` regression math and goal persistence flows
+**Title**: Add cycling activities to calendar aggregation and surface cycling in Calendar/History models
 
-**Why**: `WeightGoalViewModel` drives Profile/Health weight-goal UX, but its core prediction math (`updateTrend`/`updatePrediction`) and persistence paths (`loadWeightGoal`/`saveGoal`) are only lightly asserted today, leaving high-risk logic open to silent regressions.
+**Why**: The current calendar pipeline omits cycling completions, so History/Calendar under-reports activity and leaves the tracked “Calendar missing cycling activities” debt unresolved.
 
 **What**
-1. Expand test observability for weight-goal API interactions (test-only).
-- Target code paths:
-  - `ios/BradOS/BradOS/ViewModels/WeightGoalViewModel.swift:224` (`updateTrend`)
-  - `ios/BradOS/BradOS/ViewModels/WeightGoalViewModel.swift:235` (`updatePrediction`)
-  - `ios/BradOS/BradOS/ViewModels/WeightGoalViewModel.swift:189` (`loadWeightGoal` via `loadData`)
-  - `ios/BradOS/BradOS/ViewModels/WeightGoalViewModel.swift:316` (`saveGoal`)
-- Add call/request capture in `MockWeightGoalAPIClient` so tests can assert payloads and call counts instead of only final UI state.
+1. Extend the calendar domain contract to support cycling as a first-class calendar activity.
+- In `packages/functions/src/types/calendar.ts`:
+  - Extend `ActivityType` to include `'cycling'`.
+  - Add `CyclingActivitySummary` and include it in `ActivitySummary`.
+  - Add `isCyclingActivity(activity)` type guard.
+  - Extend `CalendarDayData.summary` with `hasCycling: boolean`.
+- Proposed summary shape:
+  - `durationMinutes: number`
+  - `tss: number`
+  - `cyclingType: CyclingActivityType` (reuse existing type from `types/cycling.ts`; do not redefine)
 
-2. Strengthen regression/prediction math tests with numeric assertions (not just nil/non-nil checks).
-- Validate exact/approx slope-derived outputs with tolerances (e.g., `abs(actual - expected) < 0.001`).
-- Cover both weight-loss and weight-gain goals.
-- Cover the 28-day regression window behavior (ensure older points do not skew trend).
-- Cover `updatePrediction` fallback branch when `trendSlope` is not precomputed and only 3-6 points are available.
-- Cover near-zero slope guard (`abs(dailyRate) <= 0.001`) returning not-on-track with `predictedDate == nil`.
+2. Aggregate cycling entries in `CalendarService.getMonthData()` alongside workouts/stretch/meditation.
+- In `packages/functions/src/services/calendar.service.ts`:
+  - Import `getCyclingActivities` from `firestore-cycling.service`.
+  - Fetch cycling activities for the calendar user (`default-user`, matching current cycling handlers) in parallel with existing repository queries.
+  - For each cycling activity:
+    - Convert `activity.date` (UTC ISO) to local day via existing `utcToLocalDate()`.
+    - Include only entries whose local date is within the current month boundaries.
+    - Emit a `CalendarActivity` with:
+      - `id: cycling-${activity.id}`
+      - `type: 'cycling'`
+      - `date: <local YYYY-MM-DD>`
+      - `completedAt: activity.date`
+      - `summary: { durationMinutes, tss, cyclingType }`
+  - Update day-summary aggregation logic to initialize and set `hasCycling`.
+- Keep existing ordering behavior (sort by `completedAt`) unchanged.
 
-3. Add explicit save/load behavior tests for persisted goals.
-- Load path: `loadData()` hydrates `existingGoal`, `targetWeight`, and parsed `targetDate` from `getWeightGoal()`.
-- Save path: `saveGoal()` sends correctly formatted payload:
-  - `targetDate` formatted as `yyyy-MM-dd`
-  - `startWeightLbs` / `startDate` reuse existing goal baseline when editing an existing goal
-  - baseline falls back to current weight (or latest smoothed weight) when creating first goal
-- Ensure invalid save inputs are no-op (no API call, no success flag).
+3. Update iOS calendar/history model + UI rendering for the new activity type.
+- In BradOSCore model (`CalendarActivity.swift`):
+  - Add `ActivityType.cycling` with display/icon metadata (`"Cycling"`, `"figure.outdoor.cycle"`).
+  - Add cycling fields to `ActivitySummary` decode/init:
+    - `durationMinutes: Int?`
+    - `tss: Int?`
+    - `cyclingType: String?`
+  - Add `CalendarDayData.hasCycling` computed property.
+  - Add one cycling mock activity in `mockActivities`.
+- In SwiftUI layer:
+  - Map `ActivityType.cycling` to `Theme.cycling` in `BradOSCore+UI.swift`.
+  - Add `.cycling` branches to activity-card rendering switches:
+    - `DayActivityCard` cycling detail block (type + duration/TSS text)
+    - `HistoryView+Components` day-tap handler (cycling closes sheet; no navigation)
+    - `HealthView` recent-activity row title/subtitle formatting for cycling
 
-4. Keep scope constrained to tests/test doubles unless a hard testability seam is required.
-- No production behavior change is planned.
-- If deterministic assertions require a seam (for example, clock injection), add minimal non-behavioral constructor injection and cover it with tests.
+4. Keep architecture docs accurate after implementation.
+- Update `docs/architecture/calendar.md` notes from “three activity types” to include cycling.
+
+Concrete backend payload example after change:
+```json
+{
+  "id": "cycling-ride-123",
+  "type": "cycling",
+  "date": "2026-02-12",
+  "completedAt": "2026-02-12T18:45:00.000Z",
+  "summary": {
+    "durationMinutes": 52,
+    "tss": 67,
+    "cyclingType": "threshold"
+  }
+}
+```
 
 **Files**
-1. `ios/BradOS/BradOSTests/Helpers/AppTestDoubles.swift` (modify)
-- Extend `MockWeightGoalAPIClient` with test observability fields:
-  - `private(set) var getLatestWeightCallCount: Int`
-  - `private(set) var getWeightHistoryCallCount: Int`
-  - `private(set) var getWeightGoalCallCount: Int`
-  - `private(set) var saveWeightGoalCallCount: Int`
-  - `private(set) var lastWeightHistoryDays: Int?`
-  - `private(set) var lastSaveWeightGoalRequest: (targetWeightLbs: Double, targetDate: String, startWeightLbs: Double, startDate: String)?`
-- Update protocol method implementations to increment counters/capture arguments before returning configured results.
+1. `packages/functions/src/types/calendar.ts` (modify)
+- Add cycling activity type + summary interface + union/type guard.
+- Add `hasCycling` to day summary type.
 
-2. `ios/BradOS/BradOSTests/ViewModels/WeightGoalViewModelTests.swift` (modify)
-- Keep existing tests, then add deterministic fixture helpers:
-  - `private func makeWeightEntries(startDate:startWeight:count:dailyDelta:) -> [WeightHistoryEntry]`
-  - `private func makePiecewiseWeightPoints(...) -> [WeightChartPoint]` for 28-day-window assertions
-- Add/expand tests listed in the **Tests** section below.
+2. `packages/functions/src/services/calendar.service.ts` (modify)
+- Import cycling service function and cycling summary type.
+- Add cycling fetch/transform/grouping path inside `getMonthData(year, month, timezoneOffset?)`.
+- Ensure day summary toggles `hasCycling`.
 
-3. `ios/BradOS/BradOS/ViewModels/WeightGoalViewModel.swift` (only if strictly needed)
-- Optional minimal test seam only (for example `nowProvider: () -> Date` defaulting to `Date.init`) if exact-date assertions cannot be made stable without brittle timing assumptions.
-- Do not change math or persistence behavior.
+3. `packages/functions/src/services/calendar.service.test.ts` (modify)
+- Mock `getCyclingActivities` and add cycling-focused service tests.
+- Update any expected summary structures impacted by `hasCycling`.
+
+4. `packages/functions/src/handlers/calendar.test.ts` (modify)
+- Update `createTestDayData()` summary shape to include `hasCycling`.
+- Add/adjust handler assertions for mixed-type responses that include cycling.
+
+5. `ios/BradOS/BradOSCore/Sources/BradOSCore/Models/CalendarActivity.swift` (modify)
+- Add `.cycling` enum case, display/icon metadata, `ActivitySummary` cycling fields, `hasCycling`, and mock entry.
+
+6. `ios/BradOS/BradOS/Extensions/BradOSCore+UI.swift` (modify)
+- Add `.cycling -> Theme.cycling` color mapping.
+
+7. `ios/BradOS/BradOS/Views/History/DayActivityCard.swift` (modify)
+- Add cycling branch in activity detail switch and cycling summary formatting.
+
+8. `ios/BradOS/BradOS/Views/History/HistoryView+Components.swift` (modify)
+- Add `.cycling` switch handling in `handleActivityTap`.
+
+9. `ios/BradOS/BradOS/Views/Health/HealthView.swift` (modify)
+- Add cycling branch for recent-activity title/subtitle switches.
+
+10. `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/ViewModels/CalendarViewModelTests.swift` (modify)
+- Add cycling filter/selection test coverage.
+
+11. `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/CalendarActivityTests.swift` (new)
+- Add model-level decoding/assertion tests for cycling summary fields and `hasCycling` behavior.
+
+12. `docs/architecture/calendar.md` (modify)
+- Update activity-type notes to include cycling.
 
 **Tests**
-Write/adjust Swift Testing cases in `WeightGoalViewModelTests`:
-1. `updateTrend computes expected negative slope from linear data`
-- Arrange 28+ smoothed points with known daily delta (example `-0.4 lbs/day`).
-- Assert `trendSlope` is non-nil and within tolerance of expected slope.
+1. `packages/functions/src/services/calendar.service.test.ts`
+- `getMonthData includes cycling activities in days map`
+- `cycling activities set hasCycling=true and increment totals`
+- `cycling activity ID is prefixed with cycling-`
+- `cycling UTC timestamp is grouped by local day using tz offset`
+- `service calls getCyclingActivities('default-user')`
 
-2. `updateTrend uses only the most recent 28 points`
-- Arrange piecewise history where first segment trends up and last 28 points trend down.
-- Assert slope matches recent segment, proving suffix-window behavior.
+2. `packages/functions/src/handlers/calendar.test.ts`
+- Day summary helper includes `hasCycling`.
+- Mixed-activity handler response test asserts `hasCycling` toggles true when cycling item present.
 
-3. `updatePrediction computes daysRemaining and weeklyRate for loss goal`
-- Arrange linear downward trend, target below current, future target date.
-- Assert:
-  - `prediction.predictedDate != nil`
-  - `abs(prediction.weeklyRateLbs - expectedWeeklyRate) < tolerance`
-  - `prediction.daysRemaining == expectedIntDays`
-  - `prediction.isOnTrack` matches target date comparison.
+3. `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/Models/CalendarActivityTests.swift`
+- Decodes a cycling `CalendarActivity` JSON payload and maps summary fields.
+- `CalendarDayData.hasCycling` true/false behavior with mixed arrays.
 
-4. `updatePrediction supports gain goals when trend is positive`
-- Arrange current below target with positive slope.
-- Assert on-track prediction exists and numeric fields are consistent.
-
-5. `updatePrediction fallback path works when trendSlope is nil but >=3 points exist`
-- Do not call `updateTrend`; provide 3-6 smoothed points.
-- Assert prediction still computes from internal regression fallback.
-
-6. `updatePrediction returns not-on-track when slope is near zero`
-- Arrange effectively flat trend.
-- Assert `predictedDate == nil`, `daysRemaining == nil`, `isOnTrack == false`.
-
-7. `loadData hydrates existing goal into target fields`
-- Configure mock `weightGoalResult` with known `WeightGoalResponse` and minimal weight history/latest weight responses.
-- Assert:
-  - `existingGoal` set
-  - `targetWeight` formatted from goal (`"%.0f"` behavior)
-  - `isoDateString(targetDate)` equals response date
-  - API calls were made (`getWeightGoalCallCount == 1`, `lastWeightHistoryDays == 365`).
-
-8. `saveGoal sends formatted payload for new goal baseline`
-- Arrange no `existingGoal`, set `currentWeight`, `targetWeight`, `targetDate`.
-- Assert `lastSaveWeightGoalRequest` captured expected values and `saveSuccess == true`.
-
-9. `saveGoal reuses existing start baseline when updating goal`
-- Arrange `existingGoal` with known `startDate`/`startWeightLbs` and different current weight.
-- Assert request reuses existing baseline fields rather than overwriting from current weight/date.
-
-10. `saveGoal no-ops for invalid input`
-- Cases: non-numeric `targetWeight`; no current weight and empty smoothed history.
-- Assert `saveWeightGoalCallCount == 0`, `saveSuccess == false`.
+4. `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/ViewModels/CalendarViewModelTests.swift`
+- `shouldShowActivity(type:)` supports cycling filter.
+- `activitiesForDate(_:filter:)` returns only cycling entries when `.cycling` filter is selected.
 
 **QA**
-1. Generate project if needed:
-```bash
-cd ios/BradOS && xcodegen generate && cd ../..
-```
-2. Run focused test suite for this work:
-```bash
-xcodebuild -project ios/BradOS/BradOS.xcodeproj \
-  -scheme BradOS \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-  -derivedDataPath ~/.cache/brad-os-derived-data \
-  -skipPackagePluginValidation \
-  -only-testing:BradOSTests/WeightGoalViewModelTests \
-  test
-```
-3. Run full iOS unit bundle to catch helper regressions:
-```bash
-xcodebuild -project ios/BradOS/BradOS.xcodeproj \
-  -scheme BradOS \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-  -derivedDataPath ~/.cache/brad-os-derived-data \
-  -skipPackagePluginValidation \
-  -only-testing:BradOSTests \
-  test
-```
-4. Build app target (SwiftLint plugin + compile safety):
-```bash
-xcodebuild -project ios/BradOS/BradOS.xcodeproj \
-  -scheme BradOS \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-  -derivedDataPath ~/.cache/brad-os-derived-data \
-  -skipPackagePluginValidation \
-  build
-```
-5. Manual runtime smoke (Profile/Health confidence check):
-- Launch app in simulator.
-- Navigate to `Profile -> Weight Goal`.
-- Confirm existing saved goal pre-fills target weight/date.
-- Change target weight/date, save, leave screen, return, and confirm persisted values reload.
-- Verify prediction card updates and remains coherent for both decreasing and increasing trends (using seeded/mock account states if available).
+1. Backend manual API verification (not only unit tests)
+- Start Firebase emulators.
+- Seed at least one `users/default-user/cyclingActivities` doc with a known UTC timestamp near a day boundary.
+- Call `GET /calendar/{year}/{month}?tz={offset}` on `devCalendar` and verify:
+  - cycling activity appears with `type: "cycling"`
+  - activity is grouped into the correct local date
+  - day summary includes `hasCycling: true`
+
+2. iOS manual verification in simulator
+- Launch app with data containing at least one cycling activity in the visible month.
+- Open `Calendar` and `History`.
+- Confirm:
+  - cycling dot appears in calendar grid using cycling color
+  - `History` shows a `Cycling` filter chip
+  - selecting `Cycling` hides non-cycling dots/items
+  - day sheet renders cycling card text (ride type + duration/TSS)
+  - tapping cycling item dismisses sheet without broken navigation
+
+3. Automated checks
+- Functions: run targeted calendar tests, then `npm run validate`.
+- iOS: run BradOSCore tests including new calendar model/viewmodel cases and perform a full app build.
 
 **Conventions**
 1. `CLAUDE.md`
-- Use TDD intent: add tests first, then only minimal code needed.
-- QA is mandatory; include simulator exercise, not just assertions.
-- For iOS edits, verify with `xcodebuild` and keep SwiftLint clean.
+- Read architecture map first (`docs/architecture/calendar.md`, `docs/architecture/cycling.md`).
+- Follow TDD flow: tests first, then implementation.
+- Perform real QA (endpoint + simulator), not just test execution.
 
-2. `docs/conventions/testing.md`
-- Use Swift Testing (`import Testing`, `@Suite`, `@Test`, `#expect`).
-- No `.only`, no skipped tests, and every test must have meaningful assertions.
+2. `docs/conventions/typescript.md`
+- No `any`; explicit return types on new/changed functions.
+- Deduplicate types: import and reuse `CyclingActivityType` instead of creating a new string union.
 
-3. `docs/conventions/ios-swift.md`
-- No `swiftlint:disable` comments.
-- Keep helper code concise and within lint limits.
+3. `docs/conventions/testing.md`
+- Use vitest with explicit imports.
+- No skipped/focused tests.
+- Add meaningful assertions for new cycling behavior.
 
-4. `docs/guides/ios-build-and-run.md`
-- Use `-project ios/BradOS/BradOS.xcodeproj` (not workspace).
-- Include `-skipPackagePluginValidation`.
-- Do not pass `-sdk` in CLI builds/tests.
+4. `docs/conventions/ios-swift.md`
+- Use shared theme tokens (`Theme.cycling`), not hardcoded colors.
+- Keep switch statements exhaustive after adding new enum cases.
+- Do not suppress lint rules.
+
+5. `packages/functions/CLAUDE.md`
+- Use Firebase logger APIs (no `console.*`) if any logging is added while touching calendar/cycling paths.

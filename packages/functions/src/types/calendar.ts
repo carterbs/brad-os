@@ -1,3 +1,5 @@
+import type { CyclingActivityType } from './cycling.js';
+
 /**
  * Calendar View Types
  *
@@ -9,7 +11,7 @@
  * Types of activities that can appear on the calendar.
  * Extensible for future activity types (e.g., cardio).
  */
-export type ActivityType = 'workout' | 'stretch' | 'meditation';
+export type ActivityType = 'workout' | 'stretch' | 'meditation' | 'cycling';
 
 /**
  * Summary data specific to workout activities.
@@ -53,12 +55,25 @@ export interface MeditationActivitySummary {
 }
 
 /**
+ * Summary data specific to cycling activities.
+ */
+export interface CyclingActivitySummary {
+  /** Duration of the ride in minutes */
+  durationMinutes: number;
+  /** Training stress score */
+  tss: number;
+  /** Cycling workout type */
+  cyclingType: CyclingActivityType;
+}
+
+/**
  * Union type of all possible activity summaries.
  */
 export type ActivitySummary =
   | WorkoutActivitySummary
   | StretchActivitySummary
-  | MeditationActivitySummary;
+  | MeditationActivitySummary
+  | CyclingActivitySummary;
 
 /**
  * A single activity entry for the calendar.
@@ -105,6 +120,15 @@ export function isMeditationActivity(
 }
 
 /**
+ * Type guard to check if an activity is a cycling session.
+ */
+export function isCyclingActivity(
+  activity: CalendarActivity
+): activity is CalendarActivity & { summary: CyclingActivitySummary } {
+  return activity.type === 'cycling';
+}
+
+/**
  * Aggregated data for a single calendar day.
  * Groups all activities that occurred on that date.
  */
@@ -125,6 +149,8 @@ export interface CalendarDayData {
     hasStretch: boolean;
     /** Whether any meditation was completed this day */
     hasMeditation: boolean;
+    /** Whether any cycling activity was completed this day */
+    hasCycling: boolean;
   };
 }
 

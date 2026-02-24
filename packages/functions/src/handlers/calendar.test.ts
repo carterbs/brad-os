@@ -56,6 +56,7 @@ function createTestDayData(date: string, activities: CalendarActivity[] = []): C
       hasWorkout: activities.some(a => a.type === 'workout'),
       hasStretch: activities.some(a => a.type === 'stretch'),
       hasMeditation: activities.some(a => a.type === 'meditation'),
+      hasCycling: activities.some(a => a.type === 'cycling'),
     },
   };
 }
@@ -163,10 +164,22 @@ describe('Calendar Handler', () => {
           meditationType: 'basic-breathing',
         },
       };
+      const cyclingActivity: CalendarActivity = {
+        id: 'c1',
+        type: 'cycling',
+        date: '2024-01-15',
+        completedAt: '2024-01-15T10:30:00.000Z',
+        summary: {
+          durationMinutes: 52,
+          tss: 67,
+          cyclingType: 'threshold',
+        },
+      };
       const dayData = createTestDayData('2024-01-15', [
         workoutActivity,
         stretchActivity,
         meditationActivity,
+        cyclingActivity,
       ]);
       const calendarData = createTestCalendarResponse({
         days: { '2024-01-15': dayData },
@@ -181,6 +194,7 @@ describe('Calendar Handler', () => {
       expect(dayData15?.summary.hasWorkout).toBe(true);
       expect(dayData15?.summary.hasStretch).toBe(true);
       expect(dayData15?.summary.hasMeditation).toBe(true);
+      expect(dayData15?.summary.hasCycling).toBe(true);
     });
 
     // Validation error tests

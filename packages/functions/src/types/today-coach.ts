@@ -110,7 +110,7 @@ export interface TodayCoachCyclingContext {
   weekInBlock: number | null;
   totalWeeks: number | null;
   nextSession: { type: string; description: string } | null;
-  recentActivities: CyclingActivitySummary[];
+  recentActivities: TodayCoachCyclingActivitySummary[];
   vo2max: VO2MaxContext | null;
   efTrend: EFTrendSummary | null;
   ftpStaleDays: number;
@@ -120,7 +120,7 @@ export interface TodayCoachCyclingContext {
 /**
  * Summary of a cycling activity for the Today Coach (trimmed for token efficiency).
  */
-export interface CyclingActivitySummary {
+export interface TodayCoachCyclingActivitySummary {
   date: string;
   type: string;
   durationMinutes: number;

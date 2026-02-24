@@ -90,6 +90,7 @@ struct CalendarViewModelTests {
         #expect(vm.shouldShowActivity(type: "workout") == true)
         #expect(vm.shouldShowActivity(type: "stretch") == true)
         #expect(vm.shouldShowActivity(type: "meditation") == true)
+        #expect(vm.shouldShowActivity(type: "cycling") == true)
     }
 
     @Test("filter workout shows only workouts")
@@ -123,6 +124,19 @@ struct CalendarViewModelTests {
         #expect(vm.shouldShowActivity(type: "workout") == false)
         #expect(vm.shouldShowActivity(type: "stretch") == false)
         #expect(vm.shouldShowActivity(type: "meditation") == true)
+        #expect(vm.shouldShowActivity(type: "cycling") == false)
+    }
+
+    @Test("filter cycling shows only cycling")
+    @MainActor
+    func filterCyclingShowsCycling() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        vm.selectedFilter = "cycling"
+
+        #expect(vm.shouldShowActivity(type: "workout") == false)
+        #expect(vm.shouldShowActivity(type: "stretch") == false)
+        #expect(vm.shouldShowActivity(type: "meditation") == false)
+        #expect(vm.shouldShowActivity(type: "cycling") == true)
     }
 
     @Test("activitiesForDate with nil filter returns all activities for the day")
@@ -194,6 +208,25 @@ struct CalendarViewModelTests {
         #expect(activities.count == 1)
         #expect(activities.map(\.id) == ["m-1"])
         #expect(activities.allSatisfy { $0.type == .meditation })
+    }
+
+    @Test("activitiesForDate with cycling filter returns only cycling activities")
+    @MainActor
+    func activitiesForDateCyclingFilterReturnsOnlyCycling() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        let date = makeDate(year: 2026, month: 3, day: 14)
+        vm.activitiesByDate[key(for: date)] = [
+            makeActivity(id: "w-1", type: .workout, date: date),
+            makeActivity(id: "s-1", type: .stretch, date: date),
+            makeActivity(id: "m-1", type: .meditation, date: date),
+            makeActivity(id: "c-1", type: .cycling, date: date),
+        ]
+
+        let activities = vm.activitiesForDate(date, filter: .cycling)
+
+        #expect(activities.count == 1)
+        #expect(activities.map(\.id) == ["c-1"])
+        #expect(activities.allSatisfy { $0.type == .cycling })
     }
 
     @Test("activitiesForDate with filter returns empty when date has no activities")

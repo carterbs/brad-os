@@ -10,6 +10,7 @@ extension ActivityType {
         case .workout: return Theme.lifting
         case .stretch: return Theme.stretch
         case .meditation: return Theme.meditation
+        case .cycling: return Theme.cycling
         }
     }
 }

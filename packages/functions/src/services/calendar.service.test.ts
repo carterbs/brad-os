@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import type { Firestore } from 'firebase-admin/firestore';
 import type {
+  CyclingActivity,
+  CyclingActivitySummary,
   WorkoutActivitySummary,
 } from '../shared.js';
 import { CalendarService, utcToLocalDate } from './calendar.service.js';
@@ -10,6 +12,14 @@ import { PlanDayRepository } from '../repositories/plan-day.repository.js';
 import { StretchSessionRepository } from '../repositories/stretchSession.repository.js';
 import { MeditationSessionRepository } from '../repositories/meditationSession.repository.js';
 import { createWorkout, createWorkoutSet, createStretchSession, createMeditationSession, createPlanDay } from '../__tests__/utils/index.js';
+
+const mockCyclingService = {
+  getCyclingActivities: vi.fn(),
+};
+
+vi.mock('../services/firestore-cycling.service.js', () => ({
+  getCyclingActivities: (...args: unknown[]): unknown => mockCyclingService.getCyclingActivities(...args),
+}));
 
 // Mock repositories
 vi.mock('../repositories/workout.repository.js');
@@ -34,6 +44,9 @@ describe('CalendarService', () => {
   };
   let mockMeditationSessionRepo: {
     findInDateRange: Mock;
+  };
+  let mockCyclingRepo: {
+    getCyclingActivities: Mock;
   };
 
   // Shared default overrides matching original inline factory defaults
@@ -78,6 +91,24 @@ describe('CalendarService', () => {
     completedFully: true,
   };
 
+  const cyclingActivityDefaults: CyclingActivity = {
+    id: 'cycling-activity-1',
+    stravaId: 12345,
+    userId: 'default-user',
+    date: '2024-01-15T12:00:00Z',
+    durationMinutes: 52,
+    avgPower: 230,
+    normalizedPower: 245,
+    maxPower: 310,
+    avgHeartRate: 145,
+    maxHeartRate: 170,
+    tss: 67,
+    intensityFactor: 0.78,
+    type: 'threshold',
+    source: 'strava',
+    createdAt: '2024-01-15T12:05:00Z',
+  };
+
   // Fixtures
   const mockPlanDay = createPlanDay({
     id: 'plan-day-1',
@@ -110,6 +141,11 @@ describe('CalendarService', () => {
       findInDateRange: vi.fn(),
     };
 
+    mockCyclingRepo = {
+      getCyclingActivities: vi.fn(),
+    };
+    mockCyclingService.getCyclingActivities = mockCyclingRepo.getCyclingActivities;
+
     vi.mocked(WorkoutRepository).mockImplementation(() => mockWorkoutRepo as unknown as WorkoutRepository);
     vi.mocked(WorkoutSetRepository).mockImplementation(() => mockWorkoutSetRepo as unknown as WorkoutSetRepository);
     vi.mocked(PlanDayRepository).mockImplementation(() => mockPlanDayRepo as unknown as PlanDayRepository);
@@ -117,6 +153,7 @@ describe('CalendarService', () => {
     vi.mocked(MeditationSessionRepository).mockImplementation(() => mockMeditationSessionRepo as unknown as MeditationSessionRepository);
 
     service = new CalendarService({} as Firestore);
+    mockCyclingRepo.getCyclingActivities.mockResolvedValue([]);
   });
 
   describe('utcToLocalDate', () => {
@@ -263,6 +300,100 @@ describe('CalendarService', () => {
           regionsSkipped: 2,
         })
       );
+    });
+
+    it('should include cycling activities in days map', async () => {
+      const cyclingActivity = {
+        ...cyclingActivityDefaults,
+      };
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockCyclingRepo.getCyclingActivities.mockResolvedValue([cyclingActivity]);
+
+      const result = await service.getMonthData(2024, 1);
+
+      expect(result.days['2024-01-15']).toBeDefined();
+      expect(result.days['2024-01-15']?.activities).toHaveLength(1);
+      const cyclingActivityEntry = result.days['2024-01-15']?.activities[0];
+      expect(cyclingActivityEntry?.type).toBe('cycling');
+      expect(cyclingActivityEntry?.summary).toEqual(
+        expect.objectContaining({
+          durationMinutes: 52,
+          tss: 67,
+          cyclingType: 'threshold',
+        } as CyclingActivitySummary)
+      );
+    });
+
+    it('should set hasCycling flag and increment totals when cycling exists', async () => {
+      const cyclingActivity = {
+        ...cyclingActivityDefaults,
+        id: 'cycling-1',
+      };
+
+      const workout = createWorkout(workoutDefaults);
+      const sets = [createWorkoutSet(workoutSetDefaults)];
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([workout]);
+      mockWorkoutSetRepo.findByWorkoutId.mockResolvedValue(sets);
+      mockPlanDayRepo.findById.mockResolvedValue(mockPlanDay);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockCyclingRepo.getCyclingActivities.mockResolvedValue([cyclingActivity]);
+
+      const result = await service.getMonthData(2024, 1);
+
+      const summary = result.days['2024-01-15']?.summary;
+      expect(summary?.hasCycling).toBe(true);
+      expect(summary?.totalActivities).toBe(2);
+      expect(summary?.completedActivities).toBe(2);
+    });
+
+    it('should prefix cycling activity IDs with cycling-', async () => {
+      const cyclingActivity = {
+        ...cyclingActivityDefaults,
+        id: 'strava-id-123',
+      };
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockCyclingRepo.getCyclingActivities.mockResolvedValue([cyclingActivity]);
+
+      const result = await service.getMonthData(2024, 1);
+
+      const activity = result.days['2024-01-15']?.activities[0];
+      expect(activity?.id).toBe('cycling-strava-id-123');
+    });
+
+    it('should convert cycling UTC timestamp to local day using timezone offset', async () => {
+      const cyclingActivity = {
+        ...cyclingActivityDefaults,
+        date: '2024-01-15T03:00:00Z',
+      };
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockCyclingRepo.getCyclingActivities.mockResolvedValue([cyclingActivity]);
+
+      const result = await service.getMonthData(2024, 1, -300);
+
+      expect(result.days['2024-01-14']).toBeDefined();
+      expect(result.days['2024-01-15']).toBeUndefined();
+    });
+
+    it('should call getCyclingActivities with default user', async () => {
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockCyclingRepo.getCyclingActivities.mockResolvedValue([]);
+
+      await service.getMonthData(2024, 1);
+
+      expect(mockCyclingRepo.getCyclingActivities).toHaveBeenCalledWith('default-user');
     });
 
     it('should include meditation activities with summary', async () => {

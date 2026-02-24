@@ -58,6 +58,8 @@ struct DayActivityCard: View {
             stretchDetails
         case .meditation:
             meditationDetails
+        case .cycling:
+            cyclingDetails
         }
     }
 
@@ -113,6 +115,29 @@ struct DayActivityCard: View {
     }
 
     @ViewBuilder
+    private var cyclingDetails: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let cyclingType = activity.summary.cyclingType {
+                Text(formatCyclingType(cyclingType))
+                    .font(.subheadline)
+                    .foregroundColor(Theme.textPrimary)
+            }
+            if let durationMinutes = activity.summary.durationMinutes {
+                Text(Self.formatActivityMinutes(durationMinutes))
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundColor(Theme.textSecondary)
+            }
+            if let tss = activity.summary.tss {
+                Text("TSS \(tss)")
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundColor(Theme.textSecondary)
+            }
+        }
+    }
+
+    @ViewBuilder
     private func durationText(_ duration: Int) -> some View {
         if duration < 60 {
             Text("< 1 minute")
@@ -136,6 +161,20 @@ struct DayActivityCard: View {
             return "Reactivity Series"
         }
         return "Meditation"
+    }
+
+    static func formatActivityMinutes(_ minutes: Int) -> String {
+        let label = minutes == 1 ? "minute" : "minutes"
+        return "\(minutes) \(label)"
+    }
+
+    private func formatCyclingType(_ cyclingType: String) -> String {
+        if cyclingType.isEmpty {
+            return "Cycling"
+        }
+        return cyclingType
+            .replacingOccurrences(of: "-", with: " ")
+            .capitalized
     }
 
     private func formatTime(_ date: Date) -> String {

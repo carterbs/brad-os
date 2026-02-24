@@ -34,7 +34,7 @@ import type {
   TodayWorkoutContext,
   StretchingContext,
   MeditationContext,
-  CyclingActivitySummary,
+  TodayCoachCyclingActivitySummary,
   WeightEntry,
   WeightGoal,
   WeightMetrics,
@@ -370,7 +370,7 @@ async function buildCyclingContext(userId: string): Promise<TodayCoachCyclingCon
     : null;
 
   // Recent activities (trimmed for token efficiency)
-  const recentActivities: CyclingActivitySummary[] = activities.slice(0, 7).map((a) => ({
+  const recentActivities: TodayCoachCyclingActivitySummary[] = activities.slice(0, 7).map((a) => ({
     date: a.date,
     type: a.type,
     durationMinutes: a.durationMinutes,
