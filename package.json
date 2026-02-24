@@ -2,6 +2,9 @@
   "name": "brad-os",
   "version": "0.0.1",
   "private": true,
+  "engines": {
+    "node": ">=22.0.0 <23.0.0"
+  },
   "workspaces": [
     "packages/*"
   ],
@@ -34,6 +37,7 @@
     "otel:stop": "lsof -ti:4318 | xargs kill 2>/dev/null || true",
     "otel:clean": "rm -rf .otel/",
     "ralph:improve-harness": "tsx scripts/ralph/index.ts",
+    "preinstall": "node scripts/check-node-version.js",
     "postinstall": "git config core.hooksPath hooks"
   },
   "devDependencies": {
