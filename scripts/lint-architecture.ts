@@ -30,6 +30,7 @@ import {
   checkTestQuality,
   checkQualityGradesFreshness,
   checkRepositoryTestCoverage,
+  checkMarkdownLinks,
 } from './lint-checks.js';
 
 // ── Color helpers ────────────────────────────────────────────────────────────
@@ -66,6 +67,7 @@ function main(): void {
     (): CheckResult => checkNoFocusedTests(config),
     (): CheckResult => checkTestQuality(config),
     (): CheckResult => checkRepositoryTestCoverage(config),
+    (): CheckResult => checkMarkdownLinks(config),
   ];
 
   const results: CheckResult[] = [];

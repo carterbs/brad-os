@@ -1621,3 +1621,160 @@ export function checkRepositoryTestCoverage(config: LinterConfig): CheckResult {
 
   return { name, passed: violations.length === 0, violations };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Check 21: Markdown Link Targets
+//
+// Scans markdown files for [text](target) links and verifies target files exist.
+// Complements Checks 6 and 7, which verify backtick-quoted paths.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function checkMarkdownLinks(config: LinterConfig): CheckResult {
+  const name = 'Markdown link targets';
+  const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.validate', '.claude']);
+
+  const scanRoots: string[] = [
+    path.join(config.rootDir, 'docs'),
+    path.join(config.rootDir, 'thoughts', 'shared', 'plans', 'active'),
+    path.join(config.rootDir, 'thoughts', 'shared', 'handoffs'),
+  ];
+
+  const rootMarkdownFiles: string[] = [
+    path.join(config.rootDir, 'CLAUDE.md'),
+    path.join(config.rootDir, 'AGENTS.md'),
+    path.join(config.rootDir, 'README.md'),
+    path.join(config.rootDir, 'BUGS.md'),
+    path.join(config.rootDir, 'requirements.md'),
+    path.join(config.rootDir, 'thoughts', 'shared', 'plans', 'index.md'),
+  ];
+
+  const SKIP_PATH_PREFIXES: string[] = [
+    path.join(config.rootDir, 'thoughts', 'shared', 'plans', 'completed'),
+    path.join(config.rootDir, 'thoughts', 'shared', 'research'),
+    path.join(config.rootDir, 'thoughts', 'shared', 'plans', 'stretching'),
+    path.join(config.rootDir, 'thoughts', 'shared', 'plans', 'meditation'),
+  ];
+
+  function shouldSkipDir(dirPath: string, basePath: string): boolean {
+    const rel = path.relative(basePath, dirPath);
+    if (!rel || rel === '') return false;
+    const segment = rel.split(path.sep)[0];
+    if (segment !== undefined && SKIP_DIRS.has(segment)) return true;
+    if (SKIP_PATH_PREFIXES.some((p) => dirPath.startsWith(p))) return true;
+    return false;
+  }
+
+  function collectMarkdownFiles(rootDir: string): string[] {
+    if (!fs.existsSync(rootDir)) return [];
+
+    const results: string[] = [];
+    const stats = fs.statSync(rootDir);
+    if (stats.isFile()) {
+      if (rootDir.endsWith('.md') && path.basename(rootDir) !== 'meditations.md') {
+        results.push(rootDir);
+      }
+      return results;
+    }
+
+    const entries = fs.readdirSync(rootDir, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(rootDir, entry.name);
+      if (entry.isDirectory()) {
+        if (shouldSkipDir(fullPath, config.rootDir)) continue;
+        results.push(...collectMarkdownFiles(fullPath));
+      } else if (entry.isFile() && entry.name.endsWith('.md') && entry.name !== 'meditations.md') {
+        results.push(fullPath);
+      }
+    }
+
+    return results;
+  }
+
+  function isLinkSkipped(target: string): boolean {
+    if (target.startsWith('http://') || target.startsWith('https://') || target.startsWith('mailto:')) {
+      return true;
+    }
+    if (target.startsWith('#')) return true;
+    if (target.includes('<')) return true;
+    if (target.includes('*')) return true;
+    return false;
+  }
+
+  function stripOptionalTitle(rawTarget: string): string {
+    if (rawTarget.includes(' "')) {
+      return rawTarget.split(' "')[0] ?? rawTarget;
+    }
+    if (rawTarget.includes(' \'')) {
+      return rawTarget.split(' \'')[0] ?? rawTarget;
+    }
+    return rawTarget;
+  }
+
+  function checkFile(filePath: string): string[] {
+    const relPath = path.relative(config.rootDir, filePath);
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const lines = content.split('\n');
+    const violations: string[] = [];
+    const linkRegex = /!?\[(?:[^\]]*)\]\(([^)]+)\)/g;
+
+    let inCodeFence = false;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line === undefined) continue;
+
+      if (/^\s*```/.test(line)) {
+        inCodeFence = !inCodeFence;
+        continue;
+      }
+      if (inCodeFence) continue;
+
+      const contentLine = line.replace(/`[^`]*`/g, '');
+
+      linkRegex.lastIndex = 0;
+      let match: RegExpExecArray | null = null;
+      while ((match = linkRegex.exec(contentLine)) !== null) {
+        const rawTarget = match[1];
+        if (rawTarget === undefined) continue;
+
+        const target = rawTarget.trim();
+        if (isLinkSkipped(target)) continue;
+
+        const noFragment = target.split('#')[0] ?? target;
+        const noTitle = stripOptionalTitle(noFragment).trim();
+        if (noTitle.length === 0) continue;
+
+        const sourceDir = path.dirname(filePath);
+        const resolved = path.resolve(sourceDir, noTitle);
+        if (!fs.existsSync(resolved)) {
+          violations.push(
+            `${relPath}:${i + 1} links to '${noTitle}' but file does not exist.\n` +
+            `    Rule: All markdown links must resolve to real files on disk.\n` +
+            `    Fix: 1. If the file was renamed or moved, update the link.\n` +
+            `         2. If the file was deleted, remove the link.\n` +
+            `         3. Run \`git log --diff-filter=R -- '${noTitle}'\` to find renames.\n` +
+            `    See: docs/golden-principles.md`
+          );
+        }
+      }
+    }
+
+    return violations;
+  }
+
+  const files: string[] = [];
+  for (const rootFile of rootMarkdownFiles) {
+    files.push(...collectMarkdownFiles(rootFile));
+  }
+
+  for (const scanRoot of scanRoots) {
+    if (!fs.existsSync(scanRoot)) continue;
+    files.push(...collectMarkdownFiles(scanRoot));
+  }
+
+  const violations: string[] = [];
+  for (const file of files) {
+    violations.push(...checkFile(file));
+  }
+
+  return { name, passed: violations.length === 0, violations };
+}
