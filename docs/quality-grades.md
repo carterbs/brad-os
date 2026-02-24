@@ -26,15 +26,15 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 
 | Domain | Grade | Backend Tests | iOS Tests | Coverage | API Complete | iOS Complete | Notes |
 |--------|-------|---------------|-----------|----------|--------------|--------------|-------|
-| Lifting | **A** | High (23) | Medium (6) | 92% | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. Most mature domain. Full progressive overload system. |
-| Meal Planning | **B+** | High (11) | Medium (7) | 71% | Yes | Yes | 4 handler, 3 service, 3 repo, 1 schema tests. 2 untested file(s). Widget + cache + AI critique flow complete. |
-| Cycling | **C** | Medium (7) | Low (0) | 48% | Yes | Yes | 2 handler, 5 service tests. `cycling-coach` untested (high risk). Complex Strava + AI coach system. |
-| Stretching | **B-** | Medium (5) | Low (2) | 99% | Yes | Yes | 2 handler, 2 repo, 1 integration tests. TTS audio pipeline untested on backend. |
-| Calendar | **B-** | Low (3) | Low (1) | 100% | Yes | Yes | 1 handler, 1 service, 1 integration tests. Lightweight aggregation layer. Adequate for scope. |
-| Meditation | **C+** | Low (3) | Low (1) | 51% | Partial | Yes | 1 handler, 1 repo, 1 integration tests. 2 untested file(s). `guidedMeditations` and `tts` handlers have zero tests. |
-| Health Sync | **C** | Low (3) | Low (0) | 25% | Yes | Yes | 2 handler, 1 integration tests. 1 untested file(s). No iOS unit tests. |
+| Lifting | **A** | High (23) | Medium (6) | 92% | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. Full repository, service, and integration test coverage across all lifting layers. |
+| Meal Planning | **B+** | High (12) | Medium (7) | 71% | Yes | Yes | 4 handler, 3 service, 3 repo, 1 integration, 1 schema tests. 2 untested file(s). Strong core coverage but barcode scanner and debug handlers remain untested. |
+| Cycling | **B-** | Medium (9) | Low (0) | 53% | Yes | Yes | 3 handler, 6 service tests. 1 untested file(s). No iOS unit tests and the lifting-context service remain untested. |
+| Stretching | **B-** | Medium (5) | Low (2) | 99% | Yes | Yes | 2 handler, 2 repo, 1 integration tests. Near-perfect branch coverage achieved with a very lean test suite. |
+| Calendar | **B-** | Low (3) | Low (1) | 100% | Yes | Yes | 1 handler, 1 service, 1 integration tests. Achieves perfect coverage with just a handler, service, and one integration test. |
+| Meditation | **B-** | Medium (5) | Low (1) | 51% | Yes | Yes | 3 handler, 1 repo, 1 integration tests. Below-average coverage likely reflects AI/TTS paths that are difficult to unit-test. |
+| Health Sync | **C+** | Medium (4) | Low (0) | 25% | Yes | Yes | 2 handler, 1 service, 1 integration tests. Critical HealthKit sync logic has the project's weakest test coverage. |
 | History | **B-** | (shared) | (shared) | -- | Yes | Yes | Reuses Calendar backend/ViewModel. No additional tests needed, but filter logic is untested. |
-| Today | **C-** | Low (0) | Low (1) | 0% | Yes | Yes | `today-coach`, `today-coach-data.service`, `today-coach.service` untested (high risk). `today-coach` handler has zero tests. `today-coach.service.ts` and `today-coach-data.service.ts` untested. |
+| Today | **B-** | Low (3) | Low (1) | 67% | Yes | Yes | 1 handler, 2 service tests. AI briefing pipeline is now fully tested, anchoring solid mid-range coverage. |
 | Profile | **B-** | (shared) | (shared) | -- | Yes | Yes | Settings hub, no own backend. Relies on health-sync and cycling backends. |
 
 ---
@@ -49,36 +49,40 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 - Repositories: exercise, mesocycle, plan-day-exercise, plan-day, plan, workout-set, workout
 - Integration: exercises, mesocycles, plans, workoutSets, workouts
 
-**Meal Planning (11 test files):**
+**Meal Planning (12 test files):**
 - Handlers: ingredients, mealplans, meals, recipes
 - Services: mealplan-critique, mealplan-generation, mealplan-operations
 - Repositories: ingredient, meal, recipe
+- Integration: meals
 - Schemas: meal.schema
 
-**Cycling (7 test files):**
-- Handlers: cycling, strava-webhook
-- Services: cycling-coach, efficiency-factor, strava, training-load, vo2max
+**Cycling (9 test files):**
+- Handlers: cycling-coach, cycling, strava-webhook
+- Services: cycling-coach, efficiency-factor, firestore-cycling, strava, training-load, vo2max
+
+**Meditation (5 test files):**
+- Handlers: guidedMeditations, meditationSessions, tts
+- Repositories: meditationSession
+- Integration: meditationSessions
 
 **Stretching (5 test files):**
 - Handlers: stretchSessions, stretches
 - Repositories: stretch, stretchSession
 - Integration: stretchSessions
 
+**Health Sync (4 test files):**
+- Handlers: health-sync, health
+- Services: firestore-recovery
+- Integration: health
+
 **Calendar (3 test files):**
 - Handlers: calendar
 - Services: calendar
 - Integration: calendar
 
-**Health Sync (3 test files):**
-- Handlers: health-sync, health
-- Integration: health
-
-**Meditation (3 test files):**
-- Handlers: meditationSessions
-- Repositories: meditationSession
-- Integration: meditationSessions
-
-**Today (0 test files)**
+**Today (3 test files):**
+- Handlers: today-coach
+- Services: today-coach-data, today-coach
 
 **Other:** shared (1)
 
@@ -100,16 +104,8 @@ These handlers/services have no corresponding test file:
 | File | Domain | Risk |
 |------|--------|------|
 | `handlers/barcodes.ts` | Meal Planning | Low - uses createResourceRouter (generated CRUD) |
-| `handlers/cycling-coach.ts` | Cycling | High - AI-powered cycling coaching |
-| `handlers/guidedMeditations.ts` | Meditation | Medium - browse/fetch guided scripts |
 | `handlers/mealplan-debug.ts` | Meal Planning | Low - debug UI only |
-| `handlers/today-coach.ts` | Today | High - AI-powered daily briefing |
-| `handlers/tts.ts` | Meditation | Low - thin wrapper around TTS API |
-| `services/firestore-cycling.service.ts` | Cycling | Medium - all cycling data CRUD |
-| `services/firestore-recovery.service.ts` | Health Sync | Medium - all health data CRUD |
-| `services/lifting-context.service.ts` | Cycling | Low - reads lifting schedule for coach |
-| `services/today-coach-data.service.ts` | Today | High - aggregates all domain data |
-| `services/today-coach.service.ts` | Today | High - OpenAI integration |
+| `services/lifting-context.service.ts` | Cycling | Medium - feeds cycling coach + today briefing with lifting data |
 
 ---
 
@@ -125,12 +121,10 @@ These handlers/services have no corresponding test file:
 
 ### Test Coverage Gaps
 
-- [ ] **Today Coach handler + services** - Zero tests for the AI briefing pipeline (`today-coach.ts`, `today-coach.service.ts`, `today-coach-data.service.ts`).
-- [ ] **Guided Meditations handler** - No tests for `guidedMeditations.ts` (browse categories, fetch scripts).
-- [ ] **Firestore Recovery service** - No tests for `firestore-recovery.service.ts` (all health data CRUD).
-- [ ] **Firestore Cycling service** - No tests for `firestore-cycling.service.ts` (all cycling data CRUD).
 - [ ] **Cycling repo layer** - No repository tests for cycling (data stored in user subcollections, not top-level repos).
 - [ ] **iOS Cycling unit tests** - CyclingViewModel has no unit tests in BradOSCore.
+- [ ] **Untested Meal Planning handlers** - `handlers/barcodes.ts` (Low risk) and `handlers/mealplan-debug.ts` (Low risk) have no tests.
+- [ ] **Untested Cycling lifting-context service** - `services/lifting-context.service.ts` (Medium risk) has no tests.
 
 ### Feature Gaps (from feature-gaps.md, top priorities)
 
@@ -143,13 +137,17 @@ These handlers/services have no corresponding test file:
 ### Other
 
 - [ ] **Calendar missing cycling activities** - Calendar aggregation only includes workouts, stretching, and meditation. Cycling activities not shown.
-- [ ] **No integration tests for Meal Planning** - 10 unit tests but zero integration tests.
 - [ ] **No integration tests for Cycling** - 7 unit tests but zero integration tests.
 
 ---
 
 ## Recently Completed
 
+- [x] **Meal Planning integration tests** - Added `meals.integration.test.ts` covering the meal planning pipeline end-to-end.
+- [x] **Firestore Cycling service tests** - Tests added for `firestore-cycling.service.ts` (all cycling data CRUD).
+- [x] **Firestore Recovery service tests** - Tests added for `firestore-recovery.service.ts` (all health data CRUD).
+- [x] **Guided Meditations handler tests** - Tests added for `guidedMeditations.ts` (browse categories, fetch scripts).
+- [x] **Today Coach handler + services tests** - Tests added for `today-coach.ts`, `today-coach.service.ts`, and `today-coach-data.service.ts`.
 - [x] **LoadStateView + Error.displayMessage (iOS)** - Generic loading state wrapper. Migrated ExercisesView, ExerciseHistoryView, CalendarViewModel.
 - [x] **Snake case encoder + CodingKeys cleanup (iOS)** - Added `snakeCaseEncoder` to APIClient, removed 6 manual CodingKeys enums.
 - [x] **Architecture layer violation fixes** - Fixed all 51 iOS architecture layer violations (Views referencing Service types directly).
