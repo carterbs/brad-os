@@ -23,6 +23,7 @@ Invariants for the Brad OS codebase. Every line is verifiable by a linter or cod
 - Domain types live in `packages/functions/src/types/`, not in services/handlers/repositories
 - Zod schemas live in `packages/functions/src/schemas/`, not in services/handlers/repositories
 - No skipped tests (`it.skip`, `describe.skip`, `xit`, `xdescribe`) — fix or remove the test
+- High-risk files (AI integrations, coach logic) must have corresponding test files
 
 ### Swift [swiftlint via xcodebuild]
 - No force unwrapping (`!`) — use `guard let` or `?? default`
@@ -39,6 +40,7 @@ Invariants for the Brad OS codebase. Every line is verifiable by a linter or cod
 - TDD: write tests before implementation (can't enforce statically)
 - API inputs validated with Zod at the handler boundary, not in services (partially covered by schema-at-boundary check)
 - RESTful routes for CRUD, verb-suffix routes (`/start`, `/complete`) for actions (too nuanced for static analysis)
+- Prefer shared test factories from `__tests__/utils/` over inline `createMock*` definitions (warning-only lint, graduating)
 
 ## Principle-to-Linter Pipeline
 
