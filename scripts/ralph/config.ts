@@ -66,25 +66,36 @@ export function resolveConfig(): Config {
   );
 
   // Merge: defaults -> config file -> CLI flags (CLI wins)
+
+  /** Infer backend from model name when no explicit backend is configured. */
+  function inferBackend(model: string): AgentBackend {
+    if (model.includes("codex") || model.includes("gpt")) return "codex";
+    return "claude";
+  }
+
   function resolveStep(
     stepName: "backlog" | "plan" | "implement" | "review",
     stepAgent: string | undefined,
     stepModel: string | undefined,
     role: "plan" | "exec",
   ): { backend: AgentBackend; model: string } {
-    // CLI step-specific > CLI global > config file step-specific > config file global > default
+    // CLI step-specific > CLI global > config file step-specific > config file global > infer from model > default
     const cfgStep = configFile?.agents?.[stepName];
-    const backend: AgentBackend =
-      (stepAgent as AgentBackend) ??
-      (values.agent as AgentBackend) ??
-      (cfgStep?.backend as AgentBackend) ??
-      configFile?.agent ??
-      "claude";
+
+    // Resolve model first so we can infer backend from it
+    const explicitBackend: AgentBackend | undefined =
+      (stepAgent as AgentBackend | undefined) ??
+      (values.agent as AgentBackend | undefined) ??
+      (cfgStep?.backend as AgentBackend | undefined) ??
+      (configFile?.agent as AgentBackend | undefined);
+
+    // If model is set but backend isn't, infer backend from the model name
+    const resolvedModel = stepModel ?? cfgStep?.model;
+    const backend: AgentBackend = explicitBackend
+      ?? (resolvedModel ? inferBackend(resolvedModel) : "claude");
+
     const baseModel = DEFAULT_MODELS[backend][role];
-    const model =
-      stepModel ??
-      cfgStep?.model ??
-      baseModel;
+    const model = resolvedModel ?? baseModel;
     return { backend, model };
   }
 
