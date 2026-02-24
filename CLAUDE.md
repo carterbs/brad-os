@@ -79,6 +79,15 @@ npm test                    # Unit tests (vitest)
 npm run lint:architecture   # Architecture enforcement
 ```
 
+## Continuous Integration
+
+GitHub Actions runs on every push to `main` and every PR:
+
+1. **validate** job — `npm run validate` (typecheck + lint + test + architecture)
+2. **integration** job — Boots Firebase emulators, runs `npm run test:integration`
+
+On failure, `.validate/*.log` artifacts are uploaded for inspection. See `.github/workflows/ci.yml`.
+
 ## When Implementing Features
 
 1. **Read the architecture map** for the feature: `docs/architecture/<feature>.md`. Available maps: `lifting`, `stretching`, `meditation`, `meal-planning`, `cycling`, `health`, `calendar`, `today`, `profile`, `history`.
