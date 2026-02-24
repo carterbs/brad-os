@@ -1,4 +1,5 @@
 import { type Request, type Response, type NextFunction } from 'express';
+import { warn, error as logError } from 'firebase-functions/logger';
 import { getApp } from 'firebase-admin/app';
 import { getRemoteConfig } from 'firebase-admin/remote-config';
 import { type SynthesizeRequest, synthesizeSchema } from '../shared.js';
@@ -43,7 +44,7 @@ async function getTtsVoice(): Promise<string> {
     const voice = config.getString('TTS_VOICE');
     return voice !== '' ? voice : DEFAULT_VOICE;
   } catch (err) {
-    console.warn('Failed to fetch Remote Config, using default voice:', err);
+    warn('Failed to fetch Remote Config, using default voice:', err);
     return DEFAULT_VOICE;
   }
 }
@@ -59,7 +60,7 @@ app.post('/synthesize', validate(synthesizeSchema), asyncHandler(async (req: Req
   try {
     accessToken = await getAccessToken();
   } catch (err) {
-    console.error('Failed to get access token:', err);
+    logError('Failed to get access token:', err);
     res.status(500).json({
       success: false,
       error: { code: 'AUTH_ERROR', message: 'Failed to obtain credentials for TTS API' },
@@ -82,7 +83,7 @@ app.post('/synthesize', validate(synthesizeSchema), asyncHandler(async (req: Req
 
   if (!googleResponse.ok) {
     const errorBody = await googleResponse.text();
-    console.error('Google TTS API error:', googleResponse.status, errorBody);
+    logError('Google TTS API error:', googleResponse.status, errorBody);
     res.status(502).json({
       success: false,
       error: { code: 'TTS_API_ERROR', message: `Google TTS API returned ${googleResponse.status}` },

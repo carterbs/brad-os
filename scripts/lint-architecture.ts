@@ -1012,10 +1012,13 @@ function checkNoRawUrlSession(): CheckResult {
   const violations: string[] = [];
   const urlSessionPattern = /\bURLSession\b/;
 
+  // Files allowed to use raw URLSession (external OAuth token exchanges, etc.)
+  const URLSESSION_ALLOWLIST = new Set(['APIClient.swift', 'StravaAuthManager.swift']);
+
   for (const file of files) {
     const basename = path.basename(file);
-    // Exclude APIClient.swift itself and test files
-    if (basename === 'APIClient.swift') continue;
+    // Exclude allowlisted files and test files
+    if (URLSESSION_ALLOWLIST.has(basename)) continue;
     if (basename.endsWith('Tests.swift') || basename.endsWith('Test.swift')) continue;
 
     const content = fs.readFileSync(file, 'utf-8');

@@ -24,7 +24,7 @@ export { StretchSessionRepository } from './stretchSession.repository.js';
 export { MeditationSessionRepository } from './meditationSession.repository.js';
 export { BarcodeRepository } from './barcode.repository.js';
 export { GuidedMeditationRepository } from './guided-meditation.repository.js';
-export type { CompletedSetRow } from './workout-set.repository.js';
+export type { CompletedSetRow } from '../shared.js';
 
 // Singleton instances for use with the default database
 let exerciseRepository: ExerciseRepository | null = null;

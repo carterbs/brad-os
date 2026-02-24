@@ -61,6 +61,16 @@ export interface ActivityStreamData {
   createdAt: string;
 }
 
+// --- Training Load Types ---
+
+/**
+ * Daily TSS entry for training load calculations.
+ */
+export interface DailyTSS {
+  date: string; // ISO 8601 date (YYYY-MM-DD)
+  tss: number;
+}
+
 // --- Training Block Types ---
 
 export type TrainingGoal = 'regain_fitness' | 'maintain_muscle' | 'lose_weight';
@@ -174,6 +184,48 @@ export interface LiftingWorkoutSummary {
   setsCompleted: number;
   totalVolume: number; // Total weight moved (lbs)
   isLowerBody?: boolean;
+}
+
+// --- Strava API Types ---
+
+/**
+ * Raw activity data from the Strava API.
+ */
+export interface StravaActivity {
+  id: number;
+  type: string;
+  moving_time: number;
+  elapsed_time: number;
+  average_heartrate?: number;
+  max_heartrate?: number;
+  average_watts?: number;
+  weighted_average_watts?: number;
+  max_watts?: number;
+  device_watts?: boolean;
+  kilojoules?: number;
+  start_date: string;
+  name?: string;
+  distance?: number;
+}
+
+/**
+ * A single data stream from the Strava Streams API.
+ */
+export interface StravaStream {
+  data: number[];
+  series_type: string;
+  original_size: number;
+  resolution: string;
+}
+
+/**
+ * Combined activity streams from Strava.
+ */
+export interface ActivityStreams {
+  watts?: StravaStream;
+  heartrate?: StravaStream;
+  time?: StravaStream;
+  cadence?: StravaStream;
 }
 
 // --- Strava Integration Types ---

@@ -1,31 +1,8 @@
 import type {
   ExerciseProgression,
   PreviousWeekPerformance,
+  DynamicProgressionResult,
 } from '../shared.js';
-
-/**
- * Result of dynamic progression calculation
- */
-export interface DynamicProgressionResult {
-  /** Target weight for next week */
-  targetWeight: number;
-  /** Target reps for next week */
-  targetReps: number;
-  /** Target sets for next week */
-  targetSets: number;
-  /** Whether this is a deload week */
-  isDeload: boolean;
-  /** Explanation of the progression decision */
-  reason: ProgressionReason;
-}
-
-export type ProgressionReason =
-  | 'first_week' // No previous data, use base values
-  | 'hit_max_reps' // User hit maxReps, adding weight and dropping to minReps
-  | 'hit_target' // User hit target, incrementing reps
-  | 'hold' // User missed target but >= minReps, holding
-  | 'regress' // User failed minReps twice at same weight, dropping weight
-  | 'deload'; // Deload week
 
 /**
  * Service for calculating dynamic progressive overload targets based on actual performance.

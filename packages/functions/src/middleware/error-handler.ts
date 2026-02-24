@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
+import { error as logError } from 'firebase-functions/logger';
 import { ZodError } from 'zod';
 import type { ApiError } from '../shared.js';
 import { AppError } from '../types/errors.js';
@@ -13,7 +14,7 @@ export function errorHandler(
   _next: NextFunction
 ): void {
   // Log error using Cloud Functions logger
-  console.error('Error:', err);
+  logError('Error:', err);
 
   // Handle Zod validation errors
   if (err instanceof ZodError) {

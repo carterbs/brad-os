@@ -5,15 +5,9 @@
  * (ATL, CTL, TSB) for cycling activities.
  */
 
-import type { WeeklySession, SessionType } from '../shared.js';
-
-/**
- * Daily TSS entry for training load calculations.
- */
-export interface DailyTSS {
-  date: string; // ISO 8601 date (YYYY-MM-DD)
-  tss: number;
-}
+import type { WeeklySession, SessionType, DailyTSS } from '../shared.js';
+// Re-export type so existing imports from this module continue to work
+export type { DailyTSS } from '../shared.js';
 
 /**
  * Calculate Training Stress Score (TSS) for a cycling activity.
