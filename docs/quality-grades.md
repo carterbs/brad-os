@@ -27,7 +27,7 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 | Domain | Grade | Backend Tests | iOS Tests | Assertions | Density | Coverage | API Complete | iOS Complete | Notes |
 |--------|-------|---------------|-----------|------------|---------|----------|--------------|--------------|-------|
 | Lifting | **A** | High (23) | Medium (6) | 1225 | 2.2x | -- | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. |
-| Meal Planning | **A** | High (12) | Medium (7) | 405 | 2.5x | -- | Yes | Yes | 4 handler, 3 service, 3 repo, 1 integration, 1 schema tests. 2 untested file(s). |
+| Meal Planning | **A** | High (14) | Medium (7) | 456 | 2.6x | -- | Yes | Yes | 6 handler, 3 service, 3 repo, 1 integration, 1 schema tests. |
 | Cycling | **B-** | Medium (9) | Low (0) | 461 | 2.0x | -- | Yes | Yes | 3 handler, 6 service tests. 1 untested file(s). |
 | Stretching | **B** | Medium (5) | Low (2) | 134 | 2.6x | -- | Yes | Yes | 2 handler, 2 repo, 1 integration tests. |
 | Calendar | **B** | Low (3) | Low (1) | 141 | 2.5x | -- | Yes | Yes | 1 handler, 1 service, 1 integration tests. |
@@ -49,8 +49,8 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 - Repositories: exercise, mesocycle, plan-day-exercise, plan-day, plan, workout-set, workout
 - Integration: exercises, mesocycles, plans, workoutSets, workouts
 
-**Meal Planning (12 test files):**
-- Handlers: ingredients, mealplans, meals, recipes
+**Meal Planning (14 test files):**
+- Handlers: barcodes, ingredients, mealplan-debug, mealplans, meals, recipes
 - Services: mealplan-critique, mealplan-generation, mealplan-operations
 - Repositories: ingredient, meal, recipe
 - Integration: meals
@@ -104,8 +104,6 @@ These handlers/services have no corresponding test file:
 
 | File | Domain | Risk |
 |------|--------|------|
-| `handlers/barcodes.ts` | Meal Planning | Low - uses createResourceRouter (generated CRUD) |
-| `handlers/mealplan-debug.ts` | Meal Planning | Low - debug UI only |
 | `services/lifting-context.service.ts` | Cycling | Medium - feeds cycling coach + today briefing with lifting data |
 
 ---
