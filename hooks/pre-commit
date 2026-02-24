@@ -55,7 +55,7 @@ echo "✓ TypeScript compilation passed"
 # 2. ESLint on staged .ts files only (proportional to change size)
 STAGED_TS=$(git diff --cached --name-only --diff-filter=ACM -- '*.ts' | grep -v '\.config\.ts$' | grep -v 'scripts/' || true)
 if [ -n "$STAGED_TS" ]; then
-  if ! echo "$STAGED_TS" | xargs npx eslint; then
+  if ! echo "$STAGED_TS" | xargs npx eslint --cache --cache-strategy content; then
     echo ""
     echo "ERROR: ESLint errors found in staged files."
     echo "  Run 'npm run lint:fix' to auto-fix, then re-stage."

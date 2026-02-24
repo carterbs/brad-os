@@ -8,8 +8,8 @@
   "scripts": {
     "dev": "npm run emulators",
     "build": "npm run build -w @brad-os/functions",
-    "lint": "eslint . --ext .ts",
-    "lint:fix": "eslint . --ext .ts --fix",
+    "lint": "eslint . --ext .ts --cache --cache-strategy content",
+    "lint:fix": "eslint . --ext .ts --cache --cache-strategy content --fix",
     "format": "prettier --write \"**/*.{ts,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,json,md}\"",
     "typecheck": "tsc -b",

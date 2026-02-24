@@ -16,8 +16,6 @@ module.exports = {
     ecmaVersion: 'latest',
     sourceType: 'module',
     project: [
-      './tsconfig.json',
-      './packages/*/tsconfig.json',
       './packages/*/tsconfig.eslint.json',
       './scripts/tsconfig.eslint.json',
     ],
