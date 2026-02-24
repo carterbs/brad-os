@@ -17,7 +17,12 @@ import {
   commitAll,
   hasNewCommits,
 } from "./git.js";
-import { readBacklog, removeTask, backlogPath } from "./backlog.js";
+import {
+  readBacklog,
+  removeTask,
+  backlogPath,
+  moveTaskToMergeConflicts,
+} from "./backlog.js";
 import { resolveConfig } from "./config.js";
 import { MergeQueue } from "./merge-queue.js";
 import type { AgentBackend, Config, StepSummary } from "./types.js";
@@ -576,6 +581,20 @@ async function main(): Promise<void> {
     return true;
   }
 
+  function parkTaskAfterMergeConflict(result: WorkerResult, logger: Logger): void {
+    if (!result.taskText || config.task) return;
+
+    tasksInFlight.delete(result.taskText);
+    moveTaskToMergeConflicts(result.taskText, {
+      improvement: result.improvement,
+      branchName: result.branchName,
+      worktreePath: result.worktreePath,
+    });
+    logger.warn(
+      `Task moved to scripts/ralph/merge-conflicts.md (branch preserved at ${result.worktreePath})`,
+    );
+  }
+
   // ── Main orchestration loop ──
 
   while (hasMoreWork(completed, config.target, readBacklog().length, tasksInFlight.size)) {
@@ -691,9 +710,7 @@ async function main(): Promise<void> {
         );
       } else {
         // Merge failed (conflict) — treat as failure
-        if (result.taskText) {
-          tasksInFlight.delete(result.taskText);
-        }
+        parkTaskAfterMergeConflict(result, finishedLogger);
         activeWorktrees.delete(finishedSlot);
         consecutiveFailures++;
         orchestratorLogger.warn(
@@ -739,6 +756,10 @@ async function main(): Promise<void> {
           }
           activeWorktrees.delete(result.workerSlot);
           completed++;
+        } else {
+          parkTaskAfterMergeConflict(result, workerLogger);
+          activeWorktrees.delete(result.workerSlot);
+          consecutiveFailures++;
         }
       }
     }

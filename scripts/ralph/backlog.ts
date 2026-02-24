@@ -1,9 +1,10 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BACKLOG_PATH = join(__dirname, "backlog.md");
+const MERGE_CONFLICTS_PATH = join(__dirname, "merge-conflicts.md");
 
 /** Parse backlog.md into an array of task strings. */
 export function readBacklog(): string[] {
@@ -49,6 +50,39 @@ export function removeTask(taskText: string): boolean {
   tasks.splice(idx, 1);
   writeBacklog(tasks);
   return true;
+}
+
+/**
+ * Move a task from the active backlog to merge-conflicts.md so it is not
+ * re-run automatically when a branch is complete but cannot merge cleanly.
+ */
+export function moveTaskToMergeConflicts(
+  taskText: string,
+  details: {
+    improvement: number;
+    branchName: string;
+    worktreePath: string;
+  },
+): void {
+  removeTask(taskText);
+  const marker = `improvement=${details.improvement} branch=${details.branchName}`;
+  let existing = "";
+  try {
+    existing = readFileSync(MERGE_CONFLICTS_PATH, "utf-8");
+  } catch {
+    existing = "";
+  }
+
+  if (existing.includes(marker)) {
+    return;
+  }
+
+  const line =
+    `- [${new Date().toISOString()}] ${taskText} ` +
+    `| improvement=${details.improvement} ` +
+    `| branch=${details.branchName} ` +
+    `| worktree=${details.worktreePath}`;
+  appendFileSync(MERGE_CONFLICTS_PATH, `${line}\n`);
 }
 
 /** Write tasks to backlog.md (overwrites). */
