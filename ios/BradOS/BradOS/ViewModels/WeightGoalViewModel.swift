@@ -56,7 +56,11 @@ class WeightGoalViewModel {
     var error: String?
     var saveSuccess = false
 
-    private let apiClient = APIClient.shared
+    private let apiClient: any WeightGoalAPIClientProtocol
+
+    init(apiClient: any WeightGoalAPIClientProtocol = APIClient.shared) {
+        self.apiClient = apiClient
+    }
 
     // MARK: - Computed
 

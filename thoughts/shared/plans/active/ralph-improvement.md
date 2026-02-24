@@ -1,160 +1,188 @@
 # Title
-Add BradOSCore unit tests for MealPlanViewModel session lifecycle, critique queue submission, shopping-list refresh, and error paths
+Add a `BradOSTests` app unit-test target so `ios/BradOS/BradOS` ViewModels are directly unit-testable
 
 ## Why
-`MealPlanViewModel` owns the core meal-planning state machine (`loadExistingSession`, `generatePlan`, `submitQueuedActions`/`sendCritique`, `finalize`) but currently lacks direct unit coverage. Regressions here would break user-visible plan loading, queued critique behavior, and shopping list correctness.
+`ios/BradOS/BradOS` contains app-only ViewModels (`CyclingViewModel`, `ExerciseHistoryViewModel`, `WeightGoalViewModel`, `TextToSpeechViewModel`) that are outside the `BradOSCore` Swift Package test suite. Today they are effectively excluded from CI-grade unit testing because the iOS app project has no app test bundle target wired into the `BradOS` scheme.
 
 ## What
-Build a dedicated Swift Testing suite for `MealPlanViewModel` and add one small testability refactor so session-ID persistence can be tested without shared global state.
+Implement app-layer unit-test wiring and baseline coverage in four concrete phases.
 
-Implementation scope:
-1. Add deterministic dependency injection for session-ID persistence in `MealPlanViewModel`.
-- Current `savedSessionId` hard-codes `UserDefaults.standard` (`ios/BradOS/BradOSCore/Sources/BradOSCore/ViewModels/MealPlanViewModel.swift:54-62`), which makes tests order-dependent.
-- Update initializer and storage access to use `UserDefaultsProtocol`:
-  - Add property: `private let userDefaults: UserDefaultsProtocol`
-  - Update initializer signature to include:
-    - `userDefaults: UserDefaultsProtocol = UserDefaults.standard`
-  - Replace `UserDefaults.standard.*` in `savedSessionId` with `userDefaults.*`.
-- Extend `UserDefaultsProtocol` to support `string(forKey:)` so `MealPlanViewModel` can read persisted session IDs through the protocol.
+1. Add an iOS app test bundle target and scheme test action.
+- Add `BradOSTests` as `type: bundle.unit-test` in `ios/BradOS/project.yml`.
+- Configure `platform: iOS` and test sources at `BradOSTests/`.
+- Add dependency on app target (`- target: BradOS`) so XcodeGen emits `TEST_HOST` / `BUNDLE_LOADER` correctly for `@testable import BradOS`.
+- Update `schemes.BradOS` to include:
+  - `build.targets.BradOSTests: [test]`
+  - `test.targets: [ { name: BradOSTests } ]`
+- Regenerate project from XcodeGen so `BradOS.xcodeproj` contains the new native target and scheme testables.
 
-2. Add `MealPlanViewModelTests` covering the full flow surface.
-- Behavior under test (source of truth):
-  - `generatePlan()` (`MealPlanViewModel.swift:67-87`)
-  - `loadExistingSession()` (`MealPlanViewModel.swift:91-142`)
-  - `submitQueuedActions()` + `sendCritique()` (`MealPlanViewModel.swift:146-201`, `:283-287`)
-  - `finalize()` (`MealPlanViewModel.swift:205-229`)
-  - `updateShoppingList()` trigger points (`MealPlanViewModel.swift:78`, `:99`, `:110`, `:130`, `:174`, implementation at `:317-321`)
+2. Add small app-layer testability seams where concrete singletons currently block deterministic tests.
+- Narrow cycling API dependency to cycling-only requirements so mocks do not have to implement all `APIClientProtocol` methods.
+  - Change signature in `ios/BradOS/BradOS/Protocols/CyclingAPIClientProtocol.swift` from:
+    - `protocol CyclingAPIClientProtocol: APIClientProtocol`
+    to:
+    - `protocol CyclingAPIClientProtocol`
+  - Keep method list unchanged and keep `extension APIClient: CyclingAPIClientProtocol {}`.
+- Add a dedicated weight-goal protocol for `WeightGoalViewModel`.
+  - New protocol file with methods:
+    - `func getLatestWeight() async throws -> WeightHistoryEntry?`
+    - `func getWeightHistory(days: Int) async throws -> [WeightHistoryEntry]`
+    - `func getWeightGoal() async throws -> WeightGoalResponse?`
+    - `func saveWeightGoal(targetWeightLbs: Double, targetDate: String, startWeightLbs: Double, startDate: String) async throws -> WeightGoalResponse`
+  - Add `extension APIClient: WeightGoalAPIClientProtocol {}`.
+  - Update `WeightGoalViewModel` to inject dependency:
+    - `init(apiClient: any WeightGoalAPIClientProtocol = APIClient.shared)`
+- Add an audio-engine protocol so `TextToSpeechViewModel` can be tested without real `AudioSessionManager`.
+  - Introduce protocol for playback + playing-state publisher (Combine-based), e.g.:
+    - `var isPlayingPublisher: AnyPublisher<Bool, Never> { get }`
+    - `func play(data: Data) async throws`
+    - `func stop()`
+  - Make `TTSAudioEngine` conform.
+  - Update `TextToSpeechViewModel` init to inject this engine with default `TTSAudioEngine()`.
 
-3. Use lightweight in-test doubles for cache observation and deterministic fixtures.
-- Keep API mocking on `MockAPIClient` (existing meal-plan + recipe/ingredient support in `ios/BradOS/BradOSCore/Sources/BradOSCore/Services/MockAPIClient.swift:557-620`).
-- Add an in-file `RecordingMealPlanCacheService` test double implementing `MealPlanCacheServiceProtocol` to verify cache read/write/invalidate interactions.
-- Use `MockUserDefaults` per test instance (after protocol update) to isolate persisted session state.
+3. Add new app-layer unit test suite under `BradOSTests` using Swift Testing (`Testing`, `@Suite`, `@Test`, `#expect`).
+- Add test files for each app-only ViewModel:
+  - `CyclingViewModelTests`
+  - `ExerciseHistoryViewModelTests`
+  - `WeightGoalViewModelTests`
+  - `TextToSpeechViewModelTests`
+- Add app-test helpers for deterministic mocks (API mocks + fake audio engine + date fixture helpers).
 
-4. Cover shopping-list refresh via real `RecipeCacheService` + `ShoppingListBuilder` behavior.
-- Provide test recipes/ingredients matching plan meal IDs so assertions validate actual `shoppingList` content, not just non-empty placeholders.
-- Verify list refresh after generate/load/critique plan changes.
+4. Verify end-to-end developer workflow for app tests.
+- Confirm `xcodebuild ... test` executes `BradOSTests` from CLI.
+- Confirm default app constructors still work (no behavior change in production paths).
 
 ## Files
-- `ios/BradOS/BradOSCore/Sources/BradOSCore/ViewModels/MealPlanViewModel.swift` (modify)
-- Add `userDefaults` dependency injection to initializer.
-- Route `savedSessionId` getter/setter through `userDefaults` instead of `UserDefaults.standard`.
-- No behavioral changes beyond dependency wiring.
+Modify or create the following files.
 
-- `ios/BradOS/BradOSCore/Sources/BradOSCore/Protocols/UserDefaultsProtocol.swift` (modify)
-- Add protocol requirement:
-  - `func string(forKey defaultName: String) -> String?`
-- Keep existing `UserDefaults` conformance via extension.
+1. `ios/BradOS/project.yml` (modify)
+- Add `targets.BradOSTests`:
+  - `type: bundle.unit-test`
+  - `platform: iOS`
+  - `sources: [ { path: BradOSTests } ]`
+  - `dependencies: [ { target: BradOS }, { package: BradOSCore } ]`
+- Update `schemes.BradOS` to include `BradOSTests` in test build + test action.
 
-- `ios/BradOS/BradOSCore/Sources/BradOSCore/Protocols/MockUserDefaults.swift` (modify)
-- Implement `string(forKey:)` in `MockUserDefaults`.
-- Continue storing values in in-memory dictionary; return typed string when present.
+2. `ios/BradOS/BradOS.xcodeproj/project.pbxproj` (modify, generated)
+- Regenerated by `xcodegen generate`; includes:
+  - `PBXNativeTarget` for `BradOSTests`
+  - product `BradOSTests.xctest`
+  - test host wiring
+  - scheme test entries.
 
-- `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/ViewModels/MealPlanViewModelTests.swift` (create)
-- New `@Suite("MealPlanViewModel")` with `@MainActor` async tests.
-- Include local fixture helpers:
-  - `makeMeal(...) -> Meal`
-  - `makeIngredient(...) -> Ingredient`
-  - `makeRecipe(...) -> Recipe`
-  - `makeSession(id:isFinalized:plan:mealsSnapshot:history:) -> MealPlanSession`
-  - `makePlanEntry(dayIndex:mealType:mealId:mealName:) -> MealPlanEntry`
-- Include local test double:
-  - `private final class RecordingMealPlanCacheService: MealPlanCacheServiceProtocol, @unchecked Sendable`
+3. `ios/BradOS/BradOS.xcodeproj/xcshareddata/xcschemes/BradOS.xcscheme` (create/modify, generated if emitted)
+- Ensure `TestAction` includes `BradOSTests` and macro expansion uses `BradOS.app`.
+
+4. `ios/BradOS/BradOS/Protocols/CyclingAPIClientProtocol.swift` (modify)
+- Remove `APIClientProtocol` inheritance while keeping existing cycling method signatures.
+
+5. `ios/BradOS/BradOS/Protocols/WeightGoalAPIClientProtocol.swift` (create)
+- New protocol for weight goal/history methods consumed by `WeightGoalViewModel`.
+- Add `extension APIClient: WeightGoalAPIClientProtocol {}`.
+
+6. `ios/BradOS/BradOS/ViewModels/WeightGoalViewModel.swift` (modify)
+- Replace concrete singleton dependency with injected protocol:
+  - add `private let apiClient: any WeightGoalAPIClientProtocol`
+  - add `init(apiClient: any WeightGoalAPIClientProtocol = APIClient.shared)`
+- Keep existing public behavior unchanged.
+
+7. `ios/BradOS/BradOS/Audio/TTSAudioEngineProtocol.swift` (create)
+- New protocol abstraction for audio playback + playback state publisher.
+
+8. `ios/BradOS/BradOS/Audio/TTSAudioEngine.swift` (modify)
+- Conform to new protocol and expose `isPlayingPublisher` via `$isPlaying.eraseToAnyPublisher()`.
+
+9. `ios/BradOS/BradOS/ViewModels/TextToSpeechViewModel.swift` (modify)
+- Inject audio engine dependency:
+  - `init(apiClient: APIClientProtocol = APIClient.shared, audioEngine: any TTSAudioEngineProtocol = TTSAudioEngine())`
+- Replace direct concrete engine usage with protocol-based calls/publisher subscription.
+
+10. `ios/BradOS/BradOSTests/Helpers/AppTestDoubles.swift` (create)
+- `MockCyclingAPIClient` implementing `CyclingAPIClientProtocol`.
+- `MockWeightGoalAPIClient` implementing `WeightGoalAPIClientProtocol`.
+- `MockTTSAudioEngine` implementing `TTSAudioEngineProtocol`.
+- Lightweight fixture utilities for dates and model construction.
+
+11. `ios/BradOS/BradOSTests/ViewModels/CyclingViewModelTests.swift` (create)
+- Cycling app-layer tests for matching/completion/progression + API error surfaces.
+
+12. `ios/BradOS/BradOSTests/ViewModels/ExerciseHistoryViewModelTests.swift` (create)
+- Exercise history viewmodel tests using `MockAPIClient` from `BradOSCore`.
+
+13. `ios/BradOS/BradOSTests/ViewModels/WeightGoalViewModelTests.swift` (create)
+- Weight-goal regression and save/load behavior tests via `MockWeightGoalAPIClient`.
+
+14. `ios/BradOS/BradOSTests/ViewModels/TextToSpeechViewModelTests.swift` (create)
+- TTS state-machine tests via mock API + mock audio engine.
 
 ## Tests
-Add the following concrete tests in `MealPlanViewModelTests.swift`:
+Write these concrete test cases.
 
-1. `initial state is empty and idle`
-- Verifies `session == nil`, `currentPlan.isEmpty`, `shoppingList.isEmpty`, `isLoading == false`, `isSending == false`, `error == nil`.
+1. `CyclingViewModelTests`
+- `initial state is empty`:
+  - verifies default published state and computed flags (`hasFTP == false`, `nextSession == nil`).
+- `sessionsCompletedThisWeek matches sessions in order by type`:
+  - seeds weekly sessions + activities and verifies matched count logic.
+- `nextSession returns first incomplete weekly session`:
+  - verifies queue progression when some activities are completed.
+- `saveFTP success updates ftp fields and returns true`.
+- `saveFTP failure sets user-facing error and returns false`.
 
-2. `loadExistingSession uses finalized disk cache before API`
-- Seed `RecordingMealPlanCacheService.getCachedSession()` with finalized session.
-- Use API client configured to fail globally.
-- Assert cached session is loaded into `session/currentPlan`; `isLoading` ends false; no user-facing error.
+2. `ExerciseHistoryViewModelTests`
+- `loadHistory success sets loaded state and sortedEntries newest-first`.
+- `loadHistory failure sets error state`.
+- `validateEditForm rejects empty name and non-positive increment`.
+- `updateExercise success trims name, clears updateError, and reloads history`.
+- `updateExercise failure sets updateError and resets isUpdating`.
 
-3. `loadExistingSession uses saved session id when present`
-- Seed `MockUserDefaults` key `"mealPlanSessionId"`.
-- Configure `MockAPIClient.mockMealPlanSession` with matching id and recipe data.
-- Assert session/plan loaded and shopping list populated.
+3. `WeightGoalViewModelTests`
+- `updateTrend requires at least 7 smoothed points`.
+- `updatePrediction yields on-track predicted date when slope moves toward target`.
+- `updatePrediction returns nil predictedDate when trend moves away from target`.
+- `saveGoal success stores existingGoal and sets saveSuccess`.
+- `saveGoal failure sets error and leaves saveSuccess false`.
 
-4. `loadExistingSession falls back to latest session when no saved id`
-- Use empty `MockUserDefaults`, configure `mockMealPlanSession` for latest fetch.
-- Assert session and shopping list populate; finalized latest session is passed to `cacheService.cache(...)`.
-
-5. `loadExistingSession latest failure leaves view model stable`
-- No cache and no saved ID; API failing.
-- Assert `isLoading == false`, `session == nil`, `currentPlan.isEmpty`, `error == nil` (method is best-effort).
-
-6. `generatePlan success stores session id and refreshes shopping list`
-- Configure `mockGenerateResponse` + `mockMealPlanSession` + recipe/ingredient fixtures.
-- Assert `session/currentPlan` updated, `shoppingList` rebuilt from meal IDs, `error == nil`, `isLoading == false`, and `mockDefaults.string(forKey: "mealPlanSessionId") == sessionId`.
-
-7. `generatePlan failure sets error and clears loading`
-- API failure path.
-- Assert `error == "Failed to generate meal plan"`, `isLoading == false`, and prior state remains safe.
-
-8. `submitQueuedActions sends critique and applies critique response`
-- Seed non-finalized session + plan.
-- Queue actions via `toggleSwap` / `toggleRemove` on interactive entries.
-- Configure `mockCritiqueResponse` with changed operations and updated plan; configure `mockMealPlanSession` for refetch.
-- Call `submitQueuedActions()`.
-- Assert:
-  - `queuedActions.isEmpty == true`
-  - `currentPlan` equals critique response plan
-  - `lastExplanation` set
-  - `changedSlots` contains expected `"dayIndex-mealType"` keys
-  - `critiqueText` cleared
-  - `shoppingList` refreshed for updated meal IDs
-  - `isSending == false`, `error == nil`
-
-9. `submitQueuedActions with empty queue is no-op`
-- Ensure no queued actions.
-- Call `submitQueuedActions()`.
-- Assert no sending/error/state mutation.
-
-10. `submitQueuedActions failure sets error and preserves queued actions`
-- Queue at least one action; configure critique API failure.
-- Call `submitQueuedActions()`.
-- Assert `error == "Failed to send critique"`, `isSending == false`, and queued actions are still present (clear happens only on success).
-
-11. `finalize success refetches session caches it and clears saved session id`
-- Seed active session and defaults key.
-- Configure finalize success + post-finalize session (`isFinalized == true`) returned by `getMealPlanSession`.
-- Assert:
-  - updated `session/currentPlan`
-  - `cacheService.cache(...)` invoked with finalized session
-  - `mockDefaults.string(forKey: "mealPlanSessionId") == nil`
-  - `error == nil`
-
-12. `finalize failure sets error and does not cache`
-- Seed active session and failing API.
-- Assert `error == "Failed to finalize meal plan"` and no cache write recorded.
-
-13. `finalize no-ops when session already finalized`
-- Seed finalized session.
-- Assert no cache writes/API side effects and state remains unchanged.
+4. `TextToSpeechViewModelTests`
+- `canPlay false for blank text or non-idle state`.
+- `generateAndPlay no-ops when canPlay is false`.
+- `generateAndPlay success transitions to playing and clears error`.
+- `synthesize failure sets error and returns to idle`.
+- `audio engine stop resets state to idle`.
 
 ## QA
-1. Run focused BradOSCore suite:
-- `cd ios/BradOS/BradOSCore && swift test --filter MealPlanViewModelTests`
+Exercise both automation and runtime behavior after implementation.
 
-2. Run full BradOSCore tests:
-- `cd ios/BradOS/BradOSCore && swift test`
+1. Regenerate project and verify target wiring:
+- `cd ios/BradOS && xcodegen generate`
+- `xcodebuild -project BradOS.xcodeproj -list`
+- Confirm `Targets` includes `BradOSTests` and `BradOS` scheme has a `TestAction` testable.
 
-3. Run iOS build gate so SwiftLint plugin executes:
-- `cd ios/BradOS && xcodegen generate && cd ../..`
+2. Run new app-layer unit tests only:
+- `xcodebuild -project ios/BradOS/BradOS.xcodeproj -scheme BradOS -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath ~/.cache/brad-os-derived-data -skipPackagePluginValidation -only-testing:BradOSTests test`
+
+3. Run full iOS build gate (SwiftLint plugin + compile safety):
 - `xcodebuild -project ios/BradOS/BradOS.xcodeproj -scheme BradOS -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -derivedDataPath ~/.cache/brad-os-derived-data -skipPackagePluginValidation build`
 
-4. Manual functional smoke check in simulator (end-to-end behavior that tests are protecting):
-- Open Meal Plan tab, generate a plan, queue one swap and one remove, submit queued actions, then finalize.
-- Confirm shopping list updates after generate and after critique.
-- Relaunch/open Meal Plan again to verify finalized session still loads cleanly.
+4. Manual smoke check in simulator (ensures DI defaults preserved):
+- Launch app and quickly touch flows using app-only ViewModels:
+  - Cycling tab opens and renders current block/history cards.
+  - Lifting -> Exercise History opens and loads chart/list.
+  - Profile -> Weight Goal opens and chart/prediction renders.
+  - Profile -> Text to Speech can start/stop without regression.
 
 ## Conventions
-- Follow Swift Testing style already used in BradOSCore tests (`Testing`, `@Suite`, `@Test`, `#expect`) per existing view-model suites in `ios/BradOS/BradOSCore/Tests/BradOSCoreTests/ViewModels/`.
-- Respect testing policy in `docs/conventions/testing.md`:
-  - no skipped/focused tests
-  - meaningful assertions in every test
-  - explicit failure-path coverage
-- Keep iOS Swift changes SwiftLint-clean per `docs/conventions/ios-swift.md` (no `swiftlint:disable`).
-- Keep implementation aligned with meal-planning architecture flow in `docs/architecture/meal-planning.md` (View -> ViewModel -> APIClient -> session operations).
-- Keep test scope isolated and deterministic (per-test mocks/doubles; no shared mutable globals).
+Apply these project conventions while implementing.
+
+1. Xcode project source of truth is `ios/BradOS/project.yml` (from `docs/conventions/ios-swift.md`).
+- Do not hand-edit Xcode settings first; edit YAML then regenerate with XcodeGen.
+
+2. SwiftLint rules are all errors (no inline suppressions).
+- Keep test and production files SwiftLint-clean; never add `swiftlint:disable` comments.
+
+3. Testing rules (`docs/conventions/testing.md`).
+- Use Swift Testing style already used in repo (`Testing`, `@Suite`, `@Test`, `#expect`).
+- No `.only`, no skipped tests, and every test must assert meaningful behavior.
+
+4. Architecture/golden principles.
+- Keep app HTTP through shared `APIClient` by protocol abstraction + default conformance (no parallel networking stack).
+- Keep changes focused on testability seams; no UI/service layering regressions.

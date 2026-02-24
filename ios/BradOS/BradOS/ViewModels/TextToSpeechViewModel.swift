@@ -16,15 +16,19 @@ final class TextToSpeechViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     private let apiClient: APIClientProtocol
-    private let audioEngine = TTSAudioEngine()
+    private let audioEngine: any TTSAudioEngineProtocol
     private var cancellables = Set<AnyCancellable>()
 
     var canPlay: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && state == .idle }
 
-    init(apiClient: APIClientProtocol = APIClient.shared) {
+    init(
+        apiClient: APIClientProtocol = APIClient.shared,
+        audioEngine: any TTSAudioEngineProtocol = TTSAudioEngine()
+    ) {
         self.apiClient = apiClient
+        self.audioEngine = audioEngine
 
-        audioEngine.$isPlaying
+        audioEngine.isPlayingPublisher
             .receive(on: DispatchQueue.main)
             .sink { [weak self] playing in
                 guard let self = self else { return }

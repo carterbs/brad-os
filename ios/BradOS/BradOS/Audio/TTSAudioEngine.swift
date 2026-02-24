@@ -4,6 +4,7 @@ import Combine
 /// Plays MP3 audio data from TTS API responses
 final class TTSAudioEngine: ObservableObject {
     @Published var isPlaying: Bool = false
+    var isPlayingPublisher: AnyPublisher<Bool, Never> { $isPlaying.eraseToAnyPublisher() }
 
     private let audioSession = AudioSessionManager.shared
 
@@ -21,3 +22,5 @@ final class TTSAudioEngine: ObservableObject {
         isPlaying = false
     }
 }
+
+extension TTSAudioEngine: TTSAudioEngineProtocol {}

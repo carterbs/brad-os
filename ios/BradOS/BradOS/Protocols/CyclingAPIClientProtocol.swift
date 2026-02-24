@@ -3,7 +3,7 @@ import BradOSCore
 
 /// Protocol for cycling-specific API operations.
 /// Separate from APIClientProtocol because cycling types live in the app target, not BradOSCore.
-protocol CyclingAPIClientProtocol: APIClientProtocol {
+protocol CyclingAPIClientProtocol {
     // MARK: - Cycling Activities
 
     func getCyclingActivities(limit: Int?) async throws -> [CyclingActivityModel]

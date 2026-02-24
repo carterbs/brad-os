@@ -90,6 +90,15 @@ targets:
             CFBundleURLSchemes:
               - brados
 
+  BradOSTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: BradOSTests
+    dependencies:
+      - target: BradOS
+      - package: BradOSCore
+
   BradOSWidget:
     type: app-extension
     platform: iOS
@@ -153,10 +162,14 @@ schemes:
     build:
       targets:
         BradOS: all
+        BradOSTests: [test]
         BradOSWidget: all
         BradOSWatch: all
     run:
       config: Debug
+    test:
+      targets:
+        - name: BradOSTests
     profile:
       config: Release
     analyze:
