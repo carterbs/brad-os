@@ -1,396 +1,571 @@
-# Test barcodes.ts and mealplan-debug.ts to Clear Meal Planning hasUntested Flag
+# Health Sync: Raise Test Coverage Above 50%
 
 ## Why
 
-The quality grading script (`scripts/update-quality-grades.ts`) detects `handlers/barcodes.ts` and `handlers/mealplan-debug.ts` as untested handler files in the Meal Planning domain. This sets `hasUntested = true`, which downgrades the base grade from A to B+ (offset by the assertion density bonus back to A currently, but fragile). Adding test files for both handlers clears the `hasUntested` flag, making the A grade structural rather than dependent on the density bonus.
+The health sync domain currently has ~25% test coverage, triggering a one-notch penalty in the quality grading system. The handler (`health-sync.ts`) has 12 endpoints but only 5 are tested; the service (`firestore-recovery.service.ts`) exports 16 public functions but only 10 are tested. The untested code follows the exact same patterns as the tested code (HRV/RHR/Sleep are structurally identical to weight), so adding tests is straightforward replication. Getting above 50% bumps the grade from C+ to B.
 
 ## What
 
-Add two handler test files following the established pattern in the codebase. Also add the supporting test utilities (mock repository factory and fixture) that `barcodes.test.ts` needs.
+Add tests for the 7 untested handler endpoints and 6 untested service functions. The existing weight/recovery tests serve as the template — HRV, RHR, and Sleep follow identical patterns.
 
-### 1. `barcodes.test.ts` — Full CRUD Handler Tests
+### Handler Tests to Add (in `health-sync.test.ts`)
 
-`barcodes.ts` uses `createResourceRouter()` which generates GET /, GET /:id, POST /, PUT /:id, DELETE /:id. The test follows the exact pattern of `meals.test.ts`:
-- Mock `firebase.js`, `middleware/app-check.js`, and `repositories/barcode.repository.js`
-- Use `createMockBarcodeRepository()` factory (to be added)
-- Use `createBarcode()` fixture (to be added)
-- Use `supertest` to exercise all 5 CRUD routes
-- Validate schema enforcement (barcode_type enum, hex color regex, label/value min/max length)
+**GET /recovery/history** (3 tests):
+- Returns array of snapshots with default days (7)
+- Returns array with explicit days param
+- Returns empty array when no history
 
-### 2. `mealplan-debug.test.ts` — Smoke Test for Debug UI
+**GET /baseline** (2 tests):
+- Returns baseline when it exists
+- Returns 404 when no baseline
 
-`mealplan-debug.ts` is a simple Express app serving static HTML on GET /. It does NOT use `stripPathPrefix`, `express.json()`, or App Check middleware. The test is minimal:
-- Import `mealplanDebugApp` directly (no firebase/app-check mocks needed)
-- Use `supertest` to hit GET /
-- Verify 200 status, HTML content-type, and that the response contains key HTML markers
+**POST /sync with baseline** (1 test):
+- Sync with baseline provided (covers the `baselineUpdated: true` branch)
+
+**POST /hrv/bulk** (4 tests):
+- Bulk sync HRV entries successfully
+- Reject empty entries array
+- Reject invalid date format
+- Reject out-of-range avgMs
+
+**GET /hrv** (3 tests):
+- Return HRV history when days param provided
+- Return latest HRV when no days param
+- Return 404 when no HRV data
+
+**POST /rhr/bulk** (4 tests):
+- Bulk sync RHR entries successfully
+- Reject empty entries array
+- Reject invalid date format
+- Reject out-of-range avgBpm
+
+**GET /rhr** (3 tests):
+- Return RHR history when days param provided
+- Return latest RHR when no days param
+- Return 404 when no RHR data
+
+**POST /sleep/bulk** (4 tests):
+- Bulk sync sleep entries successfully
+- Reject empty entries array
+- Reject invalid date format
+- Reject out-of-range totalSleepMinutes
+
+**GET /sleep** (3 tests):
+- Return sleep history when days param provided
+- Return latest sleep when no days param
+- Return 404 when no sleep data
+
+### Service Tests to Add (in `firestore-recovery.service.test.ts`)
+
+**addHRVEntries** (2 tests):
+- Batches writes correctly for multiple entries
+- Sets correct fields including default source 'healthkit'
+
+**getHRVHistory** (2 tests):
+- Returns HRV entries filtered by date cutoff
+- Returns empty array when no entries
+
+**addRHREntries** (2 tests):
+- Batches writes correctly for multiple entries
+- Sets correct fields including default source 'healthkit'
+
+**getRHRHistory** (2 tests):
+- Returns RHR entries filtered by date cutoff
+- Returns empty array when no entries
+
+**addSleepEntries** (2 tests):
+- Batches writes correctly for all 9 fields
+- Sets correct fields including default source 'healthkit'
+
+**getSleepHistory** (2 tests):
+- Returns sleep entries filtered by date cutoff
+- Returns empty array when no entries
 
 ## Files
 
-### New: `packages/functions/src/handlers/barcodes.test.ts`
+### Modified: `packages/functions/src/handlers/health-sync.test.ts`
+
+Currently 312 lines with 18 tests. Add ~27 new tests (bringing total to ~45 tests).
+
+**Step 1**: Expand the `mockRecoveryService` hoisted mock to include the missing function mocks:
 
 ```typescript
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import request from 'supertest';
-import type { Response } from 'supertest';
+const mockRecoveryService = vi.hoisted(() => ({
+  // ... existing mocks ...
+  addHRVEntries: vi.fn(),
+  getHRVHistory: vi.fn(),
+  addRHREntries: vi.fn(),
+  getRHRHistory: vi.fn(),
+  addSleepEntries: vi.fn(),
+  getSleepHistory: vi.fn(),
+}));
+```
+
+**Step 2**: Add test sections after the existing `GET /recovery` describe block. Each follows the existing pattern exactly — use `request(healthSyncApp)`, cast `response.body as ApiResponse<T>`, assert on `response.status`, `body.success`, `body.data`, and mock call verification.
+
+**GET /recovery/history section** — Add after line 311:
+
+```typescript
+describe('GET /recovery/history', () => {
+  it('should return recovery history with default days', async () => {
+    const history = [
+      { date: '2026-02-09', ...snapshotFields, syncedAt: '...' },
+      { date: '2026-02-08', ...snapshotFields, syncedAt: '...' },
+    ];
+    mockRecoveryService.getRecoveryHistory.mockResolvedValue(history);
+
+    const response = await request(healthSyncApp).get('/recovery/history');
+    const body = response.body as ApiResponse<unknown[]>;
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(Array.isArray(body.data)).toBe(true);
+    expect(mockRecoveryService.getRecoveryHistory).toHaveBeenCalledWith('default-user', 7);
+  });
+
+  it('should accept explicit days parameter', async () => {
+    mockRecoveryService.getRecoveryHistory.mockResolvedValue([]);
+
+    const response = await request(healthSyncApp).get('/recovery/history?days=30');
+    const body = response.body as ApiResponse<unknown[]>;
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(mockRecoveryService.getRecoveryHistory).toHaveBeenCalledWith('default-user', 30);
+  });
+
+  it('should clamp days to range 1-90', async () => {
+    mockRecoveryService.getRecoveryHistory.mockResolvedValue([]);
+
+    await request(healthSyncApp).get('/recovery/history?days=200');
+    expect(mockRecoveryService.getRecoveryHistory).toHaveBeenCalledWith('default-user', 90);
+  });
+});
+```
+
+**GET /baseline section**:
+
+```typescript
+describe('GET /baseline', () => {
+  it('should return baseline when it exists', async () => {
+    const baseline = { hrvMedian: 45, hrvStdDev: 8.2, rhrMedian: 54, calculatedAt: '...', sampleCount: 30 };
+    mockRecoveryService.getRecoveryBaseline.mockResolvedValue(baseline);
+
+    const response = await request(healthSyncApp).get('/baseline');
+    const body = response.body as ApiResponse;
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data).toEqual(baseline);
+  });
+
+  it('should return 404 when no baseline exists', async () => {
+    mockRecoveryService.getRecoveryBaseline.mockResolvedValue(null);
+
+    const response = await request(healthSyncApp).get('/baseline');
+    const body = response.body as ApiResponse;
+
+    expect(response.status).toBe(404);
+    expect(body.success).toBe(false);
+    expect(body.error?.code).toBe('NOT_FOUND');
+  });
+});
+```
+
+**POST /sync with baseline** — Add to existing `POST /sync` describe:
+
+```typescript
+it('should sync with baseline when provided', async () => {
+  mockRecoveryService.upsertRecoverySnapshot.mockResolvedValue(validRecovery);
+  mockRecoveryService.upsertRecoveryBaseline.mockResolvedValue({});
+
+  const response = await request(healthSyncApp).post('/sync').send({
+    recovery: validRecovery,
+    baseline: { hrvMedian: 45, hrvStdDev: 8.2, rhrMedian: 54, sampleCount: 30 },
+  });
+
+  const body = response.body as ApiResponse<{ baselineUpdated: boolean }>;
+  expect(response.status).toBe(200);
+  expect(body.data?.baselineUpdated).toBe(true);
+  expect(mockRecoveryService.upsertRecoveryBaseline).toHaveBeenCalled();
+});
+```
+
+**POST /hrv/bulk section** — follows POST /weight/bulk pattern exactly:
+
+```typescript
+describe('POST /hrv/bulk', () => {
+  it('should bulk sync HRV entries', async () => {
+    mockRecoveryService.addHRVEntries.mockResolvedValue(2);
+
+    const response = await request(healthSyncApp).post('/hrv/bulk').send({
+      entries: [
+        { date: '2026-02-07', avgMs: 42, minMs: 30, maxMs: 55, sampleCount: 12 },
+        { date: '2026-02-08', avgMs: 45, minMs: 32, maxMs: 58, sampleCount: 15 },
+      ],
+    });
+
+    const body = response.body as ApiResponse<{ added: number }>;
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data?.added).toBe(2);
+    expect(mockRecoveryService.addHRVEntries).toHaveBeenCalledWith('default-user', expect.any(Array));
+  });
+
+  it('should reject empty entries array', async () => {
+    const response = await request(healthSyncApp).post('/hrv/bulk').send({ entries: [] });
+    const body = response.body as ApiResponse;
+    expect(response.status).toBe(400);
+    expect(body.success).toBe(false);
+    expect(body.error?.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('should reject invalid date format', async () => {
+    const response = await request(healthSyncApp).post('/hrv/bulk').send({
+      entries: [{ date: '02/07/2026', avgMs: 42, minMs: 30, maxMs: 55, sampleCount: 12 }],
+    });
+    const body = response.body as ApiResponse;
+    expect(response.status).toBe(400);
+    expect(body.success).toBe(false);
+  });
+
+  it('should reject out-of-range avgMs', async () => {
+    const response = await request(healthSyncApp).post('/hrv/bulk').send({
+      entries: [{ date: '2026-02-07', avgMs: 500, minMs: 30, maxMs: 55, sampleCount: 12 }],
+    });
+    const body = response.body as ApiResponse;
+    expect(response.status).toBe(400);
+    expect(body.success).toBe(false);
+  });
+});
+```
+
+**GET /hrv section** — follows GET /weight pattern. Note: HRV GET uses `getHRVHistory(userId, 1)` for latest, not a separate `getLatestHRV` function.
+
+```typescript
+describe('GET /hrv', () => {
+  it('should return HRV history when days param provided', async () => {
+    mockRecoveryService.getHRVHistory.mockResolvedValue([
+      { id: '2026-02-09', date: '2026-02-09', avgMs: 42, minMs: 30, maxMs: 55, sampleCount: 12, source: 'healthkit', syncedAt: '...' },
+    ]);
+
+    const response = await request(healthSyncApp).get('/hrv?days=7');
+    const body = response.body as ApiResponse;
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(Array.isArray(body.data)).toBe(true);
+  });
+
+  it('should return latest HRV when no days param', async () => {
+    const entry = { id: '2026-02-09', date: '2026-02-09', avgMs: 42, minMs: 30, maxMs: 55, sampleCount: 12, source: 'healthkit', syncedAt: '...' };
+    mockRecoveryService.getHRVHistory.mockResolvedValue([entry]);
+
+    const response = await request(healthSyncApp).get('/hrv');
+    const body = response.body as ApiResponse;
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data).toEqual(entry);
+  });
+
+  it('should return 404 when no HRV data', async () => {
+    mockRecoveryService.getHRVHistory.mockResolvedValue([]);
+
+    const response = await request(healthSyncApp).get('/hrv');
+    const body = response.body as ApiResponse;
+    expect(response.status).toBe(404);
+    expect(body.success).toBe(false);
+    expect(body.error?.code).toBe('NOT_FOUND');
+  });
+});
+```
+
+**POST /rhr/bulk, GET /rhr, POST /sleep/bulk, GET /sleep** — identical pattern to HRV but with different field names:
+
+- **RHR** fields: `{ date, avgBpm, sampleCount }`, validation range avgBpm 30-200
+- **Sleep** fields: `{ date, totalSleepMinutes, inBedMinutes, coreMinutes, deepMinutes, remMinutes, awakeMinutes, sleepEfficiency }`, validation range 0-1440 for minutes, 0-110 for efficiency
+
+Each follows the exact same test structure as the HRV tests above.
+
+### Modified: `packages/functions/src/services/firestore-recovery.service.test.ts`
+
+Currently 381 lines with 20 tests. Add ~12 new tests (bringing total to ~32 tests).
+
+**Step 1**: Add the missing service function imports:
+
+```typescript
 import {
-  type ApiResponse,
-  createBarcode,
-  createMockBarcodeRepository,
-} from '../__tests__/utils/index.js';
+  // ... existing imports ...
+  addHRVEntries,
+  getHRVHistory,
+  addRHREntries,
+  getRHRHistory,
+  addSleepEntries,
+  getSleepHistory,
+} from './firestore-recovery.service.js';
+```
 
-// Mock firebase before importing the handler
-vi.mock('../firebase.js', () => ({
-  getFirestoreDb: vi.fn(),
-}));
+**Step 2**: Add sample data constants for HRV, RHR, Sleep (after existing `sampleWeight`):
 
-// Mock app-check middleware
-vi.mock('../middleware/app-check.js', () => ({
-  requireAppCheck: (_req: unknown, _res: unknown, next: () => void): void => next(),
-}));
+```typescript
+const sampleHRV = {
+  date: '2026-02-09',
+  avgMs: 42,
+  minMs: 30,
+  maxMs: 55,
+  sampleCount: 12,
+  source: 'healthkit' as const,
+  syncedAt: '2026-02-09T12:00:00.000Z',
+};
 
-// Mock the repository
-const mockBarcodeRepo = createMockBarcodeRepository();
+const sampleRHR = {
+  date: '2026-02-09',
+  avgBpm: 52,
+  sampleCount: 24,
+  source: 'healthkit' as const,
+  syncedAt: '2026-02-09T12:00:00.000Z',
+};
 
-vi.mock('../repositories/barcode.repository.js', () => ({
-  BarcodeRepository: vi.fn().mockImplementation(() => mockBarcodeRepo),
-}));
+const sampleSleep = {
+  date: '2026-02-09',
+  totalSleepMinutes: 420,
+  inBedMinutes: 480,
+  coreMinutes: 180,
+  deepMinutes: 90,
+  remMinutes: 105,
+  awakeMinutes: 45,
+  sleepEfficiency: 87.5,
+  source: 'healthkit' as const,
+  syncedAt: '2026-02-09T12:00:00.000Z',
+};
+```
 
-// Import after mocks
-import { barcodesApp } from './barcodes.js';
+**Step 3**: Add test sections after the existing `getLatestWeight` describe block. Each follows the existing batch-write and query-read patterns.
 
-describe('Barcodes Handler', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+**HRV History section** — follows addWeightEntries/getWeightHistory pattern:
+
+```typescript
+describe('addHRVEntries', () => {
+  it('batches writes correctly for multiple entries', async () => {
+    mockBatchCommit.mockResolvedValueOnce(undefined);
+
+    const entries = [
+      { date: '2026-02-07', avgMs: 40, minMs: 28, maxMs: 52, sampleCount: 10 },
+      { date: '2026-02-08', avgMs: 42, minMs: 30, maxMs: 55, sampleCount: 12 },
+    ];
+
+    const result = await addHRVEntries(userId, entries);
+
+    expect(result).toBe(2);
+    expect(mockBatchSet).toHaveBeenCalledTimes(2);
+    expect(mockBatchCommit).toHaveBeenCalledTimes(1);
+    expect(mockBatchSet).toHaveBeenCalledWith(
+      mockDocRef,
+      expect.objectContaining({ date: '2026-02-07', avgMs: 40, source: 'healthkit' }),
+    );
   });
 
-  describe('GET /barcodes', () => {
-    it('should return all barcodes', async () => {
-      const barcodes = [
-        createBarcode({ id: '1', label: 'Costco', sort_order: 0 }),
-        createBarcode({ id: '2', label: 'Gym', sort_order: 1 }),
-      ];
-      mockBarcodeRepo.findAll.mockResolvedValue(barcodes);
+  it('defaults source to healthkit when not provided', async () => {
+    mockBatchCommit.mockResolvedValueOnce(undefined);
 
-      const response = await request(barcodesApp).get('/');
+    await addHRVEntries(userId, [
+      { date: '2026-02-09', avgMs: 42, minMs: 30, maxMs: 55, sampleCount: 12 },
+    ]);
 
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ success: true, data: barcodes });
-      expect(mockBarcodeRepo.findAll).toHaveBeenCalledTimes(1);
-    });
+    expect(mockBatchSet).toHaveBeenCalledWith(
+      mockDocRef,
+      expect.objectContaining({ source: 'healthkit' }),
+    );
+  });
+});
 
-    it('should return empty array when no barcodes exist', async () => {
-      mockBarcodeRepo.findAll.mockResolvedValue([]);
+describe('getHRVHistory', () => {
+  it('returns HRV entries filtered by date cutoff', async () => {
+    mockGet.mockResolvedValueOnce(
+      queryResult([
+        { id: '2026-02-09', data: () => ({ ...sampleHRV }) },
+      ]),
+    );
 
-      const response = await request(barcodesApp).get('/');
+    const result = await getHRVHistory(userId, 7);
 
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ success: true, data: [] });
-    });
+    expect(result).toHaveLength(1);
+    expect(result[0]?.avgMs).toBe(42);
+    expect(mockWhere).toHaveBeenCalledWith('date', '>=', expect.any(String));
+    expect(mockOrderBy).toHaveBeenCalledWith('date', 'desc');
   });
 
-  describe('GET /barcodes/:id', () => {
-    it('should return barcode by id', async () => {
-      const barcode = createBarcode({ id: 'bc-123' });
-      mockBarcodeRepo.findById.mockResolvedValue(barcode);
+  it('returns empty array when no entries exist', async () => {
+    mockGet.mockResolvedValueOnce(queryResult([]));
 
-      const response = await request(barcodesApp).get('/bc-123');
+    const result = await getHRVHistory(userId, 7);
 
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ success: true, data: barcode });
-      expect(mockBarcodeRepo.findById).toHaveBeenCalledWith('bc-123');
-    });
-
-    it('should return 404 when barcode not found', async () => {
-      mockBarcodeRepo.findById.mockResolvedValue(null);
-
-      const response = await request(barcodesApp).get('/non-existent');
-
-      expect(response.status).toBe(404);
-      expect(response.body).toEqual({
-        success: false,
-        error: { code: 'NOT_FOUND', message: 'Barcode with id non-existent not found' },
-      });
-    });
-  });
-
-  describe('POST /barcodes', () => {
-    it('should create barcode with valid data', async () => {
-      const created = createBarcode({
-        id: 'new-bc',
-        label: 'Costco',
-        value: '12345678',
-        barcode_type: 'code128',
-        color: '#FF5733',
-        sort_order: 0,
-      });
-      mockBarcodeRepo.create.mockResolvedValue(created);
-
-      const response = await request(barcodesApp).post('/').send({
-        label: 'Costco',
-        value: '12345678',
-        barcode_type: 'code128',
-        color: '#FF5733',
-        sort_order: 0,
-      });
-
-      expect(response.status).toBe(201);
-      expect(response.body).toEqual({ success: true, data: created });
-      expect(mockBarcodeRepo.create).toHaveBeenCalledWith({
-        label: 'Costco',
-        value: '12345678',
-        barcode_type: 'code128',
-        color: '#FF5733',
-        sort_order: 0,
-      });
-    });
-
-    it('should return 400 for invalid barcode_type', async () => {
-      const response: Response = await request(barcodesApp).post('/').send({
-        label: 'Test',
-        value: '123',
-        barcode_type: 'invalid',
-        color: '#FF5733',
-      });
-      const body = response.body as ApiResponse;
-
-      expect(response.status).toBe(400);
-      expect(body.success).toBe(false);
-      expect(body.error?.code).toBe('VALIDATION_ERROR');
-    });
-
-    it('should return 400 for invalid hex color', async () => {
-      const response: Response = await request(barcodesApp).post('/').send({
-        label: 'Test',
-        value: '123',
-        barcode_type: 'qr',
-        color: 'not-a-hex',
-      });
-      const body = response.body as ApiResponse;
-
-      expect(response.status).toBe(400);
-      expect(body.success).toBe(false);
-      expect(body.error?.code).toBe('VALIDATION_ERROR');
-    });
-
-    it('should return 400 for missing label', async () => {
-      const response: Response = await request(barcodesApp).post('/').send({
-        value: '123',
-        barcode_type: 'qr',
-        color: '#FF5733',
-      });
-      const body = response.body as ApiResponse;
-
-      expect(response.status).toBe(400);
-      expect(body.success).toBe(false);
-      expect(body.error?.code).toBe('VALIDATION_ERROR');
-    });
-
-    it('should return 400 for empty label', async () => {
-      const response: Response = await request(barcodesApp).post('/').send({
-        label: '',
-        value: '123',
-        barcode_type: 'qr',
-        color: '#FF5733',
-      });
-      const body = response.body as ApiResponse;
-
-      expect(response.status).toBe(400);
-      expect(body.success).toBe(false);
-      expect(body.error?.code).toBe('VALIDATION_ERROR');
-    });
-
-    it('should return 400 for negative sort_order', async () => {
-      const response: Response = await request(barcodesApp).post('/').send({
-        label: 'Test',
-        value: '123',
-        barcode_type: 'qr',
-        color: '#FF5733',
-        sort_order: -1,
-      });
-      const body = response.body as ApiResponse;
-
-      expect(response.status).toBe(400);
-      expect(body.success).toBe(false);
-      expect(body.error?.code).toBe('VALIDATION_ERROR');
-    });
-  });
-
-  describe('PUT /barcodes/:id', () => {
-    it('should update barcode with valid data', async () => {
-      const updated = createBarcode({ id: 'bc-123', label: 'Updated' });
-      mockBarcodeRepo.update.mockResolvedValue(updated);
-
-      const response = await request(barcodesApp).put('/bc-123').send({ label: 'Updated' });
-
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ success: true, data: updated });
-      expect(mockBarcodeRepo.update).toHaveBeenCalledWith('bc-123', { label: 'Updated' });
-    });
-
-    it('should return 404 when barcode not found', async () => {
-      mockBarcodeRepo.update.mockResolvedValue(null);
-
-      const response = await request(barcodesApp).put('/non-existent').send({ label: 'Updated' });
-
-      expect(response.status).toBe(404);
-      expect(response.body).toEqual({
-        success: false,
-        error: { code: 'NOT_FOUND', message: 'Barcode with id non-existent not found' },
-      });
-    });
-
-    it('should return 400 for invalid hex color in update', async () => {
-      const response: Response = await request(barcodesApp).put('/bc-123').send({ color: 'bad' });
-      const body = response.body as ApiResponse;
-
-      expect(response.status).toBe(400);
-      expect(body.success).toBe(false);
-      expect(body.error?.code).toBe('VALIDATION_ERROR');
-    });
-  });
-
-  describe('DELETE /barcodes/:id', () => {
-    it('should delete barcode successfully', async () => {
-      mockBarcodeRepo.delete.mockResolvedValue(true);
-
-      const response = await request(barcodesApp).delete('/bc-123');
-
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ success: true, data: { deleted: true } });
-      expect(mockBarcodeRepo.delete).toHaveBeenCalledWith('bc-123');
-    });
-
-    it('should return 404 when barcode not found', async () => {
-      mockBarcodeRepo.delete.mockResolvedValue(false);
-
-      const response = await request(barcodesApp).delete('/non-existent');
-
-      expect(response.status).toBe(404);
-      expect(response.body).toEqual({
-        success: false,
-        error: { code: 'NOT_FOUND', message: 'Barcode with id non-existent not found' },
-      });
-    });
+    expect(result).toHaveLength(0);
   });
 });
 ```
 
-**Test count**: 15 test cases with ~45 `expect()` calls → density ~3.0x.
-
-### New: `packages/functions/src/handlers/mealplan-debug.test.ts`
+**RHR History section** — same pattern with RHR fields:
 
 ```typescript
-import { describe, it, expect } from 'vitest';
-import request from 'supertest';
-import { mealplanDebugApp } from './mealplan-debug.js';
+describe('addRHREntries', () => {
+  it('batches writes correctly for multiple entries', async () => {
+    mockBatchCommit.mockResolvedValueOnce(undefined);
 
-describe('Meal Plan Debug Handler', () => {
-  describe('GET /mealplan-debug', () => {
-    it('should serve the debug UI HTML page', async () => {
-      const response = await request(mealplanDebugApp).get('/');
+    const entries = [
+      { date: '2026-02-07', avgBpm: 52, sampleCount: 24 },
+      { date: '2026-02-08', avgBpm: 54, sampleCount: 20 },
+    ];
 
-      expect(response.status).toBe(200);
-      expect(response.type).toBe('text/html');
-      expect(response.text).toContain('Meal Plan Debug UI');
-    });
+    const result = await addRHREntries(userId, entries);
 
-    it('should include the generate, critique, and finalize controls', async () => {
-      const response = await request(mealplanDebugApp).get('/');
+    expect(result).toBe(2);
+    expect(mockBatchSet).toHaveBeenCalledTimes(2);
+    expect(mockBatchCommit).toHaveBeenCalledTimes(1);
+    expect(mockBatchSet).toHaveBeenCalledWith(
+      mockDocRef,
+      expect.objectContaining({ date: '2026-02-07', avgBpm: 52, source: 'healthkit' }),
+    );
+  });
 
-      expect(response.text).toContain('generatePlan()');
-      expect(response.text).toContain('sendCritique()');
-      expect(response.text).toContain('finalizePlan()');
-    });
+  it('defaults source to healthkit', async () => {
+    mockBatchCommit.mockResolvedValueOnce(undefined);
+    await addRHREntries(userId, [{ date: '2026-02-09', avgBpm: 52, sampleCount: 24 }]);
+    expect(mockBatchSet).toHaveBeenCalledWith(mockDocRef, expect.objectContaining({ source: 'healthkit' }));
+  });
+});
 
-    it('should include the plan table structure', async () => {
-      const response = await request(mealplanDebugApp).get('/');
+describe('getRHRHistory', () => {
+  it('returns RHR entries filtered by date cutoff', async () => {
+    mockGet.mockResolvedValueOnce(
+      queryResult([{ id: '2026-02-09', data: () => ({ ...sampleRHR }) }]),
+    );
 
-      expect(response.text).toContain('<th>Day</th>');
-      expect(response.text).toContain('<th>Breakfast</th>');
-      expect(response.text).toContain('<th>Lunch</th>');
-      expect(response.text).toContain('<th>Dinner</th>');
-    });
+    const result = await getRHRHistory(userId, 7);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.avgBpm).toBe(52);
+    expect(mockWhere).toHaveBeenCalledWith('date', '>=', expect.any(String));
+  });
+
+  it('returns empty array when no entries exist', async () => {
+    mockGet.mockResolvedValueOnce(queryResult([]));
+    const result = await getRHRHistory(userId, 7);
+    expect(result).toHaveLength(0);
   });
 });
 ```
 
-**Test count**: 3 test cases with ~10 `expect()` calls → density ~3.3x.
-
-**Note**: `mealplan-debug.ts` does NOT use Firebase, App Check, or `stripPathPrefix` — it's a standalone Express app with CORS and a single GET route. No mocks needed.
-
-### Modified: `packages/functions/src/__tests__/utils/mock-repository.ts`
-
-Add a `MockBarcodeRepository` interface and `createMockBarcodeRepository()` factory. The barcode repository only has the base CRUD methods (same pattern as `MockIngredientRepository`).
-
-Insert after the existing `MockIngredientRepository` section (around line 267):
+**Sleep History section** — same pattern with Sleep fields:
 
 ```typescript
-// ============ Barcode Repository Mock ============
+describe('addSleepEntries', () => {
+  it('batches writes correctly for all sleep fields', async () => {
+    mockBatchCommit.mockResolvedValueOnce(undefined);
 
-export interface MockBarcodeRepository extends MockBaseRepository {}
+    const entries = [{
+      date: '2026-02-09',
+      totalSleepMinutes: 420,
+      inBedMinutes: 480,
+      coreMinutes: 180,
+      deepMinutes: 90,
+      remMinutes: 105,
+      awakeMinutes: 45,
+      sleepEfficiency: 87.5,
+    }];
 
-export function createMockBarcodeRepository(): MockBarcodeRepository {
-  return {
-    create: vi.fn(),
-    findById: vi.fn(),
-    findAll: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-  };
-}
+    const result = await addSleepEntries(userId, entries);
+
+    expect(result).toBe(1);
+    expect(mockBatchSet).toHaveBeenCalledWith(
+      mockDocRef,
+      expect.objectContaining({
+        date: '2026-02-09',
+        totalSleepMinutes: 420,
+        deepMinutes: 90,
+        sleepEfficiency: 87.5,
+        source: 'healthkit',
+      }),
+    );
+  });
+
+  it('defaults source to healthkit', async () => {
+    mockBatchCommit.mockResolvedValueOnce(undefined);
+    await addSleepEntries(userId, [{
+      date: '2026-02-09', totalSleepMinutes: 420, inBedMinutes: 480,
+      coreMinutes: 180, deepMinutes: 90, remMinutes: 105,
+      awakeMinutes: 45, sleepEfficiency: 87.5,
+    }]);
+    expect(mockBatchSet).toHaveBeenCalledWith(mockDocRef, expect.objectContaining({ source: 'healthkit' }));
+  });
+});
+
+describe('getSleepHistory', () => {
+  it('returns sleep entries filtered by date cutoff', async () => {
+    mockGet.mockResolvedValueOnce(
+      queryResult([{ id: '2026-02-09', data: () => ({ ...sampleSleep }) }]),
+    );
+
+    const result = await getSleepHistory(userId, 7);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.totalSleepMinutes).toBe(420);
+    expect(result[0]?.sleepEfficiency).toBe(87.5);
+    expect(mockWhere).toHaveBeenCalledWith('date', '>=', expect.any(String));
+  });
+
+  it('returns empty array when no entries exist', async () => {
+    mockGet.mockResolvedValueOnce(queryResult([]));
+    const result = await getSleepHistory(userId, 7);
+    expect(result).toHaveLength(0);
+  });
+});
 ```
-
-Also add to the `MockRepositories` interface and `createMockRepositories()` function:
-- Add `barcodeRepository: MockBarcodeRepository;` to the interface
-- Add `barcodeRepository: createMockBarcodeRepository(),` to the factory
-
-### Modified: `packages/functions/src/__tests__/utils/fixtures.ts`
-
-Add a `createBarcode()` fixture factory. Insert after the `createIngredient()` function (around line 262), before the `createMealPlanEntry()` function:
-
-```typescript
-// ============ Barcode Fixtures ============
-
-export function createBarcode(overrides?: Partial<Barcode>): Barcode {
-  return {
-    id: generateId('barcode'),
-    label: 'Costco Membership',
-    value: '123456789012',
-    barcode_type: 'code128',
-    color: '#3B82F6',
-    sort_order: 0,
-    ...createTimestamps(),
-    ...overrides,
-  };
-}
-```
-
-Also add `Barcode` to the import from `'../../shared.js'` at the top of the file.
 
 ## Tests
 
 | # | File | Test Case | What It Verifies |
 |---|------|-----------|-----------------|
-| 1 | barcodes.test.ts | GET / returns all barcodes | findAll called, 200 response with data array |
-| 2 | barcodes.test.ts | GET / returns empty array | Empty state handled correctly |
-| 3 | barcodes.test.ts | GET /:id returns barcode | findById called with correct id, 200 response |
-| 4 | barcodes.test.ts | GET /:id returns 404 | NotFoundError with displayName "Barcode" |
-| 5 | barcodes.test.ts | POST / creates with valid data | 201 response, create called with body |
-| 6 | barcodes.test.ts | POST / rejects invalid barcode_type | Zod enum validation ('code128', 'code39', 'qr') |
-| 7 | barcodes.test.ts | POST / rejects invalid hex color | Zod regex validation (`/^#[0-9A-Fa-f]{6}$/`) |
-| 8 | barcodes.test.ts | POST / rejects missing label | Zod required field validation |
-| 9 | barcodes.test.ts | POST / rejects empty label | Zod `.min(1)` validation |
-| 10 | barcodes.test.ts | POST / rejects negative sort_order | Zod `.nonnegative()` validation |
-| 11 | barcodes.test.ts | PUT /:id updates successfully | 200 response, update called with id and body |
-| 12 | barcodes.test.ts | PUT /:id returns 404 | NotFoundError when update returns null |
-| 13 | barcodes.test.ts | PUT /:id rejects invalid color | Update schema validates optional fields |
-| 14 | barcodes.test.ts | DELETE /:id deletes successfully | 200 with `{ deleted: true }` |
-| 15 | barcodes.test.ts | DELETE /:id returns 404 | NotFoundError when delete returns false |
-| 16 | mealplan-debug.test.ts | GET / serves HTML | 200 status, text/html content type, page title |
-| 17 | mealplan-debug.test.ts | GET / includes controls | Generate, critique, finalize JavaScript functions present |
-| 18 | mealplan-debug.test.ts | GET / includes table structure | Day/Breakfast/Lunch/Dinner headers present |
+| 1 | health-sync.test.ts | GET /recovery/history returns history with default days | Default days=7 passed to service, 200 with array |
+| 2 | health-sync.test.ts | GET /recovery/history accepts explicit days | Custom days param forwarded correctly |
+| 3 | health-sync.test.ts | GET /recovery/history clamps days to 1-90 | days=200 clamped to 90 |
+| 4 | health-sync.test.ts | GET /baseline returns when exists | 200 with baseline data |
+| 5 | health-sync.test.ts | GET /baseline returns 404 when missing | 404 NOT_FOUND response |
+| 6 | health-sync.test.ts | POST /sync with baseline | baselineUpdated=true, upsertRecoveryBaseline called |
+| 7 | health-sync.test.ts | POST /hrv/bulk syncs entries | 200, correct count, addHRVEntries called |
+| 8 | health-sync.test.ts | POST /hrv/bulk rejects empty array | 400 VALIDATION_ERROR |
+| 9 | health-sync.test.ts | POST /hrv/bulk rejects invalid date | 400 validation |
+| 10 | health-sync.test.ts | POST /hrv/bulk rejects out-of-range avgMs | 400 validation (>300) |
+| 11 | health-sync.test.ts | GET /hrv returns history with days | 200 array response |
+| 12 | health-sync.test.ts | GET /hrv returns latest when no days | 200 single object |
+| 13 | health-sync.test.ts | GET /hrv returns 404 when empty | 404 NOT_FOUND |
+| 14 | health-sync.test.ts | POST /rhr/bulk syncs entries | 200, correct count |
+| 15 | health-sync.test.ts | POST /rhr/bulk rejects empty array | 400 VALIDATION_ERROR |
+| 16 | health-sync.test.ts | POST /rhr/bulk rejects invalid date | 400 validation |
+| 17 | health-sync.test.ts | POST /rhr/bulk rejects out-of-range avgBpm | 400 validation (>200) |
+| 18 | health-sync.test.ts | GET /rhr returns history with days | 200 array response |
+| 19 | health-sync.test.ts | GET /rhr returns latest when no days | 200 single object |
+| 20 | health-sync.test.ts | GET /rhr returns 404 when empty | 404 NOT_FOUND |
+| 21 | health-sync.test.ts | POST /sleep/bulk syncs entries | 200, correct count |
+| 22 | health-sync.test.ts | POST /sleep/bulk rejects empty array | 400 VALIDATION_ERROR |
+| 23 | health-sync.test.ts | POST /sleep/bulk rejects invalid date | 400 validation |
+| 24 | health-sync.test.ts | POST /sleep/bulk rejects out-of-range minutes | 400 validation (>1440) |
+| 25 | health-sync.test.ts | GET /sleep returns history with days | 200 array response |
+| 26 | health-sync.test.ts | GET /sleep returns latest when no days | 200 single object |
+| 27 | health-sync.test.ts | GET /sleep returns 404 when empty | 404 NOT_FOUND |
+| 28 | firestore-recovery.service.test.ts | addHRVEntries batches writes | batch.set called per entry, commit once |
+| 29 | firestore-recovery.service.test.ts | addHRVEntries defaults source | source: 'healthkit' in batch.set |
+| 30 | firestore-recovery.service.test.ts | getHRVHistory returns entries | where('date', '>=', cutoff) + orderBy |
+| 31 | firestore-recovery.service.test.ts | getHRVHistory returns empty | Empty query result → empty array |
+| 32 | firestore-recovery.service.test.ts | addRHREntries batches writes | batch.set with avgBpm, sampleCount |
+| 33 | firestore-recovery.service.test.ts | addRHREntries defaults source | source: 'healthkit' |
+| 34 | firestore-recovery.service.test.ts | getRHRHistory returns entries | where + orderBy with date cutoff |
+| 35 | firestore-recovery.service.test.ts | getRHRHistory returns empty | Empty → [] |
+| 36 | firestore-recovery.service.test.ts | addSleepEntries batches all 9 fields | All sleep fields in batch.set |
+| 37 | firestore-recovery.service.test.ts | addSleepEntries defaults source | source: 'healthkit' |
+| 38 | firestore-recovery.service.test.ts | getSleepHistory returns entries | where + orderBy, all fields mapped |
+| 39 | firestore-recovery.service.test.ts | getSleepHistory returns empty | Empty → [] |
 
-**Total**: 18 test cases, ~55 `expect()` calls. Density ~3.1x (well above the 2.0 threshold).
+**Totals**: 27 new handler tests + 12 new service tests = 39 new tests. Combined with existing 45 tests = 84 total. Every endpoint and service function will have at least basic coverage.
 
 ## QA
 
@@ -400,47 +575,47 @@ Also add `Barcode` to the import from `'../../shared.js'` at the top of the file
 npm run validate
 ```
 
-Expected: All checks pass — typecheck, lint, test, architecture. The new test files should be discovered by vitest and included in the test run. Check `.validate/test.log` to confirm both new test files appear.
+Expected: All checks pass — typecheck, lint, test, architecture. Inspect `.validate/test.log` to confirm:
+- health-sync.test.ts shows ~45 passing tests (up from 18)
+- firestore-recovery.service.test.ts shows ~32 passing tests (up from 20)
 
-### Step 2: Verify untested file detection is cleared
+### Step 2: Verify coverage improvement
 
-Run the grade script:
+```bash
+npx vitest run --config vitest.coverage.config.ts --coverage
+```
+
+Inspect the text coverage report. The health-sync handler and firestore-recovery service should both show >50% line coverage. Key files to check:
+- `src/handlers/health-sync.ts` — should cover all 12 endpoint handlers
+- `src/services/firestore-recovery.service.ts` — should cover all 16 exported functions
+
+### Step 3: Run the quality grading script
 
 ```bash
 npx tsx scripts/update-quality-grades.ts
 ```
 
-Then inspect `docs/quality-grades.md`:
-- The "Untested Files" table should NO LONGER list `handlers/barcodes.ts` or `handlers/mealplan-debug.ts`
-- Only `services/lifting-context.service.ts` should remain in the untested table
-- The Meal Planning row should still show grade **A** and the notes should no longer mention "2 untested file(s)"
-- Backend test count for Meal Planning should increase from 12 to 14
+Inspect `docs/quality-grades.md`:
+- The Health domain should no longer have the "low coverage" penalty
+- The grade should improve from C+ to at least B
 
-### Step 3: Verify the test assertions are meaningful
+### Step 4: Verify every new test has meaningful assertions
 
-Run just the new test files to see their output:
+Grep for empty test bodies to ensure no placeholders:
 
 ```bash
-npx vitest run packages/functions/src/handlers/barcodes.test.ts packages/functions/src/handlers/mealplan-debug.test.ts --reporter=verbose
+# In the test files, every it() block should have expect()
+grep -c 'expect(' packages/functions/src/handlers/health-sync.test.ts
+grep -c 'expect(' packages/functions/src/services/firestore-recovery.service.test.ts
 ```
 
-Expected: All 18 tests pass. Each test should show a clear pass/fail, no skipped tests.
-
-### Step 4: Verify barcode schema validation edge cases
-
-In the test output, specifically confirm:
-- Invalid barcode_type `'invalid'` → 400 VALIDATION_ERROR
-- Non-hex color `'not-a-hex'` → 400 VALIDATION_ERROR
-- Empty label `''` → 400 VALIDATION_ERROR (min(1) enforces this)
-- Negative sort_order `-1` → 400 VALIDATION_ERROR (nonnegative() enforces this)
-
-These prove the Zod schemas from `barcode.schema.ts` are correctly wired through `createResourceRouter`.
+Both files should show significantly more expect() calls than test cases (density > 2.0).
 
 ### Step 5: Self-review
 
 ```bash
-git diff main --stat  # Should show 4 files: 2 new test files + 2 modified utility files
-git diff main         # Review every changed line
+git diff main --stat   # Should show exactly 2 modified test files
+git diff main          # Read every changed line
 ```
 
 Verify:
@@ -448,8 +623,8 @@ Verify:
 - All imports explicit (vitest, supertest, shared utils)
 - No `.only` or `.skip`
 - Every `it()` block has at least one `expect()`
-- Mock repository and fixture patterns match existing code exactly
-- `ApiResponse` imported from `../tests/utils/index.js` (not inline)
+- `ApiResponse` imported from `../__tests__/utils/index.js` (not inline)
+- Mock service function names match exactly what `health-sync.ts` calls
 
 ## Conventions
 
@@ -461,19 +636,23 @@ Verify:
 
 4. **No `any` types** — Use `ApiResponse` from shared test utilities for supertest response typing.
 
-5. **Handler test pattern** — Follow `meals.test.ts` exactly:
+5. **Handler test pattern** — Follow existing health-sync.test.ts structure:
+   - `vi.hoisted()` for mock service object (already done — extend it)
    - `vi.mock('../firebase.js')` and `vi.mock('../middleware/app-check.js')` before handler import
-   - Mock repository created at module level using factory from `__tests__/utils/`
-   - `vi.mock('../repositories/*.js')` with `vi.fn().mockImplementation(() => mockRepo)`
-   - Handler imported AFTER all `vi.mock()` calls (vitest hoisting requirement)
+   - `vi.mock('../services/firestore-recovery.service.js', () => mockRecoveryService)`
+   - Handler imported AFTER all `vi.mock()` calls
    - `beforeEach(() => vi.clearAllMocks())`
 
-6. **Shared test factories** (architecture check #16) — Use `createMockBarcodeRepository()` and `createBarcode()` from shared utils, not inline mocks.
+6. **Service test pattern** — Follow existing firestore-recovery.service.test.ts structure:
+   - Reuse the existing Firestore mock chain (`mockDb`, `mockCollectionRef`, `mockDocRef`, etc.)
+   - Reuse existing `beforeEach` re-wiring logic
+   - Reuse existing `docExists`, `docNotFound`, `queryResult` helpers
+   - Import service functions AFTER mocks
 
-7. **ApiResponse from shared utils** (architecture check #17) — Import `ApiResponse` from `../tests/utils/index.js`, never define inline.
+7. **Test quality** (architecture check #19) — Every `it()` block must contain `expect()` assertions. No empty test bodies.
 
-8. **Test quality** (architecture check #19) — Every `it()` block must contain `expect()` assertions. No empty test bodies.
+8. **No focused tests** (architecture check #18) — No `.only` or `.skip` modifiers.
 
-9. **No focused tests** (architecture check #18) — No `.only` or `.skip` modifiers.
+9. **ApiResponse from shared utils** (architecture check #17) — Import `ApiResponse` from `../__tests__/utils/index.js`, never define inline.
 
-10. **Fixture pattern** — `createBarcode()` follows the standard shape: generate ID with `generateId('barcode')`, provide sensible defaults, spread `createTimestamps()`, accept `Partial<Barcode>` overrides.
+10. **Validation first** — Run `npm run validate` before committing to ensure all checks pass.
