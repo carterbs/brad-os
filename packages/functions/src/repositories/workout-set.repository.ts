@@ -4,21 +4,10 @@ import type {
   CreateWorkoutSetDTO,
   UpdateWorkoutSetDTO,
   WorkoutSetStatus,
+  CompletedSetRow,
 } from '../shared.js';
 import { BaseRepository } from './base.repository.js';
 import { getCollectionName } from '../firebase.js';
-
-export interface CompletedSetRow {
-  workout_id: string;
-  exercise_id: string;
-  set_number: number;
-  actual_weight: number;
-  actual_reps: number;
-  scheduled_date: string;
-  completed_at: string | null;
-  week_number: number;
-  mesocycle_id: string;
-}
 
 export class WorkoutSetRepository extends BaseRepository<
   WorkoutSet,

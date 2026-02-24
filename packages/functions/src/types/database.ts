@@ -162,6 +162,35 @@ export interface PlanDayExerciseWithDetails extends PlanDayExercise {
   weight_increment: number;
 }
 
+// ============ Extended Workout Types ============
+
+/**
+ * Extended workout type with all sets grouped by exercise
+ */
+export interface WorkoutWithExercises extends Workout {
+  plan_day_name: string;
+  exercises: WorkoutExerciseWithSets[];
+}
+
+export interface WorkoutExerciseWithSets extends WorkoutExercise {
+  rest_seconds: number;
+}
+
+/**
+ * A completed set row with workout context for exercise history.
+ */
+export interface CompletedSetRow {
+  workout_id: string;
+  exercise_id: string;
+  set_number: number;
+  actual_weight: number;
+  actual_reps: number;
+  scheduled_date: string;
+  completed_at: string | null;
+  week_number: number;
+  mesocycle_id: string;
+}
+
 // ============ Set Modification Types ============
 
 export interface ModifySetCountResult {

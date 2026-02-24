@@ -47,3 +47,8 @@ export interface CritiqueResponse {
   explanation: string;
   operations: CritiqueOperation[];
 }
+
+export interface ApplyOperationsResult {
+  updatedPlan: MealPlanEntry[];
+  errors: string[];
+}

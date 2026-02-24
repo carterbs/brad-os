@@ -1,10 +1,5 @@
-import type { MealPlanEntry, CritiqueOperation } from '../shared.js';
+import type { MealPlanEntry, CritiqueOperation, ApplyOperationsResult } from '../shared.js';
 import type { Meal, MealType } from '../shared.js';
-
-export interface ApplyOperationsResult {
-  updatedPlan: MealPlanEntry[];
-  errors: string[];
-}
 
 const VALID_MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner'];
 const MAX_PREP_AHEAD_MEALS = 3;

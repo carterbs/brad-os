@@ -19,11 +19,11 @@ export { CalendarService } from './calendar.service.js';
 export type {
   WorkoutWithExercises,
   WorkoutExerciseWithSets,
-} from './workout.service.js';
+} from '../shared.js';
 export type {
   DynamicProgressionResult,
   ProgressionReason,
-} from './dynamic-progression.service.js';
+} from '../shared.js';
 
 // Singleton instances for use with the default database
 let mesocycleService: MesocycleService | null = null;

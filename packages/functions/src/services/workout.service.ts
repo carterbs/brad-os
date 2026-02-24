@@ -2,10 +2,12 @@ import type { Firestore } from 'firebase-admin/firestore';
 import type {
   Workout,
   WorkoutSet,
-  WorkoutExercise,
   WarmupSet,
   ExerciseProgression,
   PreviousWeekPerformance,
+  DynamicProgressionResult,
+  WorkoutWithExercises,
+  WorkoutExerciseWithSets,
 } from '../shared.js';
 import { NotFoundError, ValidationError } from '../types/errors.js';
 import {
@@ -15,22 +17,7 @@ import {
   PlanDayExerciseRepository,
   ExerciseRepository,
 } from '../repositories/index.js';
-import {
-  DynamicProgressionService,
-  type DynamicProgressionResult,
-} from './dynamic-progression.service.js';
-
-/**
- * Extended workout type with all sets grouped by exercise
- */
-export interface WorkoutWithExercises extends Workout {
-  plan_day_name: string;
-  exercises: WorkoutExerciseWithSets[];
-}
-
-export interface WorkoutExerciseWithSets extends WorkoutExercise {
-  rest_seconds: number;
-}
+import { DynamicProgressionService } from './dynamic-progression.service.js';
 
 export class WorkoutService {
   private workoutRepo: WorkoutRepository;

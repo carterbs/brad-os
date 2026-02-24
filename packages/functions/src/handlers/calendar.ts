@@ -1,4 +1,5 @@
 import { type Request, type Response } from 'express';
+import { error as logError } from 'firebase-functions/logger';
 import {
   createSuccessResponse,
   createErrorResponse,
@@ -89,7 +90,7 @@ app.get('/:year/:month', asyncHandler(async (req: Request, res: Response): Promi
     const data: CalendarDataResponse = await service.getMonthData(year, month, timezoneOffset);
     res.json(createSuccessResponse(data));
   } catch (error) {
-    console.error('Failed to get calendar data:', error);
+    logError('Failed to get calendar data:', error);
     res.status(500).json(
       createErrorResponse('INTERNAL_ERROR', 'Failed to get calendar data')
     );

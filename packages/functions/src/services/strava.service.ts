@@ -9,35 +9,19 @@
 
 import type {
   StravaTokens,
+  StravaActivity,
+  ActivityStreams,
   CyclingActivity,
   CyclingActivityType,
 } from '../shared.js';
+// Re-export types so namespace imports (import * as stravaService) can access them
+export type { StravaActivity, ActivityStreams, StravaStream } from '../shared.js';
 import { calculateEF } from './efficiency-factor.service.js';
 import { info, warn, error as logError } from 'firebase-functions/logger';
 
 const STRAVA_API_BASE = 'https://www.strava.com/api/v3';
 const STRAVA_OAUTH_URL = 'https://www.strava.com/oauth/token';
 const TAG = '[Strava API]';
-
-/**
- * Raw activity data from the Strava API.
- */
-export interface StravaActivity {
-  id: number;
-  type: string;
-  moving_time: number;
-  elapsed_time: number;
-  average_heartrate?: number;
-  max_heartrate?: number;
-  average_watts?: number;
-  weighted_average_watts?: number;
-  max_watts?: number;
-  device_watts?: boolean;
-  kilojoules?: number;
-  start_date: string;
-  name?: string;
-  distance?: number;
-}
 
 /**
  * Error thrown when Strava API calls fail.
@@ -365,26 +349,6 @@ export function areTokensExpired(tokens: StravaTokens): boolean {
 }
 
 // --- Strava Streams ---
-
-/**
- * A single data stream from the Strava Streams API.
- */
-export interface StravaStream {
-  data: number[];
-  series_type: string;
-  original_size: number;
-  resolution: string;
-}
-
-/**
- * Combined activity streams from Strava.
- */
-export interface ActivityStreams {
-  watts?: StravaStream;
-  heartrate?: StravaStream;
-  time?: StravaStream;
-  cadence?: StravaStream;
-}
 
 /**
  * Fetch time-series streams for a Strava activity.

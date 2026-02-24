@@ -1,10 +1,11 @@
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
+import { info, error as logError } from 'firebase-functions/logger';
 import { getAppCheck } from 'firebase-admin/app-check';
 import type { ApiError } from '../shared.js';
 
 // Log once at startup if running in emulator mode
 if (process.env['FUNCTIONS_EMULATOR'] === 'true') {
-  console.log('⚠️  Running in emulator - App Check verification disabled');
+  info('Running in emulator - App Check verification disabled');
 }
 
 /**
@@ -43,7 +44,7 @@ export const requireAppCheck: RequestHandler = (
       next();
     })
     .catch((error: unknown) => {
-      console.error('App Check verification failed:', error);
+      logError('App Check verification failed:', error);
       const response: ApiError = {
         success: false,
         error: {
