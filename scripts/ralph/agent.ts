@@ -9,8 +9,12 @@ import type {
   PreToolUseHookInput,
   PostToolUseHookInput,
 } from "@anthropic-ai/claude-agent-sdk";
+import { spawn } from "node:child_process";
+import { readFileSync, unlinkSync, mkdtempSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { relative } from "node:path";
-import type { Config, StepName, StepResult } from "./types.js";
+import type { AgentBackend, Config, StepName, StepResult } from "./types.js";
 import type { Logger } from "./log.js";
 
 function summarizeToolInput(
@@ -50,12 +54,22 @@ export interface RunStepOptions {
   improvement: number;
   cwd: string;
   model: string;
+  backend: AgentBackend;
   config: Config;
   logger: Logger;
   abortController: AbortController;
 }
 
 export async function runStep(options: RunStepOptions): Promise<StepResult> {
+  switch (options.backend) {
+    case "claude":
+      return runStepClaude(options);
+    case "codex":
+      return runStepCodex(options);
+  }
+}
+
+async function runStepClaude(options: RunStepOptions): Promise<StepResult> {
   const { prompt, stepName, improvement, cwd, model, config, logger, abortController } =
     options;
   const startTime = Date.now();
@@ -64,6 +78,7 @@ export async function runStep(options: RunStepOptions): Promise<StepResult> {
     event: "step_start",
     improvement,
     step: stepName,
+    backend: "claude",
     ts: new Date().toISOString(),
   });
 
@@ -165,6 +180,7 @@ export async function runStep(options: RunStepOptions): Promise<StepResult> {
       logger.error(`Step ${stepName}: no result message received`);
       return {
         success: false,
+        backend: "claude",
         turns: 0,
         costUsd: 0,
         inputTokens: 0,
@@ -192,6 +208,7 @@ export async function runStep(options: RunStepOptions): Promise<StepResult> {
     logger.jsonl({
       event: "step_end",
       step: stepName,
+      backend: "claude",
       turns,
       cost_usd: costUsd,
       input_tokens: inputTokens,
@@ -202,6 +219,7 @@ export async function runStep(options: RunStepOptions): Promise<StepResult> {
 
     return {
       success: isSuccess,
+      backend: "claude",
       turns,
       costUsd,
       inputTokens,
@@ -220,6 +238,7 @@ export async function runStep(options: RunStepOptions): Promise<StepResult> {
     });
     return {
       success: false,
+      backend: "claude",
       turns: 0,
       costUsd: 0,
       inputTokens: 0,
@@ -228,4 +247,112 @@ export async function runStep(options: RunStepOptions): Promise<StepResult> {
       outputText: "",
     };
   }
+}
+
+async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
+  const { prompt, stepName, improvement, cwd, model, config, logger, abortController } =
+    options;
+  const startTime = Date.now();
+
+  logger.jsonl({
+    event: "step_start",
+    improvement,
+    step: stepName,
+    backend: "codex",
+    ts: new Date().toISOString(),
+  });
+
+  const tmpDir = mkdtempSync(join(tmpdir(), "ralph-codex-"));
+  const outputFile = join(tmpDir, "output.txt");
+
+  const args = [
+    "exec",
+    "--dangerously-bypass-approvals-and-sandbox",
+    "--model", model,
+    "-C", cwd,
+    "-o", outputFile,
+  ];
+
+  return new Promise<StepResult>((resolve) => {
+    const child = spawn("codex", args, {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let stderr = "";
+
+    // Pipe prompt via stdin to avoid ARG_MAX limits
+    child.stdin.write(prompt);
+    child.stdin.end();
+
+    child.stdout?.on("data", (data: Buffer) => {
+      if (config.verbose) {
+        const text = data.toString().trim();
+        if (text.length > 0) {
+          logger.verboseMsg(text.slice(0, 200));
+        }
+      }
+    });
+
+    child.stderr?.on("data", (data: Buffer) => {
+      stderr += data.toString();
+      if (config.verbose) {
+        const text = data.toString().trim();
+        if (text.length > 0) {
+          logger.verboseMsg(text.slice(0, 200));
+        }
+      }
+    });
+
+    // Wire abort signal to kill child process
+    const onAbort = (): void => {
+      child.kill("SIGTERM");
+    };
+    abortController.signal.addEventListener("abort", onAbort);
+
+    child.on("close", (code) => {
+      abortController.signal.removeEventListener("abort", onAbort);
+      const durationMs = Date.now() - startTime;
+      const success = code === 0;
+
+      let outputText = "";
+      try {
+        outputText = readFileSync(outputFile, "utf-8");
+      } catch {
+        // Output file may not exist if codex failed early
+      }
+
+      try {
+        unlinkSync(outputFile);
+      } catch { /* ignore */ }
+
+      if (!success) {
+        logger.error(
+          `Step ${stepName} (codex) exited with code ${code}: ${stderr.slice(0, 200)}`,
+        );
+      }
+
+      logger.jsonl({
+        event: "step_end",
+        step: stepName,
+        backend: "codex",
+        turns: 0,
+        cost_usd: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+        duration_ms: durationMs,
+        ts: new Date().toISOString(),
+      });
+
+      resolve({
+        success,
+        backend: "codex",
+        turns: 0,
+        costUsd: 0,
+        inputTokens: 0,
+        outputTokens: 0,
+        durationMs,
+        outputText,
+      });
+    });
+  });
 }

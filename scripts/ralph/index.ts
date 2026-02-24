@@ -18,12 +18,15 @@ import {
   commitAll,
 } from "./git.js";
 import { readBacklog, popTask, backlogPath } from "./backlog.js";
-import type { Config, StepSummary } from "./types.js";
+import type { AgentBackend, AgentConfig, Config, StepSummary } from "./types.js";
 
 const REPO_DIR = "/Users/bradcarter/Documents/Dev/brad-os";
 const WORKTREE_DIR = "/tmp/brad-os-ralph-worktrees";
-const MODEL_PLAN = "claude-opus-4-6";
-const MODEL_EXEC = "claude-sonnet-4-6";
+
+const DEFAULT_MODELS: Record<AgentBackend, { plan: string; exec: string }> = {
+  claude: { plan: "claude-opus-4-6", exec: "claude-sonnet-4-6" },
+  codex: { plan: "o4-mini", exec: "o4-mini" },
+};
 
 function parseCliArgs(): Config {
   const { values } = parseArgs({
@@ -33,9 +36,39 @@ function parseCliArgs(): Config {
       "max-turns": { type: "string", default: "50" },
       verbose: { type: "boolean", default: false },
       task: { type: "string" },
+      // Backend selection
+      agent: { type: "string" },
+      "backlog-agent": { type: "string" },
+      "plan-agent": { type: "string" },
+      "impl-agent": { type: "string" },
+      "review-agent": { type: "string" },
+      // Model overrides
+      "backlog-model": { type: "string" },
+      "plan-model": { type: "string" },
+      "impl-model": { type: "string" },
+      "review-model": { type: "string" },
     },
     strict: false,
   });
+
+  const defaultBackend = (values.agent as AgentBackend) ?? "claude";
+
+  function resolveStep(
+    stepAgent: string | undefined,
+    stepModel: string | undefined,
+    role: "plan" | "exec",
+  ): { backend: AgentBackend; model: string } {
+    const backend = (stepAgent as AgentBackend) ?? defaultBackend;
+    const baseModel = DEFAULT_MODELS[backend][role];
+    return { backend, model: stepModel ?? baseModel };
+  }
+
+  const agents: AgentConfig = {
+    backlog: resolveStep(values["backlog-agent"] as string | undefined, values["backlog-model"] as string | undefined, "plan"),
+    plan: resolveStep(values["plan-agent"] as string | undefined, values["plan-model"] as string | undefined, "plan"),
+    implement: resolveStep(values["impl-agent"] as string | undefined, values["impl-model"] as string | undefined, "exec"),
+    review: resolveStep(values["review-agent"] as string | undefined, values["review-model"] as string | undefined, "exec"),
+  };
 
   return {
     target: parseInt(values.target as string, 10),
@@ -47,6 +80,7 @@ function parseCliArgs(): Config {
     worktreeDir: WORKTREE_DIR,
     maxReviewCycles: 4,
     logFile: `${REPO_DIR}/ralph-loop.jsonl`,
+    agents,
   };
 }
 
@@ -59,12 +93,37 @@ function runValidation(cwd: string): boolean {
   }
 }
 
-function checkDeps(logger: Logger): void {
-  for (const cmd of ["claude", "git"]) {
+function checkDeps(config: Config, logger: Logger): void {
+  // Always need git
+  try {
+    execFileSync("which", ["git"], { stdio: "pipe" });
+  } catch {
+    logger.error("Missing dependency: git");
+    process.exit(1);
+  }
+
+  // Check for backends actually in use
+  const backendsInUse = new Set<AgentBackend>([
+    config.agents.backlog.backend,
+    config.agents.plan.backend,
+    config.agents.implement.backend,
+    config.agents.review.backend,
+  ]);
+
+  if (backendsInUse.has("claude")) {
     try {
-      execFileSync("which", [cmd], { stdio: "pipe" });
+      execFileSync("which", ["claude"], { stdio: "pipe" });
     } catch {
-      logger.error(`Missing dependency: ${cmd}`);
+      logger.error("Missing dependency: claude (needed for claude backend)");
+      process.exit(1);
+    }
+  }
+
+  if (backendsInUse.has("codex")) {
+    try {
+      execFileSync("which", ["codex"], { stdio: "pipe" });
+    } catch {
+      logger.error("Missing dependency: codex (needed for codex backend)");
       process.exit(1);
     }
   }
@@ -115,7 +174,8 @@ async function ralphLoopSingle(
         stepName: "plan",
         improvement: n,
         cwd: worktreePath,
-        model: MODEL_PLAN,
+        model: config.agents.plan.model,
+        backend: config.agents.plan.backend,
         config,
         logger,
         abortController,
@@ -145,6 +205,7 @@ async function ralphLoopSingle(
       const tokens = planResult.inputTokens + planResult.outputTokens;
       stepResults.push({
         step: "plan",
+        backend: planResult.backend,
         turns: planResult.turns,
         costUsd: planResult.costUsd,
         tokens,
@@ -159,7 +220,8 @@ async function ralphLoopSingle(
         stepName: "plan",
         improvement: n,
         cwd: worktreePath,
-        model: MODEL_PLAN,
+        model: config.agents.plan.model,
+        backend: config.agents.plan.backend,
         config,
         logger,
         abortController,
@@ -189,6 +251,7 @@ async function ralphLoopSingle(
       const tokens = planResult.inputTokens + planResult.outputTokens;
       stepResults.push({
         step: "plan",
+        backend: planResult.backend,
         turns: planResult.turns,
         costUsd: planResult.costUsd,
         tokens,
@@ -204,7 +267,8 @@ async function ralphLoopSingle(
       stepName: "implement",
       improvement: n,
       cwd: worktreePath,
-      model: MODEL_EXEC,
+      model: config.agents.implement.model,
+      backend: config.agents.implement.backend,
       config,
       logger,
       abortController,
@@ -217,7 +281,8 @@ async function ralphLoopSingle(
         stepName: "implement",
         improvement: n,
         cwd: worktreePath,
-        model: MODEL_EXEC,
+        model: config.agents.implement.model,
+        backend: config.agents.implement.backend,
         config,
         logger,
         abortController,
@@ -236,6 +301,7 @@ async function ralphLoopSingle(
 
     stepResults.push({
       step: "implement",
+      backend: implResult.backend,
       turns: implResult.turns,
       costUsd: implResult.costUsd,
       tokens: implResult.inputTokens + implResult.outputTokens,
@@ -255,6 +321,7 @@ async function ralphLoopSingle(
     let cycle = 0;
     const reviewAccum: StepSummary = {
       step: "review",
+      backend: config.agents.review.backend,
       turns: 0,
       costUsd: 0,
       tokens: 0,
@@ -285,7 +352,8 @@ async function ralphLoopSingle(
         stepName: "review",
         improvement: n,
         cwd: worktreePath,
-        model: MODEL_EXEC,
+        model: config.agents.review.model,
+        backend: config.agents.review.backend,
         config,
         logger,
         abortController,
@@ -397,7 +465,11 @@ async function main(): Promise<void> {
     }
   });
 
-  checkDeps(logger);
+  checkDeps(config, logger);
+
+  const { agents } = config;
+  const fmtStep = (s: { backend: AgentBackend; model: string }): string =>
+    `${s.backend}/${s.model}`;
 
   logger.info("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
   logger.info(
@@ -408,8 +480,10 @@ async function main(): Promise<void> {
   logger.info(`  Worktrees      : ${config.worktreeDir}`);
   logger.info(`  Max turns/step : ${config.maxTurns}`);
   logger.info(`  Max review cyc : ${config.maxReviewCycles}`);
-  logger.info(`  Plan model     : ${MODEL_PLAN}`);
-  logger.info(`  Exec model     : ${MODEL_EXEC}`);
+  logger.info(`  Backlog agent  : ${fmtStep(agents.backlog)}`);
+  logger.info(`  Plan agent     : ${fmtStep(agents.plan)}`);
+  logger.info(`  Impl agent     : ${fmtStep(agents.implement)}`);
+  logger.info(`  Review agent   : ${fmtStep(agents.review)}`);
   if (config.task) logger.info(`  Task           : ${config.task}`);
   logger.info(`  Backlog        : ${readBacklog().length} tasks`);
   logger.info("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
@@ -437,7 +511,8 @@ async function main(): Promise<void> {
           stepName: "backlog-refill",
           improvement: completed,
           cwd: config.repoDir,
-          model: MODEL_PLAN,
+          model: config.agents.backlog.model,
+          backend: config.agents.backlog.backend,
           config,
           logger,
           abortController,

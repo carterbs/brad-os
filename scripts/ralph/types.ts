@@ -5,6 +5,20 @@ export type StepName =
   | "review"
   | "merge";
 
+export type AgentBackend = "claude" | "codex";
+
+export interface StepAgentConfig {
+  backend: AgentBackend;
+  model: string;
+}
+
+export interface AgentConfig {
+  backlog: StepAgentConfig;
+  plan: StepAgentConfig;
+  implement: StepAgentConfig;
+  review: StepAgentConfig;
+}
+
 export interface Config {
   target: number;
   branchPrefix: string;
@@ -15,6 +29,7 @@ export interface Config {
   worktreeDir: string;
   maxReviewCycles: number;
   logFile: string;
+  agents: AgentConfig;
 }
 
 export type LogEvent =
@@ -22,6 +37,7 @@ export type LogEvent =
       event: "step_start";
       improvement: number;
       step: StepName;
+      backend: AgentBackend;
       ts: string;
     }
   | {
@@ -41,6 +57,7 @@ export type LogEvent =
   | {
       event: "step_end";
       step: StepName;
+      backend: AgentBackend;
       turns: number;
       cost_usd: number;
       input_tokens: number;
@@ -65,6 +82,7 @@ export type LogEvent =
 
 export interface StepResult {
   success: boolean;
+  backend: AgentBackend;
   turns: number;
   costUsd: number;
   inputTokens: number;
@@ -75,6 +93,7 @@ export interface StepResult {
 
 export interface StepSummary {
   step: StepName;
+  backend: AgentBackend;
   turns: number;
   costUsd: number;
   tokens: number;
