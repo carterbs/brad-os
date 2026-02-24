@@ -26,6 +26,7 @@
     "test:integration:watch": "vitest --config vitest.integration.config.ts --no-file-parallelism",
     "seed:generate": "npx tsx scripts/generate-seed-data.ts",
     "lint:architecture": "tsx scripts/lint-architecture.ts",
+    "update:quality-grades": "tsx scripts/update-quality-grades.ts",
     "postinstall": "git config core.hooksPath hooks"
   },
   "devDependencies": {

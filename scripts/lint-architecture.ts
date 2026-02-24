@@ -26,6 +26,7 @@ const FUNCTIONS_SRC = path.join(ROOT_DIR, 'packages/functions/src');
 // ── Color helpers ────────────────────────────────────────────────────────────
 
 const green = (s: string): string => `\x1b[32m${s}\x1b[0m`;
+const yellow = (s: string): string => `\x1b[33m${s}\x1b[0m`;
 const red = (s: string): string => `\x1b[31m${s}\x1b[0m`;
 const bold = (s: string): string => `\x1b[1m${s}\x1b[0m`;
 const dim = (s: string): string => `\x1b[2m${s}\x1b[0m`;
@@ -801,6 +802,41 @@ function checkOrphanFeatures(): CheckResult {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Warning: Quality Grades Freshness
+//
+// Warns (does not fail) if docs/quality-grades.md "Last updated" date is
+// more than 7 days old. Run `npm run update:quality-grades` to refresh.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function checkQualityGradesFreshness(): { stale: boolean; message: string } {
+  const QUALITY_GRADES = path.join(ROOT_DIR, 'docs/quality-grades.md');
+
+  if (!fs.existsSync(QUALITY_GRADES)) {
+    return { stale: true, message: 'docs/quality-grades.md does not exist. Run `npm run update:quality-grades` to generate it.' };
+  }
+
+  const content = fs.readFileSync(QUALITY_GRADES, 'utf-8');
+  const dateMatch = /Last updated:\s*(\d{4}-\d{2}-\d{2})/.exec(content);
+
+  if (!dateMatch?.[1]) {
+    return { stale: true, message: 'docs/quality-grades.md has no "Last updated" date. Run `npm run update:quality-grades` to refresh.' };
+  }
+
+  const lastUpdated = new Date(dateMatch[1]);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - lastUpdated.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays > 7) {
+    return {
+      stale: true,
+      message: `docs/quality-grades.md was last updated ${diffDays} days ago (${dateMatch[1]}). Run \`npm run update:quality-grades\` to refresh.`,
+    };
+  }
+
+  return { stale: false, message: '' };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -834,6 +870,12 @@ function main(): void {
       }
       console.log();
     }
+  }
+
+  // Warnings (non-blocking)
+  const freshness = checkQualityGradesFreshness();
+  if (freshness.stale) {
+    console.log(`\n${yellow('⚠')} Quality grades freshness: ${yellow(freshness.message)}`);
   }
 
   // Summary
