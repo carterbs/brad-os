@@ -197,4 +197,15 @@ public protocol APIClientProtocol: Sendable {
 
     /// Synthesize speech from text, returns MP3 audio data
     func synthesizeSpeech(text: String) async throws -> Data
+
+    // MARK: - Health Sync
+
+    /// Get HRV history entries
+    func getHRVHistory(days: Int) async throws -> [HRVHistoryEntry]
+
+    /// Get RHR history entries
+    func getRHRHistory(days: Int) async throws -> [RHRHistoryEntry]
+
+    /// Get sleep history entries
+    func getSleepHistory(days: Int) async throws -> [SleepHistoryEntry]
 }

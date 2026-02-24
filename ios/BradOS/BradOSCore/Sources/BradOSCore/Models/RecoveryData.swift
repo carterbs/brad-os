@@ -3,12 +3,12 @@ import Foundation
 // MARK: - Recovery State
 
 /// Recovery state indicating training readiness
-enum RecoveryState: String, Codable, CaseIterable {
+public enum RecoveryState: String, Codable, CaseIterable {
     case ready     // Green - train as planned
     case moderate  // Yellow - reduce intensity
     case recover   // Red - rest or easy only
 
-    var displayName: String {
+    public var displayName: String {
         switch self {
         case .ready: return "Ready"
         case .moderate: return "Moderate"
@@ -20,20 +20,44 @@ enum RecoveryState: String, Codable, CaseIterable {
 // MARK: - Recovery Data
 
 /// Complete recovery assessment data from HealthKit
-struct RecoveryData: Codable, Equatable {
-    let date: Date
-    let hrvMs: Double
-    let hrvVsBaseline: Double      // % difference from 60-day median
-    let rhrBpm: Double
-    let rhrVsBaseline: Double      // BPM difference from baseline
-    let sleepHours: Double
-    let sleepEfficiency: Double    // 0-100
-    let deepSleepPercent: Double   // 0-100
-    let score: Int                 // 0-100
-    let state: RecoveryState
+public struct RecoveryData: Codable, Equatable {
+    public let date: Date
+    public let hrvMs: Double
+    public let hrvVsBaseline: Double      // % difference from 60-day median
+    public let rhrBpm: Double
+    public let rhrVsBaseline: Double      // BPM difference from baseline
+    public let sleepHours: Double
+    public let sleepEfficiency: Double    // 0-100
+    public let deepSleepPercent: Double   // 0-100
+    public let score: Int                 // 0-100
+    public let state: RecoveryState
+
+    public init(
+        date: Date,
+        hrvMs: Double,
+        hrvVsBaseline: Double,
+        rhrBpm: Double,
+        rhrVsBaseline: Double,
+        sleepHours: Double,
+        sleepEfficiency: Double,
+        deepSleepPercent: Double,
+        score: Int,
+        state: RecoveryState
+    ) {
+        self.date = date
+        self.hrvMs = hrvMs
+        self.hrvVsBaseline = hrvVsBaseline
+        self.rhrBpm = rhrBpm
+        self.rhrVsBaseline = rhrVsBaseline
+        self.sleepHours = sleepHours
+        self.sleepEfficiency = sleepEfficiency
+        self.deepSleepPercent = deepSleepPercent
+        self.score = score
+        self.state = state
+    }
 
     /// Create recovery data with calculated score and state
-    static func calculate(
+    public static func calculate(
         date: Date,
         hrvMs: Double,
         hrvBaseline: RecoveryBaseline,
@@ -92,13 +116,19 @@ struct RecoveryData: Codable, Equatable {
 // MARK: - Recovery Baseline
 
 /// Baseline values for recovery calculation (60-day rolling medians)
-struct RecoveryBaseline: Codable, Equatable {
-    let hrvMedian: Double      // 60-day rolling median HRV
-    let hrvStdDev: Double      // For smallest worthwhile change
-    let rhrMedian: Double      // 60-day rolling median RHR
+public struct RecoveryBaseline: Codable, Equatable {
+    public let hrvMedian: Double      // 60-day rolling median HRV
+    public let hrvStdDev: Double      // For smallest worthwhile change
+    public let rhrMedian: Double      // 60-day rolling median RHR
+
+    public init(hrvMedian: Double, hrvStdDev: Double, rhrMedian: Double) {
+        self.hrvMedian = hrvMedian
+        self.hrvStdDev = hrvStdDev
+        self.rhrMedian = rhrMedian
+    }
 
     /// Calculate baseline from historical readings
-    static func calculate(hrvReadings: [Double], rhrReadings: [Double]) -> RecoveryBaseline {
+    public static func calculate(hrvReadings: [Double], rhrReadings: [Double]) -> RecoveryBaseline {
         // Use median (resistant to outliers)
         let hrvSorted = hrvReadings.sorted()
         let rhrSorted = rhrReadings.sorted()
@@ -122,7 +152,7 @@ struct RecoveryBaseline: Codable, Equatable {
     }
 
     /// Default baseline for new users (average Apple Watch user values)
-    static var `default`: RecoveryBaseline {
+    public static var `default`: RecoveryBaseline {
         RecoveryBaseline(hrvMedian: 36.0, hrvStdDev: 15.0, rhrMedian: 60.0)
     }
 }
@@ -130,37 +160,63 @@ struct RecoveryBaseline: Codable, Equatable {
 // MARK: - Sleep Metrics
 
 /// Sleep stage breakdown from HealthKit
-struct SleepMetrics: Equatable {
-    var inBed: TimeInterval = 0
-    var totalSleep: TimeInterval = 0
-    var core: TimeInterval = 0
-    var deep: TimeInterval = 0
-    var rem: TimeInterval = 0
-    var awake: TimeInterval = 0
+public struct SleepMetrics: Equatable {
+    public var inBed: TimeInterval
+    public var totalSleep: TimeInterval
+    public var core: TimeInterval
+    public var deep: TimeInterval
+    public var rem: TimeInterval
+    public var awake: TimeInterval
 
     /// Sleep efficiency as percentage (0-100)
-    var efficiency: Double {
+    public var efficiency: Double {
         inBed > 0 ? (totalSleep / inBed) * 100 : 0
     }
 
     /// Deep sleep as percentage of total sleep (0-100)
-    var deepPercent: Double {
+    public var deepPercent: Double {
         totalSleep > 0 ? (deep / totalSleep) * 100 : 0
+    }
+
+    public init(
+        inBed: TimeInterval = 0,
+        totalSleep: TimeInterval = 0,
+        core: TimeInterval = 0,
+        deep: TimeInterval = 0,
+        rem: TimeInterval = 0,
+        awake: TimeInterval = 0
+    ) {
+        self.inBed = inBed
+        self.totalSleep = totalSleep
+        self.core = core
+        self.deep = deep
+        self.rem = rem
+        self.awake = awake
     }
 }
 
 // MARK: - HRV Reading
 
 /// Historical HRV reading for baseline calculation
-struct HRVReading: Equatable {
-    let date: Date
-    let valueMs: Double
+public struct HRVReading: Equatable {
+    public let date: Date
+    public let valueMs: Double
+
+    public init(date: Date, valueMs: Double) {
+        self.date = date
+        self.valueMs = valueMs
+    }
 }
 
 // MARK: - RHR Reading
 
 /// Historical resting heart rate reading for baseline calculation
-struct RHRReading: Equatable {
-    let date: Date
-    let valueBpm: Double
+public struct RHRReading: Equatable {
+    public let date: Date
+    public let valueBpm: Double
+
+    public init(date: Date, valueBpm: Double) {
+        self.date = date
+        self.valueBpm = valueBpm
+    }
 }

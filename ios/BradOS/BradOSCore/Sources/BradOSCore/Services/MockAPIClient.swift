@@ -31,6 +31,9 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     public var mockMealPlanSession: MealPlanSession?
     public var mockGenerateResponse: GenerateMealPlanResponse?
     public var mockCritiqueResponse: CritiqueMealPlanResponse?
+    public var mockHRVHistory: [HRVHistoryEntry] = []
+    public var mockRHRHistory: [RHRHistoryEntry] = []
+    public var mockSleepHistory: [SleepHistoryEntry] = []
 
     // MARK: - Initialization
 
@@ -49,6 +52,9 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         mockIngredients = Ingredient.mockIngredients
         mockRecipes = Recipe.mockRecipes
         mockMealPlanSession = MealPlanSession.mockSession
+        mockHRVHistory = HRVHistoryEntry.mockEntries
+        mockRHRHistory = RHRHistoryEntry.mockEntries
+        mockSleepHistory = SleepHistoryEntry.mockEntries
     }
 
     // MARK: - Helper Methods
@@ -677,6 +683,26 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
             days: [:]
         )
     }
+
+    // MARK: - Health Sync
+
+    public func getHRVHistory(days: Int) async throws -> [HRVHistoryEntry] {
+        await simulateDelay()
+        try checkForError()
+        return mockHRVHistory
+    }
+
+    public func getRHRHistory(days: Int) async throws -> [RHRHistoryEntry] {
+        await simulateDelay()
+        try checkForError()
+        return mockRHRHistory
+    }
+
+    public func getSleepHistory(days: Int) async throws -> [SleepHistoryEntry] {
+        await simulateDelay()
+        try checkForError()
+        return mockSleepHistory
+    }
 }
 
 // MARK: - Preview Helpers
@@ -713,6 +739,9 @@ public extension MockAPIClient {
         client.mockMealPlanSession = nil
         client.mockGenerateResponse = nil
         client.mockCritiqueResponse = nil
+        client.mockHRVHistory = []
+        client.mockRHRHistory = []
+        client.mockSleepHistory = []
         return client
     }
 }

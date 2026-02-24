@@ -1,4 +1,5 @@
 import Foundation
+import BradOSCore
 
 /// A weight entry from the backend (synced from HealthKit)
 struct WeightHistoryEntry: Codable, Identifiable {

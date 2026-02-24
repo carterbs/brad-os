@@ -48,7 +48,7 @@ app.post(
     const parseResult = syncStravaTokensSchema.safeParse(rawBody);
 
     if (!parseResult.success) {
-      warn(`${TAG} Invalid token sync payload`, { errors: parseResult.error.errors });
+      warn(`${TAG} Invalid token sync payload`, { errors: parseResult.error.issues });
       res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid token payload' } });
       return;
     }
@@ -119,7 +119,7 @@ app.post(
 
     if (!parseResult.success) {
       warn(`${TAG} Invalid payload`, {
-        errors: parseResult.error.errors,
+        errors: parseResult.error.issues,
         rawBody,
       });
       // Still return 200 to acknowledge receipt (Strava expects this)

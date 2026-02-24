@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import BradOSCore
 
 /// Unified history view for HRV and RHR metrics (replaces HRVHistoryView & RHRHistoryView)
 struct HealthMetricHistoryView: View {
@@ -9,7 +10,7 @@ struct HealthMetricHistoryView: View {
     private var metric: HealthMetric { viewModel.metric }
 
     init(_ metric: HealthMetric) {
-        _viewModel = State(initialValue: HealthMetricHistoryViewModel(metric))
+        _viewModel = State(initialValue: HealthMetricHistoryViewModel(metric, apiClient: APIClient.shared))
     }
 
     var body: some View {

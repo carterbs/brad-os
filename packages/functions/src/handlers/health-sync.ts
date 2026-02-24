@@ -47,13 +47,13 @@ app.post(
     // Validate request body
     const parseResult = syncHealthDataSchema.safeParse(req.body);
     if (!parseResult.success) {
-      warn(`${TAG} POST /sync validation failed`, { userId, errors: parseResult.error.errors });
+      warn(`${TAG} POST /sync validation failed`, { userId, errors: parseResult.error.issues });
       res.status(400).json({
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
           message: 'Invalid request body',
-          details: parseResult.error.errors,
+          details: parseResult.error.issues,
         },
       });
       return;
@@ -115,13 +115,13 @@ app.get(
     // Validate query parameters
     const parseResult = getRecoveryQuerySchema.safeParse(req.query);
     if (!parseResult.success) {
-      warn(`${TAG} GET /recovery validation failed`, { userId, errors: parseResult.error.errors });
+      warn(`${TAG} GET /recovery validation failed`, { userId, errors: parseResult.error.issues });
       res.status(400).json({
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
           message: 'Invalid query parameters',
-          details: parseResult.error.errors,
+          details: parseResult.error.issues,
         },
       });
       return;
@@ -218,13 +218,13 @@ app.post(
 
     const parseResult = bulkWeightSyncSchema.safeParse(req.body);
     if (!parseResult.success) {
-      warn(`${TAG} POST /weight/bulk validation failed`, { userId, errors: parseResult.error.errors });
+      warn(`${TAG} POST /weight/bulk validation failed`, { userId, errors: parseResult.error.issues });
       res.status(400).json({
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
           message: 'Invalid request body',
-          details: parseResult.error.errors,
+          details: parseResult.error.issues,
         },
       });
       return;
@@ -294,13 +294,13 @@ app.post(
 
     const parseResult = bulkHRVSyncSchema.safeParse(req.body);
     if (!parseResult.success) {
-      warn(`${TAG} POST /hrv/bulk validation failed`, { userId, errors: parseResult.error.errors });
+      warn(`${TAG} POST /hrv/bulk validation failed`, { userId, errors: parseResult.error.issues });
       res.status(400).json({
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
           message: 'Invalid request body',
-          details: parseResult.error.errors,
+          details: parseResult.error.issues,
         },
       });
       return;
@@ -370,13 +370,13 @@ app.post(
 
     const parseResult = bulkRHRSyncSchema.safeParse(req.body);
     if (!parseResult.success) {
-      warn(`${TAG} POST /rhr/bulk validation failed`, { userId, errors: parseResult.error.errors });
+      warn(`${TAG} POST /rhr/bulk validation failed`, { userId, errors: parseResult.error.issues });
       res.status(400).json({
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
           message: 'Invalid request body',
-          details: parseResult.error.errors,
+          details: parseResult.error.issues,
         },
       });
       return;
@@ -445,13 +445,13 @@ app.post(
 
     const parseResult = bulkSleepSyncSchema.safeParse(req.body);
     if (!parseResult.success) {
-      warn(`${TAG} POST /sleep/bulk validation failed`, { userId, errors: parseResult.error.errors });
+      warn(`${TAG} POST /sleep/bulk validation failed`, { userId, errors: parseResult.error.issues });
       res.status(400).json({
         success: false,
         error: {
           code: 'VALIDATION_ERROR',
           message: 'Invalid request body',
-          details: parseResult.error.errors,
+          details: parseResult.error.issues,
         },
       });
       return;

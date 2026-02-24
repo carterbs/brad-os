@@ -143,7 +143,7 @@ export const stravaWebhookEventSchema = z.object({
   object_type: z.enum(['activity', 'athlete']),
   owner_id: z.number().int().positive(),
   subscription_id: z.number().int().positive(),
-  updates: z.record(z.unknown()).optional(),
+  updates: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type StravaWebhookEventInput = z.infer<typeof stravaWebhookEventSchema>;
