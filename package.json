@@ -33,9 +33,11 @@
     "otel:start": "npx tsx scripts/otel-collector/index.ts &",
     "otel:stop": "lsof -ti:4318 | xargs kill 2>/dev/null || true",
     "otel:clean": "rm -rf .otel/",
+    "ralph:improve-harness": "tsx scripts/ralph/index.ts",
     "postinstall": "git config core.hooksPath hooks"
   },
   "devDependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.52",
     "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
