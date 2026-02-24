@@ -1,3 +1,9 @@
+/**
+ * Ralph harness configuration resolver.
+ *
+ * Merges three layers (defaults → ralph.config.json → CLI flags) into a
+ * single Config object consumed by the orchestrator and worker processes.
+ */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
