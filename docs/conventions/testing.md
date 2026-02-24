@@ -102,9 +102,10 @@ The architecture linter (checks 15 and 16) enforces shared factory usage and pro
 
 **NEVER commit focused tests.** Using `it.only`, `describe.only`, `test.only`, `fit`, or `fdescribe` silently skips all other tests in the suite. vitest will report success even though most tests never ran.
 
-For debugging, use vitest's `--grep` flag instead:
+For debugging, run the full suite via `npm run validate` and grep the log:
 ```bash
-npx vitest run --grep "test name pattern"
+npm run validate
+# Then inspect: Read .validate/test.log or Grep pattern=".." path=".validate/test.log"
 ```
 
 The architecture linter (check 18) enforces this — focused tests cause a build failure.

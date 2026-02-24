@@ -69,6 +69,8 @@ npm run validate:quick    # Fast: typecheck + lint only
 The pre-commit hook automatically runs quick validation (typecheck + staged-file lint).
 For a complete check before merging, always run `npm run validate`.
 
+**Do NOT run `npx vitest run` directly.** It dumps thousands of tokens of verbose output into the context window. `npm run validate` captures all output to `.validate/*.log` files and prints only a pass/fail summary. If a check fails, use Grep/Read on the log file (e.g., `.validate/test.log`) to inspect the failure.
+
 Individual checks (rarely needed separately):
 ```bash
 npm run typecheck           # TypeScript compilation
