@@ -16,7 +16,7 @@ ln -s /Users/bradcarter/Documents/Dev/brad-os/node_modules /tmp/brad-os-worktree
 
 # 3. Make changes and verify
 # ... make changes ...
-npm run typecheck && npm run lint && npm test
+npm run validate
 
 # 4. If iOS files were changed, run SwiftLint via xcodebuild (see docs/guides/ios-build-and-run.md)
 
@@ -50,7 +50,7 @@ Use the Task tool with `subagent_type=Bash` for:
 Example:
 ```
 Task tool with subagent_type=Bash:
-  prompt: "Run npm run typecheck && npm run lint && npm test in /Users/bradcarter/Documents/Dev/brad-os and report results"
+  prompt: "Run npm run validate in /path/to/worktree and report results"
 ```
 
 **Why**: These commands produce verbose output that consumes context. Running them in subagents keeps the main conversation focused on implementation decisions.
@@ -59,13 +59,22 @@ Task tool with subagent_type=Bash:
 
 ## Validation
 
-Run all checks:
+Run all checks with a single command:
 
 ```bash
-npm run typecheck        # TypeScript compilation
-npm run lint             # ESLint (use --fix to auto-fix)
-npm test                 # Unit tests (vitest)
-npm run lint:architecture  # Architecture enforcement (layer deps, schema boundary, type dedup, firebase routes, iOS layers)
+npm run validate          # Full: typecheck + lint + test + architecture
+npm run validate:quick    # Fast: typecheck + lint only
+```
+
+The pre-commit hook automatically runs quick validation (typecheck + staged-file lint).
+For a complete check before merging, always run `npm run validate`.
+
+Individual checks (rarely needed separately):
+```bash
+npm run typecheck           # TypeScript compilation
+npm run lint                # ESLint (use --fix to auto-fix)
+npm test                    # Unit tests (vitest)
+npm run lint:architecture   # Architecture enforcement
 ```
 
 ## When Implementing Features

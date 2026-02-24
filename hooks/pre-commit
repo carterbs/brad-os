@@ -36,3 +36,35 @@ if ! command -v gitleaks >/dev/null 2>&1; then
 fi
 
 gitleaks protect --staged --verbose
+
+# --- Quick quality checks (typecheck + lint staged files) ---
+# These catch the most common errors before they enter the repo.
+
+echo ""
+echo "Running quality checks..."
+
+# 1. TypeScript compilation (incremental, fast for small changes)
+if ! npx tsc -b; then
+  echo ""
+  echo "ERROR: TypeScript compilation failed. Fix type errors before committing."
+  echo "  Run 'npm run typecheck' to see full output."
+  exit 1
+fi
+echo "✓ TypeScript compilation passed"
+
+# 2. ESLint on staged .ts files only (proportional to change size)
+STAGED_TS=$(git diff --cached --name-only --diff-filter=ACM -- '*.ts' | grep -v '\.config\.ts$' | grep -v 'scripts/' || true)
+if [ -n "$STAGED_TS" ]; then
+  if ! echo "$STAGED_TS" | xargs npx eslint; then
+    echo ""
+    echo "ERROR: ESLint errors found in staged files."
+    echo "  Run 'npm run lint:fix' to auto-fix, then re-stage."
+    exit 1
+  fi
+  echo "✓ ESLint passed (staged files)"
+else
+  echo "✓ ESLint skipped (no staged .ts files)"
+fi
+
+echo ""
+echo "All pre-commit checks passed."
