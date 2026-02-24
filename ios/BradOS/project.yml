@@ -147,6 +147,7 @@ schemes:
       targets:
         BradOS: all
         BradOSWidget: all
+        BradOSWatch: all
     run:
       config: Debug
     profile:

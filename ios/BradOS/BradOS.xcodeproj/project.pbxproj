@@ -89,6 +89,7 @@
 		7A56E933CA16841AB5FD4EF7 /* CyclingTodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F592A2134BA93D5BC9EC1A1E /* CyclingTodayView.swift */; };
 		7B8201A2E04A9138838B59DC /* Stretch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 673839CCDD11228DB4DB6D4E /* Stretch.swift */; };
 		7DF6FB84198CA880C28A959A /* WeightGoalViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F15EAA6FE7C3883A879E6F3 /* WeightGoalViewModel.swift */; };
+		7E823C5A6C6C7363BD80288B /* DefaultServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AFB7304A05DDE2F27CB8EE8 /* DefaultServices.swift */; };
 		7E9018BB7F5CFFCFCF6A1468 /* TodayCoachDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C53E75A3690BEF52601F124F /* TodayCoachDetailView.swift */; };
 		7EBF20874CDA10719B2D920B /* CyclingOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 368F67AF57E7D859C0A95A2E /* CyclingOnboardingView.swift */; };
 		81D9012E4C17A37A13242656 /* RestTimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAEBDA3BC95C3B29BEE3EFB7 /* RestTimerManager.swift */; };
@@ -178,6 +179,7 @@
 		F96867D0D15F6B08F57BE63D /* ActivityCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 014DCF40F81D11A32F788B9D /* ActivityCard.swift */; };
 		F994799790C8CC1E0350AB4D /* HealthKitManager+SleepRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7258704755587E192F5F8FBC /* HealthKitManager+SleepRecovery.swift */; };
 		FB11F03866D780D418E46211 /* TodayCoachCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6761D05F9F343584D09C9D1 /* TodayCoachCard.swift */; };
+		FC753E84EB9EA221AD4ACB4C /* ServiceTypeAliases.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95D04DC6CB28A0C4C2BCC2C /* ServiceTypeAliases.swift */; };
 		FD1BD932914A3DA70FBB91BA /* StretchDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA31BBE648C1B13E904E7BB4 /* StretchDataService.swift */; };
 		FF3677C13838247AD5F7A2DD /* EfficiencyFactorChart.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F7282E428085A0EEE9FDABE /* EfficiencyFactorChart.swift */; };
 		FFF24A450C4D84EFFACB4F73 /* MeditationCompleteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE15CBAC22F7DA10D9FB2521 /* MeditationCompleteView.swift */; };
@@ -270,6 +272,7 @@
 		36761A1FC08D5813476E0958 /* HealthKitSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSyncService.swift; sourceTree = "<group>"; };
 		368F67AF57E7D859C0A95A2E /* CyclingOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingOnboardingView.swift; sourceTree = "<group>"; };
 		38D5EE1C5FCDACE62D3C9D36 /* StravaConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StravaConnectionView.swift; sourceTree = "<group>"; };
+		3AFB7304A05DDE2F27CB8EE8 /* DefaultServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultServices.swift; sourceTree = "<group>"; };
 		3BF467581A1232B61C6E36AB /* HealthMetricHistoryViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthMetricHistoryViewModel.swift; sourceTree = "<group>"; };
 		3F15EAA6FE7C3883A879E6F3 /* WeightGoalViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightGoalViewModel.swift; sourceTree = "<group>"; };
 		4147461B2761A49BD4CBFF26 /* MeditationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationView.swift; sourceTree = "<group>"; };
@@ -335,6 +338,7 @@
 		A6AD230687CA2537122F156C /* QueuedActionsButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueuedActionsButton.swift; sourceTree = "<group>"; };
 		A797E97052E245F39E1948F9 /* MealPlanEditingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealPlanEditingView.swift; sourceTree = "<group>"; };
 		A7D525D24C778DAE1CFDEA08 /* BradOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BradOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A95D04DC6CB28A0C4C2BCC2C /* ServiceTypeAliases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceTypeAliases.swift; sourceTree = "<group>"; };
 		AAD57049D63F2DE8E959543A /* WatchWorkoutController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchWorkoutController.swift; sourceTree = "<group>"; };
 		AAED63E66BC5988EFD25B8AD /* SilenceGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SilenceGenerator.swift; sourceTree = "<group>"; };
 		AB678E9385BA8843B9886F1C /* PlansView+Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PlansView+Components.swift"; sourceTree = "<group>"; };
@@ -461,6 +465,8 @@
 			isa = PBXGroup;
 			children = (
 				0A394104666E96EB79B89DD0 /* BradOSApp.swift */,
+				3AFB7304A05DDE2F27CB8EE8 /* DefaultServices.swift */,
+				A95D04DC6CB28A0C4C2BCC2C /* ServiceTypeAliases.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -851,7 +857,7 @@
 			path = Lifting;
 			sourceTree = "<group>";
 		};
-		"TEMP_77B6557E-DAA2-4EAE-AAEC-7FDA5B3A5DEA" /* Resources */ = {
+		"TEMP_2C3E9BDB-4B7A-43C7-A9BD-84E6F656AAB8" /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -1028,6 +1034,7 @@
 				7A56E933CA16841AB5FD4EF7 /* CyclingTodayView.swift in Sources */,
 				12FFC4D283D2EFCFE77D8A8A /* CyclingViewModel.swift in Sources */,
 				E3A76BA49665F7677B89247B /* DayActivityCard.swift in Sources */,
+				7E823C5A6C6C7363BD80288B /* DefaultServices.swift in Sources */,
 				FF3677C13838247AD5F7A2DD /* EfficiencyFactorChart.swift in Sources */,
 				90ABB2C6223CBAEA233D2853 /* EmptyStateView.swift in Sources */,
 				EAE47A314B154F1F9097C133 /* ErrorStateView.swift in Sources */,
@@ -1093,6 +1100,7 @@
 				81D9012E4C17A37A13242656 /* RestTimerManager.swift in Sources */,
 				970799BA999AF27D517F7C57 /* RestTimerOverlay.swift in Sources */,
 				E491404ABE9A78157B1B6BCD /* SectionHeader.swift in Sources */,
+				FC753E84EB9EA221AD4ACB4C /* ServiceTypeAliases.swift in Sources */,
 				48B95D8E70ABEBCB27F73477 /* ShoppingListView.swift in Sources */,
 				1FEB0DA2D4D27545C69B6DBA /* SilenceGenerator.swift in Sources */,
 				4819F332AA63F1CC73662D46 /* SleepHistoryView.swift in Sources */,
