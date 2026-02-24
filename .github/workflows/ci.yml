@@ -59,23 +59,8 @@ jobs:
       - name: Install firebase-tools
         run: npm install -g firebase-tools
 
-      - name: Build functions
-        run: npm run build
-
-      - name: Start Firebase emulators
-        run: |
-          firebase emulators:start --project brad-os &
-          # Wait for functions emulator to be ready (port 5001)
-          echo "Waiting for emulators to start..."
-          timeout 60 bash -c '
-            until curl -sf http://127.0.0.1:5001/brad-os/us-central1/devHealth > /dev/null 2>&1; do
-              sleep 2
-            done
-          '
-          echo "Emulators ready."
-
-      - name: Run integration tests
-        run: npm run test:integration
+      - name: Run integration tests (with emulators)
+        run: npm run test:integration:emulator
 
       - name: Upload integration test logs
         if: failure()
