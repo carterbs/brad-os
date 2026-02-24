@@ -64,6 +64,7 @@ Run all checks with a single command:
 ```bash
 npm run validate          # Full: typecheck + lint + test + architecture
 npm run validate:quick    # Fast: typecheck + lint only
+npm run doctor            # Check: all required tooling installed
 ```
 
 The pre-commit hook automatically runs quick validation (typecheck + staged-file lint).

@@ -28,6 +28,7 @@
     "seed:generate": "npx tsx scripts/generate-seed-data.ts",
     "validate": "bash scripts/validate.sh",
     "validate:quick": "bash scripts/validate.sh --quick",
+    "doctor": "bash scripts/doctor.sh",
     "lint:architecture": "tsx scripts/lint-architecture.ts",
     "update:quality-grades": "tsx scripts/update-quality-grades.ts",
     "otel:start": "npx tsx scripts/otel-collector/index.ts &",

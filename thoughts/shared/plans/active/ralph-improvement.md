@@ -1,288 +1,364 @@
-# Add Local Dev Quickstart Guide
+# Add `scripts/doctor.sh` and `npm run doctor` for Environment Verification
 
-**Why**: There is no single document that walks a new developer (or agent) through the full bootstrap sequence. The README has a minimal "Development" section with stale commands (`npm run dev` which actually runs emulators, no mention of `validate`, no XcodeGen step). CLAUDE.md has validation and iOS build info but scattered across sections. A dedicated 5-minute quickstart guide consolidates the happy path: install → validate → emulators → iOS build.
+**Why**: New developers and agents currently rely on the quickstart guide's manual "Verify" section (`node -v`, `firebase --version`, etc.) to check prerequisites. When a tool is missing, the error surfaces late — during `npm run validate`, `git commit` (gitleaks), or iOS build (xcodegen). A `doctor` command front-loads all environment checks into one actionable diagnostic, prints exact install commands for anything missing, and eliminates wasted cycles debugging cryptic failures.
 
 ---
 
 ## What
 
-Create `docs/guides/local-dev-quickstart.md` — a concise, linear guide covering:
+A single shell script (`scripts/doctor.sh`) that:
 
-1. **Prerequisites** — Node 22, npm, Firebase CLI, Xcode + simulator, XcodeGen
-2. **Step 1: Clone & Install** — `git clone`, `npm install` (which also sets up git hooks via `postinstall`)
-3. **Step 2: Validate** — `npm run validate` to confirm the TypeScript + lint + test + architecture stack passes
-4. **Step 3: Start Emulators** — `npm run emulators` (persist mode) with a health-check curl to verify
-5. **Step 4: Build & Run iOS** — XcodeGen → xcodebuild → simctl install → simctl launch
-6. **Verify everything works** — curl the health endpoint, confirm iOS app loads in simulator
-7. **Next steps** — links to CLAUDE.md, conventions, and other guides
+1. **Checks each required tool** — verifies it exists on `$PATH` via `command -v`
+2. **Validates version constraints** where applicable (Node ≥ 22, npm ≥ 10)
+3. **Checks project setup** — git hooks configured, `node_modules` present
+4. **Prints a pass/fail summary** in the same style as `validate.sh` (ANSI colors, ✓/✗, timing)
+5. **Prints exact install commands** for each missing dependency (e.g., `brew install gitleaks`)
+6. **Exits 0 on all-pass, 1 on any failure** — usable in CI or automation
 
-Then link it from `README.md` and `CLAUDE.md`.
+### Tools to Check
+
+| Tool | Required | Version Check | Install Command |
+|------|----------|---------------|-----------------|
+| `node` | Yes | Major ≥ 22 | `brew install node@22` or `nvm install 22` |
+| `npm` | Yes | Major ≥ 10 | Comes with Node — reinstall Node |
+| `firebase` | Yes | Any | `npm install -g firebase-tools` |
+| `gitleaks` | Yes | Any | `brew install gitleaks` |
+| `xcodegen` | Yes | Any | `brew install xcodegen` |
+
+### Project Setup to Check
+
+| Check | How | Fix |
+|-------|-----|-----|
+| Git hooks configured | `git config core.hooksPath` == `hooks` | `npm install` (runs postinstall) |
+| `node_modules` exists | `[ -d node_modules ]` | `npm install` |
+| In a git repo | `git rev-parse --git-dir` | Clone the repo properly |
+
+### Output Format
+
+Matches `validate.sh` styling:
+
+```
+  ✓ node              v22.12.0 (≥ 22)
+  ✓ npm               v10.9.2 (≥ 10)
+  ✓ firebase          13.29.1
+  ✓ gitleaks          8.21.2
+  ✓ xcodegen          2.42.0
+  ✓ git hooks         hooks/
+  ✓ node_modules      present
+
+  PASS  All dependencies satisfied.
+```
+
+When something is missing:
+
+```
+  ✓ node              v22.12.0 (≥ 22)
+  ✓ npm               v10.9.2 (≥ 10)
+  ✗ firebase          not found
+  ✗ gitleaks          not found
+  ✓ xcodegen          2.42.0
+  ✓ git hooks         hooks/
+  ✗ node_modules      missing
+
+  FAIL  3 issues found. Install missing dependencies:
+
+    npm install -g firebase-tools
+    brew install gitleaks
+    npm install
+```
 
 ---
 
 ## Files
 
-### 1. `docs/guides/local-dev-quickstart.md` (CREATE)
+### 1. `scripts/doctor.sh` (CREATE)
 
-Full content of the new file:
+Executable shell script. Structure:
+
+```bash
+#!/bin/bash
+set -uo pipefail
+
+# Environment doctor for brad-os
+# Verifies all required tooling is installed and prints install commands
+# for anything missing.
+#
+# Usage:
+#   npm run doctor
+#   bash scripts/doctor.sh
+
+# --- ANSI Colors (same as validate.sh) ---
+BOLD='\033[1m'
+GREEN='\033[32m'
+RED='\033[31m'
+DIM='\033[2m'
+RESET='\033[0m'
+
+# --- State ---
+ISSUES=0
+INSTALL_CMDS=()
+
+# --- Helper: check a command exists ---
+# check_tool <name> <install_cmd> [min_major_version]
+#
+# If min_major_version is provided, extracts the major version from
+# `<name> --version` or `<name> -v` output and compares.
+check_tool() {
+  local name="$1"
+  local install_cmd="$2"
+  local min_major="${3:-}"
+
+  if ! command -v "$name" >/dev/null 2>&1; then
+    printf "  ${RED}✗ %-18s${RESET} ${DIM}not found${RESET}\n" "$name"
+    INSTALL_CMDS+=("$install_cmd")
+    ((ISSUES++))
+    return
+  fi
+
+  # Get version string
+  local version
+  version=$("$name" --version 2>/dev/null || "$name" -v 2>/dev/null || echo "unknown")
+  # Extract first version-like number (e.g., "v22.12.0" → "22.12.0", "13.29.1" → "13.29.1")
+  version=$(echo "$version" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+  [ -z "$version" ] && version="installed"
+
+  if [ -n "$min_major" ] && [ "$version" != "installed" ]; then
+    local major
+    major=$(echo "$version" | cut -d. -f1)
+    if [ "$major" -lt "$min_major" ] 2>/dev/null; then
+      printf "  ${RED}✗ %-18s${RESET} ${DIM}v%s (need ≥ %s)${RESET}\n" "$name" "$version" "$min_major"
+      INSTALL_CMDS+=("$install_cmd")
+      ((ISSUES++))
+      return
+    fi
+    printf "  ${GREEN}✓ %-18s${RESET} ${DIM}v%s (≥ %s)${RESET}\n" "$name" "$version" "$min_major"
+  else
+    printf "  ${GREEN}✓ %-18s${RESET} ${DIM}%s${RESET}\n" "$name" "$version"
+  fi
+}
+
+# --- Helper: check project setup ---
+check_setup() {
+  local label="$1"
+  local condition="$2"   # "ok" or "fail"
+  local detail="$3"
+  local fix_cmd="$4"
+
+  if [ "$condition" = "ok" ]; then
+    printf "  ${GREEN}✓ %-18s${RESET} ${DIM}%s${RESET}\n" "$label" "$detail"
+  else
+    printf "  ${RED}✗ %-18s${RESET} ${DIM}%s${RESET}\n" "$label" "$detail"
+    INSTALL_CMDS+=("$fix_cmd")
+    ((ISSUES++))
+  fi
+}
+
+# --- Run checks ---
+printf "\n"
+
+# Tool checks
+check_tool "node" "brew install node@22  # or: nvm install 22" 22
+check_tool "npm" "# npm comes with Node — reinstall Node to update npm" 10
+check_tool "firebase" "npm install -g firebase-tools"
+check_tool "gitleaks" "brew install gitleaks"
+check_tool "xcodegen" "brew install xcodegen"
+
+# Project setup checks
+printf "\n"
+
+# Git hooks
+HOOKS_PATH=$(git config core.hooksPath 2>/dev/null || echo "")
+if [ "$HOOKS_PATH" = "hooks" ]; then
+  check_setup "git hooks" "ok" "hooks/" "npm install  # sets core.hooksPath via postinstall"
+else
+  check_setup "git hooks" "fail" "not configured (got: '${HOOKS_PATH:-<unset>}')" "npm install  # sets core.hooksPath via postinstall"
+fi
+
+# node_modules
+if [ -d "node_modules" ]; then
+  check_setup "node_modules" "ok" "present" ""
+else
+  check_setup "node_modules" "fail" "missing" "npm install"
+fi
+
+# --- Summary ---
+printf "\n"
+if [ "$ISSUES" -eq 0 ]; then
+  printf "  ${GREEN}${BOLD}PASS${RESET}  ${DIM}All dependencies satisfied.${RESET}\n\n"
+else
+  printf "  ${RED}${BOLD}FAIL${RESET}  ${DIM}%d issue(s) found. Install missing dependencies:${RESET}\n\n" "$ISSUES"
+  for cmd in "${INSTALL_CMDS[@]}"; do
+    printf "    %s\n" "$cmd"
+  done
+  printf "\n"
+  exit 1
+fi
+```
+
+Key design decisions:
+- Uses `set -uo pipefail` like `validate.sh` (not `set -e` — we want to continue checking after failures)
+- `check_tool` extracts version with `grep -oE` to handle varied output formats (`v22.12.0`, `13.29.1`, etc.)
+- Version comparison uses integer comparison on major version only (sufficient for Node ≥ 22, npm ≥ 10)
+- Install commands accumulate in `INSTALL_CMDS` array and print at the end — the user gets one actionable block to copy-paste
+- Blank line between tool checks and setup checks for visual grouping
+
+### 2. `package.json` (MODIFY)
+
+Add `doctor` script. Insert after the `validate:quick` line:
+
+```json
+"doctor": "bash scripts/doctor.sh",
+```
+
+The scripts section will have this ordering (showing context):
+```json
+"validate": "bash scripts/validate.sh",
+"validate:quick": "bash scripts/validate.sh --quick",
+"doctor": "bash scripts/doctor.sh",
+```
+
+### 3. `docs/guides/local-dev-quickstart.md` (MODIFY)
+
+Add a mention of `npm run doctor` in the Prerequisites section, after the manual verify commands. Insert after the "Verify:" code block (after line 22):
 
 ```markdown
-# Local Dev Quickstart
 
-Get brad-os running locally in ~5 minutes: install dependencies, validate the build, start emulators, and run the iOS app on a simulator.
-
-## Prerequisites
-
-| Tool | Version | Install |
-|------|---------|---------|
-| Node.js | 22.x | `brew install node@22` or [nvm](https://github.com/nvm-sh/nvm) |
-| npm | 10.x+ | Comes with Node |
-| Firebase CLI | Latest | `npm install -g firebase-tools` |
-| Xcode | 16+ | Mac App Store |
-| XcodeGen | Latest | `brew install xcodegen` |
-
-Verify:
+Or run the automated check:
 
 ```bash
-node -v          # v22.x
-firebase --version
-xcodegen --version
-xcodebuild -version
+npm run doctor
+```
 ```
 
-## Step 1: Clone & Install
+This gives developers two options: manual spot-checks or the full automated diagnostic.
 
-```bash
-git clone <repo-url> brad-os
-cd brad-os
-npm install
-```
+### 4. `CLAUDE.md` (MODIFY)
 
-`npm install` also runs `postinstall` which sets `core.hooksPath` to `hooks/` — this enables the pre-commit hook that enforces validation.
+Add `npm run doctor` to the Validation section. In the section that starts with "Run all checks with a single command:", add a line after `npm run validate:quick`:
 
-## Step 2: Validate
-
-```bash
-npm run validate
-```
-
-This runs typecheck + lint + test + architecture checks. All output goes to `.validate/*.log` — you only see a pass/fail summary. If anything fails, inspect the log:
-
-```bash
-cat .validate/typecheck.log   # or test.log, lint.log, architecture.log
-```
-
-A clean `validate` confirms your environment is set up correctly.
-
-## Step 3: Start Firebase Emulators
-
-```bash
-npm run emulators
-```
-
-This builds the Cloud Functions and starts the Firebase emulator suite:
-- **Functions:** http://127.0.0.1:5001
-- **Firestore:** http://127.0.0.1:8080
-- **Emulator UI:** http://127.0.0.1:4000
-
-Verify the functions are running:
-
-```bash
-curl -sf http://127.0.0.1:5001/brad-os/us-central1/devHealth
-```
-
-Other emulator modes:
-
-| Command | Behavior |
-|---------|----------|
-| `npm run emulators` | Persist data across restarts (default) |
-| `npm run emulators:fresh` | Start with empty database |
-| `npm run emulators:seed` | Load seed data from `seed-data/` |
-
-## Step 4: Build & Run iOS App
-
-Generate the Xcode project, build for the simulator, and launch:
-
-```bash
-# Generate project from project.yml
-cd ios/BradOS && xcodegen generate && cd ../..
-
-# Build for simulator
-xcodebuild -project ios/BradOS/BradOS.xcodeproj \
-  -scheme BradOS \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-  -derivedDataPath ~/.cache/brad-os-derived-data \
-  -skipPackagePluginValidation \
-  build
-
-# Install and launch on booted simulator
-xcrun simctl install booted ~/.cache/brad-os-derived-data/Build/Products/Debug-iphonesimulator/BradOS.app
-xcrun simctl launch booted com.bradcarter.brad-os
-```
-
-**Notes:**
-- Do NOT pass `-sdk iphonesimulator` — it breaks the watchOS companion build.
-- `-skipPackagePluginValidation` is required for the SwiftLint SPM build plugin.
-- SwiftLint runs automatically during `xcodebuild build` — a successful build means zero lint errors.
-
-## You're Done!
-
-At this point you should have:
-- ✅ All validation checks passing
-- ✅ Firebase emulators running with a health endpoint responding
-- ✅ The iOS app running in the simulator and talking to local emulators
-
-## Next Steps
-
-- **[CLAUDE.md](../../CLAUDE.md)** — Project rules, worktree workflow, validation commands
-- **[iOS Build and Run](ios-build-and-run.md)** — Detailed iOS build commands and exploratory testing
-- **[Debugging Cloud Functions](debugging-cloud-functions.md)** — Troubleshooting endpoints
-- **[Debug Telemetry](debug-telemetry.md)** — OpenTelemetry traces for iOS debugging
-- **[Conventions](../conventions/)** — TypeScript, iOS/Swift, API, and testing conventions
-```
-
-### 2. `README.md` (MODIFY)
-
-Add a quickstart link in the Development section. Replace the existing `## Development` section:
-
-**Current** (lines 51–59):
 ```markdown
-## Development
-
-```bash
-npm install              # Install dependencies
-npm run dev              # Start API server (port 3001)
-npm run build            # Build all packages
-npm run typecheck        # TypeScript compilation
-npm run lint             # ESLint checks
-npm run test             # Unit tests
+npm run doctor            # Check: all required tooling installed
 ```
-```
-
-**Replace with:**
-```markdown
-## Development
-
-See **[Local Dev Quickstart](docs/guides/local-dev-quickstart.md)** for the full 5-minute bootstrap flow.
-
-```bash
-npm install              # Install dependencies (also sets up git hooks)
-npm run validate         # Full check: typecheck + lint + test + architecture
-npm run emulators        # Start Firebase emulators (port 5001)
-npm run build            # Build Cloud Functions
-npm run typecheck        # TypeScript compilation
-npm run lint             # ESLint checks
-npm run test             # Unit tests
-```
-```
-
-Key changes:
-- Add link to the quickstart guide at the top of the section
-- Replace stale `npm run dev` with `npm run emulators` (they're the same script, but `emulators` is the real name)
-- Add `npm run validate` (the primary validation command)
-- Fix `npm run build` description (builds Cloud Functions, not "all packages")
-- Add note about git hooks to `npm install`
-
-### 3. `CLAUDE.md` (MODIFY)
-
-Add a quickstart link in the `## Guides` section. After the last guide entry (Debug Telemetry), add:
-
-**Current** (lines 136–140):
-```markdown
-## Guides (see docs/guides/)
-
-- **[Debugging Cloud Functions](docs/guides/debugging-cloud-functions.md)** — Ordered checklist: rewrite paths, deployment state, App Check
-- **[iOS Build and Run](docs/guides/ios-build-and-run.md)** — xcodebuild commands, simulator setup, SwiftLint via build, exploratory testing
-- **[Progressive Overload](docs/guides/progressive-overload.md)** — Business logic for workout progression, data architecture
-- **[Debug Telemetry](docs/guides/debug-telemetry.md)** — `npm run otel:start`, query `.otel/traces.jsonl` and `.otel/logs.jsonl` with Grep for structured iOS debugging
-```
-
-**Replace with:**
-```markdown
-## Guides (see docs/guides/)
-
-- **[Local Dev Quickstart](docs/guides/local-dev-quickstart.md)** — 5-minute bootstrap: install → validate → emulators → iOS build
-- **[Debugging Cloud Functions](docs/guides/debugging-cloud-functions.md)** — Ordered checklist: rewrite paths, deployment state, App Check
-- **[iOS Build and Run](docs/guides/ios-build-and-run.md)** — xcodebuild commands, simulator setup, SwiftLint via build, exploratory testing
-- **[Progressive Overload](docs/guides/progressive-overload.md)** — Business logic for workout progression, data architecture
-- **[Debug Telemetry](docs/guides/debug-telemetry.md)** — `npm run otel:start`, query `.otel/traces.jsonl` and `.otel/logs.jsonl` with Grep for structured iOS debugging
-```
-
-The quickstart is listed first because it's the entry point for new developers/agents.
 
 ---
 
 ## Tests
 
-This is a documentation-only change — no application code is modified. No vitest unit tests are needed.
+### `scripts/doctor.test.ts` (CREATE)
 
-**Verify no existing tests break** by running `npm run validate` after making changes. The architecture linter checks for broken internal references in some cases, so confirm it passes.
+A vitest test file that spawns `doctor.sh` with manipulated `$PATH` to verify behavior. This follows the pattern used in the codebase where TypeScript tests exercise shell-level tooling.
 
-**Manual link verification** (in QA below) replaces automated tests for this change.
+```typescript
+import { describe, it, expect } from 'vitest';
+import { execSync } from 'node:child_process';
+import * as path from 'node:path';
+
+const SCRIPT = path.resolve('scripts/doctor.sh');
+const ROOT = path.resolve('.');
+
+function runDoctor(envOverrides: Record<string, string> = {}): {
+  stdout: string;
+  exitCode: number;
+} {
+  try {
+    const stdout = execSync(`bash ${SCRIPT}`, {
+      cwd: ROOT,
+      env: { ...process.env, ...envOverrides },
+      encoding: 'utf-8',
+      timeout: 10_000,
+    });
+    return { stdout, exitCode: 0 };
+  } catch (error: unknown) {
+    const e = error as { stdout?: string; status?: number };
+    return {
+      stdout: (e.stdout as string) || '',
+      exitCode: (e.status as number) || 1,
+    };
+  }
+}
+```
+
+**Test cases:**
+
+1. **`it('exits 0 when all tools are present')`** — Run in the normal dev environment. Since the developer machine should have all tools, this verifies the happy path produces `PASS` and exit code 0.
+
+2. **`it('reports node version')`** — Verify output contains a `✓ node` line with version info.
+
+3. **`it('reports all expected tool names')`** — Verify output mentions `node`, `npm`, `firebase`, `gitleaks`, `xcodegen`, `git hooks`, `node_modules`.
+
+4. **`it('exits 1 when a tool is missing')`** — Set `PATH` to a minimal value (e.g., `/usr/bin` only) so most tools are missing, verify exit code 1 and `FAIL` in output.
+
+5. **`it('prints install commands when tools are missing')`** — With restricted `PATH`, verify the output contains install commands like `brew install gitleaks`.
+
+6. **`it('detects missing node_modules')`** — Run from a temp directory without `node_modules`, verify the output contains `✗ node_modules` and `missing`.
+
+> **Note on test design**: Tests 4-6 require PATH manipulation or running from a different directory. The test must be careful to still find `bash` itself. We set PATH to include `/bin:/usr/bin` (where bash lives) but exclude paths where `firebase`/`gitleaks`/`xcodegen` live.
 
 ---
 
 ## QA
 
-### 1. Validate the build still passes
+### 1. Run doctor on the dev machine (happy path)
+```bash
+npm run doctor
+# Expected: all ✓, PASS, exit code 0
+echo $?  # should be 0
+```
+
+### 2. Simulate a missing tool
+```bash
+# Temporarily hide gitleaks by restricting PATH
+PATH=/usr/bin:/bin bash scripts/doctor.sh
+# Expected: ✗ for firebase, gitleaks, xcodegen; ✓ for node, npm
+# Expected: FAIL with install commands printed
+echo $?  # should be 1
+```
+
+### 3. Verify install commands are correct
+For each install command printed in step 2, verify it's a valid command:
+- `npm install -g firebase-tools` — standard Firebase CLI install
+- `brew install gitleaks` — matches what `hooks/pre-commit` says (line 34)
+- `brew install xcodegen` — matches quickstart guide
+
+### 4. Simulate missing node_modules
+```bash
+cd /tmp && bash /path/to/scripts/doctor.sh
+# Expected: ✗ node_modules — missing
+```
+
+### 5. Simulate wrong Node version (if possible)
+If nvm is available:
+```bash
+nvm use 18 && npm run doctor
+# Expected: ✗ node — v18.x.x (need ≥ 22)
+nvm use 22  # restore
+```
+
+### 6. Validate the build still passes
 ```bash
 npm run validate
-# All checks should pass — this is a docs-only change
+# All checks should pass — this change adds a script + docs, no app code
 ```
 
-### 2. Verify all internal links in the new guide resolve
-Check that every relative link in `docs/guides/local-dev-quickstart.md` points to a real file:
+### 7. Verify CLAUDE.md reference checker passes
+The architecture linter checks that paths in CLAUDE.md and docs resolve to real files. Since we reference `scripts/doctor.sh` from CLAUDE.md (indirectly through the `npm run doctor` command), and the script will exist, this should pass.
+
+### 8. Run the test suite
 ```bash
-# These files must exist:
-ls docs/guides/ios-build-and-run.md
-ls docs/guides/debugging-cloud-functions.md
-ls docs/guides/debug-telemetry.md
-ls docs/conventions/
-ls CLAUDE.md
-```
-
-### 3. Verify the README link resolves
-```bash
-# From the repo root, this file must exist:
-ls docs/guides/local-dev-quickstart.md
-```
-
-### 4. Verify the CLAUDE.md link resolves
-```bash
-# Same file, same check — already confirmed above
-ls docs/guides/local-dev-quickstart.md
-```
-
-### 5. Verify commands in the guide are accurate
-Cross-check each command in the quickstart against the actual project config:
-- `npm run validate` — exists in `package.json` ✓
-- `npm run emulators` — exists in `package.json` ✓
-- `npm run emulators:fresh` — exists in `package.json` ✓
-- `npm run emulators:seed` — exists in `package.json` ✓
-- `xcodebuild -project ios/BradOS/BradOS.xcodeproj -scheme BradOS ...` — matches `docs/guides/ios-build-and-run.md` ✓
-- `xcrun simctl install booted ...` — matches `docs/guides/ios-build-and-run.md` ✓
-- Port numbers (5001, 8080, 4000) — match `firebase.json` emulator config ✓
-- Bundle ID `com.bradcarter.brad-os` — matches `docs/conventions/ios-swift.md` ✓
-
-### 6. Diff review
-```bash
-git diff main --stat
-# Expected: 3 files changed (1 new, 2 modified)
-#   docs/guides/local-dev-quickstart.md (new)
-#   README.md (modified)
-#   CLAUDE.md (modified)
-
-git diff main
-# Review every changed line
+npm test
+# doctor.test.ts should pass (tests 1-3 in normal env, tests 4-6 with PATH restriction)
 ```
 
 ---
 
 ## Conventions
 
-1. **CLAUDE.md — Worktree workflow**: Make all changes in a git worktree, not directly on main.
+1. **CLAUDE.md — Worktree workflow**: All changes made in a git worktree, not directly on main.
 2. **CLAUDE.md — Validation**: Run `npm run validate` before committing.
-3. **CLAUDE.md — Subagent usage**: Run validation in a subagent to conserve context.
-4. **CLAUDE.md — Self-review**: `git diff main` to review every changed line before committing.
-5. **CLAUDE.md — Agent legibility**: Push context into the repo (docs) rather than leaving it in chat. This guide directly serves that principle.
-6. **CLAUDE.md — QA**: Exercise what you built — verify links resolve, commands are accurate, and the guide matches reality.
+3. **CLAUDE.md — Subagent usage**: Run validation commands in subagents to conserve context.
+4. **CLAUDE.md — Self-review**: `git diff main --stat` and `git diff main` to review every changed line.
+5. **CLAUDE.md — QA**: Exercise what you built — run `npm run doctor` in both happy and failure cases.
+6. **Testing convention**: Write tests before implementation (TDD). Use vitest, not jest. Co-locate test file with source (`scripts/doctor.test.ts`).
+7. **Shell script conventions**: Follow patterns from `validate.sh` — `set -uo pipefail`, ANSI color variables, `BOLD`/`GREEN`/`RED`/`DIM`/`RESET`, pass/fail summary format.
+8. **File must be executable**: `chmod +x scripts/doctor.sh` after creation (like `validate.sh` and `start-emulators.sh`).
+9. **Docs updates**: Keep quickstart guide and CLAUDE.md in sync with new commands.

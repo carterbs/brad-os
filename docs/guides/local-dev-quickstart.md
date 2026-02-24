@@ -21,6 +21,12 @@ xcodegen --version
 xcodebuild -version
 ```
 
+Or run the automated check:
+
+```bash
+npm run doctor
+```
+
 ## Step 1: Clone & Install
 
 ```bash
