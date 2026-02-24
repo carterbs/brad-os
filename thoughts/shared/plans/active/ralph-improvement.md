@@ -1,233 +1,259 @@
-# CI Workflow: Validate + Integration Tests with Artifact Upload
+# Add `scripts/setup-ios-testing.sh` referenced by `docs/guides/ios-build-and-run.md`
 
-**Why**: The project has comprehensive local validation (`npm run validate`) and 11 integration test suites against Firebase emulators, but zero CI automation. Every merge to `main` relies on the developer remembering to run checks locally. A GitHub Actions workflow catches regressions automatically and uploads `.validate/*.log` artifacts on failure so debugging agents (and humans) can inspect verbose output without re-running locally.
+## Why
 
-**What**
+`docs/guides/ios-build-and-run.md` tells developers to run `./scripts/setup-ios-testing.sh` as the first step, but the script doesn't exist. Any agent or human following the guide hits a dead end immediately. Adding the script closes a documentation gap and provides a one-command way to verify the iOS toolchain is ready before attempting a build.
 
-A single GitHub Actions workflow (`ci.yml`) triggered on pushes to `main` and pull requests targeting `main`. Two jobs:
+## What
 
-1. **validate** — Runs `npm run validate` (typecheck + lint + unit tests + architecture lint). On failure, uploads `.validate/*.log` as a downloadable artifact.
-2. **integration** — Builds the project, boots Firebase emulators in the background, waits for readiness, runs `npm run test:integration`, then uploads logs on failure.
+Create `scripts/setup-ios-testing.sh` — a bash script that:
 
-Both jobs run on `ubuntu-latest` with Node.js 22 (matching the `nodejs22` Firebase runtime in `firebase.json`).
+1. **Checks prerequisites** — verifies required tools are installed and usable:
+   - `xcodebuild` (Xcode CLI tools)
+   - `xcodegen` (project generation from `project.yml`)
+   - `xcrun simctl` (simulator control)
+2. **Generates the Xcode project** — runs `xcodegen generate` in `ios/BradOS/` so the `.xcodeproj` is up-to-date with `project.yml`.
+3. **Boots a simulator** — ensures an "iPhone 17 Pro" simulator is available and booted (matches the destination used in the build guide).
+4. **Runs a fast sanity build** — executes `xcodebuild build` with the same flags from the build guide but adds `CODE_SIGNING_ALLOWED=NO` to avoid provisioning issues in CI/agent environments, and uses `-quiet` for less noise. This confirms the full toolchain works end-to-end (Swift compilation, SPM dependency resolution, SwiftLint plugin).
+5. **Reports a clear pass/fail summary** — green checkmarks for each step that passes, red X with actionable remediation for anything that fails.
 
----
+The script is idempotent — safe to run multiple times. If the simulator is already booted, it skips that step. If the project is already generated, xcodegen regenerates it (fast no-op if unchanged).
 
 ## Files
 
-### 1. `.github/workflows/ci.yml` (create)
+### 1. `scripts/setup-ios-testing.sh` (create)
 
-```yaml
-name: CI
+```bash
+#!/bin/bash
+set -euo pipefail
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+# Setup script for iOS Simulator testing
+# Referenced by docs/guides/ios-build-and-run.md
+#
+# Checks prerequisites, generates the Xcode project, boots a simulator,
+# and runs a fast sanity build to verify the toolchain works.
+#
+# Usage:
+#   ./scripts/setup-ios-testing.sh              # Full setup + sanity build
+#   ./scripts/setup-ios-testing.sh --skip-build  # Setup only, no build
 
-# Cancel in-progress runs for the same branch/PR
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+IOS_DIR="$PROJECT_DIR/ios/BradOS"
+DERIVED_DATA="$HOME/.cache/brad-os-derived-data"
+SIMULATOR_NAME="iPhone 17 Pro"
 
-jobs:
-  validate:
-    name: Validate (typecheck + lint + test + architecture)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+SKIP_BUILD=false
+[[ "${1:-}" == "--skip-build" ]] && SKIP_BUILD=true
 
-    steps:
-      - uses: actions/checkout@v4
+BOLD='\033[1m'
+GREEN='\033[32m'
+RED='\033[31m'
+DIM='\033[2m'
+RESET='\033[0m'
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+pass() { printf "  ${GREEN}✓ %s${RESET}\n" "$1"; }
+fail() { printf "  ${RED}✗ %s${RESET}\n" "$1"; printf "    ${DIM}%s${RESET}\n" "$2"; exit 1; }
 
-      - name: Install dependencies
-        run: npm ci
+printf "\n${BOLD}iOS Testing Setup${RESET}\n\n"
 
-      - name: Run validation
-        run: npm run validate
+# --- 1. Check xcodebuild ---
+if command -v xcodebuild &>/dev/null; then
+  XCODE_VERSION=$(xcodebuild -version | head -1)
+  pass "xcodebuild ($XCODE_VERSION)"
+else
+  fail "xcodebuild not found" "Install Xcode from the App Store, then run: xcode-select --install"
+fi
 
-      - name: Upload validation logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: validate-logs
-          path: .validate/*.log
-          retention-days: 7
+# --- 2. Check xcodegen ---
+if command -v xcodegen &>/dev/null; then
+  XCODEGEN_VERSION=$(xcodegen --version 2>&1)
+  pass "xcodegen ($XCODEGEN_VERSION)"
+else
+  fail "xcodegen not found" "Install with: brew install xcodegen"
+fi
 
-  integration:
-    name: Integration tests (Firebase emulators)
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    needs: validate
+# --- 3. Check xcrun simctl ---
+if xcrun simctl list devices &>/dev/null; then
+  pass "xcrun simctl"
+else
+  fail "xcrun simctl not working" "Ensure Xcode CLI tools are installed: xcode-select --install"
+fi
 
-    steps:
-      - uses: actions/checkout@v4
+# --- 4. Generate Xcode project ---
+printf "\n${BOLD}Generating Xcode project...${RESET}\n\n"
+cd "$IOS_DIR"
+xcodegen generate --quiet 2>/dev/null || xcodegen generate
+pass "xcodegen generate (ios/BradOS/project.yml)"
+cd "$PROJECT_DIR"
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
+# --- 5. Boot simulator ---
+printf "\n${BOLD}Preparing simulator...${RESET}\n\n"
+BOOTED=$(xcrun simctl list devices booted | grep "$SIMULATOR_NAME" || true)
+if [ -n "$BOOTED" ]; then
+  pass "$SIMULATOR_NAME (already booted)"
+else
+  # Find the device UDID
+  UDID=$(xcrun simctl list devices available | grep "$SIMULATOR_NAME" | head -1 | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' || true)
+  if [ -z "$UDID" ]; then
+    fail "$SIMULATOR_NAME not found" "Available simulators: xcrun simctl list devices available"
+  fi
+  xcrun simctl boot "$UDID" 2>/dev/null || true
+  pass "$SIMULATOR_NAME (booted: $UDID)"
+fi
 
-      - name: Install dependencies
-        run: npm ci
+# --- 6. Sanity build ---
+if $SKIP_BUILD; then
+  printf "\n${DIM}  Skipping sanity build (--skip-build)${RESET}\n"
+else
+  printf "\n${BOLD}Running sanity build...${RESET}\n"
+  printf "  ${DIM}This may take a few minutes on first run (SPM resolution + compilation)${RESET}\n\n"
 
-      - name: Install firebase-tools
-        run: npm install -g firebase-tools
+  BUILD_LOG="$PROJECT_DIR/.validate/ios-setup-build.log"
+  mkdir -p "$(dirname "$BUILD_LOG")"
 
-      - name: Build functions
-        run: npm run build
+  if xcodebuild \
+    -project "$IOS_DIR/BradOS.xcodeproj" \
+    -scheme BradOS \
+    -destination "platform=iOS Simulator,name=$SIMULATOR_NAME" \
+    -derivedDataPath "$DERIVED_DATA" \
+    -skipPackagePluginValidation \
+    CODE_SIGNING_ALLOWED=NO \
+    build \
+    > "$BUILD_LOG" 2>&1; then
+    pass "Sanity build succeeded"
+  else
+    printf "  ${RED}✗ Sanity build failed${RESET}\n"
+    printf "    ${DIM}Full log: $BUILD_LOG${RESET}\n"
+    # Print last 20 lines of errors for quick diagnosis
+    printf "    ${DIM}Last errors:${RESET}\n"
+    grep -E "error:" "$BUILD_LOG" | tail -10 | while read -r line; do
+      printf "    ${RED}%s${RESET}\n" "$line"
+    done
+    exit 1
+  fi
+fi
 
-      - name: Start Firebase emulators
-        run: |
-          firebase emulators:start --project brad-os &
-          # Wait for functions emulator to be ready (port 5001)
-          echo "Waiting for emulators to start..."
-          timeout 60 bash -c '
-            until curl -sf http://127.0.0.1:5001/brad-os/us-central1/devHealth > /dev/null 2>&1; do
-              sleep 2
-            done
-          '
-          echo "Emulators ready."
-
-      - name: Run integration tests
-        run: npm run test:integration
-
-      - name: Upload integration test logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: integration-logs
-          path: |
-            .validate/*.log
-          retention-days: 7
+printf "\n  ${GREEN}${BOLD}Ready for iOS testing!${RESET}\n\n"
+printf "  ${DIM}Build & install:${RESET}\n"
+printf "  ${DIM}  xcodebuild -project ios/BradOS/BradOS.xcodeproj -scheme BradOS \\${RESET}\n"
+printf "  ${DIM}    -destination 'platform=iOS Simulator,name=$SIMULATOR_NAME' \\${RESET}\n"
+printf "  ${DIM}    -derivedDataPath ~/.cache/brad-os-derived-data \\${RESET}\n"
+printf "  ${DIM}    -skipPackagePluginValidation build${RESET}\n"
+printf "  ${DIM}  xcrun simctl install booted ~/.cache/brad-os-derived-data/Build/Products/Debug-iphonesimulator/BradOS.app${RESET}\n"
+printf "  ${DIM}  xcrun simctl launch booted com.bradcarter.brad-os${RESET}\n\n"
 ```
 
-**Design decisions explained:**
+Key design decisions:
 
 | Decision | Rationale |
 |----------|-----------|
-| Two separate jobs (`validate` → `integration`) | Fail fast on cheap checks before booting emulators. `needs: validate` skips integration if validation fails. |
-| `concurrency` with `cancel-in-progress` | Avoids wasting CI minutes when multiple pushes happen in quick succession. |
-| `npm ci` (not `npm install`) | Deterministic installs from lockfile, faster in CI. |
-| `firebase emulators:start` without `--import` | Uses fresh state (no seed data) matching `npm run emulators:fresh`. Integration tests create their own data. |
-| `--project brad-os` flag | Explicitly sets the project ID so the emulator URL matches the hardcoded `http://127.0.0.1:5001/brad-os/us-central1` in integration tests. Avoids needing `.firebaserc` auth. |
-| Health check loop with `timeout 60` | Polls the `devHealth` endpoint (same check integration tests use in `checkEmulatorRunning()`). 60s cap prevents hanging forever if the emulator fails to start. |
-| `firebase-tools` installed globally | It's not a devDependency — matches local dev setup where it's installed globally. |
-| `retention-days: 7` for artifacts | Keeps logs long enough for debugging but doesn't bloat storage. |
-| `timeout-minutes: 15/20` | Generous limits — validate typically takes ~20s locally, integration ~60s, but CI machines are slower and include install time. |
+| `set -euo pipefail` | Strict error handling, matching `validate.sh` conventions |
+| `--skip-build` flag | Allows quick prerequisite checks without the expensive build step (~2-5min) |
+| `CODE_SIGNING_ALLOWED=NO` | Lets the build succeed without provisioning profiles — agents and CI don't have signing identity |
+| Build log to `.validate/ios-setup-build.log` | Follows the project convention of logging verbose output to `.validate/` |
+| `xcodegen generate --quiet` with fallback | Older xcodegen versions may not support `--quiet` |
+| Simulator boot is idempotent | `xcrun simctl boot` errors if already booted — suppress with `|| true` |
+| Same `DERIVED_DATA` path as build guide | `~/.cache/brad-os-derived-data` — reuses cached artifacts from prior builds |
+| No `-sdk` flag on xcodebuild | The build guide explicitly warns against this (breaks watchOS companion) |
 
-**What the workflow does NOT do:**
+### 2. `docs/guides/ios-build-and-run.md` (modify)
 
-- No iOS build (requires macOS runners, Xcode — separate concern)
-- No deployment (intentionally decoupled from CI validation)
-- No secrets or Firebase auth tokens (emulator runs locally, no cloud access needed)
-- No coverage upload (can be added later)
-
----
-
-### 2. `package.json` (modify — optional enhancement)
-
-Add `firebase-tools` as a devDependency so CI can use `npx firebase` instead of a global install:
-
-```json
-"devDependencies": {
-  "firebase-tools": "^13.0.0"
-}
-```
-
-**However**, this changes the lockfile and may conflict with the globally-installed version used locally. **Recommendation: skip this for now** and use the global install approach in the workflow. This can be revisited later.
-
----
-
-### 3. `CLAUDE.md` (modify)
-
-Add a brief CI section after the "Validation" section so future agents know CI exists:
+Expand the Setup section slightly to clarify what the script does:
 
 ```markdown
-## Continuous Integration
+## Setup
 
-GitHub Actions runs on every push to `main` and every PR:
+Run the setup script to verify iOS toolchain prerequisites and run a sanity build:
 
-1. **validate** job — `npm run validate` (typecheck + lint + test + architecture)
-2. **integration** job — Boots Firebase emulators, runs `npm run test:integration`
-
-On failure, `.validate/*.log` artifacts are uploaded for inspection. See `.github/workflows/ci.yml`.
+```bash
+./scripts/setup-ios-testing.sh              # Full setup + sanity build
+./scripts/setup-ios-testing.sh --skip-build  # Check tools only, skip build
 ```
 
----
+The script checks for `xcodebuild`, `xcodegen`, and `xcrun simctl`, generates the Xcode project from `project.yml`, boots an iPhone 17 Pro simulator, and runs a fast build to verify everything works.
+```
+
+### 3. `scripts/setup-ios-testing.sh` permissions
+
+The file must be executable: `chmod +x scripts/setup-ios-testing.sh`
 
 ## Tests
 
-This is an infrastructure change (CI config), not application code. No new unit tests are needed. The CI workflow **is itself the test** — it validates that the existing test suites pass in a clean environment.
+This is a shell script (infrastructure tooling), not application logic. No vitest unit tests are needed. However, we validate correctness through:
 
-**Verification approach:**
+1. **ShellCheck static analysis** — Run `shellcheck scripts/setup-ios-testing.sh` (if available) to catch common bash pitfalls. Fix any findings.
 
-1. The workflow runs `npm run validate` which exercises all 4 check categories (typecheck, lint, test, architecture) — these already have extensive tests.
-2. The workflow runs `npm run test:integration` which exercises all 11 integration test suites against real Firebase emulators.
-3. The artifact upload step is verified by intentionally triggering a failure (see QA below).
+2. **Architecture lint compatibility** — Run `npm run lint:architecture` to ensure the new file doesn't violate any project structure rules.
 
----
+3. **Idempotency test** — Run the script twice in succession. Second run should pass without errors and skip already-booted simulator.
 
 ## QA
 
-### 1. Verify the workflow file is valid YAML
+This is the critical section — we must actually run the script and verify it works, not just check that the file exists.
+
+### 1. Run the script from the worktree root
 
 ```bash
-# From the worktree root
-python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml'))" && echo "Valid YAML"
+./scripts/setup-ios-testing.sh
 ```
 
-Or use `actionlint` if available:
+**Verify:**
+- All 6 checkmarks appear (xcodebuild, xcodegen, simctl, project generation, simulator boot, sanity build)
+- The sanity build log exists at `.validate/ios-setup-build.log`
+- The build log contains `BUILD SUCCEEDED`
+- The script exits with code 0
+
+### 2. Run with `--skip-build`
+
 ```bash
-npx actionlint .github/workflows/ci.yml
+./scripts/setup-ios-testing.sh --skip-build
 ```
 
-### 2. Verify the workflow triggers correctly
+**Verify:**
+- Tool checks and project generation run
+- "Skipping sanity build" message appears
+- Completes in under 10 seconds
 
-Push the branch and open a PR against `main`. Confirm the CI workflow appears in the GitHub Actions tab with both jobs listed.
+### 3. Idempotency — run again
 
-### 3. Verify the validate job passes
+```bash
+./scripts/setup-ios-testing.sh
+```
 
-The PR's CI run should show the `validate` job completing successfully with all 4 checks passing.
+**Verify:**
+- Simulator shows "(already booted)"
+- Build uses cached derived data (faster second run)
+- Exits 0
 
-### 4. Verify the integration job passes
+### 4. Verify the docs match
 
-The `integration` job should:
-- Install firebase-tools
-- Build functions
-- Start emulators (visible in logs as "Emulators ready.")
-- Run all 11 integration test suites
-- Show green checkmark
+Read `docs/guides/ios-build-and-run.md` and confirm the Setup section accurately describes how to invoke the script and what it does.
 
-### 5. Verify artifact upload on failure
+### 5. Verify build guide commands still work after setup
 
-To test this without breaking main, temporarily add a failing assertion to one test file in the PR branch, push, and confirm:
-- The workflow fails
-- The "validate-logs" artifact appears in the Actions run summary
-- Downloading the artifact yields the `.validate/*.log` files with verbose error output
-- Revert the intentional failure before merging
+After the script succeeds, run the full build-and-launch sequence from the guide:
 
-### 6. Verify concurrency cancellation
+```bash
+xcodebuild -project ios/BradOS/BradOS.xcodeproj \
+  -scheme BradOS \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+  -derivedDataPath ~/.cache/brad-os-derived-data \
+  -skipPackagePluginValidation \
+  build
 
-Push two commits in rapid succession to the same branch. Confirm the first run is cancelled and only the second completes.
+xcrun simctl install booted ~/.cache/brad-os-derived-data/Build/Products/Debug-iphonesimulator/BradOS.app
+xcrun simctl launch booted com.bradcarter.brad-os
+```
 
----
+This confirms the setup script left the environment in a correct state.
 
 ## Conventions
 
-1. **CLAUDE.md — Worktree workflow**: Create the workflow file in a worktree branch, validate, then merge to main.
-
-2. **CLAUDE.md — Validation**: Run `npm run validate` locally before committing to ensure the workflow file doesn't break anything.
-
-3. **CLAUDE.md — Subagent usage**: Run validation commands in subagents to conserve context.
-
-4. **CLAUDE.md — Self-review**: Review the diff before committing. Ensure the YAML is valid and the CLAUDE.md update is accurate.
-
-5. **docs/conventions/testing.md**: The CI workflow must run the same test commands as local development — `npm run validate` and `npm run test:integration` — not custom CI-only test scripts.
-
-6. **Project structure**: The `.github/workflows/` directory doesn't exist yet — it must be created along with the workflow file.
+1. **CLAUDE.md — Worktree workflow**: All changes made in a worktree branch, not directly on main.
+2. **CLAUDE.md — Validation**: Run `npm run validate` before committing (TypeScript checks won't be affected by a new `.sh` file, but this confirms nothing is broken).
+3. **CLAUDE.md — Self-review**: `git diff main --stat` and `git diff main` before committing. Verify only the expected files are touched.
+4. **CLAUDE.md — QA**: Actually run the script on the simulator — don't just verify the file exists.
+5. **Shell script style**: Follow existing scripts' conventions — `set -e`/`set -euo pipefail`, `SCRIPT_DIR`/`PROJECT_DIR` pattern, colored output with `BOLD`/`GREEN`/`RED`/`RESET` matching `validate.sh`.
+6. **docs/conventions/ios-swift.md — XcodeGen**: The script runs `xcodegen generate` which is the canonical way to regenerate the project.
+7. **Build flags**: Match exactly what `docs/guides/ios-build-and-run.md` specifies — no `-sdk` flag, use `-skipPackagePluginValidation`, use `~/.cache/brad-os-derived-data` for derived data.
