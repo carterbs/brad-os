@@ -1,4 +1,3 @@
-import { parseArgs } from "node:util";
 import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { Logger } from "./log.js";
@@ -14,77 +13,28 @@ import {
 import {
   createWorktree,
   cleanupWorktree,
-  mergeToMain,
   countCompleted,
   commitAll,
   hasNewCommits,
 } from "./git.js";
-import { readBacklog, peekTask, popTask, backlogPath } from "./backlog.js";
-import type { AgentBackend, AgentConfig, Config, StepSummary } from "./types.js";
+import { readBacklog, removeTask, backlogPath } from "./backlog.js";
+import { resolveConfig } from "./config.js";
+import { MergeQueue } from "./merge-queue.js";
+import type { AgentBackend, Config, StepSummary } from "./types.js";
 
-const REPO_DIR = "/Users/bradcarter/Documents/Dev/brad-os";
-const WORKTREE_DIR = "/tmp/brad-os-ralph-worktrees";
+// ── Worker result returned from runWorker ──
 
-const DEFAULT_MODELS: Record<AgentBackend, { plan: string; exec: string }> = {
-  claude: { plan: "claude-opus-4-6", exec: "claude-sonnet-4-6" },
-  codex: { plan: "gpt-5.3-codex", exec: "gpt-5.3-codex-spark" },
-};
-
-function parseCliArgs(): Config {
-  const { values } = parseArgs({
-    options: {
-      target: { type: "string", default: "15" },
-      "branch-prefix": { type: "string", default: "harness-improvement" },
-      "max-turns": { type: "string", default: "100" },
-      verbose: { type: "boolean", default: false },
-      task: { type: "string" },
-      // Backend selection
-      agent: { type: "string" },
-      "backlog-agent": { type: "string" },
-      "plan-agent": { type: "string" },
-      "impl-agent": { type: "string" },
-      "review-agent": { type: "string" },
-      // Model overrides
-      "backlog-model": { type: "string" },
-      "plan-model": { type: "string" },
-      "impl-model": { type: "string" },
-      "review-model": { type: "string" },
-    },
-    strict: false,
-  });
-
-  const defaultBackend = (values.agent as AgentBackend) ?? "claude";
-
-  function resolveStep(
-    stepAgent: string | undefined,
-    stepModel: string | undefined,
-    role: "plan" | "exec",
-  ): { backend: AgentBackend; model: string } {
-    const backend = (stepAgent as AgentBackend) ?? defaultBackend;
-    const baseModel = DEFAULT_MODELS[backend][role];
-    return { backend, model: stepModel ?? baseModel };
-  }
-
-  const agents: AgentConfig = {
-    backlog: resolveStep(values["backlog-agent"] as string | undefined, values["backlog-model"] as string | undefined, "plan"),
-    plan: resolveStep(values["plan-agent"] as string | undefined, values["plan-model"] as string | undefined, "plan"),
-    implement: resolveStep(values["impl-agent"] as string | undefined, values["impl-model"] as string | undefined, "exec"),
-    review: resolveStep(values["review-agent"] as string | undefined, values["review-model"] as string | undefined, "exec"),
-  };
-
-  return {
-    target: parseInt(values.target as string, 10),
-    branchPrefix: values["branch-prefix"] as string,
-    maxTurns: parseInt(values["max-turns"] as string, 10),
-    verbose: values.verbose as boolean,
-    task: values.task as string | undefined,
-    repoDir: REPO_DIR,
-    worktreeDir: WORKTREE_DIR,
-    maxReviewCycles: 4,
-    logFile: `${REPO_DIR}/ralph-loop.jsonl`,
-    agents,
-  };
+interface WorkerResult {
+  success: boolean;
+  improvement: number;
+  workerSlot: number;
+  branchName: string;
+  worktreePath: string;
+  taskText?: string;
+  stepResults: StepSummary[];
 }
+
+// ── Validation helper ──
 
 function runValidation(cwd: string): boolean {
   try {
@@ -95,8 +45,9 @@ function runValidation(cwd: string): boolean {
   }
 }
 
+// ── Dependency check ──
+
 function checkDeps(config: Config, logger: Logger): void {
-  // Always need git
   try {
     execFileSync("which", ["git"], { stdio: "pipe" });
   } catch {
@@ -104,7 +55,6 @@ function checkDeps(config: Config, logger: Logger): void {
     process.exit(1);
   }
 
-  // Check for backends actually in use
   const backendsInUse = new Set<AgentBackend>([
     config.agents.backlog.backend,
     config.agents.plan.backend,
@@ -131,17 +81,29 @@ function checkDeps(config: Config, logger: Logger): void {
   }
 }
 
-async function ralphLoopSingle(
-  n: number,
+// ── Single worker: plan -> implement -> review (no merge) ──
+
+async function runWorker(
+  workerSlot: number,
+  improvement: number,
   config: Config,
   logger: Logger,
   abortController: AbortController,
-  currentTask?: string,
-): Promise<boolean> {
-  const branchName = `${config.branchPrefix}-${String(n).padStart(3, "0")}`;
+  taskText?: string,
+): Promise<WorkerResult> {
+  const branchName = `${config.branchPrefix}-${String(improvement).padStart(3, "0")}`;
   const worktreePath = `${config.worktreeDir}/${branchName}`;
 
-  logger.heading(`\u2501\u2501\u2501 Improvement #${n}/${config.target} \u2501\u2501\u2501`);
+  const targetLabel = config.target !== undefined ? `/${config.target}` : "";
+  logger.heading(`\u2501\u2501\u2501 Improvement #${improvement}${targetLabel} \u2501\u2501\u2501`);
+
+  logger.jsonl({
+    event: "worker_started",
+    worker: workerSlot,
+    improvement,
+    task: taskText ?? "(ideation)",
+    ts: new Date().toISOString(),
+  });
 
   // Create or resume worktree
   const wtResult = createWorktree(
@@ -152,44 +114,27 @@ async function ralphLoopSingle(
   );
   if (!wtResult.created) {
     logger.error("Failed to create worktree");
-    return false;
+    return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults: [] };
   }
 
   if (wtResult.resumed) {
     logger.info(`Resuming from existing branch ${branchName}`);
   }
 
-  // Track current worktree for exit cleanup
-  currentWorktree = worktreePath;
-  currentBranch = branchName;
-
-  const cleanupFull = (): void => {
-    cleanupWorktree(config.repoDir, worktreePath, branchName);
-    currentWorktree = undefined;
-    currentBranch = undefined;
-  };
-
-  const clearTracking = (): void => {
-    currentWorktree = undefined;
-    currentBranch = undefined;
-  };
-
   try {
     const stepResults: StepSummary[] = [];
 
-    // ── 1. Planning (skip if resuming — plan already exists) ──
-    const taskText = config.task ?? currentTask;
+    // ── 1. Planning (skip if resuming) ──
     let planSummary = "";
 
     if (wtResult.resumed) {
       logger.info("[1/4] Skipping planning (resuming from prior work)");
     } else if (taskText) {
-      // Task is known — plan the implementation (skip ideation)
       logger.info(`[1/4] Planning for task: ${taskText.slice(0, 80)}...`);
       const planResult = await runStep({
         prompt: buildTaskPlanPrompt(taskText),
         stepName: "plan",
-        improvement: n,
+        improvement,
         cwd: worktreePath,
         model: config.agents.plan.model,
         backend: config.agents.plan.backend,
@@ -201,8 +146,7 @@ async function ralphLoopSingle(
       if (!planResult.success) {
         logger.error("Planning step failed");
         logger.info(`  Worktree preserved at: ${worktreePath}`);
-        clearTracking();
-        return false;
+        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults };
       }
 
       if (
@@ -212,8 +156,7 @@ async function ralphLoopSingle(
       ) {
         logger.error("Planning agent failed to create ralph-improvement.md");
         logger.info(`  Worktree preserved at: ${worktreePath}`);
-        clearTracking();
-        return false;
+        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults };
       }
 
       const planLine = planResult.outputText
@@ -235,12 +178,12 @@ async function ralphLoopSingle(
       });
       logger.stepSummary("plan", stepResults[stepResults.length - 1]);
     } else {
-      // No task — full ideation planning (scan codebase for gaps)
+      // No task — full ideation planning
       logger.info("[1/4] Planning (full ideation)...");
       const planResult = await runStep({
-        prompt: buildPlanPrompt(n, config.target),
+        prompt: buildPlanPrompt(improvement, config.target ?? 0),
         stepName: "plan",
-        improvement: n,
+        improvement,
         cwd: worktreePath,
         model: config.agents.plan.model,
         backend: config.agents.plan.backend,
@@ -252,8 +195,7 @@ async function ralphLoopSingle(
       if (!planResult.success) {
         logger.error("Planning step failed");
         logger.info(`  Worktree preserved at: ${worktreePath}`);
-        clearTracking();
-        return false;
+        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults };
       }
 
       if (
@@ -263,8 +205,7 @@ async function ralphLoopSingle(
       ) {
         logger.error("Planning agent failed to create ralph-improvement.md");
         logger.info(`  Worktree preserved at: ${worktreePath}`);
-        clearTracking();
-        return false;
+        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults };
       }
 
       const planLine = planResult.outputText
@@ -292,7 +233,7 @@ async function ralphLoopSingle(
     let implResult = await runStep({
       prompt: buildImplPrompt(),
       stepName: "implement",
-      improvement: n,
+      improvement,
       cwd: worktreePath,
       model: config.agents.implement.model,
       backend: config.agents.implement.backend,
@@ -306,7 +247,7 @@ async function ralphLoopSingle(
       implResult = await runStep({
         prompt: buildImplPrompt(),
         stepName: "implement",
-        improvement: n,
+        improvement,
         cwd: worktreePath,
         model: config.agents.implement.model,
         backend: config.agents.implement.backend,
@@ -317,8 +258,7 @@ async function ralphLoopSingle(
       if (!implResult.success) {
         logger.error("Implementation failed on retry");
         logger.info(`  Worktree preserved at: ${worktreePath}`);
-        clearTracking();
-        return false;
+        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults };
       }
     }
 
@@ -338,23 +278,19 @@ async function ralphLoopSingle(
     });
     logger.stepSummary("implement", stepResults[stepResults.length - 1]);
 
-    // Build descriptive commit message from plan + implementation output
-    const commitTitle = planSummary || `harness: improvement #${n}`;
+    const commitTitle = planSummary || `harness: improvement #${improvement}`;
     const commitBody = doneSummary ? `\n${doneSummary}` : "";
     const commitMsg = `${commitTitle}${commitBody}`;
 
-    // Commit implementation (codex may have already committed its own changes)
     if (!commitAll(worktreePath, commitMsg)) {
-      // Check if the agent already made commits on this branch
       if (!hasNewCommits(worktreePath)) {
         logger.error("No changes produced");
         logger.info(`  Worktree preserved at: ${worktreePath}`);
-        clearTracking();
-        return false;
+        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults };
       }
     }
 
-    // ── 3. Review loop (review → fix → re-review) ──
+    // ── 3. Review loop ──
     let passed = false;
     let cycle = 0;
     const reviewAccum: StepSummary = {
@@ -375,12 +311,11 @@ async function ralphLoopSingle(
         logger.info(`  \u2192 Worktree preserved at: ${worktreePath}`);
         logger.jsonl({
           event: "improvement_failed",
-          improvement: n,
+          improvement,
           reason: "exceeded review cycles",
           ts: new Date().toISOString(),
         });
-        clearTracking();
-        return false;
+        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults };
       }
 
       logger.info(
@@ -389,7 +324,7 @@ async function ralphLoopSingle(
       const reviewResult = await runStep({
         prompt: buildReviewPrompt(),
         stepName: "review",
-        improvement: n,
+        improvement,
         cwd: worktreePath,
         model: config.agents.review.model,
         backend: config.agents.review.backend,
@@ -398,13 +333,11 @@ async function ralphLoopSingle(
         abortController,
       });
 
-      // Commit any direct review fixes
       commitAll(
         worktreePath,
         `${commitTitle} \u2014 review fixes (cycle ${cycle})`,
       );
 
-      // Accumulate review stats across cycles
       reviewAccum.turns += reviewResult.turns;
       reviewAccum.costUsd += reviewResult.costUsd;
       reviewAccum.tokens +=
@@ -414,12 +347,11 @@ async function ralphLoopSingle(
       if (reviewResult.outputText.includes("REVIEW_PASSED")) {
         passed = true;
       } else if (reviewResult.outputText.includes("REVIEW_FAILED")) {
-        // Feed review findings back to a fix agent before retrying review
-        logger.warn("Reviewer found issues — running fix step...");
+        logger.warn("Reviewer found issues \u2014 running fix step...");
         const fixResult = await runStep({
           prompt: buildFixPrompt(reviewResult.outputText),
           stepName: "implement",
-          improvement: n,
+          improvement,
           cwd: worktreePath,
           model: config.agents.implement.model,
           backend: config.agents.implement.backend,
@@ -433,7 +365,6 @@ async function ralphLoopSingle(
           `${commitTitle} \u2014 fix from review (cycle ${cycle})`,
         );
 
-        // Accumulate fix stats into review totals
         reviewAccum.turns += fixResult.turns;
         reviewAccum.costUsd += fixResult.costUsd;
         reviewAccum.tokens +=
@@ -445,22 +376,20 @@ async function ralphLoopSingle(
           .find((l) => l.startsWith("FIXED:"));
         if (fixLine) logger.info(`  ${fixLine}`);
       } else {
-        // Ambiguous — fall back to running validation directly
         logger.warn(
           "Ambiguous review output, running validation as fallback...",
         );
         if (runValidation(worktreePath)) {
           passed = true;
         } else {
-          // Validation failed with no review text — run fix with validation error context
-          logger.warn("Validation failed — running fix step...");
+          logger.warn("Validation failed \u2014 running fix step...");
           const fixResult = await runStep({
             prompt: buildFixPrompt(
               "Review output was ambiguous, but npm run validate failed. " +
                 "Run npm run validate, read the error output, and fix all issues.",
             ),
             stepName: "implement",
-            improvement: n,
+            improvement,
             cwd: worktreePath,
             model: config.agents.implement.model,
             backend: config.agents.implement.backend,
@@ -486,83 +415,72 @@ async function ralphLoopSingle(
     stepResults.push(reviewAccum);
     logger.stepSummary("review", reviewAccum);
 
-    // ── 4. Merge to main ──
-    logger.info("[4/4] Merging to main...");
-    if (!mergeToMain(config.repoDir, branchName)) {
-      logger.error(
-        `Merge conflict \u2014 worktree preserved at: ${worktreePath}`,
-      );
-      logger.jsonl({
-        event: "improvement_failed",
-        improvement: n,
-        reason: "merge conflict",
-        ts: new Date().toISOString(),
-      });
-      clearTracking();
-      return false;
-    }
-
-    // Cleanup worktree (only after successful merge)
-    cleanupFull();
-
-    // Summary
+    // Worker done — merge is handled by the orchestrator via MergeQueue
     const totalCost = stepResults.reduce((s, r) => s + r.costUsd, 0);
     const totalDuration = stepResults.reduce((s, r) => s + r.durationMs, 0);
-    logger.improvementSummary(n, stepResults);
+    logger.improvementSummary(improvement, stepResults);
     logger.jsonl({
       event: "improvement_done",
-      improvement: n,
+      improvement,
       total_cost_usd: totalCost,
       total_duration_ms: totalDuration,
       ts: new Date().toISOString(),
     });
 
-    logger.success(`Improvement #${n} merged locally`);
-    return true;
+    return { success: true, improvement, workerSlot, branchName, worktreePath, taskText, stepResults };
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
-    logger.error(`Improvement #${n} failed: ${errMsg}`);
+    logger.error(`Improvement #${improvement} failed: ${errMsg}`);
     logger.info(`  Worktree preserved at: ${worktreePath}`);
     logger.jsonl({
       event: "improvement_failed",
-      improvement: n,
+      improvement,
       reason: errMsg,
       ts: new Date().toISOString(),
     });
-    // Preserve worktree — don't clean up, next attempt will resume
-    clearTracking();
-    return false;
+    return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, stepResults: [] };
   }
 }
 
-// Track current worktree for exit cleanup
-let currentWorktree: string | undefined;
-let currentBranch: string | undefined;
+// ── Orchestrator ──
+
+// Track active worktrees for exit cleanup: Map<workerSlot, { path, branch }>
+const activeWorktrees = new Map<number, { path: string; branch: string }>();
+
+function hasMoreWork(
+  completed: number,
+  target: number | undefined,
+  backlogCount: number,
+  inFlightCount: number,
+): boolean {
+  if (target !== undefined) return completed < target;
+  // No target: run until backlog is empty AND no tasks in flight
+  return backlogCount > 0 || inFlightCount > 0;
+}
 
 async function main(): Promise<void> {
-  const config = parseCliArgs();
-  const logger = new Logger(config.logFile, config.verbose);
+  const config = resolveConfig();
+  const orchestratorLogger = new Logger(config.logFile, config.verbose);
   const abortController = new AbortController();
+  const mergeQueue = new MergeQueue();
 
   // Signal handling
   process.on("SIGINT", () => {
-    logger.warn("Interrupted \u2014 cleaning up...");
+    orchestratorLogger.warn("Interrupted \u2014 cleaning up...");
     abortController.abort();
   });
   process.on("SIGTERM", () => {
     abortController.abort();
   });
 
-  // On exit, only clean up worktrees with no commits (nothing to preserve)
+  // On exit, clean up worktrees
   process.on("exit", () => {
-    if (currentWorktree && currentBranch) {
-      if (hasNewCommits(currentWorktree)) {
-        console.error(
-          `Worktree preserved (has commits): ${currentWorktree}`,
-        );
+    for (const [, wt] of activeWorktrees) {
+      if (hasNewCommits(wt.path)) {
+        console.error(`Worktree preserved (has commits): ${wt.path}`);
       } else {
         try {
-          cleanupWorktree(config.repoDir, currentWorktree, currentBranch);
+          cleanupWorktree(config.repoDir, wt.path, wt.branch);
         } catch {
           // Best effort
         }
@@ -570,122 +488,262 @@ async function main(): Promise<void> {
     }
   });
 
-  checkDeps(config, logger);
+  checkDeps(config, orchestratorLogger);
 
   const { agents } = config;
   const fmtStep = (s: { backend: AgentBackend; model: string }): string =>
     `${s.backend}/${s.model}`;
 
-  logger.info("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
-  logger.info(
-    `  Ralph Loop (local) \u2014 target: ${config.target} harness improvements`,
-  );
-  logger.info(`  Branch prefix  : ${config.branchPrefix}`);
-  logger.info(`  Repo           : ${config.repoDir}`);
-  logger.info(`  Worktrees      : ${config.worktreeDir}`);
-  logger.info(`  Max turns/step : ${config.maxTurns}`);
-  logger.info(`  Max review cyc : ${config.maxReviewCycles}`);
-  logger.info(`  Backlog agent  : ${fmtStep(agents.backlog)}`);
-  logger.info(`  Plan agent     : ${fmtStep(agents.plan)}`);
-  logger.info(`  Impl agent     : ${fmtStep(agents.implement)}`);
-  logger.info(`  Review agent   : ${fmtStep(agents.review)}`);
-  if (config.task) logger.info(`  Task           : ${config.task}`);
-  logger.info(`  Backlog        : ${readBacklog().length} tasks`);
-  logger.info("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
+  const targetLabel = config.target !== undefined
+    ? `${config.target} harness improvements`
+    : "until backlog empty";
+
+  orchestratorLogger.info("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
+  orchestratorLogger.info(`  Ralph Loop (local) \u2014 target: ${targetLabel}`);
+  orchestratorLogger.info(`  Parallelism    : ${config.parallelism}`);
+  orchestratorLogger.info(`  Branch prefix  : ${config.branchPrefix}`);
+  orchestratorLogger.info(`  Repo           : ${config.repoDir}`);
+  orchestratorLogger.info(`  Worktrees      : ${config.worktreeDir}`);
+  orchestratorLogger.info(`  Max turns/step : ${config.maxTurns}`);
+  orchestratorLogger.info(`  Max review cyc : ${config.maxReviewCycles}`);
+  orchestratorLogger.info(`  Backlog agent  : ${fmtStep(agents.backlog)}`);
+  orchestratorLogger.info(`  Plan agent     : ${fmtStep(agents.plan)}`);
+  orchestratorLogger.info(`  Impl agent     : ${fmtStep(agents.implement)}`);
+  orchestratorLogger.info(`  Review agent   : ${fmtStep(agents.review)}`);
+  if (config.task) orchestratorLogger.info(`  Task           : ${config.task}`);
+  orchestratorLogger.info(`  Backlog        : ${readBacklog().length} tasks`);
+  orchestratorLogger.info("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
 
   let completed = countCompleted(config.repoDir);
-  logger.info(`Already completed: ${completed}/${config.target}`);
-  logger.info(`Backlog           : ${backlogPath()}`);
+  orchestratorLogger.info(`Already completed: ${completed}${config.target !== undefined ? `/${config.target}` : ""}`);
+  orchestratorLogger.info(`Backlog           : ${backlogPath()}`);
 
   let consecutiveFailures = 0;
+  const tasksInFlight = new Set<string>();
 
-  while (completed < config.target) {
+  // Active worker promises keyed by worker slot
+  const activeWorkers = new Map<number, Promise<WorkerResult>>();
+
+  /** Find first backlog task not already in flight. */
+  function acquireTask(): string | undefined {
+    const tasks = readBacklog();
+    for (const t of tasks) {
+      if (!tasksInFlight.has(t)) return t;
+    }
+    return undefined;
+  }
+
+  /** Ensure backlog has tasks, refilling if needed. Returns false if refill fails. */
+  async function ensureBacklog(): Promise<boolean> {
+    const tasks = readBacklog();
+    const available = tasks.filter((t) => !tasksInFlight.has(t));
+    if (available.length > 0) return true;
+
+    // All tasks are in flight or backlog is empty — try refill
+    if (tasks.length === 0) {
+      orchestratorLogger.heading("Backlog empty \u2014 refilling with 10 tasks...");
+      const refillResult = await runStep({
+        prompt: buildBacklogRefillPrompt(),
+        stepName: "backlog-refill",
+        improvement: completed,
+        cwd: config.repoDir,
+        model: config.agents.backlog.model,
+        backend: config.agents.backlog.backend,
+        config,
+        logger: orchestratorLogger,
+        abortController,
+      });
+
+      if (!refillResult.success) {
+        orchestratorLogger.error("Backlog refill failed");
+        return false;
+      }
+
+      const newBacklog = readBacklog();
+      orchestratorLogger.success(`Backlog refilled: ${newBacklog.length} tasks`);
+      for (const t of newBacklog) {
+        orchestratorLogger.info(`  - ${t}`);
+      }
+
+      if (newBacklog.length === 0) {
+        orchestratorLogger.error("Refill produced no tasks \u2014 stopping.");
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  // ── Main orchestration loop ──
+
+  while (hasMoreWork(completed, config.target, readBacklog().length, tasksInFlight.size)) {
     if (abortController.signal.aborted) break;
 
-    // ── Resolve task for this iteration ──
-    // Priority: --task flag > backlog > refill backlog then pop
-    let task: string | undefined = config.task;
-
-    if (!task) {
-      const backlog = readBacklog();
-      if (backlog.length === 0) {
-        // Backlog is empty — run refill session
-        logger.heading("Backlog empty — refilling with 10 tasks...");
-        const refillResult = await runStep({
-          prompt: buildBacklogRefillPrompt(),
-          stepName: "backlog-refill",
-          improvement: completed,
-          cwd: config.repoDir,
-          model: config.agents.backlog.model,
-          backend: config.agents.backlog.backend,
-          config,
-          logger,
-          abortController,
-        });
-
-        if (!refillResult.success) {
-          logger.error("Backlog refill failed");
-          process.exit(1);
-        }
-
-        const newBacklog = readBacklog();
-        logger.success(`Backlog refilled: ${newBacklog.length} tasks`);
-        for (const t of newBacklog) {
-          logger.info(`  - ${t}`);
-        }
-
-        if (newBacklog.length === 0) {
-          logger.error("Refill produced no tasks — stopping.");
-          process.exit(1);
-        }
-      }
-
-      task = peekTask();
-      if (task) {
-        const remaining = readBacklog().length;
-        logger.info(`Next task from backlog (${remaining} total): ${task}`);
-      }
+    // Fill empty worker slots
+    const freeSlots: number[] = [];
+    for (let i = 0; i < config.parallelism; i++) {
+      if (!activeWorkers.has(i)) freeSlots.push(i);
     }
 
-    const next = completed + 1;
-    const success = await ralphLoopSingle(
-      next,
-      config,
-      logger,
-      abortController,
-      task,
+    for (const slot of freeSlots) {
+      if (abortController.signal.aborted) break;
+      if (config.target !== undefined && completed + tasksInFlight.size >= config.target) break;
+
+      let task: string | undefined = config.task;
+
+      if (!task) {
+        // Ensure backlog has available tasks
+        const ok = await ensureBacklog();
+        if (!ok) {
+          if (activeWorkers.size === 0) {
+            orchestratorLogger.error("No tasks available and no workers running \u2014 stopping.");
+            process.exit(1);
+          }
+          break; // Let running workers finish
+        }
+
+        task = acquireTask();
+        if (!task) break; // All backlog tasks in flight, wait for workers to finish
+      }
+
+      // Acquire this task
+      if (task && !config.task) {
+        tasksInFlight.add(task);
+      }
+
+      const improvement = completed + tasksInFlight.size;
+      const workerLogger = new Logger(config.logFile, config.verbose, slot);
+
+      // Track worktree for exit cleanup
+      const branchName = `${config.branchPrefix}-${String(improvement).padStart(3, "0")}`;
+      const worktreePath = `${config.worktreeDir}/${branchName}`;
+      activeWorktrees.set(slot, { path: worktreePath, branch: branchName });
+
+      const remaining = readBacklog().length;
+      workerLogger.info(`Starting task (${remaining} in backlog): ${task?.slice(0, 80) ?? "(ideation)"}...`);
+
+      const workerPromise = runWorker(
+        slot,
+        improvement,
+        config,
+        workerLogger,
+        abortController,
+        task,
+      );
+
+      activeWorkers.set(slot, workerPromise);
+    }
+
+    if (activeWorkers.size === 0) break;
+
+    // Wait for any worker to finish
+    const entries = [...activeWorkers.entries()];
+    const results = entries.map(([slot, promise]) =>
+      promise.then((result) => ({ slot, result })),
     );
 
-    if (success) {
-      // Pop task from backlog only after successful merge
-      if (!config.task && task) {
-        popTask();
-        logger.info(`Task removed from backlog after successful merge`);
+    const { slot: finishedSlot, result } = await Promise.race(results);
+    activeWorkers.delete(finishedSlot);
+
+    // Log worker completion
+    const finishedLogger = new Logger(config.logFile, config.verbose, finishedSlot);
+    finishedLogger.jsonl({
+      event: "worker_finished",
+      worker: finishedSlot,
+      improvement: result.improvement,
+      success: result.success,
+      ts: new Date().toISOString(),
+    });
+
+    if (result.success) {
+      // Enqueue to merge queue
+      const mergeResult = await mergeQueue.enqueue({
+        repoDir: config.repoDir,
+        worktreePath: result.worktreePath,
+        branchName: result.branchName,
+        improvement: result.improvement,
+        worker: finishedSlot,
+        logger: finishedLogger,
+      });
+
+      if (mergeResult.success) {
+        // Remove task from backlog and in-flight set
+        if (result.taskText && !config.task) {
+          removeTask(result.taskText);
+          tasksInFlight.delete(result.taskText);
+          finishedLogger.info(`Task removed from backlog after successful merge`);
+        }
+        activeWorktrees.delete(finishedSlot);
+        completed++;
+        consecutiveFailures = 0;
+        orchestratorLogger.success(
+          `Progress: ${completed}${config.target !== undefined ? `/${config.target}` : ""} \u2713`,
+        );
+      } else {
+        // Merge failed (conflict) — treat as failure
+        if (result.taskText) {
+          tasksInFlight.delete(result.taskText);
+        }
+        activeWorktrees.delete(finishedSlot);
+        consecutiveFailures++;
+        orchestratorLogger.warn(
+          `Merge failed for improvement #${result.improvement} (consecutive failures: ${consecutiveFailures})`,
+        );
       }
-      completed++;
-      consecutiveFailures = 0;
-      logger.success(`Progress: ${completed}/${config.target} \u2713`);
     } else {
-      consecutiveFailures++;
-      logger.warn(
-        `Improvement #${next} failed (consecutive failures: ${consecutiveFailures})`,
-      );
-      if (consecutiveFailures >= 3) {
-        logger.error("3 consecutive failures \u2014 stopping.");
-        process.exit(1);
+      // Worker failed
+      if (result.taskText) {
+        tasksInFlight.delete(result.taskText);
       }
-      logger.info("Continuing to next improvement...");
+      activeWorktrees.delete(finishedSlot);
+      consecutiveFailures++;
+      orchestratorLogger.warn(
+        `Improvement #${result.improvement} failed (consecutive failures: ${consecutiveFailures})`,
+      );
     }
 
-    // Small delay between improvements
+    if (consecutiveFailures >= 3) {
+      orchestratorLogger.error("3 consecutive failures \u2014 stopping.");
+      process.exit(1);
+    }
+
+    // Small delay between scheduling rounds
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
 
-  logger.info("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
-  logger.success(
-    `  \u2713 Done! ${config.target} harness improvements shipped locally.`,
+  // Wait for any remaining workers
+  if (activeWorkers.size > 0) {
+    orchestratorLogger.info(`Waiting for ${activeWorkers.size} remaining worker(s)...`);
+    const remaining = [...activeWorkers.values()];
+    const results = await Promise.allSettled(remaining);
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value.success) {
+        const result = r.value;
+        const workerLogger = new Logger(config.logFile, config.verbose, result.workerSlot);
+        const mergeResult = await mergeQueue.enqueue({
+          repoDir: config.repoDir,
+          worktreePath: result.worktreePath,
+          branchName: result.branchName,
+          improvement: result.improvement,
+          worker: result.workerSlot,
+          logger: workerLogger,
+        });
+        if (mergeResult.success) {
+          if (result.taskText && !config.task) {
+            removeTask(result.taskText);
+          }
+          activeWorktrees.delete(result.workerSlot);
+          completed++;
+        }
+      }
+    }
+  }
+
+  orchestratorLogger.info("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
+  orchestratorLogger.success(
+    `  \u2713 Done! ${completed} harness improvements shipped locally.`,
   );
-  logger.info("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
+  orchestratorLogger.info("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
 }
 
 main().catch((err) => {

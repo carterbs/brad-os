@@ -36,6 +36,21 @@ export function popTask(): string | undefined {
   return task;
 }
 
+/**
+ * Remove a specific task by text (not positional). For parallel use where
+ * the finished task may not be first in the file.
+ * Returns true if the task was found and removed.
+ */
+export function removeTask(taskText: string): boolean {
+  const tasks = readBacklog();
+  const idx = tasks.findIndex((t) => t === taskText);
+  if (idx === -1) return false;
+
+  tasks.splice(idx, 1);
+  writeBacklog(tasks);
+  return true;
+}
+
 /** Write tasks to backlog.md (overwrites). */
 export function writeBacklog(tasks: string[]): void {
   const content = tasks.map((t) => `- ${t}`).join("\n") + "\n";

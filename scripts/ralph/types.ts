@@ -20,7 +20,8 @@ export interface AgentConfig {
 }
 
 export interface Config {
-  target: number;
+  target?: number;
+  parallelism: number;
   branchPrefix: string;
   maxTurns: number;
   verbose: boolean;
@@ -38,6 +39,7 @@ export type LogEvent =
       improvement: number;
       step: StepName;
       backend: AgentBackend;
+      worker?: number;
       ts: string;
     }
   | {
@@ -45,13 +47,15 @@ export type LogEvent =
       tool: string;
       summary: string;
       step: StepName;
+      worker?: number;
       ts: string;
     }
-  | { event: "tool_result"; tool: string; step: StepName; ts: string }
+  | { event: "tool_result"; tool: string; step: StepName; worker?: number; ts: string }
   | {
       event: "compaction";
       pre_tokens: number;
       step: StepName;
+      worker?: number;
       ts: string;
     }
   | {
@@ -63,6 +67,7 @@ export type LogEvent =
       input_tokens: number;
       output_tokens: number;
       duration_ms: number;
+      worker?: number;
       ts: string;
     }
   | {
@@ -70,15 +75,46 @@ export type LogEvent =
       improvement: number;
       total_cost_usd: number;
       total_duration_ms: number;
+      worker?: number;
       ts: string;
     }
   | {
       event: "improvement_failed";
       improvement: number;
       reason: string;
+      worker?: number;
       ts: string;
     }
-  | { event: "error"; message: string; ts: string };
+  | { event: "error"; message: string; worker?: number; ts: string }
+  | {
+      event: "worker_started";
+      worker: number;
+      improvement: number;
+      task: string;
+      ts: string;
+    }
+  | {
+      event: "worker_finished";
+      worker: number;
+      improvement: number;
+      success: boolean;
+      ts: string;
+    }
+  | {
+      event: "merge_queued";
+      worker: number;
+      improvement: number;
+      branch: string;
+      ts: string;
+    }
+  | {
+      event: "merge_completed";
+      worker: number;
+      improvement: number;
+      branch: string;
+      success: boolean;
+      ts: string;
+    };
 
 export interface StepResult {
   success: boolean;

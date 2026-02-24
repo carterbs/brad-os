@@ -1,0 +1,7 @@
+{
+  "branchPrefix": "harness-improvement",
+  "parallelism": 2,
+  "maxTurns": 100,
+  "maxReviewCycles": 4,
+  "verbose": false
+}

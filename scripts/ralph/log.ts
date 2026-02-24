@@ -19,41 +19,46 @@ function formatCost(backend: AgentBackend, costUsd: number, tokens: number): str
 }
 
 export class Logger {
+  private readonly prefix: string;
+
   constructor(
     private readonly jsonlPath: string,
     private readonly verbose: boolean = false,
-  ) {}
+    private readonly workerSlot?: number,
+  ) {
+    this.prefix = workerSlot !== undefined ? `[W${workerSlot}] ` : "";
+  }
 
   info(msg: string): void {
-    console.log(`${DIM}[${ts()}]${RESET} ${msg}`);
+    console.log(`${DIM}[${ts()}]${RESET} ${this.prefix}${msg}`);
   }
 
   warn(msg: string): void {
-    console.log(`${DIM}[${ts()}]${RESET} ${YELLOW}${msg}${RESET}`);
+    console.log(`${DIM}[${ts()}]${RESET} ${this.prefix}${YELLOW}${msg}${RESET}`);
   }
 
   error(msg: string): void {
-    console.error(`${DIM}[${ts()}]${RESET} ${RED}${msg}${RESET}`);
+    console.error(`${DIM}[${ts()}]${RESET} ${this.prefix}${RED}${msg}${RESET}`);
   }
 
   success(msg: string): void {
-    console.log(`${DIM}[${ts()}]${RESET} ${GREEN}${msg}${RESET}`);
+    console.log(`${DIM}[${ts()}]${RESET} ${this.prefix}${GREEN}${msg}${RESET}`);
   }
 
   tool(name: string, summary: string): void {
     console.log(
-      `${DIM}[${ts()}]${RESET}   ${CYAN}${name.padEnd(6)}${RESET} ${summary}`,
+      `${DIM}[${ts()}]${RESET} ${this.prefix}  ${CYAN}${name.padEnd(6)}${RESET} ${summary}`,
     );
   }
 
   verboseMsg(msg: string): void {
     if (this.verbose) {
-      console.log(`${DIM}[${ts()}]   ${msg}${RESET}`);
+      console.log(`${DIM}[${ts()}]${RESET} ${this.prefix}${DIM}${msg}${RESET}`);
     }
   }
 
   heading(msg: string): void {
-    console.log(`${DIM}[${ts()}]${RESET} ${BOLD}${msg}${RESET}`);
+    console.log(`${DIM}[${ts()}]${RESET} ${this.prefix}${BOLD}${msg}${RESET}`);
   }
 
   compaction(preTokens: number): void {
@@ -62,7 +67,11 @@ export class Logger {
   }
 
   jsonl(event: LogEvent): void {
-    appendFileSync(this.jsonlPath, JSON.stringify(event) + "\n");
+    // Enrich with worker field if this logger has a worker slot
+    const enriched = this.workerSlot !== undefined && !("worker" in event)
+      ? { ...event, worker: this.workerSlot }
+      : event;
+    appendFileSync(this.jsonlPath, JSON.stringify(enriched) + "\n");
   }
 
   stepSummary(
@@ -84,7 +93,7 @@ export class Logger {
     const hasAnyCost = steps.some((s) => s.backend === "claude");
 
     const line = (msg: string): void => {
-      console.log(`${DIM}[${ts()}]${RESET} ${msg}`);
+      console.log(`${DIM}[${ts()}]${RESET} ${this.prefix}${msg}`);
     };
 
     line("\u250F\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501");
