@@ -136,8 +136,14 @@ function checkLayerDeps(): CheckResult {
       if (importedLayer === layer) continue;
       if (!allowed.has(importedLayer)) {
         const relFile = path.relative(process.cwd(), file);
+        const allowedList = [...allowed].join(', ') || '(none)';
         violations.push(
-          `${relFile} (layer: ${layer}) imports from ${spec} (layer: ${importedLayer}). ${layer} must not depend on ${importedLayer}.`
+          `${relFile} (layer: ${layer}) imports from ${spec} (layer: ${importedLayer}). ${layer} must not depend on ${importedLayer}.\n` +
+          `    Rule: Dependencies flow types -> schemas -> repositories -> services -> handlers. A ${layer} file may only import from: [${allowedList}].\n` +
+          `    Fix: 1. Move the needed type/function to a layer that ${layer} is allowed to import (e.g. packages/functions/src/types/).\n` +
+          `         2. Update the import in ${relFile} to point to the new location.\n` +
+          `         3. Delete the old definition if nothing else uses it.\n` +
+          `    Example: packages/functions/src/services/workout.service.ts correctly imports from types/ and repositories/, never from handlers/.`
         );
       }
     }
@@ -206,8 +212,14 @@ function checkSchemaBoundary(): CheckResult {
       const hasCreateResourceRouter = /createResourceRouter/.test(content);
 
       if (!hasValidateMiddleware && !hasSafeParse && !hasCreateResourceRouter) {
+        const schemaDir = 'packages/functions/src/schemas/';
         violations.push(
-          `${relPath} has a ${route.method} route at '${route.routePath}' without Zod validation. Add validate(schema) middleware.`
+          `${relPath} has a ${route.method} route at '${route.routePath}' without Zod validation.\n` +
+          `    Rule: Every POST/PUT/PATCH handler must validate its request body with a Zod schema at the boundary.\n` +
+          `    Fix: 1. Create or find a Zod schema in ${schemaDir} (e.g. ${schemaDir}<resource>.schema.ts).\n` +
+          `         2. Import { validate } from '../middleware/validate.js' in the handler.\n` +
+          `         3. Add validate(yourSchema) as middleware: app.${route.method.toLowerCase()}('${route.routePath}', validate(yourSchema), asyncHandler(...)).\n` +
+          `    Example: packages/functions/src/handlers/exercises.ts uses validate(createExerciseSchema) on its POST route.`
         );
       }
     }
@@ -287,11 +299,18 @@ function checkTypeDedup(): CheckResult {
     }
 
     if (uniqueFiles.size > 1) {
+      const filesList = [...uniqueFiles.entries()];
+      const typesFile = filesList.find(([f]) => f.includes('packages/functions/src/types/'));
+      const canonicalFile = typesFile ? typesFile[0] : 'packages/functions/src/types/<resource>.ts';
       let msg = `Type '${typeName}' defined in multiple files:`;
       for (const [file, line] of uniqueFiles) {
         msg += `\n    ${file}:${line}`;
       }
-      msg += '\n    Consolidate into packages/functions/src/types/ and import from shared.ts';
+      msg += `\n    Rule: Each type/interface must be defined exactly once, in packages/functions/src/types/.`;
+      msg += `\n    Fix: 1. Keep the definition in ${canonicalFile} (the canonical location).`;
+      msg += `\n         2. Delete the duplicate definition(s) from the other file(s).`;
+      msg += `\n         3. Update imports in consuming files to use: import { ${typeName} } from '../shared.js'`;
+      msg += `\n    Example: packages/functions/src/types/meditation.ts is the single source of truth for MeditationSessionRecord.`;
       violations.push(msg);
     }
   }
@@ -399,7 +418,12 @@ function checkFirebaseRoutes(): CheckResult {
 
     if (stripPrefixArg !== expectedResource) {
       violations.push(
-        `firebase.json rewrite '${source}' -> function '${funcName}' but stripPathPrefix('${stripPrefixArg}') used. Should be stripPathPrefix('${expectedResource}').`
+        `firebase.json rewrite '${source}' -> function '${funcName}' but handler uses stripPathPrefix('${stripPrefixArg}'). Expected stripPathPrefix('${expectedResource}').\n` +
+        `    Rule: The stripPathPrefix (or createBaseApp) argument must match the last path segment of the firebase.json rewrite source.\n` +
+        `    Fix: 1. Open packages/functions/src/handlers/${handlerFile}.ts.\n` +
+        `         2. Change stripPathPrefix('${stripPrefixArg}') to stripPathPrefix('${expectedResource}'), or change createBaseApp('${stripPrefixArg}') to createBaseApp('${expectedResource}').\n` +
+        `         3. Alternatively, update the firebase.json rewrite source path to end with /${stripPrefixArg}/** if that was the intended resource name.\n` +
+        `    Example: If firebase.json has '/api/dev/stretch-sessions/**', the handler must use createBaseApp('stretch-sessions').`
       );
     }
   }
@@ -525,7 +549,12 @@ function checkIosLayers(): CheckResult {
 
           const relPath = path.relative(ROOT_DIR, viewFile);
           violations.push(
-            `${relPath}:${lineNum} references ${stype} (a Service type). Views should access services through ViewModels.`
+            `${relPath}:${lineNum} references ${stype} (a Service type). Views must not depend on Services directly.\n` +
+            `    Rule: Views/ -> ViewModels/ -> Services/. Views access data through ViewModels, never by importing Service types.\n` +
+            `    Fix: 1. Create or find a ViewModel in ios/BradOS/BradOS/ViewModels/ that wraps ${stype}.\n` +
+            `         2. Move the ${stype} usage from the View into that ViewModel.\n` +
+            `         3. Have the View observe the ViewModel via @StateObject or @ObservedObject instead.\n` +
+            `    Example: ios/BradOS/BradOS/ViewModels/CyclingViewModel.swift wraps CyclingCoachClient so Views never reference it.`
           );
         }
       }
@@ -556,7 +585,12 @@ function checkIosLayers(): CheckResult {
 
           const relPath = path.relative(ROOT_DIR, compFile);
           violations.push(
-            `${relPath}:${lineNum} references ${vtype} (a ViewModel type). Components should receive data via parameters.`
+            `${relPath}:${lineNum} references ${vtype} (a ViewModel type). Components must not depend on ViewModels.\n` +
+            `    Rule: Components/ are reusable UI pieces that receive data via parameters (plain types, closures). They never import or reference ViewModel classes.\n` +
+            `    Fix: 1. Replace the ${vtype} reference with a plain parameter (e.g. a struct, array, or closure).\n` +
+            `         2. Have the parent View that owns ${vtype} extract the needed data and pass it as a parameter.\n` +
+            `         3. If the Component needs to trigger actions, pass a closure parameter instead of the whole ViewModel.\n` +
+            `    Example: Components/LoadStateView.swift accepts generic content closures instead of referencing any ViewModel directly.`
           );
         }
       }
