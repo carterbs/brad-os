@@ -19,7 +19,8 @@
  *  12. Zod schemas only in schemas/ directory
  *  13. No skipped tests
  *  14. High-risk files must have tests (AI/coach handlers+services)
- *  15. Prefer shared test factories over inline definitions (warning)
+ *  15. Prefer shared test factories over inline definitions
+ *  16. No inline ApiResponse in tests
  *
  * Exits 0 only if ALL checks pass. Exits 1 if any fail.
  */
@@ -1323,7 +1324,7 @@ function checkTestFactoryUsage(): CheckResult {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Check 17: No inline ApiResponse in test files
+// Check 16: No inline ApiResponse in test files
 //
 // Test files should import ApiResponse from __tests__/utils/api-types.ts
 // rather than defining their own inline interface.

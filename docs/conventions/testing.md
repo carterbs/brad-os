@@ -96,7 +96,7 @@ describe('Exercises Handler', () => {
 - **Test fixtures**: Use `create*` from shared fixtures, not inline `createTest*` factories
 - **Handler import**: Must come AFTER all `vi.mock()` calls
 
-The architecture linter (checks 16 and 17) enforces shared factory usage and prohibits inline ApiResponse definitions.
+The architecture linter (checks 15 and 16) enforces shared factory usage and prohibits inline ApiResponse definitions.
 
 ## QA / Simulator Testing
 
