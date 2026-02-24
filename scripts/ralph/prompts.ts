@@ -146,6 +146,32 @@ QA (MANDATORY — do not skip this):
 When done, output a one-line summary starting with "DONE:" describing the improvement.`;
 }
 
+export function buildFixPrompt(reviewOutput: string): string {
+  // Truncate review output to avoid blowing up the prompt
+  const maxLen = 4000;
+  const truncated =
+    reviewOutput.length > maxLen
+      ? reviewOutput.slice(0, maxLen) + "\n... (truncated)"
+      : reviewOutput;
+
+  return `You are fixing issues found by a reviewer in the brad-os project.
+
+YOUR FIRST STEP: Read thoughts/shared/plans/active/ralph-improvement.md in the current directory for the original plan.
+
+A reviewer found the following issues with the implementation. Fix them.
+
+## Review findings
+${truncated}
+
+## Instructions
+- Read CLAUDE.md and docs/conventions/ for project rules.
+- Fix ONLY the issues described above. Do not refactor or add unrelated changes.
+- Run and pass: npm run typecheck && npm run lint && npm test
+- Do NOT push to any remote. Do NOT run git push. Everything stays local.
+
+When done, output a one-line summary starting with "FIXED:" describing what you changed.`;
+}
+
 export function buildReviewPrompt(): string {
   return `You are an independent reviewer. Review the changes in this worktree against main.
 

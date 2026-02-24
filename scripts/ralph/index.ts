@@ -9,6 +9,7 @@ import {
   buildPlanPrompt,
   buildImplPrompt,
   buildReviewPrompt,
+  buildFixPrompt,
 } from "./prompts.js";
 import {
   createWorktree,
@@ -353,7 +354,7 @@ async function ralphLoopSingle(
       }
     }
 
-    // ── 3. Review loop ──
+    // ── 3. Review loop (review → fix → re-review) ──
     let passed = false;
     let cycle = 0;
     const reviewAccum: StepSummary = {
@@ -397,7 +398,7 @@ async function ralphLoopSingle(
         abortController,
       });
 
-      // Commit review fixes
+      // Commit any direct review fixes
       commitAll(
         worktreePath,
         `${commitTitle} \u2014 review fixes (cycle ${cycle})`,
@@ -413,7 +414,36 @@ async function ralphLoopSingle(
       if (reviewResult.outputText.includes("REVIEW_PASSED")) {
         passed = true;
       } else if (reviewResult.outputText.includes("REVIEW_FAILED")) {
-        logger.warn("Reviewer found unfixable issues, retrying...");
+        // Feed review findings back to a fix agent before retrying review
+        logger.warn("Reviewer found issues — running fix step...");
+        const fixResult = await runStep({
+          prompt: buildFixPrompt(reviewResult.outputText),
+          stepName: "implement",
+          improvement: n,
+          cwd: worktreePath,
+          model: config.agents.implement.model,
+          backend: config.agents.implement.backend,
+          config,
+          logger,
+          abortController,
+        });
+
+        commitAll(
+          worktreePath,
+          `${commitTitle} \u2014 fix from review (cycle ${cycle})`,
+        );
+
+        // Accumulate fix stats into review totals
+        reviewAccum.turns += fixResult.turns;
+        reviewAccum.costUsd += fixResult.costUsd;
+        reviewAccum.tokens +=
+          fixResult.inputTokens + fixResult.outputTokens;
+        reviewAccum.durationMs += fixResult.durationMs;
+
+        const fixLine = fixResult.outputText
+          .split("\n")
+          .find((l) => l.startsWith("FIXED:"));
+        if (fixLine) logger.info(`  ${fixLine}`);
       } else {
         // Ambiguous — fall back to running validation directly
         logger.warn(
@@ -421,6 +451,34 @@ async function ralphLoopSingle(
         );
         if (runValidation(worktreePath)) {
           passed = true;
+        } else {
+          // Validation failed with no review text — run fix with validation error context
+          logger.warn("Validation failed — running fix step...");
+          const fixResult = await runStep({
+            prompt: buildFixPrompt(
+              "Review output was ambiguous, but npm run validate failed. " +
+                "Run npm run validate, read the error output, and fix all issues.",
+            ),
+            stepName: "implement",
+            improvement: n,
+            cwd: worktreePath,
+            model: config.agents.implement.model,
+            backend: config.agents.implement.backend,
+            config,
+            logger,
+            abortController,
+          });
+
+          commitAll(
+            worktreePath,
+            `${commitTitle} \u2014 fix from validation (cycle ${cycle})`,
+          );
+
+          reviewAccum.turns += fixResult.turns;
+          reviewAccum.costUsd += fixResult.costUsd;
+          reviewAccum.tokens +=
+            fixResult.inputTokens + fixResult.outputTokens;
+          reviewAccum.durationMs += fixResult.durationMs;
         }
       }
     }

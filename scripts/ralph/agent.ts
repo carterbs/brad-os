@@ -285,6 +285,7 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
     let turns = 0;
     let inputTokens = 0;
     let outputTokens = 0;
+    let lastAgentMessage = "";
 
     const processJsonLine = (line: string): void => {
       let event: Record<string, unknown>;
@@ -319,10 +320,14 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
         });
       }
 
-      if (type === "item.completed" && item?.type === "agent_message" && config.verbose) {
+      // Capture every agent_message — last one wins as outputText fallback
+      if (type === "item.completed" && item?.type === "agent_message") {
         const text = (item.text as string) ?? "";
         if (text.length > 0) {
-          logger.verboseMsg(text.slice(0, 200));
+          lastAgentMessage = text;
+          if (config.verbose) {
+            logger.verboseMsg(text.slice(0, 200));
+          }
         }
       }
 
@@ -375,11 +380,15 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
       const durationMs = Date.now() - startTime;
       const success = code === 0;
 
+      // Prefer -o file, fall back to last agent_message from JSONL stream
       let outputText = "";
       try {
         outputText = readFileSync(outputFile, "utf-8");
       } catch {
         // Output file may not exist if codex failed early
+      }
+      if (!outputText.trim() && lastAgentMessage) {
+        outputText = lastAgentMessage;
       }
 
       try {
