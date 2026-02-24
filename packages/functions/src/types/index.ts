@@ -1,4 +1,6 @@
 export * from './database.js';
+export * from './errors.js';
+export * from './repository.js';
 export * from './api.js';
 export * from './progression.js';
 export * from './plan-modification.js';

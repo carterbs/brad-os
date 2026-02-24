@@ -7,7 +7,7 @@ import type {
   ExerciseProgression,
   PreviousWeekPerformance,
 } from '../shared.js';
-import { NotFoundError, ValidationError } from '../middleware/error-handler.js';
+import { NotFoundError, ValidationError } from '../types/errors.js';
 import {
   WorkoutRepository,
   WorkoutSetRepository,

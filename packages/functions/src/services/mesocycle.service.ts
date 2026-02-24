@@ -1,6 +1,6 @@
 import type { Firestore, WriteBatch } from 'firebase-admin/firestore';
 import { getCollectionName } from '../firebase.js';
-import { NotFoundError, ValidationError, ConflictError } from '../middleware/error-handler.js';
+import { NotFoundError, ValidationError, ConflictError } from '../types/errors.js';
 import type {
   Mesocycle,
   CreateMesocycleRequest,

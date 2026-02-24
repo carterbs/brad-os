@@ -3,12 +3,13 @@ import cors from 'cors';
 import type { ZodSchema } from 'zod';
 import type { Firestore } from 'firebase-admin/firestore';
 import { validate } from './validate.js';
-import { errorHandler, NotFoundError } from './error-handler.js';
+import { errorHandler } from './error-handler.js';
 import { stripPathPrefix } from './strip-path-prefix.js';
 import { requireAppCheck } from './app-check.js';
 import { asyncHandler } from './async-handler.js';
 import { getFirestoreDb } from '../firebase.js';
-import type { BaseRepository } from '../repositories/base.repository.js';
+import { NotFoundError } from '../types/errors.js';
+import type { IBaseRepository } from '../types/repository.js';
 
 /**
  * Create an Express app with the standard middleware stack.
@@ -27,7 +28,7 @@ interface ResourceRouterConfig<
   T extends { id: string },
   CreateDTO,
   UpdateDTO,
-  TRepo extends BaseRepository<T, CreateDTO, UpdateDTO>,
+  TRepo extends IBaseRepository<T, CreateDTO, UpdateDTO>,
 > {
   resourceName: string;
   displayName: string;
@@ -44,7 +45,7 @@ export function createResourceRouter<
   T extends { id: string },
   CreateDTO,
   UpdateDTO,
-  TRepo extends BaseRepository<T, CreateDTO, UpdateDTO>,
+  TRepo extends IBaseRepository<T, CreateDTO, UpdateDTO>,
 >(config: ResourceRouterConfig<T, CreateDTO, UpdateDTO, TRepo>): express.Application {
   const app = createBaseApp(config.resourceName);
 
