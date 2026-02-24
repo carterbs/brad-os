@@ -1,279 +1,230 @@
-# Add Local Dev Quickstart Guide
+# Add `scripts/setup-ios-testing.sh` for iOS Environment Bootstrap
 
-**Why**: There is no single document that walks a new developer (or agent) through the full bootstrap sequence. The README has a minimal "Development" section with stale commands (`npm run dev` which actually runs emulators, no mention of `validate`, no XcodeGen step). CLAUDE.md has validation and iOS build info but scattered across sections. A dedicated 5-minute quickstart guide consolidates the happy path: install → validate → emulators → iOS build.
+**Why**: `docs/guides/ios-build-and-run.md` (line 8) and `.claude/commands/explore-ios.md` (line 13) both reference `./scripts/setup-ios-testing.sh`, but the script doesn't exist. This causes a confusing failure for any developer or agent following the iOS setup guide. The architecture linter doesn't currently catch missing scripts inside code fences, so this has been silently broken.
 
 ---
 
 ## What
 
-Create `docs/guides/local-dev-quickstart.md` — a concise, linear guide covering:
+Create `scripts/setup-ios-testing.sh` — a bash script that:
 
-1. **Prerequisites** — Node 22, npm, Firebase CLI, Xcode + simulator, XcodeGen
-2. **Step 1: Clone & Install** — `git clone`, `npm install` (which also sets up git hooks via `postinstall`)
-3. **Step 2: Validate** — `npm run validate` to confirm the TypeScript + lint + test + architecture stack passes
-4. **Step 3: Start Emulators** — `npm run emulators` (persist mode) with a health-check curl to verify
-5. **Step 4: Build & Run iOS** — XcodeGen → xcodebuild → simctl install → simctl launch
-6. **Verify everything works** — curl the health endpoint, confirm iOS app loads in simulator
-7. **Next steps** — links to CLAUDE.md, conventions, and other guides
+1. **Checks prerequisites** — Verifies `xcodegen`, `xcodebuild`, and `xcrun simctl` are available, printing install instructions for anything missing.
+2. **Generates the Xcode project** — Runs `xcodegen generate` in `ios/BradOS/`.
+3. **Boots a simulator** — Finds an available iPhone simulator (preferring "iPhone 17 Pro") and boots it if not already booted.
+4. **Runs a fast build sanity check** — Executes a quick `xcodebuild build` to verify the project compiles. Uses the same flags as `docs/guides/ios-build-and-run.md` (no `-sdk`, includes `-skipPackagePluginValidation`).
+5. **Prints a success summary** — Shows what was verified and next steps.
 
-Then link it from `README.md` and `CLAUDE.md`.
+The script should follow the style of existing scripts (`start-emulators.sh`, `validate.sh`): `set -e`, `SCRIPT_DIR`/`PROJECT_DIR` pattern, emoji prefixed status lines, and clean error messages.
 
 ---
 
 ## Files
 
-### 1. `docs/guides/local-dev-quickstart.md` (CREATE)
-
-Full content of the new file:
-
-```markdown
-# Local Dev Quickstart
-
-Get brad-os running locally in ~5 minutes: install dependencies, validate the build, start emulators, and run the iOS app on a simulator.
-
-## Prerequisites
-
-| Tool | Version | Install |
-|------|---------|---------|
-| Node.js | 22.x | `brew install node@22` or [nvm](https://github.com/nvm-sh/nvm) |
-| npm | 10.x+ | Comes with Node |
-| Firebase CLI | Latest | `npm install -g firebase-tools` |
-| Xcode | 16+ | Mac App Store |
-| XcodeGen | Latest | `brew install xcodegen` |
-
-Verify:
+### 1. `scripts/setup-ios-testing.sh` (CREATE)
 
 ```bash
-node -v          # v22.x
-firebase --version
-xcodegen --version
-xcodebuild -version
+#!/bin/bash
+#
+# Setup iOS Testing Environment
+#
+# Verifies prerequisites, generates the Xcode project, boots a simulator,
+# and runs a fast build sanity check.
+#
+# Referenced by:
+#   - docs/guides/ios-build-and-run.md
+#   - .claude/commands/explore-ios.md
+#
+# Usage:
+#   ./scripts/setup-ios-testing.sh
+#   ./scripts/setup-ios-testing.sh --skip-build   # Skip the xcodebuild sanity check
+#
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+IOS_DIR="$PROJECT_DIR/ios/BradOS"
+DERIVED_DATA="$HOME/.cache/brad-os-derived-data"
+SIMULATOR_NAME="iPhone 17 Pro"
+
+SKIP_BUILD=false
+[[ "${1:-}" == "--skip-build" ]] && SKIP_BUILD=true
+
+# ── Colors ────────────────────────────────────────────────────────────────────
+BOLD='\033[1m'
+GREEN='\033[32m'
+RED='\033[31m'
+DIM='\033[2m'
+RESET='\033[0m'
+
+fail() {
+  printf "  ${RED}✗ %s${RESET}\n" "$1"
+  [ -n "${2:-}" ] && printf "    ${DIM}Install: %s${RESET}\n" "$2"
+  exit 1
+}
+
+ok() {
+  printf "  ${GREEN}✓ %s${RESET}\n" "$1"
+}
+
+# ── Step 1: Check prerequisites ───────────────────────────────────────────────
+echo ""
+echo "🔍 Checking prerequisites..."
+
+command -v xcodegen >/dev/null 2>&1 \
+  || fail "xcodegen not found" "brew install xcodegen"
+ok "xcodegen $(xcodegen --version 2>&1 | head -1)"
+
+command -v xcodebuild >/dev/null 2>&1 \
+  || fail "xcodebuild not found" "Install Xcode from the Mac App Store"
+ok "xcodebuild $(xcodebuild -version 2>&1 | head -1)"
+
+command -v xcrun >/dev/null 2>&1 \
+  || fail "xcrun not found" "Install Xcode Command Line Tools: xcode-select --install"
+ok "xcrun available"
+
+# Verify project.yml exists
+[ -f "$IOS_DIR/project.yml" ] \
+  || fail "ios/BradOS/project.yml not found — are you in the repo root?"
+ok "project.yml found"
+
+# ── Step 2: Generate Xcode project ───────────────────────────────────────────
+echo ""
+echo "🔨 Generating Xcode project..."
+(cd "$IOS_DIR" && xcodegen generate)
+ok "Xcode project generated"
+
+# ── Step 3: Boot simulator ────────────────────────────────────────────────────
+echo ""
+echo "📱 Checking simulator..."
+
+# Check if any simulator is already booted
+BOOTED=$(xcrun simctl list devices booted 2>/dev/null | grep -c "Booted" || true)
+if [ "$BOOTED" -gt 0 ]; then
+  ok "Simulator already booted"
+else
+  echo "  Booting $SIMULATOR_NAME..."
+  xcrun simctl boot "$SIMULATOR_NAME" 2>/dev/null \
+    || fail "Could not boot '$SIMULATOR_NAME'. List available: xcrun simctl list devices available"
+  ok "$SIMULATOR_NAME booted"
+fi
+
+# ── Step 4: Fast build sanity check ──────────────────────────────────────────
+if $SKIP_BUILD; then
+  echo ""
+  echo "⏭️  Skipping build sanity check (--skip-build)"
+else
+  echo ""
+  echo "🏗️  Running build sanity check (this may take a few minutes on first run)..."
+  xcodebuild -project "$IOS_DIR/BradOS.xcodeproj" \
+    -scheme BradOS \
+    -destination "platform=iOS Simulator,name=$SIMULATOR_NAME" \
+    -derivedDataPath "$DERIVED_DATA" \
+    -skipPackagePluginValidation \
+    build 2>&1 | tail -5
+  ok "Build succeeded (SwiftLint passed)"
+fi
+
+# ── Summary ───────────────────────────────────────────────────────────────────
+echo ""
+printf "  ${GREEN}${BOLD}iOS testing environment ready!${RESET}\n"
+echo ""
+echo "  Next steps:"
+echo "    # Install and launch the app:"
+echo "    xcrun simctl install booted $DERIVED_DATA/Build/Products/Debug-iphonesimulator/BradOS.app"
+echo "    xcrun simctl launch booted com.bradcarter.brad-os"
+echo ""
 ```
 
-## Step 1: Clone & Install
+**Key design decisions:**
+- **`--skip-build` flag**: Allows skipping the slow xcodebuild step when you just need prerequisites + project generation (useful for agents that will build separately).
+- **`SIMULATOR_NAME` variable**: Defaults to "iPhone 17 Pro" matching `ios-build-and-run.md`. Easy to change if the simulator name changes.
+- **`tail -5` on xcodebuild output**: Avoids dumping thousands of lines of build output. The script only needs to know pass/fail (exit code from `set -e` handles failures).
+- **Same `DERIVED_DATA` path** as the guide (`~/.cache/brad-os-derived-data`): Ensures the build artifacts are reusable by subsequent `simctl install` commands.
+- **No `-sdk` flag**: Matches the guide's warning about watchOS companion builds.
+- **`-skipPackagePluginValidation`**: Required for SwiftLint SPM build plugin per the guide.
 
-```bash
-git clone <repo-url> brad-os
-cd brad-os
-npm install
-```
+### 2. No other files need modification
 
-`npm install` also runs `postinstall` which sets `core.hooksPath` to `hooks/` — this enables the pre-commit hook that enforces validation.
-
-## Step 2: Validate
-
-```bash
-npm run validate
-```
-
-This runs typecheck + lint + test + architecture checks. All output goes to `.validate/*.log` — you only see a pass/fail summary. If anything fails, inspect the log:
-
-```bash
-cat .validate/typecheck.log   # or test.log, lint.log, architecture.log
-```
-
-A clean `validate` confirms your environment is set up correctly.
-
-## Step 3: Start Firebase Emulators
-
-```bash
-npm run emulators
-```
-
-This builds the Cloud Functions and starts the Firebase emulator suite:
-- **Functions:** http://127.0.0.1:5001
-- **Firestore:** http://127.0.0.1:8080
-- **Emulator UI:** http://127.0.0.1:4000
-
-Verify the functions are running:
-
-```bash
-curl -sf http://127.0.0.1:5001/brad-os/us-central1/devHealth
-```
-
-Other emulator modes:
-
-| Command | Behavior |
-|---------|----------|
-| `npm run emulators` | Persist data across restarts (default) |
-| `npm run emulators:fresh` | Start with empty database |
-| `npm run emulators:seed` | Load seed data from `seed-data/` |
-
-## Step 4: Build & Run iOS App
-
-Generate the Xcode project, build for the simulator, and launch:
-
-```bash
-# Generate project from project.yml
-cd ios/BradOS && xcodegen generate && cd ../..
-
-# Build for simulator
-xcodebuild -project ios/BradOS/BradOS.xcodeproj \
-  -scheme BradOS \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-  -derivedDataPath ~/.cache/brad-os-derived-data \
-  -skipPackagePluginValidation \
-  build
-
-# Install and launch on booted simulator
-xcrun simctl install booted ~/.cache/brad-os-derived-data/Build/Products/Debug-iphonesimulator/BradOS.app
-xcrun simctl launch booted com.bradcarter.brad-os
-```
-
-**Notes:**
-- Do NOT pass `-sdk iphonesimulator` — it breaks the watchOS companion build.
-- `-skipPackagePluginValidation` is required for the SwiftLint SPM build plugin.
-- SwiftLint runs automatically during `xcodebuild build` — a successful build means zero lint errors.
-
-## You're Done!
-
-At this point you should have:
-- ✅ All validation checks passing
-- ✅ Firebase emulators running with a health endpoint responding
-- ✅ The iOS app running in the simulator and talking to local emulators
-
-## Next Steps
-
-- **[CLAUDE.md](../../CLAUDE.md)** — Project rules, worktree workflow, validation commands
-- **[iOS Build and Run](ios-build-and-run.md)** — Detailed iOS build commands and exploratory testing
-- **[Debugging Cloud Functions](debugging-cloud-functions.md)** — Troubleshooting endpoints
-- **[Debug Telemetry](debug-telemetry.md)** — OpenTelemetry traces for iOS debugging
-- **[Conventions](../conventions/)** — TypeScript, iOS/Swift, API, and testing conventions
-```
-
-### 2. `README.md` (MODIFY)
-
-Add a quickstart link in the Development section. Replace the existing `## Development` section:
-
-**Current** (lines 51–59):
-```markdown
-## Development
-
-```bash
-npm install              # Install dependencies
-npm run dev              # Start API server (port 3001)
-npm run build            # Build all packages
-npm run typecheck        # TypeScript compilation
-npm run lint             # ESLint checks
-npm run test             # Unit tests
-```
-```
-
-**Replace with:**
-```markdown
-## Development
-
-See **[Local Dev Quickstart](docs/guides/local-dev-quickstart.md)** for the full 5-minute bootstrap flow.
-
-```bash
-npm install              # Install dependencies (also sets up git hooks)
-npm run validate         # Full check: typecheck + lint + test + architecture
-npm run emulators        # Start Firebase emulators (port 5001)
-npm run build            # Build Cloud Functions
-npm run typecheck        # TypeScript compilation
-npm run lint             # ESLint checks
-npm run test             # Unit tests
-```
-```
-
-Key changes:
-- Add link to the quickstart guide at the top of the section
-- Replace stale `npm run dev` with `npm run emulators` (they're the same script, but `emulators` is the real name)
-- Add `npm run validate` (the primary validation command)
-- Fix `npm run build` description (builds Cloud Functions, not "all packages")
-- Add note about git hooks to `npm install`
-
-### 3. `CLAUDE.md` (MODIFY)
-
-Add a quickstart link in the `## Guides` section. After the last guide entry (Debug Telemetry), add:
-
-**Current** (lines 136–140):
-```markdown
-## Guides (see docs/guides/)
-
-- **[Debugging Cloud Functions](docs/guides/debugging-cloud-functions.md)** — Ordered checklist: rewrite paths, deployment state, App Check
-- **[iOS Build and Run](docs/guides/ios-build-and-run.md)** — xcodebuild commands, simulator setup, SwiftLint via build, exploratory testing
-- **[Progressive Overload](docs/guides/progressive-overload.md)** — Business logic for workout progression, data architecture
-- **[Debug Telemetry](docs/guides/debug-telemetry.md)** — `npm run otel:start`, query `.otel/traces.jsonl` and `.otel/logs.jsonl` with Grep for structured iOS debugging
-```
-
-**Replace with:**
-```markdown
-## Guides (see docs/guides/)
-
-- **[Local Dev Quickstart](docs/guides/local-dev-quickstart.md)** — 5-minute bootstrap: install → validate → emulators → iOS build
-- **[Debugging Cloud Functions](docs/guides/debugging-cloud-functions.md)** — Ordered checklist: rewrite paths, deployment state, App Check
-- **[iOS Build and Run](docs/guides/ios-build-and-run.md)** — xcodebuild commands, simulator setup, SwiftLint via build, exploratory testing
-- **[Progressive Overload](docs/guides/progressive-overload.md)** — Business logic for workout progression, data architecture
-- **[Debug Telemetry](docs/guides/debug-telemetry.md)** — `npm run otel:start`, query `.otel/traces.jsonl` and `.otel/logs.jsonl` with Grep for structured iOS debugging
-```
-
-The quickstart is listed first because it's the entry point for new developers/agents.
+Both `docs/guides/ios-build-and-run.md` and `.claude/commands/explore-ios.md` already reference `./scripts/setup-ios-testing.sh` — they just need the script to exist. No changes to those files are needed.
 
 ---
 
 ## Tests
 
-This is a documentation-only change — no application code is modified. No vitest unit tests are needed.
+This is a shell script — no vitest unit tests apply. Verification is done through QA below.
 
-**Verify no existing tests break** by running `npm run validate` after making changes. The architecture linter checks for broken internal references in some cases, so confirm it passes.
-
-**Manual link verification** (in QA below) replaces automated tests for this change.
+**Verify no existing tests break** by running `npm run validate` after creating the script. The architecture linter's `checkClaudeMdRefs` doesn't check scripts inside code fences, but confirm nothing regresses.
 
 ---
 
 ## QA
 
-### 1. Validate the build still passes
+### 1. Validate the TypeScript build still passes
 ```bash
 npm run validate
-# All checks should pass — this is a docs-only change
+# All checks should pass — this only adds a new .sh file
 ```
 
-### 2. Verify all internal links in the new guide resolve
-Check that every relative link in `docs/guides/local-dev-quickstart.md` points to a real file:
+### 2. Verify the script is executable and has correct shebang
 ```bash
-# These files must exist:
-ls docs/guides/ios-build-and-run.md
-ls docs/guides/debugging-cloud-functions.md
-ls docs/guides/debug-telemetry.md
-ls docs/conventions/
-ls CLAUDE.md
+ls -la scripts/setup-ios-testing.sh
+# Should show -rwxr-xr-x (executable)
+head -1 scripts/setup-ios-testing.sh
+# Should be: #!/bin/bash
 ```
 
-### 3. Verify the README link resolves
+### 3. Run the script on a machine with Xcode
 ```bash
-# From the repo root, this file must exist:
-ls docs/guides/local-dev-quickstart.md
+./scripts/setup-ios-testing.sh
+# Expected output:
+#   🔍 Checking prerequisites...
+#     ✓ xcodegen Version: 2.44.1
+#     ✓ xcodebuild Xcode 16.x
+#     ✓ xcrun available
+#     ✓ project.yml found
+#   🔨 Generating Xcode project...
+#     ✓ Xcode project generated
+#   📱 Checking simulator...
+#     ✓ Simulator already booted (or booted)
+#   🏗️  Running build sanity check...
+#     ✓ Build succeeded (SwiftLint passed)
+#   iOS testing environment ready!
 ```
 
-### 4. Verify the CLAUDE.md link resolves
+### 4. Test the `--skip-build` flag
 ```bash
-# Same file, same check — already confirmed above
-ls docs/guides/local-dev-quickstart.md
+./scripts/setup-ios-testing.sh --skip-build
+# Should skip the xcodebuild step and show "Skipping build sanity check"
 ```
 
-### 5. Verify commands in the guide are accurate
-Cross-check each command in the quickstart against the actual project config:
-- `npm run validate` — exists in `package.json` ✓
-- `npm run emulators` — exists in `package.json` ✓
-- `npm run emulators:fresh` — exists in `package.json` ✓
-- `npm run emulators:seed` — exists in `package.json` ✓
-- `xcodebuild -project ios/BradOS/BradOS.xcodeproj -scheme BradOS ...` — matches `docs/guides/ios-build-and-run.md` ✓
-- `xcrun simctl install booted ...` — matches `docs/guides/ios-build-and-run.md` ✓
-- Port numbers (5001, 8080, 4000) — match `firebase.json` emulator config ✓
-- Bundle ID `com.bradcarter.brad-os` — matches `docs/conventions/ios-swift.md` ✓
+### 5. Test prerequisite failure (if possible)
+```bash
+# Temporarily hide xcodegen to test the error path:
+PATH_BACKUP="$PATH"
+export PATH="/usr/bin:/bin"
+./scripts/setup-ios-testing.sh
+# Should show: ✗ xcodegen not found
+#              Install: brew install xcodegen
+export PATH="$PATH_BACKUP"
+```
 
-### 6. Diff review
+### 6. Verify references resolve
+```bash
+# Confirm the script path matches what the docs reference:
+grep -n "setup-ios-testing" docs/guides/ios-build-and-run.md
+grep -n "setup-ios-testing" .claude/commands/explore-ios.md
+# Both should show ./scripts/setup-ios-testing.sh — which now exists
+```
+
+### 7. Diff review
 ```bash
 git diff main --stat
-# Expected: 3 files changed (1 new, 2 modified)
-#   docs/guides/local-dev-quickstart.md (new)
-#   README.md (modified)
-#   CLAUDE.md (modified)
+# Expected: 1 file changed
+#   scripts/setup-ios-testing.sh (new)
 
 git diff main
-# Review every changed line
+# Review every line
 ```
 
 ---
@@ -284,5 +235,8 @@ git diff main
 2. **CLAUDE.md — Validation**: Run `npm run validate` before committing.
 3. **CLAUDE.md — Subagent usage**: Run validation in a subagent to conserve context.
 4. **CLAUDE.md — Self-review**: `git diff main` to review every changed line before committing.
-5. **CLAUDE.md — Agent legibility**: Push context into the repo (docs) rather than leaving it in chat. This guide directly serves that principle.
-6. **CLAUDE.md — QA**: Exercise what you built — verify links resolve, commands are accurate, and the guide matches reality.
+5. **CLAUDE.md — QA**: Exercise what you built — run the script and verify output, don't just check it in.
+6. **Shell script style**: Follow existing patterns from `start-emulators.sh` and `validate.sh` — `set -e`, `SCRIPT_DIR`/`PROJECT_DIR`, emoji status lines, color codes.
+7. **iOS conventions** (`docs/conventions/ios-swift.md`): Use `-project` (not `-workspace`), scheme `BradOS`, bundle ID `com.bradcarter.brad-os`.
+8. **iOS build flags** (`docs/guides/ios-build-and-run.md`): No `-sdk` flag, include `-skipPackagePluginValidation`, use `~/.cache/brad-os-derived-data` for derived data.
+9. **File must be executable**: `chmod +x scripts/setup-ios-testing.sh` after creation.
