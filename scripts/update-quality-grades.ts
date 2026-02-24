@@ -15,6 +15,7 @@ const ROOT_DIR = path.resolve(import.meta.dirname ?? __dirname, '..');
 const FUNCTIONS_SRC = path.join(ROOT_DIR, 'packages/functions/src');
 const IOS_TESTS_DIR = path.join(ROOT_DIR, 'ios/BradOS/BradOSCore/Tests/BradOSCoreTests');
 const QUALITY_GRADES_PATH = path.join(ROOT_DIR, 'docs/quality-grades.md');
+const COVERAGE_SUMMARY_PATH = path.join(ROOT_DIR, 'packages/functions/coverage/coverage-summary.json');
 
 // ── Handler-to-feature map (mirrors lint-architecture.ts checkOrphanFeatures) ─
 
@@ -403,6 +404,7 @@ interface DomainGrade {
   iosLevel: string;
   apiComplete: string;
   iosComplete: string;
+  coveragePct: number | null;
   notes: string;
 }
 
@@ -419,58 +421,57 @@ function calculateGrade(
   hasUntestedHighRisk: boolean,
   isSharedDomain: boolean,
   apiComplete: string,
+  coveragePct: number | null,
 ): Grade {
+  let baseGrade: Grade;
+
   if (isSharedDomain) {
-    // Shared domains grade based on whether they have their own iOS tests
-    // History reuses Calendar backend; Profile is a settings hub
-    return 'B-';
-  }
+    baseGrade = 'B-';
+  } else {
+    const backendLevel = testCountLevel(backendCount);
+    const iosLevel = testCountLevel(iosCount);
+    const apiPartial = apiComplete !== 'Yes';
 
-  const backendLevel = testCountLevel(backendCount);
-  const iosLevel = testCountLevel(iosCount);
-  const apiPartial = apiComplete !== 'Yes';
-
-  // A: High backend + Medium+ iOS + no untested files + complete API
-  if (backendLevel === 'High' && !hasUntested && !apiPartial) {
-    if (iosLevel === 'High' || iosLevel === 'Medium') return 'A';
-    return 'B+';
-  }
-
-  // B+ range: High backend with minor gaps
-  if (backendLevel === 'High' && hasUntested && !hasUntestedHighRisk) {
-    if (iosLevel === 'High') return 'B+';
-    if (iosLevel === 'Medium') return 'B+';
-    return 'B';
-  }
-
-  // B range: Medium backend
-  if (backendLevel === 'Medium') {
-    if (hasUntestedHighRisk) return 'C+';
-    if (iosLevel === 'High') return 'B+';
-    if (iosLevel === 'Medium') return 'B';
-    return 'B-';
-  }
-
-  // High backend with high-risk untested
-  if (backendLevel === 'High' && hasUntestedHighRisk) {
-    return 'B';
-  }
-
-  // C range: Low backend
-  if (backendLevel === 'Low') {
-    if (hasUntestedHighRisk) {
-      if (backendCount === 0) return 'C';
-      return 'C+';
+    if (backendLevel === 'High' && !hasUntested && !apiPartial) {
+      baseGrade = (iosLevel === 'High' || iosLevel === 'Medium') ? 'A' : 'B+';
+    } else if (backendLevel === 'High' && hasUntested && !hasUntestedHighRisk) {
+      baseGrade = (iosLevel === 'High' || iosLevel === 'Medium') ? 'B+' : 'B';
+    } else if (backendLevel === 'Medium') {
+      if (hasUntestedHighRisk) baseGrade = 'C+';
+      else if (iosLevel === 'High') baseGrade = 'B+';
+      else if (iosLevel === 'Medium') baseGrade = 'B';
+      else baseGrade = 'B-';
+    } else if (backendLevel === 'High' && hasUntestedHighRisk) {
+      baseGrade = 'B';
+    } else if (backendLevel === 'Low') {
+      if (hasUntestedHighRisk) {
+        baseGrade = backendCount === 0 ? 'C' : 'C+';
+      } else if (apiPartial) {
+        baseGrade = 'C+';
+      } else if (hasUntested && backendCount > 0) {
+        baseGrade = 'C+';
+      } else if (backendCount > 0 && !hasUntested) {
+        baseGrade = 'B-';
+      } else if (iosCount >= 1) {
+        baseGrade = 'C';
+      } else {
+        baseGrade = 'C';
+      }
+    } else {
+      baseGrade = 'C';
     }
-    if (apiPartial) return 'C+';
-    // Low tests with untested files = C+
-    if (hasUntested && backendCount > 0) return 'C+';
-    if (backendCount > 0 && !hasUntested) return 'B-';
-    if (iosCount >= 1) return 'C';
-    return 'C';
   }
 
-  return 'C';
+  // Coverage penalty: below 50% line coverage downgrades one notch
+  if (coveragePct !== null && coveragePct < 50) {
+    const gradeOrder: Grade[] = ['A', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F'];
+    const idx = gradeOrder.indexOf(baseGrade);
+    if (idx >= 0 && idx < gradeOrder.length - 1) {
+      return gradeOrder[idx + 1]!;
+    }
+  }
+
+  return baseGrade;
 }
 
 // ── Domain metadata (API/iOS completeness) ───────────────────────────────────
@@ -513,6 +514,82 @@ function formatDomainName(domain: string): string {
     'unknown': 'Unknown',
   };
   return names[domain] ?? domain;
+}
+
+// ── Coverage data parsing ────────────────────────────────────────────────────
+
+interface CoverageSummaryEntry {
+  total: number;
+  covered: number;
+  skipped: number;
+  pct: number;
+}
+
+interface CoverageSummaryFile {
+  lines: CoverageSummaryEntry;
+  statements: CoverageSummaryEntry;
+  functions: CoverageSummaryEntry;
+  branches: CoverageSummaryEntry;
+}
+
+function parseCoverageData(): Map<string, CoverageSummaryFile> | null {
+  if (!fs.existsSync(COVERAGE_SUMMARY_PATH)) return null;
+
+  try {
+    const raw = JSON.parse(fs.readFileSync(COVERAGE_SUMMARY_PATH, 'utf-8')) as Record<string, CoverageSummaryFile>;
+    const fileMap = new Map<string, CoverageSummaryFile>();
+    for (const [filePath, data] of Object.entries(raw)) {
+      if (filePath === 'total') continue;
+      fileMap.set(filePath, data);
+    }
+    return fileMap;
+  } catch {
+    return null;
+  }
+}
+
+function aggregateDomainCoverage(coverageData: Map<string, CoverageSummaryFile> | null): Map<string, number> {
+  const domainCoverage = new Map<string, number>();
+  if (!coverageData) return domainCoverage;
+
+  // Group files by domain using existing maps
+  const domainLines = new Map<string, { total: number; covered: number }>();
+
+  for (const [filePath, data] of coverageData) {
+    // Extract relative path from absolute
+    const srcIdx = filePath.indexOf('packages/functions/src/');
+    if (srcIdx === -1) continue;
+    const relPath = filePath.slice(srcIdx + 'packages/functions/src/'.length);
+    const parts = relPath.split('/');
+    if (parts.length < 2) continue;
+
+    const dir = parts[0]!;
+    const fileName = parts[1]!.replace('.ts', '');
+
+    let domain: string | undefined;
+    if (dir === 'handlers') {
+      domain = HANDLER_FEATURE_MAP[fileName];
+    } else if (dir === 'services') {
+      domain = SERVICE_DOMAIN_MAP[fileName];
+    } else if (dir === 'repositories') {
+      domain = REPO_DOMAIN_MAP[fileName];
+    }
+
+    if (!domain) continue;
+
+    const existing = domainLines.get(domain) ?? { total: 0, covered: 0 };
+    existing.total += data.lines.total;
+    existing.covered += data.lines.covered;
+    domainLines.set(domain, existing);
+  }
+
+  for (const [domain, { total, covered }] of domainLines) {
+    if (total > 0) {
+      domainCoverage.set(domain, Math.round((covered / total) * 100));
+    }
+  }
+
+  return domainCoverage;
 }
 
 function buildNotes(
@@ -723,6 +800,8 @@ function main(): void {
   const iosTests = countIosTests();
   const untested = detectUntestedFiles();
   const todoCount = countTodoComments();
+  const coverageData = parseCoverageData();
+  const domainCoverage = aggregateDomainCoverage(coverageData);
 
   // Calculate grades for each domain
   const grades: DomainGrade[] = [];
@@ -749,7 +828,8 @@ function main(): void {
     const hasUntestedHighRisk = untestedInDomain.some((u) => u.risk === 'High');
     const hasUntested = hasUntestedHandlers || hasUntestedServices;
 
-    const grade = calculateGrade(backendCount, iosCount, hasUntested, hasUntestedHighRisk, meta.isShared, meta.apiComplete);
+    const coveragePct = domainCoverage.get(domain) ?? null;
+    const grade = calculateGrade(backendCount, iosCount, hasUntested, hasUntestedHighRisk, meta.isShared, meta.apiComplete, coveragePct);
 
     grades.push({
       domain,
@@ -760,13 +840,15 @@ function main(): void {
       iosLevel: meta.isShared ? '(shared)' : `${testCountLevel(iosCount)} (${iosCount})`,
       apiComplete: meta.apiComplete,
       iosComplete: meta.iosComplete,
+      coveragePct,
       notes: buildNotes(domain, backendCounts, untestedInDomain),
     });
   }
 
   // Print summary
   for (const g of grades) {
-    console.log(`  ${formatDomainName(g.domain).padEnd(16)} ${g.grade.padEnd(4)} Backend: ${g.testLevel.padEnd(10)} iOS: ${g.iosLevel}`);
+    const covStr = g.coveragePct !== null ? `${g.coveragePct}%` : '--';
+    console.log(`  ${formatDomainName(g.domain).padEnd(16)} ${g.grade.padEnd(4)} Backend: ${g.testLevel.padEnd(10)} iOS: ${g.iosLevel.padEnd(10)} Cov: ${covStr}`);
   }
   console.log('');
 
@@ -777,9 +859,10 @@ function main(): void {
     ? 'Zero TODO/FIXME comments were found in the codebase (a positive signal for architecture health across all domains).'
     : `${todoCount} TODO/FIXME comment(s) were found in the codebase.`;
 
-  const gradesTable = grades.map((g) =>
-    `| ${formatDomainName(g.domain)} | **${g.grade}** | ${g.testLevel} | ${g.iosLevel} | ${g.apiComplete} | ${g.iosComplete} | ${g.notes} |`
-  ).join('\n');
+  const gradesTable = grades.map((g) => {
+    const covStr = g.coveragePct !== null ? `${g.coveragePct}%` : '--';
+    return `| ${formatDomainName(g.domain)} | **${g.grade}** | ${g.testLevel} | ${g.iosLevel} | ${covStr} | ${g.apiComplete} | ${g.iosComplete} | ${g.notes} |`;
+  }).join('\n');
 
   const md = `# Domain Quality Grades
 
@@ -807,8 +890,8 @@ ${todoNote}
 
 ## Domain Grades
 
-| Domain | Grade | Backend Tests | iOS Tests | API Complete | iOS Complete | Notes |
-|--------|-------|---------------|-----------|--------------|--------------|-------|
+| Domain | Grade | Backend Tests | iOS Tests | Coverage | API Complete | iOS Complete | Notes |
+|--------|-------|---------------|-----------|----------|--------------|--------------|-------|
 ${gradesTable}
 
 ---
