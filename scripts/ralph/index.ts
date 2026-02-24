@@ -22,6 +22,8 @@ import type { Config, StepSummary } from "./types.js";
 
 const REPO_DIR = "/Users/bradcarter/Documents/Dev/brad-os";
 const WORKTREE_DIR = "/tmp/brad-os-ralph-worktrees";
+const MODEL_PLAN = "claude-opus-4-6";
+const MODEL_EXEC = "claude-sonnet-4-6";
 
 function parseCliArgs(): Config {
   const { values } = parseArgs({
@@ -113,6 +115,7 @@ async function ralphLoopSingle(
         stepName: "plan",
         improvement: n,
         cwd: worktreePath,
+        model: MODEL_PLAN,
         config,
         logger,
         abortController,
@@ -156,6 +159,7 @@ async function ralphLoopSingle(
         stepName: "plan",
         improvement: n,
         cwd: worktreePath,
+        model: MODEL_PLAN,
         config,
         logger,
         abortController,
@@ -200,6 +204,7 @@ async function ralphLoopSingle(
       stepName: "implement",
       improvement: n,
       cwd: worktreePath,
+      model: MODEL_EXEC,
       config,
       logger,
       abortController,
@@ -212,6 +217,7 @@ async function ralphLoopSingle(
         stepName: "implement",
         improvement: n,
         cwd: worktreePath,
+        model: MODEL_EXEC,
         config,
         logger,
         abortController,
@@ -279,6 +285,7 @@ async function ralphLoopSingle(
         stepName: "review",
         improvement: n,
         cwd: worktreePath,
+        model: MODEL_EXEC,
         config,
         logger,
         abortController,
@@ -401,7 +408,8 @@ async function main(): Promise<void> {
   logger.info(`  Worktrees      : ${config.worktreeDir}`);
   logger.info(`  Max turns/step : ${config.maxTurns}`);
   logger.info(`  Max review cyc : ${config.maxReviewCycles}`);
-  logger.info(`  Model          : claude-opus-4-6`);
+  logger.info(`  Plan model     : ${MODEL_PLAN}`);
+  logger.info(`  Exec model     : ${MODEL_EXEC}`);
   if (config.task) logger.info(`  Task           : ${config.task}`);
   logger.info(`  Backlog        : ${readBacklog().length} tasks`);
   logger.info("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
@@ -429,6 +437,7 @@ async function main(): Promise<void> {
           stepName: "backlog-refill",
           improvement: completed,
           cwd: config.repoDir,
+          model: MODEL_PLAN,
           config,
           logger,
           abortController,

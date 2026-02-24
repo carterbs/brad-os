@@ -49,13 +49,14 @@ export interface RunStepOptions {
   stepName: StepName;
   improvement: number;
   cwd: string;
+  model: string;
   config: Config;
   logger: Logger;
   abortController: AbortController;
 }
 
 export async function runStep(options: RunStepOptions): Promise<StepResult> {
-  const { prompt, stepName, improvement, cwd, config, logger, abortController } =
+  const { prompt, stepName, improvement, cwd, model, config, logger, abortController } =
     options;
   const startTime = Date.now();
 
@@ -100,7 +101,7 @@ export async function runStep(options: RunStepOptions): Promise<StepResult> {
     for await (const message of query({
       prompt,
       options: {
-        model: "claude-opus-4-6",
+        model,
         maxTurns: config.maxTurns,
         cwd,
         permissionMode: "bypassPermissions",
