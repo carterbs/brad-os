@@ -82,3 +82,6 @@ packages/functions/shared/
 
 # ESLint cache
 .eslintcache
+
+# Ralph per-task active plan (local/ephemeral)
+thoughts/shared/plans/active/ralph-improvement.md
