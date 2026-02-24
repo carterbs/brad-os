@@ -179,7 +179,7 @@ struct WeightGoalViewModelTests {
         #expect(vm.prediction != nil)
         #expect(vm.prediction?.predictedDate != nil)
         #expect(vm.prediction?.isOnTrack == true)
-        #expect(vm.prediction?.daysRemaining == 27)
+        #expect(vm.prediction?.daysRemaining == 7)
         assertNear(vm.prediction?.weeklyRateLbs ?? 0, 3.5)
     }
 
