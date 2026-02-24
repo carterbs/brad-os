@@ -23,6 +23,7 @@
  *  16. Prefer shared test factories over inline definitions
  *  17. No inline ApiResponse in tests
  *  18. No focused tests (.only)
+ *  19. Test quality (no empty test bodies, no assertion-free test files)
  */
 
 import * as fs from 'node:fs';
@@ -1453,6 +1454,115 @@ export function checkNoFocusedTests(config: LinterConfig): CheckResult {
           `    See: docs/conventions/testing.md`
         );
       }
+    }
+  }
+
+  return { name, passed: violations.length === 0, violations };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Check 19: Test quality — no empty or assertion-free tests
+//
+// Test files must contain meaningful assertions. Empty test bodies and files
+// with zero expect() calls indicate placeholder tests that verify nothing.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function checkTestQuality(config: LinterConfig): CheckResult {
+  const name = 'Test quality (no empty/assertion-free tests)';
+
+  function collectTestFiles(dir: string): string[] {
+    const results: string[] = [];
+    if (!fs.existsSync(dir)) return results;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === 'node_modules') continue;
+        results.push(...collectTestFiles(fullPath));
+      } else if (
+        entry.isFile() &&
+        (entry.name.endsWith('.test.ts') || entry.name.endsWith('.spec.ts'))
+      ) {
+        results.push(fullPath);
+      }
+    }
+    return results;
+  }
+
+  const files = collectTestFiles(config.rootDir);
+  const violations: string[] = [];
+
+  // Pattern for test case definitions (it/test, not describe)
+  const testCasePattern = /\b(it|test)\s*\(/;
+
+  for (const file of files) {
+    const content = fs.readFileSync(file, 'utf-8');
+    const lines = content.split('\n');
+    const relPath = path.relative(config.rootDir, file);
+
+    // --- Category A: Empty test bodies ---
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line === undefined) continue;
+      if (/^\s*\/\//.test(line)) continue;
+
+      if (!testCasePattern.test(line)) continue;
+
+      // Check for single-line empty body: it('...', () => {})
+      // Also handles async: it('...', async () => {})
+      if (/\b(it|test)\s*\([^)]*,\s*(?:async\s*)?\([^)]*\)\s*=>\s*\{\s*\}\s*\)/.test(line)) {
+        violations.push(
+          `${relPath}:${i + 1} has an empty test body.\n` +
+          `    Rule: Every test case must contain at least one expect() assertion.\n` +
+          `    Fix: Add assertions that verify the behavior under test, e.g.:\n` +
+          `         expect(result).toBe(expectedValue);\n` +
+          `    See: docs/conventions/testing.md`
+        );
+        continue;
+      }
+
+      // Check for multi-line empty body:
+      //   it('...', () => {
+      //   });
+      // Find the opening { on this or next lines, then check if } follows with only whitespace
+      if (/\b(it|test)\s*\(/.test(line) && /=>\s*\{\s*$/.test(line)) {
+        // Arrow function body opens at end of this line
+        const nextNonEmpty = lines.slice(i + 1).findIndex(
+          (l) => l !== undefined && l.trim().length > 0
+        );
+        if (nextNonEmpty !== -1) {
+          const nextLine = lines[i + 1 + nextNonEmpty];
+          if (nextLine !== undefined && /^\s*\}\s*\)\s*;?\s*$/.test(nextLine)) {
+            // Check that lines between opening { and closing } are only whitespace
+            const bodyLines = lines.slice(i + 1, i + 1 + nextNonEmpty);
+            const allEmpty = bodyLines.every(
+              (l) => l === undefined || l.trim().length === 0
+            );
+            if (allEmpty) {
+              violations.push(
+                `${relPath}:${i + 1} has an empty test body (multi-line).\n` +
+                `    Rule: Every test case must contain at least one expect() assertion.\n` +
+                `    Fix: Add assertions that verify the behavior under test.\n` +
+                `    See: docs/conventions/testing.md`
+              );
+            }
+          }
+        }
+      }
+    }
+
+    // --- Category B: Assertion-free test file ---
+    const testCaseCount = (content.match(/\b(it|test)\s*\(/g) ?? []).length;
+    const expectCount = (content.match(/\bexpect\s*\(/g) ?? []).length;
+
+    if (testCaseCount > 0 && expectCount === 0) {
+      violations.push(
+        `${relPath} has ${testCaseCount} test case(s) but zero expect() assertions.\n` +
+        `    Rule: Test files must contain at least one expect() call to verify behavior.\n` +
+        `    Fix: Add expect() assertions to each test case. Example:\n` +
+        `         expect(result.success).toBe(true);\n` +
+        `         expect(body.data).toHaveLength(2);\n` +
+        `    See: docs/conventions/testing.md`
+      );
     }
   }
 

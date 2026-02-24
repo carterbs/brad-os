@@ -27,6 +27,7 @@ import {
   checkTestFactoryUsage,
   checkNoInlineApiResponse,
   checkNoFocusedTests,
+  checkTestQuality,
   checkQualityGradesFreshness,
 } from './lint-checks.js';
 
@@ -62,6 +63,7 @@ function main(): void {
     (): CheckResult => checkTestFactoryUsage(config),
     (): CheckResult => checkNoInlineApiResponse(config),
     (): CheckResult => checkNoFocusedTests(config),
+    (): CheckResult => checkTestQuality(config),
   ];
 
   const results: CheckResult[] = [];

@@ -22,6 +22,7 @@ import {
   checkTestFactoryUsage,
   checkNoInlineApiResponse,
   checkNoFocusedTests,
+  checkTestQuality,
   checkQualityGradesFreshness,
 } from './lint-checks.js';
 
@@ -599,8 +600,9 @@ describe('checkNoSkippedTests', () => {
   afterEach(() => cleanup(rootDir));
 
   it('passes for tests without skip', () => {
-    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
-      "import { it, describe } from 'vitest';\ndescribe('test', () => { it('works', () => {}); });");
+    // Use concatenation to avoid this test file itself triggering check 19 (empty body detection)
+    const fixture = "import { it, describe } from 'vitest';\ndescribe('test', () => { " + "it" + "('works', () => {}); });";
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts', fixture);
 
     const result = checkNoSkippedTests(config);
     expect(result.passed).toBe(true);
@@ -619,7 +621,7 @@ describe('checkNoSkippedTests', () => {
 
   it('detects xit and xdescribe', () => {
     // Use concatenation to avoid this test file itself triggering the linter
-    const fixture = "x" + "it('broken', () => {});\n" + "x" + "describe('broken suite', () => {});";
+    const fixture = "x" + "it" + "('broken', () => {});\n" + "x" + "describe('broken suite', () => {});";
     writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts', fixture);
 
     const result = checkNoSkippedTests(config);
@@ -642,8 +644,9 @@ describe('checkUntestedHighRisk', () => {
   it('passes when high-risk handler has a test file', () => {
     writeFixture(rootDir, 'packages/functions/src/handlers/today-coach.ts',
       'export const app = {};');
+    // Use concatenation to avoid this test file itself triggering check 19 (empty body detection)
     writeFixture(rootDir, 'packages/functions/src/handlers/today-coach.test.ts',
-      "it('works', () => {});");
+      "it" + "('works', () => {});");
 
     const result = checkUntestedHighRisk(config);
     expect(result.passed).toBe(true);
@@ -746,8 +749,9 @@ describe('checkNoFocusedTests', () => {
   afterEach(() => cleanup(rootDir));
 
   it('passes for tests without .only', () => {
-    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
-      "import { it, describe } from 'vitest';\ndescribe('test', () => { it('works', () => {}); });");
+    // Use concatenation to avoid this test file itself triggering check 19 (empty body detection)
+    const fixture = "import { it, describe } from 'vitest';\ndescribe('test', () => { " + "it" + "('works', () => {}); });";
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts', fixture);
 
     const result = checkNoFocusedTests(config);
     expect(result.passed).toBe(true);
@@ -777,7 +781,7 @@ describe('checkNoFocusedTests', () => {
 
   it('detects f' + 'it and f' + 'describe (Jest aliases)', () => {
     // Use concatenation to avoid this test file itself triggering the linter
-    const fixture = "f" + "it('focused', () => {});\n" + "f" + "describe('focused suite', () => {});";
+    const fixture = "f" + "it" + "('focused', () => {});\n" + "f" + "describe('focused suite', () => {});";
     writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts', fixture);
 
     const result = checkNoFocusedTests(config);
@@ -791,6 +795,146 @@ describe('checkNoFocusedTests', () => {
     writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts', fixture);
 
     const result = checkNoFocusedTests(config);
+    expect(result.passed).toBe(true);
+  });
+});
+
+// ── Check 19: Test quality (no empty/assertion-free tests) ───────────────────
+
+describe('checkTestQuality', () => {
+  let rootDir: string;
+  let config: LinterConfig;
+
+  beforeEach(() => {
+    ({ rootDir, config } = createFixture());
+  });
+  afterEach(() => cleanup(rootDir));
+
+  it('passes for tests with assertions', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe, expect } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  it('returns all exercises', () => {\n" +
+      "    expect([1, 2]).toHaveLength(2);\n" +
+      "  });\n" +
+      "});");
+
+    const result = checkTestQuality(config);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('fails for single-line empty test body', () => {
+    // Use concatenation to avoid this test file itself triggering check 19
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  " + "it" + "('should work', () => {});\n" +
+      "});");
+
+    const result = checkTestQuality(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations.length).toBeGreaterThanOrEqual(1);
+    expect(result.violations[0]).toContain('empty test body');
+  });
+
+  it('fails for multi-line empty test body', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  it('should work', () => {\n" +
+      "  });\n" +
+      "});");
+
+    const result = checkTestQuality(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations.length).toBeGreaterThanOrEqual(1);
+    expect(result.violations[0]).toContain('empty test body');
+  });
+
+  it('fails for async empty test body', () => {
+    // Use concatenation to avoid this test file itself triggering check 19
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  " + "it" + "('should work', async () => {});\n" +
+      "});");
+
+    const result = checkTestQuality(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations[0]).toContain('empty test body');
+  });
+
+  it('fails for test file with test cases but zero expect() calls', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  it('creates exercise', async () => {\n" +
+      "    await service.create(data);\n" +
+      "  });\n" +
+      "  it('deletes exercise', async () => {\n" +
+      "    await service.delete(id);\n" +
+      "  });\n" +
+      "});");
+
+    const result = checkTestQuality(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations[0]).toContain('zero expect() assertions');
+  });
+
+  it('passes for test file with some tests having assertions', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe, expect } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  it('creates exercise', async () => {\n" +
+      "    const result = await service.create(data);\n" +
+      "    expect(result).toBeDefined();\n" +
+      "  });\n" +
+      "  it('sets up state', () => {\n" +
+      "    service.init();\n" +
+      "  });\n" +
+      "});");
+
+    const result = checkTestQuality(config);
+    // File has expect() calls, so file-level check passes
+    // The second test has no assertions but is not empty (has a statement)
+    expect(result.passed).toBe(true);
+  });
+
+  it('ignores commented-out test lines', () => {
+    // Use concatenation to avoid this test file itself triggering check 19
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe, expect } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  // " + "it" + "('placeholder', () => {});\n" +
+      "  it('real test', () => { expect(1).toBe(1); });\n" +
+      "});");
+
+    const result = checkTestQuality(config);
+    expect(result.passed).toBe(true);
+  });
+
+  it('handles test.each without flagging', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe, expect } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  it.each([1, 2, 3])('handles %i', (n) => {\n" +
+      "    expect(n).toBeGreaterThan(0);\n" +
+      "  });\n" +
+      "});");
+
+    const result = checkTestQuality(config);
+    expect(result.passed).toBe(true);
+  });
+
+  it('does not flag describe blocks (only it/test)', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { describe, it, expect } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  it('works', () => { expect(true).toBe(true); });\n" +
+      "});");
+
+    const result = checkTestQuality(config);
     expect(result.passed).toBe(true);
   });
 });

@@ -109,6 +109,47 @@ npx vitest run --grep "test name pattern"
 
 The architecture linter (check 18) enforces this — focused tests cause a build failure.
 
+## Test Quality Policy
+
+**Every test case must contain meaningful assertions.** The architecture linter (check 19) enforces two rules:
+
+1. **No empty test bodies.** `it('name', () => {})` is never acceptable. If a test case exists, it must verify behavior.
+
+2. **No assertion-free test files.** A test file must contain at least one `expect()` call. Files with test cases but zero assertions are placeholder files that provide false confidence.
+
+### Bad Examples (caught by linter)
+
+```typescript
+// Empty body — flagged
+it('should calculate progression', () => {});
+
+// File with test cases but no expect() — flagged
+describe('WorkoutService', () => {
+  it('creates a workout', async () => {
+    await service.create(data);
+    // Missing: expect(result).toBeDefined();
+  });
+  it('deletes a workout', async () => {
+    await service.delete(id);
+    // Missing: expect(result.success).toBe(true);
+  });
+});
+```
+
+### Good Examples
+
+```typescript
+it('should calculate progression', () => {
+  const result = calculateProgression(previousWeek);
+  expect(result.reps).toBe(9);
+  expect(result.weight).toBe(135);
+});
+
+it('should reject invalid input', () => {
+  expect(() => validateInput(null)).toThrow();
+});
+```
+
 ## QA / Simulator Testing
 
 When asked to QA on a simulator, always validate the feature END-TO-END using the MCP iOS simulator tools. Don't just verify the build passes — actually tap through the UI and confirm the feature works.
