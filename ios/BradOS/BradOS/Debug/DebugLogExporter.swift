@@ -4,6 +4,7 @@ import OpenTelemetrySdk
 
 /// Exports log records to the local collector as JSON over HTTP.
 final class DebugLogExporter: LogRecordExporter {
+    // swiftlint:disable:next force_unwrapping
     private let endpoint = URL(string: "http://localhost:4318/v1/logs")!
     private let session: URLSession
 
@@ -14,7 +15,7 @@ final class DebugLogExporter: LogRecordExporter {
         self.session = URLSession(configuration: config)
     }
 
-    func export(logRecords: [ReadableLogRecord]) -> ExportResult {
+    func export(logRecords: [ReadableLogRecord], explicitTimeout: TimeInterval?) -> ExportResult {
         guard !logRecords.isEmpty else { return .success }
 
         let resourceLogs = buildResourceLogs(from: logRecords)
@@ -33,8 +34,8 @@ final class DebugLogExporter: LogRecordExporter {
         return .success
     }
 
-    func forceFlush() -> ExportResult { .success }
-    func shutdown() {}
+    func forceFlush(explicitTimeout: TimeInterval?) -> ExportResult { .success }
+    func shutdown(explicitTimeout: TimeInterval?) {}
 
     private func buildResourceLogs(from records: [ReadableLogRecord]) -> [[String: Any]] {
         var result: [[String: Any]] = []

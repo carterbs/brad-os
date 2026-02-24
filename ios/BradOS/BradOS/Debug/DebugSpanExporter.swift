@@ -1,9 +1,11 @@
 #if DEBUG
 import Foundation
+import OpenTelemetryApi
 import OpenTelemetrySdk
 
 /// Exports spans to the local collector as JSON over HTTP.
 final class DebugSpanExporter: SpanExporter {
+    // swiftlint:disable:next force_unwrapping
     private let endpoint = URL(string: "http://localhost:4318/v1/traces")!
     private let session: URLSession
 
@@ -14,7 +16,7 @@ final class DebugSpanExporter: SpanExporter {
         self.session = URLSession(configuration: config)
     }
 
-    func export(spans: [SpanData]) -> SpanExporterResultCode {
+    func export(spans: [SpanData], explicitTimeout: TimeInterval?) -> SpanExporterResultCode {
         guard !spans.isEmpty else { return .success }
 
         let resourceSpans = buildResourceSpans(from: spans)
@@ -34,8 +36,8 @@ final class DebugSpanExporter: SpanExporter {
         return .success
     }
 
-    func flush() -> SpanExporterResultCode { .success }
-    func shutdown() {}
+    func flush(explicitTimeout: TimeInterval?) -> SpanExporterResultCode { .success }
+    func shutdown(explicitTimeout: TimeInterval?) {}
 
     private func buildResourceSpans(from spans: [SpanData]) -> [[String: Any]] {
         var grouped: [String: (resource: [String: Any], spans: [[String: Any]])] = [:]
@@ -82,7 +84,7 @@ final class DebugSpanExporter: SpanExporter {
         }
     }
 
-    private func statusToInt(_ status: SpanData.Status) -> Int {
+    private func statusToInt(_ status: Status) -> Int {
         switch status {
         case .unset: return 0
         case .ok: return 1

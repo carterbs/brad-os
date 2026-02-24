@@ -9,10 +9,10 @@ final class DebugTelemetry {
     static let shared = DebugTelemetry()
 
     #if DEBUG
-    private var tracerProvider: TracerProvider?
-    private var loggerProvider: LoggerProvider?
+    private var tracerProviderSdk: TracerProviderSdk?
+    private var loggerProviderSdk: LoggerProviderSdk?
     private var tracer: OpenTelemetryApi.Tracer?
-    private var logger: OpenTelemetryApi.Logger?
+    private var otelLogger: OpenTelemetryApi.Logger?
     private var isSetUp = false
     #endif
 
@@ -28,35 +28,27 @@ final class DebugTelemetry {
         let udid = ProcessInfo.processInfo.environment["SIMULATOR_UDID"] ?? "unknown"
         let deviceName = ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] ?? "unknown"
 
-        // NOTE: Verify OTel API compatibility at build time
         let resource = Resource(attributes: [
             "service.name": .string("brad-os-ios"),
             "simulator.udid": .string(udid),
             "simulator.name": .string(deviceName)
         ])
 
-        // Configure span exporter
+        // Configure tracer provider with span exporter
         let spanExporter = DebugSpanExporter()
         let spanProcessor = SimpleSpanProcessor(spanExporter: spanExporter)
-        let tracerProviderBuilder = TracerProviderBuilder()
-            .add(spanProcessor: spanProcessor)
-            .with(resource: resource)
-        let tp = tracerProviderBuilder.build()
-        self.tracerProvider = tp
+        let tp = TracerProviderSdk(resource: resource, spanProcessors: [spanProcessor])
+        self.tracerProviderSdk = tp
         OpenTelemetry.registerTracerProvider(tracerProvider: tp)
         self.tracer = tp.get(instrumentationName: "brad-os-ios", instrumentationVersion: "1.0.0")
 
-        // Configure log exporter
+        // Configure logger provider with log exporter
         let logExporter = DebugLogExporter()
         let logProcessor = SimpleLogRecordProcessor(logRecordExporter: logExporter)
-        // NOTE: Verify OTel API compatibility at build time
-        let loggerProviderBuilder = LoggerProviderBuilder()
-            .with(resource: resource)
-            .with(processors: [logProcessor])
-        let lp = loggerProviderBuilder.build()
-        self.loggerProvider = lp
+        let lp = LoggerProviderSdk(resource: resource, logRecordProcessors: [logProcessor])
+        self.loggerProviderSdk = lp
         OpenTelemetry.registerLoggerProvider(loggerProvider: lp)
-        self.logger = lp.get(instrumentationName: "brad-os-ios")
+        self.otelLogger = lp.loggerBuilder(instrumentationScopeName: "brad-os-ios").build()
 
         print("[DebugTelemetry] Initialized with UDID: \(udid)")
         #endif
@@ -65,19 +57,14 @@ final class DebugTelemetry {
     /// Flush pending telemetry. Call when app goes to background.
     func flush() {
         #if DEBUG
-        // Force export any buffered spans/logs
-        if let tp = tracerProvider as? TracerProviderSdk {
-            tp.forceFlush()
-        }
+        tracerProviderSdk?.forceFlush()
         #endif
     }
 
     /// Shut down providers. Call on app termination.
     func shutdown() {
         #if DEBUG
-        if let tp = tracerProvider as? TracerProviderSdk {
-            tp.shutdown()
-        }
+        tracerProviderSdk?.shutdown()
         #endif
     }
 
@@ -85,15 +72,13 @@ final class DebugTelemetry {
 
     #if DEBUG
     func log(severity: Severity, message: String, attributes: [String: String]) {
-        guard let logger = self.logger else { return }
-        // NOTE: Verify OTel API compatibility at build time
-        var builder = logger.logRecordBuilder()
-        builder.setSeverity(severity)
-        builder.setBody(.string(message))
-        for (key, value) in attributes {
-            builder.setAttributes([key: .string(value)])
-        }
-        builder.emit()
+        guard let otelLogger = self.otelLogger else { return }
+        let otelAttrs = attributes.mapValues { AttributeValue.string($0) }
+        otelLogger.logRecordBuilder()
+            .setSeverity(severity)
+            .setBody(.string(message))
+            .setAttributes(otelAttrs)
+            .emit()
     }
 
     func startOTelSpan(
@@ -107,10 +92,10 @@ final class DebugTelemetry {
                 .spanBuilder(spanName: name)
                 .startSpan()
         }
-        var builder = tracer.spanBuilder(spanName: name)
+        let builder = tracer.spanBuilder(spanName: name)
             .setSpanKind(spanKind: kind)
         for (key, value) in attributes {
-            builder = builder.setAttribute(key: key, value: value)
+            builder.setAttribute(key: key, value: value)
         }
         return builder.startSpan()
     }
