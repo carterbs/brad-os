@@ -7,10 +7,12 @@ export default defineConfig({
     testTimeout: 30000, // Integration tests may be slower
     hookTimeout: 30000,
     // Run tests sequentially to avoid port conflicts
-    pool: 'forks',
+    // Use threads (not forks) — forks use Unix domain sockets for IPC,
+    // which are blocked by Claude Code's macOS Seatbelt sandbox.
+    pool: 'threads',
     poolOptions: {
-      forks: {
-        singleFork: true,
+      threads: {
+        singleThread: true,
       },
     },
   },

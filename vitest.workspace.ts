@@ -10,6 +10,7 @@ export default defineWorkspace([
       exclude: ['src/__tests__/integration/**'],
       setupFiles: ['./src/__tests__/vitest.setup.ts'],
       globals: true,
+      pool: 'threads',
     },
   },
   {
@@ -19,6 +20,7 @@ export default defineWorkspace([
       environment: 'node',
       include: ['scripts/**/*.test.ts'],
       globals: true,
+      pool: 'threads',
     },
   },
 ]);
