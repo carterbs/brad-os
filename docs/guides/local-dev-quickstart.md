@@ -6,7 +6,7 @@ Get brad-os running locally in ~5 minutes: install dependencies, validate the bu
 
 | Tool | Version | Install |
 |------|---------|---------|
-| Node.js | 22.x | `brew install node@22` or [nvm](https://github.com/nvm-sh/nvm) |
+| Node.js | 22.x (pinned in `.nvmrc`) | `nvm install` (reads `.nvmrc`) or `brew install node@22` |
 | npm | 10.x+ | Comes with Node |
 | Firebase CLI | Latest | `npm install -g firebase-tools` |
 | Xcode | 16+ | Mac App Store |
