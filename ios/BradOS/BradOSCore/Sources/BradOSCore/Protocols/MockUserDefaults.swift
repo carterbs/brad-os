@@ -10,6 +10,10 @@ public final class MockUserDefaults: UserDefaultsProtocol {
         storage[defaultName] as? Data
     }
 
+    public func string(forKey defaultName: String) -> String? {
+        storage[defaultName] as? String
+    }
+
     public func set(_ value: Any?, forKey defaultName: String) {
         if let value = value {
             storage[defaultName] = value

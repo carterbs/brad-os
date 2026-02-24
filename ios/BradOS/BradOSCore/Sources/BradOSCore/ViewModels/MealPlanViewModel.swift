@@ -34,6 +34,7 @@ public class MealPlanViewModel: ObservableObject {
     private let recipeCache: RecipeCacheService
     private let remindersService: RemindersServiceProtocol
     private let cacheService: MealPlanCacheServiceProtocol
+    private let userDefaults: UserDefaultsProtocol
 
     // MARK: - Initialization
 
@@ -41,23 +42,25 @@ public class MealPlanViewModel: ObservableObject {
         apiClient: APIClientProtocol,
         recipeCache: RecipeCacheService? = nil,
         remindersService: RemindersServiceProtocol = RemindersService(),
-        cacheService: MealPlanCacheServiceProtocol? = nil
+        cacheService: MealPlanCacheServiceProtocol? = nil,
+        userDefaults: UserDefaultsProtocol = UserDefaults.standard
     ) {
         self.apiClient = apiClient
         self.recipeCache = recipeCache ?? RecipeCacheService.shared
         self.remindersService = remindersService
         self.cacheService = cacheService ?? MealPlanCacheService.shared
+        self.userDefaults = userDefaults
     }
 
     // MARK: - Session Persistence
 
     private var savedSessionId: String? {
-        get { UserDefaults.standard.string(forKey: Self.sessionIdKey) }
+        get { userDefaults.string(forKey: Self.sessionIdKey) }
         set {
             if let newValue {
-                UserDefaults.standard.set(newValue, forKey: Self.sessionIdKey)
+                userDefaults.set(newValue, forKey: Self.sessionIdKey)
             } else {
-                UserDefaults.standard.removeObject(forKey: Self.sessionIdKey)
+                userDefaults.removeObject(forKey: Self.sessionIdKey)
             }
         }
     }
