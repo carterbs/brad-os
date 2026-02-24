@@ -6,8 +6,7 @@ import { runStep } from "./agent.js";
 import {
   buildPlanPrompt,
   buildImplPrompt,
-  buildSelfReviewPrompt,
-  buildAgentReviewPrompt,
+  buildReviewPrompt,
 } from "./prompts.js";
 import {
   createWorktree,
@@ -41,7 +40,7 @@ function parseCliArgs(): Config {
     task: values.task as string | undefined,
     repoDir: REPO_DIR,
     worktreeDir: WORKTREE_DIR,
-    maxReviewCycles: 3,
+    maxReviewCycles: 4,
     logFile: `${REPO_DIR}/ralph-loop.jsonl`,
   };
 }
@@ -100,7 +99,7 @@ async function ralphLoopSingle(
 
     // ── 1. Planning ──
     if (config.task) {
-      logger.info("[1/5] Writing task plan (user-directed)...");
+      logger.info("[1/4] Writing task plan (user-directed)...");
       const planDir = `${worktreePath}/thoughts/shared/plans/active`;
       mkdirSync(planDir, { recursive: true });
       writeFileSync(
@@ -115,7 +114,7 @@ async function ralphLoopSingle(
         durationMs: 0,
       });
     } else {
-      logger.info("[1/5] Planning...");
+      logger.info("[1/4] Planning...");
       const planResult = await runStep({
         prompt: buildPlanPrompt(n, config.target),
         stepName: "plan",
@@ -160,7 +159,7 @@ async function ralphLoopSingle(
     }
 
     // ── 2. Implementation ──
-    logger.info("[2/5] Implementing...");
+    logger.info("[2/4] Implementing...");
     let implResult = await runStep({
       prompt: buildImplPrompt(),
       stepName: "implement",
@@ -210,35 +209,11 @@ async function ralphLoopSingle(
       return false;
     }
 
-    // ── 3. Self-review ──
-    logger.info("[3/5] Self-review...");
-    const selfReviewResult = await runStep({
-      prompt: buildSelfReviewPrompt(),
-      stepName: "self-review",
-      improvement: n,
-      cwd: worktreePath,
-      config,
-      logger,
-      abortController,
-    });
-
-    stepResults.push({
-      step: "self-review",
-      turns: selfReviewResult.turns,
-      costUsd: selfReviewResult.costUsd,
-      tokens: selfReviewResult.inputTokens + selfReviewResult.outputTokens,
-      durationMs: selfReviewResult.durationMs,
-    });
-    logger.stepSummary("self-review", stepResults[stepResults.length - 1]);
-
-    // Commit self-review fixes
-    commitAll(worktreePath, `harness: improvement #${n} \u2014 self-review fixes`);
-
-    // ── 4. Agent review loop ──
+    // ── 3. Review loop ──
     let passed = false;
     let cycle = 0;
     const reviewAccum: StepSummary = {
-      step: "agent-review",
+      step: "review",
       turns: 0,
       costUsd: 0,
       tokens: 0,
@@ -262,11 +237,11 @@ async function ralphLoopSingle(
       }
 
       logger.info(
-        `[4/5] Agent review (cycle ${cycle}/${config.maxReviewCycles})...`,
+        `[3/4] Review (cycle ${cycle}/${config.maxReviewCycles})...`,
       );
       const reviewResult = await runStep({
-        prompt: buildAgentReviewPrompt(),
-        stepName: "agent-review",
+        prompt: buildReviewPrompt(),
+        stepName: "review",
         improvement: n,
         cwd: worktreePath,
         config,
@@ -303,10 +278,10 @@ async function ralphLoopSingle(
     }
 
     stepResults.push(reviewAccum);
-    logger.stepSummary("agent-review", reviewAccum);
+    logger.stepSummary("review", reviewAccum);
 
-    // ── 5. Merge to main ──
-    logger.info("[5/5] Merging to main...");
+    // ── 4. Merge to main ──
+    logger.info("[4/4] Merging to main...");
     if (!mergeToMain(config.repoDir, branchName)) {
       logger.error(
         `Merge conflict \u2014 worktree preserved at: ${worktreePath}`,
