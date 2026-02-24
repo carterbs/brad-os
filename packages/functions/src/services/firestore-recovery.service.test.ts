@@ -55,6 +55,12 @@ import {
   addWeightEntries,
   getWeightHistory,
   getLatestWeight,
+  addHRVEntries,
+  getHRVHistory,
+  addRHREntries,
+  getRHRHistory,
+  addSleepEntries,
+  getSleepHistory,
 } from './firestore-recovery.service.js';
 
 // ---- Test data ----
@@ -87,6 +93,37 @@ const sampleBaseline = {
 const sampleWeight = {
   date: '2026-02-09',
   weightLbs: 175.5,
+  source: 'healthkit' as const,
+  syncedAt: '2026-02-09T12:00:00.000Z',
+};
+
+const sampleHRV = {
+  date: '2026-02-09',
+  avgMs: 42,
+  minMs: 30,
+  maxMs: 55,
+  sampleCount: 12,
+  source: 'healthkit' as const,
+  syncedAt: '2026-02-09T12:00:00.000Z',
+};
+
+const sampleRHR = {
+  date: '2026-02-09',
+  avgBpm: 52,
+  sampleCount: 24,
+  source: 'healthkit' as const,
+  syncedAt: '2026-02-09T12:00:00.000Z',
+};
+
+const sampleSleep = {
+  date: '2026-02-09',
+  totalSleepMinutes: 420,
+  inBedMinutes: 480,
+  coreMinutes: 180,
+  deepMinutes: 90,
+  remMinutes: 105,
+  awakeMinutes: 45,
+  sleepEfficiency: 87.5,
   source: 'healthkit' as const,
   syncedAt: '2026-02-09T12:00:00.000Z',
 };
@@ -376,6 +413,180 @@ describe('firestore-recovery.service', () => {
       const result = await getLatestWeight(userId);
 
       expect(result).toBeNull();
+    });
+  });
+
+  // ============ HRV History ============
+
+  describe('addHRVEntries', () => {
+    it('batches writes correctly for multiple entries', async () => {
+      mockBatchCommit.mockResolvedValueOnce(undefined);
+
+      const entries = [
+        { date: '2026-02-07', avgMs: 40, minMs: 28, maxMs: 52, sampleCount: 10 },
+        { date: '2026-02-08', avgMs: 42, minMs: 30, maxMs: 55, sampleCount: 12 },
+      ];
+
+      const result = await addHRVEntries(userId, entries);
+
+      expect(result).toBe(2);
+      expect(mockBatchSet).toHaveBeenCalledTimes(2);
+      expect(mockBatchCommit).toHaveBeenCalledTimes(1);
+      expect(mockBatchSet).toHaveBeenCalledWith(
+        mockDocRef,
+        expect.objectContaining({ date: '2026-02-07', avgMs: 40, source: 'healthkit' }),
+      );
+    });
+
+    it('defaults source to healthkit when not provided', async () => {
+      mockBatchCommit.mockResolvedValueOnce(undefined);
+
+      await addHRVEntries(userId, [
+        { date: '2026-02-09', avgMs: 42, minMs: 30, maxMs: 55, sampleCount: 12 },
+      ]);
+
+      expect(mockBatchSet).toHaveBeenCalledWith(
+        mockDocRef,
+        expect.objectContaining({ source: 'healthkit' }),
+      );
+    });
+  });
+
+  describe('getHRVHistory', () => {
+    it('returns HRV entries filtered by date cutoff', async () => {
+      mockGet.mockResolvedValueOnce(
+        queryResult([
+          { id: '2026-02-09', data: (): Record<string, unknown> => ({ ...sampleHRV }) },
+        ]),
+      );
+
+      const result = await getHRVHistory(userId, 7);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.avgMs).toBe(42);
+      expect(mockWhere).toHaveBeenCalledWith('date', '>=', expect.any(String));
+      expect(mockOrderBy).toHaveBeenCalledWith('date', 'desc');
+    });
+
+    it('returns empty array when no entries exist', async () => {
+      mockGet.mockResolvedValueOnce(queryResult([]));
+
+      const result = await getHRVHistory(userId, 7);
+
+      expect(result).toHaveLength(0);
+    });
+  });
+
+  // ============ RHR History ============
+
+  describe('addRHREntries', () => {
+    it('batches writes correctly for multiple entries', async () => {
+      mockBatchCommit.mockResolvedValueOnce(undefined);
+
+      const entries = [
+        { date: '2026-02-07', avgBpm: 52, sampleCount: 24 },
+        { date: '2026-02-08', avgBpm: 54, sampleCount: 20 },
+      ];
+
+      const result = await addRHREntries(userId, entries);
+
+      expect(result).toBe(2);
+      expect(mockBatchSet).toHaveBeenCalledTimes(2);
+      expect(mockBatchCommit).toHaveBeenCalledTimes(1);
+      expect(mockBatchSet).toHaveBeenCalledWith(
+        mockDocRef,
+        expect.objectContaining({ date: '2026-02-07', avgBpm: 52, source: 'healthkit' }),
+      );
+    });
+
+    it('defaults source to healthkit', async () => {
+      mockBatchCommit.mockResolvedValueOnce(undefined);
+      await addRHREntries(userId, [{ date: '2026-02-09', avgBpm: 52, sampleCount: 24 }]);
+      expect(mockBatchSet).toHaveBeenCalledWith(mockDocRef, expect.objectContaining({ source: 'healthkit' }));
+    });
+  });
+
+  describe('getRHRHistory', () => {
+    it('returns RHR entries filtered by date cutoff', async () => {
+      mockGet.mockResolvedValueOnce(
+        queryResult([{ id: '2026-02-09', data: (): Record<string, unknown> => ({ ...sampleRHR }) }]),
+      );
+
+      const result = await getRHRHistory(userId, 7);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.avgBpm).toBe(52);
+      expect(mockWhere).toHaveBeenCalledWith('date', '>=', expect.any(String));
+    });
+
+    it('returns empty array when no entries exist', async () => {
+      mockGet.mockResolvedValueOnce(queryResult([]));
+      const result = await getRHRHistory(userId, 7);
+      expect(result).toHaveLength(0);
+    });
+  });
+
+  // ============ Sleep History ============
+
+  describe('addSleepEntries', () => {
+    it('batches writes correctly for all sleep fields', async () => {
+      mockBatchCommit.mockResolvedValueOnce(undefined);
+
+      const entries = [{
+        date: '2026-02-09',
+        totalSleepMinutes: 420,
+        inBedMinutes: 480,
+        coreMinutes: 180,
+        deepMinutes: 90,
+        remMinutes: 105,
+        awakeMinutes: 45,
+        sleepEfficiency: 87.5,
+      }];
+
+      const result = await addSleepEntries(userId, entries);
+
+      expect(result).toBe(1);
+      expect(mockBatchSet).toHaveBeenCalledWith(
+        mockDocRef,
+        expect.objectContaining({
+          date: '2026-02-09',
+          totalSleepMinutes: 420,
+          deepMinutes: 90,
+          sleepEfficiency: 87.5,
+          source: 'healthkit',
+        }),
+      );
+    });
+
+    it('defaults source to healthkit', async () => {
+      mockBatchCommit.mockResolvedValueOnce(undefined);
+      await addSleepEntries(userId, [{
+        date: '2026-02-09', totalSleepMinutes: 420, inBedMinutes: 480,
+        coreMinutes: 180, deepMinutes: 90, remMinutes: 105,
+        awakeMinutes: 45, sleepEfficiency: 87.5,
+      }]);
+      expect(mockBatchSet).toHaveBeenCalledWith(mockDocRef, expect.objectContaining({ source: 'healthkit' }));
+    });
+  });
+
+  describe('getSleepHistory', () => {
+    it('returns sleep entries filtered by date cutoff', async () => {
+      mockGet.mockResolvedValueOnce(
+        queryResult([{ id: '2026-02-09', data: (): Record<string, unknown> => ({ ...sampleSleep }) }]),
+      );
+
+      const result = await getSleepHistory(userId, 7);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.totalSleepMinutes).toBe(420);
+      expect(result[0]?.sleepEfficiency).toBe(87.5);
+      expect(mockWhere).toHaveBeenCalledWith('date', '>=', expect.any(String));
+    });
+
+    it('returns empty array when no entries exist', async () => {
+      mockGet.mockResolvedValueOnce(queryResult([]));
+      const result = await getSleepHistory(userId, 7);
+      expect(result).toHaveLength(0);
     });
   });
 });
