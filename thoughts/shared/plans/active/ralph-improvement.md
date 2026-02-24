@@ -1,231 +1,75 @@
-# Architecture Linter Self-Tests: Test the Guards, Add .only Detection
+# Test Robustness Enforcement: Empty Test Detection + Assertion Density Tracking
 
 ## Why
 
-The architecture linter (`scripts/lint-architecture.ts`) is the **backbone of quality enforcement** in this codebase. It is 1,466 lines of TypeScript implementing 16 checks that enforce every architectural invariant — layer dependencies, schema-at-boundary, type deduplication, iOS architecture layers, document staleness, test quality, and more. It runs in `npm run validate` and is the last gate before code merges.
+The linter now has 18 architecture checks and 48 self-tests (improvement #6). It catches structural violations, skipped tests, focused tests, and missing test files for high-risk code. But there is a **critical blind spot**: it cannot distinguish between a real test and a placeholder.
 
-**It has zero tests.**
+An agent can write this and the entire harness says "PASS":
 
-This is the highest-leverage harness improvement because:
+```typescript
+it('should calculate progressive overload', () => {});
+it('should handle edge cases', () => { expect(true).toBe(true); });
+```
 
-1. **Every harness improvement modifies the linter.** Improvements #1 and #2 both added/modified checks. Future improvements will continue to do so. Without tests, each change risks silently breaking an existing check.
+Both tests run, both "pass," and the quality-grades script counts them as legitimate test files. The high-risk file check (check 15) is satisfied. But these tests verify **nothing** — they're cosmetic compliance.
 
-2. **A broken check is invisible.** If `checkNoConsoleLog` silently starts returning `passed: true` for all files, nothing catches it. The linter output says "clean" and nobody knows the check stopped working. The codebase gradually degrades.
+This is the highest-leverage improvement because:
 
-3. **The check numbering has already drifted.** The inline comment at line 1050 says "Check 11" but so does line 987 — the comments are out of sync with the header. This is a canary: the linter is already accumulating drift that tests would catch.
+1. **It closes the last gap in the test quality enforcement chain.** Checks 14-18 guard against skipped tests, focused tests, inline factories, inline ApiResponse, and missing high-risk test files. But none of them verify that test bodies actually assert anything. An agent that writes `it('works', () => {})` for every test case "passes" all five checks.
 
-4. **`process.cwd()` vs `ROOT_DIR` inconsistency.** Some checks use `process.cwd()` for violation paths, others use `ROOT_DIR`. This makes violation messages unpredictable and untestable.
+2. **It's the most common agent anti-pattern.** When agents are asked to "add tests" and run into mocking complexity, they frequently write placeholder tests to satisfy the "file must exist" check. These placeholders persist because nothing flags them.
 
-5. **Scripts are excluded from ESLint.** Line 47 of `.eslintrc.cjs` ignores `scripts/`. The linter — the most critical infrastructure code — has no lint enforcement of its own. `any` types, missing return types, or floating promises would not be caught.
+3. **Quality grades become more trustworthy.** The quality-grades script currently tracks test FILE count per domain (e.g., "Lifting: 23 test files"). After this improvement, it also tracks assertion density — how many `expect()` calls per test case. This transforms quality grades from a file-counting exercise into a test-depth metric.
 
-6. **Missing `.only` detection is a critical gap.** The linter checks for `.skip`/`xit`/`xdescribe` (check 13) but NOT for `.only`/`test.only`/`fit`/`fdescribe`. If an agent commits `it.only(...)`, vitest runs only that one test — silently skipping hundreds of others. The build "passes" but coverage drops to near zero. This is a catastrophic silent failure mode.
+4. **The compound effect is significant.** Every future change to a tested file is protected by its tests — but only if those tests actually assert something. Empty tests create a false sense of security that degrades the value of the entire harness.
 
 After this improvement:
-- All 17 check functions have positive and negative test cases
-- Any change to a check is verified against known fixtures
-- The `.only` gap is closed (check 17)
-- Violation message paths are consistent and predictable
-- The linter code itself is ESLint-enforced
-- Future harness improvements can modify checks with confidence
+- Architecture check 19 catches empty test bodies and assertion-free test files
+- Quality grades show assertion counts and density per domain
+- Agents get clear, actionable feedback when they write placeholder tests
+- The testing conventions document explains the new rule with examples
 
 ## What
 
-### Phase 1: Extract Check Functions into Testable Module
+### Phase 1: Architecture Check 19 — No Empty or Assertion-Free Tests
 
-The current `scripts/lint-architecture.ts` is a monolithic file where:
-- Module-level constants (`ROOT_DIR`, `FUNCTIONS_SRC`) are hardcoded
-- All 16 check functions reference these constants directly
-- `main()` calls `process.exit()`, making the module unsafe to import in tests
+Add a new check function `checkTestQuality` to `scripts/lint-checks.ts` that scans all test files for two categories of violations:
 
-**Refactoring approach**: Split into two files:
-- `scripts/lint-checks.ts` — Exports all check functions, each accepting a `LinterConfig` parameter
-- `scripts/lint-architecture.ts` — Thin CLI runner that creates a config and calls checks
+**Category A: Empty test bodies**
+Detects test cases where the callback body is empty — no statements at all.
 
-#### 1a. Create `scripts/lint-checks.ts`
-
-This file exports:
-
+Pattern (single-line): `it('name', () => {})` or `test('name', async () => {})`
+Pattern (multi-line):
 ```typescript
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-
-export interface LinterConfig {
-  rootDir: string;
-  functionsSrc: string;
-}
-
-export interface CheckResult {
-  name: string;
-  passed: boolean;
-  violations: string[];
-}
-
-export function createDefaultConfig(): LinterConfig {
-  const rootDir = path.resolve(import.meta.dirname ?? __dirname, '..');
-  return {
-    rootDir,
-    functionsSrc: path.join(rootDir, 'packages/functions/src'),
-  };
-}
-
-// All 16 existing check functions, refactored to accept config:
-export function checkLayerDeps(config: LinterConfig): CheckResult { ... }
-export function checkSchemaBoundary(config: LinterConfig): CheckResult { ... }
-export function checkTypeDedup(config: LinterConfig): CheckResult { ... }
-export function checkFirebaseRoutes(config: LinterConfig): CheckResult { ... }
-export function checkIosLayers(config: LinterConfig): CheckResult { ... }
-export function checkArchMapRefs(config: LinterConfig): CheckResult { ... }
-export function checkClaudeMdRefs(config: LinterConfig): CheckResult { ... }
-export function checkOrphanFeatures(config: LinterConfig): CheckResult { ... }
-export function checkPlanLifecycle(config: LinterConfig): CheckResult { ... }
-export function checkNoConsoleLog(config: LinterConfig): CheckResult { ... }
-export function checkNoRawUrlSession(config: LinterConfig): CheckResult { ... }
-export function checkTypesInTypesDir(config: LinterConfig): CheckResult { ... }
-export function checkSchemasInSchemasDir(config: LinterConfig): CheckResult { ... }
-export function checkNoSkippedTests(config: LinterConfig): CheckResult { ... }
-export function checkUntestedHighRisk(config: LinterConfig): CheckResult { ... }
-export function checkTestFactoryUsage(config: LinterConfig): CheckResult { ... }
-export function checkNoInlineApiResponse(config: LinterConfig): CheckResult { ... }
-
-// NEW check 17:
-export function checkNoFocusedTests(config: LinterConfig): CheckResult { ... }
-
-// Warning (non-blocking):
-export function checkQualityGradesFreshness(config: LinterConfig): { stale: boolean; message: string } { ... }
+it('name', () => {
+});
 ```
 
-**Mechanical refactoring for each check function:**
+Detection approach: For each line matching `\b(it|test)\s*\(`, track the opening `{` of the callback and check whether the closing `}` appears with only whitespace between them. Handle both single-line and multi-line variants.
 
-Every reference to the module-level `ROOT_DIR` becomes `config.rootDir`.
-Every reference to `FUNCTIONS_SRC` becomes `config.functionsSrc`.
-Every `path.relative(process.cwd(), ...)` becomes `path.relative(config.rootDir, ...)` for consistent violation paths.
+**Category B: Assertion-free test files**
+Detects test files where there are test case definitions (`it(`, `test(`) but zero `expect(` calls in the entire file. This catches files where every test case is a placeholder or where someone forgot to add assertions.
 
-Example — `checkNoConsoleLog` before:
-```typescript
-function checkNoConsoleLog(): CheckResult {
-  const SRC_DIR = FUNCTIONS_SRC;
-  // ...
-  const relPath = path.relative(process.cwd(), file);
-```
+Note: this is a FILE-level check, not per-test-case. A file with 10 tests and 1 `expect()` call passes — only files with ZERO assertions are flagged. This minimizes false positives while catching the most egregious cases.
 
-After:
-```typescript
-export function checkNoConsoleLog(config: LinterConfig): CheckResult {
-  const SRC_DIR = config.functionsSrc;
-  // ...
-  const relPath = path.relative(config.rootDir, file);
-```
+**What it does NOT check** (to avoid false positives):
+- Per-test-case assertion counting (too noisy — some tests legitimately share assertions via helper functions)
+- Trivial assertions like `expect(true).toBe(true)` (hard to detect reliably across all patterns)
+- `describe` blocks without test cases (legitimate for organizing test suites)
+- Commented-out test lines (already handled by skipping `//` prefixed lines)
 
-Apply this same transformation to all 16 functions. The logic inside each function stays identical — only the path sources change.
-
-**Also fix the check numbering comments.** Update inline comments to match the header:
-- Line ~987: `// Check 10: No raw URLSession in iOS` (currently says "Check 11" — wrong)
-- Line ~1050: `// Check 11: Domain types only in types/` (currently duplicates "Check 11" — fix to 11)
-- Line ~1100: `// Check 12: Zod schemas only in schemas/`
-- Line ~1168: `// Check 13: No skipped tests`
-- Line ~1224: `// Check 14: Untested high-risk files`
-- Line ~1279: `// Check 15: Shared test factory usage`
-- Line ~1327: `// Check 16: No inline ApiResponse in tests`
-- NEW: `// Check 17: No focused tests (.only)`
-
-#### 1b. Rewrite `scripts/lint-architecture.ts` as Thin Runner
-
-Replace the entire file with a thin runner that imports from `lint-checks.ts`:
-
-```typescript
-#!/usr/bin/env tsx
-/**
- * Architecture Enforcement Linter — CLI Runner
- *
- * Imports check functions from lint-checks.ts and runs them in sequence.
- * See lint-checks.ts for the actual check implementations.
- */
-
-import {
-  type LinterConfig,
-  type CheckResult,
-  createDefaultConfig,
-  checkLayerDeps,
-  checkSchemaBoundary,
-  checkTypeDedup,
-  checkFirebaseRoutes,
-  checkIosLayers,
-  checkArchMapRefs,
-  checkClaudeMdRefs,
-  checkOrphanFeatures,
-  checkPlanLifecycle,
-  checkNoConsoleLog,
-  checkNoRawUrlSession,
-  checkTypesInTypesDir,
-  checkSchemasInSchemasDir,
-  checkNoSkippedTests,
-  checkUntestedHighRisk,
-  checkTestFactoryUsage,
-  checkNoInlineApiResponse,
-  checkNoFocusedTests,
-  checkQualityGradesFreshness,
-} from './lint-checks.js';
-
-// Color helpers
-const green = (s: string): string => `\x1b[32m${s}\x1b[0m`;
-const yellow = (s: string): string => `\x1b[33m${s}\x1b[0m`;
-const red = (s: string): string => `\x1b[31m${s}\x1b[0m`;
-const bold = (s: string): string => `\x1b[1m${s}\x1b[0m`;
-const dim = (s: string): string => `\x1b[2m${s}\x1b[0m`;
-
-function main(): void {
-  const config = createDefaultConfig();
-
-  console.log(bold('\n=== Architecture Enforcement ===\n'));
-
-  const checks: Array<() => CheckResult> = [
-    () => checkLayerDeps(config),
-    () => checkSchemaBoundary(config),
-    () => checkTypeDedup(config),
-    () => checkFirebaseRoutes(config),
-    () => checkIosLayers(config),
-    () => checkArchMapRefs(config),
-    () => checkClaudeMdRefs(config),
-    () => checkOrphanFeatures(config),
-    () => checkPlanLifecycle(config),
-    () => checkNoConsoleLog(config),
-    () => checkNoRawUrlSession(config),
-    () => checkTypesInTypesDir(config),
-    () => checkSchemasInSchemasDir(config),
-    () => checkNoSkippedTests(config),
-    () => checkUntestedHighRisk(config),
-    () => checkTestFactoryUsage(config),
-    () => checkNoInlineApiResponse(config),
-    () => checkNoFocusedTests(config),
-  ];
-
-  // ... rest of runner logic (results, summary, exit codes) stays the same ...
-
-  const freshness = checkQualityGradesFreshness(config);
-  // ... warning display logic stays the same ...
-}
-
-main();
-```
-
-The runner keeps the color helpers, result display, summary, and `process.exit()` calls. Only the check functions are imported from the other module.
-
-### Phase 2: Add Check 17 — No Focused Tests (.only)
-
-Add to `scripts/lint-checks.ts`:
+#### Implementation
 
 ```typescript
 // ─────────────────────────────────────────────────────────────────────────────
-// Check 17: No focused tests (.only)
+// Check 19: Test quality — no empty or assertion-free tests
 //
-// Tests must never be focused with .only — this silently skips all other tests.
-// If vitest runs with .only, only that single test executes and the rest are
-// skipped without any failure signal. This is worse than .skip because it's
-// completely invisible in CI output.
+// Test files must contain meaningful assertions. Empty test bodies and files
+// with zero expect() calls indicate placeholder tests that verify nothing.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function checkNoFocusedTests(config: LinterConfig): CheckResult {
-  const name = 'No focused tests (.only)';
+export function checkTestQuality(config: LinterConfig): CheckResult {
+  const name = 'Test quality (no empty/assertion-free tests)';
 
   function collectTestFiles(dir: string): string[] {
     const results: string[] = [];
@@ -247,27 +91,79 @@ export function checkNoFocusedTests(config: LinterConfig): CheckResult {
 
   const files = collectTestFiles(config.rootDir);
   const violations: string[] = [];
-  const onlyPattern = /\b(it\.only|describe\.only|test\.only|fit|fdescribe)\s*\(/;
+
+  // Pattern for test case definitions (it/test, not describe)
+  const testCasePattern = /\b(it|test)\s*\(/;
 
   for (const file of files) {
     const content = fs.readFileSync(file, 'utf-8');
     const lines = content.split('\n');
+    const relPath = path.relative(config.rootDir, file);
 
+    // --- Category A: Empty test bodies ---
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i]!;
+      const line = lines[i];
+      if (line === undefined) continue;
       if (/^\s*\/\//.test(line)) continue;
 
-      const match = onlyPattern.exec(line);
-      if (match) {
-        const relPath = path.relative(config.rootDir, file);
+      if (!testCasePattern.test(line)) continue;
+
+      // Check for single-line empty body: it('...', () => {})
+      // Also handles async: it('...', async () => {})
+      if (/\b(it|test)\s*\([^)]*,\s*(?:async\s*)?\([^)]*\)\s*=>\s*\{\s*\}\s*\)/.test(line)) {
         violations.push(
-          `${relPath}:${i + 1} has a focused test (${match[1]}).\n` +
-          `    Rule: Never commit focused tests — .only silently skips all other tests in the suite.\n` +
-          `    Fix: Remove the .only modifier. If debugging, use vitest's --grep flag instead:\n` +
-          `         npx vitest run --grep "test name pattern"\n` +
+          `${relPath}:${i + 1} has an empty test body.\n` +
+          `    Rule: Every test case must contain at least one expect() assertion.\n` +
+          `    Fix: Add assertions that verify the behavior under test, e.g.:\n` +
+          `         expect(result).toBe(expectedValue);\n` +
           `    See: docs/conventions/testing.md`
         );
+        continue;
       }
+
+      // Check for multi-line empty body:
+      //   it('...', () => {
+      //   });
+      // Find the opening { on this or next lines, then check if } follows with only whitespace
+      if (/\b(it|test)\s*\(/.test(line) && /=>\s*\{\s*$/.test(line)) {
+        // Arrow function body opens at end of this line
+        const nextNonEmpty = lines.slice(i + 1).findIndex(
+          (l) => l !== undefined && l.trim().length > 0
+        );
+        if (nextNonEmpty !== -1) {
+          const nextLine = lines[i + 1 + nextNonEmpty];
+          if (nextLine !== undefined && /^\s*\}\s*\)\s*;?\s*$/.test(nextLine)) {
+            // Check that lines between opening { and closing } are only whitespace
+            const bodyLines = lines.slice(i + 1, i + 1 + nextNonEmpty);
+            const allEmpty = bodyLines.every(
+              (l) => l === undefined || l.trim().length === 0
+            );
+            if (allEmpty) {
+              violations.push(
+                `${relPath}:${i + 1} has an empty test body (multi-line).\n` +
+                `    Rule: Every test case must contain at least one expect() assertion.\n` +
+                `    Fix: Add assertions that verify the behavior under test.\n` +
+                `    See: docs/conventions/testing.md`
+              );
+            }
+          }
+        }
+      }
+    }
+
+    // --- Category B: Assertion-free test file ---
+    const testCaseCount = (content.match(/\b(it|test)\s*\(/g) ?? []).length;
+    const expectCount = (content.match(/\bexpect\s*\(/g) ?? []).length;
+
+    if (testCaseCount > 0 && expectCount === 0) {
+      violations.push(
+        `${relPath} has ${testCaseCount} test case(s) but zero expect() assertions.\n` +
+        `    Rule: Test files must contain at least one expect() call to verify behavior.\n` +
+        `    Fix: Add expect() assertions to each test case. Example:\n` +
+        `         expect(result.success).toBe(true);\n` +
+        `         expect(body.data).toHaveLength(2);\n` +
+        `    See: docs/conventions/testing.md`
+      );
     }
   }
 
@@ -275,74 +171,206 @@ export function checkNoFocusedTests(config: LinterConfig): CheckResult {
 }
 ```
 
-This mirrors `checkNoSkippedTests` exactly in structure but catches the complementary problem: `.only` instead of `.skip`.
+**Key design decisions:**
+- The `collectTestFiles` function follows the same pattern as `checkNoFocusedTests` (check 18). It recursively walks from `config.rootDir` and finds `*.test.ts`/`*.spec.ts` files, skipping `node_modules`.
+- Category A (empty bodies) is a per-line check with both single-line and multi-line detection.
+- Category B (assertion-free files) is a file-level check. It counts `it(`/`test(` occurrences and `expect(` occurrences. If tests > 0 and expects === 0, it's flagged.
+- Comment lines (`//`) are skipped for Category A to avoid false positives on commented-out test code.
+- The `expect(` regex uses `\bexpect\s*\(` to match both `expect(value)` and `expect (value)` while avoiding false matches on strings like `unexpect`.
 
-### Phase 3: Write Self-Tests
+### Phase 2: Assertion Density Tracking in Quality Grades
 
-Create `scripts/lint-architecture.test.ts`. Each check gets at least two test cases: one that passes (clean fixture) and one that fails (violation fixture). Tests use `fs.mkdtempSync()` to create isolated fixture directories.
+Enhance `scripts/update-quality-grades.ts` to count assertions per domain, not just test files. This adds a quantitative depth metric to the quality grades.
 
-#### Test Harness Helpers
+#### 2a. Add assertion counting to the backend test counting
+
+Modify the `DomainTestCounts` interface (currently at ~line 144 in `scripts/update-quality-grades.ts`) to add two new fields:
 
 ```typescript
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import * as fs from 'node:fs';
-import * as os from 'node:os';
-import * as path from 'node:path';
-import {
-  type LinterConfig,
-  checkLayerDeps,
-  checkSchemaBoundary,
-  checkTypeDedup,
-  checkFirebaseRoutes,
-  checkIosLayers,
-  checkArchMapRefs,
-  checkClaudeMdRefs,
-  checkOrphanFeatures,
-  checkPlanLifecycle,
-  checkNoConsoleLog,
-  checkNoRawUrlSession,
-  checkTypesInTypesDir,
-  checkSchemasInSchemasDir,
-  checkNoSkippedTests,
-  checkUntestedHighRisk,
-  checkTestFactoryUsage,
-  checkNoInlineApiResponse,
-  checkNoFocusedTests,
-  checkQualityGradesFreshness,
-} from './lint-checks.js';
-
-// Helper: create temp root with packages/functions/src structure
-function createFixture(): { config: LinterConfig; rootDir: string } {
-  const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lint-test-'));
-  const functionsSrc = path.join(rootDir, 'packages/functions/src');
-  fs.mkdirSync(functionsSrc, { recursive: true });
-  return {
-    config: { rootDir, functionsSrc },
-    rootDir,
-  };
-}
-
-// Helper: write a file, creating parent dirs
-function writeFixture(rootDir: string, relPath: string, content: string): void {
-  const fullPath = path.join(rootDir, relPath);
-  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-  fs.writeFileSync(fullPath, content);
-}
-
-// Helper: clean up temp dir
-function cleanup(rootDir: string): void {
-  fs.rmSync(rootDir, { recursive: true, force: true });
+interface DomainTestCounts {
+  handlers: string[];
+  services: string[];
+  repositories: string[];
+  integration: string[];
+  schemas: string[];
+  total: number;
+  // NEW:
+  testCaseCount: number;      // Total it()/test() blocks across all test files
+  assertionCount: number;      // Total expect() calls across all test files
 }
 ```
 
-#### Test Cases for Each Check
-
-Below are the concrete test cases. Each test is self-contained: it creates the minimal fixture, runs the check, and asserts on the result. The implementing agent should follow this pattern for ALL checks.
-
-**Check 1 — Layer Dependencies:**
+In the `ensureDomain()` helper (line ~156), initialize the new fields to 0:
 
 ```typescript
-describe('checkLayerDeps', () => {
+function ensureDomain(domain: string): DomainTestCounts {
+  if (!domainCounts.has(domain)) {
+    domainCounts.set(domain, {
+      handlers: [],
+      services: [],
+      repositories: [],
+      integration: [],
+      schemas: [],
+      total: 0,
+      testCaseCount: 0,
+      assertionCount: 0,
+    });
+  }
+  return domainCounts.get(domain)!;
+}
+```
+
+In the `countBackendTests()` function's file-processing loop (after the domain is determined and counts are updated), add assertion counting:
+
+```typescript
+// Read the test file to count assertions
+const content = fs.readFileSync(testFile, 'utf-8');
+const testCases = (content.match(/\b(it|test)\s*\(/g) ?? []).length;
+const assertions = (content.match(/\bexpect\s*\(/g) ?? []).length;
+counts.testCaseCount += testCases;
+counts.assertionCount += assertions;
+```
+
+This needs to be added in each branch (handlers, services, repositories, integration, schemas) right before the `continue` statement, after the domain is resolved and `counts.total` is incremented.
+
+#### 2b. Add assertion density to the grade table
+
+Update the markdown generation function to include assertion metrics. The domain grades table gains two new columns. Find the table header generation (look for the line producing the `| Domain | Grade | Backend Tests |` row) and add:
+
+**Before:**
+```
+| Domain | Grade | Backend Tests | iOS Tests | Coverage | API Complete | iOS Complete | Notes |
+```
+
+**After:**
+```
+| Domain | Grade | Backend Tests | iOS Tests | Assertions | Density | Coverage | API Complete | iOS Complete | Notes |
+```
+
+Where:
+- **Assertions**: Total `expect()` calls across all backend test files for the domain
+- **Density**: `assertions / testCases` ratio formatted as "X.Yx" (e.g., "3.2x" means 3.2 assertions per test case). Shows "—" if testCaseCount is 0.
+
+For each domain row, compute and render:
+```typescript
+const density = counts.testCaseCount > 0
+  ? (counts.assertionCount / counts.testCaseCount).toFixed(1) + 'x'
+  : '—';
+```
+
+#### 2c. Add assertion density to grade calculation
+
+In the grade calculation logic, factor in assertion density as an adjustment signal. Find the section where grades are computed (likely a function that assigns A/B/C/D/F). Add:
+
+```typescript
+// Assertion density adjustment (±1 sub-grade)
+const density = counts.testCaseCount > 0
+  ? counts.assertionCount / counts.testCaseCount
+  : 0;
+
+if (density >= 2.0) {
+  // Thorough tests — positive adjustment (e.g., B → B+)
+  // Implementation: increment the grade score by a small amount
+} else if (density < 1.0 && counts.testCaseCount > 0) {
+  // Weak tests — negative adjustment (e.g., B+ → B)
+  // Implementation: decrement the grade score by a small amount
+}
+```
+
+**Important**: The implementing agent should read the existing grade calculation logic to understand how grades are currently computed, then add the density adjustment in a way that's consistent. The goal is ±1 sub-grade at most.
+
+### Phase 3: Update Documentation
+
+#### 3a. Update `docs/golden-principles.md`
+
+Add one line under `### Architecture [lint-architecture]` after the existing "No focused tests" line:
+
+```markdown
+- No empty or assertion-free tests — every test file must have `expect()` calls; test bodies must not be empty
+```
+
+#### 3b. Update `docs/conventions/testing.md`
+
+Add a new section after "Focused Tests (.only) Policy":
+
+```markdown
+## Test Quality Policy
+
+**Every test case must contain meaningful assertions.** The architecture linter (check 19) enforces two rules:
+
+1. **No empty test bodies.** `it('name', () => {})` is never acceptable. If a test case exists, it must verify behavior.
+
+2. **No assertion-free test files.** A test file must contain at least one `expect()` call. Files with test cases but zero assertions are placeholder files that provide false confidence.
+
+### Bad Examples (caught by linter)
+
+```typescript
+// Empty body — flagged
+it('should calculate progression', () => {});
+
+// File with test cases but no expect() — flagged
+describe('WorkoutService', () => {
+  it('creates a workout', async () => {
+    await service.create(data);
+    // Missing: expect(result).toBeDefined();
+  });
+  it('deletes a workout', async () => {
+    await service.delete(id);
+    // Missing: expect(result.success).toBe(true);
+  });
+});
+```
+
+### Good Examples
+
+```typescript
+it('should calculate progression', () => {
+  const result = calculateProgression(previousWeek);
+  expect(result.reps).toBe(9);
+  expect(result.weight).toBe(135);
+});
+
+it('should reject invalid input', () => {
+  expect(() => validateInput(null)).toThrow();
+});
+```
+```
+
+#### 3c. Update header comment in `scripts/lint-checks.ts`
+
+Add check 19 to the header comment list at the top of the file:
+
+```
+ *  19. Test quality (no empty test bodies, no assertion-free test files)
+```
+
+### Phase 4: Wire Check 19 into the Runner
+
+#### 4a. Update `scripts/lint-architecture.ts`
+
+Add `checkTestQuality` to the import list:
+
+```typescript
+import {
+  // ... existing imports ...
+  checkTestQuality,    // NEW
+} from './lint-checks.js';
+```
+
+Add to the checks array (after the `checkNoFocusedTests` entry):
+
+```typescript
+(): CheckResult => checkTestQuality(config),    // NEW — check 19
+```
+
+### Phase 5: Add Self-Tests for Check 19
+
+Add test cases to `scripts/lint-architecture.test.ts`. Import `checkTestQuality` alongside the existing check imports. Add a new describe block after the "Check 18: No focused tests" section:
+
+```typescript
+// ── Check 19: Test quality (no empty/assertion-free tests) ───────────────────
+
+describe('checkTestQuality', () => {
   let rootDir: string;
   let config: LinterConfig;
 
@@ -351,709 +379,299 @@ describe('checkLayerDeps', () => {
   });
   afterEach(() => cleanup(rootDir));
 
-  it('passes when handlers import from services and types', () => {
-    writeFixture(rootDir, 'packages/functions/src/types/exercise.ts',
-      'export interface Exercise { id: string; }');
-    writeFixture(rootDir, 'packages/functions/src/services/workout.service.ts',
-      "import { Exercise } from '../types/exercise.js';\nexport function getExercise(): Exercise { return { id: '1' }; }");
-    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
-      "import { getExercise } from '../services/workout.service.js';");
+  it('passes for tests with assertions', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe, expect } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  it('returns all exercises', () => {\n" +
+      "    expect([1, 2]).toHaveLength(2);\n" +
+      "  });\n" +
+      "});");
 
-    const result = checkLayerDeps(config);
+    const result = checkTestQuality(config);
     expect(result.passed).toBe(true);
     expect(result.violations).toHaveLength(0);
   });
 
-  it('fails when a service imports from handlers', () => {
-    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
-      "export const app = {};");
-    writeFixture(rootDir, 'packages/functions/src/services/workout.service.ts',
-      "import { app } from '../handlers/exercises.js';");
+  it('fails for single-line empty test body', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  it('should work', () => {});\n" +
+      "});");
 
-    const result = checkLayerDeps(config);
+    const result = checkTestQuality(config);
     expect(result.passed).toBe(false);
-    expect(result.violations).toHaveLength(1);
-    expect(result.violations[0]).toContain('services');
-    expect(result.violations[0]).toContain('handlers');
+    expect(result.violations.length).toBeGreaterThanOrEqual(1);
+    expect(result.violations[0]).toContain('empty test body');
   });
 
-  it('ignores test files', () => {
-    writeFixture(rootDir, 'packages/functions/src/services/workout.service.test.ts',
-      "import { app } from '../handlers/exercises.js';");
+  it('fails for multi-line empty test body', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  it('should work', () => {\n" +
+      "  });\n" +
+      "});");
 
-    const result = checkLayerDeps(config);
-    expect(result.passed).toBe(true);
-  });
-});
-```
-
-**Check 2 — Schema-at-Boundary:**
-
-```typescript
-describe('checkSchemaBoundary', () => {
-  let rootDir: string;
-  let config: LinterConfig;
-
-  beforeEach(() => {
-    ({ rootDir, config } = createFixture());
-  });
-  afterEach(() => cleanup(rootDir));
-
-  it('passes when POST routes have Zod validation', () => {
-    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
-      "app.post('/exercises', validate(createExerciseSchema), asyncHandler(async (req, res) => {}));");
-
-    const result = checkSchemaBoundary(config);
-    expect(result.passed).toBe(true);
-  });
-
-  it('fails when POST route lacks Zod validation', () => {
-    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
-      "app.post('/exercises', asyncHandler(async (req, res) => {}));");
-
-    const result = checkSchemaBoundary(config);
+    const result = checkTestQuality(config);
     expect(result.passed).toBe(false);
-    expect(result.violations[0]).toContain('without Zod validation');
+    expect(result.violations.length).toBeGreaterThanOrEqual(1);
+    expect(result.violations[0]).toContain('empty test body');
   });
 
-  it('allows action routes without validation', () => {
-    writeFixture(rootDir, 'packages/functions/src/handlers/workouts.ts',
-      "app.post('/workouts/:id/complete', asyncHandler(async (req, res) => {}));");
+  it('fails for async empty test body', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  it('should work', async () => {});\n" +
+      "});");
 
-    const result = checkSchemaBoundary(config);
-    expect(result.passed).toBe(true);
-  });
-});
-```
-
-**Check 3 — Type Deduplication:**
-
-```typescript
-describe('checkTypeDedup', () => {
-  // passes: Exercise defined only in types/
-  // fails: Exercise defined in both types/ and services/
-  // passes: re-export from shared.ts does not count as duplicate
-});
-```
-
-**Check 4 — Firebase Route Consistency:**
-
-```typescript
-describe('checkFirebaseRoutes', () => {
-  // passes: firebase.json source matches handler's stripPathPrefix
-  // fails: firebase.json source doesn't match handler's stripPathPrefix
-  // Fixtures: firebase.json + packages/functions/src/index.ts + handler file
-});
-```
-
-**Check 5 — iOS Architecture Layers:**
-
-```typescript
-describe('checkIosLayers', () => {
-  // passes: View references ViewModel, not Service
-  // fails: View directly references a Service class
-  // fails: Component references a ViewModel class
-  // passes: references in #Preview section are ignored
-  // Fixtures: ios/BradOS/BradOS/{Services,ViewModels,Views,Components}/*.swift
-});
-```
-
-**Check 6 — Architecture Map File References:**
-
-```typescript
-describe('checkArchMapRefs', () => {
-  // passes: all backtick-quoted paths in docs/architecture/*.md exist
-  // fails: a path references a file that doesn't exist
-});
-```
-
-**Check 7 — CLAUDE.md File Path References:**
-
-```typescript
-describe('checkClaudeMdRefs', () => {
-  // passes: all backtick-quoted paths in CLAUDE.md exist
-  // fails: a path references a missing file
-  // passes: paths inside code fences are ignored
-  // passes: template variables like <feature> are ignored
-});
-```
-
-**Check 8 — Orphan Features:**
-
-```typescript
-describe('checkOrphanFeatures', () => {
-  // passes: handler with routes has a matching architecture doc
-  // fails: handler with routes but no doc and not in feature map
-  // fails: handler maps to feature but doc doesn't exist
-});
-```
-
-**Check 9 — Plan Lifecycle:**
-
-```typescript
-describe('checkPlanLifecycle', () => {
-  // passes: plans in active/ and completed/ subdirs, index.md at root
-  // fails: plan .md file directly in thoughts/shared/plans/ root
-});
-```
-
-**Check 10 — No console.log:**
-
-```typescript
-describe('checkNoConsoleLog', () => {
-  let rootDir: string;
-  let config: LinterConfig;
-
-  beforeEach(() => {
-    ({ rootDir, config } = createFixture());
-  });
-  afterEach(() => cleanup(rootDir));
-
-  it('passes when using firebase logger', () => {
-    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
-      "import { logger } from 'firebase-functions/logger';\nlogger.info('hello');");
-
-    const result = checkNoConsoleLog(config);
-    expect(result.passed).toBe(true);
-  });
-
-  it('fails when using console.log', () => {
-    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
-      "console.log('debug');");
-
-    const result = checkNoConsoleLog(config);
+    const result = checkTestQuality(config);
     expect(result.passed).toBe(false);
-    expect(result.violations[0]).toContain('console');
+    expect(result.violations[0]).toContain('empty test body');
   });
 
-  it('ignores comments containing console.log', () => {
-    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.ts',
-      "// console.log('commented out');");
+  it('fails for test file with test cases but zero expect() calls', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  it('creates exercise', async () => {\n" +
+      "    await service.create(data);\n" +
+      "  });\n" +
+      "  it('deletes exercise', async () => {\n" +
+      "    await service.delete(id);\n" +
+      "  });\n" +
+      "});");
 
-    const result = checkNoConsoleLog(config);
+    const result = checkTestQuality(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations[0]).toContain('zero expect() assertions');
+  });
+
+  it('passes for test file with some tests having assertions', () => {
+    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
+      "import { it, describe, expect } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  it('creates exercise', async () => {\n" +
+      "    const result = await service.create(data);\n" +
+      "    expect(result).toBeDefined();\n" +
+      "  });\n" +
+      "  it('sets up state', () => {\n" +
+      "    service.init();\n" +
+      "  });\n" +
+      "});");
+
+    const result = checkTestQuality(config);
+    // File has expect() calls, so file-level check passes
+    // The second test has no assertions but is not empty (has a statement)
     expect(result.passed).toBe(true);
   });
 
-  it('ignores test files', () => {
+  it('ignores commented-out test lines', () => {
     writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
-      "console.log('test debugging');");
+      "import { it, describe, expect } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  // it('placeholder', () => {});\n" +
+      "  it('real test', () => { expect(1).toBe(1); });\n" +
+      "});");
 
-    const result = checkNoConsoleLog(config);
-    expect(result.passed).toBe(true);
-  });
-});
-```
-
-**Check 11 — No raw URLSession:**
-
-```typescript
-describe('checkNoRawUrlSession', () => {
-  // passes: no URLSession usage in Swift files
-  // fails: URLSession used in a View file
-  // passes: URLSession in APIClient.swift (allowlisted)
-  // passes: URLSession in StravaAuthManager.swift (allowlisted)
-  // Fixtures: ios/BradOS/BradOS/{Views,Services}/*.swift
-});
-```
-
-**Check 12 — Types in types/ directory:**
-
-```typescript
-describe('checkTypesInTypesDir', () => {
-  // passes: exported interface in types/ directory
-  // fails: exported interface in handlers/ directory
-  // passes: re-export from handlers does not trigger
-});
-```
-
-**Check 13 — Schemas in schemas/ directory:**
-
-```typescript
-describe('checkSchemasInSchemasDir', () => {
-  // passes: z.object() in schemas/ directory
-  // fails: z.object() in handlers/ directory
-});
-```
-
-**Check 14 — No skipped tests:**
-
-```typescript
-describe('checkNoSkippedTests', () => {
-  let rootDir: string;
-  let config: LinterConfig;
-
-  beforeEach(() => {
-    ({ rootDir, config } = createFixture());
-  });
-  afterEach(() => cleanup(rootDir));
-
-  it('passes for tests without skip', () => {
-    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
-      "import { it, describe } from 'vitest';\ndescribe('test', () => { it('works', () => {}); });");
-
-    const result = checkNoSkippedTests(config);
+    const result = checkTestQuality(config);
     expect(result.passed).toBe(true);
   });
 
-  it('fails when it.skip is found', () => {
+  it('handles test.each without flagging', () => {
     writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
-      "import { it, describe } from 'vitest';\ndescribe('test', () => { it.skip('broken', () => {}); });");
+      "import { it, describe, expect } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  it.each([1, 2, 3])('handles %i', (n) => {\n" +
+      "    expect(n).toBeGreaterThan(0);\n" +
+      "  });\n" +
+      "});");
 
-    const result = checkNoSkippedTests(config);
-    expect(result.passed).toBe(false);
-    expect(result.violations[0]).toContain('it.skip');
-  });
-
-  it('detects xit and xdescribe', () => {
-    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
-      "xit('broken', () => {});\nxdescribe('broken suite', () => {});");
-
-    const result = checkNoSkippedTests(config);
-    expect(result.passed).toBe(false);
-    expect(result.violations).toHaveLength(2);
-  });
-});
-```
-
-**Check 15 — Untested high-risk files:**
-
-```typescript
-describe('checkUntestedHighRisk', () => {
-  // passes: today-coach.ts handler has today-coach.test.ts
-  // fails: today-coach.ts handler has no test file
-  // passes: exercises.ts (not high-risk) has no test file — not flagged
-});
-```
-
-**Check 16 — Shared test factory usage:**
-
-```typescript
-describe('checkTestFactoryUsage', () => {
-  // passes: test imports from __tests__/utils/
-  // fails: test defines inline createMock* without importing shared utils
-  // passes: test defines inline factory AND imports from shared utils
-});
-```
-
-**Check 17 — No inline ApiResponse:**
-
-```typescript
-describe('checkNoInlineApiResponse', () => {
-  // passes: test imports ApiResponse from __tests__/utils/
-  // fails: test defines `interface ApiResponse` inline
-});
-```
-
-**Check 18 (NEW) — No focused tests:**
-
-```typescript
-describe('checkNoFocusedTests', () => {
-  let rootDir: string;
-  let config: LinterConfig;
-
-  beforeEach(() => {
-    ({ rootDir, config } = createFixture());
-  });
-  afterEach(() => cleanup(rootDir));
-
-  it('passes for tests without .only', () => {
-    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
-      "import { it, describe } from 'vitest';\ndescribe('test', () => { it('works', () => {}); });");
-
-    const result = checkNoFocusedTests(config);
+    const result = checkTestQuality(config);
     expect(result.passed).toBe(true);
   });
 
-  it('fails when it.only is found', () => {
+  it('does not flag describe blocks (only it/test)', () => {
     writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
-      "import { it, describe } from 'vitest';\ndescribe('test', () => { it.only('focused', () => {}); });");
+      "import { describe, it, expect } from 'vitest';\n" +
+      "describe('Exercises', () => {\n" +
+      "  it('works', () => { expect(true).toBe(true); });\n" +
+      "});");
 
-    const result = checkNoFocusedTests(config);
-    expect(result.passed).toBe(false);
-    expect(result.violations[0]).toContain('it.only');
-  });
-
-  it('detects describe.only and test.only', () => {
-    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
-      "describe.only('focused suite', () => {});\ntest.only('focused test', () => {});");
-
-    const result = checkNoFocusedTests(config);
-    expect(result.passed).toBe(false);
-    expect(result.violations).toHaveLength(2);
-  });
-
-  it('detects fit and fdescribe (Jest aliases)', () => {
-    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
-      "fit('focused', () => {});\nfdescribe('focused suite', () => {});");
-
-    const result = checkNoFocusedTests(config);
-    expect(result.passed).toBe(false);
-    expect(result.violations).toHaveLength(2);
-  });
-
-  it('ignores .only in comments', () => {
-    writeFixture(rootDir, 'packages/functions/src/handlers/exercises.test.ts',
-      "// it.only('commented out');");
-
-    const result = checkNoFocusedTests(config);
+    const result = checkTestQuality(config);
     expect(result.passed).toBe(true);
   });
 });
 ```
 
-**Quality Grades Freshness (warning check):**
-
-```typescript
-describe('checkQualityGradesFreshness', () => {
-  // stale: false when updated today
-  // stale: true when updated 10 days ago
-  // stale: true when file doesn't exist
-});
-```
-
-### Phase 4: Add Scripts Tests to Vitest Workspace
-
-Modify `vitest.workspace.ts` to add a second workspace entry for scripts:
-
-```typescript
-import { defineWorkspace } from 'vitest/config';
-
-export default defineWorkspace([
-  {
-    test: {
-      name: 'functions',
-      root: './packages/functions',
-      environment: 'node',
-      include: ['src/**/*.test.ts'],
-      exclude: ['src/__tests__/integration/**'],
-      setupFiles: ['./src/__tests__/vitest.setup.ts'],
-      globals: true,
-    },
-  },
-  {
-    test: {
-      name: 'scripts',
-      root: '.',
-      environment: 'node',
-      include: ['scripts/**/*.test.ts'],
-      globals: true,
-    },
-  },
-]);
-```
-
-This means `npx vitest run` will now also run scripts tests. The `scripts` workspace is lightweight — no special setup files needed.
-
-### Phase 5: Remove scripts/ from ESLint ignorePatterns
-
-Modify `.eslintrc.cjs` to stop ignoring scripts:
-
-```javascript
-ignorePatterns: [
-  'dist/',
-  'lib/',
-  'node_modules/',
-  '*.config.js',
-  '*.config.ts',
-  '.eslintrc.cjs',
-  'vitest.workspace.ts',
-  // 'scripts/' — REMOVED: scripts are now linted
-],
-```
-
-Create `scripts/tsconfig.eslint.json` so ESLint can type-check scripts:
-
-```json
-{
-  "extends": "../packages/functions/tsconfig.json",
-  "compilerOptions": {
-    "composite": false,
-    "rootDir": ".",
-    "outDir": "../dist/scripts",
-    "noUnusedLocals": false,
-    "noUnusedParameters": false
-  },
-  "include": ["./**/*.ts"],
-  "exclude": ["**/*.test.ts"]
-}
-```
-
-Update `.eslintrc.cjs` to include this tsconfig in `parserOptions.project`:
-
-```javascript
-parserOptions: {
-  project: [
-    './tsconfig.json',
-    './packages/*/tsconfig.json',
-    './packages/*/tsconfig.eslint.json',
-    './scripts/tsconfig.eslint.json',  // NEW
-  ],
-},
-```
-
-**Note**: The linter code may have ESLint violations that were hidden by the ignore. The implementing agent should:
-1. Run `npx eslint scripts/ --ext .ts` after un-ignoring
-2. Fix any violations (likely: missing explicit return types on inner functions, `!` non-null assertions that need `?? fallback`)
-3. The `@typescript-eslint/no-non-null-assertion` rule is NOT in the eslint config (only `@typescript-eslint/strict` extends), so `!` assertions may be fine — check what `strict` includes
-4. If the `explicit-function-return-type` rule fires on inner helper functions (like the nested `collectFiles`), add return types to them
-
-### Phase 6: Update Validate Pipeline
-
-Modify `scripts/validate.sh` to ensure scripts tests are included.
-
-Since `npx vitest run` now picks up both workspaces (functions + scripts), no change is needed to the validate script itself — the existing `run_check "Unit tests" npx vitest run` will automatically run scripts tests too.
-
-Verify this by checking that the vitest output after the workspace change shows two workspaces:
-```
- DEV  v1.x.x
-
- ✓ functions > ... (X tests)
- ✓ scripts > ... (Y tests)
-```
-
-### Phase 7: Update Documentation
-
-#### 7a. Update `docs/golden-principles.md`
-
-Add under `### Architecture [lint-architecture]`:
-```
-- No focused tests (`.only`, `test.only`, `fit`, `fdescribe`) — these silently skip the rest of the suite
-```
-
-#### 7b. Update header comment in `scripts/lint-checks.ts`
-
-The check list comment at the top of the module should list all 17 checks:
-
-```typescript
-/**
- * Architecture Enforcement Check Functions
- *
- * Each function accepts a LinterConfig and returns a CheckResult.
- * The CLI runner (lint-architecture.ts) calls these in sequence.
- *
- * Checks:
- *   1. Layer dependency direction (types -> schemas -> repos -> services -> handlers)
- *   2. Schema-at-boundary (write routes must have Zod validation)
- *   3. Type deduplication (no duplicate type/interface definitions)
- *   4. Firebase route consistency (rewrite paths match stripPathPrefix)
- *   5. iOS architecture layers (Views->Services, Components->ViewModels)
- *   6. Architecture map file references (docs/architecture/*.md paths exist)
- *   7. CLAUDE.md file path references (backtick-quoted paths resolve)
- *   8. Orphan features (handlers with routes have architecture docs)
- *   9. Plan lifecycle (plans in active/ or completed/, not root)
- *  10. No console.log in Cloud Functions
- *  11. No raw URLSession in iOS (use shared APIClient)
- *  12. Domain types only in types/ directory
- *  13. Zod schemas only in schemas/ directory
- *  14. No skipped tests
- *  15. High-risk files must have tests
- *  16. Prefer shared test factories over inline definitions
- *  17. No inline ApiResponse in tests
- *  18. No focused tests (.only)
- */
-```
-
-Wait — the numbering shift. Adding checkNoFocusedTests makes 18 checks total. But the check numbering in the code should match:
-- Checks 1-16: existing checks (with the numbering comment fixes from Phase 1)
-- Check 17: `checkNoInlineApiResponse` (existing, renumber from 16 to 17)
-- Check 18: `checkNoFocusedTests` (new)
-
-Actually, re-reading the current code: the header already lists 16 checks (1-16), with `checkNoInlineApiResponse` as #16. The new `.only` check becomes #17. Here's the mapping:
-
-| # | Check Function | Status |
-|---|---|---|
-| 1-9 | checkLayerDeps through checkPlanLifecycle | Unchanged |
-| 10 | checkNoConsoleLog | Fix comment (currently misnumbered as "9" in header count) |
-| 11 | checkNoRawUrlSession | Fix inline comment (currently says "Check 11", correct) |
-| 12 | checkTypesInTypesDir | Fix inline comment (currently duplicates "Check 11") |
-| 13 | checkSchemasInSchemasDir | Fix inline comment |
-| 14 | checkNoSkippedTests | Currently says "Check 13" in inline comment → fix to 14 |
-| 15 | checkUntestedHighRisk | Currently says "Check 14" → fix to 15 |
-| 16 | checkTestFactoryUsage | Currently says "Check 15" → fix to 16 |
-| 17 | checkNoInlineApiResponse | Currently says "Check 16" → fix to 17 |
-| 18 | checkNoFocusedTests | **NEW** |
-
-**Important**: The header comment counts checks starting from 1, and the runner array defines execution order. Renumbering the inline comments to match the actual execution order is the fix. The implementing agent should read the current header comment, count the checks in the runner array, and make all inline comments consistent.
-
-#### 7c. Update `docs/conventions/testing.md`
-
-Add to the testing conventions after the existing "Test Policy (CRITICAL)" section:
-
-```markdown
-## Focused Tests (.only) Policy
-
-**NEVER commit focused tests.** Using `it.only`, `describe.only`, `test.only`, `fit`, or `fdescribe` silently skips all other tests in the suite. vitest will report success even though most tests never ran.
-
-For debugging, use vitest's `--grep` flag instead:
-```bash
-npx vitest run --grep "test name pattern"
-```
-
-The architecture linter (check 18) enforces this — focused tests cause a build failure.
-```
+**Total: 9 test cases** covering:
+1. Happy path (tests with assertions pass)
+2. Single-line empty body detection
+3. Multi-line empty body detection
+4. Async empty body detection
+5. Assertion-free file detection
+6. Mixed file (some assertions) passes
+7. Commented-out lines ignored
+8. test.each handled correctly
+9. describe blocks not confused with test cases
 
 ## Files
 
 | File | Action | Description |
 |------|--------|-------------|
-| `scripts/lint-checks.ts` | **Create** | Exported check functions + LinterConfig interface + CheckResult interface + createDefaultConfig(). ~1400 lines (essentially the check logic from lint-architecture.ts, refactored to accept config params). |
-| `scripts/lint-architecture.ts` | **Rewrite** | Thin CLI runner (~100 lines). Imports all checks from lint-checks.ts, creates default config, runs checks, displays results, exits. |
-| `scripts/lint-architecture.test.ts` | **Create** | Vitest test file with ~40-50 test cases covering all 18 checks + quality grades freshness. ~600-800 lines. Uses temp directories as fixtures. |
-| `scripts/tsconfig.eslint.json` | **Create** | tsconfig for ESLint to type-check scripts directory (~12 lines). |
-| `vitest.workspace.ts` | **Modify** | Add `scripts` workspace entry (include: `scripts/**/*.test.ts`). |
-| `.eslintrc.cjs` | **Modify** | Remove `scripts/` from ignorePatterns. Add `scripts/tsconfig.eslint.json` to parserOptions.project. |
-| `docs/golden-principles.md` | **Modify** | Add "No focused tests" principle under "Architecture [lint-architecture]" section. |
-| `docs/conventions/testing.md` | **Modify** | Add "Focused Tests (.only) Policy" section explaining the rule and the `--grep` alternative. |
+| `scripts/lint-checks.ts` | **Modify** | Add `checkTestQuality` function (~80 lines) after check 18. Update header comment to include check 19. |
+| `scripts/lint-architecture.ts` | **Modify** | Add `checkTestQuality` import and add to checks array (~2 lines changed). |
+| `scripts/lint-architecture.test.ts` | **Modify** | Add `checkTestQuality` import and 9 test cases in a new describe block (~100 lines added). |
+| `scripts/update-quality-grades.ts` | **Modify** | Add `testCaseCount` and `assertionCount` to `DomainTestCounts` interface. Add counting logic in the test file processing loop. Add Assertions/Density columns to grade table generation. Factor density into grade calculation (~60 lines of changes spread across the file). |
+| `docs/golden-principles.md` | **Modify** | Add one line under "Architecture [lint-architecture]" section (line ~29). |
+| `docs/conventions/testing.md` | **Modify** | Add "Test Quality Policy" section with bad/good examples (~30 lines after line 110). |
 
-**Total: 3 new files, 5 modified files**
+**Total: 6 modified files, 0 new files**
 
 ## Tests
 
-### The test file IS the primary deliverable
+### Self-tests for check 19 (in `scripts/lint-architecture.test.ts`)
 
-`scripts/lint-architecture.test.ts` should have test cases for every check function. At minimum:
+| # | Test Case | What It Verifies |
+|---|-----------|-----------------|
+| 1 | Tests with assertions pass | Clean test files are not flagged |
+| 2 | Single-line empty body fails | `it('name', () => {})` detected |
+| 3 | Multi-line empty body fails | Empty body across lines detected |
+| 4 | Async empty body fails | `it('name', async () => {})` detected |
+| 5 | Assertion-free file fails | File with test cases but zero `expect()` detected |
+| 6 | Mixed file passes | File with some `expect()` calls passes file-level check |
+| 7 | Comments ignored | Commented-out `it()` lines not flagged |
+| 8 | test.each handled | Parameterized tests with assertions pass |
+| 9 | describe not confused with test | Only `it`/`test` counted, not `describe` |
 
-| Check | Test Cases | What They Verify |
-|-------|-----------|-----------------|
-| checkLayerDeps | 3 | Clean deps pass; service→handler fails; test files ignored |
-| checkSchemaBoundary | 3 | POST with validate passes; POST without fails; action routes ignored |
-| checkTypeDedup | 3 | Unique types pass; duplicates fail; re-exports not counted |
-| checkFirebaseRoutes | 2 | Matching config passes; mismatched stripPathPrefix fails |
-| checkIosLayers | 3 | Clean View passes; View→Service fails; #Preview section ignored |
-| checkArchMapRefs | 2 | Valid refs pass; broken refs fail |
-| checkClaudeMdRefs | 3 | Valid refs pass; broken refs fail; code fences ignored |
-| checkOrphanFeatures | 3 | Handler with doc passes; unmapped handler fails; missing doc fails |
-| checkPlanLifecycle | 2 | Plans in active/ pass; plan at root fails |
-| checkNoConsoleLog | 4 | Logger passes; console.log fails; comments ignored; tests ignored |
-| checkNoRawUrlSession | 3 | No URLSession passes; raw URLSession fails; allowlisted files pass |
-| checkTypesInTypesDir | 2 | Types in types/ pass; types in handlers/ fail |
-| checkSchemasInSchemasDir | 2 | Schemas in schemas/ pass; schemas in handlers/ fail |
-| checkNoSkippedTests | 3 | Normal tests pass; it.skip fails; xit/xdescribe detected |
-| checkUntestedHighRisk | 3 | High-risk with test passes; high-risk without fails; non-high-risk ignored |
-| checkTestFactoryUsage | 2 | Imports from utils pass; inline factories without imports fail |
-| checkNoInlineApiResponse | 2 | Import from utils passes; inline interface fails |
-| checkNoFocusedTests | 5 | Normal tests pass; it.only fails; describe.only/test.only/fit/fdescribe detected; comments ignored |
-| checkQualityGradesFreshness | 3 | Fresh date not stale; old date stale; missing file stale |
+### Existing tests must pass
 
-**Total: ~48 test cases**
+All 48 existing test cases in `scripts/lint-architecture.test.ts` must continue to pass. The new check is additive — it doesn't modify any existing check function.
 
-### Existing tests must continue to pass
+### Architecture lint against real codebase
 
-The refactoring does not change any check logic — only where the code lives and how paths are parameterized. All existing tests in `packages/functions/` must produce identical results.
+After adding check 19, running `npm run lint:architecture` on the current codebase must pass with all 19 checks clean. This verifies that no existing test files in the repo have empty bodies or zero assertions.
 
-### Architecture lint must pass against real codebase
-
-After the refactoring, `npm run lint:architecture` must produce the same output as before (all 17 checks pass with 0 violations on the current codebase). The new check 18 (no focused tests) should also pass since no `.only` calls exist in the codebase.
+**Pre-check before implementation:** The implementing agent should verify this by searching for test files without any `expect()` calls:
+```bash
+find packages/functions/src -name "*.test.ts" -exec sh -c 'grep -qL "expect(" "$1" && echo "$1"' _ {} \;
+find scripts -name "*.test.ts" -exec sh -c 'grep -qL "expect(" "$1" && echo "$1"' _ {} \;
+```
+If any files appear, they need assertions added as part of this improvement (before the check can pass).
 
 ## QA
 
-### Step 1: Verify the refactoring preserves behavior
+### Step 1: Verify check 19 passes on the current codebase
 
 ```bash
-# Before: run the old linter, save output
-npm run lint:architecture > /tmp/lint-before.txt 2>&1
-
-# After refactoring: run the new linter, save output
-npm run lint:architecture > /tmp/lint-after.txt 2>&1
-
-# Compare (should be identical except for the new check 18 line)
-diff /tmp/lint-before.txt /tmp/lint-after.txt
+npm run lint:architecture
 ```
 
-Expected: The only difference is the addition of check 18 ("No focused tests (.only): clean") in the output.
+Expected: All 19 checks pass (0 violations). If check 19 fails on existing test files, those files need assertions added first.
 
-### Step 2: Run all tests including scripts
+### Step 2: Verify check 19 catches empty test bodies
+
+Create a temporary test file:
+```bash
+cat > packages/functions/src/handlers/temp-test-quality.test.ts << 'EOF'
+import { it, describe } from 'vitest';
+describe('Placeholder', () => {
+  it('should work', () => {});
+});
+EOF
+npm run lint:architecture
+```
+
+Expected: Check 19 fails with a violation pointing to the empty test body.
+
+Clean up: `rm packages/functions/src/handlers/temp-test-quality.test.ts`
+
+### Step 3: Verify check 19 catches assertion-free files
+
+Create a temporary test file with test cases but no expect():
+```bash
+cat > packages/functions/src/handlers/temp-test-quality.test.ts << 'EOF'
+import { it, describe } from 'vitest';
+describe('Placeholder', () => {
+  it('creates something', async () => {
+    await someFunction();
+  });
+});
+EOF
+npm run lint:architecture
+```
+
+Expected: Check 19 fails mentioning "zero expect() assertions."
+
+Clean up: `rm packages/functions/src/handlers/temp-test-quality.test.ts`
+
+### Step 4: Run all tests including self-tests
 
 ```bash
 npx vitest run
 ```
 
-Expected: Two workspace sections appear in output:
+Expected: Both workspaces pass:
 - `functions` — all existing tests pass
-- `scripts` — all new lint architecture tests pass
+- `scripts` — all lint architecture tests pass (48 existing + 9 new = 57 total)
 
-### Step 3: Run full validation
+### Step 5: Run full validation
 
 ```bash
 npm run validate
 ```
 
-Expected: All checks pass (typecheck, lint, tests, architecture). Pay attention to:
-- **TypeScript**: `scripts/lint-checks.ts` and `scripts/lint-architecture.ts` compile
-- **ESLint**: Scripts directory now linted — no violations
-- **Tests**: Both workspaces pass
-- **Architecture**: All 18 checks clean
+Expected: All checks pass (typecheck, lint, test, architecture).
 
-### Step 4: Verify .only detection catches violations
-
-Temporarily add a focused test:
-```typescript
-// In any test file, e.g., packages/functions/src/handlers/exercises.test.ts:
-it.only('focused', () => { expect(true).toBe(true); });
-```
-
-Run:
-```bash
-npm run lint:architecture
-```
-
-Expected: Check 18 fails with 1 violation pointing to the file and line number.
-
-### Step 5: Verify .only detection ignores comments
-
-Temporarily add a commented-out .only:
-```typescript
-// In any test file:
-// it.only('commented out');
-```
-
-Run:
-```bash
-npm run lint:architecture
-```
-
-Expected: Check 18 passes (comments are ignored).
-
-### Step 6: Revert intentional test modifications
+### Step 6: Verify quality grades update
 
 ```bash
-git checkout -- packages/functions/src/handlers/exercises.test.ts
+npm run update:quality-grades
 ```
 
-### Step 7: Verify ESLint passes on scripts
+Expected: `docs/quality-grades.md` is regenerated with:
+- New "Assertions" and "Density" columns in the domain grades table
+- Lifting domain should show high assertion count and high density (many assertions per test case)
+- Cycling domain should show moderate density
+- Today domain should show "—" for density (no tests at all)
+
+Manually inspect the output to verify the numbers look reasonable.
+
+### Step 7: Verify the linter self-test catches regressions
+
+Intentionally break check 19 (e.g., change the test case regex to match nothing) and verify that the self-tests fail:
 
 ```bash
-npx eslint scripts/ --ext .ts
+# After breaking the check:
+npx vitest run scripts/lint-architecture.test.ts
 ```
 
-Expected: 0 errors, 0 warnings. If there are violations from the un-ignoring, they should have been fixed in Phase 5.
+Expected: The "fails for single-line empty test body" and similar tests fail, proving the self-tests guard against check regressions.
 
-### Step 8: Verify test count is unchanged for functions workspace
-
-```bash
-npx vitest run --reporter=verbose 2>&1 | grep -c "✓\|✗"
-```
-
-Compare with the count before the change. The functions workspace should have the same number of tests. Only the scripts workspace adds new tests.
+Revert the intentional break after verifying.
 
 ## Conventions
 
-1. **Git Worktree Workflow** — All changes in a worktree branch, not directly on main.
+1. **Git Worktree Workflow** — All changes in a worktree branch, not directly on main. Create worktree at `/tmp/brad-os-worktrees/`, symlink `node_modules` from main.
 
 2. **Subagent Usage** — Run `npm run validate` in subagents to conserve context.
 
-3. **Vitest not Jest** — All tests use vitest. Import `{ describe, it, expect }` explicitly from `'vitest'` (the scripts workspace uses `globals: true`, but explicit imports are preferred per `docs/conventions/testing.md`).
+3. **Vitest not Jest** — All tests use vitest. Import `{ describe, it, expect }` from `'vitest'` explicitly in the test file.
 
-4. **No `any` types** — The refactored check functions and test helpers must not use `any`. Use `unknown` for parsed JSON, assert with type narrowing.
+4. **No `any` types** — The new check function and test code must not use `any`. Use `unknown` for untyped values, narrow with assertions.
 
-5. **Explicit return types** — All exported functions in `lint-checks.ts` must have explicit return types (`CheckResult`, `{ stale: boolean; message: string }`, etc.).
+5. **Explicit return types** — `checkTestQuality` returns `CheckResult` (already defined in lint-checks.ts).
 
-6. **File naming** — `lint-checks.ts` follows the existing `lint-architecture.ts` kebab-case pattern.
+6. **File naming** — No new files; all modifications go to existing files following existing naming conventions.
 
-7. **Principle-to-Linter Pipeline** — From `docs/golden-principles.md`: the `.only` detection is a new enforcement rule, added to the "Enforced (linter/hook exists)" section.
+7. **Principle-to-Linter Pipeline** — This is a new enforcement rule added to golden-principles.md under "Enforced (linter/hook exists)" → "Architecture [lint-architecture]".
 
-8. **No floating promises** — The linter is synchronous (all `fs.readFileSync`), so no async concerns. Tests should also be synchronous.
+8. **No floating promises** — The check function is synchronous (all `fs.readFileSync`). Tests are also synchronous.
 
-9. **`os.tmpdir()` for temp files** — Tests must use `os.tmpdir()` (or `$TMPDIR` in bash context) for fixture directories, never hardcoded `/tmp`. Clean up in `afterEach`.
+9. **`os.tmpdir()` for temp files** — The test fixtures already use `os.tmpdir()` via the existing `createFixture()` helper.
 
-10. **Read before modifying** — The implementing agent must read the current `lint-architecture.ts` in full before refactoring. The plan provides the pattern; the agent must verify against the actual code.
+10. **Read before modifying** — The implementing agent must read `scripts/lint-checks.ts`, `scripts/lint-architecture.ts`, `scripts/lint-architecture.test.ts`, and `scripts/update-quality-grades.ts` in full before making changes. The plan provides patterns and function signatures; the agent must verify against the actual code.
+
+11. **Test fixture safety** — Tests in `lint-architecture.test.ts` for checks 14 and 18 use string concatenation (e.g., `"it" + ".skip("`) to avoid the test file itself triggering the linter. Check 19's test fixtures write content to temp directories (via `writeFixture`), not to the actual scripts/ directory, so they won't trigger the linter. However, verify that the check's `collectTestFiles` starts from `config.rootDir` (the temp dir in tests), not from the real project root.
