@@ -25,7 +25,7 @@ const WORKTREE_DIR = "/tmp/brad-os-ralph-worktrees";
 
 const DEFAULT_MODELS: Record<AgentBackend, { plan: string; exec: string }> = {
   claude: { plan: "claude-opus-4-6", exec: "claude-sonnet-4-6" },
-  codex: { plan: "o4-mini", exec: "o4-mini" },
+  codex: { plan: "gpt-5.3-codex-high", exec: "gpt-5.3-codex-spark" },
 };
 
 function parseCliArgs(): Config {
@@ -33,7 +33,7 @@ function parseCliArgs(): Config {
     options: {
       target: { type: "string", default: "15" },
       "branch-prefix": { type: "string", default: "harness-improvement" },
-      "max-turns": { type: "string", default: "50" },
+      "max-turns": { type: "string", default: "100" },
       verbose: { type: "boolean", default: false },
       task: { type: "string" },
       // Backend selection
