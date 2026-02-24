@@ -216,6 +216,7 @@ Run all checks:
 npm run typecheck        # TypeScript compilation
 npm run lint             # ESLint (use --fix to auto-fix)
 npm test                 # Unit tests (vitest)
+npm run lint:architecture  # Architecture enforcement (layer deps, schema boundary, type dedup, firebase routes, iOS layers)
 ```
 
 ## Implementation Best Practices
