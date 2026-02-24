@@ -519,6 +519,8 @@ async function main(): Promise<void> {
   orchestratorLogger.info(`Backlog           : ${backlogPath()}`);
 
   let consecutiveFailures = 0;
+  const failureThreshold = Math.max(3, config.parallelism + 2);
+  let nextImprovement = completed + 1;
   const tasksInFlight = new Set<string>();
 
   // Active worker promises keyed by worker slot
@@ -579,6 +581,14 @@ async function main(): Promise<void> {
   while (hasMoreWork(completed, config.target, readBacklog().length, tasksInFlight.size)) {
     if (abortController.signal.aborted) break;
 
+    // Check failure threshold BEFORE launching new workers
+    if (consecutiveFailures >= failureThreshold) {
+      orchestratorLogger.error(
+        `${consecutiveFailures} consecutive failures (threshold: ${failureThreshold}) \u2014 stopping.`,
+      );
+      break;
+    }
+
     // Fill empty worker slots
     const freeSlots: number[] = [];
     for (let i = 0; i < config.parallelism; i++) {
@@ -611,7 +621,7 @@ async function main(): Promise<void> {
         tasksInFlight.add(task);
       }
 
-      const improvement = completed + tasksInFlight.size;
+      const improvement = nextImprovement++;
       const workerLogger = new Logger(config.logFile, config.verbose, slot);
 
       // Track worktree for exit cleanup
@@ -700,11 +710,6 @@ async function main(): Promise<void> {
       orchestratorLogger.warn(
         `Improvement #${result.improvement} failed (consecutive failures: ${consecutiveFailures})`,
       );
-    }
-
-    if (consecutiveFailures >= 3) {
-      orchestratorLogger.error("3 consecutive failures \u2014 stopping.");
-      process.exit(1);
     }
 
     // Small delay between scheduling rounds
