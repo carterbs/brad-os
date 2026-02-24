@@ -13,6 +13,11 @@
  *   6. Architecture map file references (docs/architecture/*.md paths exist on disk)
  *   7. CLAUDE.md file path references (backtick-quoted paths resolve)
  *   8. Orphan features (handlers with routes have architecture docs)
+ *   9. No console.log in Cloud Functions (use firebase-functions/logger)
+ *  10. No raw URLSession in iOS (use shared APIClient)
+ *  11. Domain types only in types/ directory
+ *  12. Zod schemas only in schemas/ directory
+ *  13. No skipped tests
  *
  * Exits 0 only if ALL checks pass. Exits 1 if any fail.
  */
@@ -880,6 +885,67 @@ function checkPlanLifecycle(): CheckResult {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Check 10: No console.log in Cloud Functions
+//
+// Cloud Functions must use firebase-functions/logger instead of console.*.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function checkNoConsoleLog(): CheckResult {
+  const name = 'No console.log in Cloud Functions';
+  const SRC_DIR = FUNCTIONS_SRC;
+
+  if (!fs.existsSync(SRC_DIR)) {
+    return { name, passed: true, violations: [] };
+  }
+
+  function collectFiles(dir: string): string[] {
+    const results: string[] = [];
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        // Skip test dirs, node_modules, and scripts/ (CLI scripts that run locally, not deployed)
+        if (entry.name === 'node_modules' || entry.name === '__tests__' || entry.name === 'test-utils' || entry.name === 'scripts') continue;
+        results.push(...collectFiles(fullPath));
+      } else if (
+        entry.isFile() &&
+        entry.name.endsWith('.ts') &&
+        !entry.name.endsWith('.test.ts') &&
+        !entry.name.endsWith('.spec.ts')
+      ) {
+        results.push(fullPath);
+      }
+    }
+    return results;
+  }
+
+  const files = collectFiles(SRC_DIR);
+  const violations: string[] = [];
+  const consolePattern = /\bconsole\.(log|warn|error|info)\s*\(/;
+
+  for (const file of files) {
+    const content = fs.readFileSync(file, 'utf-8');
+    const lines = content.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!;
+      if (/^\s*\/\//.test(line)) continue;
+      if (consolePattern.test(line)) {
+        const relPath = path.relative(process.cwd(), file);
+        violations.push(
+          `${relPath}:${i + 1} uses console.* instead of Firebase logger.\n` +
+          `    Rule: Cloud Functions must use the structured Firebase logger, not console.*.\n` +
+          `    Fix: import { logger } from 'firebase-functions/logger';\n` +
+          `         Replace console.log(...) with logger.info(...), console.warn(...) with logger.warn(...), etc.\n` +
+          `    See: docs/golden-principles.md`
+        );
+      }
+    }
+  }
+
+  return { name, passed: violations.length === 0, violations };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Warning: Quality Grades Freshness
 //
 // Warns (does not fail) if docs/quality-grades.md "Last updated" date is
@@ -915,6 +981,240 @@ function checkQualityGradesFreshness(): { stale: boolean; message: string } {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Check 11: No raw URLSession in iOS (except APIClient)
+//
+// All HTTP requests must go through the shared APIClient.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function checkNoRawUrlSession(): CheckResult {
+  const name = 'No raw URLSession in iOS';
+  const IOS_APP = path.join(ROOT_DIR, 'ios/BradOS/BradOS');
+
+  if (!fs.existsSync(IOS_APP)) {
+    return { name, passed: true, violations: [] };
+  }
+
+  function collectSwiftFiles(dir: string): string[] {
+    const results: string[] = [];
+    if (!fs.existsSync(dir)) return results;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...collectSwiftFiles(fullPath));
+      } else if (entry.isFile() && entry.name.endsWith('.swift')) {
+        results.push(fullPath);
+      }
+    }
+    return results;
+  }
+
+  const files = collectSwiftFiles(IOS_APP);
+  const violations: string[] = [];
+  const urlSessionPattern = /\bURLSession\b/;
+
+  for (const file of files) {
+    const basename = path.basename(file);
+    // Exclude APIClient.swift itself and test files
+    if (basename === 'APIClient.swift') continue;
+    if (basename.endsWith('Tests.swift') || basename.endsWith('Test.swift')) continue;
+
+    const content = fs.readFileSync(file, 'utf-8');
+    const lines = content.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!;
+      if (/^\s*\/\//.test(line)) continue;
+      if (urlSessionPattern.test(line)) {
+        const relPath = path.relative(ROOT_DIR, file);
+        violations.push(
+          `${relPath}:${i + 1} uses URLSession directly instead of the shared APIClient.\n` +
+          `    Rule: All iOS HTTP requests must go through the shared APIClient with App Check.\n` +
+          `    Fix: Use APIClient.shared for HTTP requests instead of URLSession directly.\n` +
+          `         See ios/BradOS/BradOS/Services/APIClient.swift for the shared client.\n` +
+          `    See: docs/conventions/ios-swift.md`
+        );
+      }
+    }
+  }
+
+  return { name, passed: violations.length === 0, violations };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Check 11: Domain types only in types/ directory
+//
+// Exported type/interface declarations in services/, handlers/, repositories/
+// should be in types/ instead.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function checkTypesInTypesDir(): CheckResult {
+  const name = 'Domain types only in types/';
+  const SRC_DIR = FUNCTIONS_SRC;
+
+  if (!fs.existsSync(SRC_DIR)) {
+    return { name, passed: true, violations: [] };
+  }
+
+  const dirsToScan = ['services', 'handlers', 'repositories'];
+  const violations: string[] = [];
+
+  // Patterns for exported type/interface declarations (not re-exports)
+  const exportInterfacePattern = /^export\s+interface\s+(\w+)/;
+  const exportTypePattern = /^export\s+type\s+(\w+)\s*=/;
+  const reExportPattern = /^export\s+(?:type\s+)?\{[^}]*\}\s+from\s+/;
+
+  for (const dirName of dirsToScan) {
+    const dir = path.join(SRC_DIR, dirName);
+    if (!fs.existsSync(dir)) continue;
+
+    const files = fs.readdirSync(dir).filter(
+      (f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && !f.endsWith('.spec.ts')
+    );
+
+    for (const file of files) {
+      const filePath = path.join(dir, file);
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const lines = content.split('\n');
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i]!;
+
+        // Skip re-exports
+        if (reExportPattern.test(line)) continue;
+
+        const match = exportInterfacePattern.exec(line) ?? exportTypePattern.exec(line);
+        if (match) {
+          const typeName = match[1]!;
+          const relPath = path.relative(process.cwd(), filePath);
+          violations.push(
+            `${relPath}:${i + 1} exports type '${typeName}' outside of types/ directory.\n` +
+            `    Rule: Domain types must live in packages/functions/src/types/ and be imported via shared.ts.\n` +
+            `    Fix: Move 'export interface ${typeName}' (or 'export type ${typeName}') to packages/functions/src/types/<resource>.ts.\n` +
+            `         Then import it where needed: import { ${typeName} } from '../shared.js'\n` +
+            `    See: docs/conventions/typescript.md`
+          );
+        }
+      }
+    }
+  }
+
+  return { name, passed: violations.length === 0, violations };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Check 12: Zod schemas only in schemas/ directory
+//
+// Schema construction (z.object, z.string, z.array, etc.) in services/,
+// handlers/, repositories/ should be in schemas/ instead.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function checkSchemasInSchemasDir(): CheckResult {
+  const name = 'Zod schemas only in schemas/';
+  const SRC_DIR = FUNCTIONS_SRC;
+
+  if (!fs.existsSync(SRC_DIR)) {
+    return { name, passed: true, violations: [] };
+  }
+
+  const dirsToScan = ['services', 'handlers', 'repositories'];
+  const violations: string[] = [];
+
+  // Match schema construction calls but not z.infer (type extraction)
+  const schemaPattern = /\bz\.(object|string|number|boolean|array|enum|union|intersection|literal|tuple|record|nativeEnum|discriminatedUnion)\s*\(/;
+
+  for (const dirName of dirsToScan) {
+    const dir = path.join(SRC_DIR, dirName);
+    if (!fs.existsSync(dir)) continue;
+
+    const files = fs.readdirSync(dir).filter(
+      (f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && !f.endsWith('.spec.ts')
+    );
+
+    for (const file of files) {
+      const filePath = path.join(dir, file);
+      const content = fs.readFileSync(filePath, 'utf-8');
+      const lines = content.split('\n');
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i]!;
+        if (/^\s*\/\//.test(line)) continue;
+        // Allow z.infer usage (type extraction, not schema construction)
+        if (/z\.infer/.test(line)) continue;
+
+        if (schemaPattern.test(line)) {
+          const relPath = path.relative(process.cwd(), filePath);
+          violations.push(
+            `${relPath}:${i + 1} constructs a Zod schema outside of schemas/ directory.\n` +
+            `    Rule: Zod schemas must live in packages/functions/src/schemas/, one file per resource.\n` +
+            `    Fix: Move the schema definition to packages/functions/src/schemas/<resource>.schema.ts.\n` +
+            `         Then import it: import { mySchema } from '../schemas/<resource>.schema.js'\n` +
+            `    See: docs/golden-principles.md`
+          );
+        }
+      }
+    }
+  }
+
+  return { name, passed: violations.length === 0, violations };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Check 13: No skipped tests
+//
+// Tests must never be skipped — fix or remove them instead.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function checkNoSkippedTests(): CheckResult {
+  const name = 'No skipped tests';
+
+  function collectTestFiles(dir: string): string[] {
+    const results: string[] = [];
+    if (!fs.existsSync(dir)) return results;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fullPath = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === 'node_modules') continue;
+        results.push(...collectTestFiles(fullPath));
+      } else if (
+        entry.isFile() &&
+        (entry.name.endsWith('.test.ts') || entry.name.endsWith('.spec.ts'))
+      ) {
+        results.push(fullPath);
+      }
+    }
+    return results;
+  }
+
+  const files = collectTestFiles(ROOT_DIR);
+  const violations: string[] = [];
+  const skipPattern = /\b(it\.skip|describe\.skip|test\.skip|xit|xdescribe|xtest)\s*\(/;
+
+  for (const file of files) {
+    const content = fs.readFileSync(file, 'utf-8');
+    const lines = content.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]!;
+      if (/^\s*\/\//.test(line)) continue;
+
+      const match = skipPattern.exec(line);
+      if (match) {
+        const relPath = path.relative(process.cwd(), file);
+        violations.push(
+          `${relPath}:${i + 1} has a skipped test (${match[1]}).\n` +
+          `    Rule: Never skip or disable tests to fix a build. Fix the test or remove it.\n` +
+          `    Fix: Either fix the failing test so it passes, or delete it if no longer relevant.\n` +
+          `         Do not use .skip, xit, or xdescribe as a workaround.\n` +
+          `    See: docs/conventions/testing.md`
+        );
+      }
+    }
+  }
+
+  return { name, passed: violations.length === 0, violations };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -931,6 +1231,11 @@ function main(): void {
     checkClaudeMdRefs,
     checkOrphanFeatures,
     checkPlanLifecycle,
+    checkNoConsoleLog,
+    checkNoRawUrlSession,
+    checkTypesInTypesDir,
+    checkSchemasInSchemasDir,
+    checkNoSkippedTests,
   ];
 
   const results: CheckResult[] = [];
