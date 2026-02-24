@@ -34,6 +34,7 @@
     "otel:stop": "lsof -ti:4318 | xargs kill 2>/dev/null || true",
     "otel:clean": "rm -rf .otel/",
     "ralph:improve-harness": "tsx scripts/ralph/index.ts",
+    "preinstall": "node -e \"const v = parseInt(process.versions.node, 10); if (v !== 22) { console.error('\\n  ERROR: Node ' + process.versions.node + ' detected. This project requires Node 22.\\n  Run: nvm use\\n'); process.exit(1); }\"",
     "postinstall": "git config core.hooksPath hooks"
   },
   "devDependencies": {
@@ -51,5 +52,8 @@
     "typescript": "^5.4.0",
     "vitest": "^1.3.0",
     "web-tree-sitter": "^0.25.3"
+  },
+  "engines": {
+    "node": ">=22.0.0 <23.0.0"
   }
 }
