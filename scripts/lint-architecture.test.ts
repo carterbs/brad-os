@@ -25,6 +25,7 @@ import {
   checkTestQuality,
   checkQualityGradesFreshness,
   checkRepositoryTestCoverage,
+  checkMarkdownLinks,
 } from './lint-checks.js';
 import { generateRewrites } from './rewrite-utils.js';
 import { type EndpointEntry } from '../packages/functions/src/endpoint-manifest.js';
@@ -1198,5 +1199,103 @@ describe('checkRepositoryTestCoverage', () => {
 
     const result = checkRepositoryTestCoverage(config);
     expect(result.passed).toBe(true);
+  });
+});
+
+// ── Check 21: Markdown Link Targets ──────────────────────────────────────────
+
+describe('checkMarkdownLinks', () => {
+  let rootDir: string;
+  let config: LinterConfig;
+
+  beforeEach(() => {
+    ({ rootDir, config } = createFixture());
+  });
+  afterEach(() => cleanup(rootDir));
+
+  it('passes when all markdown links resolve to existing files', () => {
+    writeFixture(rootDir, 'docs/index.md', '[typescript](conventions/typescript.md)');
+    writeFixture(rootDir, 'docs/conventions/typescript.md', '# TypeScript');
+
+    const result = checkMarkdownLinks(config);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('fails when a markdown link target does not exist', () => {
+    writeFixture(rootDir, 'docs/index.md', '[missing](conventions/missing.md)');
+
+    const result = checkMarkdownLinks(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0]).toContain('missing.md');
+  });
+
+  it('handles relative paths from nested directories', () => {
+    writeFixture(rootDir, 'docs/guides/quickstart.md', '[root](../../CLAUDE.md)');
+    writeFixture(rootDir, 'CLAUDE.md', '# CLAUDE');
+
+    const result = checkMarkdownLinks(config);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('skips external URLs (http, https, mailto)', () => {
+    writeFixture(rootDir, 'README.md', '[link](https://example.com)\n[email](mailto:a@b.com)');
+
+    const result = checkMarkdownLinks(config);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('skips fragment-only links (#anchor)', () => {
+    writeFixture(rootDir, 'README.md', '[section](#installation)');
+
+    const result = checkMarkdownLinks(config);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('strips fragment from file path before checking', () => {
+    writeFixture(rootDir, 'README.md', '[guide](docs/guide.md#section)');
+    writeFixture(rootDir, 'docs/guide.md', '# Guide');
+
+    const result = checkMarkdownLinks(config);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('skips links inside code fences', () => {
+    writeFixture(rootDir, 'README.md', '```\n[link](nonexistent.md)\n```');
+
+    const result = checkMarkdownLinks(config);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('skips links with template variables', () => {
+    writeFixture(rootDir, 'README.md', '[feature](docs/architecture/<feature>.md)');
+
+    const result = checkMarkdownLinks(config);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('handles image links', () => {
+    writeFixture(rootDir, 'docs/arch.md', '![diagram](lifting.png)');
+    writeFixture(rootDir, 'docs/lifting.png', '');
+
+    const result = checkMarkdownLinks(config);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('skips node_modules and .git directories', () => {
+    writeFixture(rootDir, 'node_modules/pkg/README.md', '[link](nonexistent.md)');
+    writeFixture(rootDir, '.git/README.md', '[link](nonexistent.md)');
+
+    const result = checkMarkdownLinks(config);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
   });
 });
