@@ -304,17 +304,19 @@ struct CalendarViewModelTests {
     func recentActivitiesReturnsAllWhenLimitExceedsTotal() {
         let vm = CalendarViewModel(apiClient: MockAPIClient())
         let date = makeDate(year: 2026, month: 3, day: 15)
+        let earlier = makeDate(year: 2026, month: 3, day: 15, hour: 10)
+        let later = makeDate(year: 2026, month: 3, day: 15, hour: 12)
         vm.activitiesByDate = [
             key(for: date): [
-                makeActivity(id: "a", type: .workout, date: date),
-                makeActivity(id: "b", type: .stretch, date: date),
+                makeActivity(id: "a", type: .workout, date: earlier),
+                makeActivity(id: "b", type: .stretch, date: later),
             ]
         ]
 
         let activities = vm.recentActivities(limit: 10)
 
         #expect(activities.count == 2)
-        #expect(activities.map(\.id) == ["a", "b"])
+        #expect(activities.map(\.id) == ["b", "a"])
     }
 
     @Test("recentActivities returns empty when no data")
