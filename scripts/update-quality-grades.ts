@@ -149,6 +149,8 @@ interface DomainTestCounts {
   integration: string[];
   schemas: string[];
   total: number;
+  testCaseCount: number;
+  assertionCount: number;
 }
 
 function countBackendTests(): Map<string, DomainTestCounts> {
@@ -163,9 +165,19 @@ function countBackendTests(): Map<string, DomainTestCounts> {
         integration: [],
         schemas: [],
         total: 0,
+        testCaseCount: 0,
+        assertionCount: 0,
       });
     }
     return domainCounts.get(domain)!;
+  }
+
+  function countAssertions(testFile: string, counts: DomainTestCounts): void {
+    const content = fs.readFileSync(testFile, 'utf-8');
+    const testCases = (content.match(/\b(it|test)\s*\(/g) ?? []).length;
+    const assertions = (content.match(/\bexpect\s*\(/g) ?? []).length;
+    counts.testCaseCount += testCases;
+    counts.assertionCount += assertions;
   }
 
   // Collect all test files
@@ -184,6 +196,7 @@ function countBackendTests(): Map<string, DomainTestCounts> {
         const counts = ensureDomain(domain);
         counts.integration.push(integrationName);
         counts.total++;
+        countAssertions(testFile, counts);
       }
       continue;
     }
@@ -195,6 +208,7 @@ function countBackendTests(): Map<string, DomainTestCounts> {
         const counts = ensureDomain(domain);
         counts.handlers.push(basename);
         counts.total++;
+        countAssertions(testFile, counts);
       }
       continue;
     }
@@ -206,6 +220,7 @@ function countBackendTests(): Map<string, DomainTestCounts> {
         const counts = ensureDomain(domain);
         counts.services.push(basename.replace('.service', ''));
         counts.total++;
+        countAssertions(testFile, counts);
       }
       continue;
     }
@@ -217,6 +232,7 @@ function countBackendTests(): Map<string, DomainTestCounts> {
         const counts = ensureDomain(domain);
         counts.repositories.push(basename.replace('.repository', ''));
         counts.total++;
+        countAssertions(testFile, counts);
       }
       continue;
     }
@@ -237,6 +253,7 @@ function countBackendTests(): Map<string, DomainTestCounts> {
         const counts = ensureDomain(domain);
         counts.schemas.push(schemaName);
         counts.total++;
+        countAssertions(testFile, counts);
       }
       continue;
     }
@@ -246,6 +263,7 @@ function countBackendTests(): Map<string, DomainTestCounts> {
       const counts = ensureDomain('other');
       counts.handlers.push(basename);
       counts.total++;
+      countAssertions(testFile, counts);
     }
   }
 
@@ -406,6 +424,8 @@ interface DomainGrade {
   apiComplete: string;
   iosComplete: string;
   coveragePct: number | null;
+  assertionCount: number;
+  density: string;
   notes: string;
 }
 
@@ -423,6 +443,8 @@ function calculateGrade(
   isSharedDomain: boolean,
   apiComplete: string,
   coveragePct: number | null,
+  testCaseCount: number,
+  assertionCount: number,
 ): Grade {
   let baseGrade: Grade;
 
@@ -468,7 +490,28 @@ function calculateGrade(
     const gradeOrder: Grade[] = ['A', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F'];
     const idx = gradeOrder.indexOf(baseGrade);
     if (idx >= 0 && idx < gradeOrder.length - 1) {
-      return gradeOrder[idx + 1]!;
+      baseGrade = gradeOrder[idx + 1]!;
+    }
+  }
+
+  // Assertion density adjustment (±1 sub-grade)
+  const density = testCaseCount > 0
+    ? assertionCount / testCaseCount
+    : 0;
+
+  if (density >= 2.0) {
+    // Thorough tests — positive adjustment (e.g., B → B+)
+    const gradeOrder: Grade[] = ['A', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F'];
+    const idx = gradeOrder.indexOf(baseGrade);
+    if (idx > 0) {
+      baseGrade = gradeOrder[idx - 1]!;
+    }
+  } else if (density < 1.0 && testCaseCount > 0) {
+    // Weak tests — negative adjustment (e.g., B+ → B)
+    const gradeOrder: Grade[] = ['A', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F'];
+    const idx = gradeOrder.indexOf(baseGrade);
+    if (idx >= 0 && idx < gradeOrder.length - 1) {
+      baseGrade = gradeOrder[idx + 1]!;
     }
   }
 
@@ -940,7 +983,13 @@ function main(): void {
     const hasUntested = hasUntestedHandlers || hasUntestedServices;
 
     const coveragePct = domainCoverage.get(domain) ?? null;
-    const grade = calculateGrade(backendCount, iosCount, hasUntested, hasUntestedHighRisk, meta.isShared, meta.apiComplete, coveragePct);
+    const domainTestCaseCount = backendCounts?.testCaseCount ?? 0;
+    const domainAssertionCount = backendCounts?.assertionCount ?? 0;
+    const grade = calculateGrade(backendCount, iosCount, hasUntested, hasUntestedHighRisk, meta.isShared, meta.apiComplete, coveragePct, domainTestCaseCount, domainAssertionCount);
+
+    const densityStr = domainTestCaseCount > 0
+      ? (domainAssertionCount / domainTestCaseCount).toFixed(1) + 'x'
+      : '—';
 
     grades.push({
       domain,
@@ -952,6 +1001,8 @@ function main(): void {
       apiComplete: meta.apiComplete,
       iosComplete: meta.iosComplete,
       coveragePct,
+      assertionCount: domainAssertionCount,
+      density: densityStr,
       notes: buildMechanicalNotes(domain, backendCounts, untestedInDomain),
     });
   }
@@ -983,7 +1034,7 @@ function main(): void {
 
   const gradesTable = grades.map((g) => {
     const covStr = g.coveragePct !== null ? `${g.coveragePct}%` : '--';
-    return `| ${formatDomainName(g.domain)} | **${g.grade}** | ${g.testLevel} | ${g.iosLevel} | ${covStr} | ${g.apiComplete} | ${g.iosComplete} | ${g.notes} |`;
+    return `| ${formatDomainName(g.domain)} | **${g.grade}** | ${g.testLevel} | ${g.iosLevel} | ${g.assertionCount} | ${g.density} | ${covStr} | ${g.apiComplete} | ${g.iosComplete} | ${g.notes} |`;
   }).join('\n');
 
   const md = `# Domain Quality Grades
@@ -1012,8 +1063,8 @@ ${todoNote}
 
 ## Domain Grades
 
-| Domain | Grade | Backend Tests | iOS Tests | Coverage | API Complete | iOS Complete | Notes |
-|--------|-------|---------------|-----------|----------|--------------|--------------|-------|
+| Domain | Grade | Backend Tests | iOS Tests | Assertions | Density | Coverage | API Complete | iOS Complete | Notes |
+|--------|-------|---------------|-----------|------------|---------|----------|--------------|--------------|-------|
 ${gradesTable}
 
 ---
