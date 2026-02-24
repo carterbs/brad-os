@@ -63,3 +63,7 @@ View -> Services (GuidedMeditationService, MeditationAPIService) -> APIClient ->
 - Guided meditations have segments and interjections; audio is pre-fetched before playback
 - TTS audio cached on disk via TTSAudioCache (FileManager-based)
 - Breathing durations: 5, 10, or 20 minutes
+
+## See Also
+- [Today](today.md) — meditation status in daily briefing
+- [Calendar](calendar.md) — meditation dates on calendar

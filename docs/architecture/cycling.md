@@ -74,3 +74,8 @@ Strava webhook -> strava-webhook handler -> cyclingService -> Firestore (async a
 - 8-week periodization: Adaptation (1-2), Build (3-4), Recovery (5), Peak (6-7), Test (8)
 - AI coach considers recovery state, lifting schedule interference, and Peloton class types
 - Webhook endpoints skip App Check (called by Strava); /tokens uses App Check (called by iOS app)
+
+## See Also
+- [Lifting](lifting.md) — lifting context used by cycling coach
+- [Today](today.md) — cycling data shown in daily briefing
+- [Health](health.md) — VO2 max and recovery metrics

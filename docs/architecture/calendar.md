@@ -30,3 +30,9 @@ Calendar is read-only -- it aggregates data from:
 - `utcToLocalDate()` helper handles UTC-to-local date conversion
 - CalendarView has no activity filter (shows all); HistoryView reuses CalendarViewModel with filter support
 - CalendarActivity model lives in BradOSCore (shared between app and widget)
+
+## See Also
+- [History](history.md) — reuses Calendar backend/ViewModel for history views
+- [Lifting](lifting.md) — workout dates shown on calendar
+- [Stretching](stretching.md) — stretch session dates on calendar
+- [Meditation](meditation.md) — meditation dates on calendar

@@ -1,3 +1,7 @@
+> **ARCHIVED** — This guide predates the Cloud Functions migration (2026-01-27). Firebase setup is now handled by `firebase.json` and Cloud Functions v2. See `docs/guides/debugging-cloud-functions.md` for current guidance.
+
+---
+
 # Firebase Setup Guide
 
 This guide walks you through setting up Firebase for the Brad OS application. The app uses **Firebase Firestore** for data storage with environment-based collection prefixes to separate development and production data.

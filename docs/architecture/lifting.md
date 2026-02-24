@@ -82,3 +82,8 @@ View -> AppState/WorkoutStateManager -> APIClient -> Cloud Function Handler -> S
 - Mesocycle = 6 training weeks + 1 deload week (50% volume)
 - WorkoutView uses @State-based local state (no separate ViewModel class) with WorkoutStateManager for pending edits
 - LiftingTabView has 3 sub-tabs: Meso (active cycle), Plans (templates), Exercises (library)
+
+## See Also
+- [Cycling](cycling.md) — lifting schedule used for cycling coach context
+- [Today](today.md) — workout data shown in daily briefing
+- [Stretching](stretching.md) — post-workout stretch prompt

@@ -76,3 +76,6 @@ MealPlanView -> MealPlanViewModel -> APIClient -> mealplans/meals handlers -> Ge
 - MealPlanCacheService stores finalized plan in App Group shared container for widget access
 - Widget reads from cache (no API calls); refreshes at midnight + on-demand via WidgetCenter
 - Sessions track full conversation history for multi-turn critique
+
+## See Also
+- [Today](today.md) — meal plan data shown on dashboard

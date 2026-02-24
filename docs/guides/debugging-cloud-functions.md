@@ -8,6 +8,19 @@
 2. **Cloud Function actually deployed?** Check `firebase functions:log --only <functionName>` for deployment audit entries.
 3. **App Check debug token registered?** This is the LEAST likely cause — simulators are properly registered. If other API calls work (e.g., HRV history loads), App Check is fine.
 
+### App Check Debug Token Registration
+
+Debug tokens change when the simulator is erased or recreated. To extract the current token:
+
+1. Launch the app with console output: `xcrun simctl launch --console <bundle-id>`
+2. Look for `[AppCheckCore] App Check debug token: '<UUID>'` in the output
+3. Register the token in [Firebase Console](https://console.firebase.google.com/) > App Check > Apps > Manage debug tokens
+
+**Key facts:**
+- Each simulator instance gets a unique debug token
+- Erasing simulator content and settings generates a new token
+- If other API calls work (e.g., HRV history loads), App Check is fine — don't debug tokens first
+
 ## General Debugging Approach
 
 - Check logs and deployed state FIRST before reading source code
