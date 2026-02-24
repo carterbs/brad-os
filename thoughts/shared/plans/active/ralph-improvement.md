@@ -1,250 +1,233 @@
-**Title**: Lint-architecture rule: require colocated tests for non-abstract repository files
+# CI Workflow: Validate + Integration Tests with Artifact Upload
 
-**Why**: All 16 concrete repositories currently have colocated `.test.ts` files, but nothing prevents a new repository from being added without one. A lint check enforces the invariant at CI time, catching gaps before they merge.
+**Why**: The project has comprehensive local validation (`npm run validate`) and 11 integration test suites against Firebase emulators, but zero CI automation. Every merge to `main` relies on the developer remembering to run checks locally. A GitHub Actions workflow catches regressions automatically and uploads `.validate/*.log` artifacts on failure so debugging agents (and humans) can inspect verbose output without re-running locally.
 
 **What**
 
-Add Check 20 (`checkRepositoryTestCoverage`) to the architecture linter. It scans `packages/functions/src/repositories/` for `.repository.ts` files, skips files on an explicit allowlist (abstract base classes, type-only files), and fails if any remaining file lacks a colocated `.test.ts`.
+A single GitHub Actions workflow (`ci.yml`) triggered on pushes to `main` and pull requests targeting `main`. Two jobs:
 
-### Algorithm
+1. **validate** — Runs `npm run validate` (typecheck + lint + unit tests + architecture lint). On failure, uploads `.validate/*.log` as a downloadable artifact.
+2. **integration** — Builds the project, boots Firebase emulators in the background, waits for readiness, runs `npm run test:integration`, then uploads logs on failure.
 
-1. Read all files in `config.functionsSrc + '/repositories/'`.
-2. Filter to files matching `*.repository.ts` (excludes `.test.ts`, `.spec.ts`).
-3. Skip files on the allowlist: `['base.repository.ts']`.
-4. For each remaining file, check if a sibling `<name>.test.ts` exists (same directory, same base name with `.test.ts` replacing `.ts`).
-5. If missing, emit a violation with the file path and a fix instruction telling the implementer to create the test file.
+Both jobs run on `ubuntu-latest` with Node.js 22 (matching the `nodejs22` Firebase runtime in `firebase.json`).
 
-### Allowlist rationale
+---
 
-- `base.repository.ts` — Abstract class with no standalone behavior to test. Its methods are exercised through concrete subclass tests.
-- The allowlist is defined as a `const` array at the top of the check function, making it easy to extend if future abstract/utility repository files are added.
+## Files
 
-**Files**
+### 1. `.github/workflows/ci.yml` (create)
 
-### 1. `scripts/lint-checks.ts` (modify)
+```yaml
+name: CI
 
-Append new exported function after `checkTestQuality`:
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
-```typescript
-// ─────────────────────────────────────────────────────────────────────────────
-// Check 20: Repository test coverage
-//
-// Every non-abstract repository file must have a colocated .test.ts file.
-// Abstract base classes and type-only files are explicitly allowlisted.
-// ─────────────────────────────────────────────────────────────────────────────
+# Cancel in-progress runs for the same branch/PR
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
-export function checkRepositoryTestCoverage(config: LinterConfig): CheckResult {
-  const name = 'Repository test coverage';
+jobs:
+  validate:
+    name: Validate (typecheck + lint + test + architecture)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
 
-  // Files that are intentionally untested (abstract classes, type-only files)
-  const ALLOWLIST: string[] = [
-    'base.repository.ts',
-  ];
+    steps:
+      - uses: actions/checkout@v4
 
-  const repoDir = path.join(config.functionsSrc, 'repositories');
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
 
-  if (!fs.existsSync(repoDir)) {
-    return { name, passed: true, violations: [] };
-  }
+      - name: Install dependencies
+        run: npm ci
 
-  const violations: string[] = [];
+      - name: Run validation
+        run: npm run validate
 
-  const repoFiles = fs.readdirSync(repoDir).filter(
-    (f) =>
-      f.endsWith('.repository.ts') &&
-      !f.endsWith('.test.ts') &&
-      !f.endsWith('.spec.ts') &&
-      !ALLOWLIST.includes(f)
-  );
+      - name: Upload validation logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validate-logs
+          path: .validate/*.log
+          retention-days: 7
 
-  for (const file of repoFiles) {
-    const baseName = file.replace(/\.ts$/, '');
-    const testFile = `${baseName}.test.ts`;
-    const testPath = path.join(repoDir, testFile);
+  integration:
+    name: Integration tests (Firebase emulators)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: validate
 
-    if (!fs.existsSync(testPath)) {
-      const relPath = path.relative(config.rootDir, path.join(repoDir, file));
-      const relTestPath = path.relative(config.rootDir, testPath);
-      violations.push(
-        `${relPath} has no colocated test file.\n` +
-        `    Rule: Every non-abstract repository must have a colocated .test.ts file.\n` +
-        `    Fix: Create ${relTestPath} with tests for all public methods.\n` +
-        `    If this file is intentionally untested (e.g., abstract base class),\n` +
-        `    add it to the ALLOWLIST in checkRepositoryTestCoverage().`
-      );
-    }
-  }
+    steps:
+      - uses: actions/checkout@v4
 
-  return { name, passed: violations.length === 0, violations };
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install firebase-tools
+        run: npm install -g firebase-tools
+
+      - name: Build functions
+        run: npm run build
+
+      - name: Start Firebase emulators
+        run: |
+          firebase emulators:start --project brad-os &
+          # Wait for functions emulator to be ready (port 5001)
+          echo "Waiting for emulators to start..."
+          timeout 60 bash -c '
+            until curl -sf http://127.0.0.1:5001/brad-os/us-central1/devHealth > /dev/null 2>&1; do
+              sleep 2
+            done
+          '
+          echo "Emulators ready."
+
+      - name: Run integration tests
+        run: npm run test:integration
+
+      - name: Upload integration test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-logs
+          path: |
+            .validate/*.log
+          retention-days: 7
+```
+
+**Design decisions explained:**
+
+| Decision | Rationale |
+|----------|-----------|
+| Two separate jobs (`validate` → `integration`) | Fail fast on cheap checks before booting emulators. `needs: validate` skips integration if validation fails. |
+| `concurrency` with `cancel-in-progress` | Avoids wasting CI minutes when multiple pushes happen in quick succession. |
+| `npm ci` (not `npm install`) | Deterministic installs from lockfile, faster in CI. |
+| `firebase emulators:start` without `--import` | Uses fresh state (no seed data) matching `npm run emulators:fresh`. Integration tests create their own data. |
+| `--project brad-os` flag | Explicitly sets the project ID so the emulator URL matches the hardcoded `http://127.0.0.1:5001/brad-os/us-central1` in integration tests. Avoids needing `.firebaserc` auth. |
+| Health check loop with `timeout 60` | Polls the `devHealth` endpoint (same check integration tests use in `checkEmulatorRunning()`). 60s cap prevents hanging forever if the emulator fails to start. |
+| `firebase-tools` installed globally | It's not a devDependency — matches local dev setup where it's installed globally. |
+| `retention-days: 7` for artifacts | Keeps logs long enough for debugging but doesn't bloat storage. |
+| `timeout-minutes: 15/20` | Generous limits — validate typically takes ~20s locally, integration ~60s, but CI machines are slower and include install time. |
+
+**What the workflow does NOT do:**
+
+- No iOS build (requires macOS runners, Xcode — separate concern)
+- No deployment (intentionally decoupled from CI validation)
+- No secrets or Firebase auth tokens (emulator runs locally, no cloud access needed)
+- No coverage upload (can be added later)
+
+---
+
+### 2. `package.json` (modify — optional enhancement)
+
+Add `firebase-tools` as a devDependency so CI can use `npx firebase` instead of a global install:
+
+```json
+"devDependencies": {
+  "firebase-tools": "^13.0.0"
 }
 ```
 
-### 2. `scripts/lint-architecture.ts` (modify)
+**However**, this changes the lockfile and may conflict with the globally-installed version used locally. **Recommendation: skip this for now** and use the global install approach in the workflow. This can be revisited later.
 
-Two changes:
+---
 
-**A. Add import** — Add `checkRepositoryTestCoverage` to the import block:
+### 3. `CLAUDE.md` (modify)
 
-```typescript
-import {
-  // ... existing imports ...
-  checkTestQuality,
-  checkQualityGradesFreshness,
-  checkRepositoryTestCoverage,  // ADD
-} from './lint-checks.js';
+Add a brief CI section after the "Validation" section so future agents know CI exists:
+
+```markdown
+## Continuous Integration
+
+GitHub Actions runs on every push to `main` and every PR:
+
+1. **validate** job — `npm run validate` (typecheck + lint + test + architecture)
+2. **integration** job — Boots Firebase emulators, runs `npm run test:integration`
+
+On failure, `.validate/*.log` artifacts are uploaded for inspection. See `.github/workflows/ci.yml`.
 ```
 
-**B. Add to checks array** — Append to the `checks` array (after `checkTestQuality`):
+---
 
-```typescript
-(): CheckResult => checkRepositoryTestCoverage(config),
+## Tests
+
+This is an infrastructure change (CI config), not application code. No new unit tests are needed. The CI workflow **is itself the test** — it validates that the existing test suites pass in a clean environment.
+
+**Verification approach:**
+
+1. The workflow runs `npm run validate` which exercises all 4 check categories (typecheck, lint, test, architecture) — these already have extensive tests.
+2. The workflow runs `npm run test:integration` which exercises all 11 integration test suites against real Firebase emulators.
+3. The artifact upload step is verified by intentionally triggering a failure (see QA below).
+
+---
+
+## QA
+
+### 1. Verify the workflow file is valid YAML
+
+```bash
+# From the worktree root
+python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml'))" && echo "Valid YAML"
 ```
 
-### 3. `scripts/lint-architecture.test.ts` (modify)
-
-**A. Add import** — Add `checkRepositoryTestCoverage` to the import block:
-
-```typescript
-import {
-  // ... existing imports ...
-  checkQualityGradesFreshness,
-  checkRepositoryTestCoverage,  // ADD
-} from './lint-checks.js';
+Or use `actionlint` if available:
+```bash
+npx actionlint .github/workflows/ci.yml
 ```
 
-**B. Add test suite** — Append after the `checkQualityGradesFreshness` describe block:
+### 2. Verify the workflow triggers correctly
 
-```typescript
-// ── Check 20: Repository test coverage ───────────────────────────────────────
+Push the branch and open a PR against `main`. Confirm the CI workflow appears in the GitHub Actions tab with both jobs listed.
 
-describe('checkRepositoryTestCoverage', () => {
-  let rootDir: string;
-  let config: LinterConfig;
+### 3. Verify the validate job passes
 
-  beforeEach(() => {
-    ({ rootDir, config } = createFixture());
-  });
-  afterEach(() => cleanup(rootDir));
+The PR's CI run should show the `validate` job completing successfully with all 4 checks passing.
 
-  it('passes when all repository files have colocated tests', () => {
-    writeFixture(rootDir, 'packages/functions/src/repositories/exercise.repository.ts',
-      'export class ExerciseRepository {}');
-    writeFixture(rootDir, 'packages/functions/src/repositories/exercise.repository.test.ts',
-      "it('works', () => { expect(1).toBe(1); });");
+### 4. Verify the integration job passes
 
-    const result = checkRepositoryTestCoverage(config);
-    expect(result.passed).toBe(true);
-    expect(result.violations).toHaveLength(0);
-  });
+The `integration` job should:
+- Install firebase-tools
+- Build functions
+- Start emulators (visible in logs as "Emulators ready.")
+- Run all 11 integration test suites
+- Show green checkmark
 
-  it('fails when a repository file has no colocated test', () => {
-    writeFixture(rootDir, 'packages/functions/src/repositories/exercise.repository.ts',
-      'export class ExerciseRepository {}');
+### 5. Verify artifact upload on failure
 
-    const result = checkRepositoryTestCoverage(config);
-    expect(result.passed).toBe(false);
-    expect(result.violations).toHaveLength(1);
-    expect(result.violations[0]).toContain('exercise.repository.ts');
-    expect(result.violations[0]).toContain('no colocated test file');
-  });
+To test this without breaking main, temporarily add a failing assertion to one test file in the PR branch, push, and confirm:
+- The workflow fails
+- The "validate-logs" artifact appears in the Actions run summary
+- Downloading the artifact yields the `.validate/*.log` files with verbose error output
+- Revert the intentional failure before merging
 
-  it('skips allowlisted files (base.repository.ts)', () => {
-    writeFixture(rootDir, 'packages/functions/src/repositories/base.repository.ts',
-      'export abstract class BaseRepository {}');
+### 6. Verify concurrency cancellation
 
-    const result = checkRepositoryTestCoverage(config);
-    expect(result.passed).toBe(true);
-    expect(result.violations).toHaveLength(0);
-  });
+Push two commits in rapid succession to the same branch. Confirm the first run is cancelled and only the second completes.
 
-  it('passes when repositories directory does not exist', () => {
-    // config.functionsSrc/repositories does not exist in fixture
-    const result = checkRepositoryTestCoverage(config);
-    expect(result.passed).toBe(true);
-  });
+---
 
-  it('reports multiple missing test files', () => {
-    writeFixture(rootDir, 'packages/functions/src/repositories/foo.repository.ts',
-      'export class FooRepository {}');
-    writeFixture(rootDir, 'packages/functions/src/repositories/bar.repository.ts',
-      'export class BarRepository {}');
+## Conventions
 
-    const result = checkRepositoryTestCoverage(config);
-    expect(result.passed).toBe(false);
-    expect(result.violations).toHaveLength(2);
-  });
+1. **CLAUDE.md — Worktree workflow**: Create the workflow file in a worktree branch, validate, then merge to main.
 
-  it('ignores non-repository .ts files in the directory', () => {
-    writeFixture(rootDir, 'packages/functions/src/repositories/helpers.ts',
-      'export function helper() {}');
+2. **CLAUDE.md — Validation**: Run `npm run validate` locally before committing to ensure the workflow file doesn't break anything.
 
-    const result = checkRepositoryTestCoverage(config);
-    expect(result.passed).toBe(true);
-  });
+3. **CLAUDE.md — Subagent usage**: Run validation commands in subagents to conserve context.
 
-  it('does not flag test files themselves', () => {
-    writeFixture(rootDir, 'packages/functions/src/repositories/exercise.repository.ts',
-      'export class ExerciseRepository {}');
-    writeFixture(rootDir, 'packages/functions/src/repositories/exercise.repository.test.ts',
-      "it('works', () => { expect(1).toBe(1); });");
+4. **CLAUDE.md — Self-review**: Review the diff before committing. Ensure the YAML is valid and the CLAUDE.md update is accurate.
 
-    const result = checkRepositoryTestCoverage(config);
-    expect(result.passed).toBe(true);
-  });
-});
-```
+5. **docs/conventions/testing.md**: The CI workflow must run the same test commands as local development — `npm run validate` and `npm run test:integration` — not custom CI-only test scripts.
 
-**Tests**
-
-Seven test cases in `scripts/lint-architecture.test.ts` (listed above):
-
-| # | Test | Verifies |
-|---|------|----------|
-| 1 | passes when all repos have tests | Happy path — no violations |
-| 2 | fails when repo has no test | Core detection logic |
-| 3 | skips allowlisted files | `base.repository.ts` is exempt |
-| 4 | passes when dir missing | Graceful degradation (no crash) |
-| 5 | reports multiple missing | Each gap is a separate violation |
-| 6 | ignores non-repository files | Only `*.repository.ts` files are checked |
-| 7 | does not flag test files | `*.repository.test.ts` files aren't treated as source |
-
-**QA**
-
-1. **Run the linter against the real codebase** to confirm it passes (all 16 concrete repos have tests):
-   ```bash
-   npx tsx scripts/lint-architecture.ts
-   ```
-   Verify the new check line appears: `✓ Repository test coverage: clean`
-
-2. **Simulate a violation** by temporarily creating a repository without a test:
-   ```bash
-   echo 'export class TempRepository {}' > packages/functions/src/repositories/temp.repository.ts
-   npx tsx scripts/lint-architecture.ts
-   # Should show: ✗ Repository test coverage: 1 violation(s)
-   # With message pointing to temp.repository.ts
-   rm packages/functions/src/repositories/temp.repository.ts
-   ```
-
-3. **Verify allowlist works** by confirming `base.repository.ts` (which has no test) does not trigger a violation.
-
-4. **Run full validation** to ensure no regressions:
-   ```bash
-   npm run validate
-   ```
-
-**Conventions**
-
-1. **CLAUDE.md** — Run `npm run validate` before committing. Use subagents for validation commands.
-
-2. **docs/conventions/testing.md** — Tests use vitest with explicit imports (`import { describe, it, expect, beforeEach, afterEach } from 'vitest'`). No skipped or focused tests. Each test has at least one `expect()` assertion.
-
-3. **docs/conventions/typescript.md** — No `any`. Explicit return types on the new function (`CheckResult`). Use `string[]` for the allowlist const.
-
-4. **Existing lint-checks patterns** — Follow the established structure:
-   - Section comment header with check number and description
-   - Function signature: `export function checkXxx(config: LinterConfig): CheckResult`
-   - `const name = 'Check display name'` as first line
-   - Build `violations: string[]` array
-   - Return `{ name, passed: violations.length === 0, violations }`
-   - Violation messages include: file path, rule explanation, fix instruction, and (where applicable) convention doc reference
-   - Tests use `createFixture()` / `writeFixture()` / `cleanup()` helpers from the test file
+6. **Project structure**: The `.github/workflows/` directory doesn't exist yet — it must be created along with the workflow file.
