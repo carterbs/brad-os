@@ -3,12 +3,12 @@
 # Start Firebase Emulators
 #
 # This script builds the functions and starts the Firebase emulators.
-# By default, it uses seed data if available.
+# Modes match the npm run emulators* scripts in package.json.
 #
 # Usage:
-#   ./scripts/start-emulators.sh          # Start with seed data (if exists)
-#   ./scripts/start-emulators.sh --fresh  # Start with empty database
-#   ./scripts/start-emulators.sh --persist # Start with persistent data
+#   ./scripts/start-emulators.sh            # Persist data (matches: npm run emulators)
+#   ./scripts/start-emulators.sh --fresh    # Empty database  (matches: npm run emulators:fresh)
+#   ./scripts/start-emulators.sh --seed     # Seed data       (matches: npm run emulators:seed)
 #
 
 set -e
@@ -18,25 +18,18 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$PROJECT_DIR"
 
-echo "🔨 Building shared package..."
-npm run build -w @brad-os/shared
-
 echo "🔨 Building functions..."
-npm run build -w @brad-os/functions
+npm run build
 
-# Parse arguments
-MODE="${1:---seed}"
+# Parse arguments — default to persist mode (same as `npm run emulators`)
+MODE="${1:---persist}"
 
 case "$MODE" in
   --fresh)
     echo "🚀 Starting emulators with fresh database..."
     firebase emulators:start
     ;;
-  --persist)
-    echo "🚀 Starting emulators with persistent data..."
-    firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data
-    ;;
-  --seed|*)
+  --seed)
     if [ -d "./seed-data" ]; then
       echo "🌱 Starting emulators with seed data..."
       firebase emulators:start --import=./seed-data
@@ -45,5 +38,9 @@ case "$MODE" in
       echo "   Run 'npm run seed:generate' while emulators are running to create seed data."
       firebase emulators:start
     fi
+    ;;
+  --persist|*)
+    echo "🚀 Starting emulators with persistent data..."
+    firebase emulators:start --import=./emulator-data --export-on-exit=./emulator-data
     ;;
 esac
