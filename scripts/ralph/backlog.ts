@@ -20,6 +20,12 @@ export function readBacklog(): string[] {
     .filter(Boolean);
 }
 
+/** Return the first task from backlog.md without removing it. */
+export function peekTask(): string | undefined {
+  const tasks = readBacklog();
+  return tasks[0];
+}
+
 /** Remove and return the first task from backlog.md. Returns undefined if empty. */
 export function popTask(): string | undefined {
   const tasks = readBacklog();

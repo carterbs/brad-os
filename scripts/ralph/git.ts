@@ -12,24 +12,31 @@ function git(repoDir: string, ...args: string[]): string {
   }
 }
 
-export function createWorktree(
+export interface WorktreeResult {
+  created: boolean;
+  resumed: boolean;
+}
+
+/** Check if a branch exists (locally). */
+function branchExists(repoDir: string, branchName: string): boolean {
+  return git(repoDir, "rev-parse", "--verify", branchName) !== "";
+}
+
+/** Check if a branch has commits beyond main. */
+function branchHasWork(repoDir: string, branchName: string): boolean {
+  const count = git(
+    repoDir,
+    "rev-list",
+    "--count",
+    `main..${branchName}`,
+  );
+  return parseInt(count, 10) > 0;
+}
+
+function ensureNodeModulesSymlink(
   repoDir: string,
-  worktreeDir: string,
   worktreePath: string,
-  branchName: string,
-): boolean {
-  // Clean up any leftover worktree from a previous failed run
-  git(repoDir, "worktree", "remove", worktreePath, "--force");
-  git(repoDir, "branch", "-D", branchName);
-
-  // Ensure parent dir exists
-  execFileSync("mkdir", ["-p", worktreeDir]);
-
-  // Create worktree
-  git(repoDir, "worktree", "add", worktreePath, "-b", branchName);
-  if (!existsSync(worktreePath)) return false;
-
-  // Symlink node_modules (worktrees don't get their own)
+): void {
   try {
     execFileSync(
       "ln",
@@ -39,8 +46,50 @@ export function createWorktree(
   } catch {
     // Already exists — fine
   }
+}
 
-  return true;
+export function createWorktree(
+  repoDir: string,
+  worktreeDir: string,
+  worktreePath: string,
+  branchName: string,
+): WorktreeResult {
+  const worktreeExists = existsSync(worktreePath);
+  const branchFound = branchExists(repoDir, branchName);
+  const hasWork = branchFound && branchHasWork(repoDir, branchName);
+
+  // Case 1: Worktree exists with prior work — resume from it
+  if (worktreeExists && hasWork) {
+    ensureNodeModulesSymlink(repoDir, worktreePath);
+    return { created: true, resumed: true };
+  }
+
+  // Case 2: Worktree exists but branch has no new commits — recreate fresh
+  if (worktreeExists) {
+    git(repoDir, "worktree", "remove", worktreePath, "--force");
+    git(repoDir, "branch", "-D", branchName);
+  }
+
+  // Case 3: Branch exists (with work) but worktree is gone — re-add worktree from existing branch
+  if (!worktreeExists && hasWork) {
+    execFileSync("mkdir", ["-p", worktreeDir]);
+    git(repoDir, "worktree", "add", worktreePath, branchName);
+    if (!existsSync(worktreePath)) return { created: false, resumed: false };
+    ensureNodeModulesSymlink(repoDir, worktreePath);
+    return { created: true, resumed: true };
+  }
+
+  // Case 4: Branch exists but no work — clean it up and create fresh
+  if (branchFound && !hasWork) {
+    git(repoDir, "branch", "-D", branchName);
+  }
+
+  // Case 5: Neither exists (or cleaned up above) — create fresh
+  execFileSync("mkdir", ["-p", worktreeDir]);
+  git(repoDir, "worktree", "add", worktreePath, "-b", branchName);
+  if (!existsSync(worktreePath)) return { created: false, resumed: false };
+  ensureNodeModulesSymlink(repoDir, worktreePath);
+  return { created: true, resumed: false };
 }
 
 export function cleanupWorktree(

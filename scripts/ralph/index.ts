@@ -18,7 +18,7 @@ import {
   commitAll,
   hasNewCommits,
 } from "./git.js";
-import { readBacklog, popTask, backlogPath } from "./backlog.js";
+import { readBacklog, peekTask, popTask, backlogPath } from "./backlog.js";
 import type { AgentBackend, AgentConfig, Config, StepSummary } from "./types.js";
 
 const REPO_DIR = "/Users/bradcarter/Documents/Dev/brad-os";
@@ -142,20 +142,33 @@ async function ralphLoopSingle(
 
   logger.heading(`\u2501\u2501\u2501 Improvement #${n}/${config.target} \u2501\u2501\u2501`);
 
-  // Create worktree
-  if (
-    !createWorktree(config.repoDir, config.worktreeDir, worktreePath, branchName)
-  ) {
+  // Create or resume worktree
+  const wtResult = createWorktree(
+    config.repoDir,
+    config.worktreeDir,
+    worktreePath,
+    branchName,
+  );
+  if (!wtResult.created) {
     logger.error("Failed to create worktree");
     return false;
+  }
+
+  if (wtResult.resumed) {
+    logger.info(`Resuming from existing branch ${branchName}`);
   }
 
   // Track current worktree for exit cleanup
   currentWorktree = worktreePath;
   currentBranch = branchName;
 
-  const cleanup = (): void => {
+  const cleanupFull = (): void => {
     cleanupWorktree(config.repoDir, worktreePath, branchName);
+    currentWorktree = undefined;
+    currentBranch = undefined;
+  };
+
+  const clearTracking = (): void => {
     currentWorktree = undefined;
     currentBranch = undefined;
   };
@@ -163,12 +176,13 @@ async function ralphLoopSingle(
   try {
     const stepResults: StepSummary[] = [];
 
-    // ── 1. Planning ──
-    // Resolve the task: --task flag > backlog > full ideation
+    // ── 1. Planning (skip if resuming — plan already exists) ──
     const taskText = config.task ?? currentTask;
     let planSummary = "";
 
-    if (taskText) {
+    if (wtResult.resumed) {
+      logger.info("[1/4] Skipping planning (resuming from prior work)");
+    } else if (taskText) {
       // Task is known — plan the implementation (skip ideation)
       logger.info(`[1/4] Planning for task: ${taskText.slice(0, 80)}...`);
       const planResult = await runStep({
@@ -185,7 +199,8 @@ async function ralphLoopSingle(
 
       if (!planResult.success) {
         logger.error("Planning step failed");
-        cleanup();
+        logger.info(`  Worktree preserved at: ${worktreePath}`);
+        clearTracking();
         return false;
       }
 
@@ -195,7 +210,8 @@ async function ralphLoopSingle(
         )
       ) {
         logger.error("Planning agent failed to create ralph-improvement.md");
-        cleanup();
+        logger.info(`  Worktree preserved at: ${worktreePath}`);
+        clearTracking();
         return false;
       }
 
@@ -234,7 +250,8 @@ async function ralphLoopSingle(
 
       if (!planResult.success) {
         logger.error("Planning step failed");
-        cleanup();
+        logger.info(`  Worktree preserved at: ${worktreePath}`);
+        clearTracking();
         return false;
       }
 
@@ -244,7 +261,8 @@ async function ralphLoopSingle(
         )
       ) {
         logger.error("Planning agent failed to create ralph-improvement.md");
-        cleanup();
+        logger.info(`  Worktree preserved at: ${worktreePath}`);
+        clearTracking();
         return false;
       }
 
@@ -297,7 +315,8 @@ async function ralphLoopSingle(
       });
       if (!implResult.success) {
         logger.error("Implementation failed on retry");
-        cleanup();
+        logger.info(`  Worktree preserved at: ${worktreePath}`);
+        clearTracking();
         return false;
       }
     }
@@ -328,7 +347,8 @@ async function ralphLoopSingle(
       // Check if the agent already made commits on this branch
       if (!hasNewCommits(worktreePath)) {
         logger.error("No changes produced");
-        cleanup();
+        logger.info(`  Worktree preserved at: ${worktreePath}`);
+        clearTracking();
         return false;
       }
     }
@@ -358,6 +378,7 @@ async function ralphLoopSingle(
           reason: "exceeded review cycles",
           ts: new Date().toISOString(),
         });
+        clearTracking();
         return false;
       }
 
@@ -419,11 +440,12 @@ async function ralphLoopSingle(
         reason: "merge conflict",
         ts: new Date().toISOString(),
       });
+      clearTracking();
       return false;
     }
 
-    // Cleanup worktree
-    cleanup();
+    // Cleanup worktree (only after successful merge)
+    cleanupFull();
 
     // Summary
     const totalCost = stepResults.reduce((s, r) => s + r.costUsd, 0);
@@ -442,13 +464,15 @@ async function ralphLoopSingle(
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     logger.error(`Improvement #${n} failed: ${errMsg}`);
+    logger.info(`  Worktree preserved at: ${worktreePath}`);
     logger.jsonl({
       event: "improvement_failed",
       improvement: n,
       reason: errMsg,
       ts: new Date().toISOString(),
     });
-    cleanup();
+    // Preserve worktree — don't clean up, next attempt will resume
+    clearTracking();
     return false;
   }
 }
@@ -471,13 +495,19 @@ async function main(): Promise<void> {
     abortController.abort();
   });
 
-  // Cleanup leftover worktree on exit
+  // On exit, only clean up worktrees with no commits (nothing to preserve)
   process.on("exit", () => {
     if (currentWorktree && currentBranch) {
-      try {
-        cleanupWorktree(config.repoDir, currentWorktree, currentBranch);
-      } catch {
-        // Best effort
+      if (hasNewCommits(currentWorktree)) {
+        console.error(
+          `Worktree preserved (has commits): ${currentWorktree}`,
+        );
+      } else {
+        try {
+          cleanupWorktree(config.repoDir, currentWorktree, currentBranch);
+        } catch {
+          // Best effort
+        }
       }
     }
   });
@@ -552,10 +582,10 @@ async function main(): Promise<void> {
         }
       }
 
-      task = popTask();
+      task = peekTask();
       if (task) {
         const remaining = readBacklog().length;
-        logger.info(`Popped task from backlog (${remaining} remaining): ${task}`);
+        logger.info(`Next task from backlog (${remaining} total): ${task}`);
       }
     }
 
@@ -569,6 +599,11 @@ async function main(): Promise<void> {
     );
 
     if (success) {
+      // Pop task from backlog only after successful merge
+      if (!config.task && task) {
+        popTask();
+        logger.info(`Task removed from backlog after successful merge`);
+      }
       completed++;
       consecutiveFailures = 0;
       logger.success(`Progress: ${completed}/${config.target} \u2713`);
