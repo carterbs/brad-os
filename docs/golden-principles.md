@@ -18,6 +18,11 @@ Invariants for the Brad OS codebase. Every line is verifiable by a linter or cod
 - `firebase.json` rewrite paths must match `stripPathPrefix()` arguments
 - iOS Views must not reference Service types — go through ViewModels
 - iOS Components must not reference ViewModel types — receive data via parameters
+- Firebase logger only (`info`/`warn`/`error` from `firebase-functions/logger`), never `console.log` in Cloud Functions
+- All iOS HTTP goes through shared APIClient with App Check — no one-off `URLSession` calls
+- Domain types live in `packages/functions/src/types/`, not in services/handlers/repositories
+- Zod schemas live in `packages/functions/src/schemas/`, not in services/handlers/repositories
+- No skipped tests (`it.skip`, `describe.skip`, `xit`, `xdescribe`) — fix or remove the test
 
 ### Swift [swiftlint via xcodebuild]
 - No force unwrapping (`!`) — use `guard let` or `?? default`
@@ -29,15 +34,11 @@ Invariants for the Brad OS codebase. Every line is verifiable by a linter or cod
 - No direct commits to main — use worktree workflow
 - No secrets in staged changes — gitleaks scans on every commit
 
-## Enforced (by convention, linter planned)
+## Enforced (by convention, not yet linted)
 
-- Firebase logger only (`info`/`warn`/`error` from `firebase-functions/logger`), never `console.log` in Cloud Functions
-- All iOS HTTP goes through shared APIClient with App Check — no one-off URLSession calls
-- Domain types live in `packages/functions/src/types/`, imported via `shared.ts`
-- Zod schemas live in `packages/functions/src/schemas/`, one file per resource
-- TDD: write tests before implementation, never skip or disable tests to fix a build
-- API inputs validated with Zod at the handler boundary, not in services
-- RESTful routes for CRUD, verb-suffix routes (`/start`, `/complete`) for actions
+- TDD: write tests before implementation (can't enforce statically)
+- API inputs validated with Zod at the handler boundary, not in services (partially covered by schema-at-boundary check)
+- RESTful routes for CRUD, verb-suffix routes (`/start`, `/complete`) for actions (too nuanced for static analysis)
 
 ## Principle-to-Linter Pipeline
 
