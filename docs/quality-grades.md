@@ -26,15 +26,15 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 
 | Domain | Grade | Backend Tests | iOS Tests | Assertions | Density | Coverage | API Complete | iOS Complete | Notes |
 |--------|-------|---------------|-----------|------------|---------|----------|--------------|--------------|-------|
-| Lifting | **A** | High (23) | Medium (7) | 1225 | 2.2x | -- | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. |
-| Meal Planning | **A** | High (16) | Medium (7) | 503 | 2.5x | -- | Yes | Yes | 6 handler, 3 service, 5 repo, 1 integration, 1 schema tests. |
-| Cycling | **A-** | High (11) | Low (2) | 505 | 2.0x | -- | Yes | Yes | 3 handler, 7 service, 1 repo tests. |
-| Stretching | **B+** | Medium (5) | Medium (4) | 134 | 2.6x | -- | Yes | Yes | 2 handler, 2 repo, 1 integration tests. |
-| Calendar | **B** | Low (3) | Low (2) | 190 | 2.5x | -- | Yes | Yes | 1 handler, 1 service, 1 integration tests. |
-| Meditation | **B+** | Medium (6) | Medium (4) | 213 | 2.7x | -- | Yes | Yes | 3 handler, 2 repo, 1 integration tests. |
-| Health Sync | **B-** | Medium (4) | Low (3) | 213 | 2.8x | -- | Yes | Yes | 2 handler, 1 service, 1 integration tests. iOS coverage remains thin. |
+| Lifting | **A** | High (23) | Medium (8) | 1225 | 2.2x | 92% | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. Deepest test architecture with full repository, service, handler, and integration layers covered. |
+| Meal Planning | **A** | High (16) | Medium (7) | 509 | 2.5x | 71% | Yes | Yes | 6 handler, 3 service, 5 repo, 1 integration, 1 schema tests. Broad multi-entity API surface covered at handler, service, and repository layers. |
+| Cycling | **A** | High (11) | Low (2) | 566 | 2.2x | 53% | Yes | Yes | 3 handler, 7 service, 1 integration tests. Strong service-layer depth, but iOS tests remain the lightest among A-grade domains. |
+| Stretching | **B+** | Medium (5) | Medium (4) | 134 | 2.6x | 99% | Yes | Yes | 2 handler, 2 repo, 1 integration tests. Near-perfect backend line coverage despite the smallest overall test suite. |
+| Calendar | **B** | Low (3) | Low (3) | 220 | 2.5x | 100% | Yes | Yes | 1 handler, 1 service, 1 integration tests. Perfect backend coverage but carries the thinnest test suite of any domain. |
+| Meditation | **B+** | Medium (6) | Medium (4) | 257 | 2.8x | 51% | Yes | Yes | 3 handler, 2 repo, 1 integration tests. API fully complete but low coverage signals significant untested logic paths. |
+| Health Sync | **B-** | Medium (4) | Low (3) | 287 | 2.6x | 25% | Yes | Yes | 2 handler, 1 service, 1 integration tests. Lowest coverage in the project; HealthKit sync logic is substantially undertested. |
 | History | **B-** | (shared) | (shared) | 0 | — | -- | Yes | Yes | Reuses Calendar backend/ViewModel. No additional tests needed, but filter logic is untested. |
-| Today | **B** | Medium (4) | Low (1) | 71 | 2.4x | -- | Yes | Yes | 1 handler, 2 service, 1 integration tests. |
+| Today | **B** | Medium (4) | Low (3) | 93 | 2.3x | 67% | Yes | Yes | 1 handler, 2 service, 1 integration tests. AI briefing pipeline is now tested, but line coverage still has room to grow. |
 | Profile | **B-** | (shared) | (shared) | 0 | — | -- | Yes | Yes | Settings hub, no own backend. Relies on health-sync and cycling backends. |
 
 ---
@@ -59,7 +59,7 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 **Cycling (11 test files):**
 - Handlers: cycling-coach, cycling, strava-webhook
 - Services: cycling-coach, efficiency-factor, firestore-cycling, lifting-context, strava, training-load, vo2max
-- Repositories: cycling-activity
+- Integration: cycling
 
 **Meditation (6 test files):**
 - Handlers: guidedMeditations, meditationSessions, tts
@@ -90,12 +90,12 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 
 ### iOS (BradOSCore/Tests/)
 
-- Lifting: ExerciseTests, MesocycleTests, PlanTests, WorkoutTests, WorkoutStateManagerTests, ExercisesViewModelTests, MealPlanViewModelTests (7)
+- Lifting: ExerciseTests, MesocycleTests, PlanTests, WorkoutTests, WorkoutStateManagerTests, ExercisesViewModelTests, MealPlanViewModelTests, ExerciseHistoryViewModelTests (8)
 - Meal Planning: MealPlanActionTests, MealPlanDecodingTests, MealPlanCacheServiceTests, RecipeCacheServiceTests, RemindersServiceTests, ShoppingListBuilderTests, ShoppingListFormatterTests (7)
 - Stretching: StretchUrgencyTests, CompletedStretchTests, StretchDefinitionTests, StretchSessionTests (4)
 - Meditation: GuidedMeditationComponentTests, GuidedMeditationScriptTests, MeditationSessionTests, MeditationStatsTests (4)
-- Calendar: CalendarActivityTests, CalendarViewModelTests (2)
-- Today: DashboardViewModelTests (1)
+- Calendar: CalendarActivityTests, CalendarViewModelTests, APIClientCalendarTests (3)
+- Today: DashboardViewModelTests, TodayCoachClientTests, TodayCoachCardStateTests (3)
 - Profile: ProfileViewModelTests (1)
 - Health Sync: HealthChartModelsTests, HealthSyncModelsTests, HealthMetricHistoryViewModelTests (3)
 - Cycling: CyclingTestDoubles, CyclingViewModelTests (2)
@@ -130,12 +130,13 @@ All handler and service files have corresponding tests.
 
 - [ ] **Calendar missing cycling activities** - Calendar aggregation only includes workouts, stretching, and meditation. Cycling activities not shown.
 - [x] **No integration tests for Meal Planning** - 10 unit tests but zero integration tests.
-- [ ] **No integration tests for Cycling** - 7 unit tests but zero integration tests.
+- [x] **No integration tests for Cycling** - 7 unit tests but zero integration tests.
 
 ---
 
 ## Recently Completed
 
+- [x] **Cycling integration tests** - `cycling.integration.test.ts` now covers the cycling API end-to-end.
 - [x] **Guided Meditations handler tests** - `guidedMeditations.test.ts` now covers category browsing and script fetching.
 - [x] **Firestore Recovery service tests** - `firestore-recovery.service.test.ts` now covers all health data CRUD.
 - [x] **Firestore Cycling service tests** - `firestore-cycling.service.test.ts` now covers all cycling data CRUD.
