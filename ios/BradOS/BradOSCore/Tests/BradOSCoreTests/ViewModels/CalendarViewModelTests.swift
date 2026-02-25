@@ -139,9 +139,9 @@ struct CalendarViewModelTests {
         #expect(vm.shouldShowActivity(type: "cycling") == true)
     }
 
-    @Test("activitiesForDate with nil filter returns all activities for the day")
+    @Test("activitiesForDate unfiltered overload returns all activities for the day")
     @MainActor
-    func activitiesForDateWithNilFilterReturnsAllActivities() {
+    func activitiesForDateUnfilteredOverloadReturnsAllActivities() {
         let vm = CalendarViewModel(apiClient: MockAPIClient())
         let date = makeDate(year: 2026, month: 3, day: 14)
         let workout = makeActivity(id: "w-1", type: .workout, date: date, completedAt: date)
@@ -154,6 +154,55 @@ struct CalendarViewModelTests {
         #expect(activities.count == 3)
         #expect(activities.map(\.id) == ["w-1", "s-1", "m-1"])
         #expect(activities.map(\.type) == [.workout, .stretch, .meditation])
+    }
+
+    @Test("activitiesForDate optional nil filter returns all activities for the day")
+    @MainActor
+    func activitiesForDateOptionalNilFilterReturnsAllActivities() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        let date = makeDate(year: 2026, month: 3, day: 14)
+        let workout = makeActivity(id: "w-1", type: .workout, date: date, completedAt: date)
+        let stretch = makeActivity(id: "s-1", type: .stretch, date: date, completedAt: date)
+        let meditation = makeActivity(id: "m-1", type: .meditation, date: date, completedAt: date)
+        let cycling = makeActivity(id: "c-1", type: .cycling, date: date, completedAt: date)
+        vm.activitiesByDate[key(for: date)] = [workout, stretch, meditation, cycling]
+
+        let activities = vm.activitiesForDate(date, filter: nil)
+
+        #expect(activities.count == 4)
+        #expect(activities.map(\.id) == ["w-1", "s-1", "m-1", "c-1"])
+        #expect(activities.map(\.type) == [.workout, .stretch, .meditation, .cycling])
+    }
+
+    @Test("activitiesForDate optional nil filter matches unfiltered overload")
+    @MainActor
+    func activitiesForDateOptionalNilFilterMatchesUnfilteredOverload() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        let date = makeDate(year: 2026, month: 3, day: 14)
+        let workout = makeActivity(id: "w-1", type: .workout, date: date, completedAt: date)
+        let stretch = makeActivity(id: "s-1", type: .stretch, date: date, completedAt: date)
+        let meditation = makeActivity(id: "m-1", type: .meditation, date: date, completedAt: date)
+        let cycling = makeActivity(id: "c-1", type: .cycling, date: date, completedAt: date)
+        vm.activitiesByDate[key(for: date)] = [workout, stretch, meditation, cycling]
+
+        let unfilteredActivities = vm.activitiesForDate(date)
+        let nilFilterActivities = vm.activitiesForDate(date, filter: nil)
+
+        #expect(unfilteredActivities.map(\.id) == nilFilterActivities.map(\.id))
+        #expect(unfilteredActivities.map(\.type) == nilFilterActivities.map(\.type))
+    }
+
+    @Test("activitiesForDate optional nil filter returns empty for missing date")
+    @MainActor
+    func activitiesForDateOptionalNilFilterReturnsEmptyForMissingDate() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        let date = makeDate(year: 2026, month: 3, day: 14)
+        let unseededDate = makeDate(year: 2026, month: 3, day: 15)
+        vm.activitiesByDate[key(for: date)] = [makeActivity(id: "w-1", type: .workout, date: date)]
+
+        let activities = vm.activitiesForDate(unseededDate, filter: nil)
+
+        #expect(activities.isEmpty)
     }
 
     @Test("activitiesForDate with workout filter returns only workout activities")
