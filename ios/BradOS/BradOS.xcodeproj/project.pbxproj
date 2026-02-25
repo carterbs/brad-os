@@ -969,11 +969,7 @@
 			path = Services;
 			sourceTree = "<group>";
 		};
-<<<<<<< HEAD
 		"TEMP_6AF67D26-FE7F-4FC0-9CC4-E95A9F91FBAC" /* Resources */ = {
-=======
-		"TEMP_54C21B8E-9457-4281-8CB8-6B72B6D4D1ED" /* Resources */ = {
->>>>>>> harness-improvement-039
 			isa = PBXGroup;
 			children = (
 			);
@@ -1318,10 +1314,7 @@
 				4BF4AC8189DD2E6AAA0816B1 /* ExerciseHistoryViewModelTests.swift in Sources */,
 				C2C14698C2A43B35B2C178CF /* MockURLProtocol.swift in Sources */,
 				39A24B2F60AA75CFF3708763 /* TextToSpeechViewModelTests.swift in Sources */,
-<<<<<<< HEAD
-=======
 				671E658C4FE8612400FE202D /* TodayCoachCardStateTests.swift in Sources */,
->>>>>>> harness-improvement-039
 				643532BA0D4342125F7F5EB4 /* TodayCoachClientTests.swift in Sources */,
 				BA4C5CE0C2ED630651CA0F8E /* WeightGoalViewModelTests.swift in Sources */,
 			);
