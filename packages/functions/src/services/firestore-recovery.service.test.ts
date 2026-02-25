@@ -190,6 +190,18 @@ describe('firestore-recovery.service', () => {
 
       expect(result).toBeNull();
     });
+
+    it('returns null when doc.exists=true but data() is undefined', async () => {
+      mockGet.mockResolvedValueOnce({
+        exists: true,
+        data: (): undefined => undefined,
+        id: '2026-02-09',
+      });
+
+      const result = await getRecoverySnapshot(userId, '2026-02-09');
+
+      expect(result).toBeNull();
+    });
   });
 
   describe('getLatestRecoverySnapshot', () => {
@@ -207,6 +219,17 @@ describe('firestore-recovery.service', () => {
 
     it('returns null when no snapshots exist', async () => {
       mockGet.mockResolvedValueOnce(queryResult([]));
+
+      const result = await getLatestRecoverySnapshot(userId);
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null when snapshot is not empty but docs[0] is missing', async () => {
+      mockGet.mockResolvedValueOnce({
+        empty: false,
+        docs: [undefined] as unknown as Array<{ id: string; data: DataFn }>,
+      });
 
       const result = await getLatestRecoverySnapshot(userId);
 
@@ -231,6 +254,15 @@ describe('firestore-recovery.service', () => {
       expect(result[1]).toEqual(olderSnapshot);
       expect(mockOrderBy).toHaveBeenCalledWith('date', 'desc');
       expect(mockLimit).toHaveBeenCalledWith(7);
+    });
+
+    it('returns empty array when query has no docs', async () => {
+      mockGet.mockResolvedValueOnce(queryResult([]));
+
+      const result = await getRecoveryHistory(userId, 7);
+
+      expect(result).toEqual([]);
+      expect(result).toHaveLength(0);
     });
   });
 
@@ -283,6 +315,18 @@ describe('firestore-recovery.service', () => {
 
     it('returns null when baseline is not set', async () => {
       mockGet.mockResolvedValueOnce(docNotFound());
+
+      const result = await getRecoveryBaseline(userId);
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null when baseline doc exists but data() is undefined', async () => {
+      mockGet.mockResolvedValueOnce({
+        exists: true,
+        data: (): undefined => undefined,
+        id: 'recoveryBaseline',
+      });
 
       const result = await getRecoveryBaseline(userId);
 
@@ -367,6 +411,29 @@ describe('firestore-recovery.service', () => {
         );
       }
     });
+
+    it('returns 0 and does not commit batches when input array is empty', async () => {
+      const result = await addWeightEntries(userId, []);
+
+      expect(result).toBe(0);
+      expect(mockBatchSet).not.toHaveBeenCalled();
+      expect(mockBatchCommit).not.toHaveBeenCalled();
+    });
+
+    it('splits >500 entries into multiple commits', async () => {
+      mockBatchCommit.mockResolvedValue(undefined);
+
+      const weights = Array.from({ length: 501 }, (_, i) => ({
+        weightLbs: 180 + i * 0.1,
+        date: `2026-01-${String(i + 1).padStart(2, '0')}`,
+      }));
+
+      const result = await addWeightEntries(userId, weights);
+
+      expect(result).toBe(501);
+      expect(mockBatchSet).toHaveBeenCalledTimes(501);
+      expect(mockBatchCommit).toHaveBeenCalledTimes(2); // 500 + 1
+    });
   });
 
   describe('getWeightHistory', () => {
@@ -390,6 +457,15 @@ describe('firestore-recovery.service', () => {
       expect(mockOrderBy).toHaveBeenCalledWith('date', 'desc');
       expect(mockLimit).toHaveBeenCalledWith(30);
     });
+
+    it('returns empty array when query has no docs', async () => {
+      mockGet.mockResolvedValueOnce(queryResult([]));
+
+      const result = await getWeightHistory(userId, 30);
+
+      expect(result).toEqual([]);
+      expect(result).toHaveLength(0);
+    });
   });
 
   describe('getLatestWeight', () => {
@@ -409,6 +485,17 @@ describe('firestore-recovery.service', () => {
 
     it('returns null when no weight entries exist', async () => {
       mockGet.mockResolvedValueOnce(queryResult([]));
+
+      const result = await getLatestWeight(userId);
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null when snapshot is not empty but docs[0] is missing', async () => {
+      mockGet.mockResolvedValueOnce({
+        empty: false,
+        docs: [undefined] as unknown as Array<{ id: string; data: DataFn }>,
+      });
 
       const result = await getLatestWeight(userId);
 
@@ -449,6 +536,14 @@ describe('firestore-recovery.service', () => {
         mockDocRef,
         expect.objectContaining({ source: 'healthkit' }),
       );
+    });
+
+    it('returns 0 with zero commits for empty array', async () => {
+      const result = await addHRVEntries(userId, []);
+
+      expect(result).toBe(0);
+      expect(mockBatchSet).not.toHaveBeenCalled();
+      expect(mockBatchCommit).not.toHaveBeenCalled();
     });
   });
 
@@ -503,6 +598,14 @@ describe('firestore-recovery.service', () => {
       mockBatchCommit.mockResolvedValueOnce(undefined);
       await addRHREntries(userId, [{ date: '2026-02-09', avgBpm: 52, sampleCount: 24 }]);
       expect(mockBatchSet).toHaveBeenCalledWith(mockDocRef, expect.objectContaining({ source: 'healthkit' }));
+    });
+
+    it('returns 0 with zero commits for empty array', async () => {
+      const result = await addRHREntries(userId, []);
+
+      expect(result).toBe(0);
+      expect(mockBatchSet).not.toHaveBeenCalled();
+      expect(mockBatchCommit).not.toHaveBeenCalled();
     });
   });
 
@@ -566,6 +669,14 @@ describe('firestore-recovery.service', () => {
         awakeMinutes: 45, sleepEfficiency: 87.5,
       }]);
       expect(mockBatchSet).toHaveBeenCalledWith(mockDocRef, expect.objectContaining({ source: 'healthkit' }));
+    });
+
+    it('returns 0 with zero commits for empty array', async () => {
+      const result = await addSleepEntries(userId, []);
+
+      expect(result).toBe(0);
+      expect(mockBatchSet).not.toHaveBeenCalled();
+      expect(mockBatchCommit).not.toHaveBeenCalled();
     });
   });
 
