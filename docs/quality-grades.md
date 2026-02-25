@@ -28,7 +28,7 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 |--------|-------|---------------|-----------|------------|---------|----------|--------------|--------------|-------|
 | Lifting | **A** | High (23) | Medium (7) | 1225 | 2.2x | -- | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. |
 | Meal Planning | **A** | High (16) | Medium (7) | 503 | 2.5x | -- | Yes | Yes | 6 handler, 3 service, 5 repo, 1 integration, 1 schema tests. |
-| Cycling | **B+** | High (10) | Low (2) | 505 | 2.0x | -- | Yes | Yes | 3 handler, 7 service tests. |
+| Cycling | **A-** | High (11) | Low (2) | 505 | 2.0x | -- | Yes | Yes | 3 handler, 7 service, 1 repo tests. |
 | Stretching | **B+** | Medium (5) | Medium (4) | 134 | 2.6x | -- | Yes | Yes | 2 handler, 2 repo, 1 integration tests. |
 | Calendar | **B** | Low (3) | Low (2) | 190 | 2.5x | -- | Yes | Yes | 1 handler, 1 service, 1 integration tests. |
 | Meditation | **B+** | Medium (6) | Medium (4) | 213 | 2.7x | -- | Yes | Yes | 3 handler, 2 repo, 1 integration tests. |
@@ -56,9 +56,10 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 - Integration: meals
 - Schemas: meal.schema
 
-**Cycling (10 test files):**
+**Cycling (11 test files):**
 - Handlers: cycling-coach, cycling, strava-webhook
 - Services: cycling-coach, efficiency-factor, firestore-cycling, lifting-context, strava, training-load, vo2max
+- Repositories: cycling-activity
 
 **Meditation (6 test files):**
 - Handlers: guidedMeditations, meditationSessions, tts
@@ -110,7 +111,7 @@ All handler and service files have corresponding tests.
 
 ### Backend Refactor (from backend-refactor-handoff.md)
 
-- [ ] **Concrete BaseRepository** - `findById`, `delete`, `update` duplicated across ~13 child repos. Make them concrete in `base.repository.ts`.
+- [x] **Concrete BaseRepository** - Removed update control-flow duplication from GuidedMeditationRepository. Extracted `buildUpdatePayload()` hook into BaseRepository; child classes override only for domain-specific behavior. IngredientRepository and RecipeRepository retain intentional read-only guards.
 - [ ] **Zod-only types** - Three-layer type duplication (DTO interfaces + Zod schemas + z.infer). Eliminate duplicate DTO interfaces, use `.partial()` for update schemas.
 - [ ] **createResourceRouter factory** - No shared CRUD factory. Each handler manually wires the same REST patterns. Create `createResourceRouter` + `createBaseApp` + typed service errors.
 - [ ] **Shared test utilities** - Duplicated Firestore mocks, fixtures, and handler setup across 11+ test files. Extract to `packages/functions/src/test-utils/`.
@@ -122,7 +123,7 @@ All handler and service files have corresponding tests.
 - [x] **Guided Meditations handler** - No tests for `guidedMeditations.ts` (browse categories, fetch scripts).
 - [x] **Firestore Recovery service** - No tests for `firestore-recovery.service.ts` (all health data CRUD).
 - [x] **Firestore Cycling service** - No tests for `firestore-cycling.service.ts` (all cycling data CRUD).
-- [ ] **Cycling repo layer** - No repository tests for cycling (data stored in user subcollections, not top-level repos).
+- [x] **Cycling repo layer** - `CyclingActivityRepository` with comprehensive tests for user-scoped cycling activities and streams persistence.
 - [x] **iOS Cycling unit tests** - CyclingViewModel has no unit tests in BradOSCore.
 
 ### Other

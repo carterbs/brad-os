@@ -33,14 +33,17 @@ export class RecipeRepository extends BaseRepository<
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Recipe);
   }
 
+  // Intentional read-only guardrail: Recipe data is managed externally and not writable via this repository.
   create(_data: RecipeCreateDTO): Promise<Recipe> {
     return Promise.reject(new Error('RecipeRepository.create is not implemented'));
   }
 
+  // Intentional read-only guardrail: Recipe data is managed externally and not writable via this repository.
   override async update(_id: string, _data: RecipeUpdateDTO): Promise<Recipe | null> {
     return Promise.reject(new Error('RecipeRepository.update is not implemented'));
   }
 
+  // Intentional read-only guardrail: Recipe data is managed externally and not writable via this repository.
   override async delete(_id: string): Promise<boolean> {
     return Promise.reject(new Error('RecipeRepository.delete is not implemented'));
   }

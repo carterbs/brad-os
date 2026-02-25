@@ -15,6 +15,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
 import { info } from 'firebase-functions/logger';
 import { getFirestoreDb, getCollectionName } from '../firebase.js';
+import { getCyclingActivityRepository } from '../repositories/index.js';
 
 const TAG = '[Cycling Service]';
 import type {
@@ -61,51 +62,8 @@ export async function getCyclingActivities(
   userId: string,
   limit?: number
 ): Promise<CyclingActivity[]> {
-  const userDoc = getUserDoc(userId);
-  let query = userDoc
-    .collection('cyclingActivities')
-    .orderBy('date', 'desc');
-
-  if (limit !== undefined && limit > 0) {
-    query = query.limit(limit);
-  }
-
-  const snapshot = await query.get();
-
-  return snapshot.docs.map((doc) => {
-    const data = doc.data();
-    return mapActivityDoc(doc.id, data);
-  });
-}
-
-/**
- * Map a Firestore document to a CyclingActivity.
- */
-function mapActivityDoc(
-  id: string,
-  data: FirebaseFirestore.DocumentData
-): CyclingActivity {
-  return {
-    id,
-    stravaId: data['stravaId'] as number,
-    userId: data['userId'] as string,
-    date: data['date'] as string,
-    durationMinutes: data['durationMinutes'] as number,
-    avgPower: data['avgPower'] as number,
-    normalizedPower: data['normalizedPower'] as number,
-    maxPower: data['maxPower'] as number,
-    avgHeartRate: data['avgHeartRate'] as number,
-    maxHeartRate: data['maxHeartRate'] as number,
-    tss: data['tss'] as number,
-    intensityFactor: data['intensityFactor'] as number,
-    type: data['type'] as CyclingActivity['type'],
-    source: data['source'] as CyclingActivity['source'],
-    ef: data['ef'] as number | undefined,
-    peak5MinPower: data['peak5MinPower'] as number | undefined,
-    peak20MinPower: data['peak20MinPower'] as number | undefined,
-    hrCompleteness: data['hrCompleteness'] as number | undefined,
-    createdAt: data['createdAt'] as string,
-  };
+  const repository = getCyclingActivityRepository();
+  return repository.findAllByUser(userId, limit);
 }
 
 /**
@@ -119,19 +77,8 @@ export async function getCyclingActivityById(
   userId: string,
   activityId: string
 ): Promise<CyclingActivity | null> {
-  const userDoc = getUserDoc(userId);
-  const doc = await userDoc.collection('cyclingActivities').doc(activityId).get();
-
-  if (!doc.exists) {
-    return null;
-  }
-
-  const data = doc.data();
-  if (!data) {
-    return null;
-  }
-
-  return mapActivityDoc(doc.id, data);
+  const repository = getCyclingActivityRepository();
+  return repository.findById(userId, activityId);
 }
 
 /**
@@ -145,24 +92,8 @@ export async function getCyclingActivityByStravaId(
   userId: string,
   stravaId: number
 ): Promise<CyclingActivity | null> {
-  const userDoc = getUserDoc(userId);
-  const snapshot = await userDoc
-    .collection('cyclingActivities')
-    .where('stravaId', '==', stravaId)
-    .limit(1)
-    .get();
-
-  if (snapshot.empty) {
-    return null;
-  }
-
-  const doc = snapshot.docs[0];
-  if (!doc) {
-    return null;
-  }
-
-  const data = doc.data();
-  return mapActivityDoc(doc.id, data);
+  const repository = getCyclingActivityRepository();
+  return repository.findByStravaId(userId, stravaId);
 }
 
 /**
@@ -176,44 +107,12 @@ export async function createCyclingActivity(
   userId: string,
   activity: Omit<CyclingActivity, 'id'>
 ): Promise<CyclingActivity> {
-  const userDoc = getUserDoc(userId);
-  const id = randomUUID();
-
-  const activityData: Record<string, unknown> = {
-    stravaId: activity.stravaId,
-    userId: activity.userId,
-    date: activity.date,
-    durationMinutes: activity.durationMinutes,
-    avgPower: activity.avgPower,
-    normalizedPower: activity.normalizedPower,
-    maxPower: activity.maxPower,
-    avgHeartRate: activity.avgHeartRate,
-    maxHeartRate: activity.maxHeartRate,
-    tss: activity.tss,
-    intensityFactor: activity.intensityFactor,
-    type: activity.type,
-    source: activity.source,
-    createdAt: activity.createdAt,
-  };
-
-  if (activity.ef !== undefined) {
-    activityData['ef'] = activity.ef;
-  }
-  if (activity.peak5MinPower !== undefined) {
-    activityData['peak5MinPower'] = activity.peak5MinPower;
-  }
-  if (activity.peak20MinPower !== undefined) {
-    activityData['peak20MinPower'] = activity.peak20MinPower;
-  }
-  if (activity.hrCompleteness !== undefined) {
-    activityData['hrCompleteness'] = activity.hrCompleteness;
-  }
-
-  await userDoc.collection('cyclingActivities').doc(id).set(activityData);
+  const repository = getCyclingActivityRepository();
+  const created = await repository.create(userId, activity);
 
   info(`${TAG} createCyclingActivity`, {
     userId,
-    activityId: id,
+    activityId: created.id,
     stravaId: activity.stravaId,
     date: activity.date,
     type: activity.type,
@@ -222,27 +121,7 @@ export async function createCyclingActivity(
     normalizedPower: activity.normalizedPower,
   });
 
-  return {
-    id,
-    stravaId: activity.stravaId,
-    userId: activity.userId,
-    date: activity.date,
-    durationMinutes: activity.durationMinutes,
-    avgPower: activity.avgPower,
-    normalizedPower: activity.normalizedPower,
-    maxPower: activity.maxPower,
-    avgHeartRate: activity.avgHeartRate,
-    maxHeartRate: activity.maxHeartRate,
-    tss: activity.tss,
-    intensityFactor: activity.intensityFactor,
-    type: activity.type,
-    source: activity.source,
-    ef: activity.ef,
-    peak5MinPower: activity.peak5MinPower,
-    peak20MinPower: activity.peak20MinPower,
-    hrCompleteness: activity.hrCompleteness,
-    createdAt: activity.createdAt,
-  };
+  return created;
 }
 
 /**
@@ -256,24 +135,11 @@ export async function deleteCyclingActivity(
   userId: string,
   activityId: string
 ): Promise<boolean> {
-  const userDoc = getUserDoc(userId);
-  const docRef = userDoc.collection('cyclingActivities').doc(activityId);
-  const doc = await docRef.get();
+  const repository = getCyclingActivityRepository();
+  const result = await repository.delete(userId, activityId);
 
-  if (!doc.exists) {
-    return false;
-  }
-
-  // Delete streams subcollection doc if it exists
-  const streamsDocRef = docRef.collection('streams').doc('data');
-  const streamsDoc = await streamsDocRef.get();
-  if (streamsDoc.exists) {
-    await streamsDocRef.delete();
-  }
-
-  await docRef.delete();
-  info(`${TAG} deleteCyclingActivity`, { userId, activityId, hadStreams: streamsDoc.exists });
-  return true;
+  info(`${TAG} deleteCyclingActivity`, { userId, activityId, hadStreams: result.hadStreams });
+  return result.deleted;
 }
 
 // ============ Activity Streams ============
@@ -290,18 +156,8 @@ export async function saveActivityStreams(
   activityId: string,
   streams: Omit<ActivityStreamData, 'createdAt'>
 ): Promise<void> {
-  const userDoc = getUserDoc(userId);
-  const streamData: ActivityStreamData = {
-    ...streams,
-    createdAt: new Date().toISOString(),
-  };
-
-  await userDoc
-    .collection('cyclingActivities')
-    .doc(activityId)
-    .collection('streams')
-    .doc('data')
-    .set(streamData);
+  const repository = getCyclingActivityRepository();
+  await repository.saveStreams(userId, activityId, streams);
 
   info(`${TAG} saveActivityStreams`, { userId, activityId, sampleCount: streams.sampleCount });
 }
@@ -317,33 +173,8 @@ export async function getActivityStreams(
   userId: string,
   activityId: string
 ): Promise<ActivityStreamData | null> {
-  const userDoc = getUserDoc(userId);
-  const doc = await userDoc
-    .collection('cyclingActivities')
-    .doc(activityId)
-    .collection('streams')
-    .doc('data')
-    .get();
-
-  if (!doc.exists) {
-    return null;
-  }
-
-  const data = doc.data();
-  if (!data) {
-    return null;
-  }
-
-  return {
-    activityId: data['activityId'] as string,
-    stravaActivityId: data['stravaActivityId'] as number,
-    watts: data['watts'] as number[] | undefined,
-    heartrate: data['heartrate'] as number[] | undefined,
-    time: data['time'] as number[] | undefined,
-    cadence: data['cadence'] as number[] | undefined,
-    sampleCount: data['sampleCount'] as number,
-    createdAt: data['createdAt'] as string,
-  };
+  const repository = getCyclingActivityRepository();
+  return repository.getStreams(userId, activityId);
 }
 
 // ============ FTP History ============
@@ -1009,15 +840,11 @@ export async function updateCyclingActivity(
   activityId: string,
   updates: Partial<Pick<CyclingActivity, 'ef' | 'peak5MinPower' | 'peak20MinPower' | 'hrCompleteness'>>
 ): Promise<boolean> {
-  const userDoc = getUserDoc(userId);
-  const docRef = userDoc.collection('cyclingActivities').doc(activityId);
-  const doc = await docRef.get();
+  const repository = getCyclingActivityRepository();
+  const result = await repository.update(userId, activityId, updates);
 
-  if (!doc.exists) {
-    return false;
+  if (result) {
+    info(`${TAG} updateCyclingActivity`, { userId, activityId, updatedFields: Object.keys(updates) });
   }
-
-  await docRef.update(updates);
-  info(`${TAG} updateCyclingActivity`, { userId, activityId, updatedFields: Object.keys(updates) });
-  return true;
+  return result;
 }

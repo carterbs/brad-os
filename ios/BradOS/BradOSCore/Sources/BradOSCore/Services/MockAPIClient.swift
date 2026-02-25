@@ -670,9 +670,16 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
 
     // MARK: - Calendar
 
+    /// Captured calendar API requests for testing
+    public private(set) var capturedCalendarRequests: [(year: Int, month: Int, timezoneOffset: Int?)] = []
+
     public func getCalendarData(year: Int, month: Int, timezoneOffset: Int?) async throws -> CalendarData {
         await simulateDelay()
         try checkForError()
+
+        // Capture the request for testing purposes
+        capturedCalendarRequests.append((year: year, month: month, timezoneOffset: timezoneOffset))
+
         if let data = mockCalendarData {
             return data
         }

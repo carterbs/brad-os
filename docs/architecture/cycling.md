@@ -27,8 +27,10 @@ Strava webhook -> strava-webhook handler -> cyclingService -> Firestore (async a
   - `packages/functions/src/handlers/cycling-coach.ts` — AI coach recommendation + schedule generation
   - `packages/functions/src/handlers/strava-webhook.ts` — Strava webhook (verify, events, token sync)
 - **Routes:** `packages/functions/src/routes/strava.routes.ts`
+- **Repositories:**
+  - `packages/functions/src/repositories/cycling-activity.repository.ts` — user-scoped cycling activities and streams persistence
 - **Services:**
-  - `packages/functions/src/services/firestore-cycling.service.ts` — Firestore CRUD for cycling data
+  - `packages/functions/src/services/firestore-cycling.service.ts` — Firestore CRUD for cycling data (delegates to repository)
   - `packages/functions/src/services/strava.service.ts` — Strava API client (token refresh, activity fetch, streams)
   - `packages/functions/src/services/cycling-coach.service.ts` — OpenAI-powered coach recommendations
   - `packages/functions/src/services/training-load.service.ts` — TSS/CTL/ATL/TSB calculations

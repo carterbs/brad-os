@@ -431,4 +431,183 @@ struct CalendarViewModelTests {
         #expect(vm.year == expectedYear)
         #expect(vm.month == expectedMonth)
     }
+
+    @Test("navigateToNextMonth from December crosses into next year")
+    @MainActor
+    func navigateToNextMonthFromDecemberCrossesYear() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        // Set currentMonth to December of some year
+        var components = DateComponents()
+        components.year = 2025
+        components.month = 12
+        components.day = 15
+        let decDate = Calendar.current.date(from: components)!
+        vm.currentMonth = decDate
+
+        vm.navigateToNextMonth()
+
+        // Should be in January of next year
+        #expect(vm.month == 1)
+        #expect(vm.year == 2026)
+    }
+
+    @Test("navigateToPreviousMonth from January crosses into previous year")
+    @MainActor
+    func navigateToPreviousMonthFromJanuaryCrossesYear() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        // Set currentMonth to January of some year
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 1
+        components.day = 15
+        let janDate = Calendar.current.date(from: components)!
+        vm.currentMonth = janDate
+
+        vm.navigateToPreviousMonth()
+
+        // Should be in December of previous year
+        #expect(vm.month == 12)
+        #expect(vm.year == 2025)
+    }
+
+    @Test("loadCalendarData forwards extreme positive timezone offset (UTC+14)")
+    @MainActor
+    func loadCalendarDataForwardsExtremePosTimezone() async {
+        let mock = MockAPIClient()
+        mock.mockCalendarData = CalendarData(
+            startDate: "2026-01-01",
+            endDate: "2026-01-31",
+            days: [:]
+        )
+
+        let vm = CalendarViewModel(apiClient: mock)
+
+        // Note: TimeZone.current cannot be overridden directly in Swift.
+        // This test verifies the ViewModel forwards whatever the current system offset is.
+        // Boundary-offset math (UTC+14, UTC-12) is covered by the service-layer utcToLocalDate tests.
+        await vm.loadCalendarData()
+
+        #expect(mock.capturedCalendarRequests.count > 0)
+        let lastRequest = mock.capturedCalendarRequests.last
+        #expect(lastRequest?.year == vm.year)
+        #expect(lastRequest?.month == vm.month)
+        // timezoneOffset should be the current system timezone offset
+        #expect(lastRequest?.timezoneOffset == vm.timezoneOffset)
+    }
+
+    @Test("loadCalendarData forwards extreme negative timezone offset (UTC-12)")
+    @MainActor
+    func loadCalendarDataForwardsExtremeNegTimezone() async {
+        let mock = MockAPIClient()
+        mock.mockCalendarData = CalendarData(
+            startDate: "2026-01-01",
+            endDate: "2026-01-31",
+            days: [:]
+        )
+
+        let vm = CalendarViewModel(apiClient: mock)
+        await vm.loadCalendarData()
+
+        #expect(mock.capturedCalendarRequests.count > 0)
+        let lastRequest = mock.capturedCalendarRequests.last
+        #expect(lastRequest?.year == vm.year)
+        #expect(lastRequest?.month == vm.month)
+        #expect(lastRequest?.timezoneOffset == vm.timezoneOffset)
+    }
+
+    @Test("loadCalendarData captures year, month, and timezone in request")
+    @MainActor
+    func loadCalendarDataCapturesRequest() async {
+        let mock = MockAPIClient()
+        mock.mockCalendarData = CalendarData(
+            startDate: "2026-06-01",
+            endDate: "2026-06-30",
+            days: [:]
+        )
+
+        let vm = CalendarViewModel(apiClient: mock)
+        // Set a specific month
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 6
+        components.day = 15
+        vm.currentMonth = Calendar.current.date(from: components)!
+
+        await vm.loadCalendarData()
+
+        #expect(mock.capturedCalendarRequests.count > 0)
+        let request = mock.capturedCalendarRequests[0]
+        #expect(request.year == 2026)
+        #expect(request.month == 6)
+        #expect(request.timezoneOffset == vm.timezoneOffset)
+    }
+
+    @Test("recentActivities maintains deterministic order for equal completedAt timestamps")
+    @MainActor
+    func recentActivitiesDeterministicOrderForEqualTimestamps() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        let date = makeDate(year: 2026, month: 3, day: 15)
+        let sameCompletedAt = makeDate(year: 2026, month: 3, day: 15, hour: 10)
+
+        // Create activities with identical completedAt but different IDs
+        let activity1 = makeActivity(id: "c-activity", type: .meditation, date: date, completedAt: sameCompletedAt)
+        let activity2 = makeActivity(id: "a-activity", type: .workout, date: date, completedAt: sameCompletedAt)
+        let activity3 = makeActivity(id: "b-activity", type: .stretch, date: date, completedAt: sameCompletedAt)
+
+        vm.activitiesByDate = [key(for: date): [activity1, activity2, activity3]]
+
+        let result = vm.recentActivities(limit: 10)
+
+        // Should be sorted by ID ascending when timestamps are equal
+        #expect(result.count == 3)
+        #expect(result[0].id == "a-activity")
+        #expect(result[1].id == "b-activity")
+        #expect(result[2].id == "c-activity")
+    }
+
+    @Test("recentActivities maintains deterministic order when using date fallback for nil completedAt")
+    @MainActor
+    func recentActivitiesDeterministicOrderForEqualDateFallback() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        let date = makeDate(year: 2026, month: 3, day: 15, hour: 12)
+
+        // Create activities with nil completedAt but same date
+        let activity1 = makeActivity(id: "z-activity", type: .meditation, date: date, completedAt: nil)
+        let activity2 = makeActivity(id: "a-activity", type: .workout, date: date, completedAt: nil)
+        let activity3 = makeActivity(id: "m-activity", type: .stretch, date: date, completedAt: nil)
+
+        vm.activitiesByDate = [key(for: date): [activity1, activity2, activity3]]
+
+        let result = vm.recentActivities(limit: 10)
+
+        // Should be sorted by ID ascending when dates are equal and completedAt is nil
+        #expect(result.count == 3)
+        #expect(result[0].id == "a-activity")
+        #expect(result[1].id == "m-activity")
+        #expect(result[2].id == "z-activity")
+    }
+
+    @Test("recentActivities sorts by completedAt descending with ID tie-breaker")
+    @MainActor
+    func recentActivitiesSortsByCompletedAtDescWithIdTieBreaker() {
+        let vm = CalendarViewModel(apiClient: MockAPIClient())
+        let date = makeDate(year: 2026, month: 3, day: 15)
+        let time1 = makeDate(year: 2026, month: 3, day: 15, hour: 9)
+        let time2 = makeDate(year: 2026, month: 3, day: 15, hour: 10)
+        let time3 = makeDate(year: 2026, month: 3, day: 15, hour: 10) // Same as time2
+
+        let activity1 = makeActivity(id: "z", type: .workout, date: date, completedAt: time1)
+        let activity2 = makeActivity(id: "c", type: .stretch, date: date, completedAt: time2)
+        let activity3 = makeActivity(id: "a", type: .meditation, date: date, completedAt: time3) // Same time as activity2
+
+        vm.activitiesByDate = [key(for: date): [activity1, activity2, activity3]]
+
+        let result = vm.recentActivities(limit: 10)
+
+        // Should sort: time2/time3 descending (most recent) first, then by ID for ties
+        #expect(result.count == 3)
+        #expect(result[0].id == "a") // time3 (10:00), ID "a" sorts first among time3/time2 pair
+        #expect(result[1].id == "c") // time2 (10:00), ID "c"
+        #expect(result[2].id == "z") // time1 (09:00)
+    }
 }

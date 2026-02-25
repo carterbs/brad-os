@@ -11,6 +11,7 @@ import { StretchSessionRepository } from './stretchSession.repository.js';
 import { MeditationSessionRepository } from './meditationSession.repository.js';
 import { BarcodeRepository } from './barcode.repository.js';
 import { GuidedMeditationRepository } from './guided-meditation.repository.js';
+import { CyclingActivityRepository } from './cycling-activity.repository.js';
 
 export { BaseRepository } from './base.repository.js';
 export { ExerciseRepository } from './exercise.repository.js';
@@ -24,7 +25,8 @@ export { StretchSessionRepository } from './stretchSession.repository.js';
 export { MeditationSessionRepository } from './meditationSession.repository.js';
 export { BarcodeRepository } from './barcode.repository.js';
 export { GuidedMeditationRepository } from './guided-meditation.repository.js';
-export type { CompletedSetRow } from '../shared.js';
+export { CyclingActivityRepository } from './cycling-activity.repository.js';
+export type { CyclingActivityUpdate, CompletedSetRow } from '../shared.js';
 
 // Singleton instances for use with the default database
 let exerciseRepository: ExerciseRepository | null = null;
@@ -38,6 +40,7 @@ let stretchSessionRepository: StretchSessionRepository | null = null;
 let meditationSessionRepository: MeditationSessionRepository | null = null;
 let barcodeRepository: BarcodeRepository | null = null;
 let guidedMeditationRepository: GuidedMeditationRepository | null = null;
+let cyclingActivityRepository: CyclingActivityRepository | null = null;
 
 // Reset all repository singletons (for testing)
 export function resetRepositories(): void {
@@ -52,6 +55,7 @@ export function resetRepositories(): void {
   meditationSessionRepository = null;
   barcodeRepository = null;
   guidedMeditationRepository = null;
+  cyclingActivityRepository = null;
 }
 
 export function getExerciseRepository(): ExerciseRepository {
@@ -131,6 +135,13 @@ export function getGuidedMeditationRepository(): GuidedMeditationRepository {
   return guidedMeditationRepository;
 }
 
+export function getCyclingActivityRepository(): CyclingActivityRepository {
+  if (!cyclingActivityRepository) {
+    cyclingActivityRepository = new CyclingActivityRepository(getFirestoreDb());
+  }
+  return cyclingActivityRepository;
+}
+
 // Helper to create repositories with a custom database (useful for testing)
 export function createRepositories(db: Firestore): {
   exercise: ExerciseRepository;
@@ -144,6 +155,7 @@ export function createRepositories(db: Firestore): {
   meditationSession: MeditationSessionRepository;
   barcode: BarcodeRepository;
   guidedMeditation: GuidedMeditationRepository;
+  cyclingActivity: CyclingActivityRepository;
 } {
   return {
     exercise: new ExerciseRepository(db),
@@ -157,5 +169,6 @@ export function createRepositories(db: Firestore): {
     meditationSession: new MeditationSessionRepository(db),
     barcode: new BarcodeRepository(db),
     guidedMeditation: new GuidedMeditationRepository(db),
+    cyclingActivity: new CyclingActivityRepository(db),
   };
 }
