@@ -469,8 +469,23 @@ describe('Health Sync Handler', () => {
     it('should clamp days=0 to 1', async () => {
       mockRecoveryService.getRecoveryHistory.mockResolvedValue([]);
 
-      await request(healthSyncApp).get('/recovery/history?days=0');
+      const response = await request(healthSyncApp).get('/recovery/history?days=0');
+      const body = response.body as ApiResponse<unknown[]>;
+
+      expect(response.status).toBe(200);
+      expect(body.success).toBe(true);
       expect(mockRecoveryService.getRecoveryHistory).toHaveBeenCalledWith('default-user', 1);
+    });
+
+    it('should fall back to default days when days query is empty', async () => {
+      mockRecoveryService.getRecoveryHistory.mockResolvedValue([]);
+
+      const response = await request(healthSyncApp).get('/recovery/history?days=');
+      const body = response.body as ApiResponse<unknown[]>;
+
+      expect(response.status).toBe(200);
+      expect(body.success).toBe(true);
+      expect(mockRecoveryService.getRecoveryHistory).toHaveBeenCalledWith('default-user', 7);
     });
 
     it('should clamp negative days to 1', async () => {

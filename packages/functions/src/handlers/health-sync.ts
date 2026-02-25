@@ -24,6 +24,31 @@ const TAG = '[Health Sync]';
 const app = createBaseApp('health-sync');
 
 /**
+ * Parse recovery history days parameter from query string.
+ *
+ * - Returns 7 (default) if parameter is undefined or empty
+ * - Returns 7 if parameter is not a valid number
+ * - Returns the parsed value clamped to [1, 90]
+ */
+function parseRecoveryHistoryDays(rawDays: unknown): number {
+  // Default to 7 if not provided
+  if (rawDays === undefined || rawDays === '') {
+    return 7;
+  }
+
+  // Parse the value
+  const parsed = Number.parseInt(String(rawDays), 10);
+
+  // Use default if parsing failed
+  if (isNaN(parsed)) {
+    return 7;
+  }
+
+  // Clamp to [1, 90]
+  return Math.min(Math.max(1, parsed), 90);
+}
+
+/**
  * Get user ID from request headers.
  * In production, this would come from Firebase Auth.
  */
@@ -164,8 +189,7 @@ app.get(
   '/recovery/history',
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     const userId = getUserId(req);
-    const parsed = parseInt(String(req.query['days']), 10);
-    const days = Math.min(Math.max(1, Number.isNaN(parsed) ? 7 : parsed), 90);
+    const days = parseRecoveryHistoryDays(req.query['days']);
     info(`${TAG} GET /recovery/history`, { userId, days });
 
     const history = await recoveryService.getRecoveryHistory(userId, days);
