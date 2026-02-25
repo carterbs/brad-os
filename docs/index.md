@@ -42,7 +42,6 @@ Feature-level architecture docs describing data flow, file locations, and key ty
 
 | Doc | Summary |
 |-----|---------|
-| [feature-gaps.md](feature-gaps.md) | Feature gap analysis vs Strong, Hevy, JEFIT |
 | [golden-principles.md](golden-principles.md) | Linter-enforced invariants and project principles |
 | [quality-grades.md](quality-grades.md) | Code quality grading system |
 | [tts-kokoro-decision.md](tts-kokoro-decision.md) | TTS engine decision log (Kokoro vs alternatives) |
