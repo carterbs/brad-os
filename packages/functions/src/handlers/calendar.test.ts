@@ -333,5 +333,64 @@ describe('Calendar Handler', () => {
         },
       });
     });
+
+    it('should pass through boundary timezone -720 (UTC-12) unchanged to service', async () => {
+      const calendarData = createTestCalendarResponse();
+      mockCalendarService.getMonthData.mockResolvedValue(calendarData);
+
+      const response = await request(calendarApp).get('/2026/1?tz=-720');
+
+      expect(response.status).toBe(200);
+      expect(mockCalendarService.getMonthData).toHaveBeenCalledWith(2026, 1, -720);
+    });
+
+    it('should pass through boundary timezone +840 (UTC+14) unchanged to service', async () => {
+      const calendarData = createTestCalendarResponse();
+      mockCalendarService.getMonthData.mockResolvedValue(calendarData);
+
+      const response = await request(calendarApp).get('/2026/2?tz=840');
+
+      expect(response.status).toBe(200);
+      expect(mockCalendarService.getMonthData).toHaveBeenCalledWith(2026, 2, 840);
+    });
+
+    it('should handle Jan->Feb month transition with timezone', async () => {
+      const calendarData = createTestCalendarResponse({
+        startDate: '2026-02-01',
+        endDate: '2026-02-28',
+      });
+      mockCalendarService.getMonthData.mockResolvedValue(calendarData);
+
+      const response: Response = await request(calendarApp).get('/2026/2?tz=-300');
+      const body = response.body as ApiResponse<CalendarDataResponse>;
+
+      expect(response.status).toBe(200);
+      expect(mockCalendarService.getMonthData).toHaveBeenCalledWith(2026, 2, -300);
+      expect(body.data?.startDate).toBe('2026-02-01');
+      expect(body.data?.endDate).toBe('2026-02-28');
+    });
+
+    it('should handle Dec->Jan year boundary with timezone', async () => {
+      const calendarData = createTestCalendarResponse({
+        startDate: '2026-01-01',
+        endDate: '2026-01-31',
+      });
+      mockCalendarService.getMonthData.mockResolvedValue(calendarData);
+
+      const response = await request(calendarApp).get('/2026/1?tz=120');
+
+      expect(response.status).toBe(200);
+      expect(mockCalendarService.getMonthData).toHaveBeenCalledWith(2026, 1, 120);
+    });
+
+    it('should validate timezone parameter is passed as integer', async () => {
+      const calendarData = createTestCalendarResponse();
+      mockCalendarService.getMonthData.mockResolvedValue(calendarData);
+
+      const response = await request(calendarApp).get('/2024/6?tz=330');
+
+      expect(response.status).toBe(200);
+      expect(mockCalendarService.getMonthData).toHaveBeenCalledWith(2024, 6, 330);
+    });
   });
 });

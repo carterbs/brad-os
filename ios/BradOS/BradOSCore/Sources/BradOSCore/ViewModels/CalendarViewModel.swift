@@ -123,13 +123,26 @@ public class CalendarViewModel: ObservableObject {
         return type == filter
     }
 
+    /// Compare two calendar activities for deterministic sorting.
+    /// Primary: (completedAt ?? date) descending (most recent first).
+    /// Tie-breaker: id ascending to guarantee deterministic order when sort keys match.
+    private func compareRecentActivities(_ lhs: CalendarActivity, _ rhs: CalendarActivity) -> Bool {
+        let lhsTime = lhs.completedAt ?? lhs.date
+        let rhsTime = rhs.completedAt ?? rhs.date
+        if lhsTime != rhsTime {
+            return lhsTime > rhsTime // Descending
+        }
+        // Tie-breaker: sort by id ascending
+        return lhs.id < rhs.id
+    }
+
     /// Get recent activities sorted by completion time (most recent first)
     /// - Parameter limit: Maximum number of activities to return
-    /// - Returns: Array of recent activities sorted by completedAt descending
+    /// - Returns: Array of recent activities sorted by completedAt descending, deterministic for ties
     public func recentActivities(limit: Int = 3) -> [CalendarActivity] {
         activitiesByDate.values
             .flatMap { $0 }
-            .sorted { ($0.completedAt ?? $0.date) > ($1.completedAt ?? $1.date) }
+            .sorted(by: compareRecentActivities)
             .prefix(limit)
             .map { $0 }
     }
