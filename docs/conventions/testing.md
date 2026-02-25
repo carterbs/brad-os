@@ -89,6 +89,31 @@ describe('Exercises Handler', () => {
 });
 ```
 
+## Shared Test Utilities
+
+- `packages/functions/src/__tests__/utils/` stores handler/service/integration shared helpers and fixtures (`create*` helpers, mock repos, `ApiResponse` type).
+- `packages/functions/src/test-utils/` stores Firestore repository-test helpers (`createFirestoreMocks`, `setupFirebaseMock`, `createMockQuerySnapshot`, etc.).
+- Keep handler tests using the inline mock constraints above (`vi.mock` inline + import after mocks), and pull shared test types/helpers from `__tests__/utils`.
+
+Repository test mini-pattern:
+
+```ts
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createFirestoreMocks, setupFirebaseMock } from '../test-utils/index.js';
+
+describe('IngredientRepository', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    setupFirebaseMock(createFirestoreMocks());
+  });
+
+  it('builds repository with mocked db', async () => {
+    const { IngredientRepository } = await import('../repositories/ingredient.repository.js');
+    expect(IngredientRepository).toBeDefined();
+  });
+});
+```
+
 **Key rules:**
 - **ApiResponse\<T\>**: Import from `__tests__/utils/`, never define inline
 - **vi.mock()**: MUST be inline in each test file (vitest hoisting — cannot be shared)
