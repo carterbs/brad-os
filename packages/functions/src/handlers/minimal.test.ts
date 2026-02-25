@@ -20,19 +20,26 @@ vi.mock('../services/firestore-recovery.service.js', () => mockRecoveryService);
 
 import { healthSyncApp } from './health-sync.js';
 
-describe('Minimal Test', () => {
-  it('should import app', () => {
+/**
+ * Smoke tests verifying the test infrastructure (mocking, app initialization)
+ * works for health-sync. These act as a canary: if mocking firebase/app-check
+ * or importing the handler breaks, these fail loudly before deeper tests run.
+ */
+describe('health-sync app initialization smoke tests', () => {
+  it('should initialize the Express app', () => {
     expect(healthSyncApp).toBeDefined();
     expect(healthSyncApp).not.toBeNull();
   });
 
-  it('should make request', async () => {
+  it('should accept a POST /weight/bulk request and return success', async () => {
+    mockRecoveryService.addWeightEntries.mockResolvedValue(1);
+
     const response = await request(healthSyncApp)
       .post('/weight/bulk')
       .send({ weights: [{ weightLbs: 180, date: '2026-02-07' }] });
-    
-    console.log('Response status:', response.status);
-    console.log('Response body:', response.body);
-    expect(response).toBeDefined();
+
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ success: true });
+    expect(mockRecoveryService.addWeightEntries).toHaveBeenCalledOnce();
   });
 });
