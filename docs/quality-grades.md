@@ -32,7 +32,7 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 | Stretching | **B+** | Medium (5) | Medium (4) | 134 | 2.6x | -- | Yes | Yes | 2 handler, 2 repo, 1 integration tests. |
 | Calendar | **B** | Low (3) | Low (2) | 190 | 2.5x | -- | Yes | Yes | 1 handler, 1 service, 1 integration tests. |
 | Meditation | **B+** | Medium (6) | Medium (4) | 213 | 2.7x | -- | Yes | Yes | 3 handler, 2 repo, 1 integration tests. |
-| Health Sync | **B** | Medium (4) | Low (3) | 213 | 2.8x | -- | Yes | Yes | 2 handler, 1 service, 1 integration tests. |
+| Health Sync | **B-** | Medium (4) | Low (3) | 213 | 2.8x | -- | Yes | Yes | 2 handler, 1 service, 1 integration tests. iOS coverage remains thin. |
 | History | **B-** | (shared) | (shared) | 0 | — | -- | Yes | Yes | Reuses Calendar backend/ViewModel. No additional tests needed, but filter logic is untested. |
 | Today | **B** | Medium (4) | Low (1) | 71 | 2.4x | -- | Yes | Yes | 1 handler, 2 service, 1 integration tests. |
 | Profile | **B-** | (shared) | (shared) | 0 | — | -- | Yes | Yes | Settings hub, no own backend. Relies on health-sync and cycling backends. |
@@ -123,7 +123,7 @@ All handler and service files have corresponding tests.
 - [x] **Firestore Recovery service** - No tests for `firestore-recovery.service.ts` (all health data CRUD).
 - [x] **Firestore Cycling service** - No tests for `firestore-cycling.service.ts` (all cycling data CRUD).
 - [ ] **Cycling repo layer** - No repository tests for cycling (data stored in user subcollections, not top-level repos).
-- [ ] **iOS Cycling unit tests** - CyclingViewModel has no unit tests in BradOSCore.
+- [x] **iOS Cycling unit tests** - CyclingViewModel has no unit tests in BradOSCore.
 
 ### Other
 
@@ -139,6 +139,7 @@ All handler and service files have corresponding tests.
 - [x] **Firestore Recovery service tests** - `firestore-recovery.service.test.ts` now covers all health data CRUD.
 - [x] **Firestore Cycling service tests** - `firestore-cycling.service.test.ts` now covers all cycling data CRUD.
 - [x] **Meal Planning integration tests** - `meals.integration.test.ts` now covers the meal plan API end-to-end.
+- [x] **iOS Cycling unit tests** - CyclingViewModel and all models moved to BradOSCore; full mock infrastructure and 15 unit tests added.
 - [x] **LoadStateView + Error.displayMessage (iOS)** - Generic loading state wrapper. Migrated ExercisesView, ExerciseHistoryView, CalendarViewModel.
 - [x] **Snake case encoder + CodingKeys cleanup (iOS)** - Added `snakeCaseEncoder` to APIClient, removed 6 manual CodingKeys enums.
 - [x] **Architecture layer violation fixes** - Fixed all 51 iOS architecture layer violations (Views referencing Service types directly).
