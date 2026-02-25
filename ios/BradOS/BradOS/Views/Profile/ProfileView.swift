@@ -107,10 +107,10 @@ struct ProfileView: View {
             SectionHeader(title: "Health")
 
             VStack(spacing: 0) {
-                NavigationLink(destination: WeightGoalView()) {
+                NavigationLink(destination: BodyWeightView()) {
                     SettingsRow(
-                        title: "Weight Goal",
-                        subtitle: "Track weight targets",
+                        title: "Body Weight",
+                        subtitle: "Log entries and trends",
                         iconName: "scalemass.fill",
                         iconColor: Theme.success
                     ) {

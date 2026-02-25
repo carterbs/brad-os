@@ -66,6 +66,12 @@ export const weightEntrySchema = z.object({
 
 export type WeightEntryInput = z.infer<typeof weightEntrySchema>;
 
+export const createWeightEntrySchema = weightEntrySchema.extend({
+  source: weightSourceSchema.optional(),
+});
+
+export type CreateWeightEntryInput = z.infer<typeof createWeightEntrySchema>;
+
 // --- Bulk Weight Sync Schema ---
 
 /**

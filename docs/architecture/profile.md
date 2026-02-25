@@ -12,15 +12,15 @@ ProfileView -> NavigationLink destinations -> various ViewModels/Services -> API
   - `ios/BradOS/BradOS/Views/Profile/TrainingBlockSetupView+Helpers.swift`
   - `ios/BradOS/BradOS/Views/Profile/StravaConnectionView.swift` (Strava OAuth)
   - `ios/BradOS/BradOS/Views/Profile/StravaConnectionView+Sections.swift`
-  - `ios/BradOS/BradOS/Views/Profile/WeightGoalView.swift` (weight tracking)
-  - `ios/BradOS/BradOS/Views/Profile/WeightGoalView+Charts.swift`
+  - `ios/BradOS/BradOS/Views/Profile/BodyWeightView.swift` (weight tracking)
+  - `ios/BradOS/BradOS/Views/Profile/BodyWeightView+Charts.swift`
   - `ios/BradOS/BradOS/Views/Profile/HealthMetricHistoryView.swift` (HRV/RHR charts)
   - `ios/BradOS/BradOS/Views/Profile/SleepHistoryView.swift`
   - `ios/BradOS/BradOS/Views/Profile/FoodScannerView.swift`
   - `ios/BradOS/BradOS/Views/Profile/TextToSpeechView.swift`
   - `ios/BradOS/BradOS/Views/Profile/HealthSyncView.swift`
 - **ViewModels:**
-  - `ios/BradOS/BradOS/ViewModels/WeightGoalViewModel.swift`
+  - `ios/BradOS/BradOS/ViewModels/BodyWeightViewModel.swift`
   - `ios/BradOS/BradOSCore/Sources/BradOSCore/ViewModels/HealthMetricHistoryViewModel.swift` (HealthMetricHistoryViewModel + SleepHistoryViewModel)
   - `ios/BradOS/BradOS/ViewModels/TextToSpeechViewModel.swift`
   - `ios/BradOS/BradOS/ViewModels/CyclingViewModel.swift` (injected via EnvironmentObject)
@@ -41,6 +41,7 @@ ProfileView -> NavigationLink destinations -> various ViewModels/Services -> API
 - `GET /health-sync/baseline` -- Get recovery baseline
 - `POST /health-sync/weight/bulk` -- Bulk sync weight entries
 - `GET /health-sync/weight` -- Get weight (latest or history)
+- `POST /health-sync/weight` -- Log a manual body-weight entry
 - `POST /health-sync/hrv/bulk` -- Bulk sync HRV entries
 - `GET /health-sync/hrv` -- Get HRV data
 - `POST /health-sync/rhr/bulk` -- Bulk sync RHR entries

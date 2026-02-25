@@ -149,6 +149,23 @@ struct HealthView: View {
 
                 Divider().background(Theme.divider)
 
+                NavigationLink(destination: BodyWeightView()) {
+                    SettingsRow(
+                        title: "Body Weight",
+                        subtitle: "Weight entry and trend",
+                        iconName: "scalemass.fill",
+                        iconColor: Theme.success
+                    ) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(Theme.textTertiary)
+                    }
+                }
+                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+
+                Divider().background(Theme.divider)
+
                 NavigationLink(destination: HealthMetricHistoryView(.rhr)) {
                     SettingsRow(
                         title: "RHR History",

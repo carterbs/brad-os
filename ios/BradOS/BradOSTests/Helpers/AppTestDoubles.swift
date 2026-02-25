@@ -201,31 +201,27 @@ final class MockCyclingAPIClient: CyclingAPIClientProtocol {
     }
 }
 
-// MARK: - Weight goal API mock
+// MARK: - Body weight API mock
 
-final class MockWeightGoalAPIClient: WeightGoalAPIClientProtocol {
+final class MockBodyWeightAPIClient: BodyWeightAPIClientProtocol {
     var latestWeightResult: Result<WeightHistoryEntry?, Error> = .success(nil)
     var weightHistoryResult: Result<[WeightHistoryEntry], Error> = .success([])
-    var weightGoalResult: Result<WeightGoalResponse?, Error> = .success(nil)
-    var saveWeightGoalResult: Result<WeightGoalResponse, Error> = .success(
-        WeightGoalResponse(
-            targetWeightLbs: 180,
-            targetDate: "2026-03-01",
-            startWeightLbs: 190,
-            startDate: "2026-01-01"
+    var logWeightEntryResult: Result<WeightHistoryEntry, Error> = .success(
+        WeightHistoryEntry(
+            id: "manual-entry",
+            date: "2026-02-09",
+            weightLbs: 180
         )
     )
 
     private(set) var getLatestWeightCallCount: Int = 0
     private(set) var getWeightHistoryCallCount: Int = 0
-    private(set) var getWeightGoalCallCount: Int = 0
-    private(set) var saveWeightGoalCallCount: Int = 0
+    private(set) var logWeightEntryCallCount: Int = 0
     private(set) var lastWeightHistoryDays: Int?
-    private(set) var lastSaveWeightGoalRequest: (
-        targetWeightLbs: Double,
-        targetDate: String,
-        startWeightLbs: Double,
-        startDate: String
+    private(set) var lastLogWeightEntryRequest: (
+        weightLbs: Double,
+        date: String,
+        source: String
     )?
 
     func getLatestWeight() async throws -> WeightHistoryEntry? {
@@ -239,25 +235,14 @@ final class MockWeightGoalAPIClient: WeightGoalAPIClientProtocol {
         return try weightHistoryResult.get()
     }
 
-    func getWeightGoal() async throws -> WeightGoalResponse? {
-        getWeightGoalCallCount += 1
-        return try weightGoalResult.get()
-    }
-
-    func saveWeightGoal(
-        targetWeightLbs: Double,
-        targetDate: String,
-        startWeightLbs: Double,
-        startDate: String
-    ) async throws -> WeightGoalResponse {
-        saveWeightGoalCallCount += 1
-        lastSaveWeightGoalRequest = (
-            targetWeightLbs: targetWeightLbs,
-            targetDate: targetDate,
-            startWeightLbs: startWeightLbs,
-            startDate: startDate
+    func logWeightEntry(weightLbs: Double, date: String, source: String) async throws -> WeightHistoryEntry {
+        logWeightEntryCallCount += 1
+        lastLogWeightEntryRequest = (
+            weightLbs: weightLbs,
+            date: date,
+            source: source
         )
-        return try saveWeightGoalResult.get()
+        return try logWeightEntryResult.get()
     }
 }
 

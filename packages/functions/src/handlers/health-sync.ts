@@ -14,6 +14,7 @@ import {
   syncHealthDataSchema,
   getRecoveryQuerySchema,
   bulkWeightSyncSchema,
+  createWeightEntrySchema,
   bulkHRVSyncSchema,
   bulkRHRSyncSchema,
   bulkSleepSyncSchema,
@@ -239,6 +240,50 @@ app.post(
     res.json({
       success: true,
       data: { added },
+    });
+  })
+);
+
+// POST /health/weight
+// Create or update a single manual weight entry
+app.post(
+  '/weight',
+  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
+    const start = Date.now();
+    const userId = getUserId(req);
+    info(`${TAG} POST /weight`, { userId });
+
+    const parseResult = createWeightEntrySchema.safeParse(req.body);
+    if (!parseResult.success) {
+      warn(`${TAG} POST /weight validation failed`, { userId, errors: parseResult.error.issues });
+      res.status(400).json({
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Invalid request body',
+          details: parseResult.error.issues,
+        },
+      });
+      return;
+    }
+
+    const payload = {
+      ...parseResult.data,
+      source: parseResult.data.source ?? 'manual',
+    };
+    const entry = await recoveryService.addWeightEntry(userId, payload);
+
+    info(`${TAG} POST /weight complete`, {
+      userId,
+      date: entry.date,
+      weightLbs: entry.weightLbs,
+      source: entry.source,
+      elapsedMs: Date.now() - start,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: entry,
     });
   })
 );
