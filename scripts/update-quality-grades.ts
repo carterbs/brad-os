@@ -113,6 +113,8 @@ const IOS_TEST_DOMAIN_MAP: Record<string, string> = {
   'MeditationSessionTests': 'meditation',
   'CalendarViewModelTests': 'calendar',
   'DashboardViewModelTests': 'today',
+  'TodayCoachClientTests': 'today',
+  'TodayCoachCardStateTests': 'today',
   'ProfileViewModelTests': 'profile',
   'CyclingViewModelTests': 'cycling',
   'APIErrorTests': 'shared',

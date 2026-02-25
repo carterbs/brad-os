@@ -400,3 +400,117 @@ func makeExerciseHistory(
 func makeWeightHistoryEntry(date: Date, weight: Double, id: String = "weight-entry") -> WeightHistoryEntry {
     WeightHistoryEntry(id: id, date: isoDateString(date), weightLbs: weight)
 }
+
+// MARK: - Today Coach API mock
+
+final class MockTodayCoachAPIClient: TodayCoachAPIClientProtocol {
+    var getTodayCoachRecommendationResult: Result<TodayCoachRecommendation, Error> = .success(
+        makeTodayCoachRecommendation()
+    )
+
+    private(set) var getTodayCoachRecommendationCallCount = 0
+    private(set) var lastGetTodayCoachRecommendationRequest: CyclingCoachRequestBody?
+
+    /// Optional async gate to hold requests in-flight for loading-state assertions
+    var requestGate: CyclingAPICallGate?
+
+    func getTodayCoachRecommendation(_ body: CyclingCoachRequestBody) async throws -> TodayCoachRecommendation {
+        getTodayCoachRecommendationCallCount += 1
+        lastGetTodayCoachRecommendationRequest = body
+
+        // Mark as started if a gate is configured
+        await requestGate?.markStarted(.getCyclingActivities)
+
+        // Wait for release if a gate is configured
+        if let gate = requestGate {
+            await gate.waitUntilReleased()
+        }
+
+        return try getTodayCoachRecommendationResult.get()
+    }
+}
+
+// MARK: - Today Coach fixture helpers
+
+/// Create a TodayCoachRecommendation with optional section payloads.
+/// By default, all sections are included. Pass nil for lifting, cycling, or weight
+/// to test partial-data scenarios.
+func makeTodayCoachRecommendation(
+    dailyBriefing: String = "Here's your day ahead.",
+    recovery: TodayCoachRecommendation.RecoverySection? = nil,
+    lifting: TodayCoachRecommendation.LiftingSection? = TodayCoachRecommendation.LiftingSection(
+        insight: "Good recovery for lifting.",
+        workout: TodayCoachRecommendation.LiftingSection.WorkoutDetails(
+            planDayName: "Lower Body",
+            weekNumber: 1,
+            isDeload: false,
+            exerciseCount: 4,
+            status: "pending"
+        ),
+        priority: "normal"
+    ),
+    cycling: TodayCoachRecommendation.CyclingSection? = TodayCoachRecommendation.CyclingSection(
+        insight: "Great day for an easy spin.",
+        session: nil
+    ),
+    stretching: TodayCoachRecommendation.StretchingSection? = nil,
+    meditation: TodayCoachRecommendation.MeditationSection? = nil,
+    weight: TodayCoachRecommendation.WeightSection? = TodayCoachRecommendation.WeightSection(
+        insight: "Weight stable this week."
+    ),
+    warnings: [TodayCoachRecommendation.CoachWarning] = []
+) -> TodayCoachRecommendation {
+    let sections = TodayCoachRecommendation.CoachSections(
+        recovery: recovery ?? TodayCoachRecommendation.RecoverySection(
+            insight: "HRV is 12% above baseline.",
+            status: "great"
+        ),
+        lifting: lifting,
+        cycling: cycling,
+        stretching: stretching ?? TodayCoachRecommendation.StretchingSection(
+            insight: "Focus on lower body.",
+            suggestedRegions: ["hamstrings", "quads"],
+            priority: "normal"
+        ),
+        meditation: meditation ?? TodayCoachRecommendation.MeditationSection(
+            insight: "Consider a brief session.",
+            suggestedDurationMinutes: 10,
+            priority: "low"
+        ),
+        weight: weight
+    )
+
+    return TodayCoachRecommendation(
+        dailyBriefing: dailyBriefing,
+        sections: sections,
+        warnings: warnings
+    )
+}
+
+// MARK: - Recovery fixture helper
+
+func makeRecoveryData(
+    date: Date = Date(),
+    hrvMs: Int = 45,
+    hrvVsBaseline: Double = 1.2,
+    rhrBpm: Int = 55,
+    rhrVsBaseline: Double = 0.95,
+    sleepHours: Double = 8.0,
+    sleepEfficiency: Double = 0.85,
+    deepSleepPercent: Double = 0.25,
+    score: Int = 85,
+    state: RecoveryState = .good
+) -> RecoveryData {
+    RecoveryData(
+        date: date,
+        hrvMs: hrvMs,
+        hrvVsBaseline: hrvVsBaseline,
+        rhrBpm: rhrBpm,
+        rhrVsBaseline: rhrVsBaseline,
+        sleepHours: sleepHours,
+        sleepEfficiency: sleepEfficiency,
+        deepSleepPercent: deepSleepPercent,
+        score: score,
+        state: state
+    )
+}

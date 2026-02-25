@@ -88,6 +88,7 @@
 		61E4C57D123AE39C550F8904 /* TodayCoachDetailView+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB5D60FE3BC6768651DE9621 /* TodayCoachDetailView+Helpers.swift */; };
 		643532BA0D4342125F7F5EB4 /* TodayCoachClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32EE6A33EF1CBA532CA4766E /* TodayCoachClientTests.swift */; };
 		66BF73D8C1F9ECAD0ECB1803 /* BradOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = C03A3C5C8EF08F559DF7034E /* BradOSCore */; };
+		671E658C4FE8612400FE202D /* TodayCoachCardStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48DEE855B7D5B4D96E89480E /* TodayCoachCardStateTests.swift */; };
 		687ED813020B272B9D6301A0 /* CyclingBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7FCEDB90BAB32E3A739521 /* CyclingBlockView.swift */; };
 		6D2BF99C81D7B1DBE00941A0 /* MeditationActiveView+Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F76F096883ADB7649F7A5C3 /* MeditationActiveView+Session.swift */; };
 		7086760953A967D06F2BAF10 /* GuidedMeditation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAB73F3D9DD5B217641D6828 /* GuidedMeditation.swift */; };
@@ -188,6 +189,7 @@
 		F1CA155CCE43823E7A2DE27A /* FirebaseAppCheck in Frameworks */ = {isa = PBXBuildFile; productRef = 795777073D266F0F0EDA709F /* FirebaseAppCheck */; };
 		F2F1C8F5AE2DCE5244C6D1D7 /* BradOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = 02312BA68550CAE6764708AD /* BradOSCore */; };
 		F5DD9416FDD7CBF256A32510 /* BarcodeImageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6278C739A47C0BD6899B3431 /* BarcodeImageView.swift */; };
+		F642A8B04B77E26F28AB66A6 /* TodayCoachAPIClientProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AE45E728815EAD5EBD9C735 /* TodayCoachAPIClientProtocol.swift */; };
 		F7E73D097F3A08BEDF56B266 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 037EFD3F8FC7EB77BA0867F9 /* HistoryView.swift */; };
 		F96867D0D15F6B08F57BE63D /* ActivityCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 014DCF40F81D11A32F788B9D /* ActivityCard.swift */; };
 		F994799790C8CC1E0350AB4D /* HealthKitManager+SleepRecovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7258704755587E192F5F8FBC /* HealthKitManager+SleepRecovery.swift */; };
@@ -304,6 +306,7 @@
 		44CA545D816A69914CAA801D /* BarcodeWalletView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeWalletView.swift; sourceTree = "<group>"; };
 		460D19A4C8322DAEFB0E907F /* BarcodeRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BarcodeRenderer.swift; sourceTree = "<group>"; };
 		48367AAA8A17A7612172F65D /* DebugTracing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugTracing.swift; sourceTree = "<group>"; };
+		48DEE855B7D5B4D96E89480E /* TodayCoachCardStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayCoachCardStateTests.swift; sourceTree = "<group>"; };
 		4969BBC9A12B2A735D9E5B4D /* TTSAudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TTSAudioEngine.swift; sourceTree = "<group>"; };
 		49FF31397C3FAAB4210662D7 /* StretchSessionStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchSessionStorage.swift; sourceTree = "<group>"; };
 		4DFB9E814FDDB86E3CDF2C9E /* CyclingDashboardCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingDashboardCard.swift; sourceTree = "<group>"; };
@@ -314,6 +317,7 @@
 		5772DDAD04489B4098A5A803 /* StravaAuthManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StravaAuthManager.swift; sourceTree = "<group>"; };
 		5A12DE5733AC6D6A7EBC02A8 /* WorkoutView+UI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WorkoutView+UI.swift"; sourceTree = "<group>"; };
 		5A9AE4A4D6D2084FF2AA9493 /* TodayCoachModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayCoachModels.swift; sourceTree = "<group>"; };
+		5AE45E728815EAD5EBD9C735 /* TodayCoachAPIClientProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayCoachAPIClientProtocol.swift; sourceTree = "<group>"; };
 		5B37E86AF5C7D66DFC52BB9D /* MeditationCategoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationCategoryView.swift; sourceTree = "<group>"; };
 		5D5A0886950E7BADC2693752 /* CyclingCoachClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingCoachClient.swift; sourceTree = "<group>"; };
 		5E1A44FEBF763CFAFCA15B58 /* TrainingBlockSetupView+Steps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TrainingBlockSetupView+Steps.swift"; sourceTree = "<group>"; };
@@ -506,6 +510,14 @@
 			path = Onboarding;
 			sourceTree = "<group>";
 		};
+		2429A679BEF58E13C9B8F1CF /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				48DEE855B7D5B4D96E89480E /* TodayCoachCardStateTests.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
 		271C767D84E2084D97BABEDF /* App */ = {
 			isa = PBXGroup;
 			children = (
@@ -621,6 +633,7 @@
 				5D864B935E827D4D83AE0A49 /* Helpers */,
 				E9760DAFE40A129317551F8F /* Services */,
 				28EAE20D1FE25AEBCDEE5375 /* ViewModels */,
+				2429A679BEF58E13C9B8F1CF /* Views */,
 			);
 			path = BradOSTests;
 			sourceTree = "<group>";
@@ -870,6 +883,7 @@
 			isa = PBXGroup;
 			children = (
 				FB1CF9466E261248F84B8305 /* CyclingAPIClientProtocol.swift */,
+				5AE45E728815EAD5EBD9C735 /* TodayCoachAPIClientProtocol.swift */,
 				78DBC0B68FE169AF0F187E1C /* WeightGoalAPIClientProtocol.swift */,
 			);
 			path = Protocols;
@@ -955,7 +969,11 @@
 			path = Services;
 			sourceTree = "<group>";
 		};
+<<<<<<< HEAD
 		"TEMP_6AF67D26-FE7F-4FC0-9CC4-E95A9F91FBAC" /* Resources */ = {
+=======
+		"TEMP_54C21B8E-9457-4281-8CB8-6B72B6D4D1ED" /* Resources */ = {
+>>>>>>> harness-improvement-039
 			isa = PBXGroup;
 			children = (
 			);
@@ -1260,6 +1278,7 @@
 				9094888501A23478EFDA8D3F /* TextToSpeechView.swift in Sources */,
 				3078497041DB37D85E0C5252 /* TextToSpeechViewModel.swift in Sources */,
 				4FC24427E23484BFB0EFC406 /* Theme.swift in Sources */,
+				F642A8B04B77E26F28AB66A6 /* TodayCoachAPIClientProtocol.swift in Sources */,
 				EDDDBF919FB21CBB633B60E1 /* TodayCoachCard+Content.swift in Sources */,
 				FB11F03866D780D418E46211 /* TodayCoachCard.swift in Sources */,
 				31019FE4FFBCA5704111E1C4 /* TodayCoachClient.swift in Sources */,
@@ -1299,6 +1318,10 @@
 				4BF4AC8189DD2E6AAA0816B1 /* ExerciseHistoryViewModelTests.swift in Sources */,
 				C2C14698C2A43B35B2C178CF /* MockURLProtocol.swift in Sources */,
 				39A24B2F60AA75CFF3708763 /* TextToSpeechViewModelTests.swift in Sources */,
+<<<<<<< HEAD
+=======
+				671E658C4FE8612400FE202D /* TodayCoachCardStateTests.swift in Sources */,
+>>>>>>> harness-improvement-039
 				643532BA0D4342125F7F5EB4 /* TodayCoachClientTests.swift in Sources */,
 				BA4C5CE0C2ED630651CA0F8E /* WeightGoalViewModelTests.swift in Sources */,
 			);

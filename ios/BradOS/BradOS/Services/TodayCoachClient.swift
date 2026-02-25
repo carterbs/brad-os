@@ -14,7 +14,7 @@ class TodayCoachClient: ObservableObject {
 
     // MARK: - Private Properties
 
-    private let apiClient: APIClient
+    private let apiClient: any TodayCoachAPIClientProtocol
     private var cacheTimestamp: Date?
     private let cacheTTL: TimeInterval = 1800 // 30 min
 
@@ -26,7 +26,7 @@ class TodayCoachClient: ObservableObject {
 
     // MARK: - Initialization
 
-    init(apiClient: APIClient = .shared) {
+    init(apiClient: any TodayCoachAPIClientProtocol = APIClient.shared) {
         self.apiClient = apiClient
     }
 
