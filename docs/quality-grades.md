@@ -28,13 +28,13 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 |--------|-------|---------------|-----------|------------|---------|----------|--------------|--------------|-------|
 | Lifting | **A** | High (23) | Medium (7) | 1225 | 2.2x | 92% | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. Most thoroughly tested domain, with coverage spanning handlers, services, and all repository layers. |
 | Meal Planning | **A** | High (16) | Medium (7) | 503 | 2.5x | 71% | Yes | Yes | 6 handler, 3 service, 5 repo, 1 integration, 1 schema tests. Strong multi-layer backend tests now include integration coverage alongside seven iOS tests. |
-| Cycling | **B+** | High (10) | Low (0) | 505 | 2.0x | 53% | Yes | Yes | 3 handler, 7 service tests. Rich backend service layer but CyclingViewModel has no iOS unit tests at all. |
+| Cycling | **B+** | High (10) | Medium (15) | 505 | 2.0x | 53% | Yes | Yes | 3 handler, 7 service tests. CyclingViewModel fully tested in app target (15 unit tests covering sessions, FTP, block lifecycle). |
 | Stretching | **B+** | Medium (5) | Medium (4) | 134 | 2.6x | 99% | Yes | Yes | 2 handler, 2 repo, 1 integration tests. Near-perfect backend coverage achieved with a lean, tightly focused test suite. |
 | Calendar | **B** | Low (3) | Low (2) | 190 | 2.5x | 100% | Yes | Yes | 1 handler, 1 service, 1 integration tests. Achieves full backend coverage with the smallest absolute test count of any domain. |
 | Meditation | **B+** | Medium (6) | Medium (4) | 213 | 2.7x | 51% | Yes | Yes | 3 handler, 2 repo, 1 integration tests. Solid breadth across handlers and repos, but backend coverage falls just below half. |
 | Health Sync | **B-** | Medium (4) | Low (3) | 213 | 2.8x | 25% | Yes | Yes | 2 handler, 1 service, 1 integration tests. Sync and recovery are now tested but the overall iOS/backend coverage remains thin. |
 | History | **B-** | (shared) | (shared) | 0 | — | -- | Yes | Yes | Reuses Calendar backend/ViewModel. No additional tests needed, but filter logic is untested. |
-| Today | **B** | Medium (4) | Low (1) | 71 | 2.4x | 67% | Yes | Yes | 1 handler, 2 service, 1 integration tests. AI briefing pipeline is well-tested backend-side; iOS has only a single unit test. |
+| Today | **B** | Medium (4) | High (21) | 71 | 2.4x | 67% | Yes | Yes | 1 handler, 2 service, 1 integration tests. TodayCoachClient and TodayCoachCard display-state logic now fully tested with protocol injection and pure state resolution. |
 | Profile | **B-** | (shared) | (shared) | 0 | — | -- | Yes | Yes | Settings hub, no own backend. Relies on health-sync and cycling backends. |
 
 ---
@@ -94,7 +94,8 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 - Stretching: StretchUrgencyTests, CompletedStretchTests, StretchDefinitionTests, StretchSessionTests (4)
 - Meditation: GuidedMeditationComponentTests, GuidedMeditationScriptTests, MeditationSessionTests, MeditationStatsTests (4)
 - Calendar: CalendarActivityTests, CalendarViewModelTests (2)
-- Today: DashboardViewModelTests (1)
+- Cycling: CyclingViewModelTests (15)
+- Today: DashboardViewModelTests, TodayCoachClientTests, TodayCoachCardStateTests (21)
 - Profile: ProfileViewModelTests (1)
 - Health Sync: HealthChartModelsTests, HealthSyncModelsTests, HealthMetricHistoryViewModelTests (3)
 - Shared: DateHelpersTests, TestHelpers, APIErrorTests, LoadStateTests (4)
@@ -122,7 +123,6 @@ All handler and service files have corresponding tests.
 - [x] **Firestore Recovery service** - No tests for `firestore-recovery.service.ts` (all health data CRUD).
 - [x] **Firestore Cycling service** - No tests for `firestore-cycling.service.ts` (all cycling data CRUD).
 - [ ] **Cycling repo layer** - No repository tests for cycling (data stored in user subcollections, not top-level repos).
-- [ ] **iOS Cycling unit tests** - CyclingViewModel has no unit tests in BradOSCore.
 
 ### Other
 
@@ -138,6 +138,8 @@ All handler and service files have corresponding tests.
 - [x] **Firestore Recovery service tests** - `firestore-recovery.service.test.ts` now covers all health data CRUD.
 - [x] **Firestore Cycling service tests** - `firestore-cycling.service.test.ts` now covers all cycling data CRUD.
 - [x] **Meal Planning integration tests** - `meals.integration.test.ts` now covers the meal plan API end-to-end.
+- [x] **iOS Cycling unit tests** - CyclingViewModel moved to app target with 15 unit tests covering sessions, FTP, and block lifecycle. Protocol-injected mock in app test doubles.
+- [x] **iOS Today Coach tests** - TodayCoachClient gains protocol injection seam (21 iOS tests total); TodayCoachCard display-state extracted as pure resolveDisplayState for exhaustive state-machine tests.
 - [x] **LoadStateView + Error.displayMessage (iOS)** - Generic loading state wrapper. Migrated ExercisesView, ExerciseHistoryView, CalendarViewModel.
 - [x] **Snake case encoder + CodingKeys cleanup (iOS)** - Added `snakeCaseEncoder` to APIClient, removed 6 manual CodingKeys enums.
 - [x] **Architecture layer violation fixes** - Fixed all 51 iOS architecture layer violations (Views referencing Service types directly).

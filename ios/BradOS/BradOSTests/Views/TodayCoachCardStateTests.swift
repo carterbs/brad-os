@@ -201,30 +201,4 @@ struct TodayCoachCardStateTests {
     }
 }
 
-// MARK: - Helper
-
-func makeRecoveryData(
-    date: Date = Date(),
-    hrvMs: Int = 45,
-    hrvVsBaseline: Double = 1.2,
-    rhrBpm: Int = 55,
-    rhrVsBaseline: Double = 0.95,
-    sleepHours: Double = 8.0,
-    sleepEfficiency: Double = 0.85,
-    deepSleepPercent: Double = 0.25,
-    score: Int = 85,
-    state: RecoveryState = .good
-) -> RecoveryData {
-    RecoveryData(
-        date: date,
-        hrvMs: hrvMs,
-        hrvVsBaseline: hrvVsBaseline,
-        rhrBpm: rhrBpm,
-        rhrVsBaseline: rhrVsBaseline,
-        sleepHours: sleepHours,
-        sleepEfficiency: sleepEfficiency,
-        deepSleepPercent: deepSleepPercent,
-        score: score,
-        state: state
-    )
-}
+// makeRecoveryData is defined in AppTestDoubles.swift
