@@ -1,6 +1,6 @@
 # Domain Quality Grades
 
-Last updated: 2026-02-24
+Last updated: 2026-02-25
 
 ## Grading Methodology
 
@@ -26,15 +26,15 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 
 | Domain | Grade | Backend Tests | iOS Tests | Assertions | Density | Coverage | API Complete | iOS Complete | Notes |
 |--------|-------|---------------|-----------|------------|---------|----------|--------------|--------------|-------|
-| Lifting | **A** | High (23) | Medium (7) | 1225 | 2.2x | 92% | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. Most thoroughly tested domain, with coverage spanning handlers, services, and all repository layers. |
-| Meal Planning | **A** | High (16) | Medium (7) | 503 | 2.5x | 71% | Yes | Yes | 6 handler, 3 service, 5 repo, 1 integration, 1 schema tests. Strong multi-layer backend tests now include integration coverage alongside seven iOS tests. |
-| Cycling | **B+** | High (10) | Low (0) | 505 | 2.0x | 53% | Yes | Yes | 3 handler, 7 service tests. Rich backend service layer but CyclingViewModel has no iOS unit tests at all. |
-| Stretching | **B+** | Medium (5) | Medium (4) | 134 | 2.6x | 99% | Yes | Yes | 2 handler, 2 repo, 1 integration tests. Near-perfect backend coverage achieved with a lean, tightly focused test suite. |
-| Calendar | **B** | Low (3) | Low (2) | 190 | 2.5x | 100% | Yes | Yes | 1 handler, 1 service, 1 integration tests. Achieves full backend coverage with the smallest absolute test count of any domain. |
-| Meditation | **B+** | Medium (6) | Medium (4) | 213 | 2.7x | 51% | Yes | Yes | 3 handler, 2 repo, 1 integration tests. Solid breadth across handlers and repos, but backend coverage falls just below half. |
-| Health Sync | **B-** | Medium (4) | Low (3) | 213 | 2.8x | 25% | Yes | Yes | 2 handler, 1 service, 1 integration tests. Sync and recovery are now tested but the overall iOS/backend coverage remains thin. |
+| Lifting | **A** | High (23) | Medium (7) | 1225 | 2.2x | -- | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. |
+| Meal Planning | **A** | High (16) | Medium (7) | 503 | 2.5x | -- | Yes | Yes | 6 handler, 3 service, 5 repo, 1 integration, 1 schema tests. |
+| Cycling | **B+** | High (10) | Low (2) | 505 | 2.0x | -- | Yes | Yes | 3 handler, 7 service tests. |
+| Stretching | **B+** | Medium (5) | Medium (4) | 134 | 2.6x | -- | Yes | Yes | 2 handler, 2 repo, 1 integration tests. |
+| Calendar | **B** | Low (3) | Low (2) | 190 | 2.5x | -- | Yes | Yes | 1 handler, 1 service, 1 integration tests. |
+| Meditation | **B+** | Medium (6) | Medium (4) | 213 | 2.7x | -- | Yes | Yes | 3 handler, 2 repo, 1 integration tests. |
+| Health Sync | **B** | Medium (4) | Low (3) | 213 | 2.8x | -- | Yes | Yes | 2 handler, 1 service, 1 integration tests. |
 | History | **B-** | (shared) | (shared) | 0 | — | -- | Yes | Yes | Reuses Calendar backend/ViewModel. No additional tests needed, but filter logic is untested. |
-| Today | **B** | Medium (4) | Low (1) | 71 | 2.4x | 67% | Yes | Yes | 1 handler, 2 service, 1 integration tests. AI briefing pipeline is well-tested backend-side; iOS has only a single unit test. |
+| Today | **B** | Medium (4) | Low (1) | 71 | 2.4x | -- | Yes | Yes | 1 handler, 2 service, 1 integration tests. |
 | Profile | **B-** | (shared) | (shared) | 0 | — | -- | Yes | Yes | Settings hub, no own backend. Relies on health-sync and cycling backends. |
 
 ---
@@ -97,6 +97,7 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 - Today: DashboardViewModelTests (1)
 - Profile: ProfileViewModelTests (1)
 - Health Sync: HealthChartModelsTests, HealthSyncModelsTests, HealthMetricHistoryViewModelTests (3)
+- Cycling: CyclingTestDoubles, CyclingViewModelTests (2)
 - Shared: DateHelpersTests, TestHelpers, APIErrorTests, LoadStateTests (4)
 
 ### Untested Backend Files
