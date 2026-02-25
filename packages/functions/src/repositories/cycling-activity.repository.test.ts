@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Firestore, CollectionReference, DocumentReference } from 'firebase-admin/firestore';
-import { CyclingActivityRepository, type CyclingActivityUpdate } from './cycling-activity.repository.js';
-import type { CyclingActivity, ActivityStreamData } from '../types/cycling.js';
+import { CyclingActivityRepository } from './cycling-activity.repository.js';
+import type { CyclingActivityUpdate, CyclingActivity, ActivityStreamData } from '../shared.js';
 
 // Mock firebase module before importing repository
 vi.mock('../firebase.js', () => ({

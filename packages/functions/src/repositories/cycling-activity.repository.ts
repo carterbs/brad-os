@@ -11,22 +11,7 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
 import { getFirestoreDb, getCollectionName } from '../firebase.js';
-import type { CyclingActivity, ActivityStreamData } from '../types/cycling.js';
-
-/**
- * Partial update for cycling activity optional fields.
- */
-export type CyclingActivityUpdate = Partial<
-  Pick<CyclingActivity, 'ef' | 'peak5MinPower' | 'peak20MinPower' | 'hrCompleteness'>
->;
-
-/**
- * Result of deleting a cycling activity.
- */
-export interface DeleteCyclingActivityResult {
-  deleted: boolean;
-  hadStreams: boolean;
-}
+import type { CyclingActivity, ActivityStreamData, CyclingActivityUpdate, DeleteCyclingActivityResult } from '../shared.js';
 
 export class CyclingActivityRepository {
   private db: Firestore;
