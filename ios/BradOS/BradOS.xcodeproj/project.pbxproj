@@ -969,8 +969,8 @@
 			path = Services;
 			sourceTree = "<group>";
 		};
-		"TEMP_73ACEDE3-01D0-4279-A372-AADE64B246FE" /* Resources */ = {
-			isa = PBXGroup;
+			"TEMP_73ACEDE3-01D0-4279-A372-AADE64B246FE" /* Resources */ = {
+				isa = PBXGroup;
 			children = (
 			);
 			path = Resources;
