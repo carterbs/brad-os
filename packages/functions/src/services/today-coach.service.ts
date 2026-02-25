@@ -276,6 +276,7 @@ Important:
 
 /**
  * Validates that a parsed response matches the TodayCoachResponse shape.
+ * Enforces strict validation of all required nested fields to catch partial responses.
  */
 export function isValidTodayCoachResponse(data: unknown): data is TodayCoachResponse {
   if (typeof data !== 'object' || data === null) {
@@ -331,6 +332,23 @@ export function isValidTodayCoachResponse(data: unknown): data is TodayCoachResp
     if (typeof cycling['insight'] !== 'string') return false;
     const validCyclingPriorities = ['high', 'normal', 'skip'];
     if (!validCyclingPriorities.includes(cycling['priority'] as string)) return false;
+
+    // Validate session object if present
+    if (cycling['session'] !== null && cycling['session'] !== undefined) {
+      const session = cycling['session'] as Record<string, unknown>;
+      if (typeof session['type'] !== 'string') return false;
+      if (typeof session['durationMinutes'] !== 'number') return false;
+      if (!Array.isArray(session['pelotonClassTypes'])) return false;
+      if (typeof session['pelotonTip'] !== 'string') return false;
+
+      const targetTSS = session['targetTSS'];
+      if (typeof targetTSS !== 'object' || targetTSS === null) return false;
+      const tss = targetTSS as Record<string, unknown>;
+      if (typeof tss['min'] !== 'number') return false;
+      if (typeof tss['max'] !== 'number') return false;
+
+      if (typeof session['targetZones'] !== 'string') return false;
+    }
   }
 
   // Stretching section (required)
@@ -341,6 +359,8 @@ export function isValidTodayCoachResponse(data: unknown): data is TodayCoachResp
   const str = stretching as Record<string, unknown>;
   if (typeof str['insight'] !== 'string') return false;
   if (!Array.isArray(str['suggestedRegions'])) return false;
+  const validStretchPriorities = ['high', 'normal', 'low'];
+  if (!validStretchPriorities.includes(str['priority'] as string)) return false;
 
   // Meditation section (required)
   const meditation = sec['meditation'];
@@ -350,10 +370,25 @@ export function isValidTodayCoachResponse(data: unknown): data is TodayCoachResp
   const med = meditation as Record<string, unknown>;
   if (typeof med['insight'] !== 'string') return false;
   if (typeof med['suggestedDurationMinutes'] !== 'number') return false;
+  const validMeditationPriorities = ['high', 'normal', 'low'];
+  if (!validMeditationPriorities.includes(med['priority'] as string)) return false;
 
-  // Warnings (required array)
+  // Weight section (nullable)
+  if (sec['weight'] !== null && sec['weight'] !== undefined) {
+    const weight = sec['weight'] as Record<string, unknown>;
+    if (typeof weight['insight'] !== 'string') return false;
+  }
+
+  // Warnings (required array with strict item validation)
   if (!Array.isArray(obj['warnings'])) {
     return false;
+  }
+  const warnings = obj['warnings'] as unknown[];
+  for (const warning of warnings) {
+    if (typeof warning !== 'object' || warning === null) return false;
+    const w = warning as Record<string, unknown>;
+    if (typeof w['type'] !== 'string') return false;
+    if (typeof w['message'] !== 'string') return false;
   }
 
   return true;

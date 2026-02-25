@@ -1,12 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock OpenAI before importing the service
+// Mock OpenAI before importing the service - expose mockCreate for test control
+const mockCreate = vi.fn();
 vi.mock('openai', () => {
   return {
     default: vi.fn().mockImplementation(() => ({
       chat: {
         completions: {
-          create: vi.fn(),
+          create: mockCreate,
         },
       },
     })),
@@ -24,6 +25,7 @@ import {
   buildTodayCoachSystemPrompt,
   isValidTodayCoachResponse,
   createFallbackResponse,
+  getTodayCoachRecommendation,
 } from './today-coach.service.js';
 import type { TodayCoachRequest } from '../shared.js';
 
@@ -85,6 +87,10 @@ function createMinimalCoachRequest(
 }
 
 describe('Today Coach Service', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   describe('buildTodayCoachSystemPrompt', () => {
     it('should return a non-empty system prompt string', () => {
       const prompt = buildTodayCoachSystemPrompt();
@@ -233,5 +239,250 @@ describe('Today Coach Service', () => {
       const lowResponse = createFallbackResponse(lowScoreRequest);
       expect(lowResponse.sections.recovery.status).toBe('warning');
     });
+  });
+
+  describe('isValidTodayCoachResponse - nested field validation', () => {
+    it('should reject cycling session with missing required fields', () => {
+      const invalidResponse = {
+        dailyBriefing: 'Test',
+        sections: {
+          recovery: { insight: 'Test', status: 'good' },
+          lifting: null,
+          cycling: {
+            insight: 'Test',
+            session: {
+              type: 'threshold',
+              durationMinutes: 60,
+              pelotonClassTypes: [],
+              pelotonTip: 'Test tip',
+              // Missing targetTSS and targetZones
+            },
+            priority: 'normal',
+          },
+          stretching: { insight: 'Test', suggestedRegions: [], priority: 'normal' },
+          meditation: { insight: 'Test', suggestedDurationMinutes: 10, priority: 'normal' },
+          weight: null,
+        },
+        warnings: [],
+      };
+      expect(isValidTodayCoachResponse(invalidResponse)).toBe(false);
+    });
+
+    it('should reject missing stretching priority', () => {
+      const invalidResponse = {
+        dailyBriefing: 'Test',
+        sections: {
+          recovery: { insight: 'Test', status: 'good' },
+          lifting: null,
+          cycling: null,
+          stretching: { insight: 'Test', suggestedRegions: [] },
+          meditation: { insight: 'Test', suggestedDurationMinutes: 10, priority: 'normal' },
+          weight: null,
+        },
+        warnings: [],
+      };
+      expect(isValidTodayCoachResponse(invalidResponse)).toBe(false);
+    });
+
+    it('should reject missing meditation priority', () => {
+      const invalidResponse = {
+        dailyBriefing: 'Test',
+        sections: {
+          recovery: { insight: 'Test', status: 'good' },
+          lifting: null,
+          cycling: null,
+          stretching: { insight: 'Test', suggestedRegions: [], priority: 'normal' },
+          meditation: { insight: 'Test', suggestedDurationMinutes: 10 },
+          weight: null,
+        },
+        warnings: [],
+      };
+      expect(isValidTodayCoachResponse(invalidResponse)).toBe(false);
+    });
+
+    it('should reject invalid warning item (missing message)', () => {
+      const invalidResponse = {
+        dailyBriefing: 'Test',
+        sections: {
+          recovery: { insight: 'Test', status: 'good' },
+          lifting: null,
+          cycling: null,
+          stretching: { insight: 'Test', suggestedRegions: [], priority: 'normal' },
+          meditation: { insight: 'Test', suggestedDurationMinutes: 10, priority: 'normal' },
+          weight: null,
+        },
+        warnings: [{ type: 'overtraining' }],
+      };
+      expect(isValidTodayCoachResponse(invalidResponse)).toBe(false);
+    });
+
+    it('should reject weight section without insight', () => {
+      const invalidResponse = {
+        dailyBriefing: 'Test',
+        sections: {
+          recovery: { insight: 'Test', status: 'good' },
+          lifting: null,
+          cycling: null,
+          stretching: { insight: 'Test', suggestedRegions: [], priority: 'normal' },
+          meditation: { insight: 'Test', suggestedDurationMinutes: 10, priority: 'normal' },
+          weight: {},
+        },
+        warnings: [],
+      };
+      expect(isValidTodayCoachResponse(invalidResponse)).toBe(false);
+    });
+
+    it('should accept valid response with complete cycling session', () => {
+      const validResponse = {
+        dailyBriefing: 'Great day',
+        sections: {
+          recovery: { insight: 'Recovery is good.', status: 'good' },
+          lifting: null,
+          cycling: {
+            insight: 'Cycling looks good.',
+            session: {
+              type: 'threshold',
+              durationMinutes: 60,
+              pelotonClassTypes: ['Power Zone'],
+              pelotonTip: 'Take the latest class',
+              targetTSS: { min: 100, max: 150 },
+              targetZones: 'Zones 3-4',
+            },
+            priority: 'normal',
+          },
+          stretching: { insight: 'Stretch well.', suggestedRegions: ['back'], priority: 'normal' },
+          meditation: { insight: 'Meditate.', suggestedDurationMinutes: 10, priority: 'normal' },
+          weight: { insight: 'Weight is stable.' },
+        },
+        warnings: [{ type: 'overtraining', message: 'Watch for overtraining' }],
+      };
+      expect(isValidTodayCoachResponse(validResponse)).toBe(true);
+    });
+  });
+
+  describe('getTodayCoachRecommendation - fallback scenarios', () => {
+    it('should return fallback response when OpenAI returns malformed JSON', async () => {
+      const request = createMinimalCoachRequest();
+
+      mockCreate.mockResolvedValue({
+        choices: [
+          { message: { content: 'this is not valid json at all' } },
+        ],
+      });
+
+      const result = await getTodayCoachRecommendation(request, 'test-api-key');
+
+      expect(result.sections.recovery).toBeDefined();
+      expect(result.sections.stretching).toBeDefined();
+      expect(result.sections.meditation).toBeDefined();
+      const fallbackWarning = result.warnings.find((w) => w.type === 'fallback');
+      expect(fallbackWarning).toBeDefined();
+      expect(fallbackWarning?.message).toContain('default recommendation');
+    });
+
+    it('should return fallback response when OpenAI JSON is missing meditation.priority', async () => {
+      const request = createMinimalCoachRequest();
+
+      mockCreate.mockResolvedValue({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                dailyBriefing: 'Test',
+                sections: {
+                  recovery: { insight: 'Test', status: 'good' },
+                  lifting: null,
+                  cycling: null,
+                  stretching: { insight: 'Test', suggestedRegions: [], priority: 'normal' },
+                  meditation: { insight: 'Test', suggestedDurationMinutes: 10 },
+                  weight: null,
+                },
+                warnings: [],
+              }),
+            },
+          },
+        ],
+      });
+
+      const result = await getTodayCoachRecommendation(request, 'test-api-key');
+
+      expect(result.sections.recovery).toBeDefined();
+      const fallbackWarning = result.warnings.find((w) => w.type === 'fallback');
+      expect(fallbackWarning).toBeDefined();
+    });
+
+    it('should return fallback response after timeout-like OpenAI errors and retry 3 times', async () => {
+      const request = createMinimalCoachRequest();
+
+      mockCreate.mockRejectedValue(new Error('Connection timeout'));
+
+      const result = await getTodayCoachRecommendation(request, 'test-api-key');
+
+      expect(result.sections.recovery).toBeDefined();
+      const fallbackWarning = result.warnings.find((w) => w.type === 'fallback');
+      expect(fallbackWarning).toBeDefined();
+      // Should have retried 3 times
+      expect(mockCreate).toHaveBeenCalledTimes(3);
+    }, { timeout: 30000 });
+
+    it('should return valid parsed AI response when OpenAI returns valid full JSON', async () => {
+      const request = createMinimalCoachRequest();
+
+      const validAIResponse = {
+        dailyBriefing: 'Great recovery today. Time for a solid workout.',
+        sections: {
+          recovery: { insight: 'Recovery score is 75/100.', status: 'good' },
+          lifting: null,
+          cycling: null,
+          stretching: { insight: 'Consider stretching.', suggestedRegions: ['back'], priority: 'normal' },
+          meditation: { insight: 'Short session recommended.', suggestedDurationMinutes: 10, priority: 'normal' },
+          weight: null,
+        },
+        warnings: [],
+      };
+
+      mockCreate.mockResolvedValue({
+        choices: [
+          { message: { content: JSON.stringify(validAIResponse) } },
+        ],
+        usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+      });
+
+      const result = await getTodayCoachRecommendation(request, 'test-api-key');
+
+      expect(result.dailyBriefing).toBe(validAIResponse.dailyBriefing);
+      expect(result.sections.recovery.status).toBe('good');
+      expect(result.warnings.length).toBe(0);
+      expect(mockCreate).toHaveBeenCalledTimes(1);
+    });
+
+    it('should succeed on retry after transient failure', async () => {
+      const request = createMinimalCoachRequest();
+
+      const validAIResponse = {
+        dailyBriefing: 'Good recovery.',
+        sections: {
+          recovery: { insight: 'Recovery is good.', status: 'good' },
+          lifting: null,
+          cycling: null,
+          stretching: { insight: 'Stretch.', suggestedRegions: [], priority: 'normal' },
+          meditation: { insight: 'Meditate.', suggestedDurationMinutes: 10, priority: 'normal' },
+          weight: null,
+        },
+        warnings: [],
+      };
+
+      mockCreate
+        .mockRejectedValueOnce(new Error('Connection reset'))
+        .mockResolvedValueOnce({
+          choices: [{ message: { content: JSON.stringify(validAIResponse) } }],
+          usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+        });
+
+      const result = await getTodayCoachRecommendation(request, 'test-api-key');
+
+      expect(result.dailyBriefing).toBe('Good recovery.');
+      expect(mockCreate).toHaveBeenCalledTimes(2);
+    }, { timeout: 30000 });
   });
 });
