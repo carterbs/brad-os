@@ -164,7 +164,8 @@ app.get(
   '/recovery/history',
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     const userId = getUserId(req);
-    const days = Math.min(Math.max(1, parseInt(String(req.query['days']), 10) || 7), 90);
+    const parsed = parseInt(String(req.query['days']), 10);
+    const days = Math.min(Math.max(1, Number.isNaN(parsed) ? 7 : parsed), 90);
     info(`${TAG} GET /recovery/history`, { userId, days });
 
     const history = await recoveryService.getRecoveryHistory(userId, days);
