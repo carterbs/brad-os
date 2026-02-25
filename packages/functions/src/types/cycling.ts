@@ -47,6 +47,21 @@ export interface CyclingActivity {
 }
 
 /**
+ * Partial update for cycling activity optional fields.
+ */
+export type CyclingActivityUpdate = Partial<
+  Pick<CyclingActivity, 'ef' | 'peak5MinPower' | 'peak20MinPower' | 'hrCompleteness'>
+>;
+
+/**
+ * Result of deleting a cycling activity.
+ */
+export interface DeleteCyclingActivityResult {
+  deleted: boolean;
+  hadStreams: boolean;
+}
+
+/**
  * Raw time-series stream data stored per activity.
  * Stored in subcollection: cyclingActivities/{activityId}/streams/data
  */

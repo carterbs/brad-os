@@ -27,14 +27,17 @@ export class IngredientRepository extends BaseRepository<
     return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Ingredient);
   }
 
+  // Intentional read-only guardrail: Ingredient data is managed externally and not writable via this repository.
   create(_data: IngredientCreateDTO): Promise<Ingredient> {
     return Promise.reject(new Error('IngredientRepository.create is not implemented'));
   }
 
+  // Intentional read-only guardrail: Ingredient data is managed externally and not writable via this repository.
   override async update(_id: string, _data: IngredientUpdateDTO): Promise<Ingredient | null> {
     return Promise.reject(new Error('IngredientRepository.update is not implemented'));
   }
 
+  // Intentional read-only guardrail: Ingredient data is managed externally and not writable via this repository.
   override async delete(_id: string): Promise<boolean> {
     return Promise.reject(new Error('IngredientRepository.delete is not implemented'));
   }

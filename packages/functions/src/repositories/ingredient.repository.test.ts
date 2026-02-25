@@ -105,4 +105,30 @@ describe('IngredientRepository', () => {
       expect(result).toBeNull();
     });
   });
+
+  describe('write-guard methods', () => {
+    it('should reject create with not implemented error', async () => {
+      const repository = new IngredientRepository(mockDb as Firestore);
+
+      await expect(repository.create({ name: 'Carrot', store_section: 'Produce' })).rejects.toThrow(
+        'IngredientRepository.create is not implemented'
+      );
+    });
+
+    it('should reject update with not implemented error', async () => {
+      const repository = new IngredientRepository(mockDb as Firestore);
+
+      await expect(repository.update('ing-1', { name: 'Modified' })).rejects.toThrow(
+        'IngredientRepository.update is not implemented'
+      );
+    });
+
+    it('should reject delete with not implemented error', async () => {
+      const repository = new IngredientRepository(mockDb as Firestore);
+
+      await expect(repository.delete('ing-1')).rejects.toThrow(
+        'IngredientRepository.delete is not implemented'
+      );
+    });
+  });
 });

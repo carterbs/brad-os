@@ -440,6 +440,58 @@ describe('GuidedMeditationRepository', () => {
       expect((result?.segments[0] as { id: string }).id).toBe('segment-id-1');
       expect(randomUUIDMock).toHaveBeenCalledTimes(1);
     });
+
+    it('should update scalar fields only without regenerating segment ids when segments are not provided', async () => {
+      const existing: GuidedMeditationScript = {
+        id: 'script-1',
+        category: 'focus',
+        title: 'Focus',
+        subtitle: 'One',
+        orderIndex: 1,
+        durationSeconds: 120,
+        segments: [{ id: 'seg-old', startSeconds: 0, text: 'x', phase: 'opening' }],
+        interjections: [{ windowStartSeconds: 0, windowEndSeconds: 1, textOptions: ['a'] }],
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+      };
+      const updated: GuidedMeditationScript = {
+        id: 'script-1',
+        category: 'focus',
+        title: 'Updated Title',
+        subtitle: 'One',
+        orderIndex: 1,
+        durationSeconds: 120,
+        segments: [{ id: 'seg-old', startSeconds: 0, text: 'x', phase: 'opening' }],
+        interjections: [{ windowStartSeconds: 0, windowEndSeconds: 1, textOptions: ['a'] }],
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: expect.any(String) as unknown as string,
+      };
+
+      (mockDocRef.get as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(createMockDoc('script-1', existing))
+        .mockResolvedValueOnce(createMockDoc('script-1', {
+          ...updated,
+          updated_at: '2024-01-02T00:00:00Z',
+        }));
+
+      const repository = new GuidedMeditationRepository(mockDb as Firestore);
+      const initialCallCount = randomUUIDMock.mock.calls.length;
+
+      const result = await repository.update('script-1', {
+        title: 'Updated Title',
+      });
+
+      expect(mockDocRef.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Updated Title',
+          updated_at: expect.any(String) as unknown as string,
+        })
+      );
+      expect(result?.title).toBe('Updated Title');
+      expect((result?.segments[0] as { id: string }).id).toBe('seg-old');
+      // Verify no new UUIDs were generated for this scalar-only update
+      expect(randomUUIDMock.mock.calls.length).toBe(initialCallCount);
+    });
   });
 
   describe('seed', () => {
