@@ -111,6 +111,7 @@ const IOS_TEST_DOMAIN_MAP: Record<string, string> = {
   'CalendarViewModelTests': 'calendar',
   'DashboardViewModelTests': 'today',
   'ProfileViewModelTests': 'profile',
+  'CyclingViewModelTests': 'cycling',
   'APIErrorTests': 'shared',
   'DateHelpersTests': 'shared',
   'LoadStateTests': 'shared',

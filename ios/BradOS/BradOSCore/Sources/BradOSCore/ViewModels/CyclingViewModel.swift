@@ -1,0 +1,340 @@
+import Foundation
+
+// MARK: - Cycling ViewModel
+
+/// View model for cycling data management
+@MainActor
+public class CyclingViewModel: ObservableObject {
+
+    // MARK: - Published Properties
+
+    @Published public var activities: [CyclingActivityModel] = []
+    @Published public var currentBlock: TrainingBlockModel?
+    @Published public var trainingLoad: TrainingLoadModel?
+    @Published public var currentFTP: Int?
+    @Published public var ftpLastTested: Date?
+    @Published public var isLoading = false
+    @Published public var error: String?
+
+    // Chart data
+    @Published public var tssHistory: [TSSDataPoint]?
+    @Published public var loadHistory: [TrainingLoadDataPoint]?
+
+    // VO2 Max data
+    @Published public var vo2maxEstimate: VO2MaxEstimateModel?
+    @Published public var vo2maxHistory: [VO2MaxEstimateModel] = []
+
+    // Efficiency Factor data
+    @Published public var efHistory: [EFDataPoint] = []
+
+    /// Whether FTP has been set
+    public var hasFTP: Bool {
+        currentFTP != nil
+    }
+
+    /// The next incomplete session in this week's queue
+    public var nextSession: WeeklySessionModel? {
+        guard let sessions = currentBlock?.weeklySessions else { return nil }
+        let completed = sessionsCompletedThisWeek
+        guard completed < sessions.count else { return nil }
+        return sessions[completed]
+    }
+
+    /// Number of sessions completed this week (matched against Strava activities)
+    public var sessionsCompletedThisWeek: Int {
+        guard let sessions = currentBlock?.weeklySessions else { return 0 }
+        let calendar = Calendar.current
+        let startOfWeek = calendar.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
+        let thisWeekActivities = activities.filter { $0.date >= startOfWeek }
+
+        var matchedCount = 0
+        var usedActivityIds: Set<String> = []
+
+        for session in sessions {
+            let sessionType = SessionType(rawValue: session.sessionType)
+            let matched = thisWeekActivities.first { activity in
+                !usedActivityIds.contains(activity.id) && activityMatchesSession(activity, sessionType: sessionType)
+            }
+            if let matched = matched {
+                usedActivityIds.insert(matched.id)
+                matchedCount += 1
+            } else {
+                break
+            }
+        }
+
+        return matchedCount
+    }
+
+    /// Total weekly sessions in current block
+    public var weeklySessionsTotal: Int {
+        currentBlock?.weeklySessions?.count ?? 0
+    }
+
+    private func activityMatchesSession(_ activity: CyclingActivityModel, sessionType: SessionType?) -> Bool {
+        guard let sessionType = sessionType else { return true }
+        switch sessionType {
+        case .vo2max: return activity.type == .vo2max
+        case .threshold: return activity.type == .threshold
+        case .endurance, .tempo, .fun: return activity.type == .fun || activity.type == .unknown
+        case .recovery: return activity.type == .recovery
+        case .off: return false
+        }
+    }
+
+    // MARK: - Private Properties
+
+    private let apiClient: any CyclingAPIClientProtocol
+
+    // MARK: - Initialization
+
+    public init(apiClient: any CyclingAPIClientProtocol) {
+        self.apiClient = apiClient
+    }
+
+    // MARK: - Data Loading
+
+    /// Load all cycling data from the API
+    public func loadData() async {
+        isLoading = true
+        defer { isLoading = false }
+
+        // Fetch all data concurrently
+        await withTaskGroup(of: Void.self) { group in
+            group.addTask { await self.fetchActivities() }
+            group.addTask { await self.fetchTrainingLoad() }
+            group.addTask { await self.fetchFTP() }
+            group.addTask { await self.fetchBlock() }
+            group.addTask { await self.fetchVO2Max() }
+            group.addTask { await self.fetchEFHistory() }
+        }
+
+        loadChartData()
+    }
+
+    private func fetchActivities() async {
+        do {
+            activities = try await apiClient.getCyclingActivities(limit: 30)
+        } catch {
+            // Silently handle error - user can see empty state
+        }
+    }
+
+    private func fetchTrainingLoad() async {
+        do {
+            let response = try await apiClient.getCyclingTrainingLoad()
+            trainingLoad = TrainingLoadModel(atl: response.atl, ctl: response.ctl, tsb: response.tsb)
+        } catch {
+            // Silently handle error
+        }
+    }
+
+    private func fetchFTP() async {
+        do {
+            if let ftp = try await apiClient.getCurrentFTP() {
+                currentFTP = ftp.value
+                let formatter = DateFormatter()
+                formatter.dateFormat = "yyyy-MM-dd"
+                ftpLastTested = formatter.date(from: ftp.date)
+            }
+        } catch {
+            // Silently handle error
+        }
+    }
+
+    private func fetchBlock() async {
+        do {
+            if let block = try await apiClient.getCurrentBlock() {
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy-MM-dd"
+                let startDate = dateFormatter.date(from: block.startDate) ?? Date()
+                let endDate = dateFormatter.date(from: block.endDate) ?? Date()
+                let goals = block.goals.compactMap { TrainingBlockModel.TrainingGoal(rawValue: $0) }
+
+                currentBlock = TrainingBlockModel(
+                    id: block.id,
+                    startDate: startDate,
+                    endDate: endDate,
+                    currentWeek: block.currentWeek,
+                    goals: goals,
+                    status: block.status == "completed" ? .completed : .active,
+                    daysPerWeek: block.daysPerWeek,
+                    weeklySessions: block.weeklySessions,
+                    preferredDays: block.preferredDays,
+                    experienceLevel: ExperienceLevel(rawValue: block.experienceLevel ?? ""),
+                    weeklyHoursAvailable: block.weeklyHoursAvailable
+                )
+            }
+        } catch {
+            // Silently handle error
+        }
+    }
+
+    private func fetchVO2Max() async {
+        do {
+            let response = try await apiClient.getVO2Max()
+            vo2maxEstimate = response.latest
+            vo2maxHistory = response.history
+        } catch {
+            // Silently handle error
+        }
+    }
+
+    private func fetchEFHistory() async {
+        do {
+            efHistory = try await apiClient.getEFHistory()
+        } catch {
+            // Silently handle error
+        }
+    }
+
+    /// Build chart data from loaded activities
+    private func loadChartData() {
+        // Build TSS history by week from real activities
+        let calendar = Calendar.current
+        var weeklyTSS: [String: Int] = [:]
+        for activity in activities {
+            let weekOfYear = calendar.component(.weekOfYear, from: activity.date)
+            let label = "W\(weekOfYear)"
+            weeklyTSS[label, default: 0] += Int(activity.tss)
+        }
+        tssHistory = weeklyTSS.sorted { $0.key < $1.key }
+            .suffix(8)
+            .map { TSSDataPoint(weekLabel: $0.key, tss: $0.value) }
+
+        // Build training load history from activities (simplified daily TSS)
+        let thirtyDaysAgo = calendar.date(byAdding: .day, value: -28, to: Date()) ?? Date()
+        let recentActivities = activities.filter { $0.date >= thirtyDaysAgo }
+
+        // Group by day
+        var dailyTSS: [Date: Double] = [:]
+        for activity in recentActivities {
+            let day = calendar.startOfDay(for: activity.date)
+            dailyTSS[day, default: 0] += activity.tss
+        }
+
+        // Generate load history points
+        var runningATL = trainingLoad?.atl ?? 0
+        var runningCTL = trainingLoad?.ctl ?? 0
+        loadHistory = (0..<28).compactMap { daysAgo -> TrainingLoadDataPoint? in
+            guard let date = calendar.date(byAdding: .day, value: -daysAgo, to: Date()) else { return nil }
+            let day = calendar.startOfDay(for: date)
+            let tss = dailyTSS[day] ?? 0
+
+            // Simplified exponential decay
+            runningATL += (tss - runningATL) / 7
+            runningCTL += (tss - runningCTL) / 42
+
+            return TrainingLoadDataPoint(date: date, ctl: runningCTL, atl: runningATL, tsb: runningCTL - runningATL)
+        }.reversed()
+    }
+
+    // MARK: - Block Management
+
+    /// Start a new training block
+    public func startNewBlock(
+        goals: [TrainingBlockModel.TrainingGoal],
+        startDate: Date,
+        daysPerWeek: Int? = nil,
+        weeklySessions: [WeeklySessionModel]? = nil,
+        preferredDays: [Int]? = nil,
+        experienceLevel: ExperienceLevel? = nil,
+        weeklyHoursAvailable: Double? = nil
+    ) async {
+        isLoading = true
+        error = nil
+        defer { isLoading = false }
+
+        let endDate = Calendar.current.date(byAdding: .weekOfYear, value: 8, to: startDate) ?? startDate
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+
+        do {
+            let response = try await apiClient.createBlock(
+                startDate: dateFormatter.string(from: startDate),
+                endDate: dateFormatter.string(from: endDate),
+                goals: goals.map(\.rawValue),
+                daysPerWeek: daysPerWeek,
+                weeklySessions: weeklySessions,
+                preferredDays: preferredDays,
+                experienceLevel: experienceLevel,
+                weeklyHoursAvailable: weeklyHoursAvailable
+            )
+
+            currentBlock = TrainingBlockModel(
+                id: response.id,
+                startDate: startDate,
+                endDate: endDate,
+                currentWeek: response.currentWeek,
+                goals: goals,
+                status: .active,
+                daysPerWeek: daysPerWeek,
+                weeklySessions: response.weeklySessions ?? weeklySessions,
+                preferredDays: response.preferredDays ?? preferredDays,
+                experienceLevel: ExperienceLevel(rawValue: response.experienceLevel ?? "") ?? experienceLevel,
+                weeklyHoursAvailable: response.weeklyHoursAvailable ?? weeklyHoursAvailable
+            )
+
+            loadChartData()
+        } catch {
+            self.error = "Failed to create training block: \(error.localizedDescription)"
+        }
+    }
+
+    /// Complete the current training block
+    public func completeCurrentBlock() async {
+        guard let block = currentBlock else { return }
+
+        do {
+            try await apiClient.completeBlock(id: block.id)
+
+            currentBlock = TrainingBlockModel(
+                id: block.id,
+                startDate: block.startDate,
+                endDate: block.endDate,
+                currentWeek: block.currentWeek,
+                goals: block.goals,
+                status: .completed,
+                daysPerWeek: block.daysPerWeek,
+                weeklySessions: block.weeklySessions,
+                preferredDays: block.preferredDays,
+                experienceLevel: block.experienceLevel,
+                weeklyHoursAvailable: block.weeklyHoursAvailable
+            )
+        } catch {
+            self.error = "Failed to complete block: \(error.localizedDescription)"
+        }
+    }
+
+    // MARK: - FTP Management
+
+    /// Save FTP value to backend
+    public func saveFTP(_ value: Int, date: Date = Date(), source: String = "manual") async -> Bool {
+        error = nil
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+
+        do {
+            _ = try await apiClient.createFTP(
+                value: value,
+                date: dateFormatter.string(from: date),
+                source: source
+            )
+            currentFTP = value
+            ftpLastTested = date
+            return true
+        } catch {
+            self.error = "Failed to save FTP: \(error.localizedDescription)"
+            return false
+        }
+    }
+
+    /// Load FTP history from backend
+    public func loadFTPHistory() async -> [FTPEntryResponse] {
+        do {
+            return try await apiClient.getFTPHistory()
+        } catch {
+            return []
+        }
+    }
+}

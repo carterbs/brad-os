@@ -411,20 +411,6 @@ struct TrainingLoadTrendChart: View {
     }
 }
 
-// MARK: - Data Models for Charts
+// MARK: - Chart Data Models
 
-/// Data point for TSS history chart
-struct TSSDataPoint: Identifiable {
-    let id = UUID()
-    let weekLabel: String
-    let tss: Int
-}
-
-/// Data point for training load trend chart
-struct TrainingLoadDataPoint: Identifiable {
-    let id = UUID()
-    let date: Date
-    let ctl: Double
-    let atl: Double
-    let tsb: Double
-}
+// TSSDataPoint and TrainingLoadDataPoint are now imported from BradOSCore via CyclingModels.swift typealias
