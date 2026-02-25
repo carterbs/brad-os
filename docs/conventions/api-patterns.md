@@ -62,7 +62,6 @@ export const barcodesApp = createResourceRouter({
   RepoClass: BarcodeRepository,
   createSchema: createBarcodeSchema,
   updateSchema: updateBarcodeSchema,
-  enableSearch: true,
 });
 ```
 

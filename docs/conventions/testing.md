@@ -99,11 +99,12 @@ Repository test mini-pattern:
 
 ```ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createFirestoreMocks, setupFirebaseMock } from '../test-utils/index.js';
 
 describe('IngredientRepository', () => {
   beforeEach(() => {
     vi.resetModules();
-    setupFirebaseMock();
+    setupFirebaseMock(createFirestoreMocks());
   });
 
   it('builds repository with mocked db', async () => {
