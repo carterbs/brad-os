@@ -11,7 +11,7 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
 import { getFirestoreDb, getCollectionName } from '../firebase.js';
-import type { CyclingActivity, ActivityStreamData, CyclingActivityUpdate, DeleteCyclingActivityResult } from '../shared.js';
+import type { CyclingActivity, ActivityStreamData, CyclingActivityUpdate, DeleteCyclingActivityResult } from '../types/cycling.js';
 
 export class CyclingActivityRepository {
   private db: Firestore;

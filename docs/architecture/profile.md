@@ -12,7 +12,7 @@ ProfileView -> NavigationLink destinations -> various ViewModels/Services -> API
   - `ios/BradOS/BradOS/Views/Profile/TrainingBlockSetupView+Helpers.swift`
   - `ios/BradOS/BradOS/Views/Profile/StravaConnectionView.swift` (Strava OAuth)
   - `ios/BradOS/BradOS/Views/Profile/StravaConnectionView+Sections.swift`
-  - `ios/BradOS/BradOS/Views/Profile/WeightGoalView.swift` (weight tracking)
+  - `ios/BradOS/BradOS/Views/Profile/WeightGoalView.swift` (body-weight logging and trends)
   - `ios/BradOS/BradOS/Views/Profile/WeightGoalView+Charts.swift`
   - `ios/BradOS/BradOS/Views/Profile/HealthMetricHistoryView.swift` (HRV/RHR charts)
   - `ios/BradOS/BradOS/Views/Profile/SleepHistoryView.swift`
@@ -62,6 +62,11 @@ ProfileView -> NavigationLink destinations -> various ViewModels/Services -> API
 - Health metrics support configurable time ranges (1W, 2W, 1M, 6M, 1Y) with SMA trend lines
 - HealthMetricHistoryView is generic -- initialized with `.hrv` or `.rhr` enum case
 - Health sync uses date-as-doc-ID pattern for upsert semantics
+- **Body Weight** screen provides:
+  - Manual entry logging (weight input + date picker)
+  - Recent trend states (7-day and 30-day windows classifying as losing/stable/gaining)
+  - Weight trend chart with configurable ranges and 7-day SMA
+  - Optional weight-loss goal tracking (secondary feature within the same screen)
 
 ## See Also
 - [Health](health.md) — health metric history views

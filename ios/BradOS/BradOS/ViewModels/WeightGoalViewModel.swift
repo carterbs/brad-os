@@ -36,6 +36,20 @@ struct WeightPrediction {
     let daysRemaining: Int?          // nil if not on track
 }
 
+/// Trend classification state
+enum WeightTrendState {
+    case losing
+    case stable
+    case gaining
+}
+
+/// Recent trend window with computed delta and state
+struct RecentWeightTrend {
+    let windowDays: Int
+    let deltaLbs: Double
+    let state: WeightTrendState
+}
+
 @MainActor
 @Observable
 class WeightGoalViewModel {
@@ -55,6 +69,12 @@ class WeightGoalViewModel {
     var isSaving = false
     var error: String?
     var saveSuccess = false
+
+    // Manual entry state
+    var entryWeight: String = ""
+    var entryDate: Date = Date()
+    var isLoggingEntry = false
+    var entryLogSuccess = false
 
     private let apiClient: any WeightGoalAPIClientProtocol
 
@@ -117,6 +137,11 @@ class WeightGoalViewModel {
         let absRate = abs(rate)
         if absRate > 2 { return Theme.warning }
         return Theme.success
+    }
+
+    /// Recent 7-day and 30-day trend states computed from weight history
+    var recentTrendStates: [RecentWeightTrend] {
+        computeTrendStates()
     }
 
     // MARK: - Loading
@@ -341,6 +366,107 @@ class WeightGoalViewModel {
             self.error = "Failed to save goal"
             DebugLogger.error("Error saving goal: \(error)", attributes: ["source": "WeightGoalVM"])
         }
+    }
+
+    // MARK: - Manual Entry
+
+    /// Log a manual body-weight entry (lbs) for the given date
+    func logBodyWeightEntry() async {
+        // Validate input
+        guard !entryWeight.trimmingCharacters(in: .whitespaces).isEmpty else {
+            error = "Weight is required"
+            return
+        }
+
+        guard let weight = Double(entryWeight), weight > 0 else {
+            error = "Weight must be a positive number"
+            return
+        }
+
+        isLoggingEntry = true
+        entryLogSuccess = false
+        error = nil
+        defer { isLoggingEntry = false }
+
+        // Format date as yyyy-MM-dd
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        let dateStr = formatter.string(from: entryDate)
+
+        do {
+            // Send a single manual weight entry
+            let entry = WeightSyncEntry(weightLbs: weight, date: dateStr, source: "manual")
+            _ = try await apiClient.syncWeightBulk(weights: [entry])
+
+            // Reload data to reflect new entry
+            await loadLatestWeightAndHistory()
+            updateTrend()
+            updatePrediction()
+
+            entryLogSuccess = true
+            entryWeight = ""
+            entryDate = Date()
+        } catch {
+            self.error = "Failed to log weight entry"
+            DebugLogger.error("Error logging weight entry: \(error)", attributes: ["source": "WeightGoalVM"])
+        }
+    }
+
+    /// Reload latest weight and history after a manual entry
+    private func loadLatestWeightAndHistory() async {
+        currentWeight = await loadLatestWeight()
+        await loadWeightHistory()
+    }
+
+    // MARK: - Trend State Computation
+
+    /// Compute 7-day and 30-day trend states from weight history
+    private func computeTrendStates() -> [RecentWeightTrend] {
+        guard !allWeightHistory.isEmpty else { return [] }
+
+        var trends: [RecentWeightTrend] = []
+
+        // 7-day window
+        let sevenDayState = computeWindowState(windowDays: 7)
+        trends.append(sevenDayState)
+
+        // 30-day window
+        let thirtyDayState = computeWindowState(windowDays: 30)
+        trends.append(thirtyDayState)
+
+        return trends
+    }
+
+    /// Compute trend state for a specific window size
+    /// Current weight - average(window) determines the state
+    private func computeWindowState(windowDays: Int) -> RecentWeightTrend {
+        guard let lastPoint = allWeightHistory.last else {
+            return RecentWeightTrend(windowDays: windowDays, deltaLbs: 0, state: .stable)
+        }
+
+        let current = lastPoint.weight
+        let cutoff = Calendar.current.date(byAdding: .day, value: -windowDays, to: lastPoint.date) ?? lastPoint.date
+        let windowPoints = allWeightHistory.filter { $0.date >= cutoff }
+
+        guard !windowPoints.isEmpty else {
+            return RecentWeightTrend(windowDays: windowDays, deltaLbs: 0, state: .stable)
+        }
+
+        let avg = windowPoints.map(\.weight).reduce(0, +) / Double(windowPoints.count)
+        let delta = current - avg
+
+        // Classify: thresholds are ±0.5 lbs
+        let state: WeightTrendState
+        if delta < -0.5 {
+            state = .losing
+        } else if delta > 0.5 {
+            state = .gaining
+        } else {
+            state = .stable
+        }
+
+        return RecentWeightTrend(windowDays: windowDays, deltaLbs: delta, state: state)
     }
 
     // MARK: - Chart Helpers
