@@ -1,6 +1,66 @@
 import SwiftUI
 import BradOSCore
 
+// MARK: - Display State
+
+/// Represents the display state of the Today Coach card.
+/// Encodes the precedence of loading, error, auth, data, and content states.
+enum TodayCoachCardDisplayState: Equatable {
+    case loading
+    case error(String)
+    case notAuthorized
+    case noData
+    case summary(TodayCoachRecommendation)
+}
+
+// MARK: - State Resolution
+
+extension TodayCoachCard {
+    /// Resolves the display state based on input conditions.
+    /// Precedence (highest to lowest):
+    /// 1. Loading (isLoadingRecovery || isCoachLoading)
+    /// 2. Error (coachError exists)
+    /// 3. Not Authorized (!healthAuthorized && recovery == nil)
+    /// 4. No Data (recovery == nil)
+    /// 5. Summary (recommendation != nil)
+    static func resolveDisplayState(
+        isLoadingRecovery: Bool,
+        isCoachLoading: Bool,
+        coachError: String?,
+        isHealthAuthorized: Bool,
+        recovery: RecoveryData?,
+        recommendation: TodayCoachRecommendation?
+    ) -> TodayCoachCardDisplayState {
+        // Loading takes highest precedence
+        if isLoadingRecovery || isCoachLoading {
+            return .loading
+        }
+
+        // Error precedence
+        if let error = coachError {
+            return .error(error)
+        }
+
+        // Not authorized (without recovery)
+        if !isHealthAuthorized && recovery == nil {
+            return .notAuthorized
+        }
+
+        // No data
+        if recovery == nil {
+            return .noData
+        }
+
+        // Summary content
+        if let recommendation = recommendation {
+            return .summary(recommendation)
+        }
+
+        // Fallback to no data
+        return .noData
+    }
+}
+
 /// Dashboard card displaying the AI Today Coach daily briefing.
 ///
 /// Self-loading: syncs HealthKit to Firebase, fetches recovery, then calls the Today Coach API.
@@ -39,18 +99,26 @@ struct TodayCoachCard: View {
 
     @ViewBuilder
     private var cardContent: some View {
-        if isLoadingRecovery || coachClient.isLoading {
+        let displayState = Self.resolveDisplayState(
+            isLoadingRecovery: isLoadingRecovery,
+            isCoachLoading: coachClient.isLoading,
+            coachError: coachClient.error,
+            isHealthAuthorized: healthKit.isAuthorized,
+            recovery: recovery,
+            recommendation: coachClient.recommendation
+        )
+
+        switch displayState {
+        case .loading:
             loadingState
-        } else if let error = coachClient.error {
-            errorState(error)
-        } else if !healthKit.isAuthorized && recovery == nil {
+        case .error(let message):
+            errorState(message)
+        case .notAuthorized:
             notAuthorizedState
-        } else if recovery == nil {
+        case .noData:
             noDataState
-        } else if let recommendation = coachClient.recommendation {
+        case .summary(let recommendation):
             coachContent(recommendation)
-        } else {
-            noDataState
         }
     }
 
