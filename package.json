@@ -40,6 +40,7 @@
     "otel:stop": "lsof -ti:4318 | xargs kill 2>/dev/null || true",
     "otel:clean": "rm -rf .otel/",
     "ralph:improve-harness": "tsx scripts/ralph/index.ts",
+    "ralph:sync-backlog": "tsx scripts/ralph/sync-backlog.ts",
     "preinstall": "node scripts/check-node-version.js",
     "postinstall": "git config core.hooksPath hooks"
   },
