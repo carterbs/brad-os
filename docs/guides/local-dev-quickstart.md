@@ -1,6 +1,6 @@
 # Local Dev Quickstart
 
-Get brad-os running locally in ~5 minutes: install dependencies, validate the build, start emulators, and run the iOS app on a simulator.
+Get brad-os running locally in ~5 minutes: install dependencies, validate the build, then run one command to start simulator + Firebase + OTel + app.
 
 ## Prerequisites
 
@@ -51,30 +51,43 @@ cat .validate/typecheck.log   # or test.log, lint.log, architecture.log
 
 A clean `validate` confirms your environment is set up correctly.
 
-## Step 3: Start Firebase Emulators
+## Step 3: Start Full Local QA Loop (Recommended)
 
 ```bash
-npm run emulators
+npm run qa:start
 ```
 
-This builds the Cloud Functions and starts the Firebase emulator suite:
-- **Functions:** http://127.0.0.1:5001
-- **Firestore:** http://127.0.0.1:8080
-- **Emulator UI:** http://127.0.0.1:4000
+This is the default local app workflow for both humans and agents. It:
+- Leases an available iOS simulator for your session
+- Starts isolated Firebase emulators
+- Starts isolated OTel collector
+- Builds the iOS app
+- Installs and launches the app in simulator
 
-Verify the functions are running:
+Optional: choose a stable session ID for repeat runs:
 
 ```bash
-curl -sf http://127.0.0.1:5001/brad-os/us-central1/devHealth
+npm run qa:start -- --id alice
 ```
 
-Other emulator modes:
+Stop the loop when done:
+
+```bash
+npm run qa:stop
+```
+
+## Step 4: Advanced Controls (Only for Troubleshooting)
+
+Use these when you intentionally need to bypass the default one-command flow:
 
 | Command | Behavior |
 |---------|----------|
-| `npm run emulators` | Persist data across restarts (default) |
-| `npm run emulators:fresh` | Start with empty database |
-| `npm run emulators:seed` | Load seed data from `seed-data/` |
+| `npm run advanced:qa:env:start -- --id <id>` | Start isolated env only (no build/launch) |
+| `npm run qa:build -- --id <id>` | Build iOS app using an existing QA session |
+| `npm run qa:launch -- --id <id>` | Install + launch app using an existing QA session |
+| `npm run qa:stop -- --id <id>` | Stop a specific QA session |
+| `npm run advanced:emulators` | Start Firebase emulators only |
+| `npm run advanced:otel:start` | Start OTel collector only |
 
 ### Run integration tests (one command)
 
@@ -84,43 +97,18 @@ npm run test:integration:emulator
 
 This starts emulators in the background, waits for readiness, runs all integration tests, and tears down automatically. No separate terminal needed.
 
-## Step 4: Build & Run iOS App
-
-Generate the Xcode project, build for the simulator, and launch:
-
-```bash
-# Generate project from project.yml
-cd ios/BradOS && xcodegen generate && cd ../..
-
-# Build for simulator
-xcodebuild -project ios/BradOS/BradOS.xcodeproj \
-  -scheme BradOS \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
-  -derivedDataPath ~/.cache/brad-os-derived-data \
-  -skipPackagePluginValidation \
-  build
-
-# Install and launch on booted simulator
-xcrun simctl install booted ~/.cache/brad-os-derived-data/Build/Products/Debug-iphonesimulator/BradOS.app
-xcrun simctl launch booted com.bradcarter.brad-os
-```
-
-**Notes:**
-- Do NOT pass `-sdk iphonesimulator` — it breaks the watchOS companion build.
-- `-skipPackagePluginValidation` is required for the SwiftLint SPM build plugin.
-- SwiftLint runs automatically during `xcodebuild build` — a successful build means zero lint errors.
-
 ## You're Done!
 
 At this point you should have:
 - ✅ All validation checks passing
-- ✅ Firebase emulators running with a health endpoint responding
-- ✅ The iOS app running in the simulator and talking to local emulators
+- ✅ Isolated Firebase + OTel services running
+- ✅ The iOS app running in simulator and talking to local services
 
 ## Next Steps
 
 - **[CLAUDE.md](../../CLAUDE.md)** — Project rules, worktree workflow, validation commands
-- **[iOS Build and Run](ios-build-and-run.md)** — Detailed iOS build commands and exploratory testing
+- **[Isolated QA Loop](isolated-qa-loop.md)** — Session isolation details, device leasing, and advanced options
+- **[iOS Build and Run](ios-build-and-run.md)** — Advanced manual build commands and exploratory testing
 - **[Debugging Cloud Functions](debugging-cloud-functions.md)** — Troubleshooting endpoints
-- **[Debug Telemetry](debug-telemetry.md)** — OpenTelemetry traces for iOS debugging
+- **[Debug Telemetry](debug-telemetry.md)** — Telemetry query patterns and advanced collector controls
 - **[Conventions](../conventions/)** — TypeScript, iOS/Swift, API, and testing conventions

@@ -5,11 +5,11 @@ import OpenTelemetrySdk
 
 /// Exports spans to the local collector as JSON over HTTP.
 final class DebugSpanExporter: SpanExporter {
-    // swiftlint:disable:next force_unwrapping
-    private let endpoint = URL(string: "http://localhost:4318/v1/traces")!
+    private let endpoint: URL
     private let session: URLSession
 
     init() {
+        self.endpoint = Self.resolveEndpoint()
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 5
         config.connectionProxyDictionary = [:]
@@ -38,6 +38,19 @@ final class DebugSpanExporter: SpanExporter {
 
     func flush(explicitTimeout: TimeInterval?) -> SpanExporterResultCode { .success }
     func shutdown(explicitTimeout: TimeInterval?) {}
+
+    private static func resolveEndpoint() -> URL {
+        let defaultBaseURL = "http://localhost:4318"
+        let configuredBaseURL = ProcessInfo.processInfo.environment["BRAD_OS_OTEL_BASE_URL"] ?? defaultBaseURL
+        let normalizedBaseURL = configuredBaseURL.hasSuffix("/")
+            ? String(configuredBaseURL.dropLast())
+            : configuredBaseURL
+
+        guard let endpoint = URL(string: "\(normalizedBaseURL)/v1/traces") else {
+            fatalError("Invalid BRAD_OS_OTEL_BASE_URL: \(configuredBaseURL)")
+        }
+        return endpoint
+    }
 
     private func buildResourceSpans(from spans: [SpanData]) -> [[String: Any]] {
         var grouped: [String: (resource: [String: Any], spans: [[String: Any]])] = [:]

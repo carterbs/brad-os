@@ -4,11 +4,11 @@ import OpenTelemetrySdk
 
 /// Exports log records to the local collector as JSON over HTTP.
 final class DebugLogExporter: LogRecordExporter {
-    // swiftlint:disable:next force_unwrapping
-    private let endpoint = URL(string: "http://localhost:4318/v1/logs")!
+    private let endpoint: URL
     private let session: URLSession
 
     init() {
+        self.endpoint = Self.resolveEndpoint()
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 5
         config.connectionProxyDictionary = [:]
@@ -36,6 +36,19 @@ final class DebugLogExporter: LogRecordExporter {
 
     func forceFlush(explicitTimeout: TimeInterval?) -> ExportResult { .success }
     func shutdown(explicitTimeout: TimeInterval?) {}
+
+    private static func resolveEndpoint() -> URL {
+        let defaultBaseURL = "http://localhost:4318"
+        let configuredBaseURL = ProcessInfo.processInfo.environment["BRAD_OS_OTEL_BASE_URL"] ?? defaultBaseURL
+        let normalizedBaseURL = configuredBaseURL.hasSuffix("/")
+            ? String(configuredBaseURL.dropLast())
+            : configuredBaseURL
+
+        guard let endpoint = URL(string: "\(normalizedBaseURL)/v1/logs") else {
+            fatalError("Invalid BRAD_OS_OTEL_BASE_URL: \(configuredBaseURL)")
+        }
+        return endpoint
+    }
 
     private func buildResourceLogs(from records: [ReadableLogRecord]) -> [[String: Any]] {
         var result: [[String: Any]] = []

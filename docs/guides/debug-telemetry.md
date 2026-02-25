@@ -7,57 +7,62 @@ Debug-only OpenTelemetry instrumentation for structured iOS app observability. T
 All telemetry is **no-op in release builds** — guarded by `#if DEBUG` in the SDK layer.
 
 ```
-iOS App (OTel SDK) --> HTTP POST --> Local Collector (port 4318) --> .otel/*.jsonl --> Claude reads via Grep
+iOS App (OTel SDK) --> HTTP POST --> Local Collector --> session otel/*.jsonl --> Claude reads via Grep
 ```
 
-## Quick Start
+## Quick Start (Recommended)
 
 ```bash
-# Start the collector
-npm run otel:start
-
-# Build and run the iOS app in simulator
-cd ios/BradOS && xcodegen generate
-xcodebuild -project BradOS.xcodeproj -scheme BradOS -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
+# Start full isolated loop (includes OTel)
+npm run qa:start -- --id telemetry
 
 # Query traces
-grep 'error' .otel/traces.jsonl
-grep 'APIClient' .otel/logs.jsonl
+grep 'error' /tmp/brad-os-qa/sessions/telemetry/otel/traces.jsonl
+grep 'APIClient' /tmp/brad-os-qa/sessions/telemetry/otel/logs.jsonl
 
-# Stop collector
-npm run otel:stop
+# Stop full loop
+npm run qa:stop -- --id telemetry
+```
 
-# Clean data
-npm run otel:clean
+## Advanced Collector-Only Flow (Troubleshooting)
+
+Use only when debugging telemetry plumbing without the full `qa:start` loop.
+
+```bash
+npm run advanced:otel:start
+OTEL_COLLECTOR_PORT=15444 OTEL_OUTPUT_DIR=.qa/alice/otel npm run advanced:otel:start
+npm run advanced:otel:stop
+npm run advanced:otel:clean
 ```
 
 ## Querying Telemetry (for Claude)
 
 Use the Grep tool to search JSONL files. Each line is a self-contained JSON object.
+Default `qa:start -- --id <id>` files are under `/tmp/brad-os-qa/sessions/<id>/otel/`.
 
 **Find all API errors:**
 ```
-Grep pattern="\"status\":\"error\"" path=".otel/traces.jsonl"
+Grep pattern="\"status\":\"error\"" path="/tmp/brad-os-qa/sessions/telemetry/otel/traces.jsonl"
 ```
 
 **Find error-level logs:**
 ```
-Grep pattern="ERROR" path=".otel/logs.jsonl"
+Grep pattern="ERROR" path="/tmp/brad-os-qa/sessions/telemetry/otel/logs.jsonl"
 ```
 
 **Filter by simulator UDID:**
 ```
-Grep pattern="simulator.udid.*AAAA" path=".otel/traces.jsonl"
+Grep pattern="simulator.udid.*AAAA" path="/tmp/brad-os-qa/sessions/telemetry/otel/traces.jsonl"
 ```
 
 **Find slow requests (1000ms+):**
 ```
-Grep pattern="durationMs\":[0-9]{4,}" path=".otel/traces.jsonl"
+Grep pattern="durationMs\":[0-9]{4,}" path="/tmp/brad-os-qa/sessions/telemetry/otel/traces.jsonl"
 ```
 
 **Find by source service:**
 ```
-Grep pattern="\"source\":\"HealthKitSyncService\"" path=".otel/logs.jsonl"
+Grep pattern="\"source\":\"HealthKitSyncService\"" path="/tmp/brad-os-qa/sessions/telemetry/otel/logs.jsonl"
 ```
 
 ## Adding Instrumentation
@@ -145,18 +150,21 @@ One JSON object per line. Each log may reference a trace/span for correlation.
 - Each simulator's UDID is included in `resource` attributes on every trace and log entry.
 - Filter by UDID to isolate one simulator's data when running multiple simulators.
 - The collector appends to shared JSONL files — all simulators write to the same `traces.jsonl` and `logs.jsonl`.
+- Set `BRAD_OS_OTEL_BASE_URL` in simulator env to send a simulator to a different collector (for full file/process isolation).
 
 ## npm Scripts Reference
 
 | Script | Purpose |
 |--------|---------|
-| `npm run otel:start` | Start collector on port 4318 |
-| `npm run otel:stop` | Kill collector process |
-| `npm run otel:clean` | Delete `.otel/` directory |
+| `npm run advanced:otel:start` | Start collector on port 4318 |
+| `npm run advanced:otel:stop` | Kill collector process |
+| `npm run advanced:otel:clean` | Delete `.otel/` directory |
+| `npm run qa:start` | Start isolated simulator + Firebase + OTel + build + launch |
+| `npm run qa:stop` | Stop isolated loop and unset simulator env |
 
 ## Troubleshooting
 
 - **Collector not receiving data:** Check port 4318 is free (`lsof -i :4318`). Verify the iOS app is built in DEBUG configuration and the simulator has network access to localhost.
 - **Empty JSONL files:** The app must be running in DEBUG configuration. Release builds use no-op stubs.
 - **Collector crashes:** Check Node.js version and ensure `tsx` is available (`npx tsx --version`).
-- **Stale data:** Run `npm run otel:clean` to wipe old JSONL files before a fresh debugging session.
+- **Stale data:** Run `npm run advanced:otel:clean` to wipe old JSONL files before a fresh debugging session.

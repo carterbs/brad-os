@@ -1,11 +1,20 @@
 import { createServer, IncomingMessage, ServerResponse } from 'node:http';
 import { mkdirSync, appendFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
-const PORT = 4318;
-const OTEL_DIR = join(process.cwd(), '.otel');
+const DEFAULT_PORT = 4318;
+const PORT = Number.parseInt(
+  process.env['OTEL_COLLECTOR_PORT'] ?? `${DEFAULT_PORT}`,
+  10
+);
+const HOST = process.env['OTEL_COLLECTOR_HOST'] ?? '127.0.0.1';
+const OTEL_DIR = resolve(process.env['OTEL_OUTPUT_DIR'] ?? join(process.cwd(), '.otel'));
 const TRACES_FILE = join(OTEL_DIR, 'traces.jsonl');
 const LOGS_FILE = join(OTEL_DIR, 'logs.jsonl');
+
+if (Number.isNaN(PORT) || PORT < 1 || PORT > 65535) {
+  throw new Error(`Invalid OTEL_COLLECTOR_PORT: ${process.env['OTEL_COLLECTOR_PORT'] ?? ''}`);
+}
 
 mkdirSync(OTEL_DIR, { recursive: true });
 
@@ -205,8 +214,8 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`[otel-collector] Listening on http://localhost:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`[otel-collector] Listening on http://${HOST}:${PORT}`);
   console.log(`[otel-collector] Traces → ${TRACES_FILE}`);
   console.log(`[otel-collector] Logs   → ${LOGS_FILE}`);
 });

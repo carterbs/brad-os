@@ -95,6 +95,8 @@ struct BradOSApp: App {
         switch url.host {
         case "mealplan":
             appState.selectedTab = .meals
+        case "stretch":
+            appState.isShowingStretch = true
         default:
             break
         }

@@ -11,6 +11,7 @@ A personal wellness tracking system: iOS app (SwiftUI) + Express API backend (Fi
 ```bash
 npm install        # Install deps + set up git hooks
 npm run validate   # Typecheck + lint + test + architecture (MUST pass before committing)
+npm run qa:start   # Default app QA loop (simulator + Firebase + OTel + build + launch)
 ```
 Full bootstrap: [Local Dev Quickstart](docs/guides/local-dev-quickstart.md)
 

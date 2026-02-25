@@ -72,7 +72,7 @@ class WeightGoalViewModel {
 
     // Manual entry state
     var entryWeight: String = ""
-    var entryDate: Date = Date()
+    var entryDate = Date()
     var isLoggingEntry = false
     var entryLogSuccess = false
 

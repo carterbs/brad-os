@@ -107,6 +107,8 @@ On failure, `.validate/*.log` artifacts are uploaded for inspection. See `.githu
 ## QA (MANDATORY)
 
 After implementation, exercise what you built — don't just run tests and declare victory:
+- **Default local iOS QA flow:** run `npm run qa:start` (single command: simulator + Firebase + OTel + build + launch).
+- **Only for advanced troubleshooting:** run manual `npm run advanced:emulators` / `xcodebuild` / `simctl` commands directly.
 - **Script/CLI tool**: Run it and verify correct output
 - **Linter/validator**: Run it against the codebase, show it catches violations
 - **API endpoint**: Hit it and verify the response
@@ -142,8 +144,8 @@ Code and docs are optimized for agent readability first. CLAUDE.md is a map, not
 
 ## Guides (see docs/guides/)
 
-- **[Local Dev Quickstart](docs/guides/local-dev-quickstart.md)** — 5-minute bootstrap: install → validate → emulators → iOS build
+- **[Local Dev Quickstart](docs/guides/local-dev-quickstart.md)** — 5-minute bootstrap: install → validate → `npm run qa:start`
 - **[Debugging Cloud Functions](docs/guides/debugging-cloud-functions.md)** — Ordered checklist: rewrite paths, deployment state, App Check
-- **[iOS Build and Run](docs/guides/ios-build-and-run.md)** — xcodebuild commands, simulator setup, SwiftLint via build, exploratory testing
+- **[iOS Build and Run](docs/guides/ios-build-and-run.md)** — `qa:start` default flow and advanced manual build commands
 - **[Progressive Overload](docs/guides/progressive-overload.md)** — Business logic for workout progression, data architecture
-- **[Debug Telemetry](docs/guides/debug-telemetry.md)** — `npm run otel:start`, query `.otel/traces.jsonl` and `.otel/logs.jsonl` with Grep for structured iOS debugging
+- **[Debug Telemetry](docs/guides/debug-telemetry.md)** — `npm run qa:start` default telemetry flow, advanced collector controls when needed
