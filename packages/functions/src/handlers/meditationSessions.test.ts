@@ -352,4 +352,68 @@ describe('MeditationSessions Handler', () => {
       });
     });
   });
+
+  describe('error handling', () => {
+    it('should return 500 INTERNAL_ERROR when POST / create throws', async () => {
+      mockMeditationSessionRepo.create.mockRejectedValue(new Error('Database connection failed'));
+
+      const response: Response = await request(meditationSessionsApp)
+        .post('/')
+        .send(createValidRequestBody());
+      const body = response.body as ApiResponse;
+
+      expect(response.status).toBe(500);
+      expect(body.success).toBe(false);
+      expect(body.error?.code).toBe('INTERNAL_ERROR');
+      expect(body.error?.message).toBe('An unexpected error occurred');
+    });
+
+    it('should return 500 INTERNAL_ERROR when GET / findAll throws', async () => {
+      mockMeditationSessionRepo.findAll.mockRejectedValue(new Error('Repository error'));
+
+      const response: Response = await request(meditationSessionsApp).get('/');
+      const body = response.body as ApiResponse;
+
+      expect(response.status).toBe(500);
+      expect(body.success).toBe(false);
+      expect(body.error?.code).toBe('INTERNAL_ERROR');
+      expect(body.error?.message).toBe('An unexpected error occurred');
+    });
+
+    it('should return 500 INTERNAL_ERROR when GET /stats getStats throws', async () => {
+      mockMeditationSessionRepo.getStats.mockRejectedValue(new Error('Stats calculation failed'));
+
+      const response: Response = await request(meditationSessionsApp).get('/stats');
+      const body = response.body as ApiResponse;
+
+      expect(response.status).toBe(500);
+      expect(body.success).toBe(false);
+      expect(body.error?.code).toBe('INTERNAL_ERROR');
+      expect(body.error?.message).toBe('An unexpected error occurred');
+    });
+
+    it('should return 500 INTERNAL_ERROR when GET /latest findLatest throws', async () => {
+      mockMeditationSessionRepo.findLatest.mockRejectedValue(new Error('Query failed'));
+
+      const response: Response = await request(meditationSessionsApp).get('/latest');
+      const body = response.body as ApiResponse;
+
+      expect(response.status).toBe(500);
+      expect(body.success).toBe(false);
+      expect(body.error?.code).toBe('INTERNAL_ERROR');
+      expect(body.error?.message).toBe('An unexpected error occurred');
+    });
+
+    it('should return 500 INTERNAL_ERROR when GET /:id findById throws', async () => {
+      mockMeditationSessionRepo.findById.mockRejectedValue(new Error('Database error'));
+
+      const response: Response = await request(meditationSessionsApp).get('/session-123');
+      const body = response.body as ApiResponse;
+
+      expect(response.status).toBe(500);
+      expect(body.success).toBe(false);
+      expect(body.error?.code).toBe('INTERNAL_ERROR');
+      expect(body.error?.message).toBe('An unexpected error occurred');
+    });
+  });
 });
