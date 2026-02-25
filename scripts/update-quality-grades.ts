@@ -14,7 +14,10 @@ import { execSync } from 'node:child_process';
 
 const ROOT_DIR = path.resolve(import.meta.dirname ?? __dirname, '..');
 const FUNCTIONS_SRC = path.join(ROOT_DIR, 'packages/functions/src');
-const IOS_TESTS_DIR = path.join(ROOT_DIR, 'ios/BradOS/BradOSCore/Tests/BradOSCoreTests');
+const IOS_CORE_TESTS_DIR = path.join(ROOT_DIR, 'ios/BradOS/BradOSCore/Tests/BradOSCoreTests');
+const IOS_APP_TESTS_DIR = path.join(ROOT_DIR, 'ios/BradOS/BradOSTests');
+// Legacy alias — scanning logic uses both directories
+const IOS_TESTS_DIR = IOS_CORE_TESTS_DIR;
 const QUALITY_GRADES_PATH = path.join(ROOT_DIR, 'docs/quality-grades.md');
 const COVERAGE_SUMMARY_PATH = path.join(ROOT_DIR, 'packages/functions/coverage/coverage-summary.json');
 
@@ -111,6 +114,7 @@ const IOS_TEST_DOMAIN_MAP: Record<string, string> = {
   'CalendarViewModelTests': 'calendar',
   'DashboardViewModelTests': 'today',
   'ProfileViewModelTests': 'profile',
+  'CyclingViewModelTests': 'cycling',
   'APIErrorTests': 'shared',
   'DateHelpersTests': 'shared',
   'LoadStateTests': 'shared',
@@ -275,9 +279,11 @@ function countBackendTests(): Map<string, DomainTestCounts> {
 function countIosTests(): Map<string, string[]> {
   const domainTests = new Map<string, string[]>();
 
-  if (!fs.existsSync(IOS_TESTS_DIR)) return domainTests;
-
-  const testFiles = collectFiles(IOS_TESTS_DIR, '.swift');
+  // Collect from both BradOSCore package tests and main app test target
+  const testFiles = [
+    ...(fs.existsSync(IOS_CORE_TESTS_DIR) ? collectFiles(IOS_CORE_TESTS_DIR, '.swift') : []),
+    ...(fs.existsSync(IOS_APP_TESTS_DIR) ? collectFiles(IOS_APP_TESTS_DIR, '.swift') : []),
+  ];
 
   for (const testFile of testFiles) {
     const basename = path.basename(testFile, '.swift');

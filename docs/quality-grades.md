@@ -28,7 +28,7 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 |--------|-------|---------------|-----------|------------|---------|----------|--------------|--------------|-------|
 | Lifting | **A** | High (23) | Medium (7) | 1225 | 2.2x | 92% | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. Most thoroughly tested domain, with coverage spanning handlers, services, and all repository layers. |
 | Meal Planning | **A** | High (16) | Medium (7) | 503 | 2.5x | 71% | Yes | Yes | 6 handler, 3 service, 5 repo, 1 integration, 1 schema tests. Strong multi-layer backend tests now include integration coverage alongside seven iOS tests. |
-| Cycling | **B+** | High (10) | Low (0) | 505 | 2.0x | 53% | Yes | Yes | 3 handler, 7 service tests. Rich backend service layer but CyclingViewModel has no iOS unit tests at all. |
+| Cycling | **B+** | High (10) | Low (1) | 505 | 2.0x | 53% | Yes | Yes | 3 handler, 7 service tests. CyclingViewModel tests (13) live in BradOSTests after cycling types moved out of BradOSCore. |
 | Stretching | **B+** | Medium (5) | Medium (4) | 134 | 2.6x | 99% | Yes | Yes | 2 handler, 2 repo, 1 integration tests. Near-perfect backend coverage achieved with a lean, tightly focused test suite. |
 | Calendar | **B** | Low (3) | Low (2) | 190 | 2.5x | 100% | Yes | Yes | 1 handler, 1 service, 1 integration tests. Achieves full backend coverage with the smallest absolute test count of any domain. |
 | Meditation | **B+** | Medium (6) | Medium (4) | 213 | 2.7x | 51% | Yes | Yes | 3 handler, 2 repo, 1 integration tests. Solid breadth across handlers and repos, but backend coverage falls just below half. |
@@ -87,7 +87,7 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 
 **Other:** shared (1)
 
-### iOS (BradOSCore/Tests/)
+### iOS (BradOSCore/Tests/ and BradOSTests/)
 
 - Lifting: ExerciseTests, MesocycleTests, PlanTests, WorkoutTests, WorkoutStateManagerTests, ExercisesViewModelTests, MealPlanViewModelTests (7)
 - Meal Planning: MealPlanActionTests, MealPlanDecodingTests, MealPlanCacheServiceTests, RecipeCacheServiceTests, RemindersServiceTests, ShoppingListBuilderTests, ShoppingListFormatterTests (7)
@@ -97,6 +97,7 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 - Today: DashboardViewModelTests (1)
 - Profile: ProfileViewModelTests (1)
 - Health Sync: HealthChartModelsTests, HealthSyncModelsTests, HealthMetricHistoryViewModelTests (3)
+- Cycling: CyclingViewModelTests (1) — in BradOSTests after types moved out of BradOSCore
 - Shared: DateHelpersTests, TestHelpers, APIErrorTests, LoadStateTests (4)
 
 ### Untested Backend Files
@@ -122,7 +123,7 @@ All handler and service files have corresponding tests.
 - [x] **Firestore Recovery service** - No tests for `firestore-recovery.service.ts` (all health data CRUD).
 - [x] **Firestore Cycling service** - No tests for `firestore-cycling.service.ts` (all cycling data CRUD).
 - [ ] **Cycling repo layer** - No repository tests for cycling (data stored in user subcollections, not top-level repos).
-- [ ] **iOS Cycling unit tests** - CyclingViewModel has no unit tests in BradOSCore.
+- [x] **iOS Cycling unit tests** - CyclingViewModel tests (13) live in BradOSTests after cycling types moved out of BradOSCore.
 
 ### Other
 

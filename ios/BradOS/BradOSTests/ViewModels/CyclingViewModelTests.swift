@@ -290,4 +290,60 @@ struct CyclingViewModelTests {
         #expect(vm.error == nil)
         #expect(vm.currentBlock == nil)
     }
+
+    @Test("startNewBlock success creates block and updates viewModel state")
+    @MainActor
+    func startNewBlockSuccessCreatesBlockAndUpdatesState() async {
+        let mock = MockCyclingAPIClient()
+        let response = TrainingBlockResponse(
+            id: "new-block-1",
+            startDate: "2026-02-24",
+            endDate: "2026-04-21",
+            currentWeek: 1,
+            goals: ["regain_fitness"],
+            status: "active",
+            daysPerWeek: 4,
+            weeklySessions: [makeWeeklySession(order: 1, sessionType: .endurance)],
+            preferredDays: [1, 3, 5],
+            experienceLevel: "intermediate",
+            weeklyHoursAvailable: 6.0
+        )
+        mock.createBlockResult = .success(response)
+
+        let vm = CyclingViewModel(apiClient: mock)
+        let startDate = fixedDate(2026, 2, 24)
+
+        await vm.startNewBlock(
+            goals: [.regainFitness],
+            startDate: startDate,
+            daysPerWeek: 4,
+            preferredDays: [1, 3, 5],
+            experienceLevel: .intermediate,
+            weeklyHoursAvailable: 6.0
+        )
+
+        #expect(vm.currentBlock?.id == "new-block-1")
+        #expect(vm.currentBlock?.status == .active)
+        #expect(vm.currentBlock?.daysPerWeek == 4)
+        #expect(vm.error == nil)
+    }
+
+    @Test("startNewBlock failure sets error and resets loading state")
+    @MainActor
+    func startNewBlockFailureSetsErrorAndResetsLoading() async {
+        let mock = MockCyclingAPIClient()
+        mock.createBlockResult = .failure(APIError.internalError("Block creation failed"))
+
+        let vm = CyclingViewModel(apiClient: mock)
+        let startDate = fixedDate(2026, 2, 24)
+
+        await vm.startNewBlock(
+            goals: [.regainFitness],
+            startDate: startDate
+        )
+
+        #expect(vm.error?.contains("Failed to create training block") == true)
+        #expect(vm.isLoading == false)
+        #expect(vm.currentBlock == nil)
+    }
 }
