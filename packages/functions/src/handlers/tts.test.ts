@@ -204,5 +204,173 @@ describe('TTS Handler', () => {
       expect(callArgs[0]).toBe('https://texttospeech.googleapis.com/v1/text:synthesize');
       expect(callArgs[1].body).toContain('en-US-Chirp3-HD-Algenib');
     });
+
+    it('should return 500 AUTH_ERROR when credential is missing on Firebase app', async () => {
+      mockGetApp.mockReturnValue({
+        options: {
+          credential: undefined,
+        },
+      });
+
+      mockGetRemoteConfig.mockReturnValue({
+        getServerTemplate: vi.fn().mockResolvedValue({
+          evaluate: (): { getString: (key: string) => string } => ({
+            getString: (key: string): string => key === 'TTS_VOICE' ? 'en-US-Chirp3-HD-Algenib' : '',
+          }),
+        }),
+      });
+
+      const mockFetch = vi.fn();
+      vi.stubGlobal('fetch', mockFetch);
+
+      const response: Response = await request(ttsApp)
+        .post('/synthesize')
+        .send({ text: 'Hello world' });
+      const body = response.body as ApiResponse;
+
+      expect(response.status).toBe(500);
+      expect(body.success).toBe(false);
+      expect(body.error?.code).toBe('AUTH_ERROR');
+    });
+
+    it('should use default voice when Remote Config returns empty string', async () => {
+      mockGetApp.mockReturnValue({
+        options: {
+          credential: {
+            getAccessToken: vi.fn().mockResolvedValue({ access_token: 'test-token' }),
+          },
+        },
+      });
+
+      mockGetRemoteConfig.mockReturnValue({
+        getServerTemplate: vi.fn().mockResolvedValue({
+          evaluate: (): { getString: (key: string) => string } => ({
+            getString: (_key: string): string => '',
+          }),
+        }),
+      });
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ audioContent: 'audio-data' }),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const response = await request(ttsApp)
+        .post('/synthesize')
+        .send({ text: 'Hello world' });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        success: true,
+        data: { audio: 'audio-data' },
+      });
+
+      // Verify fetch was called with the default voice
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const callArgs = mockFetch.mock.calls[0] as [string, { body: string }];
+      const bodyJson = JSON.parse(callArgs[1].body) as Record<string, unknown>;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(bodyJson.voice.name).toBe('en-US-Chirp3-HD-Algenib');
+    });
+
+    it('should use fallback language code en-US when voice has invalid format', async () => {
+      mockGetApp.mockReturnValue({
+        options: {
+          credential: {
+            getAccessToken: vi.fn().mockResolvedValue({ access_token: 'test-token' }),
+          },
+        },
+      });
+
+      mockGetRemoteConfig.mockReturnValue({
+        getServerTemplate: vi.fn().mockResolvedValue({
+          evaluate: (): { getString: (key: string) => string } => ({
+            getString: (key: string): string => key === 'TTS_VOICE' ? 'InvalidVoiceFormat' : '',
+          }),
+        }),
+      });
+
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ audioContent: 'audio-data' }),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const response = await request(ttsApp)
+        .post('/synthesize')
+        .send({ text: 'Hello world' });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        success: true,
+        data: { audio: 'audio-data' },
+      });
+
+      // Verify fetch was called with fallback language code
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const callArgs = mockFetch.mock.calls[0] as [string, { body: string }];
+      const bodyJson = JSON.parse(callArgs[1].body) as Record<string, unknown>;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      expect(bodyJson.voice.languageCode).toBe('en-US');
+    });
+
+    it('should accept text at exactly 5000 characters', async () => {
+      setupHappyPathMocks();
+
+      const textWith5000Chars = 'a'.repeat(5000);
+      const response = await request(ttsApp)
+        .post('/synthesize')
+        .send({ text: textWith5000Chars });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        success: true,
+        data: { audio: 'base64-audio-data' },
+      });
+    });
+
+    it('should reject text at 5001 characters with VALIDATION_ERROR', async () => {
+      const textWith5001Chars = 'a'.repeat(5001);
+      const response: Response = await request(ttsApp)
+        .post('/synthesize')
+        .send({ text: textWith5001Chars });
+      const body = response.body as ApiResponse;
+
+      expect(response.status).toBe(400);
+      expect(body.success).toBe(false);
+      expect(body.error?.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('should return 500 INTERNAL_ERROR when fetch rejects', async () => {
+      mockGetApp.mockReturnValue({
+        options: {
+          credential: {
+            getAccessToken: vi.fn().mockResolvedValue({ access_token: 'test-token' }),
+          },
+        },
+      });
+
+      mockGetRemoteConfig.mockReturnValue({
+        getServerTemplate: vi.fn().mockResolvedValue({
+          evaluate: (): { getString: (key: string) => string } => ({
+            getString: (key: string): string => key === 'TTS_VOICE' ? 'en-US-Chirp3-HD-Algenib' : '',
+          }),
+        }),
+      });
+
+      const mockFetch = vi.fn().mockRejectedValue(new Error('Network error'));
+      vi.stubGlobal('fetch', mockFetch);
+
+      const response: Response = await request(ttsApp)
+        .post('/synthesize')
+        .send({ text: 'Hello world' });
+      const body = response.body as ApiResponse;
+
+      expect(response.status).toBe(500);
+      expect(body.success).toBe(false);
+      expect(body.error?.code).toBe('INTERNAL_ERROR');
+      expect(body.error?.message).toBe('An unexpected error occurred');
+    });
   });
 });
