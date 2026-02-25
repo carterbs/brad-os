@@ -215,11 +215,13 @@ final class MockWeightGoalAPIClient: WeightGoalAPIClientProtocol {
             startDate: "2026-01-01"
         )
     )
+    var syncWeightBulkResult: Result<Int, Error> = .success(1)
 
     private(set) var getLatestWeightCallCount: Int = 0
     private(set) var getWeightHistoryCallCount: Int = 0
     private(set) var getWeightGoalCallCount: Int = 0
     private(set) var saveWeightGoalCallCount: Int = 0
+    private(set) var syncWeightBulkCallCount: Int = 0
     private(set) var lastWeightHistoryDays: Int?
     private(set) var lastSaveWeightGoalRequest: (
         targetWeightLbs: Double,
@@ -227,6 +229,7 @@ final class MockWeightGoalAPIClient: WeightGoalAPIClientProtocol {
         startWeightLbs: Double,
         startDate: String
     )?
+    private(set) var lastSyncWeightBulkPayload: [WeightSyncEntry]?
 
     func getLatestWeight() async throws -> WeightHistoryEntry? {
         getLatestWeightCallCount += 1
@@ -258,6 +261,12 @@ final class MockWeightGoalAPIClient: WeightGoalAPIClientProtocol {
             startDate: startDate
         )
         return try saveWeightGoalResult.get()
+    }
+
+    func syncWeightBulk(weights: [WeightSyncEntry]) async throws -> Int {
+        syncWeightBulkCallCount += 1
+        lastSyncWeightBulkPayload = weights
+        return try syncWeightBulkResult.get()
     }
 }
 

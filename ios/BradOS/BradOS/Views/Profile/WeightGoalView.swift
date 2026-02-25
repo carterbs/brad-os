@@ -14,6 +14,14 @@ struct WeightGoalView: View {
                     // Current Weight
                     currentWeightSection
 
+                    // Log Entry Section
+                    logEntrySection
+
+                    // Recent Trend States
+                    if !viewModel.recentTrendStates.isEmpty {
+                        recentTrendSection
+                    }
+
                     // Weight Trend Chart
                     if !viewModel.weightHistory.isEmpty {
                         weightTrendChart
@@ -45,12 +53,17 @@ struct WeightGoalView: View {
                     if viewModel.saveSuccess {
                         successBanner
                     }
+
+                    // Entry Success Banner
+                    if viewModel.entryLogSuccess {
+                        entrySuccessBanner
+                    }
                 }
             }
             .padding(Theme.Spacing.space5)
         }
         .background(AuroraBackground().ignoresSafeArea())
-        .navigationTitle("Weight Goal")
+        .navigationTitle("Body Weight")
         .navigationBarTitleDisplayMode(.large)
         .toolbarBackground(.hidden, for: .navigationBar)
         .task {
@@ -116,6 +129,156 @@ struct WeightGoalView: View {
             .padding(Theme.Spacing.space4)
             .frame(minHeight: Theme.Dimensions.listRowMinHeight)
             .glassCard(.card, padding: 0)
+        }
+    }
+
+    // MARK: - Log Entry Section
+
+    @ViewBuilder
+    var logEntrySection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
+            SectionHeader(title: "Log Entry")
+
+            VStack(spacing: 0) {
+                // Weight Input
+                HStack {
+                    Text("Weight (lbs)")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.textSecondary)
+                    Spacer()
+                    TextField("Enter weight", text: $viewModel.entryWeight)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .font(.body)
+                        .monospacedDigit()
+                        .foregroundStyle(Theme.textPrimary)
+                }
+                .padding(Theme.Spacing.space4)
+                .frame(minHeight: Theme.Dimensions.listRowMinHeight)
+
+                Divider().background(Theme.divider)
+
+                // Date Picker
+                DatePicker(
+                    "Date",
+                    selection: $viewModel.entryDate,
+                    displayedComponents: .date
+                )
+                .font(.subheadline)
+                .foregroundStyle(Theme.textSecondary)
+                .tint(Theme.interactivePrimary)
+                .padding(Theme.Spacing.space4)
+                .frame(minHeight: Theme.Dimensions.listRowMinHeight)
+            }
+            .glassCard(.card, padding: 0)
+
+            // Save Button
+            Button {
+                Task { await viewModel.logBodyWeightEntry() }
+            } label: {
+                HStack {
+                    if viewModel.isLoggingEntry {
+                        ProgressView()
+                            .tint(Theme.textPrimary)
+                    } else {
+                        Text("Log Entry")
+                    }
+                }
+                .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(GlassPrimaryButtonStyle())
+            .disabled(viewModel.entryWeight.isEmpty || viewModel.isLoggingEntry)
+            .opacity(viewModel.entryWeight.isEmpty ? 0.5 : 1.0)
+
+            // Error Banner
+            if let error = viewModel.error {
+                HStack(spacing: Theme.Spacing.space2) {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .foregroundStyle(Theme.warning)
+                    Text(error)
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.warning)
+                    Spacer()
+                }
+                .padding(Theme.Spacing.space4)
+                .background(Theme.warning.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
+            }
+        }
+    }
+
+    // MARK: - Recent Trend Section
+
+    @ViewBuilder
+    var recentTrendSection: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
+            SectionHeader(title: "Recent Trend")
+
+            HStack(spacing: Theme.Spacing.space4) {
+                ForEach(viewModel.recentTrendStates, id: \.windowDays) { trend in
+                    trendStateCard(trend)
+                }
+                Spacer()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func trendStateCard(_ trend: RecentWeightTrend) -> some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space2) {
+            HStack(spacing: Theme.Spacing.space2) {
+                Image(systemName: trendStateIcon(trend.state))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(trendStateColor(trend.state))
+
+                Text("\(trend.windowDays)d")
+                    .font(.caption2)
+                    .fontWeight(.medium)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+
+            HStack(spacing: Theme.Spacing.space1) {
+                Text(String(format: "%+.1f", trend.deltaLbs))
+                    .font(.headline)
+                    .monospacedDigit()
+                    .foregroundStyle(trendStateColor(trend.state))
+
+                Text("lbs")
+                    .font(.caption)
+                    .foregroundStyle(Theme.textSecondary)
+            }
+
+            Text(trendStateLabel(trend.state))
+                .font(.caption)
+                .foregroundStyle(Theme.textSecondary)
+        }
+        .padding(Theme.Spacing.space3)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(trendStateColor(trend.state).opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
+    }
+
+    private func trendStateIcon(_ state: WeightTrendState) -> String {
+        switch state {
+        case .losing: return "arrow.down.right"
+        case .stable: return "minus"
+        case .gaining: return "arrow.up.right"
+        }
+    }
+
+    private func trendStateColor(_ state: WeightTrendState) -> Color {
+        switch state {
+        case .losing: return Theme.success
+        case .stable: return Theme.textSecondary
+        case .gaining: return Theme.warning
+        }
+    }
+
+    private func trendStateLabel(_ state: WeightTrendState) -> String {
+        switch state {
+        case .losing: return "Losing"
+        case .stable: return "Stable"
+        case .gaining: return "Gaining"
         }
     }
 
@@ -250,6 +413,29 @@ struct WeightGoalView: View {
         .onAppear {
             DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
                 withAnimation { viewModel.saveSuccess = false }
+            }
+        }
+    }
+
+    // MARK: - Entry Success Banner
+
+    @ViewBuilder
+    var entrySuccessBanner: some View {
+        HStack(spacing: Theme.Spacing.space2) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(Theme.success)
+            Text("Weight entry logged")
+                .font(.subheadline)
+                .foregroundStyle(Theme.success)
+            Spacer()
+        }
+        .padding(Theme.Spacing.space4)
+        .background(Theme.success.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                withAnimation { viewModel.entryLogSuccess = false }
             }
         }
     }

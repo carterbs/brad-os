@@ -394,4 +394,218 @@ struct WeightGoalViewModelTests {
         #expect(vm.error != nil)
         #expect(vm.existingGoal == nil)
     }
+
+    // MARK: - Manual Entry Tests
+
+    @Test("logBodyWeightEntry sends manual entry and reloads data")
+    @MainActor
+    func logBodyWeightEntrySendsManualEntryAndReloadsData() async {
+        let mock = MockWeightGoalAPIClient()
+        let entryWeight = 185.5
+        let entryDate = fixedDate(2026, 2, 15)
+
+        mock.latestWeightResult = .success(
+            WeightHistoryEntry(id: "latest", date: "2026-02-15", weightLbs: entryWeight)
+        )
+        mock.weightHistoryResult = .success(makeWeightEntries(
+            startDate: fixedDate(2026, 1, 1),
+            startWeight: 190,
+            count: 14,
+            dailyDelta: -0.25
+        ))
+        mock.syncWeightBulkResult = .success(1)
+
+        let vm = WeightGoalViewModel(apiClient: mock)
+        vm.entryWeight = String(format: "%.1f", entryWeight)
+        vm.entryDate = entryDate
+
+        await vm.logBodyWeightEntry()
+
+        #expect(mock.syncWeightBulkCallCount == 1)
+        #expect(mock.lastSyncWeightBulkPayload?.count == 1)
+        #expect(mock.lastSyncWeightBulkPayload?.first?.weightLbs == entryWeight)
+        #expect(mock.lastSyncWeightBulkPayload?.first?.source == "manual")
+        #expect(vm.entryLogSuccess == true)
+        #expect(vm.currentWeight == entryWeight)
+        #expect(vm.error == nil)
+    }
+
+    @Test("logBodyWeightEntry rejects empty weight")
+    @MainActor
+    func logBodyWeightEntryRejectsEmptyWeight() async {
+        let mock = MockWeightGoalAPIClient()
+        let vm = WeightGoalViewModel(apiClient: mock)
+        vm.entryWeight = ""
+
+        await vm.logBodyWeightEntry()
+
+        #expect(mock.syncWeightBulkCallCount == 0)
+        #expect(vm.entryLogSuccess == false)
+        #expect(vm.error != nil)
+    }
+
+    @Test("logBodyWeightEntry rejects non-numeric weight")
+    @MainActor
+    func logBodyWeightEntryRejectsNonNumericWeight() async {
+        let mock = MockWeightGoalAPIClient()
+        let vm = WeightGoalViewModel(apiClient: mock)
+        vm.entryWeight = "abc"
+
+        await vm.logBodyWeightEntry()
+
+        #expect(mock.syncWeightBulkCallCount == 0)
+        #expect(vm.entryLogSuccess == false)
+        #expect(vm.error != nil)
+    }
+
+    @Test("logBodyWeightEntry rejects negative weight")
+    @MainActor
+    func logBodyWeightEntryRejectsNegativeWeight() async {
+        let mock = MockWeightGoalAPIClient()
+        let vm = WeightGoalViewModel(apiClient: mock)
+        vm.entryWeight = "-150"
+
+        await vm.logBodyWeightEntry()
+
+        #expect(mock.syncWeightBulkCallCount == 0)
+        #expect(vm.entryLogSuccess == false)
+        #expect(vm.error != nil)
+    }
+
+    @Test("logBodyWeightEntry rejects zero weight")
+    @MainActor
+    func logBodyWeightEntryRejectsZeroWeight() async {
+        let mock = MockWeightGoalAPIClient()
+        let vm = WeightGoalViewModel(apiClient: mock)
+        vm.entryWeight = "0"
+
+        await vm.logBodyWeightEntry()
+
+        #expect(mock.syncWeightBulkCallCount == 0)
+        #expect(vm.entryLogSuccess == false)
+        #expect(vm.error != nil)
+    }
+
+    @Test("logBodyWeightEntry handles API failure")
+    @MainActor
+    func logBodyWeightEntryHandlesApiFailure() async {
+        let mock = MockWeightGoalAPIClient()
+        mock.syncWeightBulkResult = .failure(APIError.internalError("Sync failed"))
+        let vm = WeightGoalViewModel(apiClient: mock)
+        vm.entryWeight = "185"
+        vm.entryDate = fixedDate(2026, 2, 15)
+
+        await vm.logBodyWeightEntry()
+
+        #expect(vm.entryLogSuccess == false)
+        #expect(vm.error != nil)
+        #expect(mock.syncWeightBulkCallCount == 1)
+    }
+
+    // MARK: - Trend State Tests
+
+    @Test("recentTrendStates classifies losing trend in 7-day window")
+    @MainActor
+    func recentTrendStatesClassifiesLosingTrendInSevenDayWindow() {
+        let vm = WeightGoalViewModel(apiClient: MockWeightGoalAPIClient())
+        // Descending weights: current is well below average
+        vm.allWeightHistory = makeWeightPoints(
+            startDate: fixedDate(2026, 2, 1),
+            startWeight: 200,
+            count: 10,
+            dailyDelta: -0.8
+        )
+
+        let trends = vm.recentTrendStates
+        #expect(trends.count == 2)
+        #expect(trends[0].windowDays == 7)
+        #expect(trends[0].state == .losing)
+        #expect(trends[0].deltaLbs < 0)
+    }
+
+    @Test("recentTrendStates classifies losing trend in 30-day window")
+    @MainActor
+    func recentTrendStatesClassifiesLosingTrendInThirtyDayWindow() {
+        let vm = WeightGoalViewModel(apiClient: MockWeightGoalAPIClient())
+        vm.allWeightHistory = makeWeightPoints(
+            startDate: fixedDate(2026, 1, 1),
+            startWeight: 210,
+            count: 40,
+            dailyDelta: -0.3
+        )
+
+        let trends = vm.recentTrendStates
+        #expect(trends.count == 2)
+        #expect(trends[1].windowDays == 30)
+        #expect(trends[1].state == .losing)
+        #expect(trends[1].deltaLbs < 0)
+    }
+
+    @Test("recentTrendStates classifies stable trend")
+    @MainActor
+    func recentTrendStatesClassifiesStableTrend() {
+        let vm = WeightGoalViewModel(apiClient: MockWeightGoalAPIClient())
+        // Flat weights: all near 180 lbs
+        var points: [WeightChartPoint] = []
+        for i in 0..<20 {
+            let date = Calendar.current.date(byAdding: .day, value: i, to: fixedDate(2026, 1, 1)) ?? fixedDate(2026, 1, 1)
+            points.append(WeightChartPoint(date: date, weight: 180.0 + Double.random(in: -0.2...0.2)))
+        }
+        vm.allWeightHistory = points.sorted { $0.date < $1.date }
+
+        let trends = vm.recentTrendStates
+        #expect(trends.count == 2)
+        #expect(trends[0].state == .stable)
+        #expect(trends[1].state == .stable)
+    }
+
+    @Test("recentTrendStates classifies gaining trend")
+    @MainActor
+    func recentTrendStatesClassifiesGainingTrend() {
+        let vm = WeightGoalViewModel(apiClient: MockWeightGoalAPIClient())
+        // Ascending weights: current is well above average
+        vm.allWeightHistory = makeWeightPoints(
+            startDate: fixedDate(2026, 2, 1),
+            startWeight: 170,
+            count: 10,
+            dailyDelta: 0.8
+        )
+
+        let trends = vm.recentTrendStates
+        #expect(trends.count == 2)
+        #expect(trends[0].windowDays == 7)
+        #expect(trends[0].state == .gaining)
+        #expect(trends[0].deltaLbs > 0)
+    }
+
+    @Test("recentTrendStates handles short history safely")
+    @MainActor
+    func recentTrendStatesHandlesShortHistorySafely() {
+        let vm = WeightGoalViewModel(apiClient: MockWeightGoalAPIClient())
+        // Only 3 entries, less than both 7-day and 30-day windows
+        vm.allWeightHistory = makeWeightPoints(
+            startDate: fixedDate(2026, 2, 20),
+            startWeight: 185,
+            count: 3,
+            dailyDelta: -0.2
+        )
+
+        let trends = vm.recentTrendStates
+        #expect(trends.count == 2)
+        // Should compute safely with available points
+        #expect(trends[0].windowDays == 7)
+        #expect(trends[1].windowDays == 30)
+        // With only 3 points, averages should still work
+        #expect(trends[0].state == .losing)
+    }
+
+    @Test("recentTrendStates returns empty array for no history")
+    @MainActor
+    func recentTrendStatesReturnsEmptyArrayForNoHistory() {
+        let vm = WeightGoalViewModel(apiClient: MockWeightGoalAPIClient())
+        vm.allWeightHistory = []
+
+        let trends = vm.recentTrendStates
+        #expect(trends.isEmpty)
+    }
 }
