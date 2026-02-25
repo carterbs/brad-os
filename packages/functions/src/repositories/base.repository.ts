@@ -37,12 +37,7 @@ export abstract class BaseRepository<T extends { id: string }, CreateDTO, Update
       return null;
     }
 
-    const updates: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
-      if (value !== undefined) {
-        updates[key] = value;
-      }
-    }
+    const updates = this.buildUpdatePayload(data);
 
     if (Object.keys(updates).length === 0) {
       return existing;
@@ -54,6 +49,16 @@ export abstract class BaseRepository<T extends { id: string }, CreateDTO, Update
 
     await this.collection.doc(id).update(updates);
     return this.findById(id);
+  }
+
+  protected buildUpdatePayload(data: UpdateDTO): Record<string, unknown> {
+    const updates: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+      if (value !== undefined) {
+        updates[key] = value;
+      }
+    }
+    return updates;
   }
 
   async delete(id: string): Promise<boolean> {

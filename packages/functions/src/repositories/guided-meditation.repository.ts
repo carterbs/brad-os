@@ -89,15 +89,9 @@ export class GuidedMeditationRepository extends BaseRepository<
     return categories;
   }
 
-  override async update(
-    id: string,
+  protected override buildUpdatePayload(
     data: Partial<CreateGuidedMeditationScriptDTO>
-  ): Promise<GuidedMeditationScript | null> {
-    const existing = await this.findById(id);
-    if (!existing) {
-      return null;
-    }
-
+  ): Record<string, unknown> {
     const updates: Record<string, unknown> = {};
 
     if (data.category !== undefined) updates['category'] = data.category;
@@ -113,13 +107,7 @@ export class GuidedMeditationRepository extends BaseRepository<
     }
     if (data.interjections !== undefined) updates['interjections'] = data.interjections;
 
-    if (Object.keys(updates).length === 0) {
-      return existing;
-    }
-
-    updates['updated_at'] = this.updateTimestamp();
-    await this.collection.doc(id).update(updates);
-    return this.findById(id);
+    return updates;
   }
 
   async seed(scripts: CreateGuidedMeditationScriptDTO[]): Promise<GuidedMeditationScript[]> {
