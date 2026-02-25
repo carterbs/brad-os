@@ -453,6 +453,7 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
 
       const durationMs = Date.now() - startTime;
       const success =
+        !abortController.signal.aborted &&
         code === 0 &&
         !sawTurnFailed &&
         !spawnError &&
