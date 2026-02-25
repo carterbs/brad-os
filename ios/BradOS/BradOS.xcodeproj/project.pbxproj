@@ -941,7 +941,11 @@
 			path = Lifting;
 			sourceTree = "<group>";
 		};
+<<<<<<< Updated upstream
 		"TEMP_6AF67D26-FE7F-4FC0-9CC4-E95A9F91FBAC" /* Resources */ = {
+=======
+		"TEMP_3BC8A6F7-94A6-479B-9C6F-5FADE76B5874" /* Resources */ = {
+>>>>>>> Stashed changes
 			isa = PBXGroup;
 			children = (
 			);
