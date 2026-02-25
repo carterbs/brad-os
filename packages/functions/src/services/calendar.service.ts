@@ -75,8 +75,8 @@ export class CalendarService {
    * Get calendar data for a specific month.
    * @param year - The year (e.g., 2024)
    * @param month - The month (1-12)
-   * @param timezoneOffset - Timezone offset in minutes from Date.getTimezoneOffset()
-   *                         (positive for west of UTC, negative for east). Defaults to 0 (UTC).
+   * @param timezoneOffset - Timezone offset in minutes from iOS TimeZone.secondsFromGMT() / 60
+   *                         (negative for west of UTC, positive for east). Defaults to 0 (UTC).
    * @returns CalendarDataResponse with activities grouped by date
    */
   async getMonthData(year: number, month: number, timezoneOffset: number = 0): Promise<CalendarDataResponse> {

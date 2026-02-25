@@ -482,12 +482,9 @@ struct CalendarViewModelTests {
 
         let vm = CalendarViewModel(apiClient: mock)
 
-        // Temporarily override timezone to +14 hours (840 minutes)
-        let originalTZ = TimeZone.current
-        let utcPlus14 = TimeZone(secondsFromGMT: 14 * 3600)!
-        // Note: We can't actually change TimeZone.current directly, so we test with the normal timezone
-        // The actual test would verify that timezoneOffset is correctly calculated
-        // For now, verify the API was called with the correct current offset
+        // Note: TimeZone.current cannot be overridden directly in Swift.
+        // This test verifies the ViewModel forwards whatever the current system offset is.
+        // Boundary-offset math (UTC+14, UTC-12) is covered by the service-layer utcToLocalDate tests.
         await vm.loadCalendarData()
 
         #expect(mock.capturedCalendarRequests.count > 0)
