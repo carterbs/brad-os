@@ -18,6 +18,25 @@ import {
 import { getCyclingActivities } from './firestore-cycling.service.js';
 
 /**
+ * Compare two calendar activities for deterministic sorting.
+ * Primary: completedAt ascending (null coerced to empty string, preserving current semantics).
+ * Tie-breaker: id ascending to guarantee deterministic order when timestamps match.
+ * @param a - First activity
+ * @param b - Second activity
+ * @returns Negative if a < b, 0 if equal, positive if a > b
+ */
+export function compareCalendarActivities(a: CalendarActivity, b: CalendarActivity): number {
+  const timeA = a.completedAt ?? '';
+  const timeB = b.completedAt ?? '';
+  const timeComparison = timeA.localeCompare(timeB);
+  if (timeComparison !== 0) {
+    return timeComparison;
+  }
+  // Tie-breaker: sort by id ascending
+  return a.id.localeCompare(b.id);
+}
+
+/**
  * Convert a UTC ISO timestamp to a local date string (YYYY-MM-DD) given a timezone offset.
  * @param isoTimestamp - UTC timestamp in ISO format (e.g., "2024-01-15T03:00:00.000Z")
  * @param timezoneOffsetMinutes - Timezone offset in minutes from TimeZone.secondsFromGMT() / 60
@@ -210,13 +229,9 @@ export class CalendarService {
       }
     }
 
-    // Sort activities within each day by completion time
+    // Sort activities within each day by completion time (deterministic for ties)
     for (const dayData of Object.values(days)) {
-      dayData.activities.sort((a, b) => {
-        const timeA = a.completedAt ?? '';
-        const timeB = b.completedAt ?? '';
-        return timeA.localeCompare(timeB);
-      });
+      dayData.activities.sort(compareCalendarActivities);
     }
 
     return {

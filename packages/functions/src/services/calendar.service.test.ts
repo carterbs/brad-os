@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import type { Firestore } from 'firebase-admin/firestore';
 import type {
+  CalendarActivity,
   CyclingActivity,
   CyclingActivitySummary,
   WorkoutActivitySummary,
-} from '../shared.js';
-import { CalendarService, utcToLocalDate } from './calendar.service.js';
+} from '../types/calendar.js';
+import { CalendarService, utcToLocalDate, compareCalendarActivities } from './calendar.service.js';
 import { WorkoutRepository } from '../repositories/workout.repository.js';
 import { WorkoutSetRepository } from '../repositories/workout-set.repository.js';
 import { PlanDayRepository } from '../repositories/plan-day.repository.js';
@@ -27,6 +28,18 @@ vi.mock('../repositories/workout-set.repository.js');
 vi.mock('../repositories/plan-day.repository.js');
 vi.mock('../repositories/stretchSession.repository.js');
 vi.mock('../repositories/meditationSession.repository.js');
+
+// Helper function for creating test activities
+function createTestActivity(overrides: Partial<CalendarActivity> = {}): CalendarActivity {
+  return {
+    id: 'test-activity-1',
+    type: 'workout',
+    date: '2024-01-15',
+    completedAt: '2024-01-15T10:00:00Z',
+    summary: {},
+    ...overrides,
+  };
+}
 
 describe('CalendarService', () => {
   let service: CalendarService;
@@ -226,6 +239,45 @@ describe('CalendarService', () => {
     });
   });
 
+  describe('compareCalendarActivities', () => {
+    it('should sort by completedAt ascending (null as empty string)', () => {
+      const a1 = createTestActivity({ id: 'a1', completedAt: null });
+      const a2 = createTestActivity({ id: 'a2', completedAt: '2024-01-15T10:00:00Z' });
+
+      const result = compareCalendarActivities(a1, a2);
+      expect(result).toBeLessThan(0); // a1 (null/'') should come before a2
+    });
+
+    it('should use id as tie-breaker when completedAt is identical', () => {
+      const a1 = createTestActivity({ id: 'activity-1', completedAt: '2024-01-15T10:00:00Z' });
+      const a2 = createTestActivity({ id: 'activity-2', completedAt: '2024-01-15T10:00:00Z' });
+
+      const result = compareCalendarActivities(a1, a2);
+      expect(result).toBeLessThan(0); // 'activity-1' < 'activity-2'
+    });
+
+    it('should return 0 for identical activities', () => {
+      const a = createTestActivity({ id: 'same-id', completedAt: '2024-01-15T10:00:00Z' });
+
+      const result = compareCalendarActivities(a, a);
+      expect(result).toBe(0);
+    });
+
+    it('should maintain deterministic order for multiple activities with same timestamp', () => {
+      const activities = [
+        createTestActivity({ id: 'c', completedAt: '2024-01-15T10:00:00Z', type: 'workout' }),
+        createTestActivity({ id: 'a', completedAt: '2024-01-15T10:00:00Z', type: 'stretch' }),
+        createTestActivity({ id: 'b', completedAt: '2024-01-15T10:00:00Z', type: 'meditation' }),
+      ];
+
+      const sorted = [...activities].sort(compareCalendarActivities);
+
+      expect(sorted[0]?.id).toBe('a');
+      expect(sorted[1]?.id).toBe('b');
+      expect(sorted[2]?.id).toBe('c');
+    });
+  });
+
   describe('getMonthData', () => {
     it('should return activities grouped by date', async () => {
       const workout = createWorkout(workoutDefaults);
@@ -303,9 +355,8 @@ describe('CalendarService', () => {
     });
 
     it('should include cycling activities in days map', async () => {
-      const cyclingActivity = {
-        ...cyclingActivityDefaults,
-      };
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const cyclingActivity: CyclingActivity = { ...cyclingActivityDefaults };
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
       mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
@@ -328,10 +379,11 @@ describe('CalendarService', () => {
     });
 
     it('should set hasCycling flag and increment totals when cycling exists', async () => {
-      const cyclingActivity = {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+const cyclingActivity = {
         ...cyclingActivityDefaults,
         id: 'cycling-1',
-      };
+      } as CyclingActivity;
 
       const workout = createWorkout(workoutDefaults);
       const sets = [createWorkoutSet(workoutSetDefaults)];
@@ -352,10 +404,11 @@ describe('CalendarService', () => {
     });
 
     it('should prefix cycling activity IDs with cycling-', async () => {
-      const cyclingActivity = {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+const cyclingActivity = {
         ...cyclingActivityDefaults,
         id: 'strava-id-123',
-      };
+      } as CyclingActivity;
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
       mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
@@ -369,10 +422,11 @@ describe('CalendarService', () => {
     });
 
     it('should convert cycling UTC timestamp to local day using timezone offset', async () => {
-      const cyclingActivity = {
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+const cyclingActivity = {
         ...cyclingActivityDefaults,
         date: '2024-01-15T03:00:00Z',
-      };
+      } as CyclingActivity;
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
       mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
@@ -872,6 +926,126 @@ describe('CalendarService', () => {
       const pull = result.days['2024-01-16']?.activities.find(a => a.id === 'workout-w-2');
       expect((push?.summary as WorkoutActivitySummary).dayName).toBe('Push Day');
       expect((pull?.summary as WorkoutActivitySummary).dayName).toBe('Pull Day');
+    });
+
+    it('should sort activities with deterministic tie-breaker when completedAt is identical', async () => {
+      // Create multiple activities with identical completedAt
+      const stretchSession1 = createStretchSession({
+        ...stretchSessionDefaults,
+        id: 'stretch-a',
+        completedAt: '2024-01-15T12:00:00Z',
+      });
+      const stretchSession2 = createStretchSession({
+        ...stretchSessionDefaults,
+        id: 'stretch-b',
+        completedAt: '2024-01-15T12:00:00Z',
+      });
+      const stretchSession3 = createStretchSession({
+        ...stretchSessionDefaults,
+        id: 'stretch-c',
+        completedAt: '2024-01-15T12:00:00Z',
+      });
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([stretchSession1, stretchSession2, stretchSession3]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+
+      const result = await service.getMonthData(2024, 1);
+
+      const activities = result.days['2024-01-15']?.activities ?? [];
+      expect(activities).toHaveLength(3);
+      // Should be sorted by id: stretch-a, stretch-b, stretch-c
+      expect(activities[0]?.id).toBe('stretch-stretch-a');
+      expect(activities[1]?.id).toBe('stretch-stretch-b');
+      expect(activities[2]?.id).toBe('stretch-stretch-c');
+    });
+  });
+
+  describe('getMonthData timezone/month boundary matrix', () => {
+    it('should include cycling activity that crosses month boundary forward with negative tz', async () => {
+      // Cycling activity on UTC Feb 1 at 00:30, with tz=-120 (UTC-2) converts to Jan 31 locally
+      // Should be included in Jan query because local date is within Jan range
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+const cyclingActivity = {
+        ...cyclingActivityDefaults,
+        id: 'cycling-boundary-1',
+        date: '2026-02-01T00:30:00Z',
+      } as CyclingActivity;
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockCyclingRepo.getCyclingActivities.mockResolvedValue([cyclingActivity]);
+
+      const result = await service.getMonthData(2026, 1, -120);
+
+      // The activity should appear on 2026-01-31 due to timezone conversion
+      expect(result.days['2026-01-31']).toBeDefined();
+      expect(result.days['2026-02-01']).toBeUndefined();
+    });
+
+    it('should exclude cycling activity that crosses month boundary forward with positive tz', async () => {
+      // Cycling activity on UTC Jan 31 at 23:30, with tz=+120 (UTC+2) converts to Feb 1 locally
+      // Should be excluded from Jan query because local date is outside Jan range
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+const cyclingActivity = {
+        ...cyclingActivityDefaults,
+        id: 'cycling-boundary-2',
+        date: '2026-01-31T23:30:00Z',
+      } as CyclingActivity;
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockCyclingRepo.getCyclingActivities.mockResolvedValue([cyclingActivity]);
+
+      const result = await service.getMonthData(2026, 1, 120);
+
+      // The activity converts to Feb 1, outside the Jan range
+      expect(result.days['2026-01-31']).toBeUndefined();
+      expect(result.days['2026-02-01']).toBeUndefined();
+    });
+
+    it('should handle extreme timezone offset UTC+14 at month boundary', async () => {
+      // Cycling activity on UTC Feb 1 at 11:00, with tz=+840 (UTC+14) converts to Feb 2 locally
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+const cyclingActivity = {
+        ...cyclingActivityDefaults,
+        id: 'cycling-extreme-positive',
+        date: '2026-02-01T11:00:00Z',
+      } as CyclingActivity;
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockCyclingRepo.getCyclingActivities.mockResolvedValue([cyclingActivity]);
+
+      const result = await service.getMonthData(2026, 2, 840);
+
+      // Activity should appear on Feb 2 locally due to extreme timezone
+      expect(result.days['2026-02-02']).toBeDefined();
+      expect(result.days['2026-02-01']).toBeUndefined();
+    });
+
+    it('should handle extreme timezone offset UTC-12 at month boundary', async () => {
+      // Cycling activity on UTC Feb 1 at 11:00, with tz=-720 (UTC-12) converts to Jan 31 locally
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+const cyclingActivity = {
+        ...cyclingActivityDefaults,
+        id: 'cycling-extreme-negative',
+        date: '2026-02-01T11:00:00Z',
+      } as CyclingActivity;
+
+      mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
+      mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockMeditationSessionRepo.findInDateRange.mockResolvedValue([]);
+      mockCyclingRepo.getCyclingActivities.mockResolvedValue([cyclingActivity]);
+
+      const result = await service.getMonthData(2026, 1, -720);
+
+      // Activity converts to Jan 31, should be included in Jan query
+      expect(result.days['2026-01-31']).toBeDefined();
+      expect(result.days['2026-02-01']).toBeUndefined();
     });
   });
 });
