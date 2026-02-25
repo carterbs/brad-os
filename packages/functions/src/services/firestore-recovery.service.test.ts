@@ -381,27 +381,6 @@ describe('firestore-recovery.service', () => {
       expect(result.syncedAt).toBeDefined();
       expect(mockCollectionRef.doc).toHaveBeenCalledWith('2026-02-09');
     });
-
-    it('preserves explicit manual source', async () => {
-      mockSet.mockResolvedValueOnce(undefined);
-
-      const result = await addWeightEntry(userId, {
-        weightLbs: 175.5,
-        date: '2026-02-09',
-        source: 'manual',
-      });
-
-      expect(result.source).toBe('manual');
-      expect(mockBatchSet).not.toHaveBeenCalled();
-      expect(mockBatchCommit).not.toHaveBeenCalled();
-      expect(mockSet).toHaveBeenCalledWith(
-        expect.objectContaining({
-          date: '2026-02-09',
-          weightLbs: 175.5,
-          source: 'manual',
-        }),
-      );
-    });
   });
 
   describe('addWeightEntries', () => {

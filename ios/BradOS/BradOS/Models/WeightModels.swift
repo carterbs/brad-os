@@ -6,8 +6,6 @@ struct WeightHistoryEntry: Codable, Identifiable {
     let id: String
     let date: String       // YYYY-MM-DD
     let weightLbs: Double
-    let source: String? = nil
-    let syncedAt: String? = nil
 
     /// Parse the date string into a Date
     var parsedDate: Date? {

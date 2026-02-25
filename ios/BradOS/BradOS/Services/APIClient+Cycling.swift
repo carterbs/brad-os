@@ -152,20 +152,6 @@ extension APIClient {
         try await getOptional("/health-sync/weight", cacheTTL: CacheTTL.medium)
     }
 
-    func logWeightEntry(weightLbs: Double, date: String, source: String = "manual") async throws -> WeightHistoryEntry {
-        struct LogWeightBody: Encodable {
-            let weightLbs: Double
-            let date: String
-            let source: String
-        }
-        let result: WeightHistoryEntry = try await post(
-            "/health-sync/weight",
-            body: LogWeightBody(weightLbs: weightLbs, date: date, source: source),
-        )
-        invalidateCache(matching: "/health-sync/weight")
-        return result
-    }
-
     func syncWeightBulk(weights: [WeightSyncEntry]) async throws -> Int {
         struct BulkWeightBody: Encodable {
             let weights: [WeightSyncEntry]

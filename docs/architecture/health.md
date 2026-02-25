@@ -40,7 +40,6 @@ HealthView/HealthMetricHistoryView -> HealthMetricHistoryViewModel -> APIClient 
 - `GET /health-sync/baseline` — get recovery baseline
 - `POST /health-sync/weight/bulk` — bulk weight sync
 - `GET /health-sync/weight` — weight history
-- `POST /health-sync/weight` — manual weight entry
 - `POST /health-sync/hrv/bulk` — bulk HRV sync
 - `GET /health-sync/hrv` — HRV history
 - `POST /health-sync/rhr/bulk` — bulk RHR sync
