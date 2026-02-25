@@ -40,6 +40,30 @@ export const createExerciseSchema = z.object({
 import { createExerciseSchema } from '../shared.js';
 ```
 
+### Zod-only DTO Pattern
+
+- Do not hand-write create/update DTO interfaces when schema inference can be used.
+- Export DTO aliases from schema modules, not inline interface types.
+- Keep update DTOs as partial-by-default derivatives when possible.
+
+### Canonical backend naming
+
+```ts
+// packages/functions/src/schemas/exercise.schema.ts
+import { z } from 'zod';
+
+export const createExerciseSchema = z.object({
+  name: z.string().min(1).max(100),
+  weightIncrement: z.number().positive().default(5),
+});
+
+export const updateExerciseSchema = createExerciseSchema.partial();
+
+export type CreateExerciseInput = z.input<typeof createExerciseSchema>;
+export type CreateExerciseDTO = z.infer<typeof createExerciseSchema>;
+export type UpdateExerciseDTO = z.infer<typeof updateExerciseSchema>;
+```
+
 ## File Naming Conventions
 
 ```

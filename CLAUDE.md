@@ -133,6 +133,13 @@ Code and docs are optimized for agent readability first. CLAUDE.md is a map, not
 - **[API Patterns](docs/conventions/api-patterns.md)** — REST structure, action endpoints, shared APIClient
 - **[Testing](docs/conventions/testing.md)** — TDD, vitest not jest, never skip tests, QA on simulator
 
+### Backend Conventions (Cloud Functions)
+
+- **[BaseRepository contract + buildUpdatePayload override](docs/conventions/api-patterns.md#base-repository-contract)**: canonical repository layer is `BaseRepository<T extends { id: string }, CreateDTO, UpdateDTO>` in `packages/functions/src/repositories/base.repository.ts`; router-facing shape is `IBaseRepository<T, CreateDTO, UpdateDTO>` in `packages/functions/src/types/repository.ts`; read-only repos intentionally reject writes in override points.
+- **[Zod-only DTOs](docs/conventions/typescript.md#zod-only-dto-pattern)**: create/update DTOs are always derived from `packages/functions/src/schemas/*.schema.ts`; prefer `Create*Input`, `Create*DTO`, and `Update*DTO` exports over hand-written interfaces.
+- **[Router factory choice](docs/conventions/api-patterns.md#router-factory-pattern)**: use `createResourceRouter` for straight CRUD resources and `createBaseApp(resourceName)` when adding custom action or non-standard routes; both utilities are in `packages/functions/src/middleware/create-resource-router.ts`.
+- **[Shared test utilities](docs/conventions/testing.md#shared-test-utilities)**: keep fixtures/services/repository shared helpers in `packages/functions/src/__tests__/utils/`; keep Firestore/test-environment helpers in `packages/functions/src/test-utils/`.
+
 ## Guides (see docs/guides/)
 
 - **[Local Dev Quickstart](docs/guides/local-dev-quickstart.md)** — 5-minute bootstrap: install → validate → emulators → iOS build
