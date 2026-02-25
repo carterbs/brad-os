@@ -130,6 +130,7 @@ Constraints:
 - Follow all rules in CLAUDE.md exactly.
 - 100% test coverage on new utilities.
 - Keep changes focused on what thoughts/shared/plans/active/ralph-improvement.md describes.
+- Never modify scripts/ralph/backlog.md (main-managed; only updated after merge on main).
 - Run and pass: npm run typecheck && npm run lint && npm test
 - Do NOT push to any remote. Do NOT run git push. Everything stays local.
 
@@ -144,6 +145,31 @@ QA (MANDATORY — do not skip this):
 - Whatever you built, RUN THE THING and verify it works in practice, not just in theory.
 
 When done, output a one-line summary starting with "DONE:" describing the improvement.`;
+}
+
+export function buildMergeConflictResolvePrompt(task: string): string {
+  return `You are resolving a merge-conflict triage task for the brad-os project.
+
+## Task
+${task}
+
+This is NOT a normal feature implementation. Do not create a new plan.
+Focus only on making the existing branch merge cleanly to main.
+
+Workflow:
+1. Confirm current branch/worktree state with git status.
+2. Merge latest main into the current branch.
+3. If conflicts appear, resolve them carefully in conflicted files only.
+4. Keep behavior from both sides where appropriate; avoid unrelated refactors.
+5. Ensure no conflict markers remain.
+6. Run validation in this worktree: npm run typecheck && npm run lint && npm test
+
+Constraints:
+- Do NOT modify scripts/ralph/backlog.md.
+- Do NOT push to remote.
+- Keep changes minimal and conflict-focused.
+
+When done, output a one-line summary starting with "DONE:" describing what you resolved.`;
 }
 
 export function buildFixPrompt(reviewOutput: string): string {
@@ -166,6 +192,7 @@ ${truncated}
 ## Instructions
 - Read CLAUDE.md and docs/conventions/ for project rules.
 - Fix ONLY the issues described above. Do not refactor or add unrelated changes.
+- Never modify scripts/ralph/backlog.md (main-managed; only updated after merge on main).
 - Run and pass: npm run typecheck && npm run lint && npm test
 - Do NOT push to any remote. Do NOT run git push. Everything stays local.
 
@@ -181,6 +208,7 @@ is high-leverage harness work that increases agent velocity — not product code
 or low-value busywork.
 
 IMPORTANT: Do NOT push to any remote. Do NOT run git push. Everything stays local.
+IMPORTANT: Do NOT modify scripts/ralph/backlog.md (main-managed; only updated after merge on main).
 
 Steps:
 1. Run: git diff main --stat   (see scope of changes)

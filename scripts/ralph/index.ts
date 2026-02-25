@@ -7,6 +7,7 @@ import {
   buildTaskPlanPrompt,
   buildPlanPrompt,
   buildImplPrompt,
+  buildMergeConflictResolvePrompt,
   buildReviewPrompt,
   buildFixPrompt,
 } from "./prompts.js";
@@ -25,6 +26,7 @@ import {
   removeTriageTask,
   backlogPath,
   moveTaskToMergeConflicts,
+  syncTaskFilesFromLog,
 } from "./backlog.js";
 import { resolveConfig } from "./config.js";
 import { MergeQueue } from "./merge-queue.js";
@@ -41,9 +43,16 @@ interface WorkerResult {
   taskText?: string;
   taskSource: TaskSource;
   stepResults: StepSummary[];
+  failureReason?: "no_changes";
 }
 
 type TaskSource = "backlog" | "triage" | "cli";
+
+const MAIN_NOT_GREEN_TRIAGE_TASK =
+  "Restore main to green: run npm run validate on main, fix failures, then rerun validate.";
+const MAIN_NOT_GREEN_RETRY_COOLDOWN_MS = 15 * 60 * 1000;
+const MERGE_CONFLICT_TRIAGE_PREFIX =
+  "Resolve merge conflict for improvement #";
 
 // ── Validation helper ──
 
@@ -53,6 +62,65 @@ function runValidation(cwd: string): boolean {
     return true;
   } catch {
     return false;
+  }
+}
+
+function isMergeConflictTriageTask(
+  taskText: string | undefined,
+  taskSource: TaskSource,
+): boolean {
+  return (
+    taskSource === "triage" &&
+    taskText?.startsWith(MERGE_CONFLICT_TRIAGE_PREFIX) === true
+  );
+}
+
+function enforceMainManagedBacklog(cwd: string, logger: Logger): void {
+  const backlogPath = "scripts/ralph/backlog.md";
+
+  let changed = "";
+  try {
+    changed = execFileSync(
+      "git",
+      ["status", "--porcelain", "--", backlogPath],
+      { cwd, encoding: "utf-8", stdio: "pipe" },
+    ).trim();
+  } catch {
+    return;
+  }
+
+  if (!changed) return;
+
+  try {
+    execFileSync(
+      "git",
+      ["restore", "--staged", "--worktree", "--", backlogPath],
+      { cwd, stdio: "pipe" },
+    );
+    logger.warn(
+      "Discarded worktree edits to scripts/ralph/backlog.md (main-managed file).",
+    );
+    return;
+  } catch {
+    // Fallback for older git variants.
+  }
+
+  try {
+    execFileSync("git", ["reset", "HEAD", "--", backlogPath], {
+      cwd,
+      stdio: "pipe",
+    });
+    execFileSync("git", ["checkout", "--", backlogPath], {
+      cwd,
+      stdio: "pipe",
+    });
+    logger.warn(
+      "Discarded worktree edits to scripts/ralph/backlog.md (main-managed file).",
+    );
+  } catch {
+    logger.warn(
+      "Failed to enforce backlog main-only rule in worktree; continuing.",
+    );
   }
 }
 
@@ -135,12 +203,20 @@ async function runWorker(
 
   try {
     const stepResults: StepSummary[] = [];
+    const mergeConflictTriageTask = isMergeConflictTriageTask(
+      taskText,
+      taskSource,
+    );
 
     // ── 1. Planning (skip if resuming) ──
     let planSummary = "";
 
     if (wtResult.resumed) {
       logger.info("[1/4] Skipping planning (resuming from prior work)");
+    } else if (mergeConflictTriageTask) {
+      logger.info(
+        "[1/4] Skipping generic planning (merge-conflict triage task)",
+      );
     } else if (taskText) {
       logger.info(`[1/4] Planning for task: ${taskText.slice(0, 80)}...`);
       const planResult = await runStep({
@@ -242,8 +318,11 @@ async function runWorker(
 
     // ── 2. Implementation ──
     logger.info("[2/4] Implementing...");
+    const implementPrompt = mergeConflictTriageTask
+      ? buildMergeConflictResolvePrompt(taskText ?? "")
+      : buildImplPrompt();
     let implResult = await runStep({
-      prompt: buildImplPrompt(),
+      prompt: implementPrompt,
       stepName: "implement",
       improvement,
       cwd: worktreePath,
@@ -257,7 +336,7 @@ async function runWorker(
     if (!implResult.success) {
       logger.warn("Implementation failed, retrying once...");
       implResult = await runStep({
-        prompt: buildImplPrompt(),
+        prompt: implementPrompt,
         stepName: "implement",
         improvement,
         cwd: worktreePath,
@@ -294,11 +373,36 @@ async function runWorker(
     const commitBody = doneSummary ? `\n${doneSummary}` : "";
     const commitMsg = `${commitTitle}${commitBody}`;
 
+    enforceMainManagedBacklog(worktreePath, logger);
     if (!commitAll(worktreePath, commitMsg)) {
       if (!hasNewCommits(worktreePath)) {
+        if (taskText === MAIN_NOT_GREEN_TRIAGE_TASK && runValidation(config.repoDir)) {
+          logger.success("No changes needed: main is already green");
+          logger.improvementSummary(improvement, stepResults);
+          return {
+            success: true,
+            improvement,
+            workerSlot,
+            branchName,
+            worktreePath,
+            taskText,
+            taskSource,
+            stepResults,
+          };
+        }
         logger.error("No changes produced");
         logger.info(`  Worktree preserved at: ${worktreePath}`);
-        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, taskSource, stepResults };
+        return {
+          success: false,
+          improvement,
+          workerSlot,
+          branchName,
+          worktreePath,
+          taskText,
+          taskSource,
+          stepResults,
+          failureReason: "no_changes",
+        };
       }
     }
 
@@ -345,6 +449,7 @@ async function runWorker(
         abortController,
       });
 
+      enforceMainManagedBacklog(worktreePath, logger);
       commitAll(
         worktreePath,
         `${commitTitle} \u2014 review fixes (cycle ${cycle})`,
@@ -372,6 +477,7 @@ async function runWorker(
           abortController,
         });
 
+        enforceMainManagedBacklog(worktreePath, logger);
         commitAll(
           worktreePath,
           `${commitTitle} \u2014 fix from review (cycle ${cycle})`,
@@ -410,6 +516,7 @@ async function runWorker(
             abortController,
           });
 
+          enforceMainManagedBacklog(worktreePath, logger);
           commitAll(
             worktreePath,
             `${commitTitle} \u2014 fix from validation (cycle ${cycle})`,
@@ -502,6 +609,7 @@ async function main(): Promise<void> {
   });
 
   checkDeps(config, orchestratorLogger);
+  syncBacklog(orchestratorLogger, "startup");
 
   const { agents } = config;
   const fmtStep = (s: { backend: AgentBackend; model: string }): string =>
@@ -536,8 +644,7 @@ async function main(): Promise<void> {
   const failureThreshold = Math.max(3, config.parallelism + 2);
   let nextImprovement = completed + 1;
   const tasksInFlight = new Set<string>();
-  const MAIN_NOT_GREEN_TRIAGE_TASK =
-    "Restore main to green: run npm run validate on main, fix failures, then rerun validate.";
+  let mainNotGreenRetryAfter = 0;
 
   // Active worker promises keyed by worker slot
   const activeWorkers = new Map<number, Promise<WorkerResult>>();
@@ -546,11 +653,38 @@ async function main(): Promise<void> {
     return `${source}:${taskText}`;
   }
 
+  function syncBacklog(logger: Logger, reason: string): void {
+    const sync = syncTaskFilesFromLog(config.logFile);
+    const removedCount =
+      sync.removedFromBacklog.length + sync.removedFromTriage.length;
+    if (removedCount === 0) return;
+
+    logger.warn(
+      `Backlog sync (${reason}) removed ${removedCount} completed task(s) ` +
+        `(${sync.removedFromBacklog.length} backlog, ${sync.removedFromTriage.length} triage).`,
+    );
+    for (const task of sync.removedFromBacklog.slice(0, 5)) {
+      logger.info(`  - removed from backlog: ${task}`);
+    }
+    for (const task of sync.removedFromTriage.slice(0, 5)) {
+      logger.info(`  - removed from triage: ${task}`);
+    }
+  }
+
   /** Find first triage/backlog task not already in flight (triage first). */
   function acquireTask(): { text: string; source: TaskSource } | undefined {
+    const now = Date.now();
+    let deferredMainNotGreenTask: { text: string; source: TaskSource } | undefined;
     const triage = readTriage();
     for (const t of triage) {
       if (!tasksInFlight.has(makeTaskKey(t, "triage"))) {
+        if (
+          t === MAIN_NOT_GREEN_TRIAGE_TASK &&
+          now < mainNotGreenRetryAfter
+        ) {
+          deferredMainNotGreenTask = { text: t, source: "triage" };
+          continue;
+        }
         return { text: t, source: "triage" };
       }
     }
@@ -561,7 +695,7 @@ async function main(): Promise<void> {
         return { text: t, source: "backlog" };
       }
     }
-    return undefined;
+    return deferredMainNotGreenTask;
   }
 
   /** Ensure triage/backlog has tasks, refilling backlog if needed. */
@@ -603,6 +737,7 @@ async function main(): Promise<void> {
       for (const t of newBacklog) {
         orchestratorLogger.info(`  - ${t}`);
       }
+      syncBacklog(orchestratorLogger, "post-refill");
 
       if (newBacklog.length === 0) {
         orchestratorLogger.error("Refill produced no tasks \u2014 stopping.");
@@ -770,6 +905,7 @@ async function main(): Promise<void> {
           }
           tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
         }
+        syncBacklog(orchestratorLogger, "post-merge");
         activeWorktrees.delete(finishedSlot);
         completed++;
         consecutiveFailures = 0;
@@ -789,6 +925,19 @@ async function main(): Promise<void> {
       // Worker failed
       if (result.taskText) {
         tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
+      }
+      if (
+        result.failureReason === "no_changes" &&
+        result.taskText === MAIN_NOT_GREEN_TRIAGE_TASK
+      ) {
+        mainNotGreenRetryAfter = Date.now() + MAIN_NOT_GREEN_RETRY_COOLDOWN_MS;
+        const retryAt = new Date(mainNotGreenRetryAfter).toLocaleTimeString(
+          "en-US",
+          { hour12: false },
+        );
+        orchestratorLogger.warn(
+          `Main-green task produced no changes; deferring retries until ${retryAt}.`,
+        );
       }
       activeWorktrees.delete(finishedSlot);
       consecutiveFailures++;
@@ -827,6 +976,7 @@ async function main(): Promise<void> {
             }
             tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
           }
+          syncBacklog(orchestratorLogger, "post-merge");
           activeWorktrees.delete(result.workerSlot);
           completed++;
         } else {
