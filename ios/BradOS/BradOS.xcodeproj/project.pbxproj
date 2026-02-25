@@ -86,6 +86,7 @@
 		603E13D858099C5C42152EF6 /* NotificationSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95A2DE32A58E6CAD1F228067 /* NotificationSettingsView.swift */; };
 		6093FE9E0095500FF6EB1233 /* StretchAudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C086BBC4D5541722D70764B8 /* StretchAudioManager.swift */; };
 		61E4C57D123AE39C550F8904 /* TodayCoachDetailView+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB5D60FE3BC6768651DE9621 /* TodayCoachDetailView+Helpers.swift */; };
+		643532BA0D4342125F7F5EB4 /* TodayCoachClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32EE6A33EF1CBA532CA4766E /* TodayCoachClientTests.swift */; };
 		66BF73D8C1F9ECAD0ECB1803 /* BradOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = C03A3C5C8EF08F559DF7034E /* BradOSCore */; };
 		687ED813020B272B9D6301A0 /* CyclingBlockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF7FCEDB90BAB32E3A739521 /* CyclingBlockView.swift */; };
 		6D2BF99C81D7B1DBE00941A0 /* MeditationActiveView+Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F76F096883ADB7649F7A5C3 /* MeditationActiveView+Session.swift */; };
@@ -150,6 +151,7 @@
 		BF5EB3B66522340602293987 /* CyclingOnboardingView+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CF8FBB15B22AC389362C484 /* CyclingOnboardingView+Actions.swift */; };
 		C12CDD97E3F85F15FA91CBC1 /* TodayFocusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C4BE480C3B4B0393423F9DF /* TodayFocusView.swift */; };
 		C25E9E4FFD21AD710D825C09 /* TTSAudioCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC98A389A8A8FFCA71333DEB /* TTSAudioCache.swift */; };
+		C2C14698C2A43B35B2C178CF /* MockURLProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39A433CAE8B46E5C32CADECD /* MockURLProtocol.swift */; };
 		C3018BB29132C4B53F5CDCEB /* MesoView+Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796B5EC667D66344C6832B0E /* MesoView+Components.swift */; };
 		C32B53A1CC22EBE561E97766 /* ReadinessCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1242FA62054836D545BA364 /* ReadinessCard.swift */; };
 		C5B8F89B3D6A5C0653068E04 /* HealthMetricHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F957A5A2A6637FCA0986D7B0 /* HealthMetricHistoryView.swift */; };
@@ -288,11 +290,13 @@
 		2F7986113E22E50B924F9B7F /* TodayCoachClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayCoachClient.swift; sourceTree = "<group>"; };
 		31359277B8C8FE5BDCA59D2C /* TrainingBlockSetupView+Helpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "TrainingBlockSetupView+Helpers.swift"; sourceTree = "<group>"; };
 		31C0E1D71C97F2B7F0D33ADC /* WorkoutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutView.swift; sourceTree = "<group>"; };
+		32EE6A33EF1CBA532CA4766E /* TodayCoachClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayCoachClientTests.swift; sourceTree = "<group>"; };
 		33EA5122074F1AC3438C0B15 /* TodayDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayDashboardView.swift; sourceTree = "<group>"; };
 		3632F53BAD9FA7932DF09C40 /* MeditationAudioEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationAudioEngine.swift; sourceTree = "<group>"; };
 		36761A1FC08D5813476E0958 /* HealthKitSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSyncService.swift; sourceTree = "<group>"; };
 		368F67AF57E7D859C0A95A2E /* CyclingOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CyclingOnboardingView.swift; sourceTree = "<group>"; };
 		38D5EE1C5FCDACE62D3C9D36 /* StravaConnectionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StravaConnectionView.swift; sourceTree = "<group>"; };
+		39A433CAE8B46E5C32CADECD /* MockURLProtocol.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockURLProtocol.swift; sourceTree = "<group>"; };
 		3AFB7304A05DDE2F27CB8EE8 /* DefaultServices.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DefaultServices.swift; sourceTree = "<group>"; };
 		3F15EAA6FE7C3883A879E6F3 /* WeightGoalViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeightGoalViewModel.swift; sourceTree = "<group>"; };
 		4147461B2761A49BD4CBFF26 /* MeditationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationView.swift; sourceTree = "<group>"; };
@@ -615,6 +619,7 @@
 			isa = PBXGroup;
 			children = (
 				5D864B935E827D4D83AE0A49 /* Helpers */,
+				E9760DAFE40A129317551F8F /* Services */,
 				28EAE20D1FE25AEBCDEE5375 /* ViewModels */,
 			);
 			path = BradOSTests;
@@ -701,6 +706,7 @@
 			isa = PBXGroup;
 			children = (
 				A879C7FDB4AE28216AEA2105 /* AppTestDoubles.swift */,
+				39A433CAE8B46E5C32CADECD /* MockURLProtocol.swift */,
 			);
 			path = Helpers;
 			sourceTree = "<group>";
@@ -941,7 +947,15 @@
 			path = Lifting;
 			sourceTree = "<group>";
 		};
-		"TEMP_28D8246E-9828-4A9F-9991-3650AD7B1D30" /* Resources */ = {
+		E9760DAFE40A129317551F8F /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				32EE6A33EF1CBA532CA4766E /* TodayCoachClientTests.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		"TEMP_D41729FC-65A7-4690-9A1E-8F867684B901" /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -1283,7 +1297,9 @@
 				BCD64D738324F3AF716B33BA /* AppTestDoubles.swift in Sources */,
 				FE0915ABB2B9A385BA2889FD /* CyclingViewModelTests.swift in Sources */,
 				4BF4AC8189DD2E6AAA0816B1 /* ExerciseHistoryViewModelTests.swift in Sources */,
+				C2C14698C2A43B35B2C178CF /* MockURLProtocol.swift in Sources */,
 				39A24B2F60AA75CFF3708763 /* TextToSpeechViewModelTests.swift in Sources */,
+				643532BA0D4342125F7F5EB4 /* TodayCoachClientTests.swift in Sources */,
 				BA4C5CE0C2ED630651CA0F8E /* WeightGoalViewModelTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
