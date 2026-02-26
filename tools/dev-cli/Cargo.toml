@@ -11,6 +11,10 @@ path = "src/bin/validate.rs"
 name = "brad-run-integration-tests"
 path = "src/bin/run-integration-tests.rs"
 
+[[bin]]
+name = "brad-doctor"
+path = "src/bin/doctor.rs"
+
 [dependencies]
 owo-colors = { version = "4", features = ["supports-colors"] }
 ctrlc = "3.4.4"
