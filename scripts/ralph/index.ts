@@ -34,7 +34,7 @@ import type { AgentBackend, Config, StepSummary } from "./types.js";
 
 // ── Worker result returned from runWorker ──
 
-interface WorkerResult {
+export interface WorkerResult {
   success: boolean;
   improvement: number;
   workerSlot: number;
@@ -46,17 +46,17 @@ interface WorkerResult {
   failureReason?: "no_changes";
 }
 
-type TaskSource = "backlog" | "triage" | "cli";
+export type TaskSource = "backlog" | "triage" | "cli";
 
-const MAIN_NOT_GREEN_TRIAGE_TASK =
+export const MAIN_NOT_GREEN_TRIAGE_TASK =
   "Restore main to green: run npm run validate on main, fix failures, then rerun validate.";
-const MAIN_NOT_GREEN_RETRY_COOLDOWN_MS = 15 * 60 * 1000;
-const MERGE_CONFLICT_TRIAGE_PREFIX =
+export const MAIN_NOT_GREEN_RETRY_COOLDOWN_MS = 15 * 60 * 1000;
+export const MERGE_CONFLICT_TRIAGE_PREFIX =
   "Resolve merge conflict for improvement #";
 
 // ── Validation helper ──
 
-function runValidation(cwd: string): boolean {
+export function runValidation(cwd: string): boolean {
   try {
     execFileSync("npm", ["run", "validate"], { cwd, stdio: "pipe" });
     return true;
@@ -65,7 +65,7 @@ function runValidation(cwd: string): boolean {
   }
 }
 
-function isMergeConflictTriageTask(
+export function isMergeConflictTriageTask(
   taskText: string | undefined,
   taskSource: TaskSource,
 ): boolean {
@@ -75,7 +75,7 @@ function isMergeConflictTriageTask(
   );
 }
 
-function enforceMainManagedBacklog(cwd: string, logger: Logger): void {
+export function enforceMainManagedBacklog(cwd: string, logger: Logger): void {
   const backlogPath = "scripts/ralph/backlog.md";
 
   let changed = "";
@@ -126,7 +126,7 @@ function enforceMainManagedBacklog(cwd: string, logger: Logger): void {
 
 // ── Dependency check ──
 
-function checkDeps(config: Config, logger: Logger): void {
+export function checkDeps(config: Config, logger: Logger): void {
   try {
     execFileSync("which", ["git"], { stdio: "pipe" });
   } catch {
@@ -162,7 +162,7 @@ function checkDeps(config: Config, logger: Logger): void {
 
 // ── Single worker: plan -> implement -> review (no merge) ──
 
-async function runWorker(
+export async function runWorker(
   workerSlot: number,
   improvement: number,
   config: Config,
@@ -564,9 +564,9 @@ async function runWorker(
 // ── Orchestrator ──
 
 // Track active worktrees for exit cleanup: Map<workerSlot, { path, branch }>
-const activeWorktrees = new Map<number, { path: string; branch: string }>();
+export const activeWorktrees = new Map<number, { path: string; branch: string }>();
 
-function hasMoreWork(
+export function hasMoreWork(
   completed: number,
   target: number | undefined,
   triageCount: number,
@@ -578,7 +578,7 @@ function hasMoreWork(
   return triageCount > 0 || backlogCount > 0 || inFlightCount > 0;
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const config = resolveConfig();
   const orchestratorLogger = new Logger(config.logFile, config.verbose);
   const abortController = new AbortController();
@@ -995,7 +995,9 @@ async function main(): Promise<void> {
   orchestratorLogger.info("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
 }
 
-main().catch((err) => {
-  console.error("Fatal:", err);
-  process.exit(1);
-});
+if (process.env.VITEST === undefined) {
+  main().catch((err) => {
+    console.error("Fatal:", err);
+    process.exit(1);
+  });
+}
