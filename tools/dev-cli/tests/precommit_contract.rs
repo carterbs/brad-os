@@ -365,6 +365,138 @@ fn contract_precommit_falls_back_to_full_validation_for_unknown_scopes() {
 }
 
 #[test]
+fn contract_precommit_blocks_when_gitleaks_scan_fails() {
+    let dir = tempdir().expect("failed to create fixture dir");
+    let fake_bin = dir.path().join("fake-bin");
+    fs::create_dir(&fake_bin).expect("failed to create fake bin dir");
+    bootstrap_fake_bin(&fake_bin).expect("failed to create fake binaries");
+
+    let timing_file = dir.path().join("timing.jsonl");
+    let invocation = dir.path().join("npm-invocation.log");
+    let (_stdout, stderr, code) = run_precommit(
+        &fake_bin,
+        &[
+            ("BRAD_FAKE_BRANCH", "feature/alpha"),
+            ("BRAD_FAKE_STAGED_FILES", "packages/functions/src/services/foo.ts"),
+            ("BRAD_FAKE_HAS_GITLEAKS", "1"),
+            ("BRAD_FAKE_GITLEAKS_EXIT", "1"),
+            ("BRAD_FAKE_NPM_VALIDATE_EXIT", "0"),
+        ],
+        dir.path(),
+        &timing_file,
+        &invocation,
+    );
+
+    assert_eq!(code, 1);
+    assert!(
+        stderr.contains("ERROR: gitleaks failed. Install with: brew install gitleaks"),
+        "gitleaks scan failure should fail pre-commit"
+    );
+    assert!(!invocation.exists(), "validation should not run when gitleaks fails");
+    let record = timing_record(&timing_file);
+    assert_timing_mode(&record, "full");
+    assert_timing_exit_code(&record, 1);
+    assert!(record.contains("\"validate_status\":\"not_run\""));
+}
+
+#[test]
+fn contract_precommit_reports_validation_failure_in_timing() {
+    let dir = tempdir().expect("failed to create fixture dir");
+    let fake_bin = dir.path().join("fake-bin");
+    fs::create_dir(&fake_bin).expect("failed to create fake bin dir");
+    bootstrap_fake_bin(&fake_bin).expect("failed to create fake binaries");
+
+    let timing_file = dir.path().join("timing.jsonl");
+    let invocation = dir.path().join("npm-invocation.log");
+    let (_stdout, stderr, code) = run_precommit(
+        &fake_bin,
+        &[
+            ("BRAD_FAKE_BRANCH", "feature/alpha"),
+            (
+                "BRAD_FAKE_STAGED_FILES",
+                "packages/functions/src/services/foo.test.ts\npackages/functions/src/services/bar.test.ts",
+            ),
+            ("BRAD_FAKE_HAS_GITLEAKS", "1"),
+            ("BRAD_FAKE_GITLEAKS_EXIT", "0"),
+            ("BRAD_FAKE_NPM_VALIDATE_EXIT", "1"),
+        ],
+        dir.path(),
+        &timing_file,
+        &invocation,
+    );
+
+    assert_eq!(code, 1);
+    assert!(
+        stderr.contains("ERROR: Validation failed. Fix failures before committing."),
+        "validation failure should be reported"
+    );
+    let invocation_output = fs::read_to_string(&invocation).expect("npm invocation should be captured");
+    assert!(invocation_output.contains("files_set=true"));
+    assert!(
+        invocation_output.contains("foo.test.ts\npackages/functions/src/services/bar.test.ts"),
+        "scoped test env should be newline-separated"
+    );
+    let record = timing_record(&timing_file);
+    assert_timing_mode(&record, "scoped");
+    assert_timing_exit_code(&record, 1);
+    assert!(record.contains("\"validate_status\":\"fail\""));
+}
+
+#[test]
+fn contract_precommit_routes_multiple_scoped_test_files() {
+    let dir = tempdir().expect("failed to create fixture dir");
+    let fake_bin = dir.path().join("fake-bin");
+    fs::create_dir(&fake_bin).expect("failed to create fake bin dir");
+    bootstrap_fake_bin(&fake_bin).expect("failed to create fake binaries");
+
+    let timing_file = dir.path().join("timing.jsonl");
+    let invocation = dir.path().join("npm-invocation.log");
+    let (_stdout, stderr, code) = run_precommit(
+        &fake_bin,
+        &[
+            ("BRAD_FAKE_BRANCH", "feature/alpha"),
+            (
+                "BRAD_FAKE_STAGED_FILES",
+                "packages/functions/src/services/foo.test.ts\npackages/functions/src/services/bar.test.ts",
+            ),
+            ("BRAD_FAKE_HAS_GITLEAKS", "1"),
+            ("BRAD_FAKE_GITLEAKS_EXIT", "0"),
+            ("BRAD_FAKE_NPM_VALIDATE_EXIT", "0"),
+        ],
+        dir.path(),
+        &timing_file,
+        &invocation,
+    );
+
+    assert_eq!(code, 0);
+    assert!(
+        stderr.contains("Running targeted quality checks..."),
+        "multiple scoped files should stay in scoped mode"
+    );
+    assert!(
+        stderr.contains("Tests: packages/functions/src/services/foo.test.ts packages/functions/src/services/bar.test.ts"),
+        "scoped file list should include both tests"
+    );
+    assert!(
+        stderr.contains("All pre-commit checks passed."),
+        "successful scoped validation should report pass"
+    );
+    let invocation_output = fs::read_to_string(&invocation).expect("npm invocation should be captured");
+    assert!(invocation_output.contains("files_set=true"));
+    assert!(
+        invocation_output.contains("foo.test.ts\npackages/functions/src/services/bar.test.ts"),
+        "scoped env should keep newline list for BRAD_VALIDATE_TEST_FILES"
+    );
+    let record = timing_record(&timing_file);
+    assert_timing_mode(&record, "scoped");
+    assert_timing_exit_code(&record, 0);
+    assert!(
+        record.contains("\"targeted_test_file_count\":2"),
+        "scoped mode should report two targeted test files"
+    );
+}
+
+#[test]
 fn timing_jsonl_schema_is_stable() {
     let dir = tempdir().expect("failed to create fixture dir");
     let fake_bin = dir.path().join("fake-bin");
