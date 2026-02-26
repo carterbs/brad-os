@@ -400,10 +400,10 @@ export class CyclingActivityRepository {
     const rawCadence =
       cadenceRaw === undefined || cadenceRaw === null ? undefined : readNumberArray(data, 'cadence');
 
-    const watts = rawWatts === null ? undefined : rawWatts;
-    const heartrate = rawHeartrate === null ? undefined : rawHeartrate;
-    const time = rawTime === null ? undefined : rawTime;
-    const cadence = rawCadence === null ? undefined : rawCadence;
+    const watts = rawWatts === null ? null : rawWatts;
+    const heartrate = rawHeartrate === null ? null : rawHeartrate;
+    const time = rawTime === null ? null : rawTime;
+    const cadence = rawCadence === null ? null : rawCadence;
     const createdAt = readString(data, 'createdAt');
 
     if (
@@ -422,10 +422,10 @@ export class CyclingActivityRepository {
     return {
       activityId: activityIdField,
       stravaActivityId,
-      watts,
-      heartrate,
-      time,
-      cadence,
+      watts: watts ?? undefined,
+      heartrate: heartrate ?? undefined,
+      time: time ?? undefined,
+      cadence: cadence ?? undefined,
       sampleCount,
       createdAt,
     };

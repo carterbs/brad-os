@@ -43,7 +43,7 @@ describe('RecipeRepository', () => {
           id: 'recipe-2',
           data: {
             meal_id: 'meal-2',
-            ingredients: [{ ingredient_id: 'ing-2', quantity: 100, unit: 'g' }],
+            ingredients: [{ ingredient_id: 'ing-2', quantity: null, unit: null }],
             steps: null,
             created_at: '2024-01-02T00:00:00Z',
             updated_at: '2024-01-02T00:00:00Z',
@@ -63,6 +63,7 @@ describe('RecipeRepository', () => {
       expect(result[0]?.ingredients).toHaveLength(1);
       expect(result[0]?.ingredients[0]?.ingredient_id).toBe('ing-1');
       expect(result[1]?.id).toBe('recipe-2');
+      expect(result[1]?.ingredients).toEqual([{ ingredient_id: 'ing-2', quantity: null, unit: null }]);
       expect(result[1]?.steps).toBeNull();
     });
 

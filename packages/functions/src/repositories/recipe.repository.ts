@@ -77,7 +77,7 @@ export class RecipeRepository extends BaseRepository<
     const quantity = rawQuantity === null ? null : readNumber(ingredientData, 'quantity');
     const unit = readNullableString(ingredientData, 'unit');
 
-    if (quantity === null || unit === null || unit === undefined) {
+    if ((rawQuantity !== null && quantity === null) || unit === undefined) {
       return null;
     }
 

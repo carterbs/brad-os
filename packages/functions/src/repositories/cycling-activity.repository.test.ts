@@ -541,7 +541,7 @@ describe('CyclingActivityRepository', () => {
       (mockStreamsDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: true,
         data: (): Record<string, unknown> => ({
-          activityId: 555,
+          activityId: 'activity-9',
           stravaActivityId: 555,
           watts: [200, 210, 220],
           heartrate: [160, 165, 170],
