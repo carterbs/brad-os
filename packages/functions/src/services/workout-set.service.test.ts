@@ -7,17 +7,18 @@ import {
   ExerciseRepository,
 } from '../repositories/index.js';
 import {
+  createExercise,
+  createWorkout,
+  createWorkoutSet,
   createMockExerciseRepository,
   createMockPlanDayExerciseRepository,
   createMockWorkoutRepository,
   createMockWorkoutSetRepository,
-} from '../__tests__/utils/mock-repository.js';
-import { createWorkout, createWorkoutSet, createExercise } from '../__tests__/utils/index.js';
+} from '../__tests__/utils/index.js';
 
-let mockWorkoutRepo: ReturnType<typeof createMockWorkoutRepository>;
-let mockWorkoutSetRepo: ReturnType<typeof createMockWorkoutSetRepository>;
-let mockExerciseRepo: ReturnType<typeof createMockExerciseRepository>;
-let mockPlanDayExerciseRepo: ReturnType<typeof createMockPlanDayExerciseRepository>;
+const mockWorkoutSetRepo = createMockWorkoutSetRepository();
+const mockWorkoutRepo = createMockWorkoutRepository();
+const mockExerciseRepo = createMockExerciseRepository();
 
 // Mock repositories - the service imports from index.js, so we only need to mock that
 vi.mock('../repositories/index.js', async (importOriginal) => {
@@ -27,11 +28,11 @@ vi.mock('../repositories/index.js', async (importOriginal) => {
     createRepositories: vi.fn(() => ({
       workout: mockWorkoutRepo,
       workoutSet: mockWorkoutSetRepo,
-      planDayExercise: mockPlanDayExerciseRepo,
+      planDayExercise: createMockPlanDayExerciseRepository(),
     })),
-    WorkoutSetRepository: vi.fn(() => mockWorkoutSetRepo as unknown as WorkoutSetRepository),
-    WorkoutRepository: vi.fn(() => mockWorkoutRepo as unknown as WorkoutRepository),
-    ExerciseRepository: vi.fn(() => mockExerciseRepo as unknown as ExerciseRepository),
+    WorkoutSetRepository: vi.fn(),
+    WorkoutRepository: vi.fn(),
+    ExerciseRepository: vi.fn(),
   };
 });
 vi.mock('./plan-modification.service.js', () => ({
@@ -86,10 +87,9 @@ describe('WorkoutSetService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockWorkoutRepo = createMockWorkoutRepository();
-    mockWorkoutSetRepo = createMockWorkoutSetRepository();
-    mockExerciseRepo = createMockExerciseRepository();
-    mockPlanDayExerciseRepo = createMockPlanDayExerciseRepository();
+    vi.mocked(WorkoutSetRepository).mockImplementation(() => mockWorkoutSetRepo as unknown as WorkoutSetRepository);
+    vi.mocked(WorkoutRepository).mockImplementation(() => mockWorkoutRepo as unknown as WorkoutRepository);
+    vi.mocked(ExerciseRepository).mockImplementation(() => mockExerciseRepo as unknown as ExerciseRepository);
 
     service = new WorkoutSetService({} as Firestore);
   });
