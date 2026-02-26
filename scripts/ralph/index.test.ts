@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Config, StepResult } from './types.js';
 import {
+  IMPLEMENT_PLAN_TASK_PREFIX,
   MAIN_NOT_GREEN_TRIAGE_TASK,
   MERGE_CONFLICT_TRIAGE_PREFIX,
   activeWorktrees,
   checkDeps,
   enforceMainManagedBacklog,
+  extractPlanDocPathFromTask,
   hasMoreWork,
   isMergeConflictTriageTask,
   main,
@@ -228,6 +230,36 @@ describe('isMergeConflictTriageTask', () => {
 
   it('returns false for undefined taskText', async () => {
     expect(isMergeConflictTriageTask(undefined, 'triage')).toBe(false);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// describe("extractPlanDocPathFromTask")
+// ────────────────────────────────────────────────────────────────────────────
+
+describe('extractPlanDocPathFromTask', () => {
+  it('returns undefined for non implement-plan task', async () => {
+    expect(extractPlanDocPathFromTask('Add tests')).toBeUndefined();
+  });
+
+  it('returns default active-plans path for filename tasks', async () => {
+    expect(
+      extractPlanDocPathFromTask(`${IMPLEMENT_PLAN_TASK_PREFIX}my-plan.md`)
+    ).toBe('thoughts/shared/plans/active/my-plan.md');
+  });
+
+  it('appends .md when missing extension', async () => {
+    expect(
+      extractPlanDocPathFromTask(`${IMPLEMENT_PLAN_TASK_PREFIX}my-plan`)
+    ).toBe('thoughts/shared/plans/active/my-plan.md');
+  });
+
+  it('preserves explicit relative paths', async () => {
+    expect(
+      extractPlanDocPathFromTask(
+        `${IMPLEMENT_PLAN_TASK_PREFIX}thoughts/shared/plans/completed/old.md`
+      )
+    ).toBe('thoughts/shared/plans/completed/old.md');
   });
 });
 
@@ -785,6 +817,59 @@ describe('runWorker', () => {
     expect(planCalls).toHaveLength(0);
     // Verify merge conflict resolve was called instead of impl
     expect(mockBuildMergeConflictResolvePrompt).toHaveBeenCalled();
+  });
+
+  it('skips planning for implement-plan task', async () => {
+    mockCreateWorktree.mockReturnValue({ created: true, resumed: false });
+    mockExistsSync.mockReturnValue(true);
+    mockRunStep.mockResolvedValueOnce(
+      makeStepResult({ outputText: 'DONE: Implemented plan' })
+    );
+    mockCommitAll.mockReturnValue(true);
+    mockRunStep.mockResolvedValueOnce(
+      makeStepResult({ outputText: 'REVIEW_PASSED' })
+    );
+    const config = makeConfig();
+    const abortController = new AbortController();
+    const taskText = 'Implement Plan 2026-02-26-rust-migrate-qa-start.md';
+
+    const result = await runWorker(
+      0,
+      1,
+      config,
+      createMockLogger() as any,
+      abortController,
+      taskText,
+      'backlog'
+    );
+
+    expect(result.success).toBe(true);
+    const runStepCalls = mockRunStep.mock.calls;
+    const planCalls = runStepCalls.filter((c) => c[0].stepName === 'plan');
+    expect(planCalls).toHaveLength(0);
+    expect(mockBuildImplPrompt).toHaveBeenCalledWith(
+      'thoughts/shared/plans/active/2026-02-26-rust-migrate-qa-start.md'
+    );
+  });
+
+  it('fails early when implement-plan task references missing plan file', async () => {
+    mockCreateWorktree.mockReturnValue({ created: true, resumed: false });
+    mockExistsSync.mockReturnValue(false);
+    const config = makeConfig();
+    const abortController = new AbortController();
+
+    const result = await runWorker(
+      0,
+      1,
+      config,
+      createMockLogger() as any,
+      abortController,
+      'Implement Plan does-not-exist.md',
+      'backlog'
+    );
+
+    expect(result.success).toBe(false);
+    expect(mockRunStep).not.toHaveBeenCalled();
   });
 
   it('task-based planning succeeds', async () => {
@@ -1350,7 +1435,8 @@ describe('runWorker', () => {
 
     expect(result.success).toBe(true);
     expect(mockBuildFixPrompt).toHaveBeenCalledWith(
-      expect.stringContaining('npm run validate failed')
+      expect.stringContaining('npm run validate failed'),
+      'thoughts/shared/plans/active/ralph-improvement.md'
     );
   });
 

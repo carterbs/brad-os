@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { join } from "node:path";
 import { Logger } from "./log.js";
 import { runStep } from "./agent.js";
 import {
@@ -53,6 +54,8 @@ export const MAIN_NOT_GREEN_TRIAGE_TASK =
 export const MAIN_NOT_GREEN_RETRY_COOLDOWN_MS = 15 * 60 * 1000;
 export const MERGE_CONFLICT_TRIAGE_PREFIX =
   "Resolve merge conflict for improvement #";
+export const IMPLEMENT_PLAN_TASK_PREFIX = "Implement Plan ";
+const DEFAULT_PLAN_DOC_PATH = "thoughts/shared/plans/active/ralph-improvement.md";
 
 // ── Validation helper ──
 
@@ -73,6 +76,35 @@ export function isMergeConflictTriageTask(
     taskSource === "triage" &&
     taskText?.startsWith(MERGE_CONFLICT_TRIAGE_PREFIX) === true
   );
+}
+
+export function extractPlanDocPathFromTask(
+  taskText: string | undefined,
+): string | undefined {
+  if (!taskText) return undefined;
+
+  const trimmedTask = taskText.trim();
+  if (
+    !trimmedTask
+      .toLowerCase()
+      .startsWith(IMPLEMENT_PLAN_TASK_PREFIX.toLowerCase())
+  ) {
+    return undefined;
+  }
+
+  const remainder = trimmedTask
+    .slice(IMPLEMENT_PLAN_TASK_PREFIX.length)
+    .trim()
+    .replace(/^`|`$/g, "")
+    .replace(/\.$/, "");
+  if (!remainder) return undefined;
+
+  const normalizedFile = remainder.endsWith(".md")
+    ? remainder
+    : `${remainder}.md`;
+  return normalizedFile.includes("/")
+    ? normalizedFile
+    : `thoughts/shared/plans/active/${normalizedFile}`;
 }
 
 export function enforceMainManagedBacklog(cwd: string, logger: Logger): void {
@@ -207,6 +239,8 @@ export async function runWorker(
       taskText,
       taskSource,
     );
+    const taskPlanDocPath = extractPlanDocPathFromTask(taskText);
+    const planDocPath = taskPlanDocPath ?? DEFAULT_PLAN_DOC_PATH;
 
     // ── 1. Planning (skip if resuming) ──
     let planSummary = "";
@@ -217,6 +251,24 @@ export async function runWorker(
       logger.info(
         "[1/4] Skipping generic planning (merge-conflict triage task)",
       );
+    } else if (taskPlanDocPath) {
+      logger.info(
+        `[1/4] Skipping planning (task already references plan: ${taskPlanDocPath})`,
+      );
+      if (!existsSync(join(worktreePath, taskPlanDocPath))) {
+        logger.error(`Plan file not found: ${taskPlanDocPath}`);
+        logger.info(`  Worktree preserved at: ${worktreePath}`);
+        return {
+          success: false,
+          improvement,
+          workerSlot,
+          branchName,
+          worktreePath,
+          taskText,
+          taskSource,
+          stepResults,
+        };
+      }
     } else if (taskText) {
       logger.info(`[1/4] Planning for task: ${taskText.slice(0, 80)}...`);
       const planResult = await runStep({
@@ -320,7 +372,7 @@ export async function runWorker(
     logger.info("[2/4] Implementing...");
     const implementPrompt = mergeConflictTriageTask
       ? buildMergeConflictResolvePrompt(taskText ?? "")
-      : buildImplPrompt();
+      : buildImplPrompt(planDocPath);
     let implResult = await runStep({
       prompt: implementPrompt,
       stepName: "implement",
@@ -466,7 +518,7 @@ export async function runWorker(
       } else if (reviewResult.outputText.includes("REVIEW_FAILED")) {
         logger.warn("Reviewer found issues \u2014 running fix step...");
         const fixResult = await runStep({
-          prompt: buildFixPrompt(reviewResult.outputText),
+          prompt: buildFixPrompt(reviewResult.outputText, planDocPath),
           stepName: "implement",
           improvement,
           cwd: worktreePath,
@@ -505,6 +557,7 @@ export async function runWorker(
             prompt: buildFixPrompt(
               "Review output was ambiguous, but npm run validate failed. " +
                 "Run npm run validate, read the error output, and fix all issues.",
+              planDocPath,
             ),
             stepName: "implement",
             improvement,

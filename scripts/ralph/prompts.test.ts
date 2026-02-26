@@ -118,6 +118,11 @@ describe('prompts module', () => {
       expect(prompt).toContain('QA');
       expect(prompt).toContain('MANDATORY');
     });
+
+    it('uses provided plan path when specified', async () => {
+      const prompt = buildImplPrompt('thoughts/shared/plans/active/custom.md');
+      expect(prompt).toContain('thoughts/shared/plans/active/custom.md');
+    });
   });
 
   describe('buildMergeConflictResolvePrompt', () => {
@@ -220,6 +225,14 @@ describe('prompts module', () => {
       const prompt = buildFixPrompt('Some issues');
 
       expect(prompt).toContain('FIXED:');
+    });
+
+    it('uses provided plan path when specified', async () => {
+      const prompt = buildFixPrompt(
+        'Some issues',
+        'thoughts/shared/plans/active/custom.md'
+      );
+      expect(prompt).toContain('thoughts/shared/plans/active/custom.md');
     });
   });
 
