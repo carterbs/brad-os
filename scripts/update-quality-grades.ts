@@ -20,6 +20,7 @@ const IOS_APP_TESTS_DIR = path.join(ROOT_DIR, 'ios/BradOS/BradOSTests');
 const IOS_TESTS_DIR = IOS_CORE_TESTS_DIR;
 const QUALITY_GRADES_PATH = path.join(ROOT_DIR, 'docs/quality-grades.md');
 const COVERAGE_SUMMARY_PATH = path.join(ROOT_DIR, 'packages/functions/coverage/coverage-summary.json');
+const SKIP_COVERAGE_REFRESH_FLAG = '--skip-coverage-refresh';
 
 // ── Handler-to-feature map (mirrors lint-architecture.ts checkOrphanFeatures) ─
 
@@ -602,6 +603,18 @@ function parseCoverageData(): Map<string, CoverageSummaryFile> | null {
   }
 }
 
+function shouldRefreshCoverage(): boolean {
+  return !process.argv.includes(SKIP_COVERAGE_REFRESH_FLAG);
+}
+
+function refreshCoverageSummary(): void {
+  console.log('Refreshing coverage summary via npm run test:coverage...');
+  execSync('npm run test:coverage -- --reporter=dot --silent', {
+    cwd: ROOT_DIR,
+    stdio: 'inherit',
+  });
+}
+
 function aggregateDomainCoverage(coverageData: Map<string, CoverageSummaryFile> | null): Map<string, number> {
   const domainCoverage = new Map<string, number>();
   if (!coverageData) return domainCoverage;
@@ -951,6 +964,13 @@ function extractCuratedSections(content: string): { techDebt: string; recentlyCo
 
 function main(): void {
   console.log('Calculating quality grades...\n');
+
+  if (shouldRefreshCoverage()) {
+    refreshCoverageSummary();
+    console.log('');
+  } else {
+    console.log(`Skipping coverage refresh (${SKIP_COVERAGE_REFRESH_FLAG})\n`);
+  }
 
   // Read existing file for manually curated sections
   let curatedSections = { techDebt: '', recentlyCompleted: '' };
