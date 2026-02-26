@@ -1,11 +1,12 @@
-use owo_colors::OwoColorize;
+use crate::runner;
+use std::env;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-pub const DEFAULT_SIMULATOR_NAME: &str = "iPhone 17 Pro";
+const SIMULATOR_NAME: &str = "iPhone 17 Pro";
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct SetupConfig {
     pub skip_build: bool,
     pub ios_dir: PathBuf,
@@ -13,540 +14,671 @@ pub struct SetupConfig {
     pub simulator_name: String,
 }
 
-impl SetupConfig {
-    pub fn new(repo_root: &Path, skip_build: bool) -> Self {
-        let ios_dir = repo_root.join("ios").join("BradOS");
-        let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        let derived_data = PathBuf::from(home).join(".cache").join("brad-os-derived-data");
-
-        Self {
-            skip_build,
-            ios_dir,
-            derived_data,
-            simulator_name: DEFAULT_SIMULATOR_NAME.to_string(),
-        }
-    }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SetupError {
+    CommandUnavailable {
+        command: &'static str,
+        suggestion: &'static str,
+    },
+    CommandExecutionFailed {
+        command: String,
+        detail: String,
+        exit_code: i32,
+        suggestion: &'static str,
+    },
+    BuildFailed,
+    MissingProjectFile,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct CommandInvocation {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CommandCall {
     pub program: String,
     pub args: Vec<String>,
+    pub cwd: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
 pub struct CommandOutput {
-    pub exit_code: i32,
     pub stdout: String,
     pub stderr: String,
-}
-
-impl CommandOutput {
-    pub fn combined_output(&self) -> String {
-        let mut buffer = String::new();
-        buffer.push_str(&self.stdout);
-        buffer.push_str(&self.stderr);
-        buffer
-    }
+    pub exit_code: i32,
 }
 
 pub trait CommandRunner {
-    fn exists(&self, command: &str) -> bool;
-    fn run(
-        &self,
-        command: &str,
-        args: &[&str],
-        cwd: Option<&Path>,
-    ) -> Result<CommandOutput, SetupError>;
+    fn command_exists(&self, name: &str) -> bool;
+    fn run(&mut self, program: &str, args: &[&str], cwd: Option<&Path>) -> CommandOutput;
 }
 
-#[derive(Debug, Clone)]
-pub struct SystemCommandRunner {
-    pub invocations: std::sync::Arc<std::sync::Mutex<Vec<CommandInvocation>>>,
+#[derive(Default)]
+pub struct RealCommandRunner {
+    pub calls: Vec<CommandCall>,
 }
 
-impl Default for SystemCommandRunner {
-    fn default() -> Self {
-        Self {
-            invocations: std::sync::Arc::new(std::sync::Mutex::new(Vec::new())),
-        }
-    }
-}
-
-impl SystemCommandRunner {
-    pub fn commands(&self) -> Vec<CommandInvocation> {
-        self.invocations
-            .lock()
-            .map_or_else(|_| Vec::new(), |commands| commands.clone())
-    }
-}
-
-impl CommandRunner for SystemCommandRunner {
-    fn exists(&self, command: &str) -> bool {
-        Command::new("which")
-            .arg(command)
-            .output()
-            .map(|status| status.status.success())
-            .unwrap_or(false)
+impl CommandRunner for RealCommandRunner {
+    fn command_exists(&self, name: &str) -> bool {
+        runner::command_exists(name)
     }
 
-    fn run(
-        &self,
-        command: &str,
-        args: &[&str],
-        cwd: Option<&Path>,
-    ) -> Result<CommandOutput, SetupError> {
-        if let Ok(mut commands) = self.invocations.lock() {
-            commands.push(CommandInvocation {
-                program: command.to_string(),
-                args: args.iter().map(|arg| arg.to_string()).collect(),
-            });
-        }
+    fn run(&mut self, program: &str, args: &[&str], cwd: Option<&Path>) -> CommandOutput {
+        self.calls.push(CommandCall {
+            program: program.to_string(),
+            args: args.iter().map(ToString::to_string).collect(),
+            cwd: cwd.map(Path::to_path_buf),
+        });
 
-        let mut cmd = Command::new(command);
-        cmd.args(args);
+        let mut command = Command::new(program);
+        command.args(args);
         if let Some(path) = cwd {
-            cmd.current_dir(path);
+            command.current_dir(path);
         }
 
-        let output = cmd
-            .output()
-            .map_err(|err| SetupError::CommandExecutionFailed {
-                command: command.to_string(),
+        match command.output() {
+            Ok(output) => CommandOutput {
+                stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+                stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+                exit_code: output.status.code().unwrap_or(1),
+            },
+            Err(error) => CommandOutput {
+                stdout: String::new(),
+                stderr: format!("Failed to execute command: {error}"),
                 exit_code: 1,
-                output: err.to_string(),
-            })?;
-
-        Ok(CommandOutput {
-            exit_code: output.status.code().unwrap_or(1),
-            stdout: String::from_utf8_lossy(&output.stdout).to_string(),
-            stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        })
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum SetupError {
-    MissingArgument(String),
-    MissingCommand {
-        command: String,
-        install_hint: String,
-    },
-    MissingProjectFile,
-    CommandFailed {
-        command: String,
-        exit_code: i32,
-        output: String,
-    },
-    CommandExecutionFailed {
-        command: String,
-        exit_code: i32,
-        output: String,
-    },
-}
-
-impl std::fmt::Display for SetupError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SetupError::MissingArgument(arg) => write!(f, "unknown argument: {arg}"),
-            SetupError::MissingCommand {
-                command,
-                install_hint,
-            } => write!(f, "{command} not found. {install_hint}"),
-            SetupError::MissingProjectFile => {
-                write!(f, "ios/BradOS/project.yml not found — are you in the repo root?")
-            }
-            SetupError::CommandFailed {
-                command,
-                exit_code,
-                output,
-            } => write!(f, "{command} failed (exit {exit_code}): {output}"),
-            SetupError::CommandExecutionFailed {
-                command,
-                exit_code,
-                output,
-            } => write!(f, "{command} failed to execute (exit {exit_code}): {output}"),
+            },
         }
     }
 }
 
-fn print_success(message: &str) {
-    println!("  {} {}", "✓".green(), message);
-}
+pub fn parse_args(args: &[String]) -> SetupConfig {
+    let skip_build = args.get(1).is_some_and(|arg| arg == "--skip-build");
+    let project_dir = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let ios_dir = project_dir.join("ios/BradOS");
+    let derived_data = env::var("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("/tmp"))
+        .join(".cache/brad-os-derived-data");
 
-fn print_failure(message: &str, install: Option<&str>) {
-    eprintln!("  {} {}", "✗".red(), message);
-    if let Some(install_hint) = install {
-        eprintln!("    {}", install_hint.dimmed());
+    SetupConfig {
+        skip_build,
+        ios_dir,
+        derived_data,
+        simulator_name: SIMULATOR_NAME.to_string(),
     }
 }
 
-fn print_tail_lines(output: &str) {
-    let lines: Vec<&str> = output.lines().collect();
-    for line in lines.iter().rev().take(5).rev() {
-        println!("{line}");
-    }
-}
-
-fn first_non_empty_line(stdout: &str, stderr: &str) -> String {
-    stdout
+fn first_non_empty_line(value: &str) -> String {
+    value
         .lines()
-        .chain(stderr.lines())
-        .find(|line| !line.trim().is_empty())
-        .unwrap_or("unknown")
+        .map(str::trim)
+        .find(|line| !line.is_empty())
+        .unwrap_or_default()
         .to_string()
 }
 
-fn booted_from_output(output: &str) -> bool {
-    output.lines().any(|line| line.contains("Booted"))
+fn print_step<W: Write>(out: &mut W, emoji: &str, title: &str) {
+    let _ = writeln!(out, "{emoji} {title}");
 }
 
-pub fn parse_args(args: &[String]) -> Result<bool, SetupError> {
-    let unknown: Vec<&String> = args
-        .iter()
-        .filter(|arg| arg.as_str() != "--skip-build")
-        .collect();
+fn print_success<W: Write>(out: &mut W, message: &str) {
+    let _ = writeln!(out, "  \u{001b}[32m\u{2713} {message}\u{001b}[0m");
+}
 
-    if unknown.is_empty() {
-        Ok(args.iter().any(|arg| arg.as_str() == "--skip-build"))
-    } else {
-        Err(SetupError::MissingArgument(unknown[0].to_string()))
+fn print_fail<W: Write>(out: &mut W, message: &str, hint: &str) {
+    let _ = writeln!(out, "  \u{001b}[31m\u{2717} {message}\u{001b}[0m");
+    let _ = writeln!(out, "    \u{001b}[2mInstall: {hint}\u{001b}[0m");
+}
+
+fn print_tail_lines<W: Write>(output: &CommandOutput, out: &mut W) {
+    let combined = format!("{}{}", output.stdout, output.stderr);
+    let lines: Vec<&str> = combined.lines().collect();
+    let start = lines.len().saturating_sub(5);
+    for line in &lines[start..] {
+        let _ = writeln!(out, "{line}");
     }
 }
 
-pub fn command_invocations_from_queuing_runner(runner: &SystemCommandRunner) -> Vec<CommandInvocation> {
-    runner.commands()
+fn print_summary<W: Write>(out: &mut W) {
+    writeln!(out).ok();
+    let _ = writeln!(
+        out,
+        "  \u{001b}[32m\u{001b}[1m{}\u{001b}[0m",
+        "iOS testing environment ready!"
+    );
+    writeln!(out).ok();
+    writeln!(out, "  Next steps:").ok();
+    writeln!(out, "    # Install and launch the app:").ok();
+    writeln!(
+        out,
+        "    xcrun simctl install booted ~/.cache/brad-os-derived-data/Build/Products/Debug-iphonesimulator/BradOS.app"
+    )
+    .ok();
+    writeln!(out, "    xcrun simctl launch booted com.bradcarter.brad-os").ok();
 }
 
-pub fn run_setup<W: Write>(writer: &mut W, runner: &dyn CommandRunner, config: &SetupConfig) -> Result<(), SetupError> {
-    writeln!(writer).ok();
-    writeln!(writer, "🔍 Checking prerequisites...").ok();
-
-    if !runner.exists("xcodegen") {
-        print_failure("xcodegen not found", Some("brew install xcodegen"));
-        return Err(SetupError::MissingCommand {
-            command: "xcodegen not found".to_string(),
-            install_hint: "brew install xcodegen".to_string(),
+fn assert_command_exists<R: CommandRunner, W: Write>(
+    runner: &R,
+    command: &'static str,
+    suggestion: &'static str,
+    out: &mut W,
+) -> Result<(), SetupError> {
+    if !runner.command_exists(command) {
+        print_fail(out, &format!("{command} not found"), suggestion);
+        return Err(SetupError::CommandUnavailable {
+            command,
+            suggestion,
         });
     }
-
-    let xcodegen_version = runner
-        .run("xcodegen", &["--version"], None)?
-        .stdout
-        .lines()
-        .next()
-        .unwrap_or("unknown")
-        .trim()
-        .to_string();
-    print_success(&format!("xcodegen {xcodegen_version}"));
-
-    if !runner.exists("xcodebuild") {
-        print_failure(
-            "xcodebuild not found",
-            Some("Install Xcode from the Mac App Store"),
-        );
-        return Err(SetupError::MissingCommand {
-            command: "xcodebuild not found".to_string(),
-            install_hint: "Install Xcode from the Mac App Store".to_string(),
-        });
-    }
-
-    let xcodebuild_version_output = runner.run("xcodebuild", &["-version"], None)?;
-    if xcodebuild_version_output.exit_code != 0 {
-        return Err(SetupError::CommandFailed {
-            command: "xcodebuild -version".to_string(),
-            exit_code: xcodebuild_version_output.exit_code,
-            output: xcodebuild_version_output.combined_output(),
-        });
-    }
-    let xcodebuild_version = first_non_empty_line(
-        &xcodebuild_version_output.stdout,
-        &xcodebuild_version_output.stderr,
-    );
-    print_success(&format!("xcodebuild {xcodebuild_version}"));
-
-    if !runner.exists("xcrun") {
-        print_failure(
-            "xcrun not found",
-            Some("Install Xcode Command Line Tools: xcode-select --install"),
-        );
-        return Err(SetupError::MissingCommand {
-            command: "xcrun not found".to_string(),
-            install_hint: "Install Xcode Command Line Tools: xcode-select --install".to_string(),
-        });
-    }
-    print_success("xcrun available");
-
-    if !config.ios_dir.join("project.yml").exists() {
-        return Err(SetupError::MissingProjectFile);
-    }
-    print_success("project.yml found");
-
-    writeln!(writer).ok();
-    writeln!(writer, "🔨 Generating Xcode project...").ok();
-    let project_dir = &config.ios_dir;
-    let generate = runner.run("xcodegen", &["generate"], Some(project_dir))?;
-    if generate.exit_code != 0 {
-        return Err(SetupError::CommandFailed {
-            command: "xcodegen generate".to_string(),
-            exit_code: generate.exit_code,
-            output: generate.combined_output(),
-        });
-    }
-    print_success("Xcode project generated");
-
-    writeln!(writer).ok();
-    writeln!(writer, "📱 Checking simulator...").ok();
-    let booted_devices = runner.run(
-        "xcrun",
-        &["simctl", "list", "devices", "booted"],
-        Some(project_dir),
-    )?;
-    if booted_devices.exit_code == 0 && booted_from_output(&booted_devices.combined_output()) {
-        print_success("Simulator already booted");
-    } else {
-        writeln!(writer, "  Booting {}...", config.simulator_name).ok();
-        let boot = runner.run(
-            "xcrun",
-            &["simctl", "boot", &config.simulator_name],
-            Some(project_dir),
-        )?;
-        if boot.exit_code != 0 {
-            return Err(SetupError::CommandFailed {
-                command: format!("xcrun simctl boot {}", config.simulator_name),
-                exit_code: boot.exit_code,
-                output: boot.combined_output(),
-            });
-        }
-        print_success(&format!("{} booted", config.simulator_name));
-    }
-
-    if config.skip_build {
-        writeln!(writer).ok();
-        writeln!(writer, "⏭️  Skipping build sanity check (--skip-build)").ok();
-    } else {
-        let project_path = config.ios_dir.join("BradOS.xcodeproj");
-        let destination = format!("platform=iOS Simulator,name={}", config.simulator_name);
-        let derived_data = config.derived_data.clone();
-        let build_args = vec![
-            "-project",
-            project_path.to_str().unwrap_or_default(),
-            "-scheme",
-            "BradOS",
-            "-destination",
-            &destination,
-            "-derivedDataPath",
-            derived_data.to_str().unwrap_or_default(),
-            "-skipPackagePluginValidation",
-            "build",
-        ];
-        writeln!(writer).ok();
-        writeln!(
-            writer,
-            "🏗️  Running build sanity check (this may take a few minutes on first run)..."
-        )
-        .ok();
-
-        let build = runner.run("xcodebuild", &build_args, Some(project_dir))?;
-        print_tail_lines(&build.combined_output());
-        if build.exit_code != 0 {
-            return Err(SetupError::CommandFailed {
-                command: "xcodebuild build".to_string(),
-                exit_code: build.exit_code,
-                output: build.combined_output(),
-            });
-        }
-        print_success("Build succeeded (SwiftLint passed)");
-    }
-
-    writeln!(writer).ok();
-    println!(
-        "  {}{}iOS testing environment ready!{}",
-        " ".dimmed(),
-        "iOS testing environment ready!".bold(),
-        "".dimmed()
-    );
-    println!("{}", "");
-    println!("  Next steps:");
-    println!(
-        "    # Install and launch the app:\nxcrun simctl install booted {}/Build/Products/Debug-iphonesimulator/BradOS.app",
-        config.derived_data.display()
-    );
-    println!("    xcrun simctl launch booted com.bradcarter.brad-os");
     Ok(())
 }
 
-pub fn build_ordered_simulator_steps(config: &SetupConfig) -> Vec<String> {
-    vec![
-        "xcodegen --version".to_string(),
-        "xcodebuild -version".to_string(),
-        "xcrun".to_string(),
-        "xcodegen generate".to_string(),
-        format!("xcrun simctl list devices booted for {}", config.simulator_name),
-    ]
-}
+pub fn execute_setup<W: Write>(
+    runner: &mut impl CommandRunner,
+    config: &SetupConfig,
+    out: &mut W,
+) -> Result<(), SetupError> {
+    writeln!(out).ok();
+    print_step(out, "🔍", "Checking prerequisites...");
 
-pub fn tail_text(text: &str, count: usize) -> String {
-    let mut lines: Vec<&str> = text.lines().collect();
-    if lines.len() > count {
-        lines = lines.split_off(lines.len() - count);
+    assert_command_exists(
+        runner,
+        "xcodegen",
+        "brew install xcodegen",
+        out,
+    )?;
+    let xcodegen_version = first_non_empty_line(&runner.run("xcodegen", &["--version"], None).stdout);
+    print_success(
+        out,
+        &format!(
+            "xcodegen {}",
+            if xcodegen_version.is_empty() {
+                "installed".to_string()
+            } else {
+                xcodegen_version
+            }
+        ),
+    );
+
+    assert_command_exists(
+        runner,
+        "xcodebuild",
+        "Install Xcode from the Mac App Store",
+        out,
+    )?;
+    let xcodebuild_version =
+        first_non_empty_line(&runner.run("xcodebuild", &["-version"], None).stdout);
+    print_success(
+        out,
+        &format!(
+            "xcodebuild {}",
+            if xcodebuild_version.is_empty() {
+                "installed".to_string()
+            } else {
+                xcodebuild_version
+            }
+        ),
+    );
+
+    assert_command_exists(
+        runner,
+        "xcrun",
+        "Install Xcode Command Line Tools: xcode-select --install",
+        out,
+    )?;
+    print_success(out, "xcrun available");
+
+    let project_yaml = config.ios_dir.join("project.yml");
+    if !project_yaml.exists() {
+        print_fail(
+            out,
+            "ios/BradOS/project.yml not found — are you in the repo root?",
+            "Check path exists",
+        );
+        return Err(SetupError::MissingProjectFile);
     }
-    lines.join("\n")
+    print_success(out, "project.yml found");
+
+    writeln!(out).ok();
+    print_step(out, "🔨", "Generating Xcode project...");
+    let generation = runner.run("xcodegen", &["generate"], Some(&config.ios_dir));
+    if generation.exit_code != 0 {
+        print_fail(
+            out,
+            "Failed to generate Xcode project",
+            "Check xcodegen setup",
+        );
+        return Err(SetupError::CommandExecutionFailed {
+            command: "xcodegen generate".to_string(),
+            detail: generation.stderr,
+            exit_code: generation.exit_code,
+            suggestion: "Check xcodegen output",
+        });
+    }
+    print_success(out, "Xcode project generated");
+
+    writeln!(out).ok();
+    print_step(out, "📱", "Checking simulator...");
+    let booted = runner.run(
+        "xcrun",
+        &["simctl", "list", "devices", "booted"],
+        None,
+    );
+    if booted.exit_code != 0 {
+        print_fail(out, "Failed to list booted simulators", "Check xcrun simctl access");
+        return Err(SetupError::CommandExecutionFailed {
+            command: "xcrun simctl list devices booted".to_string(),
+            detail: booted.stderr,
+            exit_code: booted.exit_code,
+            suggestion: "Check xcrun simctl access",
+        });
+    }
+
+    let already_booted = booted.stdout.lines().any(|line| line.contains("Booted"));
+    if already_booted {
+        print_success(out, "Simulator already booted");
+    } else {
+        let _ = writeln!(out, "  Booting {}...", config.simulator_name);
+        let boot = runner.run(
+            "xcrun",
+            &["simctl", "boot", config.simulator_name.as_str()],
+            None,
+        );
+        if boot.exit_code != 0 {
+            print_fail(
+                out,
+                &format!("Could not boot '{}'.", config.simulator_name),
+                "List available: xcrun simctl list devices available",
+            );
+            return Err(SetupError::CommandExecutionFailed {
+                command: "xcrun simctl boot".to_string(),
+                detail: boot.stderr,
+                exit_code: boot.exit_code,
+                suggestion: "List available: xcrun simctl list devices available",
+            });
+        }
+        print_success(out, &format!("{} booted", config.simulator_name));
+    }
+
+    if config.skip_build {
+        writeln!(out).ok();
+        writeln!(out, "⏭️  Skipping build sanity check (--skip-build)").ok();
+    } else {
+        writeln!(out).ok();
+        writeln!(
+            out,
+            "🏗️  Running build sanity check (this may take a few minutes on first run)..."
+        )
+        .ok();
+        let build = runner.run(
+            "xcodebuild",
+            &[
+                "-project",
+                &config
+                    .ios_dir
+                    .join("BradOS.xcodeproj")
+                    .to_string_lossy()
+                    .to_string(),
+                "-scheme",
+                "BradOS",
+                "-destination",
+                &format!("platform=iOS Simulator,name={}", config.simulator_name),
+                "-derivedDataPath",
+                &config.derived_data.to_string_lossy().to_string(),
+                "-skipPackagePluginValidation",
+                "build",
+            ],
+            None,
+        );
+        print_tail_lines(&build, out);
+        if build.exit_code != 0 {
+            print_fail(out, "iOS build failed", "Review xcodebuild output");
+            return Err(SetupError::BuildFailed);
+        }
+        print_success(out, "Build succeeded (SwiftLint passed)");
+    }
+
+    print_summary(out);
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-use std::cell::RefCell;
-    use std::collections::{HashMap, VecDeque};
-
-    fn fake_invocation(program: &str, args: &[&str]) -> CommandInvocation {
-        CommandInvocation {
-            program: program.to_string(),
-            args: args.iter().map(|arg| arg.to_string()).collect(),
-        }
-    }
+    use std::collections::{HashSet, VecDeque};
 
     #[derive(Default)]
-    struct FakeRunner {
-        exists: HashMap<String, bool>,
-        invocations: RefCell<Vec<CommandInvocation>>,
-        outputs: RefCell<VecDeque<CommandOutput>>,
+    struct FakeCommandRunner {
+        existing: HashSet<String>,
+        responses: VecDeque<CommandOutput>,
+        pub calls: Vec<CommandCall>,
     }
 
-    impl FakeRunner {
-        fn allow(&mut self, command: &str) {
-            self.exists.insert(command.to_string(), true);
+    impl FakeCommandRunner {
+        fn with_existing(mut self, command: &str) -> Self {
+            self.existing.insert(command.to_string());
+            self
         }
 
-        fn queue(&mut self, exit_code: i32, stdout: &str, stderr: &str) {
-            self.outputs.borrow_mut().push_back(CommandOutput {
-                exit_code,
-                stdout: stdout.to_string(),
-                stderr: stderr.to_string(),
+        fn with_existing_all(mut self, commands: &[&str]) -> Self {
+            for command in commands {
+                self.existing.insert((*command).to_string());
+            }
+            self
+        }
+
+        fn queue_response(&mut self, response: CommandOutput) {
+            self.responses.push_back(response);
+        }
+    }
+
+    impl CommandRunner for FakeCommandRunner {
+        fn command_exists(&self, name: &str) -> bool {
+            self.existing.contains(name)
+        }
+
+        fn run(&mut self, program: &str, args: &[&str], cwd: Option<&Path>) -> CommandOutput {
+            self.calls.push(CommandCall {
+                program: program.to_string(),
+                args: args.iter().map(ToString::to_string).collect(),
+                cwd: cwd.map(Path::to_path_buf),
             });
-        }
-
-        fn calls(&self) -> Vec<CommandInvocation> {
-            self.invocations.borrow().clone()
-        }
-    }
-
-    impl CommandRunner for FakeRunner {
-        fn exists(&self, command: &str) -> bool {
-            self.exists.get(command).copied().unwrap_or(false)
-        }
-
-        fn run(
-            &self,
-            command: &str,
-            args: &[&str],
-            _cwd: Option<&Path>,
-        ) -> Result<CommandOutput, SetupError> {
-            self.invocations
-                .borrow_mut()
-                .push(CommandInvocation {
-                    program: command.to_string(),
-                    args: args.iter().map(|arg| arg.to_string()).collect(),
-                });
-
-            self.outputs
-                .borrow_mut()
-                .pop_front()
-                .ok_or_else(|| SetupError::CommandExecutionFailed {
-                    command: format!("{command} {}", args.join(" ")),
-                    exit_code: 1,
-                    output: "missing stub output".to_string(),
-                })
+            self.responses.pop_front().unwrap_or(CommandOutput {
+                stdout: String::new(),
+                stderr: String::new(),
+                exit_code: 0,
+            })
         }
     }
 
-    #[test]
-    fn parses_skip_build_arg() {
-        let args = vec!["--skip-build".to_string()];
-        assert!(parse_args(&args).expect("parse skip flag"), "skip flag should parse");
+    fn write_to_string(bytes: &[u8]) -> String {
+        String::from_utf8_lossy(bytes).to_string()
     }
 
-    #[test]
-    fn rejects_unknown_arg() {
-        let args = vec!["--nope".to_string()];
-        assert!(matches!(parse_args(&args), Err(SetupError::MissingArgument(_))));
-    }
-
-    #[test]
-    fn detects_booted_simulators() {
-        let output = "== Devices ==\n    iPhone 17 Pro (Booted)\n";
-        assert!(booted_from_output(output));
-        assert!(!booted_from_output("== Devices ==\n"));
-    }
-
-    #[test]
-    fn command_failures_are_descriptive() {
-        let config = SetupConfig::new(Path::new("/tmp"), true);
-        let mut runner = FakeRunner::default();
-        runner.allow("xcodegen");
-        runner.allow("xcodebuild");
-        runner.allow("xcrun");
-        runner.queue(0, "", "");
-        runner.queue(0, "2.7.0\n", "");
-        runner.queue(0, "", "");
-        runner.queue(0, "", "");
-        let mut output = Vec::new();
-
-        let result = run_setup(&mut output, &runner, &config);
-        assert!(result.is_err());
-
-        assert_eq!(
-            format!("{}", result.expect_err("expected failure")),
-            "ios/BradOS/project.yml not found — are you in the repo root?"
-        );
-    }
-
-    #[test]
-    fn includes_expected_step_order() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let ios_dir = temp_dir.path().join("ios").join("BradOS");
+    fn shared_config(temp: &std::path::Path) -> (SetupConfig, PathBuf) {
+        let ios_dir = temp.join("ios/BradOS");
         std::fs::create_dir_all(&ios_dir).unwrap();
-        std::fs::write(ios_dir.join("project.yml"), b"project: BradOS").unwrap();
-
-        let derived_data = temp_dir.path().join(".cache");
-        let config = SetupConfig {
+        (SetupConfig {
             skip_build: false,
             ios_dir: ios_dir.clone(),
-            derived_data,
-            simulator_name: "iPhone 17 Pro".to_string(),
-        };
+            derived_data: temp.join(".cache/brad-os-derived-data"),
+            simulator_name: SIMULATOR_NAME.to_string(),
+        }, ios_dir)
+    }
 
-        let mut runner = FakeRunner::default();
-        runner.allow("xcodegen");
-        runner.allow("xcodebuild");
-        runner.allow("xcrun");
-        runner.queue(0, "xcodegen 2.0.0\n", "");
-        runner.queue(0, "Xcode 16.1\n", "");
-        runner.queue(0, "", "");
-        runner.queue(0, "generated\n", "");
-        runner.queue(0, "", "");
-        runner.queue(0, "", "");
-
-        let mut sink = Vec::new();
-        let result = run_setup(&mut sink, &runner, &config);
-        assert!(result.is_ok());
-
-        let calls = runner.calls();
-        assert_eq!(calls.len(), 6);
-        assert_eq!(calls[0], fake_invocation("xcodegen", &["--version"]));
-        assert_eq!(calls[1], fake_invocation("xcodebuild", &["-version"]));
-        assert_eq!(calls[2], fake_invocation("xcodegen", &["generate"]));
-        assert_eq!(calls[3], fake_invocation("xcrun", &["simctl", "list", "devices", "booted"]));
-        assert_eq!(calls[4], fake_invocation("xcrun", &["simctl", "boot", "iPhone 17 Pro"]));
-        assert_eq!(calls[5].program, "xcodebuild");
-        assert_eq!(calls[5].args.last().expect("last arg is build"), "build");
+    fn execute_with_output(config: &SetupConfig, runner: &mut FakeCommandRunner) -> (String, Result<(), SetupError>) {
+        let mut output = Vec::new();
+        let result = execute_setup(runner, config, &mut output);
+        (write_to_string(&output), result)
     }
 
     #[test]
-    fn tail_text_takes_last_lines() {
-        let output = "a\nb\nc\nd\ne\nf";
-        assert_eq!(tail_text(output, 3), "d\ne\nf".to_string());
-        assert_eq!(tail_text("a\nb", 3), "a\nb".to_string());
+    fn parse_args_parses_skip_build_only() {
+        let args = vec![
+            "brad-setup-ios-testing".to_string(),
+            "--skip-build".to_string(),
+        ];
+        let config = parse_args(&args);
+        assert!(config.skip_build);
+    }
+
+    #[test]
+    fn parse_args_defaults_to_no_skip_without_flag() {
+        let args = vec!["brad-setup-ios-testing".to_string()];
+        let config = parse_args(&args);
+        assert!(!config.skip_build);
+        assert_eq!(config.simulator_name, SIMULATOR_NAME);
+    }
+
+    #[test]
+    fn setup_requires_xcodegen() {
+        let temp = tempfile::tempdir().unwrap();
+        let (config, _) = shared_config(temp.path());
+        let mut runner = FakeCommandRunner::default()
+            .with_existing("xcodebuild")
+            .with_existing("xcrun");
+
+        let (output, result) = execute_with_output(&config, &mut runner);
+        assert!(matches!(
+            result,
+            Err(SetupError::CommandUnavailable {
+                command: "xcodegen",
+                ..
+            })
+        ));
+        assert!(output.contains("xcodegen not found"));
+    }
+
+    #[test]
+    fn skip_build_skips_build_invocation() {
+        let temp = tempfile::tempdir().unwrap();
+        let ios = temp.path().join("ios/BradOS");
+        std::fs::create_dir_all(&ios).unwrap();
+        std::fs::write(ios.join("project.yml"), "project").unwrap();
+        let config = SetupConfig {
+            skip_build: true,
+            ios_dir: ios,
+            derived_data: temp.path().join(".cache/brad-os-derived-data"),
+            simulator_name: SIMULATOR_NAME.to_string(),
+        };
+
+        let mut runner = FakeCommandRunner::default()
+            .with_existing_all(&["xcodegen", "xcodebuild", "xcrun"]);
+        runner.queue_response(CommandOutput {
+            stdout: "xcodegen 1.0.0\n".to_string(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+        runner.queue_response(CommandOutput {
+            stdout: "Xcode 16.0.0\n".to_string(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+        runner.queue_response(CommandOutput {
+            stdout: String::new(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+        runner.queue_response(CommandOutput {
+            stdout: "=== Booted\n".to_string(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+
+        let (output, result) = execute_with_output(&config, &mut runner);
+        assert!(result.is_ok());
+        assert!(output.contains("Skipping build sanity check (--skip-build)"));
+        assert!(!runner.calls.iter().any(|call| {
+            call.program == "xcodebuild" && call.args.iter().any(|arg| arg == "build")
+        }));
+    }
+
+    #[test]
+    fn already_booted_simulator_skips_boot() {
+        let temp = tempfile::tempdir().unwrap();
+        let ios = temp.path().join("ios/BradOS");
+        std::fs::create_dir_all(&ios).unwrap();
+        std::fs::write(ios.join("project.yml"), "project").unwrap();
+        let config = SetupConfig {
+            skip_build: false,
+            ios_dir: ios,
+            derived_data: temp.path().join(".cache/brad-os-derived-data"),
+            simulator_name: SIMULATOR_NAME.to_string(),
+        };
+
+        let mut runner = FakeCommandRunner::default()
+            .with_existing_all(&["xcodegen", "xcodebuild", "xcrun"]);
+        runner.queue_response(CommandOutput {
+            stdout: "xcodegen 1.0.0\n".to_string(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+        runner.queue_response(CommandOutput {
+            stdout: "Xcode 16.0.0\n".to_string(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+        runner.queue_response(CommandOutput {
+            stdout: String::new(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+        runner.queue_response(CommandOutput {
+            stdout: "== Booted\n".to_string(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+        runner.queue_response(CommandOutput {
+            stdout: "Build line 1\nBuild line 2\nBuild line 3\nBuild line 4\nBuild line 5\nBuild line 6\n"
+                .to_string(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+
+        let (output, result) = execute_with_output(&config, &mut runner);
+        assert!(result.is_ok());
+        assert!(output.contains("Simulator already booted"));
+        assert!(!runner.calls.iter().any(|call| {
+            call.program == "xcrun" && call.args == ["simctl", "boot", SIMULATOR_NAME]
+        }));
+        assert!(output.contains("Build succeeded"));
+    }
+
+    #[test]
+    fn simulator_boot_failure_is_reported_and_aborts() {
+        let temp = tempfile::tempdir().unwrap();
+        let ios = temp.path().join("ios/BradOS");
+        std::fs::create_dir_all(&ios).unwrap();
+        std::fs::write(ios.join("project.yml"), "project").unwrap();
+        let config = SetupConfig {
+            skip_build: false,
+            ios_dir: ios,
+            derived_data: temp.path().join(".cache/brad-os-derived-data"),
+            simulator_name: SIMULATOR_NAME.to_string(),
+        };
+
+        let mut runner = FakeCommandRunner::default()
+            .with_existing_all(&["xcodegen", "xcodebuild", "xcrun"]);
+        runner.queue_response(CommandOutput {
+            stdout: "xcodegen 1.0.0\n".to_string(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+        runner.queue_response(CommandOutput {
+            stdout: "Xcode 16.0.0\n".to_string(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+        runner.queue_response(CommandOutput {
+            stdout: String::new(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+        runner.queue_response(CommandOutput {
+            stdout: "=== Devices ===\n".to_string(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+        runner.queue_response(CommandOutput {
+            stdout: String::new(),
+            stderr: "boot failed\n".to_string(),
+            exit_code: 1,
+        });
+
+        let (output, result) = execute_with_output(&config, &mut runner);
+        assert!(matches!(result, Err(SetupError::CommandExecutionFailed { .. })));
+        assert!(output.contains("Could not boot 'iPhone 17 Pro'."));
+        assert!(!runner.calls.iter().any(|call| {
+            call.program == "xcodebuild" && call.args.iter().any(|arg| arg == "build")
+        }));
+    }
+
+    #[test]
+    fn invocation_order_matches_expected_sequence() {
+        let temp = tempfile::tempdir().unwrap();
+        let ios = temp.path().join("ios/BradOS");
+        std::fs::create_dir_all(&ios).unwrap();
+        std::fs::write(ios.join("project.yml"), "project").unwrap();
+        let config = SetupConfig {
+            skip_build: false,
+            ios_dir: ios.clone(),
+            derived_data: temp.path().join(".cache/brad-os-derived-data"),
+            simulator_name: SIMULATOR_NAME.to_string(),
+        };
+
+        let mut runner = FakeCommandRunner::default()
+            .with_existing_all(&["xcodegen", "xcodebuild", "xcrun"]);
+        runner.queue_response(CommandOutput {
+            stdout: "xcodegen 1.0.0\n".to_string(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+        runner.queue_response(CommandOutput {
+            stdout: "Xcode 16.0.0\n".to_string(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+        runner.queue_response(CommandOutput {
+            stdout: String::new(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+        runner.queue_response(CommandOutput {
+            stdout: "== Booted\n".to_string(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+        runner.queue_response(CommandOutput {
+            stdout: "Build log\n".to_string(),
+            stderr: String::new(),
+            exit_code: 0,
+        });
+
+        let (_, result) = execute_with_output(&config, &mut runner);
+        assert!(result.is_ok());
+
+        let expected = vec![
+            CommandCall {
+                program: "xcodegen".to_string(),
+                args: vec!["--version".to_string()],
+                cwd: None,
+            },
+            CommandCall {
+                program: "xcodebuild".to_string(),
+                args: vec!["-version".to_string()],
+                cwd: None,
+            },
+            CommandCall {
+                program: "xcodegen".to_string(),
+                args: vec!["generate".to_string()],
+                cwd: Some(ios.clone()),
+            },
+            CommandCall {
+                program: "xcrun".to_string(),
+                args: vec![
+                    "simctl".to_string(),
+                    "list".to_string(),
+                    "devices".to_string(),
+                    "booted".to_string(),
+                ],
+                cwd: None,
+            },
+            CommandCall {
+                program: "xcodebuild".to_string(),
+                args: vec![
+                    "-project".to_string(),
+                    ios.join("BradOS.xcodeproj").to_string_lossy().to_string(),
+                    "-scheme".to_string(),
+                    "BradOS".to_string(),
+                    "-destination".to_string(),
+                    format!("platform=iOS Simulator,name={}", SIMULATOR_NAME),
+                    "-derivedDataPath".to_string(),
+                    temp.path()
+                        .join(".cache/brad-os-derived-data")
+                        .to_string_lossy()
+                        .to_string(),
+                    "-skipPackagePluginValidation".to_string(),
+                    "build".to_string(),
+                ],
+                cwd: None,
+            },
+        ];
+        assert_eq!(runner.calls, expected);
     }
 }
