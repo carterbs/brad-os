@@ -62,7 +62,7 @@ ${task}
 3. Write a detailed implementation plan to thoughts/shared/plans/active/ralph-improvement.md.
 
 thoughts/shared/plans/active/ralph-improvement.md must contain:
-- **Title**: One-line description of the improvement
+- **Title**: One-line PR-ready title in imperative form (specific action + target, not placeholders like "X", "update", or "something")
 - **Why**: Why this improvement matters (brief — the task is already decided)
 - **What**: Exactly what to build, with specifics (not vague hand-waving)
 - **Files**: Every file to create or modify, with what goes in each
@@ -94,7 +94,7 @@ Steps:
 6. Write a detailed implementation plan to thoughts/shared/plans/active/ralph-improvement.md in the current directory.
 
 thoughts/shared/plans/active/ralph-improvement.md must contain:
-- **Title**: One-line description of the improvement
+- **Title**: One-line PR-ready title in imperative form (specific action + target, not placeholders like "X", "update", or "something")
 - **Why**: Why this is the highest-leverage improvement right now
 - **What**: Exactly what to build, with specifics (not vague hand-waving)
 - **Files**: Every file to create or modify, with what goes in each

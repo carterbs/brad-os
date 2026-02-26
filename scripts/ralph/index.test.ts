@@ -5,6 +5,7 @@ import {
   MAIN_NOT_GREEN_TRIAGE_TASK,
   MERGE_CONFLICT_TRIAGE_PREFIX,
   activeWorktrees,
+  buildImprovementTitle,
   checkDeps,
   enforceMainManagedBacklog,
   extractPlanDocPathFromTask,
@@ -270,6 +271,35 @@ describe('extractPlanDocPathFromTask', () => {
         `${IMPLEMENT_PLAN_TASK_PREFIX}thoughts/shared/plans/completed/old.md`
       )
     ).toBe('thoughts/shared/plans/completed/old.md');
+  });
+});
+
+describe('buildImprovementTitle', () => {
+  it('prefers a meaningful plan summary', async () => {
+    expect(buildImprovementTitle(4, 'Improve merge queue stability')).toBe(
+      'harness: Improve merge queue stability'
+    );
+  });
+
+  it('falls back to task text when plan summary is low-signal', async () => {
+    expect(buildImprovementTitle(4, 'X', 'Add tests for merge queue retries')).toBe(
+      'harness: Add tests for merge queue retries'
+    );
+  });
+
+  it('falls back to improvement number when both inputs are low-signal', async () => {
+    expect(buildImprovementTitle(9, 'fix', 'x')).toBe(
+      'harness: improvement #9'
+    );
+  });
+
+  it('truncates long titles to git/GitHub-friendly length', async () => {
+    const title = buildImprovementTitle(
+      2,
+      'Implement architecture guardrails for observability pipelines and telemetry quality score exports'
+    );
+    expect(title.length).toBeLessThanOrEqual(72);
+    expect(title.endsWith('...')).toBe(true);
   });
 });
 
