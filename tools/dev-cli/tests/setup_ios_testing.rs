@@ -5,7 +5,7 @@ use std::fs;
 use dev_cli::setup_ios_testing::{
     parse_args, ParsedArgs, run_with_runner, CliUsage,
 };
-use dev_cli::qa_stop::{CommandCall, CommandResult, CommandRunner};
+use dev_cli::{CommandCall, CommandResult, CommandRunner};
 use tempfile::tempdir;
 
 #[derive(Debug, Clone)]
@@ -115,6 +115,33 @@ fn missing_project_file_fails_before_generation() {
 }
 
 #[test]
+fn missing_xcodebuild_fails_fast() {
+    let workspace = tempdir().expect("temp");
+    fs::create_dir_all(workspace.path().join("ios/BradOS")).expect("prepare dirs");
+    let runner = FakeRunner::new(vec![
+        FakeRunner::response(0, "xcodegen 0.0.1\n"),
+        FakeRunner::response(1, ""),
+    ]);
+    let result = run_with_runner(&[], workspace.path(), &runner);
+    assert_eq!(result.expect_err("failed"), "xcodebuild not found");
+    assert_eq!(runner.calls.borrow().len(), 2);
+}
+
+#[test]
+fn missing_xcrun_fails_fast() {
+    let workspace = tempdir().expect("temp");
+    fs::create_dir_all(workspace.path().join("ios/BradOS")).expect("prepare dirs");
+    let runner = FakeRunner::new(vec![
+        FakeRunner::response(0, "xcodegen 0.1.0\n"),
+        FakeRunner::response(0, "Xcode 15.0\n"),
+        FakeRunner::response(1, ""),
+    ]);
+    let result = run_with_runner(&[], workspace.path(), &runner);
+    assert_eq!(result.expect_err("failed"), "xcrun not found");
+    assert_eq!(runner.calls.borrow().len(), 3);
+}
+
+#[test]
 fn run_boots_simulator_when_none_are_booted() {
     let workspace = tempdir().expect("temp");
     let ios_dir = workspace.path().join("ios/BradOS");
@@ -126,12 +153,10 @@ fn run_boots_simulator_when_none_are_booted() {
         FakeRunner::response(0, "Xcode 15.0\n"),
         FakeRunner::response(0, "xcrun 1.0\n"),
         FakeRunner::response(0, ""),
-        FakeRunner::response(0, "iPhone 14 (Booted: ???)\n"),
+        FakeRunner::response(0, "iPhone 14 Pro (unavailable)\n"),
         FakeRunner::response(0, "line1\nline2\nline3\nline4\nline5\nline6\nline7\n"),
         FakeRunner::response(0, ""),
     ];
-
-    responses[4] = FakeRunner::response(0, "iPhone 14 Pro (unavailable)\n");
     let runner = FakeRunner::new(responses);
     let report = run_with_runner(&[], workspace.path(), &runner).expect("run");
 
@@ -240,6 +265,31 @@ fn run_bails_out_when_simulator_boot_fails() {
         result.expect_err("failed"),
         "Could not boot 'iPhone 17 Pro'. List available: xcrun simctl list devices available"
     );
+}
+
+#[test]
+fn run_fails_when_xcodebuild_build_fails() {
+    let workspace = tempdir().expect("temp");
+    let ios_dir = workspace.path().join("ios/BradOS");
+    fs::create_dir_all(&ios_dir).expect("prepare dirs");
+    fs::write(ios_dir.join("project.yml"), "xcodegen: {}").expect("write project.yml");
+
+    let runner = FakeRunner::new(vec![
+        FakeRunner::response(0, "xcodegen 0.1.0\n"),
+        FakeRunner::response(0, "Xcode 15.0\n"),
+        FakeRunner::response(0, "xcrun 1.0\n"),
+        FakeRunner::response(0, ""),
+        FakeRunner::response(0, "iPhone 17 Pro ... Booted"),
+        FakeRunner::response(1, ""),
+    ]);
+    let result = run_with_runner(&[], workspace.path(), &runner);
+    assert_eq!(
+        result.expect_err("failed"),
+        "xcodebuild build failed (full log is hidden by design)"
+    );
+
+    let calls = runner.calls.borrow();
+    assert_eq!(calls[5].program, "xcodebuild");
 }
 
 fn call_list_contains(calls: &[CommandCall], program: &str, expected_args: &[&str]) -> bool {

@@ -1,7 +1,7 @@
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-use crate::qa_stop::{CommandCall, CommandResult, CommandRunner};
+use crate::runner::{CommandCall, CommandResult, CommandRunner};
 
 const BOLD: &str = "\x1b[1m";
 const GREEN: &str = "\x1b[32m";

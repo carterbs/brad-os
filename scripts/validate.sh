@@ -104,7 +104,7 @@ run_check() {
         if [ "$rc" -eq 0 ]; then
           cargo llvm-cov --package dev-cli --summary-only --fail-under-lines 95 >> "$LOG_DIR/rust-coverage.log" 2>&1 || rc=$?
           if [ "$rc" -ne 0 ]; then
-            echo "Rust coverage target is 95% (hard fail below 90%)." >> "$LOG_DIR/rust-coverage.log"
+            echo "dev-cli coverage below 95% target (workspace hard-fail at 90%)." >> "$LOG_DIR/rust-coverage.log"
           fi
         fi
       fi

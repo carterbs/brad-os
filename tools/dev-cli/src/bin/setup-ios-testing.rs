@@ -2,6 +2,7 @@ use std::env;
 use std::path::Path;
 
 use dev_cli::setup_ios_testing::{run_with_runner, CliUsage};
+use dev_cli::RealCommandRunner;
 
 fn main() {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -10,7 +11,7 @@ fn main() {
             .map(|path| path.to_string_lossy().to_string())
             .unwrap_or_else(|_| ".".to_string())
     });
-    let runner = dev_cli::qa_stop::RealCommandRunner;
+    let runner = RealCommandRunner;
 
     match run_with_runner(&args, Path::new(&repo_root), &runner) {
         Ok(report) => {
