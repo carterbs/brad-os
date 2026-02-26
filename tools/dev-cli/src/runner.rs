@@ -1,197 +1,124 @@
-use std::collections::HashMap;
-use std::fs;
-use std::io::Write;
+use std::fs::OpenOptions;
+use std::io;
 use std::path::Path;
-use std::process::{Command, Stdio};
-use std::time::Instant;
+use std::process::{Command, Output, Stdio};
 
-pub struct CheckResult {
-    pub name: String,
-    pub exit_code: i32,
-    pub elapsed_secs: u64,
+pub struct CommandResult {
+    pub status: i32,
+    pub stdout: String,
+    pub stderr: String,
 }
 
-pub struct RunOpts<'a> {
-    pub name: &'a str,
-    pub program: &'a str,
-    pub args: &'a [&'a str],
-    pub log_dir: &'a Path,
-    pub env: Option<&'a HashMap<String, String>>,
-}
-
-/// Run a subprocess, capture stdout+stderr to a log file, return result.
-pub fn run_check(opts: &RunOpts) -> CheckResult {
-    let start = Instant::now();
-    let log_path = opts.log_dir.join(format!("{}.log", opts.name));
-
-    let mut cmd = Command::new(opts.program);
-    cmd.args(opts.args)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-
-    if let Some(env) = opts.env {
-        for (k, v) in env {
-            cmd.env(k, v);
-        }
-    }
-
-    let exit_code = match cmd.output() {
-        Ok(output) => {
-            if let Ok(mut file) = fs::File::create(&log_path) {
-                file.write_all(&output.stdout).ok();
-                file.write_all(&output.stderr).ok();
-            }
-            output.status.code().unwrap_or(1)
-        }
-        Err(e) => {
-            if let Ok(mut file) = fs::File::create(&log_path) {
-                writeln!(file, "Failed to execute command: {e}").ok();
-            }
-            1
-        }
-    };
-
-    let elapsed = start.elapsed().as_secs();
-    CheckResult {
-        name: opts.name.to_string(),
-        exit_code,
-        elapsed_secs: elapsed,
-    }
-}
-
-/// Run a command and return (exit_code, elapsed_ms). Does not capture to log.
-pub fn run_passthrough(program: &str, args: &[&str]) -> (i32, u64) {
-    let start = Instant::now();
-    let status = Command::new(program)
-        .args(args)
-        .status()
-        .map(|s| s.code().unwrap_or(1))
-        .unwrap_or(1);
-    let ms = start.elapsed().as_millis() as u64;
-    (status, ms)
-}
-
-/// Run a command with env vars, inheriting stdio. Returns (exit_code, elapsed_ms).
-pub fn run_passthrough_with_env(
+pub fn run_status(
     program: &str,
     args: &[&str],
-    env: &HashMap<String, String>,
-) -> (i32, u64) {
-    let start = Instant::now();
+    current_dir: Option<&Path>,
+    env_pairs: &[(&str, &str)],
+) -> io::Result<i32> {
+    run_output(program, args, current_dir, env_pairs).map(|result| result.status)
+}
+
+pub fn run_output(
+    program: &str,
+    args: &[&str],
+    current_dir: Option<&Path>,
+    env_pairs: &[(&str, &str)],
+) -> io::Result<CommandResult> {
+    let mut command = build_command(program, args, current_dir, env_pairs)?;
+    let output = command.output()?;
+
+    Ok(CommandResult {
+        status: output.status.code().unwrap_or(-1),
+        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+    })
+}
+
+pub fn run_to_file_detach(
+    program: &str,
+    args: &[&str],
+    current_dir: Option<&Path>,
+    env_pairs: &[(&str, &str)],
+    stdout_file: &Path,
+) -> io::Result<u32> {
+    let mut command = build_command(program, args, current_dir, env_pairs)?;
+    let file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(stdout_file)?;
+    let file_for_stderr = file.try_clone()?;
+    command.stdout(Stdio::from(file));
+    command.stderr(Stdio::from(file_for_stderr));
+    let child = command.spawn()?;
+    Ok(child.id())
+}
+
+fn build_command(
+    program: &str,
+    args: &[&str],
+    current_dir: Option<&Path>,
+    env_pairs: &[(&str, &str)],
+) -> io::Result<Command> {
     let mut cmd = Command::new(program);
     cmd.args(args);
-    for (k, v) in env {
-        cmd.env(k, v);
+    if let Some(dir) = current_dir {
+        cmd.current_dir(dir);
     }
-    let status = cmd
-        .status()
-        .map(|s| s.code().unwrap_or(1))
-        .unwrap_or(1);
-    let ms = start.elapsed().as_millis() as u64;
-    (status, ms)
+    for (key, value) in env_pairs {
+        cmd.env(key, value);
+    }
+    Ok(cmd)
 }
 
-/// Check if a command is available on PATH.
-pub fn command_exists(name: &str) -> bool {
-    Command::new("which")
-        .arg(name)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+pub fn read_lines_tail(path: &Path, max_lines: usize) -> io::Result<Vec<String>> {
+    if max_lines == 0 {
+        return Ok(Vec::new());
+    }
+    let content = std::fs::read_to_string(path)?;
+    let lines: Vec<String> = content
+        .lines()
+        .map(str::to_string)
+        .rev()
+        .take(max_lines)
+        .collect();
+    Ok(lines.into_iter().rev().collect())
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::collections::HashMap;
+pub fn is_process_running(pid: u32) -> bool {
+    Command::new("kill")
+        .arg("-0")
+        .arg(pid.to_string())
+        .status()
+        .is_ok_and(|status| status.success())
+}
 
-    #[test]
-    fn run_check_success() {
-        let dir = tempfile::tempdir().unwrap();
-        let result = run_check(&RunOpts {
-            name: "echo-test",
-            program: "echo",
-            args: &["hello"],
-            log_dir: dir.path(),
-            env: None,
-        });
-        assert_eq!(result.exit_code, 0);
-        assert_eq!(result.name, "echo-test");
-        let log = std::fs::read_to_string(dir.path().join("echo-test.log")).unwrap();
-        assert!(log.contains("hello"));
+pub fn run_kill(pid: u32) -> io::Result<Output> {
+    Command::new("kill").arg(pid.to_string()).output()
+}
+
+pub fn run_kill_force(pid: u32) -> io::Result<Output> {
+    Command::new("kill").arg("-9").arg(pid.to_string()).output()
+}
+
+pub fn kill_listener_pids(port: u16) -> io::Result<()> {
+    let output = Command::new("lsof")
+        .arg(format!("-tiTCP:{}", port))
+        .arg("-sTCP:LISTEN")
+        .output()?;
+
+    if !output.status.success() {
+        return Ok(());
     }
 
-    #[test]
-    fn run_check_failure() {
-        let dir = tempfile::tempdir().unwrap();
-        let result = run_check(&RunOpts {
-            name: "false-test",
-            program: "false",
-            args: &[],
-            log_dir: dir.path(),
-            env: None,
-        });
-        assert_ne!(result.exit_code, 0);
+    let pids = String::from_utf8_lossy(&output.stdout)
+        .split_whitespace()
+        .filter_map(|token| token.parse::<u32>().ok())
+        .collect::<Vec<u32>>();
+
+    for pid in pids {
+        let _ = run_kill(pid);
     }
 
-    #[test]
-    fn run_check_missing_command() {
-        let dir = tempfile::tempdir().unwrap();
-        let result = run_check(&RunOpts {
-            name: "missing",
-            program: "this-command-does-not-exist-xyz",
-            args: &[],
-            log_dir: dir.path(),
-            env: None,
-        });
-        assert_eq!(result.exit_code, 1);
-        let log = std::fs::read_to_string(dir.path().join("missing.log")).unwrap();
-        assert!(log.contains("Failed to execute"));
-    }
-
-    #[test]
-    fn run_check_with_env() {
-        let dir = tempfile::tempdir().unwrap();
-        let mut env = HashMap::new();
-        env.insert("MY_TEST_VAR".to_string(), "42".to_string());
-        let result = run_check(&RunOpts {
-            name: "env-test",
-            program: "sh",
-            args: &["-c", "echo $MY_TEST_VAR"],
-            log_dir: dir.path(),
-            env: Some(&env),
-        });
-        assert_eq!(result.exit_code, 0);
-        let log = std::fs::read_to_string(dir.path().join("env-test.log")).unwrap();
-        assert!(log.contains("42"));
-    }
-
-    #[test]
-    fn run_passthrough_returns_exit_code() {
-        let (code, _ms) = run_passthrough("true", &[]);
-        assert_eq!(code, 0);
-        let (code, _ms) = run_passthrough("false", &[]);
-        assert_ne!(code, 0);
-    }
-
-    #[test]
-    fn run_passthrough_with_env_passes_vars() {
-        let mut env = HashMap::new();
-        env.insert("MY_VAR".to_string(), "ok".to_string());
-        let (code, _ms) =
-            run_passthrough_with_env("sh", &["-c", "test \"$MY_VAR\" = ok"], &env);
-        assert_eq!(code, 0);
-    }
-
-    #[test]
-    fn command_exists_finds_sh() {
-        assert!(command_exists("sh"));
-    }
-
-    #[test]
-    fn command_exists_rejects_missing() {
-        assert!(!command_exists("this-command-does-not-exist-xyz"));
-    }
+    Ok(())
 }

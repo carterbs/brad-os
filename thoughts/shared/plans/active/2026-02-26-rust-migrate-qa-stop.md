@@ -4,9 +4,9 @@
 Migrate `scripts/qa-stop.sh` to Rust so teardown semantics (PID termination, port cleanup, simulator env unsets, lease release) are preserved with strong automated coverage.
 
 ## Current State Analysis
-- Script coordinates multi-path teardown and lock cleanup: [`scripts/qa-stop.sh:62`](/Users/bradcarter/Documents/Dev/brad-os/scripts/qa-stop.sh:62), [`scripts/qa-stop.sh:109`](/Users/bradcarter/Documents/Dev/brad-os/scripts/qa-stop.sh:109), [`scripts/qa-stop.sh:132`](/Users/bradcarter/Documents/Dev/brad-os/scripts/qa-stop.sh:132).
-- Invoked by npm aliases: [`package.json:52`](/Users/bradcarter/Documents/Dev/brad-os/package.json:52), [`package.json:53`](/Users/bradcarter/Documents/Dev/brad-os/package.json:53).
-- Consumes state written by `qa-start`: [`scripts/qa-stop.sh:98`](/Users/bradcarter/Documents/Dev/brad-os/scripts/qa-stop.sh:98).
+- Script coordinates multi-path teardown and lock cleanup: `scripts/qa-stop.sh:62`, `scripts/qa-stop.sh:109`, `scripts/qa-stop.sh:132`.
+- Invoked by npm aliases: `package.json:52`, `package.json:53`.
+- Consumes state written by `qa-start`: `scripts/qa-stop.sh:98`.
 - `main` introduced reusable Rust process/timing helpers in `tools/dev-cli` that should be reused for teardown orchestration.
 
 ## Desired End State
@@ -16,8 +16,8 @@ Migrate `scripts/qa-stop.sh` to Rust so teardown semantics (PID termination, por
 - Coverage >=95% target (>=90 enforced minimum).
 
 ## Key Discoveries
-- PID stop path has important fallback order (`kill -- -pid`, `kill pid`, then `kill -9`): [`scripts/qa-stop.sh:79`](/Users/bradcarter/Documents/Dev/brad-os/scripts/qa-stop.sh:79).
-- Two lock directories may need cleanup (`SIMULATOR_LOCK_DIR` and scan of `device-locks/*.lock`): [`scripts/qa-stop.sh:126`](/Users/bradcarter/Documents/Dev/brad-os/scripts/qa-stop.sh:126), [`scripts/qa-stop.sh:133`](/Users/bradcarter/Documents/Dev/brad-os/scripts/qa-stop.sh:133).
+- PID stop path has important fallback order (`kill -- -pid`, `kill pid`, then `kill -9`): `scripts/qa-stop.sh:79`.
+- Two lock directories may need cleanup (`SIMULATOR_LOCK_DIR` and scan of `device-locks/*.lock`): `scripts/qa-stop.sh:126`, `scripts/qa-stop.sh:133`.
 
 ## What We're NOT Doing
 - No redesign of QA session model.
@@ -32,7 +32,7 @@ Implement `qa-stop` as a Rust binary target (prefer `tools/dev-cli`) with module
 - Snapshot expected messages and exit behavior.
 
 ### Success Criteria
-- Tests encode all CLI flags in [`scripts/qa-stop.sh:16`](/Users/bradcarter/Documents/Dev/brad-os/scripts/qa-stop.sh:16).
+- Tests encode all CLI flags in `scripts/qa-stop.sh:16`.
 
 ### Confirmation Gate
 - Approve parity fixtures.
@@ -65,6 +65,6 @@ Implement `qa-stop` as a Rust binary target (prefer `tools/dev-cli`) with module
 - Manual: run with and without `--shutdown-simulator`.
 
 ## References
-- [`scripts/qa-stop.sh`](/Users/bradcarter/Documents/Dev/brad-os/scripts/qa-stop.sh)
-- [`scripts/qa-start.sh`](/Users/bradcarter/Documents/Dev/brad-os/scripts/qa-start.sh)
-- [`package.json`](/Users/bradcarter/Documents/Dev/brad-os/package.json)
+- `scripts/qa-stop.sh`
+- `scripts/qa-start.sh`
+- `package.json`
