@@ -8,7 +8,7 @@ Run exploratory QA testing on the BradOS iOS app using the iOS Simulator MCP.
 
 ## Prerequisites
 
-Run the setup script if you haven't already:
+Run the setup script if you haven't already (Rust-backed):
 ```bash
 ./scripts/setup-ios-testing.sh
 ```

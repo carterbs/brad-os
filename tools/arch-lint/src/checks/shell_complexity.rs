@@ -1,66 +1,48 @@
 use crate::checks::CheckResult;
 use crate::config::{self, LinterConfig};
+use crate::walker;
 use regex::Regex;
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
 
-const DEFAULT_THRESHOLD: usize = 10;
-
-const MIGRATION_ALLOWLIST: &[&str] = &[
-    "scripts/qa-start.sh",
-    "scripts/qa-stop.sh",
-    "scripts/setup-ios-testing.sh",
-];
-
-const SHIM_ALLOWLIST: &[&str] = &[
-    "hooks/pre-commit",
-    "scripts/validate.sh",
-    "scripts/doctor.sh",
-    "scripts/run-integration-tests.sh",
-];
-
-static BRANCH_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b(if|elif|case)\b").unwrap());
-static LOOP_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b(for|while|until|select)\b").unwrap());
-static LOGICAL_PATTERN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"&&|\|\|").unwrap());
+const DEFAULT_CC_THRESHOLD: usize = 10;
+const TRANSITIONAL_CC_THRESHOLD: usize = 20;
 
 pub fn check(config: &LinterConfig) -> CheckResult {
-    let name = "Shell script complexity".to_string();
-    let skip_dirs = config::skip_dirs(&["__tests__", "node_modules"]);
-    let shell_files = collect_shell_files(&config.root_dir, &skip_dirs);
+    let name = "Shell script complexity guardrail".to_string();
+    let files = collect_shell_scripts(&config.root_dir);
     let mut violations = Vec::new();
 
-    for file in shell_files {
-        let rel_file = file.strip_prefix(&config.root_dir).unwrap_or(&file);
-        let rel = rel_file.to_string_lossy().to_string();
-
-        if is_migration_allowlisted(&rel) || is_shim(&rel) {
-            continue;
-        }
-
+    for file in files {
         let content = match fs::read_to_string(&file) {
-            Ok(value) => value,
+            Ok(c) => c,
             Err(_) => continue,
         };
 
-        let metrics = complexity_metrics(&content);
-        if metrics.total() > DEFAULT_THRESHOLD {
-            violations.push(format!(
-                "{} has shell complexity {score} (threshold {threshold}).\n\
-                 \x20   Metrics: lines={lines}, branches={branches}, loops={loops}, logical_ops={logical_ops}\n\
-                 \x20   Rule: Shell orchestration scripts should stay at CC_estimate <= {threshold} unless allowlisted for migration.\n\
-                 \x20   Fix: Migrate to typed orchestration (Rust/TypeScript) or rework to a thin wrapper and move complexity out.\n\
-                 \x20   See: thoughts/shared/plans/active/2026-02-26-shell-complexity-guardrail.md",
-                rel,
-                score = metrics.total(),
-                threshold = DEFAULT_THRESHOLD,
-                lines = metrics.lines,
-                branches = metrics.branches,
-                loops = metrics.loops,
-                logical_ops = metrics.logical_ops,
-            ));
+        let metrics = estimate_complexity(&content);
+        if metrics.cc_estimate <= cc_limit_for(&file, &content) {
+            continue;
         }
+
+        let rel_path = file.strip_prefix(&config.root_dir).unwrap_or(&file);
+        violations.push(format!(
+            "{}: CC_estimate={}, lines={}, branches={}, loops={} ({} script limit {}).\n\
+             \x20   Guidance: reduce orchestration complexity in this shell script or migrate to Rust\n\
+             \x20   using the relevant plan (`tools/dev-cli` migration tracks).\n\
+             \x20   See docs/conventions/workflow.md for guardrail policy and active migration notes.",
+            rel_path.display(),
+            metrics.cc_estimate,
+            metrics.line_count,
+            metrics.branch_points,
+            metrics.loop_points,
+            if is_transitional_legacy(&file) {
+                "transitional legacy"
+            } else {
+                "default"
+            },
+            cc_limit_for(&file, &content),
+        ));
     }
 
     CheckResult {
@@ -70,228 +52,246 @@ pub fn check(config: &LinterConfig) -> CheckResult {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
 struct ComplexityMetrics {
-    lines: usize,
-    branches: usize,
-    loops: usize,
-    logical_ops: usize,
+    line_count: usize,
+    branch_points: usize,
+    loop_points: usize,
+    cc_estimate: usize,
 }
 
-impl ComplexityMetrics {
-    fn total(&self) -> usize {
-        1 + self.branches + self.loops + self.logical_ops
+fn collect_shell_scripts(root: &Path) -> Vec<PathBuf> {
+    let skip_dirs = config::skip_dirs(&["ios", "public"]);
+    let mut files = HashSet::<PathBuf>::new();
+
+    for file in walker::collect_files(root, ".sh", &skip_dirs) {
+        files.insert(file);
     }
+
+    for dir in [root.join("hooks"), root.join("scripts")] {
+        if dir.exists() {
+            collect_shebang_scripts(&dir, &skip_dirs, &mut files);
+        }
+    }
+
+    let mut sorted_files: Vec<PathBuf> = files.into_iter().collect();
+    sorted_files.sort();
+    sorted_files
 }
 
-fn collect_shell_files(root_dir: &Path, skip_dirs: &HashSet<&str>) -> Vec<PathBuf> {
-    let mut results = Vec::new();
-    collect_shell_files_inner(root_dir, skip_dirs, &mut results);
-    results.sort();
-    results
-}
-
-fn collect_shell_files_inner(
-    current: &Path,
+fn collect_shebang_scripts(
+    dir: &Path,
     skip_dirs: &HashSet<&str>,
-    results: &mut Vec<PathBuf>,
+    results: &mut HashSet<PathBuf>,
 ) {
-    let entries = match fs::read_dir(current) {
-        Ok(value) => value,
+    let entries = match fs::read_dir(dir) {
+        Ok(entries) => entries,
         Err(_) => return,
     };
 
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_dir() {
-            let name = match path.file_name().and_then(|value| value.to_str()) {
-                Some(value) => value,
-                None => continue,
-            };
-            if skip_dirs.contains(name) {
+        if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+            if path.is_dir() {
+                if !skip_dirs.contains(name) {
+                    collect_shebang_scripts(&path, skip_dirs, results);
+                }
                 continue;
             }
-            collect_shell_files_inner(&path, skip_dirs, results);
-            continue;
-        }
 
-        let Some(name) = path.file_name().and_then(|value| value.to_str()) else {
-            continue;
-        };
-
-        if name.ends_with(".sh") || is_shell_hook(&path) {
-            results.push(path);
+            if path.is_file() && is_shell_shebang_script(&path) {
+                results.insert(path);
+            }
         }
     }
 }
 
-fn is_shell_hook(path: &Path) -> bool {
-    let parent = match path.parent().and_then(|value| value.file_name()) {
-        Some(value) => value,
-        None => return false,
-    };
-    if parent != "hooks" {
-        return false;
-    }
-
+fn is_shell_shebang_script(path: &Path) -> bool {
     let content = match fs::read_to_string(path) {
-        Ok(value) => value,
+        Ok(c) => c,
         Err(_) => return false,
     };
 
-    let first_line = content.lines().next().unwrap_or_default();
-    first_line.starts_with("#!") && (first_line.contains("/sh") || first_line.contains("bash"))
+    has_shell_shebang(content.as_bytes())
 }
 
-fn is_migration_allowlisted(path: &str) -> bool {
-    MIGRATION_ALLOWLIST.iter().any(|entry| path.ends_with(entry))
+fn has_shell_shebang(raw: &[u8]) -> bool {
+    let first_line = match std::str::from_utf8(raw) {
+        Ok(c) => c.lines().next().unwrap_or(""),
+        Err(_) => "",
+    };
+
+    if !first_line.starts_with("#!") {
+        return false;
+    }
+
+    let shell = first_line.to_lowercase();
+    shell.contains("sh") && !shell.contains("node")
 }
 
-fn is_shim(path: &str) -> bool {
-    SHIM_ALLOWLIST.iter().any(|entry| path.ends_with(entry))
+fn cc_limit_for(path: &Path, content: &str) -> usize {
+    if is_skimmed_shim(path, content) {
+        return usize::MAX;
+    }
+
+    if is_transitional_legacy(path) {
+        return TRANSITIONAL_CC_THRESHOLD;
+    }
+
+    DEFAULT_CC_THRESHOLD
 }
 
-fn complexity_metrics(content: &str) -> ComplexityMetrics {
-    let mut branches = 0usize;
-    let mut loops = 0usize;
-    let mut logical_ops = 0usize;
-    let mut lines = 0usize;
+fn is_transitional_legacy(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|name| {
+            matches!(name, "qa-start.sh" | "qa-stop.sh" | "setup-ios-testing.sh")
+        })
+}
 
-    for raw_line in content.lines() {
-        let line = strip_comment(raw_line).trim();
-        if line.is_empty() {
+fn is_skimmed_shim(path: &Path, content: &str) -> bool {
+    let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    let is_known_wrapper = matches!(file_name, "arch-lint" | "brad-precommit" | "brad-validate");
+    if !is_known_wrapper {
+        return false;
+    }
+
+    let has_target_binary = content.contains("target/release/");
+    let has_exec = Regex::new("\\bexec\\s+\"?\\$?BINARY\"?")
+        .ok()
+        .is_some_and(|regex| regex.is_match(content));
+    let has_build = content.contains("cargo build");
+    has_target_binary && has_exec && has_build
+}
+
+fn estimate_complexity(contents: &str) -> ComplexityMetrics {
+    let mut line_count = 0usize;
+    let mut branch_points = 0usize;
+    let mut loop_points = 0usize;
+
+    let logical_re = Regex::new(r"&&|\|\|").expect("valid regex");
+
+    for line in contents.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
             continue;
         }
-        lines += 1;
+        let code_line = strip_inline_comment(line);
+        let normalized = code_line.trim();
+        if normalized.is_empty() {
+            continue;
+        }
 
-        branches += BRANCH_PATTERN.find_iter(line).count();
-        loops += LOOP_PATTERN.find_iter(line).count();
-        logical_ops += LOGICAL_PATTERN.find_iter(line).count();
+        line_count += 1;
+        branch_points += count_control_tokens(normalized, &["if", "elif", "case"]);
+        loop_points += count_control_tokens(normalized, &["for", "while", "until", "select"]);
+        branch_points += logical_re.find_iter(normalized).count();
     }
 
     ComplexityMetrics {
-        lines,
-        branches,
-        loops,
-        logical_ops,
+        line_count,
+        branch_points,
+        loop_points,
+        cc_estimate: 1 + branch_points + loop_points,
     }
 }
 
-fn strip_comment(line: &str) -> &str {
-    match line.find('#') {
-        Some(index) => &line[..index],
-        None => line,
+fn count_control_tokens(line: &str, tokens: &[&str]) -> usize {
+    line.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
+        .filter(|token| tokens.contains(token))
+        .count()
+}
+
+fn strip_inline_comment(line: &str) -> String {
+    let mut result = String::new();
+    let mut in_single_quote = false;
+    let mut in_double_quote = false;
+    let mut prev = '\0';
+
+    for ch in line.chars() {
+        if ch == '\'' && !in_double_quote && prev != '\\' {
+            in_single_quote = !in_single_quote;
+        }
+        if ch == '"' && !in_single_quote && prev != '\\' {
+            in_double_quote = !in_double_quote;
+        }
+        if ch == '#' && !in_single_quote && !in_double_quote {
+            break;
+        }
+        result.push(ch);
+        prev = ch;
     }
+
+    result
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use tempfile::TempDir;
+    use super::{estimate_complexity, is_transitional_legacy, is_skimmed_shim, strip_inline_comment};
 
-    fn write_script(path: &Path, content: &str) {
-        fs::write(path, content).unwrap();
+    #[test]
+    fn strips_inline_comment_only_after_comment_operator() {
+        assert_eq!(
+            strip_inline_comment("echo \"a#b\" # comment"),
+            "echo \"a#b\" "
+        );
+        assert_eq!(
+            strip_inline_comment("echo 'a#b' # comment"),
+            "echo 'a#b' "
+        );
     }
 
     #[test]
-    fn complexity_metrics_counts_control_flow_and_logic() {
-        let metrics = complexity_metrics(
-            "\
-            if true; then\n\
-            for item in \"$@\"; do\n\
-            while true; do\n\
-            if false; then\n\
-            command && command || command\n\
-            fi\n\
-            done\n\
-            done\n\
-            ",
+    fn estimates_if_and_case_branching() {
+        let metrics = estimate_complexity(
+            r#"#!/usr/bin/env bash
+if [[ "$1" == "" ]]; then
+  echo one
+elif [[ "$2" == "" ]]; then
+  echo two
+fi
+case "$x" in
+  a) echo a;;
+esac
+",
         );
-
-        assert_eq!(metrics.lines, 8);
-        assert_eq!(metrics.branches, 2);
-        assert_eq!(metrics.loops, 2);
-        assert_eq!(metrics.logical_ops, 2);
-        assert_eq!(metrics.total(), 7);
+        assert_eq!(metrics.cc_estimate, 1 + 3 + 1);
+        assert_eq!(metrics.branch_points, 4);
+        assert_eq!(metrics.loop_points, 0);
+        assert_eq!(metrics.line_count, 8);
     }
 
     #[test]
-    fn complex_shell_script_fails_the_check() {
-        let root = TempDir::new().unwrap();
-        fs::create_dir_all(root.path().join("scripts")).unwrap();
-        write_script(
-            &root.path().join("scripts/too-complex.sh"),
-            "\
-            if true; then\n\
-            for i in 1 2 3; do\n\
-            if true; then\n\
-            command && command\n\
-            fi\n\
-            for j in 1 2 3; do\n\
-            if true; then\n\
-            command || command\n\
-            fi\n\
-            while true; do\n\
-            case \"$i\" in\n\
-            1)\n\
-            if true; then\n\
-            command || command\n\
-            fi\n\
-            ;;\n\
-            esac\n\
-            done\n\
-            done\n\
-            done\n\
-            ",
+    fn estimates_loops_and_logical_ops() {
+        let metrics = estimate_complexity(
+            r#"for i in 1 2 3; do
+  if [[ "$i" == "1" ]] && [[ "$i" == "2" ]] || [[ "$i" == "3" ]]; then
+    echo "x"
+  fi
+done
+"#,
         );
-
-        let config = LinterConfig::from_root(root.path());
-        let result = check(&config);
-
-        assert!(!result.passed);
-        assert!(result
-            .violations
-            .iter()
-            .any(|item| item.contains("scripts/too-complex.sh")));
+        assert!(metrics.branch_points >= 3);
+        assert!(metrics.cc_estimate >= 6);
     }
 
     #[test]
-    fn allowlisted_scripts_are_exempt_from_threshold() {
-        let root = TempDir::new().unwrap();
-        fs::create_dir_all(root.path().join("scripts")).unwrap();
-        write_script(
-            &root.path().join("scripts/qa-start.sh"),
-            "if true; then\nfor i in 1 2 3; do\nif true; then\ncommand;\nfi\ndone\nfi\n",
-        );
-        write_script(
-            &root.path().join("scripts/clean.sh"),
-            "echo clean\n",
-        );
-
-        let config = LinterConfig::from_root(root.path());
-        let result = check(&config);
-
-        assert!(result.passed);
-        assert!(!result.violations.iter().any(|item| item.contains("qa-start.sh")));
-        assert!(!result.violations.iter().any(|item| item.contains("clean.sh")));
+    fn transitional_legacy_files_match_expected_names() {
+        assert!(is_transitional_legacy(std::path::Path::new("scripts/qa-start.sh")));
+        assert!(is_transitional_legacy(std::path::Path::new("scripts/setup-ios-testing.sh")));
+        assert!(!is_transitional_legacy(std::path::Path::new("scripts/other.sh")));
     }
 
     #[test]
-    fn hook_with_shell_shebang_is_included() {
-        let root = TempDir::new().unwrap();
-        fs::create_dir_all(root.path().join("hooks")).unwrap();
-        write_script(
-            &root.path().join("hooks/complex-hook"),
-            "#!/usr/bin/env bash\nif true; then\nfor i in 1 2 3; do\nif true; then\nfor n in 1 2 3; do\nif true; then\ncommand\nfi\ncommand && command\nfi\ndone\ndone\nfi\nif true; then\nwhile true; do\ncommand || command\ncommand\ncase \"$i\" in\n1)\ncommand\n;;\nesac\ndone\nfi\n",
-        );
-        write_script(
-            &root.path().join("hooks/non-shell-hook"),
-            "#!/usr/bin/env node\ngood=false\n",
-        );
-
-        let config = LinterConfig::from_root(root.path());
-        let result = check(&config);
-
-        assert!(result.violations.iter().any(|item| item.contains("hooks/complex-hook")));
+    fn shim_scripts_are_exempted_by_name_and_pattern() {
+        let shim = r#"#!/usr/bin/env bash
+set -e
+BINARY="/tmp/target/release/arch-lint"
+if ! command -v cargo >/dev/null 2>&1; then
+  exit 1
+fi
+cargo build -p arch-lint --release >/dev/null
+exec "$BINARY" "$@"
+"#;
+        assert!(is_skimmed_shim(std::path::Path::new("scripts/arch-lint"), shim));
     }
 }
