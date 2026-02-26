@@ -53,7 +53,7 @@ TOTAL_START=$(date +%s)
 
 # --- Define checks ---
 CHECKS=("typecheck" "lint")
-$QUICK || CHECKS+=("test" "architecture")
+$QUICK || CHECKS+=("test" "architecture" "rust-test" "rust-coverage")
 
 run_check() {
   local key="$1"
@@ -85,6 +85,27 @@ run_check() {
       fi
       ;;
     architecture) bash scripts/arch-lint > "$LOG_DIR/architecture.log" 2>&1 || rc=$? ;;
+    rust-test)
+      cargo test --workspace > "$LOG_DIR/rust-test.log" 2>&1 || rc=$?
+      ;;
+    rust-coverage)
+      if ! command -v cargo-llvm-cov >/dev/null 2>&1; then
+        cargo install cargo-llvm-cov --locked >/dev/null 2>&1 || rc=$?
+        if [ "$rc" -ne 0 ]; then
+          echo "Failed to install cargo-llvm-cov. Install manually and re-run validation." >> "$LOG_DIR/rust-coverage.log"
+        fi
+      fi
+
+      if [ "$rc" -eq 0 ]; then
+        cargo llvm-cov --workspace --summary-only --fail-under-lines 90 > "$LOG_DIR/rust-coverage.log" 2>&1 || rc=$?
+        if [ "$rc" -eq 0 ]; then
+          line_coverage="$(awk 'tolower($0) ~ /line coverage/ { if (match($0, /([0-9]+(\.[0-9]+)?)/, match_arr) ) { print match_arr[1]; exit } }' "$LOG_DIR/rust-coverage.log")"
+          if [ -n "$line_coverage" ] && awk -v coverage="$line_coverage" 'BEGIN { if (coverage < 95) exit 0; exit 1 }'; then
+            echo "Coverage ${line_coverage}% is below 95%; target for this gate is 95% (hard fail below 90%)." >> "$LOG_DIR/rust-coverage.log"
+          fi
+        fi
+      fi
+      ;;
   esac
 
   local elapsed=$(( $(date +%s) - start ))
