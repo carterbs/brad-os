@@ -119,6 +119,16 @@ On failure, `.validate/*.log` artifacts are uploaded. See `.github/workflows/ci.
 - **Commit after each phase**: Smaller commits = easier rollback.
 - **Validate before committing**: Run typecheck, lint, and test before every commit.
 
+## Shell Complexity Enforcement Details
+
+- `shell_complexity` enforces `CC_estimate <= 10` for shell scripts scanned by `arch-lint`.
+- Transitional legacy files may use a higher ceiling:
+  - `scripts/qa-start.sh`
+  - `scripts/qa-stop.sh`
+  - `scripts/setup-ios-testing.sh` (temporary exception)
+- Shim-only delegation scripts are expected to stay thin delegating wrappers.
+- `CC_estimate` is a lightweight lexical cyclomatic estimator using `if`/`elif`/`case`, loop constructs, and `&&`/`||`.
+
 ## QA (MANDATORY)
 
 After implementation, exercise what you built — don't just run tests and declare victory:
