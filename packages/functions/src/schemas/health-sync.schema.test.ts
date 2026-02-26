@@ -207,7 +207,7 @@ describe('health sync schemas', () => {
         calculatedAt: '2026-02-21T12:34:56.000Z',
       });
 
-      expect(withoutCalculatedAtResult.success).toBe(true);
+      expect(withCalculatedAtResult.success).toBe(true);
       expect(withCalculatedAtResult.success).toBe(true);
       expect(withoutCalculatedAtResult.success).toBe(true);
     });
