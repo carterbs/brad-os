@@ -386,13 +386,17 @@ describe('parseOutstandingRalphPrTriageTask', () => {
     });
   });
 
-  it('returns undefined for non-triage source', async () => {
+  it('parses valid outstanding PR task regardless of source', async () => {
     expect(
       parseOutstandingRalphPrTriageTask(
         'Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
         'backlog'
       )
-    ).toBeUndefined();
+    ).toEqual({
+      prNumber: 21,
+      branchName: 'harness-improvement-066',
+      prUrl: 'https://github.com/carterbs/brad-os/pull/21',
+    });
   });
 
   it('returns undefined for non-matching text', async () => {
@@ -421,6 +425,22 @@ describe('parseOutstandingRalphPrTriageTask', () => {
         'triage'
       )
     ).toEqual({
+      prNumber: 21,
+      branchName: 'harness-improvement-066',
+      prUrl: 'https://github.com/carterbs/brad-os/pull/21',
+    });
+  });
+
+  it('parses outstanding PR task through deep escalation nesting', async () => {
+    const directTask =
+      'Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21';
+    const deeplyNested = Array.from({ length: 20 }).reduce(
+      (acc, _, i) =>
+        `Human escalation required for PR #21 (improvement #${i + 1}). Worktree: /tmp/wt-${i + 1}. Original task: ${acc}`,
+      directTask
+    );
+
+    expect(parseOutstandingRalphPrTriageTask(deeplyNested, 'triage')).toEqual({
       prNumber: 21,
       branchName: 'harness-improvement-066',
       prUrl: 'https://github.com/carterbs/brad-os/pull/21',

@@ -1,5 +1,1 @@
-- Human escalation required for PR #19 (improvement #67). Worktree: /tmp/brad-os-ralph-worktrees/harness-improvement-067. Original task: Resolve outstanding Ralph PR #19 (harness-improvement-067) and merge to main. PR: https://github.com/carterbs/brad-os/pull/19
-- Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21
-- Resolve outstanding Ralph PR #20 (harness-improvement-065) and merge to main. PR: https://github.com/carterbs/brad-os/pull/20
-- Resolve outstanding Ralph PR #19 (harness-improvement-067) and merge to main. PR: https://github.com/carterbs/brad-os/pull/19
-- Human escalation required for PR #21 (improvement #65). Worktree: /tmp/brad-os-ralph-worktrees/harness-improvement-066. Original task: Human escalation required for PR #21 (improvement #65). Worktree: /tmp/brad-os-ralph-worktrees/harness-improvement-066. Original task: Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21
+

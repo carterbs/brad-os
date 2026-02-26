@@ -164,9 +164,9 @@ export function buildOutstandingRalphPrTriageTask(details: {
 
 export function parseOutstandingRalphPrTriageTask(
   taskText: string | undefined,
-  taskSource: TaskSource,
+  _taskSource: TaskSource,
 ): OutstandingRalphPrTriageTaskDetails | undefined {
-  if (taskSource !== "triage" || !taskText) return undefined;
+  if (!taskText) return undefined;
 
   function parseDirectTask(
     value: string,
@@ -188,7 +188,7 @@ export function parseOutstandingRalphPrTriageTask(
   }
 
   let current = taskText.trim();
-  for (let depth = 0; depth < 8; depth++) {
+  for (let depth = 0; depth < 64; depth++) {
     const direct = parseDirectTask(current);
     if (direct) return direct;
 
@@ -198,6 +198,16 @@ export function parseOutstandingRalphPrTriageTask(
     current = current.slice(markerIndex + escalatedPrefix.length).trim();
   }
   return undefined;
+}
+
+function unwrapEscalatedTask(taskText: string): string {
+  let current = taskText.trim();
+  for (let depth = 0; depth < 64; depth++) {
+    const markerIndex = current.indexOf("Original task:");
+    if (markerIndex < 0) return current;
+    current = current.slice(markerIndex + "Original task:".length).trim();
+  }
+  return current;
 }
 
 export function extractPlanDocPathFromTask(
@@ -1255,8 +1265,9 @@ export async function main(): Promise<void> {
     if (result.taskSource === "triage") removeTriageTask(result.taskText);
 
     const prLabel = result.prNumber !== undefined ? `PR #${result.prNumber}` : result.branchName;
+    const originalTask = unwrapEscalatedTask(result.taskText);
     addTriageTask(
-      `Human escalation required for ${prLabel} (improvement #${result.improvement}). Worktree: ${result.worktreePath}. Original task: ${result.taskText}`,
+      `Human escalation required for ${prLabel} (improvement #${result.improvement}). Worktree: ${result.worktreePath}. Original task: ${originalTask}`,
     );
     logger.warn(`Escalated to human review (${prLabel}); branch preserved at ${result.worktreePath}`);
   }

@@ -1,7 +1,4 @@
-- Implement plan rust-migrate-setup-ios-testing: migrate scripts/setup-ios-testing.sh iOS bootstrap orchestration to Rust.
-- Implement plan rust-migrate-run-integration-tests: migrate scripts/run-integration-tests.sh emulator and test lifecycle runner to Rust.
 - Implement plan rust-migrate-pre-commit-hook: migrate hooks/pre-commit routing and policy logic to a Rust engine with a shim hook.
-- Implement plan shell-complexity-guardrail: add architecture lint check to prevent complex shell scripts from creeping back in.
 - Implement plan agents-rust-dev-tooling-guidance: add explicit agent guidance to prefer Rust for non-trivial dev tooling.
 - Add `typescript-eslint` cleanup tasks to reduce noise from the temporary oxlint suppression.
 - Re-enable `typescript-eslint/no-unsafe-type-assertion` in repositories and middleware after targeted type-guard refactors.
