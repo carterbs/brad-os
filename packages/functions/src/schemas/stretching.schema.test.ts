@@ -1,50 +1,75 @@
 import { describe, expect, it } from 'vitest';
 import { completedStretchSchema, createStretchSessionSchema } from './stretching.schema.js';
 
+const validCompletedStretch = {
+  region: 'neck',
+  stretchId: 'thoracic-lift',
+  stretchName: 'Thoracic Lift',
+  durationSeconds: 45,
+  skippedSegments: 1,
+};
+
+const validSessionPayload = {
+  completedAt: '2026-02-25T12:34:56.789Z',
+  totalDurationSeconds: 1800,
+  regionsCompleted: 5,
+  regionsSkipped: 1,
+  stretches: [validCompletedStretch],
+};
+
 describe('stretching.schema', () => {
-  const validCompletedStretch = {
-    region: 'neck',
-    stretchId: 'neck-forward-tilt',
-    stretchName: 'Neck Forward Tilt',
-    durationSeconds: 60,
-    skippedSegments: 1,
-  };
-
-  const validStretchSession = {
-    completedAt: '2026-02-25T12:34:56.789Z',
-    totalDurationSeconds: 600,
-    regionsCompleted: 8,
-    regionsSkipped: 2,
-    stretches: [validCompletedStretch],
-  };
-
   describe('completedStretchSchema', () => {
     it('accepts a valid completed stretch payload', () => {
       const result = completedStretchSchema.safeParse(validCompletedStretch);
       expect(result.success).toBe(true);
     });
 
-    it('accepts boundary skippedSegments values', () => {
-      const zeroSkips = completedStretchSchema.safeParse({
+    it('accepts boundary values for duration and skipped segments', () => {
+      const minDuration = completedStretchSchema.safeParse({
         ...validCompletedStretch,
-        skippedSegments: 0,
+        durationSeconds: 1,
       });
-      const maxSkips = completedStretchSchema.safeParse({
+      const maxSkippedSegments = completedStretchSchema.safeParse({
         ...validCompletedStretch,
         skippedSegments: 2,
       });
 
-      expect(zeroSkips.success).toBe(true);
-      expect(maxSkips.success).toBe(true);
+      expect(minDuration.success).toBe(true);
+      expect(maxSkippedSegments.success).toBe(true);
+    });
+
+    it('accepts valid stretch definition with required fields', () => {
+      const result = completedStretchSchema.safeParse(validCompletedStretch);
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts all valid body regions', () => {
+      const regions = [
+        'neck',
+        'shoulders',
+        'back',
+        'hip_flexors',
+        'glutes',
+        'hamstrings',
+        'quads',
+        'calves',
+      ] as const;
+
+      for (const region of regions) {
+        const result = completedStretchSchema.safeParse({
+          ...validCompletedStretch,
+          region,
+        });
+        expect(result.success).toBe(true);
+      }
     });
 
     it('rejects invalid region enum values', () => {
-      const result = completedStretchSchema.safeParse({
+      const invalid = completedStretchSchema.safeParse({
         ...validCompletedStretch,
-        region: 'arms',
+        region: 'lower_back',
       });
-
-      expect(result.success).toBe(false);
+      expect(invalid.success).toBe(false);
     });
 
     it('rejects non-positive and non-integer durationSeconds', () => {
@@ -66,6 +91,20 @@ describe('stretching.schema', () => {
       expect(fractional.success).toBe(false);
     });
 
+    it('rejects empty stretch identifiers and names', () => {
+      const emptyId = completedStretchSchema.safeParse({
+        ...validCompletedStretch,
+        stretchId: '',
+      });
+      const emptyName = completedStretchSchema.safeParse({
+        ...validCompletedStretch,
+        stretchName: '',
+      });
+
+      expect(emptyId.success).toBe(false);
+      expect(emptyName.success).toBe(false);
+    });
+
     it('rejects out-of-range and non-integer skippedSegments', () => {
       const negative = completedStretchSchema.safeParse({
         ...validCompletedStretch,
@@ -84,42 +123,33 @@ describe('stretching.schema', () => {
       expect(aboveMax.success).toBe(false);
       expect(fractional.success).toBe(false);
     });
-
-    it('rejects empty stretchId and stretchName', () => {
-      const emptyId = completedStretchSchema.safeParse({
-        ...validCompletedStretch,
-        stretchId: '',
-      });
-      const emptyName = completedStretchSchema.safeParse({
-        ...validCompletedStretch,
-        stretchName: '',
-      });
-
-      expect(emptyId.success).toBe(false);
-      expect(emptyName.success).toBe(false);
-    });
   });
 
   describe('createStretchSessionSchema', () => {
-    it('accepts valid session payload with ISO datetime and non-empty stretches', () => {
-      const result = createStretchSessionSchema.safeParse(validStretchSession);
+    it('accepts a valid stretch session payload', () => {
+      const result = createStretchSessionSchema.safeParse(validSessionPayload);
       expect(result.success).toBe(true);
     });
 
-    it('accepts nonnegative integer boundaries at zero for aggregate fields', () => {
-      const result = createStretchSessionSchema.safeParse({
-        ...validStretchSession,
+    it('accepts valid stretch region list with one completed stretch', () => {
+      const result = createStretchSessionSchema.safeParse(validSessionPayload);
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts nonnegative integer boundary aggregate values', () => {
+      const zeroValues = createStretchSessionSchema.safeParse({
+        ...validSessionPayload,
         totalDurationSeconds: 0,
         regionsCompleted: 0,
         regionsSkipped: 0,
       });
 
-      expect(result.success).toBe(true);
+      expect(zeroValues.success).toBe(true);
     });
 
     it('rejects malformed datetime', () => {
       const result = createStretchSessionSchema.safeParse({
-        ...validStretchSession,
+        ...validSessionPayload,
         completedAt: '2026-02-25 12:34:56',
       });
 
@@ -127,32 +157,26 @@ describe('stretching.schema', () => {
     });
 
     it('rejects negative and non-integer aggregate counters', () => {
-      const negativeDuration = createStretchSessionSchema.safeParse({
-        ...validStretchSession,
+      const negativeCounter = createStretchSessionSchema.safeParse({
+        ...validSessionPayload,
         totalDurationSeconds: -1,
-      });
-      const fractionalDuration = createStretchSessionSchema.safeParse({
-        ...validStretchSession,
-        totalDurationSeconds: 600.5,
-      });
-      const negativeRegionsCompleted = createStretchSessionSchema.safeParse({
-        ...validStretchSession,
         regionsCompleted: -1,
+        regionsSkipped: -1,
       });
-      const fractionalRegionsSkipped = createStretchSessionSchema.safeParse({
-        ...validStretchSession,
+      const fractionalCounter = createStretchSessionSchema.safeParse({
+        ...validSessionPayload,
+        totalDurationSeconds: 1.5,
+        regionsCompleted: 1.5,
         regionsSkipped: 1.5,
       });
 
-      expect(negativeDuration.success).toBe(false);
-      expect(fractionalDuration.success).toBe(false);
-      expect(negativeRegionsCompleted.success).toBe(false);
-      expect(fractionalRegionsSkipped.success).toBe(false);
+      expect(negativeCounter.success).toBe(false);
+      expect(fractionalCounter.success).toBe(false);
     });
 
     it('rejects empty stretches array', () => {
       const result = createStretchSessionSchema.safeParse({
-        ...validStretchSession,
+        ...validSessionPayload,
         stretches: [],
       });
 
@@ -161,13 +185,8 @@ describe('stretching.schema', () => {
 
     it('rejects nested invalid completed stretch entries', () => {
       const result = createStretchSessionSchema.safeParse({
-        ...validStretchSession,
-        stretches: [
-          {
-            ...validCompletedStretch,
-            durationSeconds: 0,
-          },
-        ],
+        ...validSessionPayload,
+        stretches: [{ ...validCompletedStretch, durationSeconds: 0.5 }],
       });
 
       expect(result.success).toBe(false);
