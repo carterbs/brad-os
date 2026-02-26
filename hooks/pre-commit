@@ -7,6 +7,85 @@
 #
 set -euo pipefail
 
+PRE_COMMIT_TIMING_FILE="${PRE_COMMIT_TIMING_FILE:-.cache/pre-commit-timings.jsonl}"
+
+HOOK_START_NS=$(date +%s%N)
+GITLEAKS_MS=0
+VALIDATE_MS=0
+VALIDATE_STATUS="not_run"
+VALIDATE_MODE="full"
+SCOPED_TEST_FILES=()
+SCOPED_TEST_PROJECTS=()
+
+run_timed() {
+  local label="$1"
+  shift
+
+  local start_ns
+  local end_ns
+  local status=0
+  local elapsed_ms
+
+  start_ns=$(date +%s%N)
+  if ! "$@"; then
+    status=$?
+  fi
+  end_ns=$(date +%s%N)
+  elapsed_ms=$(( (end_ns - start_ns) / 1000000 ))
+
+  case "$label" in
+    gitleaks)
+      GITLEAKS_MS=$elapsed_ms
+      ;;
+    validate)
+      VALIDATE_MS=$elapsed_ms
+      if [ "$status" -eq 0 ]; then
+        VALIDATE_STATUS="success"
+      else
+        VALIDATE_STATUS="fail"
+      fi
+      ;;
+  esac
+
+  return "$status"
+}
+
+log_precommit_timing() {
+  local exit_code="$1"
+  local hook_end_ns
+  local hook_ms
+  local now
+  local safe_branch
+  local scoped_file_count
+  local scoped_project_count
+
+  hook_end_ns=$(date +%s%N)
+  hook_ms=$(( (hook_end_ns - HOOK_START_NS) / 1000000 ))
+  now="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  safe_branch="${BRANCH:-unknown}"
+  safe_branch="${safe_branch//\"/\\\"}"
+  scoped_file_count="${#SCOPED_TEST_FILES[@]}"
+  scoped_project_count="${#SCOPED_TEST_PROJECTS[@]}"
+
+  mkdir -p "$(dirname "$PRE_COMMIT_TIMING_FILE")"
+  local log_record
+  log_record="{\"timestamp\":\"$now\","
+  log_record="${log_record}\"branch\":\"$safe_branch\","
+  log_record="${log_record}\"mode\":\"$VALIDATE_MODE\","
+  log_record="${log_record}\"staged_files\":${#STAGED_FILES[@]},"
+  log_record="${log_record}\"exit_code\":$exit_code,"
+  log_record="${log_record}\"hook_ms\":$hook_ms,"
+  log_record="${log_record}\"gitleaks_ms\":$GITLEAKS_MS,"
+  log_record="${log_record}\"validate_ms\":$VALIDATE_MS,"
+  log_record="${log_record}\"validate_status\":\"$VALIDATE_STATUS\","
+  log_record="${log_record}\"targeted_test_file_count\":$scoped_file_count,"
+  log_record="${log_record}\"targeted_test_project_count\":$scoped_project_count"
+  log_record="${log_record}}"
+  printf '%s\n' "$log_record" >> "$PRE_COMMIT_TIMING_FILE"
+}
+
+trap 'log_precommit_timing "$?"' EXIT
+
 has_test_file() {
   local changed_file="$1"
   if [ "${#SCOPED_TEST_FILES[@]}" -gt 0 ]; then
@@ -97,11 +176,16 @@ if ! command -v gitleaks >/dev/null 2>&1; then
   exit 1
 fi
 
-gitleaks protect --staged --verbose
+if ! run_timed gitleaks gitleaks protect --staged --verbose; then
+  echo ""
+  echo "ERROR: gitleaks failed. Install with: brew install gitleaks"
+  exit 1
+fi
 
 if [ "${#STAGED_FILES[@]}" -eq 0 ]; then
   echo "No staged files found; running full validation."
-  if ! npm run validate; then
+  VALIDATE_MODE="full_no_staged"
+  if ! run_timed validate npm run validate; then
     echo ""
     echo "ERROR: Validation failed. Fix failures before committing."
     echo "  Run 'npm run validate' to reproduce."
@@ -113,8 +197,6 @@ if [ "${#STAGED_FILES[@]}" -eq 0 ]; then
 fi
 
 # --- Scoped validation routing ---
-SCOPED_TEST_FILES=()
-SCOPED_TEST_PROJECTS=()
 UNKNOWN_SCOPE=false
 
 for file in "${STAGED_FILES[@]}"; do
@@ -137,8 +219,9 @@ done
 
 if [ "$UNKNOWN_SCOPE" = true ] || ( [ "${#SCOPED_TEST_FILES[@]}" -eq 0 ] && [ "${#SCOPED_TEST_PROJECTS[@]}" -eq 0 ] ); then
   echo "Running full validation (no safe scoped path found)."
+  VALIDATE_MODE="full_fallback"
 
-  if ! npm run validate; then
+  if ! run_timed validate npm run validate; then
     echo ""
     echo "ERROR: Validation failed. Fix failures before committing."
     echo "  Run 'npm run validate' to reproduce."
@@ -165,7 +248,9 @@ else
     echo "  Test projects: ${SCOPED_TEST_PROJECTS[*]}"
   fi
 
-  if ! BRAD_VALIDATE_TEST_FILES="$SCOPED_TEST_FILE_LIST" \
+  VALIDATE_MODE="scoped"
+  if ! run_timed validate env \
+      BRAD_VALIDATE_TEST_FILES="$SCOPED_TEST_FILE_LIST" \
       BRAD_VALIDATE_TEST_PROJECTS="$SCOPED_TEST_PROJECT_LIST" \
       npm run validate; then
     echo ""

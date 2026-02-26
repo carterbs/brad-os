@@ -38,6 +38,7 @@ git branch -d <branch-name>
    - default path is scoped to changed areas (for example, function tests when only `packages/functions/**` changed)
    - conservative fallback to full `npm run validate` for unknown or mixed changes
    - full validation remains unchanged in CI (`npm run validate`)
+   - pre-commit durations are appended as JSONL to `.cache/pre-commit-timings.jsonl` for trend analysis
 
 **Never use `--no-verify` to skip these checks.** Fix violations, don't bypass the hook.
 For the main-branch gate only: `ALLOW_MAIN_COMMIT=1 git commit ...`.
