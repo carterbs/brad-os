@@ -355,7 +355,6 @@ describe('CalendarService', () => {
     });
 
     it('should include cycling activities in days map', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const cyclingActivity: CyclingActivity = { ...cyclingActivityDefaults };
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
@@ -379,11 +378,10 @@ describe('CalendarService', () => {
     });
 
     it('should set hasCycling flag and increment totals when cycling exists', async () => {
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-const cyclingActivity = {
+      const cyclingActivity: CyclingActivity = {
         ...cyclingActivityDefaults,
         id: 'cycling-1',
-      } as CyclingActivity;
+      };
 
       const workout = createWorkout(workoutDefaults);
       const sets = [createWorkoutSet(workoutSetDefaults)];
@@ -404,11 +402,10 @@ const cyclingActivity = {
     });
 
     it('should prefix cycling activity IDs with cycling-', async () => {
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-const cyclingActivity = {
+      const cyclingActivity: CyclingActivity = {
         ...cyclingActivityDefaults,
         id: 'strava-id-123',
-      } as CyclingActivity;
+      };
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
       mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
@@ -422,11 +419,10 @@ const cyclingActivity = {
     });
 
     it('should convert cycling UTC timestamp to local day using timezone offset', async () => {
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-const cyclingActivity = {
+      const cyclingActivity: CyclingActivity = {
         ...cyclingActivityDefaults,
         date: '2024-01-15T03:00:00Z',
-      } as CyclingActivity;
+      };
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
       mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
@@ -973,12 +969,11 @@ const cyclingActivity = {
     it('should include cycling activity that crosses month boundary forward with negative tz', async () => {
       // Cycling activity on UTC Feb 1 at 00:30, with tz=-120 (UTC-2) converts to Jan 31 locally
       // Should be included in Jan query because local date is within Jan range
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-const cyclingActivity = {
+      const cyclingActivity: CyclingActivity = {
         ...cyclingActivityDefaults,
         id: 'cycling-boundary-1',
         date: '2026-02-01T00:30:00Z',
-      } as CyclingActivity;
+      };
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
       mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
@@ -995,12 +990,11 @@ const cyclingActivity = {
     it('should exclude cycling activity that crosses month boundary forward with positive tz', async () => {
       // Cycling activity on UTC Jan 31 at 23:30, with tz=+120 (UTC+2) converts to Feb 1 locally
       // Should be excluded from Jan query because local date is outside Jan range
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-const cyclingActivity = {
+      const cyclingActivity: CyclingActivity = {
         ...cyclingActivityDefaults,
         id: 'cycling-boundary-2',
         date: '2026-01-31T23:30:00Z',
-      } as CyclingActivity;
+      };
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
       mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
@@ -1016,12 +1010,11 @@ const cyclingActivity = {
 
     it('should handle extreme timezone offset UTC+14 at month boundary', async () => {
       // Cycling activity on UTC Feb 1 at 11:00, with tz=+840 (UTC+14) converts to Feb 2 locally
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-const cyclingActivity = {
+      const cyclingActivity: CyclingActivity = {
         ...cyclingActivityDefaults,
         id: 'cycling-extreme-positive',
         date: '2026-02-01T11:00:00Z',
-      } as CyclingActivity;
+      };
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
       mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);
@@ -1037,12 +1030,11 @@ const cyclingActivity = {
 
     it('should handle extreme timezone offset UTC-12 at month boundary', async () => {
       // Cycling activity on UTC Feb 1 at 11:00, with tz=-720 (UTC-12) converts to Jan 31 locally
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-const cyclingActivity = {
+      const cyclingActivity: CyclingActivity = {
         ...cyclingActivityDefaults,
         id: 'cycling-extreme-negative',
         date: '2026-02-01T11:00:00Z',
-      } as CyclingActivity;
+      };
 
       mockWorkoutRepo.findCompletedInDateRange.mockResolvedValue([]);
       mockStretchSessionRepo.findInDateRange.mockResolvedValue([]);

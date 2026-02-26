@@ -10,8 +10,18 @@
 
 import type { Firestore } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
 import { getFirestoreDb, getCollectionName } from '../firebase.js';
 import type { CyclingActivity, ActivityStreamData, CyclingActivityUpdate, DeleteCyclingActivityResult } from '../types/cycling.js';
+import { createCyclingActivitySchema } from '../shared.js';
+
+const cyclingActivityDocSchema = createCyclingActivitySchema.extend({
+  type: createCyclingActivitySchema.shape.type.or(z.literal('virtual')).transform((value) => {
+    return value === 'virtual' ? 'unknown' : value;
+  }),
+  userId: z.string(),
+  createdAt: z.string(),
+});
 
 export class CyclingActivityRepository {
   private db: Firestore;
@@ -35,26 +45,28 @@ export class CyclingActivityRepository {
     id: string,
     data: FirebaseFirestore.DocumentData
   ): CyclingActivity {
+    const parsed = cyclingActivityDocSchema.parse(data);
+
     return {
       id,
-      stravaId: data['stravaId'] as number,
-      userId: data['userId'] as string,
-      date: data['date'] as string,
-      durationMinutes: data['durationMinutes'] as number,
-      avgPower: data['avgPower'] as number,
-      normalizedPower: data['normalizedPower'] as number,
-      maxPower: data['maxPower'] as number,
-      avgHeartRate: data['avgHeartRate'] as number,
-      maxHeartRate: data['maxHeartRate'] as number,
-      tss: data['tss'] as number,
-      intensityFactor: data['intensityFactor'] as number,
-      type: data['type'] as CyclingActivity['type'],
-      source: data['source'] as CyclingActivity['source'],
-      ef: data['ef'] as number | undefined,
-      peak5MinPower: data['peak5MinPower'] as number | undefined,
-      peak20MinPower: data['peak20MinPower'] as number | undefined,
-      hrCompleteness: data['hrCompleteness'] as number | undefined,
-      createdAt: data['createdAt'] as string,
+      stravaId: parsed.stravaId,
+      userId: parsed.userId,
+      date: parsed.date,
+      durationMinutes: parsed.durationMinutes,
+      avgPower: parsed.avgPower,
+      normalizedPower: parsed.normalizedPower,
+      maxPower: parsed.maxPower,
+      avgHeartRate: parsed.avgHeartRate,
+      maxHeartRate: parsed.maxHeartRate,
+      tss: parsed.tss,
+      intensityFactor: parsed.intensityFactor,
+      type: parsed.type,
+      source: parsed.source,
+      ef: parsed.ef,
+      peak5MinPower: parsed.peak5MinPower,
+      peak20MinPower: parsed.peak20MinPower,
+      hrCompleteness: parsed.hrCompleteness,
+      createdAt: parsed.createdAt,
     };
   }
 
