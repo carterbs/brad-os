@@ -33,6 +33,7 @@ path = "src/bin/qa-stop.rs"
 
 [dependencies]
 owo-colors = { version = "4", features = ["supports-colors"] }
+serde = { version = "1", features = ["derive"] }
 ctrlc = "3.4.4"
 crc32fast = "1"
 regex = "1"
