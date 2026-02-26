@@ -30,10 +30,30 @@ function runDoctor(
 
 let cachedHealthyRun: { stdout: string; exitCode: number } | null = null;
 let cachedMissingToolsRun: { stdout: string; exitCode: number } | null = null;
+let healthyCommandDir: string | null = null;
+
+function getHealthyCommandDir(): string {
+  if (healthyCommandDir === null) {
+    healthyCommandDir = fs.mkdtempSync(path.join(os.tmpdir(), 'brad-os-doctor-healthy-'));
+    const toolCommands = [
+      ['rustup', '#!/bin/sh\nif [ "$1" = "component" ] && [ "$2" = "list" ]; then\n  echo "llvm-tools-preview"\nfi\n'],
+      ['cargo', '#!/bin/sh\n'],
+      ['cargo-llvm-cov', '#!/bin/sh\n'],
+    ];
+
+    for (const [name, body] of toolCommands) {
+      const toolPath = path.join(healthyCommandDir, name);
+      fs.writeFileSync(toolPath, body, { mode: 0o755 });
+      fs.chmodSync(toolPath, 0o755);
+    }
+  }
+
+  return healthyCommandDir;
+}
 
 function getHealthyRun(): { stdout: string; exitCode: number } {
   if (cachedHealthyRun === null) {
-    cachedHealthyRun = runDoctor();
+    cachedHealthyRun = runDoctor({ PATH: `${getHealthyCommandDir()}:${process.env.PATH ?? ''}` });
   }
   return cachedHealthyRun;
 }
