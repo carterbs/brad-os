@@ -4,9 +4,9 @@
 Migrate `scripts/doctor.sh` to Rust with parity for tool detection, version checks, setup checks, and remediation output.
 
 ## Current State Analysis
-- Doctor performs reusable tool checks with optional major-version floors: [`scripts/doctor.sh:29`](/Users/bradcarter/Documents/Dev/brad-os/scripts/doctor.sh:29).
-- It validates git hooks and `node_modules` setup state: [`scripts/doctor.sh:97`](/Users/bradcarter/Documents/Dev/brad-os/scripts/doctor.sh:97), [`scripts/doctor.sh:105`](/Users/bradcarter/Documents/Dev/brad-os/scripts/doctor.sh:105).
-- It is executed via `npm run doctor`: [`package.json:38`](/Users/bradcarter/Documents/Dev/brad-os/package.json:38).
+- Doctor performs reusable tool checks with optional major-version floors: `scripts/doctor.sh:29`.
+- It validates git hooks and `node_modules` setup state: `scripts/doctor.sh:97`, `scripts/doctor.sh:105`.
+- It is executed via `npm run doctor`: `package.json:38`.
 - `main` added `tools/dev-cli` shared execution/reporting modules that can reduce duplicate command-probing logic.
 
 ## Desired End State
@@ -15,8 +15,8 @@ Migrate `scripts/doctor.sh` to Rust with parity for tool detection, version chec
 - Coverage >=95% target (>=90 enforced minimum).
 
 ## Key Discoveries
-- Existing TypeScript tests are shell-content oriented and not behavior-complete: [`scripts/doctor.test.ts:48`](/Users/bradcarter/Documents/Dev/brad-os/scripts/doctor.test.ts:48).
-- Fast mode (`BRAD_DOCTOR_FAST`) must remain supported: [`scripts/doctor.sh:22`](/Users/bradcarter/Documents/Dev/brad-os/scripts/doctor.sh:22).
+- Existing TypeScript tests are shell-content oriented and not behavior-complete: `scripts/doctor.test.ts:48`.
+- Fast mode (`BRAD_DOCTOR_FAST`) must remain supported: `scripts/doctor.sh:22`.
 
 ## What We're NOT Doing
 - No changes to required tool set unless separately approved.
@@ -63,6 +63,6 @@ Implement doctor checks in Rust with explicit command probing and version parsin
 - Manual: run from clean checkout and configured checkout.
 
 ## References
-- [`scripts/doctor.sh`](/Users/bradcarter/Documents/Dev/brad-os/scripts/doctor.sh)
-- [`scripts/doctor.test.ts`](/Users/bradcarter/Documents/Dev/brad-os/scripts/doctor.test.ts)
-- [`package.json`](/Users/bradcarter/Documents/Dev/brad-os/package.json)
+- `scripts/doctor.sh`
+- `scripts/doctor.test.ts`
+- `package.json`

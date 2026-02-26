@@ -5,9 +5,9 @@ Complete the `scripts/validate.sh` Rust migration already started on `main`, pre
 
 ## Current State Analysis
 - `main` now includes `tools/dev-cli` with `brad-validate` and shared modules (`runner`, `reporter`, `timing`).
-- Script builds dynamic test arguments and launches checks in parallel: [`scripts/validate.sh:30`](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:30), [`scripts/validate.sh:94`](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:94).
-- It writes status artifacts consumed in-process and exposes `.validate/*.log` as the debugging contract: [`scripts/validate.sh:46`](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:46), [`scripts/validate.sh:91`](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:91).
-- Invoked directly by npm and by pre-commit hook: [`package.json:36`](/Users/bradcarter/Documents/Dev/brad-os/package.json:36), [`hooks/pre-commit:188`](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:188).
+- Script builds dynamic test arguments and launches checks in parallel: `scripts/validate.sh:30`, `scripts/validate.sh:94`.
+- It writes status artifacts consumed in-process and exposes `.validate/*.log` as the debugging contract: `scripts/validate.sh:46`, `scripts/validate.sh:91`.
+- Invoked directly by npm and by pre-commit hook: `package.json:36`, `hooks/pre-commit:188`.
 
 ## Desired End State
 - `brad-validate` in `tools/dev-cli` is the single source of truth for validation orchestration.
@@ -16,8 +16,8 @@ Complete the `scripts/validate.sh` Rust migration already started on `main`, pre
 - Coverage >=95% target (>=90 enforced minimum).
 
 ## Key Discoveries
-- `--quick` and env-provided newline lists are critical behavior contracts: [`scripts/validate.sh:19`](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:19), [`scripts/validate.sh:38`](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:38).
-- Architecture lint currently shells through `scripts/arch-lint`: [`scripts/validate.sh:87`](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:87).
+- `--quick` and env-provided newline lists are critical behavior contracts: `scripts/validate.sh:19`, `scripts/validate.sh:38`.
+- Architecture lint currently shells through `scripts/arch-lint`: `scripts/validate.sh:87`.
 
 ## What We're NOT Doing
 - No change to which checks run by default.
@@ -77,6 +77,6 @@ Build on `tools/dev-cli/src/bin/validate.rs` and shared helpers (`runner`, `repo
 - Manual: run `npm run validate` and inspect `.validate` artifacts.
 
 ## References
-- [`scripts/validate.sh`](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh)
-- [`hooks/pre-commit`](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit)
-- [`package.json`](/Users/bradcarter/Documents/Dev/brad-os/package.json)
+- `scripts/validate.sh`
+- `hooks/pre-commit`
+- `package.json`
