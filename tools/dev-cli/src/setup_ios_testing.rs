@@ -51,7 +51,6 @@ pub trait CommandRunner {
 
 #[derive(Default)]
 pub struct RealCommandRunner {
-    pub calls: Vec<CommandCall>,
 }
 
 impl CommandRunner for RealCommandRunner {
@@ -60,12 +59,6 @@ impl CommandRunner for RealCommandRunner {
     }
 
     fn run(&mut self, program: &str, args: &[&str], cwd: Option<&Path>) -> CommandOutput {
-        self.calls.push(CommandCall {
-            program: program.to_string(),
-            args: args.iter().map(ToString::to_string).collect(),
-            cwd: cwd.map(Path::to_path_buf),
-        });
-
         let mut command = Command::new(program);
         command.args(args);
         if let Some(path) = cwd {
@@ -89,7 +82,11 @@ impl CommandRunner for RealCommandRunner {
 
 pub fn parse_args(args: &[String]) -> SetupConfig {
     let skip_build = args.get(1).is_some_and(|arg| arg == "--skip-build");
-    let project_dir = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    let exe_path = env::current_exe().unwrap_or_else(|_| PathBuf::from("."));
+    let project_dir = exe_path
+        .parent()
+        .and_then(|path| locate_repo_root(path))
+        .unwrap_or_else(|_| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
     let ios_dir = project_dir.join("ios/BradOS");
     let derived_data = env::var("HOME")
         .map(PathBuf::from)
@@ -101,6 +98,22 @@ pub fn parse_args(args: &[String]) -> SetupConfig {
         ios_dir,
         derived_data,
         simulator_name: SIMULATOR_NAME.to_string(),
+    }
+}
+
+fn locate_repo_root(start: &Path) -> Option<PathBuf> {
+    let mut current = start;
+
+    loop {
+        let candidate = current.join("ios/BradOS/project.yml");
+        if candidate.exists() {
+            return Some(current.to_path_buf());
+        }
+
+        match current.parent() {
+            Some(parent) => current = parent,
+            None => return None,
+        }
     }
 }
 
