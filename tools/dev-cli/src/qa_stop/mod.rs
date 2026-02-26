@@ -5,7 +5,6 @@ mod cli;
 mod locks;
 mod ports;
 mod process_kill;
-mod runner;
 mod simulator;
 mod state;
 
@@ -16,7 +15,7 @@ pub use cli::CliUsage;
 pub use cli::{ParsedArgs, ParsedArgsError, parse_args};
 pub use locks::is_owner_of_lock;
 pub use process_kill::stop_pid_file;
-pub use runner::{CommandCall, CommandResult, CommandRunner, RealCommandRunner};
+pub use crate::runner::{CommandCall, CommandResult, CommandRunner, RealCommandRunner};
 pub use simulator::cleanup_simulator;
 pub use state::{create_env_file, default_session_id, sanitize_id, StopContext};
 
