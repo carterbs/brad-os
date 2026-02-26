@@ -2,23 +2,25 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    root: './packages/functions',
     environment: 'node',
-    include: ['src/**/*.test.ts'],
-    exclude: ['src/__tests__/integration/**'],
-    setupFiles: ['./src/__tests__/vitest.setup.ts'],
+    include: [
+      'packages/functions/src/**/*.test.ts',
+      'scripts/ralph/**/*.test.ts',
+    ],
+    exclude: ['packages/functions/src/__tests__/integration/**'],
+    setupFiles: ['./packages/functions/src/__tests__/vitest.setup.ts'],
     globals: true,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json-summary'],
-      reportsDirectory: './coverage',
-      include: ['src/**/*.ts'],
+      reportsDirectory: './packages/functions/coverage',
+      include: ['packages/functions/src/**/*.ts'],
       exclude: [
-        'src/**/*.test.ts',
-        'src/**/*.spec.ts',
-        'src/__tests__/**',
-        'src/types/**',
-        'src/**/index.ts',
+        'packages/functions/src/**/*.test.ts',
+        'packages/functions/src/**/*.spec.ts',
+        'packages/functions/src/__tests__/**',
+        'packages/functions/src/types/**',
+        'packages/functions/src/**/index.ts',
       ],
     },
   },
