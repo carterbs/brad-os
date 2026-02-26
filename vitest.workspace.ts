@@ -11,6 +11,7 @@ export default defineWorkspace([
       setupFiles: ['./src/__tests__/vitest.setup.ts'],
       globals: true,
       pool: 'threads',
+      maxWorkers: 12,
     },
   },
   {
@@ -21,6 +22,7 @@ export default defineWorkspace([
       include: ['scripts/**/*.test.ts'],
       globals: true,
       pool: 'threads',
+      maxWorkers: 12,
     },
   },
 ]);

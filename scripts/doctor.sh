@@ -19,6 +19,7 @@ RESET='\033[0m'
 # --- State ---
 ISSUES=0
 INSTALL_CMDS=()
+FAST_MODE="${BRAD_DOCTOR_FAST:-0}"
 
 # --- Helper: check a command exists ---
 # check_tool <name> <install_cmd> [min_major_version]
@@ -37,14 +38,18 @@ check_tool() {
     return
   fi
 
-  # Get version string
   local version
-  version=$("$name" --version 2>/dev/null || "$name" -v 2>/dev/null || echo "unknown")
-  # Extract first version-like number (e.g., "v22.12.0" → "22.12.0", "13.29.1" → "13.29.1")
-  version=$(echo "$version" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-  [ -z "$version" ] && version="installed"
+  if [ "$FAST_MODE" = "1" ]; then
+    version="installed (fast)"
+  else
+    # Get version string
+    version=$("$name" --version 2>/dev/null || "$name" -v 2>/dev/null || echo "unknown")
+    # Extract first version-like number (e.g., "v22.12.0" → "22.12.0", "13.29.1" → "13.29.1")
+    version=$(echo "$version" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    [ -z "$version" ] && version="installed"
+  fi
 
-  if [ -n "$min_major" ] && [ "$version" != "installed" ]; then
+  if [ -n "$min_major" ] && [ "$version" != "installed" ] && [ "$FAST_MODE" != "1" ]; then
     local major
     major=$(echo "$version" | cut -d. -f1)
     if [ "$major" -lt "$min_major" ] 2>/dev/null; then
