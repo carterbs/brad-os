@@ -1,31 +1,14 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-<<<<<<< Updated upstream
-run_rust_validate() {
-  local repo_root
-  local binary
-  local source_dir
-=======
 if [ "${BRAD_USE_RUST_VALIDATE:-1}" != "0" ]; then
   exec bash "$(cd "$(dirname "$0")" && pwd)/brad-validate" "$@"
 fi
 
-# Unified validation pipeline for brad-os
-# Runs all quality checks IN PARALLEL, logs verbose output to .validate/*.log,
-# and prints a tiny pass/fail summary.
-#
-# Usage:
-#   npm run validate          # All checks (typecheck + lint + test + architecture)
-#   npm run validate:quick    # Fast checks only (typecheck + lint)
-#
-# Targeted test execution (optional):
-#   BRAD_VALIDATE_TEST_FILES - newline-separated file paths to pass to vitest
-#   BRAD_VALIDATE_TEST_PROJECTS - newline-separated vitest project names to run
-#   Example:
-#   BRAD_VALIDATE_TEST_FILES=$'packages/functions/src/services/foo.test.ts\n' \
-#   BRAD_VALIDATE_TEST_PROJECTS=$'functions\n' npm run validate
->>>>>>> Stashed changes
+run_rust_validate() {
+  local repo_root
+  local binary
+  local source_dir
 
   repo_root="$(cd "$(dirname "$0")/.." && pwd)"
   binary="$repo_root/target/release/brad-validate"
