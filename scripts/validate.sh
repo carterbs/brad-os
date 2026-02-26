@@ -1,6 +1,58 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
+<<<<<<< Updated upstream
+run_rust_validate() {
+  local repo_root
+  local binary
+  local source_dir
+
+  repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+  binary="$repo_root/target/release/brad-validate"
+  source_dir="$repo_root/tools/dev-cli/src"
+
+  if ! command -v cargo >/dev/null 2>&1; then
+    if [ -f "$HOME/.cargo/env" ]; then
+      # shellcheck disable=SC1091
+      source "$HOME/.cargo/env"
+    fi
+  fi
+
+  if [ ! -f "$binary" ] || [ -n "$(find "$source_dir" -newer "$binary" 2>/dev/null -print -quit)" ]; then
+    if ! cargo build -p dev-cli --release --manifest-path "$repo_root/Cargo.toml" -q; then
+      return 1
+    fi
+  fi
+
+  if [ -x "$binary" ]; then
+    exec "$binary" "$@"
+  fi
+  return 1
+}
+=======
+if [ "${BRAD_USE_RUST_VALIDATE:-1}" != "0" ]; then
+  exec bash "$(cd "$(dirname "$0")" && pwd)/brad-validate" "$@"
+fi
+<<<<<<< Updated upstream
+=======
+
+# Unified validation pipeline for brad-os
+# Runs all quality checks IN PARALLEL, logs verbose output to .validate/*.log,
+# and prints a tiny pass/fail summary.
+#
+# Usage:
+#   npm run validate          # All checks (typecheck + lint + test + architecture)
+#   npm run validate:quick    # Fast checks only (typecheck + lint)
+#
+# Targeted test execution (optional):
+#   BRAD_VALIDATE_TEST_FILES - newline-separated file paths to pass to vitest
+#   BRAD_VALIDATE_TEST_PROJECTS - newline-separated vitest project names to run
+#   Example:
+#   BRAD_VALIDATE_TEST_FILES=$'packages/functions/src/services/foo.test.ts\n' \
+#   BRAD_VALIDATE_TEST_PROJECTS=$'functions\n' npm run validate
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
+
 run_legacy_validate() {
   # Unified validation pipeline for brad-os
   # Runs all quality checks IN PARALLEL, logs verbose output to .validate/*.log,
@@ -33,17 +85,17 @@ run_legacy_validate() {
   if [ -n "${BRAD_VALIDATE_TEST_FILES:-}" ]; then
     while IFS= read -r file; do
       [ -n "$file" ] && TEST_FILES+=("$file")
-    done <<FILE_LIST
+    done <<EOF
 $(printf "%s" "${BRAD_VALIDATE_TEST_FILES}")
-FILE_LIST
+EOF
   fi
 
   if [ -n "${BRAD_VALIDATE_TEST_PROJECTS:-}" ]; then
     while IFS= read -r project; do
       [ -n "$project" ] && TEST_PROJECTS+=("$project")
-    done <<PROJECT_LIST
+    done <<EOF
 $(printf "%s" "${BRAD_VALIDATE_TEST_PROJECTS}")
-PROJECT_LIST
+EOF
   fi
 
   LOG_DIR=".validate"
@@ -132,38 +184,9 @@ PROJECT_LIST
   fi
 }
 
-run_rust_validate() {
-  local repo_root
-  local binary
-  local source_dir
-  repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-  binary="$repo_root/target/release/brad-validate"
-  source_dir="$repo_root/tools/dev-cli/src"
-
-  if ! command -v cargo >/dev/null 2>&1; then
-    if [ -f "$HOME/.cargo/env" ]; then
-      # shellcheck disable=SC1091
-      source "$HOME/.cargo/env"
-    fi
-  fi
-
-  if [ ! -f "$binary" ] || [ -n "$(find "$source_dir" -newer "$binary" 2>/dev/null -print -quit)" ]; then
-    if ! cargo build -p dev-cli --release --manifest-path "$repo_root/Cargo.toml" -q; then
-      return 1
-    fi
-  fi
-
-  if [ -x "$binary" ]; then
-    exec "$binary" "$@"
-  fi
-  return 1
-}
-
-if [ "${BRAD_USE_RUST_VALIDATE:-1}" = "0" ]; then
-  run_legacy_validate "$@"
+if [ "${BRAD_USE_RUST_VALIDATE:-1}" = "1" ]; then
+  run_rust_validate "$@"
   exit $?
 fi
 
-if ! run_rust_validate "$@"; then
-  run_legacy_validate "$@"
-fi
+run_legacy_validate "$@"
