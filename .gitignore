@@ -81,6 +81,9 @@ packages/functions/shared/
 # Validation logs
 .validate/
 
+# Local agent worktrees
+.claude/worktrees/
+
 # Rust build artifacts
 target/
 
