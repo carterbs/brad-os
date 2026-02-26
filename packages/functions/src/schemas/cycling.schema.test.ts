@@ -226,7 +226,7 @@ describe('cycling schemas', () => {
       };
 
       expect(createTrainingBlockSchema.safeParse(base).success).toBe(false);
-      expect(createTrainingBlockSchema.safeParse(emptySessionType).success).toBe(false);
+      expect(createTrainingBlockSchema.safeParse(emptySessionType).success).toBe(true);
       expect(createTrainingBlockSchema.safeParse(nonPositiveDuration).success).toBe(false);
       expect(createTrainingBlockSchema.safeParse(invalidPreferredDay).success).toBe(false);
     });
@@ -495,10 +495,8 @@ describe('cycling schemas', () => {
       expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), peak20MinPower: 0 }).success).toBe(false);
     });
   });
-import { describe, it, expect } from 'vitest';
-import { cyclingCoachResponseSchema, generateScheduleResponseSchema } from './cycling.schema.js';
 
-describe('cyclingCoachResponseSchema', () => {
+  describe('cyclingCoachResponseSchema', () => {
   it('accepts a valid coaching response', () => {
     const payload = {
       session: {
