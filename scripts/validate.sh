@@ -53,7 +53,7 @@ TOTAL_START=$(date +%s)
 
 # --- Define checks ---
 CHECKS=("typecheck" "lint")
-$QUICK || CHECKS+=("test" "architecture")
+$QUICK || CHECKS+=("test" "architecture" "rust-coverage")
 
 run_check() {
   local key="$1"
@@ -85,6 +85,30 @@ run_check() {
       fi
       ;;
     architecture) bash scripts/arch-lint > "$LOG_DIR/architecture.log" 2>&1 || rc=$? ;;
+    rust-coverage)
+      if ! command -v cargo >/dev/null 2>&1; then
+        echo "cargo is missing. Install Rust/Cargo (rustup) before running Rust coverage checks." >> "$LOG_DIR/rust-coverage.log"
+        rc=1
+      elif ! command -v rustup >/dev/null 2>&1; then
+        echo "rustup is missing. Install rustup before running Rust coverage checks." >> "$LOG_DIR/rust-coverage.log"
+        rc=1
+      elif ! command -v cargo-llvm-cov >/dev/null 2>&1; then
+        echo "cargo-llvm-cov is missing. Install it with: cargo install cargo-llvm-cov --locked" >> "$LOG_DIR/rust-coverage.log"
+        rc=1
+      elif ! rustup component list --installed | grep -Fxq "llvm-tools-preview"; then
+        echo "Missing Rust component: llvm-tools-preview." >> "$LOG_DIR/rust-coverage.log"
+        echo "Install with: rustup component add llvm-tools-preview" >> "$LOG_DIR/rust-coverage.log"
+        rc=1
+      elif [ "$rc" -eq 0 ]; then
+        cargo llvm-cov --workspace --summary-only --fail-under-lines 90 > "$LOG_DIR/rust-coverage.log" 2>&1 || rc=$?
+        if [ "$rc" -eq 0 ]; then
+          line_coverage="$(awk 'tolower($0) ~ /line coverage/ { if (match($0, /([0-9]+(\.[0-9]+)?)/, match_arr) ) { print match_arr[1]; exit } }' "$LOG_DIR/rust-coverage.log")"
+          if [ -n "$line_coverage" ] && awk -v coverage="$line_coverage" 'BEGIN { if (coverage < 95) exit 0; exit 1 }'; then
+            echo "Coverage ${line_coverage}% is below 95%; target for this gate is 95% (hard fail below 90%)." >> "$LOG_DIR/rust-coverage.log"
+          fi
+        fi
+      fi
+      ;;
   esac
 
   local elapsed=$(( $(date +%s) - start ))

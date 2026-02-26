@@ -95,6 +95,20 @@ check_tool "firebase" "npm install -g firebase-tools"
 check_tool "cargo" "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
 check_tool "gitleaks" "brew install gitleaks"
 check_tool "xcodegen" "brew install xcodegen"
+check_tool "rustup" "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+check_tool "cargo" "install Rust via rustup (https://rustup.rs)"
+
+if command -v cargo-llvm-cov >/dev/null 2>&1; then
+  check_setup "cargo-llvm-cov" "ok" "installed" ""
+else
+  check_setup "cargo-llvm-cov" "fail" "missing" "cargo install cargo-llvm-cov --locked"
+fi
+
+if command -v rustup >/dev/null 2>&1 && rustup component list --installed | grep -Fxq "llvm-tools-preview"; then
+  check_setup "llvm-tools-preview" "ok" "installed" ""
+else
+  check_setup "llvm-tools-preview" "fail" "missing rustup component" "rustup component add llvm-tools-preview"
+fi
 
 # Project setup checks
 printf "\n"
