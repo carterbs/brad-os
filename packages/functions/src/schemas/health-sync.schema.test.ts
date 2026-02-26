@@ -201,15 +201,17 @@ describe('health sync schemas', () => {
 
   describe('recoveryBaselineSchema', () => {
     it('accepts baseline with and without calculatedAt', () => {
-      const withoutCalculatedAtResult = recoveryBaselineSchema.safeParse(buildValidBaseline());
-      const withCalculatedAtResult = recoveryBaselineSchema.safeParse({
+      const withCalculatedAtPayload = {
         ...buildValidBaseline(),
         calculatedAt: '2026-02-21T12:34:56.000Z',
-      });
+      };
+      const withoutCalculatedAtResult = recoveryBaselineSchema.safeParse(buildValidBaseline());
+      const withCalculatedAtResult = recoveryBaselineSchema.safeParse(withCalculatedAtPayload);
 
-      expect(withCalculatedAtResult.success).toBe(true);
-      expect(withCalculatedAtResult.success).toBe(true);
       expect(withoutCalculatedAtResult.success).toBe(true);
+      expect(withCalculatedAtResult.success).toBe(true);
+      expect(withoutCalculatedAtResult.data).toEqual(buildValidBaseline());
+      expect(withCalculatedAtResult.data).toEqual(withCalculatedAtPayload);
     });
 
     it('rejects invalid hrv/rhr/sampleCount boundaries and non-integer sampleCount', () => {

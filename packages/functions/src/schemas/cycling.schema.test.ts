@@ -458,41 +458,95 @@ describe('cycling schemas', () => {
 
   describe('createCyclingActivitySchema', () => {
     it('accepts valid minimal payload', () => {
-      expect(createCyclingActivitySchema.safeParse(buildValidCyclingActivity()).success).toBe(true);
+      const result = createCyclingActivitySchema.safeParse(buildValidCyclingActivity());
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toEqual(buildValidCyclingActivity());
+      }
     });
 
     it('accepts optional fields', () => {
-      expect(
-        createCyclingActivitySchema.safeParse({
-          ...buildValidCyclingActivity(),
-          ef: 0.5,
-          peak5MinPower: 210,
-          peak20MinPower: 190,
-          hrCompleteness: 88,
-          userId: 'user-123',
-          createdAt: '2026-03-01T07:00:00.000Z',
-        }).success
-      ).toBe(true);
+      const payload = {
+        ...buildValidCyclingActivity(),
+        ef: 0.5,
+        peak5MinPower: 210,
+        peak20MinPower: 190,
+        hrCompleteness: 88,
+        userId: 'user-123',
+        createdAt: '2026-03-01T07:00:00.000Z',
+      };
+      const result = createCyclingActivitySchema.safeParse(payload);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.ef).toBe(0.5);
+        expect(result.data.userId).toBe('user-123');
+      }
+    });
+
+    it('accepts hrCompleteness at its lower boundary', () => {
+      const result = createCyclingActivitySchema.safeParse({
+        ...buildValidCyclingActivity(),
+        hrCompleteness: 0,
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.hrCompleteness).toBe(0);
+      }
     });
 
     it('rejects invalid enum values', () => {
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), type: 'invalid' as const }).success).toBe(false);
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), source: 'fitbit' as const }).success).toBe(false);
+      const invalidTypeResult = createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), type: 'invalid' as const });
+      const invalidSourceResult = createCyclingActivitySchema.safeParse({
+        ...buildValidCyclingActivity(),
+        source: 'fitbit' as const,
+      });
+
+      expect(invalidTypeResult.success).toBe(false);
+      expect(invalidTypeResult.error?.issues[0]?.path).toEqual(['type']);
+      expect(invalidSourceResult.success).toBe(false);
+      expect(invalidSourceResult.error?.issues[0]?.path).toEqual(['source']);
     });
 
     it('rejects negative metrics where minimum is zero', () => {
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), avgPower: -1 }).success).toBe(false);
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), normalizedPower: -1 }).success).toBe(false);
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), maxPower: -1 }).success).toBe(false);
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), tss: -1 }).success).toBe(false);
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), hrCompleteness: -1 }).success).toBe(false);
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), hrCompleteness: 101 }).success).toBe(false);
+      const invalidMetricCases = [
+        { field: 'avgPower', value: -1, path: ['avgPower'] },
+        { field: 'normalizedPower', value: -1, path: ['normalizedPower'] },
+        { field: 'maxPower', value: -1, path: ['maxPower'] },
+        { field: 'tss', value: -1, path: ['tss'] },
+        { field: 'hrCompleteness', value: -1, path: ['hrCompleteness'] },
+        { field: 'hrCompleteness', value: 101, path: ['hrCompleteness'] },
+      ];
+      for (const invalidCase of invalidMetricCases) {
+        const result = createCyclingActivitySchema.safeParse({
+          ...buildValidCyclingActivity(),
+          [invalidCase.field]: invalidCase.value,
+        });
+
+        expect(result.success).toBe(false);
+        expect(result.error?.issues[0]?.path).toEqual(invalidCase.path);
+      }
     });
 
     it('rejects non-positive optional power and efficiency fields', () => {
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), ef: 0 }).success).toBe(false);
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), peak5MinPower: 0 }).success).toBe(false);
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), peak20MinPower: 0 }).success).toBe(false);
+      const result = createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), ef: 0 });
+      const peak5Result = createCyclingActivitySchema.safeParse({
+        ...buildValidCyclingActivity(),
+        peak5MinPower: 0,
+      });
+      const peak20Result = createCyclingActivitySchema.safeParse({
+        ...buildValidCyclingActivity(),
+        peak20MinPower: 0,
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.path).toEqual(['ef']);
+      expect(peak5Result.success).toBe(false);
+      expect(peak5Result.error?.issues[0]?.path).toEqual(['peak5MinPower']);
+      expect(peak20Result.success).toBe(false);
+      expect(peak20Result.error?.issues[0]?.path).toEqual(['peak20MinPower']);
     });
   });
 
