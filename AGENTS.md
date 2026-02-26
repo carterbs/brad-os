@@ -23,6 +23,25 @@ Full bootstrap: [Local Dev Quickstart](docs/guides/local-dev-quickstart.md)
 | API Patterns | [docs/conventions/api-patterns.md](docs/conventions/api-patterns.md) | REST structure, BaseRepository, router factories |
 | Testing | [docs/conventions/testing.md](docs/conventions/testing.md) | TDD, vitest (not jest), never skip tests |
 
+## Dev Tooling Language Preference
+
+Default to Rust for non-trivial dev tooling and orchestration.
+
+- Complex flow, state, retries, branching, argument parsing, subprocess orchestration, or structured output/IO should live in Rust under `tools/dev-cli` first.
+- Shell scripts are allowed only as thin delegation shims:
+  - Resolve repo paths and toolchains.
+  - Optionally build/exec a Rust binary.
+  - No substantive business logic.
+- If a shell script exceeds shell complexity guardrail thresholds, migrate it to Rust.
+- New or modified Rust tooling must meet 90% line coverage (floor) with a target ≥ 95%.
+- Examples of expected shim-only scripts (Rust-backed):
+  - [`scripts/arch-lint`](scripts/arch-lint)
+  - [`scripts/brad-precommit`](scripts/brad-precommit)
+  - [`scripts/brad-validate`](scripts/brad-validate)
+  - [`scripts/run-integration-tests.sh`](scripts/run-integration-tests.sh)
+
+See the shell complexity guardrail policy in [workflow conventions](docs/conventions/workflow.md#shell-script-complexity-guardrail).
+
 ## Guides
 
 | Guide | File |

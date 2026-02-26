@@ -53,6 +53,20 @@ npm run doctor            # Check: all required tooling installed
 
 **Do NOT run `npx vitest run` directly.** `npm run validate` captures output to `.validate/*.log` and prints only a pass/fail summary. If a check fails, use Grep/Read on the log file (e.g., `.validate/test.log`).
 
+### Dev Tooling Language Preference
+
+Complex tooling should be implemented in Rust first (`tools/dev-cli`, `tools/arch-lint`) and invoked from shell only through thin delegating wrappers.
+
+- Keep shell wrappers to path setup, build orchestration, and direct execution of Rust binaries.
+- Migrate shell orchestration to Rust when logic grows beyond:
+  - argument validation beyond passthrough,
+  - branching/loops,
+  - subprocess orchestration,
+  - stateful workflows,
+  - structured output/formatting.
+- `arch-lint` enforces this with `shell_complexity` and a default threshold `CC_estimate <= 10`.
+- See the active migration policy and temporary exceptions in [shell complexity guardrail plan](../../thoughts/shared/plans/active/2026-02-26-shell-complexity-guardrail.md).
+
 ### Shell Script Complexity Guardrail
 
 `arch-lint` includes a `shell_complexity` check that enforces script-level complexity thresholds:
@@ -114,3 +128,12 @@ After implementation, exercise what you built — don't just run tests and decla
 3. Re-read relevant `docs/conventions/` for the area you touched
 4. Run `npm run validate`
 5. Ask: does this actually achieve the goal? Is anything missing?
+## Shell Complexity Enforcement Details
+
+- `shell_complexity` enforces `CC_estimate <= 10` for shell scripts scanned by `arch-lint`.
+- Transitional legacy files may use a higher ceiling:
+  - `scripts/qa-start.sh`
+  - `scripts/qa-stop.sh`
+  - `scripts/setup-ios-testing.sh` (temporary exception)
+- Shim-only delegation scripts are expected to stay thin delegating wrappers.
+- `CC_estimate` is a lightweight lexical cyclomatic estimator using `if`/`elif`/`case`, loop constructs, and `&&`/`||`.
