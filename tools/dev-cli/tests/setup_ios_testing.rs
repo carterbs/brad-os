@@ -1,12 +1,19 @@
 use std::cell::RefCell;
 use std::collections::{HashSet, VecDeque};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use dev_cli::setup_ios_testing::{
-    parse_args, execute_setup, CommandCall, CommandOutput, CommandRunner, SetupConfig, SetupError,
+    parse_args, run_setup, CommandOutput, CommandRunner, SetupConfig, SetupError,
 };
 use tempfile::tempdir;
+
+#[derive(Debug, Clone)]
+struct CommandCall {
+    program: String,
+    args: Vec<String>,
+    cwd: Option<PathBuf>,
+}
 
 #[derive(Debug, Clone)]
 struct RunReport {
@@ -48,33 +55,36 @@ impl FakeRunner {
 }
 
 impl CommandRunner for FakeRunner {
-    fn command_exists(&self, name: &str) -> bool {
+    fn exists(&self, name: &str) -> bool {
         self.available.borrow().contains(name)
     }
 
-    fn run(&mut self, program: &str, args: &[&str], cwd: Option<&Path>) -> CommandOutput {
+    fn run(
+        &self,
+        program: &str,
+        args: &[&str],
+        cwd: Option<&Path>,
+    ) -> Result<CommandOutput, SetupError> {
         self.calls.borrow_mut().push(CommandCall {
             program: program.to_string(),
             args: args.iter().map(ToString::to_string).collect(),
             cwd: cwd.map(Path::to_path_buf),
         });
-        self.responses
+        Ok(self
+            .responses
             .borrow_mut()
             .pop_front()
             .unwrap_or_else(|| CommandOutput {
                 stdout: String::new(),
                 stderr: String::new(),
                 exit_code: 0,
-            })
+            }))
     }
 }
 
 fn parse_test_setup_args(workspace: &Path, args: &[String]) -> SetupConfig {
-    let mut cli_args = Vec::with_capacity(args.len() + 1);
-    cli_args.push("brad-setup-ios-testing".to_string());
-    cli_args.extend_from_slice(args);
-
-    let mut config = parse_args(&cli_args);
+    let skip_build = parse_args(args).expect("parsed test args");
+    let mut config = SetupConfig::new(workspace, skip_build);
     config.ios_dir = workspace.join("ios/BradOS");
     config.derived_data = workspace.join(".cache/brad-os-derived-data");
     config
@@ -98,7 +108,7 @@ fn run_with_runner(
     let config = parse_test_setup_args(workspace, args);
     let mut output = Vec::new();
 
-    match execute_setup(runner, &config, &mut output) {
+    match run_setup(&mut output, runner, &config) {
         Ok(()) => Ok(RunReport {
             messages: String::from_utf8_lossy(&output)
                 .lines()
@@ -107,50 +117,47 @@ fn run_with_runner(
                 .collect(),
         }),
         Err(error) => Err(match error {
-            SetupError::CommandUnavailable { command, .. } => format!("{command} not found"),
+            SetupError::MissingCommand { command, .. } => command,
             SetupError::CommandExecutionFailed {
                 command,
-                suggestion,
+                output,
                 ..
             } => {
-                if command.contains("xcrun simctl boot") {
-                    format!("Could not boot 'iPhone 17 Pro'. {suggestion}")
-                } else {
-                    format!("{command} failed: {suggestion}")
-                }
+                format!("{command} failed: {output}")
             }
-            SetupError::BuildFailed => {
-                "xcodebuild build failed (full log is hidden by design)".to_string()
+            SetupError::CommandFailed { command, .. } => {
+                if command == "xcodebuild build" {
+                    "xcodebuild build failed (full log is hidden by design)".to_string()
+                } else if command.starts_with("xcrun simctl boot ") {
+                    "Could not boot 'iPhone 17 Pro'. List available: xcrun simctl list devices available"
+                        .to_string()
+                } else {
+                    format!("{command} failed")
+                }
             }
             SetupError::MissingProjectFile => {
                 "ios/BradOS/project.yml not found — are you in the repo root?".to_string()
             }
+            SetupError::MissingArgument(arg) => format!("unknown argument: {arg}"),
         }),
     }
 }
 
 #[test]
 fn parse_args_defaults_to_run() {
-    let parsed = parse_args(&["brad-setup-ios-testing".to_string()]);
-    assert!(!parsed.skip_build);
+    let parsed = parse_args(&[]).expect("default args should parse");
+    assert!(!parsed);
 }
 
 #[test]
 fn parse_args_supports_skip_build() {
-    let parsed = parse_args(&[
-        "brad-setup-ios-testing".to_string(),
-        "--skip-build".to_string(),
-    ]);
-    assert!(parsed.skip_build);
+    let parsed = parse_args(&["--skip-build".to_string()]).expect("skip-build should parse");
+    assert!(parsed);
 }
 
 #[test]
 fn parse_args_unknown_arg_is_error() {
-    let parsed = parse_args(&[
-        "brad-setup-ios-testing".to_string(),
-        "--does-not-exist".to_string(),
-    ]);
-    assert!(!parsed.skip_build);
+    assert!(parse_args(&["--does-not-exist".to_string()]).is_err());
 }
 
 #[test]
