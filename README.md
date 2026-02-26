@@ -76,6 +76,7 @@ npm run emulators        # Start Firebase emulators (port 5001)
 npm run build            # Build Cloud Functions
 npm run typecheck        # TypeScript compilation
 npm run lint             # Oxlint checks
+npm run lint:cleanup:ts-eslint:list # Scoped TypeScript eslint cleanup profiles
 npm run test             # Unit tests
 ```
 

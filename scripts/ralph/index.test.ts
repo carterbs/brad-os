@@ -2018,7 +2018,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: Fix thing' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Fixed' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const mainPromise = main();
+    const mainPromise = main();
     // Advance past the setTimeout(2000) in the loop
     await vi.advanceTimersByTimeAsync(3000);
     await mainPromise;
@@ -2044,7 +2044,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const p = main();
+    const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2146,7 +2146,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const p = main();
+    const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2276,7 +2276,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const p = main();
+    const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2294,7 +2294,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const p = main();
+    const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2367,7 +2367,7 @@ describe('main', () => {
 
     mockCreateWorktree.mockReturnValue({ created: true, resumed: false });
     mockExistsSync.mockReturnValue(true);
-        const p = main();
+    const p = main();
     for (let i = 0; i < 10; i++) {
       await vi.advanceTimersByTimeAsync(3000);
     }
@@ -2423,7 +2423,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const p = main();
+    const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2452,7 +2452,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const p = main();
+    const p = main();
     for (let i = 0; i < 5; i++) {
       await vi.advanceTimersByTimeAsync(3000);
     }
@@ -2531,7 +2531,7 @@ describe('main', () => {
     });
 
     mockExistsSync.mockReturnValue(true);
-        const p = main();
+    const p = main();
 
     // Advance through 4 failure iterations (each has 2s delay) + some buffer
     for (let i = 0; i < 15; i++) {
@@ -2643,7 +2643,7 @@ describe('main', () => {
     });
 
     mockExistsSync.mockReturnValue(true);
-        const p = main();
+    const p = main();
 
     // Advance through failure iterations
     for (let i = 0; i < 20; i++) {
@@ -2669,7 +2669,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const p = main();
+    const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2693,7 +2693,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const p = main();
+    const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
