@@ -22,10 +22,12 @@ describe('prompts module', () => {
     it('contains key phrases', async () => {
       const prompt = buildBacklogRefillPrompt();
 
-      expect(prompt).toContain('backlog');
-      expect(prompt).toContain('improvement');
-      expect(prompt).toContain('Quality grade improvements');
-      expect(prompt).toContain('Harness/tooling improvements');
+    expect(prompt).toContain('backlog');
+    expect(prompt).toContain('improvement');
+    expect(prompt).toContain('Quality grade improvements');
+    expect(prompt).toContain('Harness/tooling improvements');
+    expect(prompt).toContain('one task per currently suppressed rule');
+    expect(prompt).toContain('typescript-eslint');
     });
 
     it('includes the output format section', async () => {

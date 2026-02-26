@@ -34,6 +34,9 @@ import {
   removeTask,
   removeTriageTask,
   moveTaskToMergeConflicts,
+  readSuppressedTypeScriptEslintRules,
+  normalizeBacklogForTypeScriptEslintCleanup,
+  writeBacklog,
   backlogPath,
   syncTaskFilesFromLog,
 } from "./backlog.js";
@@ -1529,7 +1532,42 @@ export async function main(): Promise<void> {
         return false;
       }
 
-      const newBacklog = readBacklog();
+      const rawBacklog = readBacklog();
+      const normalization = normalizeBacklogForTypeScriptEslintCleanup(
+        rawBacklog,
+        readSuppressedTypeScriptEslintRules(join(config.repoDir, ".oxlintrc.json")),
+      );
+
+      const tasksHaveChanged =
+        rawBacklog.length !== normalization.normalizedTasks.length ||
+        rawBacklog.some(
+          (task, index) => task !== normalization.normalizedTasks[index],
+        );
+      const newBacklog =
+        tasksHaveChanged ? normalization.normalizedTasks : rawBacklog;
+
+      if (normalization.removedNoiseTasks.length > 0) {
+        orchestratorLogger.info(
+          `Backlog normalization removed ${normalization.removedNoiseTasks.length} generic suppression task(s) during refill:`,
+        );
+        for (const task of normalization.removedNoiseTasks) {
+          orchestratorLogger.info(`  - removed: ${task}`);
+        }
+      }
+
+      if (normalization.addedCleanupTasks.length > 0) {
+        orchestratorLogger.info(
+          `Backlog normalization added ${normalization.addedCleanupTasks.length} canonical suppression cleanup task(s) during refill:`,
+        );
+        for (const task of normalization.addedCleanupTasks) {
+          orchestratorLogger.info(`  - added: ${task}`);
+        }
+      }
+
+      if (tasksHaveChanged) {
+        writeBacklog(newBacklog);
+      }
+
       orchestratorLogger.success(`Backlog refilled: ${newBacklog.length} tasks`);
       for (const t of newBacklog) {
         orchestratorLogger.info(`  - ${t}`);
