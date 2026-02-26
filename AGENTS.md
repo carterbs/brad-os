@@ -33,6 +33,7 @@ Default to Rust for non-trivial dev tooling and orchestration.
   - Optionally build/exec a Rust binary.
   - No substantive business logic.
 - If a shell script exceeds shell complexity guardrail thresholds, migrate it to Rust.
+- New or modified Rust tooling must meet 90% line coverage (floor) with a target ≥ 95%.
 - Examples of expected shim-only scripts (Rust-backed):
   - [`scripts/arch-lint`](scripts/arch-lint)
   - [`scripts/brad-precommit`](scripts/brad-precommit)
