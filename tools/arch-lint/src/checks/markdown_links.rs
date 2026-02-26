@@ -14,6 +14,10 @@ static CODE_FENCE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*```").unwrap()
 });
 
+static LINE_COLUMN_SUFFIX: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^(?P<path>.+):\d+(?:-\d+)?(?::\d+)?$").unwrap()
+});
+
 pub fn check(config: &LinterConfig) -> CheckResult {
     let name = "Markdown link targets".to_string();
 
@@ -129,6 +133,15 @@ fn strip_optional_title(raw_target: &str) -> &str {
     raw_target
 }
 
+fn strip_line_column_suffix(raw_target: &str) -> &str {
+    if let Some(caps) = LINE_COLUMN_SUFFIX.captures(raw_target) {
+        if let Some(path) = caps.name("path") {
+            return path.as_str();
+        }
+    }
+    raw_target
+}
+
 fn check_file(file_path: &Path, root_dir: &Path, violations: &mut Vec<String>) {
     let rel_path = file_path.strip_prefix(root_dir).unwrap_or(file_path);
     let content = match fs::read_to_string(file_path) {
@@ -159,12 +172,13 @@ fn check_file(file_path: &Path, root_dir: &Path, violations: &mut Vec<String>) {
 
                 let no_fragment = target.split('#').next().unwrap_or(target);
                 let no_title = strip_optional_title(no_fragment).trim();
-                if no_title.is_empty() {
+                let no_line_col = strip_line_column_suffix(no_title).trim();
+                if no_line_col.is_empty() {
                     continue;
                 }
 
                 let source_dir = file_path.parent().unwrap_or(Path::new("."));
-                let resolved = source_dir.join(no_title);
+                let resolved = source_dir.join(no_line_col);
                 // Canonicalize by cleaning up the path
                 let resolved = normalize_path(&resolved);
 

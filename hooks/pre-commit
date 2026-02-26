@@ -27,7 +27,9 @@ run_timed() {
   local elapsed_ms
 
   start_ns=$(date +%s%N)
-  if ! "$@"; then
+  if "$@"; then
+    status=0
+  else
     status=$?
   fi
   end_ns=$(date +%s%N)

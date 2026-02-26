@@ -11,6 +11,7 @@
 | [rust-migrate-setup-ios-testing](active/2026-02-26-rust-migrate-setup-ios-testing.md) | Migrate `scripts/setup-ios-testing.sh` iOS bootstrap orchestration to Rust | 2026-02-26 |
 | [rust-migrate-run-integration-tests](active/2026-02-26-rust-migrate-run-integration-tests.md) | Migrate `scripts/run-integration-tests.sh` emulator/test lifecycle runner to Rust | 2026-02-26 |
 | [rust-migrate-pre-commit-hook](active/2026-02-26-rust-migrate-pre-commit-hook.md) | Migrate complex `hooks/pre-commit` routing/policy logic to Rust engine with shim hook | 2026-02-26 |
+| [rust-migration-precommit-validate](active/2026-02-26-rust-migration-precommit-validate.md) | Incremental Rust migration roadmap for `hooks/pre-commit` and `scripts/validate.sh` preserving existing behavior contracts | 2026-02-26 |
 | [shell-complexity-guardrail](active/2026-02-26-shell-complexity-guardrail.md) | Add architecture lint check to prevent complex shell scripts from creeping back in | 2026-02-26 |
 | [agents-rust-dev-tooling-guidance](active/2026-02-26-agents-rust-dev-tooling-guidance.md) | Add explicit agent guidance to prefer Rust for non-trivial dev tooling | 2026-02-26 |
 | [google-auth-phase1](active/2026-02-11-google-auth-phase1.md) | Google OAuth via Firebase Auth to gate app access and verify ID tokens | 2026-02-11 |
