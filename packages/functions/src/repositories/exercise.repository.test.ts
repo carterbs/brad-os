@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Firestore, CollectionReference, DocumentReference } from 'firebase-admin/firestore';
+import { BaseRepository } from './base.repository.js';
 import {
   createMockDoc,
   createMockQuerySnapshot,
@@ -7,6 +8,61 @@ import {
   createFirestoreMocks,
   setupFirebaseMock,
 } from '../test-utils/index.js';
+import { isRecord, readString } from './firestore-type-guards.js';
+
+interface BaseProbeEntity {
+  id: string;
+  name: string;
+}
+
+interface BaseProbeCreateDTO {
+  name: string;
+}
+
+interface BaseProbeUpdateDTO {
+  name?: string;
+}
+
+class BaseProbeRepository extends BaseRepository<
+  BaseProbeEntity,
+  BaseProbeCreateDTO,
+  BaseProbeUpdateDTO
+> {
+  constructor(db?: Firestore) {
+    super('base-probe', db);
+  }
+
+  async create(data: BaseProbeCreateDTO): Promise<BaseProbeEntity> {
+    return {
+      id: `probe-${Date.now()}`,
+      name: data.name,
+    };
+  }
+
+  protected parseEntity(id: string, data: Record<string, unknown>): BaseProbeEntity | null {
+    const name = readString(data, 'name');
+    if (name === null) {
+      return null;
+    }
+    return {
+      id,
+      name,
+    };
+  }
+
+  async findAll(): Promise<BaseProbeEntity[]> {
+    const snapshot = await this.collection.get();
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((item): item is BaseProbeEntity => item !== null);
+  }
+}
 
 describe('ExerciseRepository', () => {
   let mockDb: Partial<Firestore>;
@@ -26,6 +82,34 @@ describe('ExerciseRepository', () => {
 
     const module = await import('./exercise.repository.js');
     ExerciseRepository = module.ExerciseRepository;
+  });
+
+  describe('BaseRepository filtering', () => {
+    it('should return null when a malformed document is loaded by findById', async () => {
+      const repository = new BaseProbeRepository(mockDb as Firestore);
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createMockDoc('invalid', { name: 123 })
+      );
+
+      const result = await repository.findById('invalid');
+
+      expect(result).toBeNull();
+    });
+
+    it('should filter malformed documents from findAll results', async () => {
+      const repository = new BaseProbeRepository(mockDb as Firestore);
+      const docs = [
+        { id: 'valid', data: { name: 'Bench Press' } },
+        { id: 'invalid', data: { name: 123 } },
+      ];
+      (mockCollection.get as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createMockQuerySnapshot(docs)
+      );
+
+      const result = await repository.findAll();
+
+      expect(result).toEqual([{ id: 'valid', name: 'Bench Press' }]);
+    });
   });
 
   describe('create', () => {

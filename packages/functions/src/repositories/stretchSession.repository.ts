@@ -4,8 +4,15 @@ import type {
   StretchSessionRecord,
   CreateStretchSessionRequest,
   CompletedStretch,
+  BodyRegion,
 } from '../shared.js';
 import { getFirestoreDb, getCollectionName } from '../firebase.js';
+import {
+  isRecord,
+  readEnum,
+  readNumber,
+  readString,
+} from './firestore-type-guards.js';
 
 /**
  * Convert a local date boundary to a UTC timestamp.
@@ -80,14 +87,10 @@ export class StretchSessionRepository {
       return null;
     }
     const data = doc.data();
-    return {
-      id: doc.id,
-      completedAt: data?.['completedAt'] as string,
-      totalDurationSeconds: data?.['totalDurationSeconds'] as number,
-      regionsCompleted: data?.['regionsCompleted'] as number,
-      regionsSkipped: data?.['regionsSkipped'] as number,
-      stretches: data?.['stretches'] as CompletedStretch[],
-    };
+    if (!isRecord(data)) {
+      return null;
+    }
+    return this.parseEntity(doc.id, data);
   }
 
   /**
@@ -108,14 +111,10 @@ export class StretchSessionRepository {
       return null;
     }
     const data = doc.data();
-    return {
-      id: doc.id,
-      completedAt: data['completedAt'] as string,
-      totalDurationSeconds: data['totalDurationSeconds'] as number,
-      regionsCompleted: data['regionsCompleted'] as number,
-      regionsSkipped: data['regionsSkipped'] as number,
-      stretches: data['stretches'] as CompletedStretch[],
-    };
+    if (!isRecord(data)) {
+      return null;
+    }
+    return this.parseEntity(doc.id, data);
   }
 
   /**
@@ -124,17 +123,15 @@ export class StretchSessionRepository {
   async findAll(): Promise<StretchSessionRecord[]> {
     const snapshot = await this.collection.orderBy('completedAt', 'desc').get();
 
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        completedAt: data['completedAt'] as string,
-        totalDurationSeconds: data['totalDurationSeconds'] as number,
-        regionsCompleted: data['regionsCompleted'] as number,
-        regionsSkipped: data['regionsSkipped'] as number,
-        stretches: data['stretches'] as CompletedStretch[],
-      };
-    });
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((session): session is StretchSessionRecord => session !== null);
   }
 
   /**
@@ -166,16 +163,89 @@ export class StretchSessionRepository {
       .orderBy('completedAt')
       .get();
 
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        completedAt: data['completedAt'] as string,
-        totalDurationSeconds: data['totalDurationSeconds'] as number,
-        regionsCompleted: data['regionsCompleted'] as number,
-        regionsSkipped: data['regionsSkipped'] as number,
-        stretches: data['stretches'] as CompletedStretch[],
-      };
-    });
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((session): session is StretchSessionRecord => session !== null);
+  }
+
+  protected parseCompletedStretch(data: unknown): CompletedStretch | null {
+    if (!isRecord(data)) {
+      return null;
+    }
+
+    const region = readEnum(data, 'region', [
+      'neck',
+      'shoulders',
+      'back',
+      'hip_flexors',
+      'glutes',
+      'hamstrings',
+      'quads',
+      'calves',
+    ]);
+    const stretchId = readString(data, 'stretchId');
+    const stretchName = readString(data, 'stretchName');
+    const durationSeconds = readNumber(data, 'durationSeconds');
+    const skippedSegments = readNumber(data, 'skippedSegments');
+
+    if (
+      region === null ||
+      stretchId === null ||
+      stretchName === null ||
+      durationSeconds === null ||
+      skippedSegments === null
+    ) {
+      return null;
+    }
+
+    return {
+      region: region as BodyRegion,
+      stretchId,
+      stretchName,
+      durationSeconds,
+      skippedSegments,
+    };
+  }
+
+  protected parseEntity(id: string, data: Record<string, unknown>): StretchSessionRecord | null {
+    const completedAt = readString(data, 'completedAt');
+    const totalDurationSeconds = readNumber(data, 'totalDurationSeconds');
+    const regionsCompleted = readNumber(data, 'regionsCompleted');
+    const regionsSkipped = readNumber(data, 'regionsSkipped');
+    const stretchesRaw = data['stretches'];
+
+    if (
+      completedAt === null ||
+      totalDurationSeconds === null ||
+      regionsCompleted === null ||
+      regionsSkipped === null ||
+      !Array.isArray(stretchesRaw)
+    ) {
+      return null;
+    }
+
+    const stretches: CompletedStretch[] = [];
+    for (const stretch of stretchesRaw) {
+      const parsedStretch = this.parseCompletedStretch(stretch);
+      if (parsedStretch === null) {
+        return null;
+      }
+      stretches.push(parsedStretch);
+    }
+
+    return {
+      id,
+      completedAt,
+      totalDurationSeconds,
+      regionsCompleted,
+      regionsSkipped,
+      stretches,
+    };
   }
 }

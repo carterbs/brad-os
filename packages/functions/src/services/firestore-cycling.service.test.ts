@@ -76,7 +76,7 @@ const sampleActivity = {
   maxHeartRate: 175,
   tss: 80,
   intensityFactor: 0.85,
-  type: 'virtual' as const,
+  type: 'fun' as const,
   source: 'strava' as const,
   ef: 1.33,
   createdAt: '2026-02-09T12:00:00.000Z',

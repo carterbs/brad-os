@@ -2,11 +2,14 @@ import {
   type Firestore,
   type CollectionReference,
   type DocumentData,
-  type QueryDocumentSnapshot,
+  type DocumentSnapshot,
 } from 'firebase-admin/firestore';
 import { getFirestoreDb, getCollectionName } from '../firebase.js';
+import {
+  isRecord,
+} from './firestore-type-guards.js';
 
-export abstract class BaseRepository<T extends { id: string }, CreateDTO, UpdateDTO> {
+export abstract class BaseRepository<T extends { id: string }, CreateDTO, UpdateDTO extends Record<string, unknown>> {
   protected db: Firestore;
   protected collectionName: string;
   protected includeTimestampOnUpdate = true;
@@ -22,13 +25,15 @@ export abstract class BaseRepository<T extends { id: string }, CreateDTO, Update
 
   abstract create(data: CreateDTO): Promise<T>;
   abstract findAll(): Promise<T[]>;
+  protected abstract parseEntity(id: string, data: Record<string, unknown>): T | null;
 
   async findById(id: string): Promise<T | null> {
     const doc = await this.collection.doc(id).get();
     if (!doc.exists) {
       return null;
     }
-    return this.docToEntity(doc as QueryDocumentSnapshot<DocumentData>);
+
+    return this.docToEntity(doc);
   }
 
   async update(id: string, data: UpdateDTO): Promise<T | null> {
@@ -53,7 +58,7 @@ export abstract class BaseRepository<T extends { id: string }, CreateDTO, Update
 
   protected buildUpdatePayload(data: UpdateDTO): Record<string, unknown> {
     const updates: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    for (const [key, value] of Object.entries(data)) {
       if (value !== undefined) {
         updates[key] = value;
       }
@@ -79,7 +84,11 @@ export abstract class BaseRepository<T extends { id: string }, CreateDTO, Update
     return { created_at: now, updated_at: now };
   }
 
-  protected docToEntity(doc: QueryDocumentSnapshot<DocumentData>): T {
-    return { id: doc.id, ...doc.data() } as T;
+  protected docToEntity(doc: DocumentSnapshot<DocumentData>): T | null {
+    const data = doc.data();
+    if (!isRecord(data)) {
+      return null;
+    }
+    return this.parseEntity(doc.id, data);
   }
 }

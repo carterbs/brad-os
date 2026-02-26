@@ -1,6 +1,7 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import type { Ingredient } from '../shared.js';
 import { BaseRepository } from './base.repository.js';
+import { isRecord, readString } from './firestore-type-guards.js';
 
 /** Read-only DTO placeholders for BaseRepository contract */
 interface IngredientCreateDTO {
@@ -8,7 +9,7 @@ interface IngredientCreateDTO {
   store_section: string;
 }
 
-interface IngredientUpdateDTO {
+interface IngredientUpdateDTO extends Record<string, unknown> {
   name?: string;
   store_section?: string;
 }
@@ -22,9 +23,34 @@ export class IngredientRepository extends BaseRepository<
     super('ingredients', db);
   }
 
+  protected parseEntity(id: string, data: Record<string, unknown>): Ingredient | null {
+    const name = readString(data, 'name');
+    const storeSection = readString(data, 'store_section');
+    const createdAt = readString(data, 'created_at');
+    const updatedAt = readString(data, 'updated_at');
+    if (name === null || storeSection === null || createdAt === null || updatedAt === null) {
+      return null;
+    }
+    return {
+      id,
+      name,
+      store_section: storeSection,
+      created_at: createdAt,
+      updated_at: updatedAt,
+    };
+  }
+
   async findAll(): Promise<Ingredient[]> {
     const snapshot = await this.collection.orderBy('name').get();
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Ingredient);
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((ingredient): ingredient is Ingredient => ingredient !== null);
   }
 
   // Intentional read-only guardrail: Ingredient data is managed externally and not writable via this repository.

@@ -15,6 +15,19 @@
     "typescript-eslint/no-base-to-string": "off",
     "eslint/no-unsafe-optional-chaining": "warn"
   },
+  "overrides": [
+    {
+      "files": [
+        "packages/functions/src/repositories/*.repository.ts",
+        "packages/functions/src/repositories/base.repository.ts",
+        "packages/functions/src/middleware/*.ts"
+      ],
+      "rules": {
+        "typescript/no-unsafe-type-assertion": "error",
+        "typescript-eslint/no-unsafe-type-assertion": "error"
+      }
+    }
+  ],
   "ignorePatterns": [
     "dist/",
     "lib/",

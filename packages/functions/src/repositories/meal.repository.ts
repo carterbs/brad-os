@@ -5,11 +5,18 @@ import type {
   UpdateMealDTO,
 } from '../shared.js';
 import { BaseRepository } from './base.repository.js';
+import {
+  isRecord,
+  readBoolean,
+  readEnum,
+  readNumber,
+  readString,
+} from './firestore-type-guards.js';
 
 export class MealRepository extends BaseRepository<
   Meal,
   CreateMealDTO,
-  UpdateMealDTO
+  UpdateMealDTO & Record<string, unknown>
 > {
   constructor(db?: Firestore) {
     super('meals', db);
@@ -37,9 +44,60 @@ export class MealRepository extends BaseRepository<
     return meal;
   }
 
+  protected parseEntity(id: string, data: Record<string, unknown>): Meal | null {
+    const name = readString(data, 'name');
+    const mealType = readEnum(data, 'meal_type', ['breakfast', 'lunch', 'dinner'] as const);
+    const effort = readNumber(data, 'effort');
+    const hasRedMeat = readBoolean(data, 'has_red_meat');
+    const prepAhead = readBoolean(data, 'prep_ahead');
+    const url = readString(data, 'url');
+    const rawLastPlanned = data['last_planned'];
+    const lastPlanned =
+      rawLastPlanned === undefined || rawLastPlanned === null
+        ? null
+        : readString(data, 'last_planned');
+    const createdAt = readString(data, 'created_at');
+    const updatedAt = readString(data, 'updated_at');
+
+    if (
+      name === null ||
+      mealType === null ||
+      effort === null ||
+      hasRedMeat === null ||
+      prepAhead === null ||
+      url === null ||
+      createdAt === null ||
+      updatedAt === null ||
+      (rawLastPlanned !== undefined && rawLastPlanned !== null && lastPlanned === null)
+    ) {
+      return null;
+    }
+
+    return {
+      id,
+      name,
+      meal_type: mealType,
+      effort,
+      has_red_meat: hasRedMeat,
+      prep_ahead: prepAhead,
+      url,
+      last_planned: lastPlanned,
+      created_at: createdAt,
+      updated_at: updatedAt,
+    };
+  }
+
   async findAll(): Promise<Meal[]> {
     const snapshot = await this.collection.orderBy('name').get();
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Meal);
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((meal): meal is Meal => meal !== null);
   }
 
   async findByType(mealType: string): Promise<Meal[]> {
@@ -47,7 +105,15 @@ export class MealRepository extends BaseRepository<
       .where('meal_type', '==', mealType)
       .orderBy('name')
       .get();
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Meal);
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((meal): meal is Meal => meal !== null);
   }
 
   async updateLastPlanned(id: string, timestamp: string): Promise<Meal | null> {
