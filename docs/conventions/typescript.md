@@ -85,3 +85,15 @@ exercise.routes.test.ts
 When creating new types or models, ALWAYS search the entire codebase for existing types with the same or similar names first. Avoid creating duplicate types that conflict with existing domain models.
 
 Types go in `packages/functions/src/types/`. Import from `../shared.js`.
+
+## Suppressed Rule Cleanup Tasks
+
+Some TypeScript-eslint rules are temporarily suppressed in `.oxlintrc.json` for a staged cleanup. Use these targeted debt-burndown commands from npm scripts:
+
+- `npm run lint:cleanup:ts-eslint:list` to show all scoped cleanup profiles.
+- `npm run lint:cleanup:ts-eslint:unsafe-type-assertion:repositories`
+- `npm run lint:cleanup:ts-eslint:unsafe-type-assertion:middleware-services`
+- `npm run lint:cleanup:ts-eslint:no-unnecessary-type-assertion`
+- `npm run lint:cleanup:ts-eslint:no-base-to-string`
+
+Each task runs `oxlint` with `--type-aware`, `-A all`, and a targeted rule disable override, scoped to the intended files.
