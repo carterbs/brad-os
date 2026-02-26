@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Logger } from './log.js';
+import {
+  formatElapsed,
+  Logger,
+  StatusBar,
+  statusBar,
+} from './log.js';
 
 const { mockAppendFileSync } = vi.hoisted(() => ({
   mockAppendFileSync: vi.fn(),
@@ -45,6 +50,25 @@ describe('Logger', () => {
       const logger = new Logger('/test/log.jsonl', true);
       logger.verboseMsg('test message');
       expect(consoleLogSpy).toHaveBeenCalled();
+    });
+
+    it('adds the step label to worker prefix after setStep', async () => {
+      const logger = new Logger('/test/log.jsonl', false, 1);
+      logger.setStep('implement');
+      logger.info('running');
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[W1:impl]')
+      );
+    });
+
+    it('removes the step label from worker prefix after clearStep', async () => {
+      const logger = new Logger('/test/log.jsonl', false, 1);
+      logger.setStep('implement');
+      logger.clearStep();
+      logger.info('idle');
+      const call = consoleLogSpy.mock.calls[0][0] as string;
+      expect(call).toContain('[W1]');
+      expect(call).not.toContain('[W1:impl]');
     });
 
     it('stores jsonlPath', async () => {
@@ -178,6 +202,27 @@ describe('Logger', () => {
   });
 
   describe('tool', () => {
+    it('coalesces repeated tool calls within 300ms into a grouped entry', async () => {
+      vi.useFakeTimers();
+      try {
+        const logger = new Logger('/test/log.jsonl');
+        logger.tool('bash', 'first command');
+        vi.advanceTimersByTime(100);
+        logger.tool('bash', 'second command');
+
+        vi.advanceTimersByTime(199);
+        expect(consoleLogSpy).not.toHaveBeenCalled();
+
+        vi.advanceTimersByTime(1);
+        expect(consoleLogSpy).toHaveBeenCalledTimes(1);
+        const call = consoleLogSpy.mock.calls[0][0] as string;
+        expect(call).toContain('×2');
+        expect(call).toContain('bash');
+        expect(call).toContain('first command');
+      } finally {
+        vi.useRealTimers();
+      }
+    });
     it('logs tool name and summary with cyan color', async () => {
       const logger = new Logger('/test/log.jsonl');
       logger.tool('fetch', 'Fetched data from API');
@@ -206,6 +251,20 @@ describe('Logger', () => {
       expect(consoleLogSpy).toHaveBeenCalledWith(
         expect.stringContaining('[W2]')
       );
+    });
+  });
+
+  describe('step tracking', () => {
+    it('increments worker tool call counter', async () => {
+      const logger = new Logger('/test/log.jsonl', false, 2);
+      const updateWorkerSpy = vi.spyOn(statusBar, 'updateWorker');
+      logger.incrementToolCalls();
+      logger.incrementToolCalls();
+
+      expect(updateWorkerSpy).toHaveBeenCalledTimes(2);
+      expect(updateWorkerSpy.mock.calls[0]?.[0]).toBe(2);
+      expect(updateWorkerSpy.mock.calls[0]?.[1]).toEqual({ toolCalls: 1 });
+      expect(updateWorkerSpy.mock.calls[1]?.[1]).toEqual({ toolCalls: 2 });
     });
   });
 
@@ -811,6 +870,56 @@ describe('Logger', () => {
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         expect.stringContaining('[W5]')
       );
+    });
+  });
+
+  describe('formatElapsed', () => {
+    it('formats sub-second durations as seconds', async () => {
+      expect(formatElapsed(999)).toBe('0s');
+    });
+
+    it('formats second durations as seconds', async () => {
+      expect(formatElapsed(1000)).toBe('1s');
+    });
+
+    it('formats minute durations as mm:ss', async () => {
+      expect(formatElapsed(61_000)).toBe('1m01s');
+    });
+  });
+
+  describe('StatusBar', () => {
+    it('writeLine logs directly when isTTY is false', () => {
+      const previousIsTTY = process.stdout.isTTY;
+      process.stdout.isTTY = false;
+      const bar = new StatusBar();
+      const writeSpy = vi
+        .spyOn(process.stdout, 'write')
+        .mockImplementation(() => true);
+      try {
+        bar.writeLine('status plain');
+        expect(consoleLogSpy).toHaveBeenCalledWith('status plain');
+        expect(writeSpy).not.toHaveBeenCalled();
+      } finally {
+        writeSpy.mockRestore();
+        process.stdout.isTTY = previousIsTTY;
+      }
+    });
+
+    it('writeError logs directly to stderr when isTTY is false', () => {
+      const previousIsTTY = process.stdout.isTTY;
+      process.stdout.isTTY = false;
+      const bar = new StatusBar();
+      const writeSpy = vi
+        .spyOn(process.stdout, 'write')
+        .mockImplementation(() => true);
+      try {
+        bar.writeError('status plain error');
+        expect(consoleErrorSpy).toHaveBeenCalledWith('status plain error');
+        expect(writeSpy).not.toHaveBeenCalled();
+      } finally {
+        writeSpy.mockRestore();
+        process.stdout.isTTY = previousIsTTY;
+      }
     });
   });
 });
