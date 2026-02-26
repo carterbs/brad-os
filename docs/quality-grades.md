@@ -134,7 +134,7 @@ All handler and service files have corresponding tests.
 
 ### Other
 
-- [ ] **Calendar missing cycling activities** - Calendar aggregation only includes workouts, stretching, and meditation. Cycling activities not shown.
+- [x] **Calendar missing cycling activities** - Calendar now imports and calls `getCyclingActivities('default-user')`; cycling summaries include `durationMinutes`, `tss`, and `cyclingType`; and day summaries set `hasCycling` when cycling activities are present (validated in `calendar.service.test.ts`).
 - [x] **No integration tests for Meal Planning** - 10 unit tests but zero integration tests.
 - [x] **No integration tests for Cycling** - 7 unit tests but zero integration tests.
 
@@ -153,6 +153,7 @@ All handler and service files have corresponding tests.
 - [x] **Architecture layer violation fixes** - Fixed all 51 iOS architecture layer violations (Views referencing Service types directly).
 - [x] **Architecture lint consolidation** - Consolidated 5 separate lint scripts into single unified `lint-architecture.ts` runner.
 - [x] **Exercise history charts** - Per-exercise history view with workout data visualization.
+- [x] **Calendar cycling aggregation completion** - Calendar now includes cycling activities in monthly data with `durationMinutes`, `tss`, and `cyclingType`, tracks `hasCycling`, and has coverage for timezone and month-boundary behavior in `calendar.service.test.ts`.
 - [x] **Meal Plan widget** - BradOSWidget with MealPlanCacheService in App Group shared container.
 - [x] **AI cycling coach** - OpenAI-powered training recommendations considering recovery, lifting interference, and Peloton class types.
 - [x] **Today Coach AI briefing** - Daily wellness briefing aggregating all activity domains.
