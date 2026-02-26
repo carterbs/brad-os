@@ -66,7 +66,7 @@ pub fn write_firebase_config(config: &FirebaseConfig) -> io::Result<()> {
     }
 
     let rendered = serde_json::to_string_pretty(&json)
-        .map_err(|error| io::Error::new(io::ErrorKind::Other, error.to_string()))?;
+        .map_err(|error: serde_json::Error| io::Error::new(io::ErrorKind::Other, error.to_string()))?;
     fs::write(&config.output_path, format!("{}\n", rendered))?;
     Ok(())
 }
