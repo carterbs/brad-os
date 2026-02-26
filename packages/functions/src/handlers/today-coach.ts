@@ -39,10 +39,13 @@ app.post(
   validate(coachRecommendRequestSchema),
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     const userId = getUserId(req);
+    const requestBody = coachRecommendRequestSchema.parse(req.body);
 
     // Recovery data: prefer from request body (iOS-provided), fallback to Firestore
-    const requestBody = req.body as { recovery?: RecoverySnapshot };
-    let recovery: RecoverySnapshot | undefined = requestBody.recovery;
+    let recovery: RecoverySnapshot | undefined;
+    if (requestBody.recovery !== undefined) {
+      recovery = requestBody.recovery;
+    }
 
     if (recovery === undefined) {
       const storedRecovery = await recoveryService.getLatestRecoverySnapshot(userId);
@@ -60,7 +63,10 @@ app.post(
     }
 
     // Get timezone offset from headers
-    const timezoneOffset = parseInt(req.headers['x-timezone-offset'] as string, 10) || 0;
+    const timezoneOffsetHeader = req.headers['x-timezone-offset'];
+    const timezoneOffsetValue = Array.isArray(timezoneOffsetHeader) ? timezoneOffsetHeader[0] : timezoneOffsetHeader;
+    const parsedTimezoneOffset = typeof timezoneOffsetValue === 'string' ? Number.parseInt(timezoneOffsetValue, 10) : NaN;
+    const timezoneOffset = Number.isNaN(parsedTimezoneOffset) ? 0 : parsedTimezoneOffset;
 
     // Aggregate all activity data
     const coachContext = await buildTodayCoachContext(userId, recovery, timezoneOffset);

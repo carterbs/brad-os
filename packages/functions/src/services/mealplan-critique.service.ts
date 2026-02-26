@@ -1,8 +1,8 @@
 import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions.js';
 import { info, warn, error as logError } from 'firebase-functions/logger';
-import type { MealPlanSession, CritiqueResponse, CritiqueOperation } from '../shared.js';
-import type { MealType } from '../shared.js';
+import type { MealPlanSession, CritiqueResponse } from '../shared.js';
+import { critiqueResponseSchema } from '../schemas/mealplan.schema.js';
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -88,45 +88,6 @@ export function buildMessages(
   messages.push({ role: 'user' as const, content: critique });
 
   return messages;
-}
-
-/**
- * Validates that a parsed response matches the CritiqueResponse shape.
- */
-function isValidCritiqueResponse(data: unknown): data is CritiqueResponse {
-  if (typeof data !== 'object' || data === null) {
-    return false;
-  }
-
-  const obj = data as Record<string, unknown>;
-
-  if (typeof obj['explanation'] !== 'string') {
-    return false;
-  }
-
-  if (!Array.isArray(obj['operations'])) {
-    return false;
-  }
-
-  const validMealTypes: MealType[] = ['breakfast', 'lunch', 'dinner'];
-
-  for (const op of obj['operations'] as unknown[]) {
-    if (typeof op !== 'object' || op === null) {
-      return false;
-    }
-    const opObj = op as Record<string, unknown>;
-    if (typeof opObj['day_index'] !== 'number') {
-      return false;
-    }
-    if (typeof opObj['meal_type'] !== 'string' || !validMealTypes.includes(opObj['meal_type'] as MealType)) {
-      return false;
-    }
-    if (opObj['new_meal_id'] !== null && typeof opObj['new_meal_id'] !== 'string') {
-      return false;
-    }
-  }
-
-  return true;
 }
 
 /**
@@ -216,19 +177,13 @@ export async function processCritique(
 
   try {
     const parsed: unknown = JSON.parse(responseContent);
-    if (isValidCritiqueResponse(parsed)) {
+    const parsedResponse = critiqueResponseSchema.safeParse(parsed);
+    if (parsedResponse.success) {
       info('critique:parsed_ok', {
         phase: 'parse_response',
-        operation_count: parsed.operations.length,
+        operation_count: parsedResponse.data.operations.length,
       });
-      return {
-        explanation: parsed.explanation,
-        operations: parsed.operations.map((op: CritiqueOperation) => ({
-          day_index: op.day_index,
-          meal_type: op.meal_type,
-          new_meal_id: op.new_meal_id,
-        })),
-      };
+      return parsedResponse.data;
     }
 
     logError('critique:invalid_shape', {

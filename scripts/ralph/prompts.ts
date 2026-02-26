@@ -27,6 +27,9 @@ Order tasks by **effort vs. impact**. Low-hanging fruit comes first:
 4. Read docs/ for architecture context.
 5. Scan the codebase for untested files, low-coverage domains, and harness gaps.
 6. Produce 10 tasks ordered by effort/impact ratio (easiest high-impact tasks first).
+7. For temporary \`typescript-eslint\` suppression cleanup, emit one task per currently suppressed rule.
+   Do not emit generic duplicate suppression-cleanup tasks (for example, avoid umbrella
+   "re-enable temporary \`typescript-eslint\` suppressions" tasks).
 
 ## Output format
 
@@ -62,7 +65,7 @@ ${task}
 3. Write a detailed implementation plan to thoughts/shared/plans/active/ralph-improvement.md.
 
 thoughts/shared/plans/active/ralph-improvement.md must contain:
-- **Title**: One-line PR-ready title in imperative form (specific action + target, not placeholders like "X", "update", or "something")
+- **Title**: One-line PR-ready title using conventional commits format (e.g. "test: add schema validation for cycling domain", "refactor: extract shared Firestore mock utilities"). Use one of: feat, fix, chore, refactor, test, docs, ci, perf. No placeholders like "X", "update", or "something"
 - **Why**: Why this improvement matters (brief — the task is already decided)
 - **What**: Exactly what to build, with specifics (not vague hand-waving)
 - **Files**: Every file to create or modify, with what goes in each
@@ -94,7 +97,7 @@ Steps:
 6. Write a detailed implementation plan to thoughts/shared/plans/active/ralph-improvement.md in the current directory.
 
 thoughts/shared/plans/active/ralph-improvement.md must contain:
-- **Title**: One-line PR-ready title in imperative form (specific action + target, not placeholders like "X", "update", or "something")
+- **Title**: One-line PR-ready title using conventional commits format (e.g. "test: add schema validation for cycling domain", "refactor: extract shared Firestore mock utilities"). Use one of: feat, fix, chore, refactor, test, docs, ci, perf. No placeholders like "X", "update", or "something"
 - **Why**: Why this is the highest-leverage improvement right now
 - **What**: Exactly what to build, with specifics (not vague hand-waving)
 - **Files**: Every file to create or modify, with what goes in each

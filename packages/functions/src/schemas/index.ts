@@ -12,4 +12,5 @@ export * from './recipe.schema.js';
 export * from './tts.schema.js';
 export * from './stretch.schema.js';
 export * from './cycling.schema.js';
+export * from './today-coach.schema.js';
 export * from './recovery.schema.js';

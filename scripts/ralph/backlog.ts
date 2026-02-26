@@ -8,6 +8,162 @@ const BACKLOG_PATH = join(__dirname, "backlog.md");
 const TRIAGE_PATH = join(__dirname, "triage.md");
 const MERGE_CONFLICTS_PATH = join(__dirname, "merge-conflicts.md");
 
+const CANONICAL_TYPESCRIPT_ESLINT_RULES = [
+  "typescript-eslint/no-unsafe-type-assertion",
+  "typescript-eslint/no-unnecessary-type-assertion",
+  "typescript-eslint/no-base-to-string",
+] as const;
+
+const TYPESCRIPT_ESLINT_SUPPRESSION_TASKS: Record<
+  (typeof CANONICAL_TYPESCRIPT_ESLINT_RULES)[number],
+  string
+> = {
+  "typescript-eslint/no-unsafe-type-assertion":
+    "Re-enable `typescript-eslint/no-unsafe-type-assertion` in repositories and middleware after targeted type-guard refactors.",
+  "typescript-eslint/no-unnecessary-type-assertion":
+    "Re-enable `typescript-eslint/no-unnecessary-type-assertion` once broad `as` casts are replaced with schema-safe parsing.",
+  "typescript-eslint/no-base-to-string":
+    "Re-enable `typescript-eslint/no-base-to-string` after replacing implicit string coercions in serialization paths.",
+};
+
+const SUPPRESSION_NOISE_TASKS = new Set(
+  [
+    "Add `typescript-eslint` cleanup tasks to reduce noise from the temporary oxlint suppression.",
+  ].map((task) => task.toLowerCase()),
+);
+
+export interface CleanupTaskNormalizationResult {
+  normalizedTasks: string[];
+  addedCleanupTasks: string[];
+  removedNoiseTasks: string[];
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isRuleSuppressed(ruleConfig: unknown): boolean {
+  if (typeof ruleConfig === "string") {
+    return ruleConfig.toLowerCase() === "off";
+  }
+
+  if (typeof ruleConfig === "number") {
+    return ruleConfig === 0;
+  }
+
+  if (Array.isArray(ruleConfig)) {
+    const severity = ruleConfig[0];
+    if (typeof severity === "string") return severity.toLowerCase() === "off";
+    if (typeof severity === "number") return severity === 0;
+  }
+
+  return false;
+}
+
+function isSuppressionNoiseTask(task: string): boolean {
+  const normalized = task.toLowerCase();
+  if (SUPPRESSION_NOISE_TASKS.has(normalized)) return true;
+
+  return (
+    normalized.includes("temporary oxlint suppression") &&
+    normalized.includes("typescript-eslint")
+  );
+}
+
+function canonicalTaskForRule(rule: string): string | undefined {
+  if (!Object.prototype.hasOwnProperty.call(TYPESCRIPT_ESLINT_SUPPRESSION_TASKS, rule)) {
+    return undefined;
+  }
+  return TYPESCRIPT_ESLINT_SUPPRESSION_TASKS[rule];
+}
+
+function isSameTaskText(lhs: string, rhs: string): boolean {
+  return normalizeTaskText(lhs) === normalizeTaskText(rhs);
+}
+
+export function readSuppressedTypeScriptEslintRules(
+  oxlintConfigPath: string,
+): string[] {
+  let raw: string;
+  try {
+    raw = readFileSync(oxlintConfigPath, "utf-8");
+  } catch {
+    return [];
+  }
+
+  let config: unknown;
+  try {
+    config = JSON.parse(raw);
+  } catch {
+    return [];
+  }
+
+  if (!isObject(config)) return [];
+  const rules = config.rules;
+  if (!isObject(rules)) return [];
+
+  const suppressedRules: string[] = [];
+  for (const rule of CANONICAL_TYPESCRIPT_ESLINT_RULES) {
+    if (isRuleSuppressed(rules[rule])) {
+      suppressedRules.push(rule);
+    }
+  }
+
+  return suppressedRules;
+}
+
+export function normalizeBacklogForTypeScriptEslintCleanup(
+  existingTasks: string[],
+  suppressedRules: string[],
+): CleanupTaskNormalizationResult {
+  const normalizedTasks: string[] = [];
+  const addedCleanupTasks: string[] = [];
+  const removedNoiseTasks: string[] = [];
+
+  const suppressedRuleSet = new Set(suppressedRules);
+  const seenCanonicalTasks = new Set<string>();
+
+  for (const task of existingTasks) {
+    if (isSuppressionNoiseTask(task)) {
+      removedNoiseTasks.push(task);
+      continue;
+    }
+
+    if (!isSameTaskText(task, "")) {
+      const canonicalTask = Object.entries(TYPESCRIPT_ESLINT_SUPPRESSION_TASKS).find(
+        ([, canonical]) => isSameTaskText(task, canonical),
+      )?.[1];
+      if (canonicalTask) {
+        const canonicalNormalized = normalizeTaskText(canonicalTask);
+        if (seenCanonicalTasks.has(canonicalNormalized)) continue;
+        seenCanonicalTasks.add(canonicalNormalized);
+        normalizedTasks.push(canonicalTask);
+        continue;
+      }
+
+      normalizedTasks.push(task);
+    }
+  }
+
+  for (const rule of CANONICAL_TYPESCRIPT_ESLINT_RULES) {
+    if (!suppressedRuleSet.has(rule)) continue;
+    const canonicalTask = canonicalTaskForRule(rule);
+    if (!canonicalTask) continue;
+
+    if (!seenCanonicalTasks.has(normalizeTaskText(canonicalTask))) {
+      normalizedTasks.push(canonicalTask);
+      addedCleanupTasks.push(canonicalTask);
+      seenCanonicalTasks.add(normalizeTaskText(canonicalTask));
+    }
+  }
+
+  return {
+    normalizedTasks,
+    addedCleanupTasks,
+    removedNoiseTasks,
+  };
+}
+
 function normalizeTaskText(task: string): string {
   return task
     .replace(/[`*_]/g, "")
@@ -60,7 +216,7 @@ function readMergedImprovementNumbersFromGit(repoDir: string): Set<number> {
       { encoding: "utf-8", stdio: "pipe" },
     );
     for (const line of output.split("\n")) {
-      const match = line.match(/harness-improvement-(\d+)/);
+      const match = line.match(/(?:harness-improvement|change)-(\d+)/);
       if (!match?.[1]) continue;
       const n = parseInt(match[1], 10);
       if (!Number.isNaN(n)) merged.add(n);

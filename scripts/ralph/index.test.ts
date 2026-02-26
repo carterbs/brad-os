@@ -51,6 +51,9 @@ const {
   mockBuildFixPrompt,
   mockLoggerConstructor,
   mockBacklogPath,
+  mockReadSuppressedTypeScriptEslintRules,
+  mockNormalizeBacklogForTypeScriptEslintCleanup,
+  mockWriteBacklog,
 } = vi.hoisted(() => ({
   mockExecFileSync: vi.fn(),
   mockExistsSync: vi.fn(),
@@ -84,6 +87,9 @@ const {
   mockBuildFixPrompt: vi.fn(),
   mockLoggerConstructor: vi.fn(),
   mockBacklogPath: vi.fn(() => 'scripts/ralph/backlog.md'),
+  mockReadSuppressedTypeScriptEslintRules: vi.fn(),
+  mockNormalizeBacklogForTypeScriptEslintCleanup: vi.fn(),
+  mockWriteBacklog: vi.fn(),
 }));
 
 vi.mock('node:fs', () => ({
@@ -115,6 +121,11 @@ vi.mock('./backlog.js', () => ({
   removeTriageTask: mockRemoveTriageTask,
   moveTaskToMergeConflicts: mockMoveTaskToMergeConflicts,
   syncTaskFilesFromLog: mockSyncTaskFilesFromLog,
+  readSuppressedTypeScriptEslintRules:
+    mockReadSuppressedTypeScriptEslintRules,
+  normalizeBacklogForTypeScriptEslintCleanup:
+    mockNormalizeBacklogForTypeScriptEslintCleanup,
+  writeBacklog: mockWriteBacklog,
   backlogPath: mockBacklogPath,
 }));
 
@@ -179,7 +190,7 @@ function makeConfig(overrides: Partial<Config> = {}): Config {
   return {
     target: 1,
     parallelism: 1,
-    branchPrefix: 'harness-improvement',
+    branchPrefix: 'change',
     maxTurns: 10,
     verbose: false,
     repoDir: '/repo',
@@ -322,21 +333,39 @@ describe('extractPlanDocPathFromTask', () => {
 });
 
 describe('buildImprovementTitle', () => {
-  it('prefers a meaningful plan summary', async () => {
-    expect(buildImprovementTitle(4, 'Improve merge queue stability')).toBe(
-      'harness: Improve merge queue stability'
+  it('preserves a conventional commit prefix from the plan summary', async () => {
+    expect(buildImprovementTitle(4, 'refactor: extract shared Firestore mock utilities')).toBe(
+      'refactor: extract shared Firestore mock utilities'
+    );
+  });
+
+  it('infers test prefix from keywords', async () => {
+    expect(buildImprovementTitle(4, 'Add schema validation tests for cycling domain')).toBe(
+      'test: Add schema validation tests for cycling domain'
+    );
+  });
+
+  it('infers feat prefix from action keywords', async () => {
+    expect(buildImprovementTitle(4, 'Add createResourceRouter for recipes handler')).toBe(
+      'feat: Add createResourceRouter for recipes handler'
+    );
+  });
+
+  it('infers docs prefix from documentation keywords', async () => {
+    expect(buildImprovementTitle(4, 'Add doc-freshness CI lint check')).toBe(
+      'docs: Add doc-freshness CI lint check'
     );
   });
 
   it('falls back to task text when plan summary is low-signal', async () => {
     expect(buildImprovementTitle(4, 'X', 'Add tests for merge queue retries')).toBe(
-      'harness: Add tests for merge queue retries'
+      'test: Add tests for merge queue retries'
     );
   });
 
-  it('falls back to improvement number when both inputs are low-signal', async () => {
+  it('falls back to improvement number with chore prefix when both inputs are low-signal', async () => {
     expect(buildImprovementTitle(9, 'fix', 'x')).toBe(
-      'harness: improvement #9'
+      'chore: improvement #9'
     );
   });
 
@@ -348,6 +377,12 @@ describe('buildImprovementTitle', () => {
     expect(title.length).toBeLessThanOrEqual(72);
     expect(title.endsWith('...')).toBe(true);
   });
+
+  it('preserves scoped conventional prefixes', async () => {
+    expect(buildImprovementTitle(1, 'fix(cycling): correct TSS calculation')).toBe(
+      'fix(cycling): correct TSS calculation'
+    );
+  });
 });
 
 describe('buildOutstandingRalphPrTriageTask', () => {
@@ -355,11 +390,11 @@ describe('buildOutstandingRalphPrTriageTask', () => {
     expect(
       buildOutstandingRalphPrTriageTask({
         prNumber: 21,
-        branchName: 'harness-improvement-066',
+        branchName: 'change-066',
         prUrl: 'https://github.com/carterbs/brad-os/pull/21',
       })
     ).toBe(
-      'Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21'
+      'Resolve outstanding Ralph PR #21 (change-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21'
     );
   });
 });
@@ -368,12 +403,12 @@ describe('parseOutstandingRalphPrTriageTask', () => {
   it('parses valid outstanding PR triage task', async () => {
     expect(
       parseOutstandingRalphPrTriageTask(
-        'Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
+        'Resolve outstanding Ralph PR #21 (change-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
         'triage'
       )
     ).toEqual({
       prNumber: 21,
-      branchName: 'harness-improvement-066',
+      branchName: 'change-066',
       prUrl: 'https://github.com/carterbs/brad-os/pull/21',
     });
   });
@@ -381,12 +416,12 @@ describe('parseOutstandingRalphPrTriageTask', () => {
   it('parses valid outstanding PR task regardless of source', async () => {
     expect(
       parseOutstandingRalphPrTriageTask(
-        'Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
+        'Resolve outstanding Ralph PR #21 (change-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
         'backlog'
       )
     ).toEqual({
       prNumber: 21,
-      branchName: 'harness-improvement-066',
+      branchName: 'change-066',
       prUrl: 'https://github.com/carterbs/brad-os/pull/21',
     });
   });
@@ -400,12 +435,12 @@ describe('parseOutstandingRalphPrTriageTask', () => {
   it('parses outstanding PR task nested inside human-escalation wrapper', async () => {
     expect(
       parseOutstandingRalphPrTriageTask(
-        'Human escalation required for PR #21 (improvement #65). Worktree: /tmp/brad-os-ralph-worktrees/harness-improvement-066. Original task: Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
+        'Human escalation required for PR #21 (improvement #65). Worktree: /tmp/brad-os-ralph-worktrees/change-066. Original task: Resolve outstanding Ralph PR #21 (change-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
         'triage'
       )
     ).toEqual({
       prNumber: 21,
-      branchName: 'harness-improvement-066',
+      branchName: 'change-066',
       prUrl: 'https://github.com/carterbs/brad-os/pull/21',
     });
   });
@@ -413,19 +448,19 @@ describe('parseOutstandingRalphPrTriageTask', () => {
   it('parses outstanding PR task through multiple escalation wrappers', async () => {
     expect(
       parseOutstandingRalphPrTriageTask(
-        'Human escalation required for PR #21 (improvement #65). Worktree: /tmp/a. Original task: Human escalation required for PR #21 (improvement #65). Worktree: /tmp/b. Original task: Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
+        'Human escalation required for PR #21 (improvement #65). Worktree: /tmp/a. Original task: Human escalation required for PR #21 (improvement #65). Worktree: /tmp/b. Original task: Resolve outstanding Ralph PR #21 (change-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
         'triage'
       )
     ).toEqual({
       prNumber: 21,
-      branchName: 'harness-improvement-066',
+      branchName: 'change-066',
       prUrl: 'https://github.com/carterbs/brad-os/pull/21',
     });
   });
 
   it('parses outstanding PR task through deep escalation nesting', async () => {
     const directTask =
-      'Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21';
+      'Resolve outstanding Ralph PR #21 (change-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21';
     const deeplyNested = Array.from({ length: 20 }).reduce(
       (acc, _, i) =>
         `Human escalation required for PR #21 (improvement #${i + 1}). Worktree: /tmp/wt-${i + 1}. Original task: ${acc}`,
@@ -434,7 +469,7 @@ describe('parseOutstandingRalphPrTriageTask', () => {
 
     expect(parseOutstandingRalphPrTriageTask(deeplyNested, 'triage')).toEqual({
       prNumber: 21,
-      branchName: 'harness-improvement-066',
+      branchName: 'change-066',
       prUrl: 'https://github.com/carterbs/brad-os/pull/21',
     });
   });
@@ -1021,7 +1056,7 @@ describe('runWorker', () => {
     const config = makeConfig();
     const abortController = new AbortController();
     const taskText =
-      'Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21';
+      'Resolve outstanding Ralph PR #21 (change-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21';
 
     const result = await runWorker(
       0,
@@ -1035,7 +1070,7 @@ describe('runWorker', () => {
 
     expect(result.success).toBe(true);
     expect(result.prNumber).toBe(21);
-    expect(result.branchName).toBe('harness-improvement-066');
+    expect(result.branchName).toBe('change-066');
     expect(result.prUrl).toBe(
       'https://github.com/carterbs/brad-os/pull/21'
     );
@@ -1046,14 +1081,14 @@ describe('runWorker', () => {
     expect(mockBuildOutstandingPrMergePrompt).toHaveBeenCalledWith(
       taskText,
       21,
-      'harness-improvement-066'
+      'change-066'
     );
     expect(mockBuildAgentMergePrompt).toHaveBeenCalledWith(
       21,
-      'harness-improvement-066'
+      'change-066'
     );
     expect(mockReadPullRequestMergeState).toHaveBeenCalledWith(
-      `${config.worktreeDir}/harness-improvement-066`,
+      `${config.worktreeDir}/change-066`,
       21
     );
     expect(mockCommitAll).not.toHaveBeenCalled();
@@ -1970,6 +2005,15 @@ describe('main', () => {
       url: 'https://github.com/org/repo/pull/123',
     });
     mockListOpenRalphPullRequests.mockReturnValue([]);
+    mockReadSuppressedTypeScriptEslintRules.mockReturnValue([]);
+    mockNormalizeBacklogForTypeScriptEslintCleanup.mockImplementation(
+      (tasks) => ({
+        normalizedTasks: tasks,
+        addedCleanupTasks: [],
+        removedNoiseTasks: [],
+      }),
+    );
+    mockWriteBacklog.mockReset();
     mockProcessExit = vi.spyOn(process, 'exit').mockImplementation((() => {
       // no-op — just record the call
     }) as never);
@@ -2018,7 +2062,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: Fix thing' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Fixed' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const mainPromise = main();
+    const mainPromise = main();
     // Advance past the setTimeout(2000) in the loop
     await vi.advanceTimersByTimeAsync(3000);
     await mainPromise;
@@ -2044,7 +2088,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const p = main();
+    const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2060,12 +2104,12 @@ describe('main', () => {
       {
         number: 19,
         url: 'https://github.com/carterbs/brad-os/pull/19',
-        headRefName: 'harness-improvement-067',
+        headRefName: 'change-067',
       },
       {
         number: 20,
         url: 'https://github.com/carterbs/brad-os/pull/20',
-        headRefName: 'harness-improvement-065',
+        headRefName: 'change-065',
       },
     ]);
 
@@ -2082,13 +2126,13 @@ describe('main', () => {
 
     expect(mockListOpenRalphPullRequests).toHaveBeenCalledWith(
       '/repo',
-      'harness-improvement'
+      'change'
     );
     expect(mockAddTriageTask).toHaveBeenCalledWith(
-      'Resolve outstanding Ralph PR #19 (harness-improvement-067) and merge to main. PR: https://github.com/carterbs/brad-os/pull/19'
+      'Resolve outstanding Ralph PR #19 (change-067) and merge to main. PR: https://github.com/carterbs/brad-os/pull/19'
     );
     expect(mockAddTriageTask).toHaveBeenCalledWith(
-      'Resolve outstanding Ralph PR #20 (harness-improvement-065) and merge to main. PR: https://github.com/carterbs/brad-os/pull/20'
+      'Resolve outstanding Ralph PR #20 (change-065) and merge to main. PR: https://github.com/carterbs/brad-os/pull/20'
     );
   });
 
@@ -2100,7 +2144,7 @@ describe('main', () => {
       return triageReadCount === 1
         ? []
         : [
-            'Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
+            'Resolve outstanding Ralph PR #21 (change-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
           ];
     });
     mockReadBacklog.mockReturnValue([]);
@@ -2108,7 +2152,7 @@ describe('main', () => {
       {
         number: 21,
         url: 'https://github.com/carterbs/brad-os/pull/21',
-        headRefName: 'harness-improvement-066',
+        headRefName: 'change-066',
       },
     ]);
 
@@ -2126,10 +2170,10 @@ describe('main', () => {
 
     expect(mockListOpenRalphPullRequests).toHaveBeenCalledWith(
       '/repo',
-      'harness-improvement',
+      'change',
     );
     expect(mockAddTriageTask).toHaveBeenCalledWith(
-      'Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21'
+      'Resolve outstanding Ralph PR #21 (change-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21'
     );
     const stepNames = mockRunStep.mock.calls.map((call) => call[0].stepName);
     expect(stepNames).toEqual(['implement', 'merge']);
@@ -2146,7 +2190,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const p = main();
+    const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2215,8 +2259,8 @@ describe('main', () => {
       'Task A',
       {
         improvement: 1,
-        branchName: 'harness-improvement-001',
-        worktreePath: '/tmp/worktrees/harness-improvement-001',
+        branchName: 'change-001',
+        worktreePath: '/tmp/worktrees/change-001',
       }
     );
   });
@@ -2259,8 +2303,8 @@ describe('main', () => {
       'Triage fix',
       {
         improvement: 1,
-        branchName: 'harness-improvement-001',
-        worktreePath: '/tmp/worktrees/harness-improvement-001',
+        branchName: 'change-001',
+        worktreePath: '/tmp/worktrees/change-001',
       }
     );
   });
@@ -2276,7 +2320,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const p = main();
+    const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2294,7 +2338,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const p = main();
+    const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2367,13 +2411,139 @@ describe('main', () => {
 
     mockCreateWorktree.mockReturnValue({ created: true, resumed: false });
     mockExistsSync.mockReturnValue(true);
-        const p = main();
+    const p = main();
     for (let i = 0; i < 10; i++) {
       await vi.advanceTimersByTimeAsync(3000);
     }
     await p;
 
     expect(mockBuildBacklogRefillPrompt).toHaveBeenCalled();
+  });
+
+  it('normalizes refilled backlog with suppression cleanup and writes updates', async () => {
+    setupMainDefaults({ target: 1, parallelism: 1 });
+    mockExecFileSync.mockReturnValue('');
+    mockReadTriage.mockReturnValue([]);
+
+    const rawBacklog = [
+      'Add `typescript-eslint` cleanup tasks to reduce noise from the temporary oxlint suppression.',
+      'Refill baseline task',
+    ];
+    const normalizedBacklog = [
+      'Refill baseline task',
+      'Re-enable `typescript-eslint/no-unsafe-type-assertion` in repositories and middleware after targeted type-guard refactors.',
+      'Re-enable `typescript-eslint/no-unnecessary-type-assertion` once broad `as` casts are replaced with schema-safe parsing.',
+      'Re-enable `typescript-eslint/no-base-to-string` after replacing implicit string coercions in serialization paths.',
+    ];
+    const addedTasks = [
+      'Re-enable `typescript-eslint/no-unsafe-type-assertion` in repositories and middleware after targeted type-guard refactors.',
+      'Re-enable `typescript-eslint/no-unnecessary-type-assertion` once broad `as` casts are replaced with schema-safe parsing.',
+      'Re-enable `typescript-eslint/no-base-to-string` after replacing implicit string coercions in serialization paths.',
+    ];
+    const removedTasks = [
+      'Add `typescript-eslint` cleanup tasks to reduce noise from the temporary oxlint suppression.',
+    ];
+    mockReadSuppressedTypeScriptEslintRules.mockReturnValue([
+      'typescript-eslint/no-unsafe-type-assertion',
+      'typescript-eslint/no-unnecessary-type-assertion',
+      'typescript-eslint/no-base-to-string',
+    ]);
+    mockNormalizeBacklogForTypeScriptEslintCleanup.mockReturnValue({
+      normalizedTasks: normalizedBacklog,
+      addedCleanupTasks: addedTasks,
+      removedNoiseTasks: removedTasks,
+    });
+
+    let backlogCallCount = 0;
+    mockReadBacklog.mockImplementation(() => {
+      backlogCallCount++;
+      if (backlogCallCount <= 3) return [];
+      if (backlogCallCount === 4) return rawBacklog;
+      return normalizedBacklog;
+    });
+
+    mockRunStep
+      .mockResolvedValueOnce(makeStepResult({ success: true })) // backlog-refill
+      .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' })) // plan
+      .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' })) // implement
+      .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' })); // review
+
+    mockCreateWorktree.mockReturnValue({ created: true, resumed: false });
+    mockExistsSync.mockReturnValue(true);
+
+    const mainPromise = main();
+    for (let i = 0; i < 10; i++) {
+      await vi.advanceTimersByTimeAsync(3000);
+    }
+    await mainPromise;
+
+    expect(mockReadSuppressedTypeScriptEslintRules).toHaveBeenCalledWith(
+      '/repo/.oxlintrc.json',
+    );
+    expect(mockNormalizeBacklogForTypeScriptEslintCleanup).toHaveBeenCalledWith(
+      rawBacklog,
+      [
+        'typescript-eslint/no-unsafe-type-assertion',
+        'typescript-eslint/no-unnecessary-type-assertion',
+        'typescript-eslint/no-base-to-string',
+      ],
+    );
+    expect(mockWriteBacklog).toHaveBeenCalledWith(normalizedBacklog);
+    const logger = mockLoggerConstructor.mock.results[0].value;
+    expect(logger.info).toHaveBeenCalledWith(
+      'Backlog normalization removed 1 generic suppression task(s) during refill:',
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      `  - removed: ${removedTasks[0]}`,
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      'Backlog normalization added 3 canonical suppression cleanup task(s) during refill:',
+    );
+    expect(logger.info).toHaveBeenCalledWith(`  - added: ${addedTasks[0]}`);
+  });
+
+  it('leaves refilled backlog untouched when normalization makes no changes', async () => {
+    setupMainDefaults({ target: 1, parallelism: 1 });
+    mockExecFileSync.mockReturnValue('');
+    mockReadTriage.mockReturnValue([]);
+
+    const rawBacklog = ['Refill baseline task', 'Another task'];
+    mockReadSuppressedTypeScriptEslintRules.mockReturnValue([]);
+    mockNormalizeBacklogForTypeScriptEslintCleanup.mockReturnValue({
+      normalizedTasks: rawBacklog,
+      addedCleanupTasks: [],
+      removedNoiseTasks: [],
+    });
+
+    let backlogCallCount = 0;
+    mockReadBacklog.mockImplementation(() => {
+      backlogCallCount++;
+      if (backlogCallCount <= 3) return [];
+      if (backlogCallCount === 4) return rawBacklog;
+      return rawBacklog;
+    });
+
+    mockRunStep
+      .mockResolvedValueOnce(makeStepResult({ success: true })) // backlog-refill
+      .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' })) // plan
+      .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' })) // implement
+      .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' })); // review
+
+    mockCreateWorktree.mockReturnValue({ created: true, resumed: false });
+    mockExistsSync.mockReturnValue(true);
+
+    const mainPromise = main();
+    for (let i = 0; i < 10; i++) {
+      await vi.advanceTimersByTimeAsync(3000);
+    }
+    await mainPromise;
+
+    expect(mockNormalizeBacklogForTypeScriptEslintCleanup).toHaveBeenCalledWith(
+      rawBacklog,
+      [],
+    );
+    expect(mockWriteBacklog).not.toHaveBeenCalled();
+    expect(mockBuildBacklogRefillPrompt).toHaveBeenCalledTimes(1);
   });
 
   it('exits when backlog refill fails and no workers running', async () => {
@@ -2423,7 +2593,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const p = main();
+    const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2452,7 +2622,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const p = main();
+    const p = main();
     for (let i = 0; i < 5; i++) {
       await vi.advanceTimersByTimeAsync(3000);
     }
@@ -2531,7 +2701,7 @@ describe('main', () => {
     });
 
     mockExistsSync.mockReturnValue(true);
-        const p = main();
+    const p = main();
 
     // Advance through 4 failure iterations (each has 2s delay) + some buffer
     for (let i = 0; i < 15; i++) {
@@ -2600,8 +2770,8 @@ describe('main', () => {
       'B',
       {
         improvement: 2,
-        branchName: 'harness-improvement-002',
-        worktreePath: '/tmp/worktrees/harness-improvement-002',
+        branchName: 'change-002',
+        worktreePath: '/tmp/worktrees/change-002',
       }
     );
   });
@@ -2643,7 +2813,7 @@ describe('main', () => {
     });
 
     mockExistsSync.mockReturnValue(true);
-        const p = main();
+    const p = main();
 
     // Advance through failure iterations
     for (let i = 0; i < 20; i++) {
@@ -2669,7 +2839,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const p = main();
+    const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2693,7 +2863,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-        const p = main();
+    const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 

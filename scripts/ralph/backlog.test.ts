@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  normalizeBacklogForTypeScriptEslintCleanup,
+  readSuppressedTypeScriptEslintRules,
   addTriageTask,
   backlogPath,
   moveTaskToMergeConflicts,
@@ -12,6 +14,119 @@ import {
   syncTaskFilesFromLog,
   writeBacklog,
 } from './backlog.js';
+
+const TYPESCRIPT_ESLINT_CLEANUP_UNSAFE =
+  'Re-enable `typescript-eslint/no-unsafe-type-assertion` in repositories and middleware after targeted type-guard refactors.';
+const TYPESCRIPT_ESLINT_CLEANUP_UNNECESSARY =
+  'Re-enable `typescript-eslint/no-unnecessary-type-assertion` once broad `as` casts are replaced with schema-safe parsing.';
+const TYPESCRIPT_ESLINT_CLEANUP_TO_STRING =
+  'Re-enable `typescript-eslint/no-base-to-string` after replacing implicit string coercions in serialization paths.';
+
+describe('readSuppressedTypeScriptEslintRules', () => {
+  beforeEach(() => {
+    mockAppendFileSync.mockReset();
+    mockReadFileSync.mockReset();
+    mockWriteFileSync.mockReset();
+    mockExecFileSync.mockReset();
+  });
+
+  it('returns only suppressed typescript-eslint rules set to off', async () => {
+    const config = {
+      rules: {
+        'typescript-eslint/no-unsafe-type-assertion': 'off',
+        'typescript-eslint/no-unnecessary-type-assertion': ['warn'],
+        'typescript-eslint/no-base-to-string': [0],
+        'typescript/no-explicit-any': 'off',
+        'typescript-eslint/no-unsafe-call': 'error',
+      },
+    };
+    mockReadFileSync.mockReturnValue(JSON.stringify(config));
+
+    const suppressed = readSuppressedTypeScriptEslintRules(
+      '/repo/.oxlintrc.json',
+    );
+
+    expect(suppressed).toEqual([
+      'typescript-eslint/no-unsafe-type-assertion',
+      'typescript-eslint/no-base-to-string',
+    ]);
+  });
+
+  it('returns empty when only non-target rules are suppressed', async () => {
+    const config = {
+      rules: {
+        'typescript/no-explicit-any': 'off',
+        'typescript-eslint/no-unnecessary-type-assertion': 'warn',
+        'typescript-eslint/no-base-to-string': 'error',
+      },
+    };
+    mockReadFileSync.mockReturnValue(JSON.stringify(config));
+
+    const suppressed = readSuppressedTypeScriptEslintRules(
+      '/repo/.oxlintrc.json',
+    );
+
+    expect(suppressed).toEqual([]);
+  });
+});
+
+describe('normalizeBacklogForTypeScriptEslintCleanup', () => {
+  it('removes generic suppression noise and adds missing canonical cleanup tasks', () => {
+    const result = normalizeBacklogForTypeScriptEslintCleanup(
+      [
+        'Add `typescript-eslint` cleanup tasks to reduce noise from the temporary oxlint suppression.',
+        'A normal maintenance task',
+      ],
+      [
+        'typescript-eslint/no-unsafe-type-assertion',
+        'typescript-eslint/no-unnecessary-type-assertion',
+        'typescript-eslint/no-base-to-string',
+      ],
+    );
+
+    expect(result.removedNoiseTasks).toEqual([
+      'Add `typescript-eslint` cleanup tasks to reduce noise from the temporary oxlint suppression.',
+    ]);
+    expect(result.addedCleanupTasks).toEqual([
+      TYPESCRIPT_ESLINT_CLEANUP_UNSAFE,
+      TYPESCRIPT_ESLINT_CLEANUP_UNNECESSARY,
+      TYPESCRIPT_ESLINT_CLEANUP_TO_STRING,
+    ]);
+    expect(result.normalizedTasks).toEqual([
+      'A normal maintenance task',
+      TYPESCRIPT_ESLINT_CLEANUP_UNSAFE,
+      TYPESCRIPT_ESLINT_CLEANUP_UNNECESSARY,
+      TYPESCRIPT_ESLINT_CLEANUP_TO_STRING,
+    ]);
+  });
+
+  it('deduplicates existing canonical tasks before appending missing ones', async () => {
+    const result = normalizeBacklogForTypeScriptEslintCleanup(
+      [
+        TYPESCRIPT_ESLINT_CLEANUP_UNSAFE,
+        TYPESCRIPT_ESLINT_CLEANUP_UNSAFE,
+        'A normal maintenance task',
+        TYPESCRIPT_ESLINT_CLEANUP_TO_STRING,
+      ],
+      [
+        'typescript-eslint/no-unsafe-type-assertion',
+        'typescript-eslint/no-base-to-string',
+        'typescript-eslint/no-unnecessary-type-assertion',
+      ],
+    );
+
+    expect(result.normalizedTasks).toEqual([
+      TYPESCRIPT_ESLINT_CLEANUP_UNSAFE,
+      'A normal maintenance task',
+      TYPESCRIPT_ESLINT_CLEANUP_TO_STRING,
+      TYPESCRIPT_ESLINT_CLEANUP_UNNECESSARY,
+    ]);
+    expect(result.addedCleanupTasks).toEqual([
+      TYPESCRIPT_ESLINT_CLEANUP_UNNECESSARY,
+    ]);
+    expect(result.removedNoiseTasks).toEqual([]);
+  });
+});
 
 const {
   mockAppendFileSync,
@@ -81,7 +196,7 @@ describe('syncTaskFilesFromLog', () => {
   it('removes semantically equivalent task using merged branch history', async () => {
     mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
       if (args.includes('--pretty=format:%s')) {
-        return "Merge branch 'harness-improvement-041'";
+        return "Merge branch 'change-041'";
       }
       return '';
     });
@@ -765,7 +880,7 @@ describe('moveTaskToMergeConflicts', () => {
     });
     moveTaskToMergeConflicts('Conflicted Task', {
       improvement: 42,
-      branchName: 'harness-improvement-042',
+      branchName: 'change-042',
       worktreePath: '/tmp/worktree-042',
     });
 
@@ -776,7 +891,7 @@ describe('moveTaskToMergeConflicts', () => {
     expect(mockWriteFileSync).toHaveBeenCalledWith(
       expect.stringContaining('scripts/ralph/triage.md'),
       expect.stringContaining(
-        'Resolve merge conflict for improvement #42 (harness-improvement-042)'
+        'Resolve merge conflict for improvement #42 (change-042)'
       )
     );
     expect(mockAppendFileSync).toHaveBeenCalledWith(
@@ -794,13 +909,13 @@ describe('moveTaskToMergeConflicts', () => {
         return '';
       }
       if (path.endsWith('merge-conflicts.md')) {
-        return '- [2026-02-25T12:00:00.000Z] Task | improvement=5 branch=harness-improvement-005 | worktree=/tmp/worktree-005 | ...\n';
+        return '- [2026-02-25T12:00:00.000Z] Task | improvement=5 branch=change-005 | worktree=/tmp/worktree-005 | ...\n';
       }
       return '';
     });
     moveTaskToMergeConflicts('Task', {
       improvement: 5,
-      branchName: 'harness-improvement-005',
+      branchName: 'change-005',
       worktreePath: '/tmp/worktree-005',
     });
 
@@ -822,7 +937,7 @@ describe('moveTaskToMergeConflicts', () => {
     });
     moveTaskToMergeConflicts('New Task', {
       improvement: 10,
-      branchName: 'harness-improvement-010',
+      branchName: 'change-010',
       worktreePath: '/tmp/worktree-010',
     });
 

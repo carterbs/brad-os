@@ -115,19 +115,30 @@ export function mergeToMain(repoDir: string, branchName: string): boolean {
 }
 
 export function countCompleted(repoDir: string): number {
-  // Count merge commits from harness-improvement branches
+  // Count merge commits from change-NNN branches (current prefix)
   const merges = git(
     repoDir,
     "log",
     "--oneline",
     "--merges",
-    "--grep=harness-improvement",
+    "--grep=change-[0-9]",
     "main",
   );
   const mergeCount = merges ? merges.split("\n").filter(Boolean).length : 0;
 
-  // Also count legacy direct commits (pre-merge workflow)
-  const legacy = git(
+  // Count legacy merge commits from harness-improvement-NNN branches
+  const legacyMerges = git(
+    repoDir,
+    "log",
+    "--oneline",
+    "--merges",
+    "--grep=harness-improvement-",
+    "main",
+  );
+  const legacyMergeCount = legacyMerges ? legacyMerges.split("\n").filter(Boolean).length : 0;
+
+  // Count legacy direct commits (pre-merge workflow)
+  const legacyDirect = git(
     repoDir,
     "log",
     "--oneline",
@@ -135,9 +146,9 @@ export function countCompleted(repoDir: string): number {
     "--grep=^harness: improvement #",
     "main",
   );
-  const legacyCount = legacy ? legacy.split("\n").filter(Boolean).length : 0;
+  const legacyDirectCount = legacyDirect ? legacyDirect.split("\n").filter(Boolean).length : 0;
 
-  return mergeCount + legacyCount;
+  return mergeCount + legacyMergeCount + legacyDirectCount;
 }
 
 /** Check if HEAD in cwd has commits beyond main (i.e. the agent made its own commits). */

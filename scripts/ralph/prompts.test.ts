@@ -22,10 +22,12 @@ describe('prompts module', () => {
     it('contains key phrases', async () => {
       const prompt = buildBacklogRefillPrompt();
 
-      expect(prompt).toContain('backlog');
-      expect(prompt).toContain('improvement');
-      expect(prompt).toContain('Quality grade improvements');
-      expect(prompt).toContain('Harness/tooling improvements');
+    expect(prompt).toContain('backlog');
+    expect(prompt).toContain('improvement');
+    expect(prompt).toContain('Quality grade improvements');
+    expect(prompt).toContain('Harness/tooling improvements');
+    expect(prompt).toContain('one task per currently suppressed rule');
+    expect(prompt).toContain('typescript-eslint');
     });
 
     it('includes the output format section', async () => {
@@ -158,13 +160,13 @@ describe('prompts module', () => {
   describe('buildOutstandingPrMergePrompt', () => {
     it('includes task, pr number, and branch', async () => {
       const prompt = buildOutstandingPrMergePrompt(
-        'Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
+        'Resolve outstanding Ralph PR #21 (change-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
         21,
-        'harness-improvement-066'
+        'change-066'
       );
 
       expect(prompt).toContain('PR #21');
-      expect(prompt).toContain('harness-improvement-066');
+      expect(prompt).toContain('change-066');
       expect(prompt).toContain('Rebase');
     });
 
