@@ -11,10 +11,11 @@ const DIM: &str = "\x1b[2m";
 const RESET: &str = "\x1b[0m";
 const LABEL_WIDTH: usize = 18;
 
-const INSTALL_CMDS: [&str; 5] = [
+const INSTALL_CMDS: [&str; 6] = [
     "brew install node@22  # or: nvm install 22",
     "# npm comes with Node — reinstall Node to update npm",
     "npm install -g firebase-tools",
+    "Install Rust: https://rustup.rs/",
     "brew install gitleaks",
     "brew install xcodegen",
 ];
@@ -87,7 +88,7 @@ where
     )?;
     check_tool(
         writer,
-        "gitleaks",
+        "cargo",
         INSTALL_CMDS[3],
         None,
         fast_mode,
@@ -97,8 +98,18 @@ where
     )?;
     check_tool(
         writer,
-        "xcodegen",
+        "gitleaks",
         INSTALL_CMDS[4],
+        None,
+        fast_mode,
+        &probe_tool,
+        &mut issues,
+        &mut install_cmds,
+    )?;
+    check_tool(
+        writer,
+        "xcodegen",
+        INSTALL_CMDS[5],
         None,
         fast_mode,
         &probe_tool,
@@ -375,6 +386,27 @@ mod tests {
         );
         assert!(output.contains("✗ firebase"));
         assert!(output.contains("npm install -g firebase-tools"));
+        assert!(output.contains("FAIL"));
+    }
+
+    #[test]
+    fn checks_cargo_installation_hint() {
+        let output = run_with_output(
+            true,
+            |command| {
+                if command == "cargo" {
+                    ProbeResult::Missing
+                } else {
+                    ProbeResult::Installed
+                }
+            },
+            RuntimeContext {
+                git_hooks_path: "hooks".to_string(),
+                has_node_modules: true,
+            },
+        );
+        assert!(output.contains("✗ cargo"));
+        assert!(output.contains("Install Rust: https://rustup.rs/"));
         assert!(output.contains("FAIL"));
     }
 

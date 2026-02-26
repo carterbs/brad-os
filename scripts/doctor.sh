@@ -4,8 +4,9 @@ set -euo pipefail
 
 SCRIPT_DIR="${BASH_SOURCE[0]%/*}"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-RELEASE_BIN="$ROOT_DIR/target/release/doctor"
-DEBUG_BIN="$ROOT_DIR/target/debug/doctor"
+RELEASE_BIN="$ROOT_DIR/target/release/brad-doctor"
+DEBUG_BIN="$ROOT_DIR/target/debug/brad-doctor"
+SOURCE_DIR="$ROOT_DIR/tools/dev-cli/src"
 FAST_MODE="${BRAD_DOCTOR_FAST:-1}"
 
 check_version_major() {
@@ -89,11 +90,11 @@ run_shell_doctor() {
   return 1
 }
 
-if [ -x "$RELEASE_BIN" ]; then
+if [ -x "$RELEASE_BIN" ] && [ -z "$(find "$SOURCE_DIR" -newer "$RELEASE_BIN" 2>/dev/null -print -quit)" ]; then
   exec "$RELEASE_BIN" "$@"
 fi
 
-if [ -x "$DEBUG_BIN" ]; then
+if [ -x "$DEBUG_BIN" ] && [ -z "$(find "$SOURCE_DIR" -newer "$DEBUG_BIN" 2>/dev/null -print -quit)" ]; then
   exec "$DEBUG_BIN" "$@"
 fi
 
@@ -103,7 +104,7 @@ if ! command -v cargo >/dev/null 2>&1; then
 fi
 
 cd "$ROOT_DIR"
-if cargo run -q -p dev-cli --bin doctor -- "$@"; then
+if cargo run -q -p dev-cli --bin brad-doctor -- "$@"; then
   exit 0
 fi
 
