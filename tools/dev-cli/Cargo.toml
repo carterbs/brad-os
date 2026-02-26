@@ -7,6 +7,10 @@ edition = "2021"
 name = "brad-qa-start"
 path = "src/bin/qa_start.rs"
 
+[[bin]]
+name = "brad-doctor"
+path = "src/bin/doctor.rs"
+
 [dependencies]
 crc32fast = "1"
 regex = "1"
