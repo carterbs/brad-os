@@ -33,11 +33,11 @@ import {
   addTriageTask,
   removeTask,
   removeTriageTask,
+  moveTaskToMergeConflicts,
   backlogPath,
   syncTaskFilesFromLog,
 } from "./backlog.js";
 import { resolveConfig } from "./config.js";
-import { MergeQueue } from "./merge-queue.js";
 import type { AgentBackend, Config, StepSummary } from "./types.js";
 
 // ── Worker result returned from runWorker ──
@@ -52,9 +52,183 @@ export interface WorkerResult {
   taskSource: TaskSource;
   prNumber?: number;
   prUrl?: string;
+  reviewCycles?: number;
+  planDocPath?: string;
   stepResults: StepSummary[];
-  failureReason?: "no_changes";
+  failureReason?: "no_changes" | "review_failed" | "merge_failed";
   mergeHandledByWorker?: boolean;
+}
+
+async function runPostMergeRecoveryCycle({
+  config,
+  logger,
+  abortController,
+  attemptCycle,
+  maxReviewCycles,
+  prNumber,
+  prUrl,
+  worktreePath,
+  branchName,
+  improvement,
+  commitTitle,
+  planDocPath,
+  stepResults,
+  runMergeAttempt,
+}: {
+  config: Config;
+  logger: Logger;
+  abortController: AbortController;
+  attemptCycle: number;
+  maxReviewCycles: number;
+  prNumber: number;
+  prUrl: string;
+  worktreePath: string;
+  branchName: string;
+  improvement: number;
+  commitTitle: string;
+  planDocPath: string;
+  stepResults: StepSummary[];
+  runMergeAttempt: () => Promise<boolean>;
+}): Promise<boolean> {
+  let cycle = attemptCycle;
+  while (cycle <= maxReviewCycles) {
+    logger.info(
+      `[4/5] Post-merge review/fix cycle ${cycle}/${maxReviewCycles} for PR #${prNumber}...`,
+    );
+    const reviewResult = await runStep({
+      prompt: buildReviewPrompt(prNumber, prUrl, cycle, maxReviewCycles),
+      stepName: "review",
+      improvement,
+      cwd: worktreePath,
+      model: config.agents.review.model,
+      backend: config.agents.review.backend,
+      config,
+      logger,
+      abortController,
+    });
+    if (!reviewResult || typeof reviewResult.outputText !== "string") {
+      logger.warn(
+        `Merge recovery review output was missing on cycle ${cycle}; escalating without extra recovery.`,
+      );
+      return false;
+    }
+    const reviewOutput = reviewResult.outputText;
+
+    const reviewSummary: StepSummary = {
+      step: "review",
+      backend: reviewResult.backend,
+      turns: reviewResult.turns,
+      costUsd: reviewResult.costUsd,
+      tokens: reviewResult.inputTokens + reviewResult.outputTokens,
+      durationMs: reviewResult.durationMs,
+    };
+    stepResults.push(reviewSummary);
+    logger.stepSummary("review", reviewSummary);
+
+    let shouldRetryMerge = false;
+    if (reviewOutput.includes("REVIEW_PASSED")) {
+      shouldRetryMerge = true;
+    } else if (reviewOutput.includes("REVIEW_FAILED")) {
+      logger.warn("Reviewer still found issues after merge failure — running fix step...");
+      const fixResult = await runStep({
+        prompt: buildFixPrompt(reviewOutput, planDocPath),
+        stepName: "implement",
+        improvement,
+        cwd: worktreePath,
+        model: config.agents.implement.model,
+        backend: config.agents.implement.backend,
+        config,
+        logger,
+        abortController,
+      });
+
+      enforceMainManagedBacklog(worktreePath, logger);
+      const committedFix = commitAll(worktreePath, `${commitTitle} — merge recovery (cycle ${cycle})`);
+
+      const fixSummary: StepSummary = {
+        step: "implement",
+        backend: fixResult.backend,
+        turns: fixResult.turns,
+        costUsd: fixResult.costUsd,
+        tokens: fixResult.inputTokens + fixResult.outputTokens,
+        durationMs: fixResult.durationMs,
+      };
+      stepResults.push(fixSummary);
+      logger.stepSummary("implement", fixSummary);
+
+      const fixLine = fixResult.outputText
+        .split("\n")
+        .find((l) => l.startsWith("FIXED:"));
+      if (fixLine) logger.info(`  ${fixLine}`);
+
+      if (committedFix && !pushBranch(worktreePath, branchName)) {
+        logger.error(`Failed to push merge-recovery fixes for cycle ${cycle}`);
+        logger.info(`  Worktree preserved at: ${worktreePath}`);
+        return false;
+      }
+
+      shouldRetryMerge = true;
+    } else {
+      logger.warn("Ambiguous merge recovery review output...");
+      if (runValidation(worktreePath)) {
+        shouldRetryMerge = true;
+      } else {
+        const fixResult = await runStep({
+          prompt:
+            buildFixPrompt(
+              "Review output was ambiguous, but npm run validate failed. " +
+                "Run npm run validate, read the error output, and fix all issues.",
+              planDocPath,
+            ),
+          model: config.agents.implement.model,
+          backend: config.agents.implement.backend,
+          stepName: "implement",
+          improvement,
+          cwd: worktreePath,
+          config,
+          logger,
+          abortController,
+        });
+
+        enforceMainManagedBacklog(worktreePath, logger);
+        const committedFix = commitAll(worktreePath, `${commitTitle} — merge recovery validation (cycle ${cycle})`);
+
+        const fixSummary: StepSummary = {
+          step: "implement",
+          backend: fixResult.backend,
+          turns: fixResult.turns,
+          costUsd: fixResult.costUsd,
+          tokens: fixResult.inputTokens + fixResult.outputTokens,
+          durationMs: fixResult.durationMs,
+        };
+        stepResults.push(fixSummary);
+        logger.stepSummary("implement", fixSummary);
+
+        const fixLine = fixResult.outputText
+          .split("\n")
+          .find((l) => l.startsWith("FIXED:"));
+        if (fixLine) logger.info(`  ${fixLine}`);
+
+        if (committedFix && !pushBranch(worktreePath, branchName)) {
+          logger.error(
+            `Failed to push merge-recovery validation fixes for cycle ${cycle}`,
+          );
+          logger.info(`  Worktree preserved at: ${worktreePath}`);
+          return false;
+        }
+
+        shouldRetryMerge = true;
+      }
+    }
+
+    if (!shouldRetryMerge) return false;
+    const merged = await runMergeAttempt();
+    if (merged) return true;
+
+    cycle++;
+  }
+
+  return false;
 }
 
 export type TaskSource = "backlog" | "triage" | "cli";
@@ -611,50 +785,88 @@ export async function runWorker(
       logger.success(`Reusing PR #${pr.number}: ${pr.url}`);
       logger.info("[4/5] Skipping review (outstanding PR triage task)");
 
-      logger.info(`[5/5] Agent handling merge for PR #${pr.number}...`);
-      const mergeResult = await runStep({
-        prompt: buildAgentMergePrompt(pr.number, branchName),
-        stepName: "merge",
-        improvement,
-        cwd: worktreePath,
-        model: config.agents.implement.model,
-        backend: config.agents.implement.backend,
-        config,
-        logger,
-        abortController,
-      });
-      if (!mergeResult.success) {
-        logger.error(`Agent merge step failed for PR #${pr.number}`);
-        logger.info(`  Worktree preserved at: ${worktreePath}`);
-        return {
-          success: false,
+      const attemptMerge = async (): Promise<boolean> => {
+        logger.info(`[5/5] Agent handling merge for PR #${pr.number}...`);
+        const mergeResult = await runStep({
+          prompt: buildAgentMergePrompt(pr.number, branchName),
+          stepName: "merge",
           improvement,
-          workerSlot,
-          branchName,
-          worktreePath,
-          taskText,
-          taskSource,
-          prNumber: pr.number,
-          prUrl: pr.url,
-          stepResults,
-        };
-      }
-      stepResults.push({
-        step: "merge",
-        backend: mergeResult.backend,
-        turns: mergeResult.turns,
-        costUsd: mergeResult.costUsd,
-        tokens: mergeResult.inputTokens + mergeResult.outputTokens,
-        durationMs: mergeResult.durationMs,
-      });
-      logger.stepSummary("merge", stepResults[stepResults.length - 1]);
+          cwd: worktreePath,
+          model: config.agents.implement.model,
+          backend: config.agents.implement.backend,
+          config,
+          logger,
+          abortController,
+        });
+        if (!mergeResult.success) {
+          logger.error(`Agent merge step failed for PR #${pr.number}`);
+          logger.info(`  Worktree preserved at: ${worktreePath}`);
+          return false;
+        }
 
-      const mergeState = readPullRequestMergeState(worktreePath, pr.number);
-      if (!mergeState?.mergedAt) {
-        logger.error(
-          `PR #${pr.number} is not merged after agent merge step (state=${mergeState?.state ?? "UNKNOWN"}).`,
+        stepResults.push({
+          step: "merge",
+          backend: mergeResult.backend,
+          turns: mergeResult.turns,
+          costUsd: mergeResult.costUsd,
+          tokens: mergeResult.inputTokens + mergeResult.outputTokens,
+          durationMs: mergeResult.durationMs,
+        });
+        logger.stepSummary("merge", stepResults[stepResults.length - 1]);
+
+        const mergeState = readPullRequestMergeState(worktreePath, pr.number);
+        if (!mergeState?.mergedAt) {
+          logger.error(
+            `PR #${pr.number} is not merged after agent merge step (state=${mergeState?.state ?? "UNKNOWN"}).`,
+          );
+          logger.info(`  Worktree preserved at: ${worktreePath}`);
+          return false;
+        }
+
+        return true;
+      };
+
+      let merged = await attemptMerge();
+      if (!merged) {
+        logger.warn(
+          `PR #${pr.number} merge attempt failed; running post-merge review/fix cycle before retry...`,
         );
-        logger.info(`  Worktree preserved at: ${worktreePath}`);
+        const recovered = await runPostMergeRecoveryCycle({
+          config,
+          logger,
+          abortController,
+          attemptCycle: 1,
+          maxReviewCycles: config.maxReviewCycles,
+          prNumber: pr.number,
+          prUrl: pr.url,
+          worktreePath,
+          branchName,
+          improvement,
+          commitTitle: `Merge recovery for PR #${pr.number}`,
+          planDocPath,
+          stepResults,
+          runMergeAttempt: attemptMerge,
+        });
+        if (!recovered) {
+          return {
+            success: false,
+            improvement,
+            workerSlot,
+            branchName,
+            worktreePath,
+            taskText,
+            taskSource,
+            prNumber: pr.number,
+            prUrl: pr.url,
+            stepResults,
+            planDocPath,
+            failureReason: "merge_failed",
+          };
+        }
+        merged = true;
+      }
+
+      if (!merged) {
         return {
           success: false,
           improvement,
@@ -666,6 +878,8 @@ export async function runWorker(
           prNumber: pr.number,
           prUrl: pr.url,
           stepResults,
+          planDocPath,
+          failureReason: "merge_failed",
         };
       }
 
@@ -692,6 +906,7 @@ export async function runWorker(
         prUrl: pr.url,
         stepResults,
         mergeHandledByWorker: true,
+        planDocPath,
       };
     }
 
@@ -718,6 +933,7 @@ export async function runWorker(
             taskText,
             taskSource,
             stepResults,
+            mergeHandledByWorker: true,
           };
         }
         logger.error("No changes produced");
@@ -816,7 +1032,19 @@ export async function runWorker(
           reason: "exceeded review cycles",
           ts: new Date().toISOString(),
         });
-        return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, taskSource, stepResults };
+        return {
+          success: false,
+          improvement,
+          workerSlot,
+          branchName,
+          worktreePath,
+          taskText,
+          taskSource,
+          stepResults,
+          reviewCycles: cycle,
+          planDocPath,
+          failureReason: "review_failed",
+        };
       }
 
       logger.info(`[4/5] Review PR #${pr.number} (cycle ${cycle}/${config.maxReviewCycles})...`);
@@ -953,20 +1181,87 @@ export async function runWorker(
     logger.stepSummary("review", reviewAccum);
 
     logger.info(`[5/5] Agent handling merge for PR #${pr.number}...`);
-    const mergeResult = await runStep({
-      prompt: buildAgentMergePrompt(pr.number, branchName),
-      stepName: "merge",
-      improvement,
-      cwd: worktreePath,
-      model: config.agents.implement.model,
-      backend: config.agents.implement.backend,
-      config,
-      logger,
-      abortController,
-    });
-    if (!mergeResult.success) {
-      logger.error(`Agent merge step failed for PR #${pr.number}`);
-      logger.info(`  Worktree preserved at: ${worktreePath}`);
+    const attemptMerge = async (): Promise<boolean> => {
+      const mergeResult = await runStep({
+        prompt: buildAgentMergePrompt(pr.number, branchName),
+        stepName: "merge",
+        improvement,
+        cwd: worktreePath,
+        model: config.agents.implement.model,
+        backend: config.agents.implement.backend,
+        config,
+        logger,
+        abortController,
+      });
+      if (!mergeResult.success) {
+        logger.error(`Agent merge step failed for PR #${pr.number}`);
+        logger.info(`  Worktree preserved at: ${worktreePath}`);
+        return false;
+      }
+
+      stepResults.push({
+        step: "merge",
+        backend: mergeResult.backend,
+        turns: mergeResult.turns,
+        costUsd: mergeResult.costUsd,
+        tokens: mergeResult.inputTokens + mergeResult.outputTokens,
+        durationMs: mergeResult.durationMs,
+      });
+      logger.stepSummary("merge", stepResults[stepResults.length - 1]);
+
+      const mergeState = readPullRequestMergeState(worktreePath, pr.number);
+      if (!mergeState?.mergedAt) {
+        logger.error(
+          `PR #${pr.number} is not merged after agent merge step (state=${mergeState?.state ?? "UNKNOWN"}).`,
+        );
+        logger.info(`  Worktree preserved at: ${worktreePath}`);
+        return false;
+      }
+
+      return true;
+    };
+
+    let merged = await attemptMerge();
+    if (!merged) {
+      const recoveryAttemptCycle = cycle + 1;
+      const recovered = await runPostMergeRecoveryCycle({
+        config,
+        logger,
+        abortController,
+        attemptCycle: recoveryAttemptCycle,
+        maxReviewCycles: config.maxReviewCycles,
+        prNumber: pr.number,
+        prUrl: pr.url,
+        worktreePath,
+        branchName,
+        improvement,
+        commitTitle: `Merge recovery for PR #${pr.number}`,
+        planDocPath,
+        stepResults,
+        runMergeAttempt: attemptMerge,
+      });
+
+      if (!recovered) {
+        return {
+          success: false,
+          improvement,
+          workerSlot,
+          branchName,
+          worktreePath,
+          taskText,
+          taskSource,
+          prNumber: pr.number,
+          prUrl: pr.url,
+          stepResults,
+          planDocPath,
+          reviewCycles: recoveryAttemptCycle,
+          failureReason: "merge_failed",
+        };
+      }
+      merged = true;
+    }
+
+    if (!merged) {
       return {
         success: false,
         improvement,
@@ -978,39 +1273,12 @@ export async function runWorker(
         prNumber: pr.number,
         prUrl: pr.url,
         stepResults,
-      };
-    }
-    stepResults.push({
-      step: "merge",
-      backend: mergeResult.backend,
-      turns: mergeResult.turns,
-      costUsd: mergeResult.costUsd,
-      tokens: mergeResult.inputTokens + mergeResult.outputTokens,
-      durationMs: mergeResult.durationMs,
-    });
-    logger.stepSummary("merge", stepResults[stepResults.length - 1]);
-
-    const mergeState = readPullRequestMergeState(worktreePath, pr.number);
-    if (!mergeState?.mergedAt) {
-      logger.error(
-        `PR #${pr.number} is not merged after agent merge step (state=${mergeState?.state ?? "UNKNOWN"}).`,
-      );
-      logger.info(`  Worktree preserved at: ${worktreePath}`);
-      return {
-        success: false,
-        improvement,
-        workerSlot,
-        branchName,
-        worktreePath,
-        taskText,
-        taskSource,
-        prNumber: pr.number,
-        prUrl: pr.url,
-        stepResults,
+        planDocPath,
+        reviewCycles: cycle,
+        failureReason: "merge_failed",
       };
     }
 
-    // Worker done — final merge decision is handled by orchestrator via MergeQueue
     const totalCost = stepResults.reduce((s, r) => s + r.costUsd, 0);
     const totalDuration = stepResults.reduce((s, r) => s + r.durationMs, 0);
     logger.improvementSummary(improvement, stepResults);
@@ -1033,6 +1301,8 @@ export async function runWorker(
       prNumber: pr.number,
       prUrl: pr.url,
       stepResults,
+      reviewCycles: cycle,
+      planDocPath,
       mergeHandledByWorker: true,
     };
   } catch (err) {
@@ -1070,7 +1340,6 @@ export async function main(): Promise<void> {
   const config = resolveConfig();
   const orchestratorLogger = new Logger(config.logFile, config.verbose);
   const abortController = new AbortController();
-  const mergeQueue = new MergeQueue();
 
   // Signal handling
   process.on("SIGINT", () => {
@@ -1272,7 +1541,64 @@ export async function main(): Promise<void> {
     logger.warn(`Escalated to human review (${prLabel}); branch preserved at ${result.worktreePath}`);
   }
 
+  function escalateMergeConflict(result: WorkerResult, logger: Logger): void {
+    if (!result.taskText || config.task) return;
+
+    const prLabel =
+      result.prNumber !== undefined ? `PR #${result.prNumber}` : result.branchName;
+    tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
+    if (result.taskSource === "triage") {
+      removeTriageTask(result.taskText);
+    } else {
+      removeTask(result.taskText);
+    }
+    moveTaskToMergeConflicts(result.taskText, {
+      improvement: result.improvement,
+      branchName: result.branchName,
+      worktreePath: result.worktreePath,
+    });
+    logger.warn(
+      `Escalated to merge-conflict triage (${prLabel}); branch preserved at ${result.worktreePath}`,
+    );
+  }
+
   // ── Main orchestration loop ──
+
+  function importOutstandingRalphPrs(): number {
+    if (config.task) return 0;
+
+    const outstandingRalphPrs = listOpenRalphPullRequests(
+      config.repoDir,
+      config.branchPrefix,
+    );
+    if (outstandingRalphPrs.length === 0) return 0;
+
+    const attachedBranches = new Set(
+      [...activeWorktrees.values()].map((worktree) => worktree.branch),
+    );
+    let added = 0;
+
+    for (const pr of outstandingRalphPrs) {
+      if (attachedBranches.has(pr.headRefName)) continue;
+
+      const task = buildOutstandingRalphPrTriageTask({
+        prNumber: pr.number,
+        branchName: pr.headRefName,
+        prUrl: pr.url,
+      });
+      if (addTriageTask(task)) {
+        added++;
+      }
+    }
+
+    if (added > 0) {
+      orchestratorLogger.warn(
+        `Imported ${added} outstanding Ralph PR(s) into triage.`,
+      );
+    }
+
+    return added;
+  }
 
   if (!config.task && !runValidation(config.repoDir)) {
     if (addTriageTask(MAIN_NOT_GREEN_TRIAGE_TASK)) {
@@ -1282,15 +1608,19 @@ export async function main(): Promise<void> {
     }
   }
 
-  while (
-    hasMoreWork(
-      completed,
-      config.target,
-      readTriage().length,
-      readBacklog().length,
-      tasksInFlight.size,
-    )
-  ) {
+  while (true) {
+    importOutstandingRalphPrs();
+    if (
+      !hasMoreWork(
+        completed,
+        config.target,
+        readTriage().length,
+        readBacklog().length,
+        tasksInFlight.size,
+      )
+    ) {
+      break;
+    }
     if (abortController.signal.aborted) break;
 
     // Check failure threshold BEFORE launching new workers
@@ -1412,46 +1742,12 @@ export async function main(): Promise<void> {
         consecutiveFailures++;
         continue;
       }
-
-      // Enqueue to merge queue
-      const mergeResult = await mergeQueue.enqueue({
-        repoDir: config.repoDir,
-        worktreePath: result.worktreePath,
-        branchName: result.branchName,
-        prNumber: result.prNumber,
-        improvement: result.improvement,
-        worker: finishedSlot,
-        logger: finishedLogger,
-      });
-
-      if (mergeResult.success) {
-        // Remove task from backlog and in-flight set
-        if (result.taskText && !config.task) {
-          if (result.taskSource === "triage") {
-            removeTriageTask(result.taskText);
-            finishedLogger.info("Task removed from triage after successful merge");
-          } else {
-            removeTask(result.taskText);
-            finishedLogger.info("Task removed from backlog after successful merge");
-          }
-          tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
-        }
-        syncBacklog(orchestratorLogger, "post-merge");
-        activeWorktrees.delete(finishedSlot);
-        completed++;
-        consecutiveFailures = 0;
-        orchestratorLogger.success(
-          `Progress: ${completed}${config.target !== undefined ? `/${config.target}` : ""} \u2713`,
-        );
-      } else {
-        // Merge failed (conflict) — treat as failure
-        parkTaskAfterEscalation(result, finishedLogger);
-        activeWorktrees.delete(finishedSlot);
-        consecutiveFailures++;
-        orchestratorLogger.warn(
-          `Merge failed for improvement #${result.improvement} (consecutive failures: ${consecutiveFailures})`,
-        );
-      }
+      finishedLogger.warn(
+        `Result for improvement #${result.improvement} was successful but merge was not worker-handled; escalating for visibility`,
+      );
+      escalateMergeConflict(result, finishedLogger);
+      activeWorktrees.delete(finishedSlot);
+      consecutiveFailures++;
     } else {
       // Worker failed
       if (
@@ -1459,7 +1755,11 @@ export async function main(): Promise<void> {
         result.taskText &&
         !config.task
       ) {
-        parkTaskAfterEscalation(result, finishedLogger);
+        if (result.failureReason === "review_failed") {
+          parkTaskAfterEscalation(result, finishedLogger);
+        } else {
+          escalateMergeConflict(result, finishedLogger);
+        }
       }
       if (result.taskText) {
         tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
@@ -1516,32 +1816,12 @@ export async function main(): Promise<void> {
           continue;
         }
         const workerLogger = new Logger(config.logFile, config.verbose, result.workerSlot);
-        const mergeResult = await mergeQueue.enqueue({
-          repoDir: config.repoDir,
-          worktreePath: result.worktreePath,
-          branchName: result.branchName,
-          prNumber: result.prNumber,
-          improvement: result.improvement,
-          worker: result.workerSlot,
-          logger: workerLogger,
-        });
-        if (mergeResult.success) {
-          if (result.taskText && !config.task) {
-            if (result.taskSource === "triage") {
-              removeTriageTask(result.taskText);
-            } else {
-              removeTask(result.taskText);
-            }
-            tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
-          }
-          syncBacklog(orchestratorLogger, "post-merge");
-          activeWorktrees.delete(result.workerSlot);
-          completed++;
-        } else {
-          parkTaskAfterEscalation(result, workerLogger);
-          activeWorktrees.delete(result.workerSlot);
-          consecutiveFailures++;
-        }
+        workerLogger.warn(
+          `Result for improvement #${result.improvement} was successful but merge was not worker-handled; escalating for visibility`,
+        );
+        escalateMergeConflict(result, workerLogger);
+        activeWorktrees.delete(result.workerSlot);
+        consecutiveFailures++;
       }
       if (r.status === "fulfilled" && !r.value.success) {
         const result = r.value;
@@ -1551,7 +1831,11 @@ export async function main(): Promise<void> {
           result.workerSlot,
         );
         if (result.prNumber !== undefined && result.taskText && !config.task) {
-          parkTaskAfterEscalation(result, workerLogger);
+          if (result.failureReason === "review_failed") {
+            parkTaskAfterEscalation(result, workerLogger);
+          } else {
+            escalateMergeConflict(result, workerLogger);
+          }
         }
         if (result.taskText) {
           tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
