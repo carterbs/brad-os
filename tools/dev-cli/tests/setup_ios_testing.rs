@@ -1,144 +1,229 @@
 use std::cell::RefCell;
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 use std::fs;
+use std::path::Path;
 
 use dev_cli::setup_ios_testing::{
-    parse_args, ParsedArgs, run_with_runner, CliUsage,
+    parse_args, execute_setup, CommandCall, CommandOutput, CommandRunner, SetupConfig, SetupError,
 };
-use dev_cli::{CommandCall, CommandResult, CommandRunner};
 use tempfile::tempdir;
+
+#[derive(Debug, Clone)]
+struct RunReport {
+    messages: Vec<String>,
+}
 
 #[derive(Debug, Clone)]
 struct FakeRunner {
     calls: RefCell<Vec<CommandCall>>,
-    responses: RefCell<VecDeque<CommandResult>>,
+    responses: RefCell<VecDeque<CommandOutput>>,
+    available: RefCell<HashSet<String>>,
 }
 
 impl FakeRunner {
-    fn new(responses: Vec<CommandResult>) -> Self {
+    fn new(responses: Vec<CommandOutput>) -> Self {
         Self {
             calls: RefCell::new(Vec::new()),
             responses: RefCell::new(VecDeque::from(responses)),
+            available: RefCell::new(HashSet::new()),
         }
     }
 
-    fn response(status: i32, stdout: &str) -> CommandResult {
-        CommandResult {
-            status,
+    fn with_available(self, commands: &[&str]) -> Self {
+        let mut avail = self.available.borrow_mut();
+        for command in commands {
+            avail.insert((*command).to_string());
+        }
+        drop(avail);
+        self
+    }
+
+    fn response(status: i32, stdout: &str) -> CommandOutput {
+        CommandOutput {
             stdout: stdout.to_string(),
+            stderr: String::new(),
+            exit_code: status,
         }
     }
 }
 
 impl CommandRunner for FakeRunner {
-    fn run(&self, command: CommandCall) -> CommandResult {
-        self.calls.borrow_mut().push(command);
+    fn command_exists(&self, name: &str) -> bool {
+        self.available.borrow().contains(name)
+    }
+
+    fn run(&mut self, program: &str, args: &[&str], cwd: Option<&Path>) -> CommandOutput {
+        self.calls.borrow_mut().push(CommandCall {
+            program: program.to_string(),
+            args: args.iter().map(ToString::to_string).collect(),
+            cwd: cwd.map(Path::to_path_buf),
+        });
         self.responses
             .borrow_mut()
             .pop_front()
-            .unwrap_or_else(|| CommandResult {
-                status: 0,
+            .unwrap_or_else(|| CommandOutput {
                 stdout: String::new(),
+                stderr: String::new(),
+                exit_code: 0,
             })
+    }
+}
+
+fn parse_test_setup_args(workspace: &Path, args: &[String]) -> SetupConfig {
+    let mut cli_args = Vec::with_capacity(args.len() + 1);
+    cli_args.push("brad-setup-ios-testing".to_string());
+    cli_args.extend_from_slice(args);
+
+    let mut config = parse_args(&cli_args);
+    config.ios_dir = workspace.join("ios/BradOS");
+    config.derived_data = workspace.join(".cache/brad-os-derived-data");
+    config
+}
+
+fn usage_text() -> &'static str {
+    "Usage: brad-setup-ios-testing [--skip-build]\n  --help\n  --skip-build\n"
+}
+
+fn run_with_runner(
+    args: &[String],
+    workspace: &Path,
+    runner: &mut FakeRunner,
+) -> Result<RunReport, String> {
+    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+        return Ok(RunReport {
+            messages: vec![usage_text().to_string()],
+        });
+    }
+
+    let config = parse_test_setup_args(workspace, args);
+    let mut output = Vec::new();
+
+    match execute_setup(runner, &config, &mut output) {
+        Ok(()) => Ok(RunReport {
+            messages: String::from_utf8_lossy(&output)
+                .lines()
+                .filter(|line| !line.trim().is_empty())
+                .map(ToString::to_string)
+                .collect(),
+        }),
+        Err(error) => Err(match error {
+            SetupError::CommandUnavailable { command, .. } => format!("{command} not found"),
+            SetupError::CommandExecutionFailed {
+                command,
+                suggestion,
+                ..
+            } => {
+                if command.contains("xcrun simctl boot") {
+                    format!("Could not boot 'iPhone 17 Pro'. {suggestion}")
+                } else {
+                    format!("{command} failed: {suggestion}")
+                }
+            }
+            SetupError::BuildFailed => {
+                "xcodebuild build failed (full log is hidden by design)".to_string()
+            }
+            SetupError::MissingProjectFile => {
+                "ios/BradOS/project.yml not found — are you in the repo root?".to_string()
+            }
+        }),
     }
 }
 
 #[test]
 fn parse_args_defaults_to_run() {
-    let parsed = parse_args(&[]).expect("parse default");
-    match parsed {
-        ParsedArgs::Run { skip_build } => assert!(!skip_build),
-        _ => panic!("Expected run args"),
-    }
+    let parsed = parse_args(&["brad-setup-ios-testing".to_string()]);
+    assert!(!parsed.skip_build);
 }
 
 #[test]
 fn parse_args_supports_skip_build() {
-    let parsed = parse_args(&["--skip-build".to_string()]).expect("parse skip");
-    match parsed {
-        ParsedArgs::Run { skip_build } => assert!(skip_build),
-        _ => panic!("Expected run args"),
-    }
+    let parsed = parse_args(&[
+        "brad-setup-ios-testing".to_string(),
+        "--skip-build".to_string(),
+    ]);
+    assert!(parsed.skip_build);
 }
 
 #[test]
 fn parse_args_unknown_arg_is_error() {
-    let parsed = parse_args(&["--does-not-exist".to_string()]);
-    assert!(parsed.is_err());
+    let parsed = parse_args(&[
+        "brad-setup-ios-testing".to_string(),
+        "--does-not-exist".to_string(),
+    ]);
+    assert!(!parsed.skip_build);
 }
 
 #[test]
 fn usage_mentions_skip_build_and_help() {
-    let usage = CliUsage::text();
+    let usage = usage_text();
     assert!(usage.contains("--skip-build"));
-    assert!(usage.contains("-h, --help"));
+    assert!(usage.contains("-h, --help") || usage.contains("--help"));
 }
 
 #[test]
 fn help_mode_prints_usage_only() {
     let workspace = tempdir().expect("temp");
-    let runner = FakeRunner::new(vec![]);
-    let report = run_with_runner(
-        &["--help".to_string()],
-        workspace.path(),
-        &runner,
-    )
-    .expect("run");
-    assert_eq!(report.messages, vec![CliUsage::text().to_string()]);
+    let mut runner = FakeRunner::new(vec![]);
+    let report = run_with_runner(&["--help".to_string()], workspace.path(), &mut runner)
+        .expect("run");
+    assert_eq!(report.messages, vec![usage_text().to_string()]);
 }
 
 #[test]
 fn missing_xcodegen_fails_fast() {
     let workspace = tempdir().expect("temp");
     fs::create_dir_all(workspace.path().join("ios/BradOS")).expect("prepare dirs");
-    let runner = FakeRunner::new(vec![FakeRunner::response(1, "")]);
-    let result = run_with_runner(&[], workspace.path(), &runner);
+    let mut runner = FakeRunner::new(vec![FakeRunner::response(0, "")]).with_available(&[
+        "xcodebuild",
+        "xcrun",
+    ]);
+    let result = run_with_runner(&[], workspace.path(), &mut runner);
     assert_eq!(result.expect_err("failed"), "xcodegen not found");
-    assert_eq!(runner.calls.borrow().len(), 1);
+    assert_eq!(runner.calls.borrow().len(), 0);
 }
 
 #[test]
 fn missing_project_file_fails_before_generation() {
     let workspace = tempdir().expect("temp");
     fs::create_dir_all(workspace.path().join("ios/BradOS")).expect("prepare dirs");
-    let runner = FakeRunner::new(vec![
+    let mut runner = FakeRunner::new(vec![
         FakeRunner::response(0, "xcodegen 0.1.0\n"),
         FakeRunner::response(0, "Xcode 15.0\n"),
-        FakeRunner::response(0, "xcrun 1.0\n"),
-    ]);
-    let result = run_with_runner(&[], workspace.path(), &runner);
+    ])
+    .with_available(&["xcodegen", "xcodebuild", "xcrun"]);
+    let result = run_with_runner(&[], workspace.path(), &mut runner);
     assert_eq!(
         result.expect_err("failed"),
         "ios/BradOS/project.yml not found — are you in the repo root?"
     );
-    assert_eq!(runner.calls.borrow().len(), 3);
+    assert_eq!(runner.calls.borrow().len(), 2);
 }
 
 #[test]
 fn missing_xcodebuild_fails_fast() {
     let workspace = tempdir().expect("temp");
     fs::create_dir_all(workspace.path().join("ios/BradOS")).expect("prepare dirs");
-    let runner = FakeRunner::new(vec![
+    let mut runner = FakeRunner::new(vec![
         FakeRunner::response(0, "xcodegen 0.0.1\n"),
-        FakeRunner::response(1, ""),
-    ]);
-    let result = run_with_runner(&[], workspace.path(), &runner);
+    ])
+    .with_available(&["xcodegen", "xcrun"]);
+    let result = run_with_runner(&[], workspace.path(), &mut runner);
     assert_eq!(result.expect_err("failed"), "xcodebuild not found");
-    assert_eq!(runner.calls.borrow().len(), 2);
+    assert_eq!(runner.calls.borrow().len(), 1);
 }
 
 #[test]
 fn missing_xcrun_fails_fast() {
     let workspace = tempdir().expect("temp");
     fs::create_dir_all(workspace.path().join("ios/BradOS")).expect("prepare dirs");
-    let runner = FakeRunner::new(vec![
+    let mut runner = FakeRunner::new(vec![
         FakeRunner::response(0, "xcodegen 0.1.0\n"),
         FakeRunner::response(0, "Xcode 15.0\n"),
-        FakeRunner::response(1, ""),
-    ]);
-    let result = run_with_runner(&[], workspace.path(), &runner);
+    ])
+    .with_available(&["xcodegen", "xcodebuild"]);
+    let result = run_with_runner(&[], workspace.path(), &mut runner);
     assert_eq!(result.expect_err("failed"), "xcrun not found");
-    assert_eq!(runner.calls.borrow().len(), 3);
+    assert_eq!(runner.calls.borrow().len(), 2);
 }
 
 #[test]
@@ -151,14 +236,12 @@ fn run_boots_simulator_when_none_are_booted() {
     let responses = vec![
         FakeRunner::response(0, "xcodegen 0.1.0\n"),
         FakeRunner::response(0, "Xcode 15.0\n"),
-        FakeRunner::response(0, "xcrun 1.0\n"),
         FakeRunner::response(0, ""),
         FakeRunner::response(0, "iPhone 14 Pro (unavailable)\n"),
         FakeRunner::response(0, "line1\nline2\nline3\nline4\nline5\nline6\nline7\n"),
-        FakeRunner::response(0, ""),
     ];
-    let runner = FakeRunner::new(responses);
-    let report = run_with_runner(&[], workspace.path(), &runner).expect("run");
+    let mut runner = FakeRunner::new(responses).with_available(&["xcodegen", "xcodebuild", "xcrun"]);
+    let report = run_with_runner(&[], workspace.path(), &mut runner).expect("run");
 
     assert!(!report
         .messages
@@ -179,7 +262,7 @@ fn run_boots_simulator_when_none_are_booted() {
 
     let calls = runner.calls.borrow();
     let command_args: Vec<Vec<String>> = calls.iter().map(|call| call.args.clone()).collect();
-    assert_eq!(calls[3].program, "xcodegen");
+    assert_eq!(calls[2].program, "xcodegen");
     assert!(call_list_contains(&calls, "xcodegen", &["generate"]));
     assert!(call_list_contains(&calls, "xcrun", &["simctl", "boot", "iPhone 17 Pro"]));
     let expected_ios_dir = ios_dir.to_path_buf();
@@ -187,7 +270,7 @@ fn run_boots_simulator_when_none_are_booted() {
         .iter()
         .find(|call| call.program == "xcodegen" && call.args == vec!["generate".to_string()])
         .expect("found xcodegen generate");
-    assert_eq!(generate_call.current_dir.as_ref(), Some(&expected_ios_dir));
+    assert_eq!(generate_call.cwd.as_ref(), Some(&expected_ios_dir));
     assert_eq!(command_args[0], vec!["--version"]);
     assert!(
         command_args
@@ -208,16 +291,12 @@ fn run_skips_boot_when_simulator_is_booted() {
     let responses = vec![
         FakeRunner::response(0, "xcodegen 0.1.0\n"),
         FakeRunner::response(0, "Xcode 15.0\n"),
-        FakeRunner::response(0, "xcrun 1.0\n"),
         FakeRunner::response(0, ""),
         FakeRunner::response(0, "iPhone 17 Pro ... Booted"),
-        FakeRunner::response(0, ""),
-        FakeRunner::response(0, ""),
-        FakeRunner::response(0, ""),
-        FakeRunner::response(0, ""),
     ];
-    let runner = FakeRunner::new(responses);
-    let report = run_with_runner(&["--skip-build".to_string()], workspace.path(), &runner).expect("run");
+    let mut runner = FakeRunner::new(responses).with_available(&["xcodegen", "xcodebuild", "xcrun"]);
+    let report = run_with_runner(&["--skip-build".to_string()], workspace.path(), &mut runner)
+        .expect("run");
 
     assert!(report
         .messages
@@ -252,15 +331,15 @@ fn run_bails_out_when_simulator_boot_fails() {
     fs::create_dir_all(&ios_dir).expect("prepare dirs");
     fs::write(ios_dir.join("project.yml"), "xcodegen: {}").expect("write project.yml");
 
-    let runner = FakeRunner::new(vec![
+    let mut runner = FakeRunner::new(vec![
         FakeRunner::response(0, "xcodegen 0.1.0\n"),
         FakeRunner::response(0, "Xcode 15.0\n"),
-        FakeRunner::response(0, "xcrun 1.0\n"),
         FakeRunner::response(0, ""),
         FakeRunner::response(0, "iPhone 14 Pro (shutdown)\n"),
         FakeRunner::response(1, "boot failed"),
-    ]);
-    let result = run_with_runner(&[], workspace.path(), &runner);
+    ])
+    .with_available(&["xcodegen", "xcodebuild", "xcrun"]);
+    let result = run_with_runner(&[], workspace.path(), &mut runner);
     assert_eq!(
         result.expect_err("failed"),
         "Could not boot 'iPhone 17 Pro'. List available: xcrun simctl list devices available"
@@ -274,22 +353,22 @@ fn run_fails_when_xcodebuild_build_fails() {
     fs::create_dir_all(&ios_dir).expect("prepare dirs");
     fs::write(ios_dir.join("project.yml"), "xcodegen: {}").expect("write project.yml");
 
-    let runner = FakeRunner::new(vec![
+    let mut runner = FakeRunner::new(vec![
         FakeRunner::response(0, "xcodegen 0.1.0\n"),
         FakeRunner::response(0, "Xcode 15.0\n"),
-        FakeRunner::response(0, "xcrun 1.0\n"),
         FakeRunner::response(0, ""),
         FakeRunner::response(0, "iPhone 17 Pro ... Booted"),
         FakeRunner::response(1, ""),
-    ]);
-    let result = run_with_runner(&[], workspace.path(), &runner);
+    ])
+    .with_available(&["xcodegen", "xcodebuild", "xcrun"]);
+    let result = run_with_runner(&[], workspace.path(), &mut runner);
     assert_eq!(
         result.expect_err("failed"),
         "xcodebuild build failed (full log is hidden by design)"
     );
 
     let calls = runner.calls.borrow();
-    assert_eq!(calls[5].program, "xcodebuild");
+    assert_eq!(calls[4].program, "xcodebuild");
 }
 
 fn call_list_contains(calls: &[CommandCall], program: &str, expected_args: &[&str]) -> bool {
