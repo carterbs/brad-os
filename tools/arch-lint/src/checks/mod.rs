@@ -1,4 +1,5 @@
 pub mod arch_map_refs;
+pub mod doc_freshness;
 pub mod claude_md_refs;
 pub mod firebase_routes;
 pub mod ios_layers;
