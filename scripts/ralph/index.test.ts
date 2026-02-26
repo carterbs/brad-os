@@ -36,7 +36,6 @@ const {
   mockMoveTaskToMergeConflicts,
   mockSyncTaskFilesFromLog,
   mockResolveConfig,
-  mockMergeQueueEnqueue,
   mockEnsurePullRequest,
   mockListOpenRalphPullRequests,
   mockPushBranch,
@@ -70,7 +69,6 @@ const {
   mockMoveTaskToMergeConflicts: vi.fn(),
   mockSyncTaskFilesFromLog: vi.fn(),
   mockResolveConfig: vi.fn(),
-  mockMergeQueueEnqueue: vi.fn(),
   mockEnsurePullRequest: vi.fn(),
   mockListOpenRalphPullRequests: vi.fn(),
   mockPushBranch: vi.fn(),
@@ -122,12 +120,6 @@ vi.mock('./backlog.js', () => ({
 
 vi.mock('./config.js', () => ({
   resolveConfig: mockResolveConfig,
-}));
-
-vi.mock('./merge-queue.js', () => ({
-  MergeQueue: vi.fn().mockImplementation(() => ({
-    enqueue: mockMergeQueueEnqueue,
-  })),
 }));
 
 vi.mock('./pr.js', () => ({
@@ -1952,7 +1944,6 @@ describe('main', () => {
     mockMoveTaskToMergeConflicts.mockReset();
     mockSyncTaskFilesFromLog.mockReset();
     mockResolveConfig.mockReset();
-    mockMergeQueueEnqueue.mockReset();
     mockPushBranch.mockReset();
     mockEnsurePullRequest.mockReset();
     mockListOpenRalphPullRequests.mockReset();
@@ -2009,6 +2000,7 @@ describe('main', () => {
       removedFromTriage: [],
     });
     mockCountCompleted.mockReturnValue(0);
+    mockCommitAll.mockReturnValue(true);
     mockBacklogPath.mockReturnValue('scripts/ralph/backlog.md');
     // Default: validation passes (runValidation won't add triage task)
     mockExecFileSync.mockReturnValue('');
@@ -2026,19 +2018,11 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: Fix thing' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Fixed' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-    mockCommitAll.mockReturnValue(true);
-    mockMergeQueueEnqueue.mockResolvedValue({
-      success: true,
-      improvement: 1,
-      worker: 0,
-      branchName: 'harness-improvement-001',
-    });
-    const mainPromise = main();
+        const mainPromise = main();
     // Advance past the setTimeout(2000) in the loop
     await vi.advanceTimersByTimeAsync(3000);
     await mainPromise;
 
-    expect(mockMergeQueueEnqueue).not.toHaveBeenCalled();
   });
 
   it('adds triage task when main is not green', async () => {
@@ -2060,14 +2044,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-    mockCommitAll.mockReturnValue(true);
-    mockMergeQueueEnqueue.mockResolvedValue({
-      success: true,
-      improvement: 1,
-      worker: 0,
-      branchName: 'x',
-    });
-    const p = main();
+        const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2098,14 +2075,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-    mockCommitAll.mockReturnValue(true);
-    mockMergeQueueEnqueue.mockResolvedValue({
-      success: true,
-      improvement: 1,
-      worker: 0,
-      branchName: 'x',
-    });
-
+    
     const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
@@ -2122,6 +2092,49 @@ describe('main', () => {
     );
   });
 
+  it('imports unattached outstanding Ralph PRs during loop', async () => {
+    setupMainDefaults({ target: 1, parallelism: 1 });
+    let triageReadCount = 0;
+    mockReadTriage.mockImplementation(() => {
+      triageReadCount += 1;
+      return triageReadCount === 1
+        ? []
+        : [
+            'Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
+          ];
+    });
+    mockReadBacklog.mockReturnValue([]);
+    mockListOpenRalphPullRequests.mockReturnValue([
+      {
+        number: 21,
+        url: 'https://github.com/carterbs/brad-os/pull/21',
+        headRefName: 'harness-improvement-066',
+      },
+    ]);
+
+    mockCreateWorktree.mockReturnValue({ created: true, resumed: false });
+    mockExistsSync.mockReturnValue(true);
+    mockRunStep
+      .mockResolvedValueOnce(
+        makeStepResult({ outputText: 'DONE: Rebased and merged' })
+      )
+      .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
+
+    const p = main();
+    await vi.advanceTimersByTimeAsync(3000);
+    await p;
+
+    expect(mockListOpenRalphPullRequests).toHaveBeenCalledWith(
+      '/repo',
+      'harness-improvement',
+    );
+    expect(mockAddTriageTask).toHaveBeenCalledWith(
+      'Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21'
+    );
+    const stepNames = mockRunStep.mock.calls.map((call) => call[0].stepName);
+    expect(stepNames).toEqual(['implement', 'merge']);
+  });
+
   it('skips initial validation when --task is set', async () => {
     setupMainDefaults({ task: 'Fix thing', target: 1 });
     mockReadTriage.mockReturnValue([]);
@@ -2133,14 +2146,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-    mockCommitAll.mockReturnValue(true);
-    mockMergeQueueEnqueue.mockResolvedValue({
-      success: true,
-      improvement: 1,
-      worker: 0,
-      branchName: 'x',
-    });
-    const p = main();
+        const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2182,18 +2188,20 @@ describe('main', () => {
     mockCreateWorktree.mockReturnValue({ created: true, resumed: false });
     mockExistsSync.mockReturnValue(true);
 
-    // Worker 1 succeeds but merge fails
-    mockRunStep
-      .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: A' }))
-      .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: A' }))
-      .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }))
-      // Worker 2 succeeds and merge succeeds
-      .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: B' }))
-      .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: B' }))
-      .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
+    mockRunStep.mockImplementation((options: { stepName: string }) => {
+      if (options.stepName === "plan") {
+        return Promise.resolve(makeStepResult({ outputText: "PLAN: X" }));
+      }
+      if (options.stepName === "implement") {
+        return Promise.resolve(makeStepResult({ outputText: "DONE: Y" }));
+      }
+      return Promise.resolve(makeStepResult({ outputText: "REVIEW_PASSED" }));
+    });
     mockCommitAll.mockReturnValue(true);
 
     mockReadPullRequestMergeState
+      .mockReturnValueOnce({ state: 'OPEN', mergedAt: null })
+      .mockReturnValueOnce({ state: 'OPEN', mergedAt: null })
       .mockReturnValueOnce({ state: 'OPEN', mergedAt: null })
       .mockReturnValueOnce({ state: 'MERGED', mergedAt: '2026-02-26T17:30:24Z' });
     const p = main();
@@ -2203,8 +2211,13 @@ describe('main', () => {
     await p;
 
     expect(mockRemoveTask).toHaveBeenCalledWith('Task A');
-    expect(mockAddTriageTask).toHaveBeenCalledWith(
-      expect.stringContaining('Human escalation required')
+    expect(mockMoveTaskToMergeConflicts).toHaveBeenCalledWith(
+      'Task A',
+      {
+        improvement: 1,
+        branchName: 'harness-improvement-001',
+        worktreePath: '/tmp/worktrees/harness-improvement-001',
+      }
     );
   });
 
@@ -2215,12 +2228,23 @@ describe('main', () => {
 
     mockCreateWorktree.mockReturnValue({ created: true, resumed: false });
     mockExistsSync.mockReturnValue(true);
-    mockRunStep
-      .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
-      .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
-      .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
+    mockRunStep.mockImplementation((options: { stepName: string }) => {
+      if (options.stepName === "plan") {
+        return Promise.resolve(makeStepResult({ outputText: "PLAN: X" }));
+      }
+      if (options.stepName === "implement") {
+        return Promise.resolve(makeStepResult({ outputText: "DONE: Y" }));
+      }
+      return Promise.resolve(makeStepResult({ outputText: "REVIEW_PASSED" }));
+    });
     mockCommitAll.mockReturnValue(true);
     mockReadPullRequestMergeState.mockReturnValueOnce({
+      state: 'OPEN',
+      mergedAt: null,
+    }).mockReturnValueOnce({
+      state: 'OPEN',
+      mergedAt: null,
+    }).mockReturnValueOnce({
       state: 'OPEN',
       mergedAt: null,
     });
@@ -2231,8 +2255,13 @@ describe('main', () => {
     await p;
 
     expect(mockRemoveTriageTask).toHaveBeenCalledWith('Triage fix');
-    expect(mockAddTriageTask).toHaveBeenCalledWith(
-      expect.stringContaining('Human escalation required')
+    expect(mockMoveTaskToMergeConflicts).toHaveBeenCalledWith(
+      'Triage fix',
+      {
+        improvement: 1,
+        branchName: 'harness-improvement-001',
+        worktreePath: '/tmp/worktrees/harness-improvement-001',
+      }
     );
   });
 
@@ -2247,14 +2276,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-    mockCommitAll.mockReturnValue(true);
-    mockMergeQueueEnqueue.mockResolvedValue({
-      success: true,
-      improvement: 1,
-      worker: 0,
-      branchName: 'x',
-    });
-    const p = main();
+        const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2272,14 +2294,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-    mockCommitAll.mockReturnValue(true);
-    mockMergeQueueEnqueue.mockResolvedValue({
-      success: true,
-      improvement: 1,
-      worker: 0,
-      branchName: 'x',
-    });
-    const p = main();
+        const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2352,14 +2367,7 @@ describe('main', () => {
 
     mockCreateWorktree.mockReturnValue({ created: true, resumed: false });
     mockExistsSync.mockReturnValue(true);
-    mockCommitAll.mockReturnValue(true);
-    mockMergeQueueEnqueue.mockResolvedValue({
-      success: true,
-      improvement: 1,
-      worker: 0,
-      branchName: 'x',
-    });
-    const p = main();
+        const p = main();
     for (let i = 0; i < 10; i++) {
       await vi.advanceTimersByTimeAsync(3000);
     }
@@ -2415,14 +2423,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-    mockCommitAll.mockReturnValue(true);
-    mockMergeQueueEnqueue.mockResolvedValue({
-      success: true,
-      improvement: 1,
-      worker: 0,
-      branchName: 'x',
-    });
-    const p = main();
+        const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2451,14 +2452,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-    mockCommitAll.mockReturnValue(true);
-    mockMergeQueueEnqueue.mockResolvedValue({
-      success: false,
-      improvement: 1,
-      worker: 0,
-      branchName: 'x',
-    });
-    const p = main();
+        const p = main();
     for (let i = 0; i < 5; i++) {
       await vi.advanceTimersByTimeAsync(3000);
     }
@@ -2480,14 +2474,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-    mockCommitAll.mockReturnValue(true);
-    mockMergeQueueEnqueue.mockResolvedValue({
-      success: true,
-      improvement: 1,
-      worker: 0,
-      branchName: 'x',
-    });
-
+    
     // After merge, syncBacklog finds removals
     mockSyncTaskFilesFromLog
       .mockReturnValueOnce({
@@ -2544,14 +2531,7 @@ describe('main', () => {
     });
 
     mockExistsSync.mockReturnValue(true);
-    mockCommitAll.mockReturnValue(true);
-    mockMergeQueueEnqueue.mockResolvedValue({
-      success: true,
-      improvement: 2,
-      worker: 1,
-      branchName: 'y',
-    });
-    const p = main();
+        const p = main();
 
     // Advance through 4 failure iterations (each has 2s delay) + some buffer
     for (let i = 0; i < 15; i++) {
@@ -2564,7 +2544,6 @@ describe('main', () => {
     await p;
 
     // Remaining worker was processed through merge queue
-    expect(mockMergeQueueEnqueue).not.toHaveBeenCalled();
   });
 
   it('handles remaining worker merge failure after loop exits', async () => {
@@ -2597,8 +2576,14 @@ describe('main', () => {
 
     mockExistsSync.mockReturnValue(true);
     mockCommitAll.mockReturnValue(true);
-    // Agent merge state check fails for remaining worker
+    // Agent merge state check fails for remaining worker (both attempts)
     mockReadPullRequestMergeState.mockReturnValueOnce({
+      state: 'OPEN',
+      mergedAt: null,
+    }).mockReturnValueOnce({
+      state: 'OPEN',
+      mergedAt: null,
+    }).mockReturnValueOnce({
       state: 'OPEN',
       mergedAt: null,
     });
@@ -2611,8 +2596,13 @@ describe('main', () => {
 
     await p;
 
-    expect(mockAddTriageTask).toHaveBeenCalledWith(
-      expect.stringContaining('Human escalation required')
+    expect(mockMoveTaskToMergeConflicts).toHaveBeenCalledWith(
+      'B',
+      {
+        improvement: 2,
+        branchName: 'harness-improvement-002',
+        worktreePath: '/tmp/worktrees/harness-improvement-002',
+      }
     );
   });
 
@@ -2653,14 +2643,7 @@ describe('main', () => {
     });
 
     mockExistsSync.mockReturnValue(true);
-    mockCommitAll.mockReturnValue(true);
-    mockMergeQueueEnqueue.mockResolvedValue({
-      success: true,
-      improvement: 1,
-      worker: 0,
-      branchName: 'x',
-    });
-    const p = main();
+        const p = main();
 
     // Advance through failure iterations
     for (let i = 0; i < 20; i++) {
@@ -2686,14 +2669,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-    mockCommitAll.mockReturnValue(true);
-    mockMergeQueueEnqueue.mockResolvedValue({
-      success: true,
-      improvement: 1,
-      worker: 0,
-      branchName: 'x',
-    });
-    const p = main();
+        const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2717,14 +2693,7 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
-    mockCommitAll.mockReturnValue(true);
-    mockMergeQueueEnqueue.mockResolvedValue({
-      success: true,
-      improvement: 1,
-      worker: 0,
-      branchName: 'x',
-    });
-    const p = main();
+        const p = main();
     await vi.advanceTimersByTimeAsync(3000);
     await p;
 
@@ -2795,12 +2764,6 @@ describe('main', () => {
     });
     mockAddTriageTask.mockReturnValue(false); // task already exists
 
-    mockMergeQueueEnqueue.mockResolvedValue({
-      success: true,
-      improvement: 2,
-      worker: 0,
-      branchName: 'x',
-    });
     const p = main();
 
     // First worker runs and fails with no_changes.
@@ -2813,7 +2776,5 @@ describe('main', () => {
 
     await p;
 
-    // If lines 685-698 were hit, the worker ran and merged the deferred task
-    expect(mockMergeQueueEnqueue).not.toHaveBeenCalled();
   });
 });

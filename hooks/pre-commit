@@ -2,16 +2,8 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-RELEASE_BIN="$REPO_ROOT/target/release/brad-precommit"
-DEBUG_BIN="$REPO_ROOT/target/debug/brad-precommit"
-
-if [ -x "$RELEASE_BIN" ]; then
-  exec "$RELEASE_BIN" "$@"
-fi
-
-if [ -x "$DEBUG_BIN" ]; then
-  exec "$DEBUG_BIN" "$@"
-fi
+BINARY="$REPO_ROOT/target/release/brad-precommit"
+SOURCE_DIR="$REPO_ROOT/tools/dev-cli/src"
 
 if ! command -v cargo >/dev/null 2>&1; then
   if [ -f "$HOME/.cargo/env" ]; then
@@ -20,13 +12,10 @@ if ! command -v cargo >/dev/null 2>&1; then
   fi
 fi
 
-if ! command -v cargo >/dev/null 2>&1; then
-  echo "cargo is required to run brad pre-commit checks" >&2
-  exit 1
+if [ ! -f "$BINARY" ] || [ -n "$(find "$SOURCE_DIR" -newer "$BINARY" -print -quit 2>/dev/null)" ]; then
+  if ! cargo build -p dev-cli --manifest-path "$REPO_ROOT/Cargo.toml" --bin brad-precommit -q; then
+    exit 1
+  fi
 fi
 
-if ! cargo build -p dev-cli --manifest-path "$REPO_ROOT/Cargo.toml" --bin brad-precommit -q; then
-  exec cargo run -q -p dev-cli --bin brad-precommit -- "$@"
-fi
-
-exec "$RELEASE_BIN" "$@"
+exec "$BINARY" "$@"
