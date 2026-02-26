@@ -1,214 +1,70 @@
-use std::collections::HashMap;
-use std::fs;
-use std::io::Write;
-use std::path::Path;
-use std::process::{Command, Stdio};
-use std::time::Instant;
-use std::time::Duration;
-use std::thread;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-
-pub struct CheckResult {
-    pub name: String,
-    pub exit_code: i32,
-    pub elapsed_secs: u64,
+#[derive(Debug, Clone)]
+pub struct CommandCall {
+    pub program: String,
+    pub args: Vec<String>,
+    pub current_dir: Option<std::path::PathBuf>,
 }
 
-pub struct RunOpts<'a> {
-    pub name: &'a str,
-    pub program: &'a str,
-    pub args: &'a [&'a str],
-    pub log_dir: &'a Path,
-    pub env: Option<&'a HashMap<String, String>>,
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CommandResult {
+    pub status: i32,
+    pub stdout: String,
 }
 
-pub struct LiveRunOpts<'a> {
-    pub name: &'a str,
-    pub program: &'a str,
-    pub args: &'a [&'a str],
-    pub env: Option<&'a HashMap<String, String>>,
-}
-
-/// Run a subprocess, capture stdout+stderr to a log file, and return the result.
-pub fn run_check(opts: &RunOpts) -> CheckResult {
-    let start = Instant::now();
-    let log_path = opts.log_dir.join(format!("{}.log", opts.name));
-
-    let mut cmd = Command::new(opts.program);
-    cmd.args(opts.args)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-
-    if let Some(env) = opts.env {
-        for (k, v) in env {
-            cmd.env(k, v);
-        }
-    }
-
-    let exit_code = match cmd.output() {
-        Ok(output) => {
-            if let Ok(mut file) = fs::File::create(&log_path) {
-                file.write_all(&output.stdout).ok();
-                file.write_all(&output.stderr).ok();
-            }
-            output.status.code().unwrap_or(1)
-        }
-        Err(e) => {
-            if let Ok(mut file) = fs::File::create(&log_path) {
-                writeln!(file, "Failed to execute command: {e}").ok();
-            }
-            1
-        }
-    };
-
-    let elapsed = start.elapsed().as_secs();
-    CheckResult {
-        name: opts.name.to_string(),
-        exit_code,
-        elapsed_secs: elapsed,
+impl CommandResult {
+    pub fn success(&self) -> bool {
+        self.status == 0
     }
 }
 
-/// Run a subprocess with inherited stdio, returning only the exit code.
-pub fn run_live(opts: &LiveRunOpts) -> i32 {
-    run_live_interrupted(opts, &Arc::new(AtomicBool::new(false)))
+pub trait CommandRunner {
+    fn run(&self, command: CommandCall) -> CommandResult;
 }
 
-pub fn run_live_interrupted(opts: &LiveRunOpts, interrupted: &Arc<AtomicBool>) -> i32 {
-    let mut cmd = Command::new(opts.program);
-    cmd.args(opts.args)
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit());
+#[derive(Default)]
+pub struct RealCommandRunner;
 
-    if let Some(env) = opts.env {
-        for (k, v) in env {
-            cmd.env(k, v);
-        }
-    }
-
-    let mut child = match cmd.spawn() {
-        Ok(child) => child,
-        Err(_) => return 1,
-    };
-
-    loop {
-        if interrupted.load(Ordering::SeqCst) {
-            let _ = child.kill();
-            let _ = child.wait();
-            return 130;
+impl CommandRunner for RealCommandRunner {
+    fn run(&self, command: CommandCall) -> CommandResult {
+        let mut process = std::process::Command::new(&command.program);
+        process.args(&command.args);
+        if let Some(current_dir) = command.current_dir.as_deref() {
+            process.current_dir(current_dir);
         }
 
-        match child.try_wait() {
-            Ok(Some(status)) => return status.code().unwrap_or(1),
-            Ok(None) => thread::sleep(Duration::from_millis(50)),
-            Err(_) => {
-                let _ = child.wait();
-                return 1;
-            }
-        }
+        let result = match process.output() {
+            Ok(output) => CommandResult {
+                status: output.status.code().unwrap_or(1),
+                stdout: {
+                    let mut merged = String::new();
+                    merged.push_str(&String::from_utf8_lossy(&output.stdout));
+                    merged.push_str(&String::from_utf8_lossy(&output.stderr));
+                    merged
+                },
+            },
+            Err(_) => CommandResult {
+                status: 1,
+                stdout: String::new(),
+            },
+        };
+
+        result
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::collections::HashMap;
-    use std::sync::atomic::AtomicBool;
-    use std::sync::Arc;
-
-    #[test]
-    fn run_check_writes_stdout_to_log() {
-        let dir = tempfile::tempdir().unwrap();
-        let result = run_check(&RunOpts {
-            name: "echo-test",
-            program: "echo",
-            args: &["hello"],
-            log_dir: dir.path(),
-            env: None,
-        });
-        assert_eq!(result.name, "echo-test");
-        assert_eq!(result.exit_code, 0);
-        let log = std::fs::read_to_string(dir.path().join("echo-test.log")).unwrap();
-        assert!(log.contains("hello"));
+impl CommandCall {
+    pub fn new(program: impl Into<String>, args: Vec<String>) -> Self {
+        Self {
+            program: program.into(),
+            args,
+            current_dir: None,
+        }
     }
 
-    #[test]
-    fn run_check_preserves_failure_status() {
-        let dir = tempfile::tempdir().unwrap();
-        let result = run_check(&RunOpts {
-            name: "false-test",
-            program: "false",
-            args: &[],
-            log_dir: dir.path(),
-            env: None,
-        });
-        assert_ne!(result.exit_code, 0);
-    }
-
-    #[test]
-    fn run_check_records_env_value() {
-        let dir = tempfile::tempdir().unwrap();
-        let mut env = HashMap::new();
-        env.insert("MY_TEST_VAR".to_string(), "42".to_string());
-
-        let result = run_check(&RunOpts {
-            name: "env-test",
-            program: "sh",
-            args: &["-c", "echo $MY_TEST_VAR"],
-            log_dir: dir.path(),
-            env: Some(&env),
-        });
-        assert_eq!(result.exit_code, 0);
-        let log = std::fs::read_to_string(dir.path().join("env-test.log")).unwrap();
-        assert!(log.contains("42"));
-    }
-
-    #[test]
-    fn run_check_reports_command_error() {
-        let dir = tempfile::tempdir().unwrap();
-        let result = run_check(&RunOpts {
-            name: "missing",
-            program: "this-command-does-not-exist-xyz",
-            args: &[],
-            log_dir: dir.path(),
-            env: None,
-        });
-        assert_eq!(result.exit_code, 1);
-        let log = std::fs::read_to_string(dir.path().join("missing.log")).unwrap();
-        assert!(log.contains("Failed to execute command"));
-    }
-
-    #[test]
-    fn run_live_runs_command_and_returns_exit_code() {
-        let mut env = HashMap::new();
-        env.insert("TEST_RUN_LIVE".to_string(), "42".to_string());
-        let status = run_live(&LiveRunOpts {
-            name: "live-test",
-            program: "sh",
-            args: &["-c", "test \"$TEST_RUN_LIVE\" = 42"],
-            env: Some(&env),
-        });
-        assert_eq!(status, 0);
-    }
-
-    #[test]
-    fn run_live_returns_sigint_exit_code_on_interrupt() {
-        let should_interrupt = Arc::new(AtomicBool::new(false));
-        let should_interrupt_for_worker = should_interrupt.clone();
-        thread::spawn(move || {
-            thread::sleep(Duration::from_millis(50));
-            should_interrupt_for_worker.store(true, Ordering::SeqCst);
-        });
-
-        let status = run_live_interrupted(&LiveRunOpts {
-            name: "live-interrupt",
-            program: "sh",
-            args: &["-c", "sleep 5"],
-            env: None,
-        }, &should_interrupt);
-
-        assert_eq!(status, 130);
+    pub fn to_vec(self) -> Vec<String> {
+        let mut parts = Vec::with_capacity(1 + self.args.len());
+        parts.push(self.program);
+        parts.extend(self.args);
+        parts
     }
 }

@@ -52,6 +52,7 @@
     "qa:stop": "bash scripts/qa-stop.sh",
     "advanced:qa:env:stop": "bash scripts/qa-stop.sh",
     "qa:env:stop": "npm run advanced:qa:env:stop --",
+    "setup:ios-testing": "bash scripts/setup-ios-testing.sh",
     "qa:build": "bash scripts/qa-build.sh",
     "qa:launch": "bash scripts/qa-launch.sh",
     "qa:sweep": "bash scripts/qa-sweep.sh",

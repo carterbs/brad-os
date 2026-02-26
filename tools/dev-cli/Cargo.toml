@@ -17,3 +17,11 @@ ctrlc = "3.4.4"
 
 [dev-dependencies]
 tempfile = "3"
+
+[[bin]]
+name = "brad-qa-stop"
+path = "src/bin/qa-stop.rs"
+
+[[bin]]
+name = "brad-setup-ios-testing"
+path = "src/bin/setup-ios-testing.rs"

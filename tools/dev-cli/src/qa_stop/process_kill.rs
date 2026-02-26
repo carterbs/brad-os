@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 use std::time::Duration;
 
-use crate::qa_stop::runner::{CommandCall, CommandRunner};
+use crate::runner::{CommandCall, CommandRunner};
 
 pub fn stop_pid_file<R: CommandRunner>(
     pid_file: &Path,
@@ -26,6 +26,7 @@ pub fn stop_pid_file<R: CommandRunner>(
         .run(CommandCall {
             program: "kill".to_string(),
             args: vec!["-0".to_string(), pid.clone()],
+            current_dir: None,
         })
         .success()
     {
@@ -36,10 +37,12 @@ pub fn stop_pid_file<R: CommandRunner>(
     let _ = runner.run(CommandCall {
         program: "kill".to_string(),
         args: vec!["--".to_string(), format!("-{pid}")],
+        current_dir: None,
     });
     let _ = runner.run(CommandCall {
         program: "kill".to_string(),
         args: vec![pid.clone()],
+        current_dir: None,
     });
 
     sleep(Duration::from_secs(1));
@@ -48,12 +51,14 @@ pub fn stop_pid_file<R: CommandRunner>(
         .run(CommandCall {
             program: "kill".to_string(),
             args: vec!["-0".to_string(), pid.clone()],
+            current_dir: None,
         })
         .success()
     {
         let _ = runner.run(CommandCall {
             program: "kill".to_string(),
             args: vec!["-9".to_string(), pid.clone()],
+            current_dir: None,
         });
     }
 
