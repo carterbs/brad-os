@@ -19,7 +19,7 @@ Full bootstrap: [Local Dev Quickstart](docs/guides/local-dev-quickstart.md)
 - Prefer adding logic to Rust under `tools/dev-cli` and `tools/arch-lint` before extending shell.
 - Keep any shell wrapper focused on argument passthrough and process execution.
 - Coverage rule: tooling code changed under this policy must target Rust-line coverage floor `90%` and prefer `>=95%`.
-- Exception policy examples:
+- Exempt scripts (thin delegation wrappers only):
   - `scripts/validate.sh`, `scripts/doctor.sh`, `scripts/arch-lint`
   - `hooks/pre-commit`, `scripts/run-integration-tests.sh`
   - `scripts/brad-validate`, `scripts/brad-precommit`
