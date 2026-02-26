@@ -5,7 +5,13 @@ use std::path::Path;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
+    if args.iter().any(|arg| arg == "--version" || arg == "-V") {
+        println!("brad-validate {}", env!("CARGO_PKG_VERSION"));
+        process::exit(0);
+    }
+
     let quick = args.iter().any(|arg| arg == "--quick");
+    println!("Using Rust validation engine (brad-validate)");
 
     let test_files = parse_newline_env("BRAD_VALIDATE_TEST_FILES");
     let test_projects = parse_newline_env("BRAD_VALIDATE_TEST_PROJECTS");
@@ -19,17 +25,19 @@ fn main() {
     let checks = determine_checks(quick);
     let total_start = Instant::now();
 
-    let test_files = test_files.clone();
-    let test_projects = test_projects.clone();
-
-    let results: Vec<CheckResult> = checks
+    let handles: Vec<_> = checks
         .iter()
         .map(|&name| {
             let name = name.to_string();
             let test_files = test_files.clone();
             let test_projects = test_projects.clone();
-            thread::spawn(move || run_single_check(&name, &test_files, &test_projects)).join().expect("check thread panicked")
+            thread::spawn(move || run_single_check(&name, &test_files, &test_projects))
         })
+        .collect();
+
+    let results: Vec<CheckResult> = handles
+        .into_iter()
+        .map(|handle| handle.join().expect("check thread panicked"))
         .collect();
 
     let total_elapsed = total_start.elapsed().as_secs();

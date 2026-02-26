@@ -11,7 +11,7 @@ describe('run-integration-tests.sh', () => {
 
   it('should have a bash shebang', () => {
     const content = readFileSync(SCRIPT_PATH, 'utf-8');
-    expect(content.startsWith('#!/bin/bash')).toBe(true);
+    expect(content.startsWith('#!/usr/bin/env bash')).toBe(true);
   });
 
   it('should be executable', () => {
@@ -20,34 +20,30 @@ describe('run-integration-tests.sh', () => {
 
   it('should set up a cleanup trap on EXIT', () => {
     const content = readFileSync(SCRIPT_PATH, 'utf-8');
-    expect(content).toContain('trap cleanup EXIT');
+    expect(content).toContain('brad-run-integration-tests');
   });
 
-  it('should use wait-for-emulator.sh for readiness check', () => {
+  it('should move readiness wait into the Rust binary', () => {
     const content = readFileSync(SCRIPT_PATH, 'utf-8');
-    expect(content).toContain('wait-for-emulator.sh');
+    expect(content).not.toContain('wait-for-emulator.sh');
   });
 
-  it('should start emulators without --import (fresh database)', () => {
+  it('should delegate emulator startup to Rust binary', () => {
     const content = readFileSync(SCRIPT_PATH, 'utf-8');
-    const emulatorStartLines = content
-      .split('\n')
-      .filter((line) => line.includes('firebase emulators:start'));
-
-    for (const line of emulatorStartLines) {
-      expect(line).not.toContain('--import');
-      expect(line).not.toContain('--export-on-exit');
-    }
+    expect(content).toContain('exec "$binary"');
+    expect(content).toContain('run_rust_emulator_tests');
+    expect(content).not.toContain('firebase emulators:start');
+    expect(content).not.toContain('--import');
+    expect(content).not.toContain('--export-on-exit');
   });
 
-  it('should run npm run test:integration', () => {
+  it('should build the Rust binary via cargo before running', () => {
     const content = readFileSync(SCRIPT_PATH, 'utf-8');
-    expect(content).toContain('npm run test:integration');
+    expect(content).toContain('cargo build -p dev-cli --release');
   });
 
   it('should preserve the test exit code', () => {
     const content = readFileSync(SCRIPT_PATH, 'utf-8');
-    expect(content).toContain('TEST_EXIT_CODE=$?');
-    expect(content).toContain('exit $TEST_EXIT_CODE');
+    expect(content).toContain('exec "$binary"');
   });
 });

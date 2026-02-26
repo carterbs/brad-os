@@ -4,6 +4,10 @@ use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::Instant;
+use std::time::Duration;
+use std::thread;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub struct CheckResult {
     pub name: String,
@@ -16,6 +20,13 @@ pub struct RunOpts<'a> {
     pub program: &'a str,
     pub args: &'a [&'a str],
     pub log_dir: &'a Path,
+    pub env: Option<&'a HashMap<String, String>>,
+}
+
+pub struct LiveRunOpts<'a> {
+    pub name: &'a str,
+    pub program: &'a str,
+    pub args: &'a [&'a str],
     pub env: Option<&'a HashMap<String, String>>,
 }
 
@@ -59,10 +70,53 @@ pub fn run_check(opts: &RunOpts) -> CheckResult {
     }
 }
 
+/// Run a subprocess with inherited stdio, returning only the exit code.
+pub fn run_live(opts: &LiveRunOpts) -> i32 {
+    run_live_interrupted(opts, &Arc::new(AtomicBool::new(false)))
+}
+
+pub fn run_live_interrupted(opts: &LiveRunOpts, interrupted: &Arc<AtomicBool>) -> i32 {
+    let mut cmd = Command::new(opts.program);
+    cmd.args(opts.args)
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+
+    if let Some(env) = opts.env {
+        for (k, v) in env {
+            cmd.env(k, v);
+        }
+    }
+
+    let mut child = match cmd.spawn() {
+        Ok(child) => child,
+        Err(_) => return 1,
+    };
+
+    loop {
+        if interrupted.load(Ordering::SeqCst) {
+            let _ = child.kill();
+            let _ = child.wait();
+            return 130;
+        }
+
+        match child.try_wait() {
+            Ok(Some(status)) => return status.code().unwrap_or(1),
+            Ok(None) => thread::sleep(Duration::from_millis(50)),
+            Err(_) => {
+                let _ = child.wait();
+                return 1;
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashMap;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
 
     #[test]
     fn run_check_writes_stdout_to_log() {
@@ -124,5 +178,37 @@ mod tests {
         assert_eq!(result.exit_code, 1);
         let log = std::fs::read_to_string(dir.path().join("missing.log")).unwrap();
         assert!(log.contains("Failed to execute command"));
+    }
+
+    #[test]
+    fn run_live_runs_command_and_returns_exit_code() {
+        let mut env = HashMap::new();
+        env.insert("TEST_RUN_LIVE".to_string(), "42".to_string());
+        let status = run_live(&LiveRunOpts {
+            name: "live-test",
+            program: "sh",
+            args: &["-c", "test \"$TEST_RUN_LIVE\" = 42"],
+            env: Some(&env),
+        });
+        assert_eq!(status, 0);
+    }
+
+    #[test]
+    fn run_live_returns_sigint_exit_code_on_interrupt() {
+        let should_interrupt = Arc::new(AtomicBool::new(false));
+        let should_interrupt_for_worker = should_interrupt.clone();
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(50));
+            should_interrupt_for_worker.store(true, Ordering::SeqCst);
+        });
+
+        let status = run_live_interrupted(&LiveRunOpts {
+            name: "live-interrupt",
+            program: "sh",
+            args: &["-c", "sleep 5"],
+            env: None,
+        }, &should_interrupt);
+
+        assert_eq!(status, 130);
     }
 }
