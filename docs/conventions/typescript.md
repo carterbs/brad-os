@@ -3,7 +3,7 @@
 ## Rules (CRITICAL)
 
 ```typescript
-// NEVER use `any` - this is enforced by ESLint
+// NEVER use `any` - this is enforced by Oxlint
 // BAD
 function process(data: any) { ... }
 

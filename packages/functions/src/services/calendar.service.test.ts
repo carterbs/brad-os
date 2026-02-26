@@ -922,10 +922,18 @@ const cyclingActivity = {
       expect(mockWorkoutSetRepo.findByWorkoutId).toHaveBeenCalledWith('w-2');
 
       // Verify both workouts appear with correct plan day names
-      const push = result.days['2024-01-15']?.activities.find(a => a.id === 'workout-w-1');
-      const pull = result.days['2024-01-16']?.activities.find(a => a.id === 'workout-w-2');
-      expect((push?.summary as WorkoutActivitySummary).dayName).toBe('Push Day');
-      expect((pull?.summary as WorkoutActivitySummary).dayName).toBe('Pull Day');
+      const pushActivities = result.days['2024-01-15']?.activities;
+      const pullActivities = result.days['2024-01-16']?.activities;
+      if (!pushActivities || !pullActivities) {
+        throw new Error('Expected month data to include activities for both workout days');
+      }
+      const push = pushActivities.find(a => a.id === 'workout-w-1');
+      const pull = pullActivities.find(a => a.id === 'workout-w-2');
+      if (!push || !pull) {
+        throw new Error('Expected workouts to be present in calendar activity lists');
+      }
+      expect((push.summary as WorkoutActivitySummary).dayName).toBe('Push Day');
+      expect((pull.summary as WorkoutActivitySummary).dayName).toBe('Pull Day');
     });
 
     it('should sort activities with deterministic tie-breaker when completedAt is identical', async () => {

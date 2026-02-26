@@ -167,7 +167,7 @@ Visual verification in iOS Simulator using `/explore-ios`.
 
 ### Automated
 - **TypeScript typecheck**: `npm run typecheck`
-- **ESLint**: `npm run lint`
+- **Legacy linter**: `npm run lint`
 - **Unit tests**: `npm test` — new tests for warm-up calculation, existing tests pass
 - **Xcode build**: `xcodebuild` for iOS
 

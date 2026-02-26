@@ -312,7 +312,7 @@ docker-compose -f docker-compose.prod.yml up -d
 
 ### Automated (Phase 4)
 - `npm run typecheck` - TypeScript compilation
-- `npm run lint` - ESLint
+- `npm run lint` - legacy linter
 - `npm test` - Unit tests (vitest)
 - `npm run test:e2e` - E2E tests (Playwright)
 
