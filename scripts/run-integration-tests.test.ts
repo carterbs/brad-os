@@ -28,16 +28,13 @@ describe('run-integration-tests.sh', () => {
     expect(content).not.toContain('wait-for-emulator.sh');
   });
 
-  it('should start emulators without --import (fresh database)', () => {
+  it('should delegate emulator startup to Rust binary', () => {
     const content = readFileSync(SCRIPT_PATH, 'utf-8');
-    const emulatorStartLines = content
-      .split('\n')
-      .filter((line) => line.includes('firebase emulators:start'));
-
-    for (const line of emulatorStartLines) {
-      expect(line).not.toContain('--import');
-      expect(line).not.toContain('--export-on-exit');
-    }
+    expect(content).toContain('exec "$binary"');
+    expect(content).toContain('run_rust_emulator_tests');
+    expect(content).not.toContain('firebase emulators:start');
+    expect(content).not.toContain('--import');
+    expect(content).not.toContain('--export-on-exit');
   });
 
   it('should run npm run test:integration', () => {
