@@ -36,14 +36,31 @@ import {
   getCyclingActivityByStravaId,
   createCyclingActivity,
   deleteCyclingActivity,
+  saveActivityStreams,
+  getActivityStreams,
   getCurrentFTP,
+  getFTPHistory,
   createFTPEntry,
   getCurrentTrainingBlock,
+  getTrainingBlocks,
   createTrainingBlock,
+  completeTrainingBlock,
+  updateTrainingBlockWeek,
+  getWeightGoal,
+  setWeightGoal,
   getStravaTokens,
   setStravaTokens,
   deleteStravaTokens,
+  setAthleteToUserMapping,
+  getUserIdByAthleteId,
+  saveVO2MaxEstimate,
+  getLatestVO2Max,
+  getVO2MaxHistory,
+  getCyclingProfile,
+  setCyclingProfile,
+  updateCyclingActivity,
 } from './firestore-cycling.service.js';
+import * as repositories from '../repositories/index.js';
 
 // ---------- Sample data ----------
 
@@ -468,6 +485,344 @@ describe('Firestore Cycling Service', () => {
 
       expect(result).toBe(false);
       expect(mockDelete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('repository-backed stream and update helpers', () => {
+    it('should save and read activity streams via repository', async () => {
+      const repository = {
+        findAllByUser: vi.fn(),
+        findById: vi.fn(),
+        findByStravaId: vi.fn(),
+        create: vi.fn(),
+        delete: vi.fn(),
+        saveStreams: vi.fn().mockResolvedValue(undefined),
+        getStreams: vi.fn().mockResolvedValue({
+          activityId: 'act-1',
+          stravaActivityId: 12345,
+          watts: [100, 120],
+          heartrate: [130, 132],
+          sampleCount: 2,
+          createdAt: '2026-02-10T12:00:00.000Z',
+        }),
+        update: vi.fn(),
+      };
+
+      const repoSpy = vi
+        .spyOn(repositories, 'getCyclingActivityRepository')
+        .mockReturnValue(
+          repository as unknown as ReturnType<typeof repositories.getCyclingActivityRepository>
+        );
+
+      await saveActivityStreams('test-user', 'act-1', {
+        activityId: 'act-1',
+        stravaActivityId: 12345,
+        watts: [100, 120],
+        heartrate: [130, 132],
+        sampleCount: 2,
+      });
+      const streams = await getActivityStreams('test-user', 'act-1');
+
+      expect(repository.saveStreams).toHaveBeenCalledWith('test-user', 'act-1', {
+        activityId: 'act-1',
+        stravaActivityId: 12345,
+        watts: [100, 120],
+        heartrate: [130, 132],
+        sampleCount: 2,
+      });
+      expect(streams?.activityId).toBe('act-1');
+      expect(repository.getStreams).toHaveBeenCalledWith('test-user', 'act-1');
+      repoSpy.mockRestore();
+    });
+
+    it('should only log update when activity update succeeds', async () => {
+      const repository = {
+        findAllByUser: vi.fn(),
+        findById: vi.fn(),
+        findByStravaId: vi.fn(),
+        create: vi.fn(),
+        delete: vi.fn(),
+        saveStreams: vi.fn(),
+        getStreams: vi.fn(),
+        update: vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false),
+      };
+
+      const repoSpy = vi
+        .spyOn(repositories, 'getCyclingActivityRepository')
+        .mockReturnValue(
+          repository as unknown as ReturnType<typeof repositories.getCyclingActivityRepository>
+        );
+
+      const first = await updateCyclingActivity('test-user', 'act-1', { ef: 1.31 });
+      const second = await updateCyclingActivity('test-user', 'act-2', { ef: 1.22 });
+
+      expect(first).toBe(true);
+      expect(second).toBe(false);
+      expect(repository.update).toHaveBeenCalledTimes(2);
+      repoSpy.mockRestore();
+    });
+  });
+
+  describe('additional Firestore mapping branches', () => {
+    it('returns null when FTP snapshot has no first document', async () => {
+      mockGet.mockResolvedValueOnce({ empty: false, docs: [] });
+
+      const result = await getCurrentFTP('test-user');
+      expect(result).toBeNull();
+    });
+
+    it('maps FTP history entries', async () => {
+      mockGet.mockResolvedValueOnce({
+        docs: [
+          {
+            id: 'ftp-a',
+            data: (): Record<string, unknown> => ({
+              userId: 'test-user',
+              value: 280,
+              date: '2026-02-10',
+              source: 'test',
+            }),
+          },
+          {
+            id: 'ftp-b',
+            data: (): Record<string, unknown> => ({
+              userId: 'test-user',
+              value: 270,
+              date: '2026-01-20',
+              source: 'manual',
+            }),
+          },
+        ],
+      });
+
+      const result = await getFTPHistory('test-user');
+
+      expect(result).toEqual([
+        { id: 'ftp-a', userId: 'test-user', value: 280, date: '2026-02-10', source: 'test' },
+        { id: 'ftp-b', userId: 'test-user', value: 270, date: '2026-01-20', source: 'manual' },
+      ]);
+    });
+
+    it('returns null when active block snapshot has no document entry', async () => {
+      mockGet.mockResolvedValueOnce({ empty: false, docs: [] });
+      const result = await getCurrentTrainingBlock('test-user');
+      expect(result).toBeNull();
+    });
+
+    it('maps training block list response', async () => {
+      mockGet.mockResolvedValueOnce({
+        docs: [
+          {
+            id: 'block-a',
+            data: (): Record<string, unknown> => ({
+              userId: 'test-user',
+              startDate: '2026-01-01',
+              endDate: '2026-02-20',
+              currentWeek: 3,
+              goals: ['regain_fitness'],
+              status: 'active',
+            }),
+          },
+        ],
+      });
+
+      const result = await getTrainingBlocks('test-user');
+      expect(result[0]).toEqual({
+        id: 'block-a',
+        userId: 'test-user',
+        startDate: '2026-01-01',
+        endDate: '2026-02-20',
+        currentWeek: 3,
+        goals: ['regain_fitness'],
+        status: 'active',
+      });
+    });
+
+    it('completes and updates training block week when doc exists', async () => {
+      mockGet.mockResolvedValue({ exists: true });
+
+      const completed = await completeTrainingBlock('test-user', 'block-1');
+      const updated = await updateTrainingBlockWeek('test-user', 'block-1', 4);
+
+      expect(completed).toBe(true);
+      expect(updated).toBe(true);
+      expect(mockUpdate).toHaveBeenCalledWith({ status: 'completed' });
+      expect(mockUpdate).toHaveBeenCalledWith({ currentWeek: 4 });
+    });
+
+    it('returns false for completion/week updates when block doc is missing', async () => {
+      mockGet.mockResolvedValue({ exists: false });
+
+      const completed = await completeTrainingBlock('test-user', 'missing-block');
+      const updated = await updateTrainingBlockWeek('test-user', 'missing-block', 5);
+
+      expect(completed).toBe(false);
+      expect(updated).toBe(false);
+    });
+
+    it('returns null for weight goal when settings doc has no data', async () => {
+      mockGet.mockResolvedValueOnce({
+        exists: true,
+        data: (): undefined => undefined,
+      });
+
+      const result = await getWeightGoal('test-user');
+      expect(result).toBeNull();
+    });
+
+    it('sets and returns weight goal payload', async () => {
+      const goal = await setWeightGoal('test-user', {
+        targetWeightLbs: 175,
+        targetDate: '2026-06-01',
+        startWeightLbs: 190,
+        startDate: '2026-01-01',
+      });
+
+      expect(mockSet).toHaveBeenCalledWith({
+        userId: 'test-user',
+        targetWeightLbs: 175,
+        targetDate: '2026-06-01',
+        startWeightLbs: 190,
+        startDate: '2026-01-01',
+      });
+      expect(goal.targetWeightLbs).toBe(175);
+    });
+
+    it('returns null for Strava tokens when doc exists but data is absent', async () => {
+      mockGet.mockResolvedValueOnce({
+        exists: true,
+        data: (): undefined => undefined,
+      });
+      const result = await getStravaTokens('test-user');
+      expect(result).toBeNull();
+    });
+
+    it('writes and reads athlete-to-user mapping', async () => {
+      await setAthleteToUserMapping(12345, 'test-user');
+      expect(mockSet).toHaveBeenCalledWith({ userId: 'test-user' });
+
+      mockGet.mockResolvedValueOnce({
+        exists: true,
+        data: (): Record<string, unknown> => ({ userId: 'test-user' }),
+      });
+      const resolved = await getUserIdByAthleteId(12345);
+      expect(resolved).toBe('test-user');
+    });
+
+    it('returns null for athlete mapping when doc is missing or empty', async () => {
+      mockGet
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: true, data: (): undefined => undefined });
+
+      const missing = await getUserIdByAthleteId(1);
+      const empty = await getUserIdByAthleteId(2);
+
+      expect(missing).toBeNull();
+      expect(empty).toBeNull();
+    });
+
+    it('saves VO2 max estimate including optional activityId', async () => {
+      const estimate = await saveVO2MaxEstimate('test-user', {
+        userId: 'test-user',
+        date: '2026-02-10',
+        value: 53.2,
+        method: 'peak_20min',
+        sourcePower: 310,
+        sourceWeight: 74,
+        activityId: 'act-2',
+        createdAt: '2026-02-10T10:00:00.000Z',
+      });
+
+      expect(estimate.id).toBe('test-uuid-1234');
+      expect(mockSet).toHaveBeenCalledWith(
+        expect.objectContaining({
+          activityId: 'act-2',
+          value: 53.2,
+        }),
+      );
+    });
+
+    it('returns null when latest VO2 max snapshot has no first document', async () => {
+      mockGet.mockResolvedValueOnce({ empty: false, docs: [] });
+      const result = await getLatestVO2Max('test-user');
+      expect(result).toBeNull();
+    });
+
+    it('maps latest and historical VO2 max responses', async () => {
+      mockGet
+        .mockResolvedValueOnce({
+          empty: false,
+          docs: [
+            {
+              id: 'vo2-latest',
+              data: (): Record<string, unknown> => ({
+                userId: 'test-user',
+                date: '2026-02-10',
+                value: 53,
+                method: 'ftp_derived',
+                sourcePower: 300,
+                sourceWeight: 74,
+                createdAt: '2026-02-10T12:00:00.000Z',
+              }),
+            },
+          ],
+        })
+        .mockResolvedValueOnce({
+          docs: [
+            {
+              id: 'vo2-1',
+              data: (): Record<string, unknown> => ({
+                userId: 'test-user',
+                date: '2026-02-10',
+                value: 53,
+                method: 'ftp_derived',
+                sourcePower: 300,
+                sourceWeight: 74,
+                createdAt: '2026-02-10T12:00:00.000Z',
+              }),
+            },
+            {
+              id: 'vo2-2',
+              data: (): Record<string, unknown> => ({
+                userId: 'test-user',
+                date: '2026-01-15',
+                value: 51,
+                method: 'ftp_derived',
+                sourcePower: 290,
+                sourceWeight: 74,
+                createdAt: '2026-01-15T12:00:00.000Z',
+              }),
+            },
+          ],
+        });
+
+      const latest = await getLatestVO2Max('test-user');
+      const history = await getVO2MaxHistory('test-user', 2);
+
+      expect(latest?.id).toBe('vo2-latest');
+      expect(history).toHaveLength(2);
+      expect(history[1]?.value).toBe(51);
+    });
+
+    it('handles null cycling profile and merges updates when setting profile', async () => {
+      mockGet
+        .mockResolvedValueOnce({ exists: false })
+        .mockResolvedValueOnce({ exists: true, data: (): undefined => undefined });
+
+      const missing = await getCyclingProfile('test-user');
+      const empty = await getCyclingProfile('test-user');
+      const saved = await setCyclingProfile('test-user', {
+        weightKg: 75,
+        maxHR: 188,
+      });
+
+      expect(missing).toBeNull();
+      expect(empty).toBeNull();
+      expect(mockSet).toHaveBeenCalledWith(
+        { userId: 'test-user', weightKg: 75, maxHR: 188 },
+        { merge: true },
+      );
+      expect(saved).toEqual({ userId: 'test-user', weightKg: 75, maxHR: 188 });
     });
   });
 });

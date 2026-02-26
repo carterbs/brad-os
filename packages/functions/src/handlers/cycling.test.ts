@@ -29,15 +29,35 @@ const mockCyclingService = vi.hoisted(() => ({
   saveActivityStreams: vi.fn(),
   getStravaTokens: vi.fn(),
   setStravaTokens: vi.fn(),
+  saveVO2MaxEstimate: vi.fn(),
+  getLatestVO2Max: vi.fn(),
+  getVO2MaxHistory: vi.fn(),
+  getCyclingProfile: vi.fn(),
+  setCyclingProfile: vi.fn(),
 }));
 
 const mockStravaService = vi.hoisted(() => ({
   areTokensExpired: vi.fn(),
   refreshStravaTokens: vi.fn(),
   fetchActivityStreams: vi.fn(),
+  fetchStravaActivities: vi.fn(),
+  filterCyclingActivities: vi.fn(),
+  processStravaActivity: vi.fn(),
+}));
+
+const mockTrainingLoadService = vi.hoisted(() => ({
+  calculateTrainingLoadMetrics: vi.fn(),
+  getWeekInBlock: vi.fn(),
+}));
+
+const mockVo2MaxService = vi.hoisted(() => ({
+  estimateVO2MaxFromFTP: vi.fn(),
+  categorizeVO2Max: vi.fn(),
 }));
 
 vi.mock('../services/strava.service.js', () => mockStravaService);
+vi.mock('../services/training-load.service.js', () => mockTrainingLoadService);
+vi.mock('../services/vo2max.service.js', () => mockVo2MaxService);
 
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({
@@ -120,6 +140,19 @@ function createTestWeightGoal(overrides: Partial<WeightGoal> = {}): WeightGoal {
 describe('Cycling Handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+
+    mockTrainingLoadService.calculateTrainingLoadMetrics.mockReturnValue({
+      atl: 45,
+      ctl: 39,
+      tsb: 6,
+    });
+    mockTrainingLoadService.getWeekInBlock.mockReturnValue(2);
+    mockVo2MaxService.estimateVO2MaxFromFTP.mockReturnValue(52);
+    mockVo2MaxService.categorizeVO2Max.mockReturnValue('Excellent');
+    mockStravaService.filterCyclingActivities.mockImplementation((items: unknown[]) => items);
+    mockStravaService.processStravaActivity.mockImplementation((_activity: unknown, _ftp: number, userId: string) =>
+      createTestActivity({ id: 'processed', userId, stravaId: 99999 })
+    );
   });
 
   describe('GET /cycling/activities', () => {
@@ -731,6 +764,301 @@ describe('Cycling Handler', () => {
       expect(response.status).toBe(400);
       const body = response.body as ApiResponse;
       expect(body.success).toBe(false);
+    });
+
+    it('should return 500 when token refresh is needed but Strava credentials are missing', async () => {
+      mockCyclingService.getStravaTokens.mockResolvedValue({
+        accessToken: 'expired-token',
+        refreshToken: 'refresh-token',
+        expiresAt: 1,
+        athleteId: 12345,
+      });
+      mockStravaService.areTokensExpired.mockReturnValue(true);
+      const prevClientId = process.env['STRAVA_CLIENT_ID'];
+      const prevClientSecret = process.env['STRAVA_CLIENT_SECRET'];
+      delete process.env['STRAVA_CLIENT_ID'];
+      delete process.env['STRAVA_CLIENT_SECRET'];
+
+      const response = await request(cyclingApp).post('/activities/backfill-streams');
+
+      process.env['STRAVA_CLIENT_ID'] = prevClientId;
+      process.env['STRAVA_CLIENT_SECRET'] = prevClientSecret;
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Strava credentials not configured on server.',
+      });
+    });
+
+    it('should count skipped and failed stream backfills correctly', async () => {
+      mockCyclingService.getStravaTokens.mockResolvedValue({
+        accessToken: 'token',
+        refreshToken: 'refresh',
+        expiresAt: Math.floor(Date.now() / 1000) + 3600,
+        athleteId: 12345,
+      });
+      mockStravaService.areTokensExpired.mockReturnValue(false);
+      mockCyclingService.getCyclingActivities.mockResolvedValue([
+        createTestActivity({ id: 'a1', stravaId: 1001 }),
+        createTestActivity({ id: 'a2', stravaId: 1002 }),
+      ]);
+      mockCyclingService.getActivityStreams.mockResolvedValue(null);
+      mockStravaService.fetchActivityStreams
+        .mockResolvedValueOnce({
+          watts: { data: [], series_type: 'distance', original_size: 0, resolution: 'high' },
+          heartrate: { data: [], series_type: 'distance', original_size: 0, resolution: 'high' },
+          time: { data: [], series_type: 'distance', original_size: 0, resolution: 'high' },
+        })
+        .mockRejectedValueOnce(new Error('strava timeout'));
+
+      const response = await request(cyclingApp).post('/activities/backfill-streams');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        success: true,
+        data: { backfilled: 0, skipped: 1, failed: 1 },
+      });
+    });
+  });
+
+  describe('GET /cycling/blocks', () => {
+    it('should return all training blocks', async () => {
+      const blocks = [
+        createTestTrainingBlock({ id: 'b1' }),
+        createTestTrainingBlock({ id: 'b2', status: 'completed' }),
+      ];
+      mockCyclingService.getTrainingBlocks.mockResolvedValue(blocks);
+
+      const response = await request(cyclingApp).get('/blocks');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ success: true, data: blocks });
+    });
+  });
+
+  describe('POST /cycling/sync', () => {
+    it('should return 400 when Strava is not connected', async () => {
+      mockCyclingService.getStravaTokens.mockResolvedValue(null);
+
+      const response = await request(cyclingApp).post('/sync');
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Strava not connected. Please connect Strava first.',
+      });
+    });
+
+    it('should refresh expired tokens, import new rides, and skip duplicates/no-power rides', async () => {
+      mockCyclingService.getStravaTokens.mockResolvedValue({
+        accessToken: 'expired-token',
+        refreshToken: 'refresh-token',
+        expiresAt: 1,
+        athleteId: 12345,
+      });
+      mockCyclingService.getCurrentFTP.mockResolvedValue(createTestFTPEntry({ value: 260 }));
+      mockStravaService.areTokensExpired.mockReturnValue(true);
+      mockStravaService.refreshStravaTokens.mockResolvedValue({
+        accessToken: 'fresh-token',
+        refreshToken: 'refresh-2',
+        expiresAt: Math.floor(Date.now() / 1000) + 7200,
+        athleteId: 12345,
+      });
+      mockStravaService.fetchStravaActivities
+        .mockResolvedValueOnce([
+          {
+            id: 2001,
+            type: 'Ride',
+            moving_time: 3600,
+            elapsed_time: 3600,
+            average_watts: 210,
+            weighted_average_watts: 225,
+            start_date: '2026-02-10T08:00:00.000Z',
+          },
+          {
+            id: 2002,
+            type: 'Ride',
+            moving_time: 3600,
+            elapsed_time: 3600,
+            average_watts: 0,
+            weighted_average_watts: 0,
+            start_date: '2026-02-09T08:00:00.000Z',
+          },
+          {
+            id: 2003,
+            type: 'Ride',
+            moving_time: 3600,
+            elapsed_time: 3600,
+            average_watts: 190,
+            weighted_average_watts: 200,
+            start_date: '2026-02-08T08:00:00.000Z',
+          },
+        ])
+        .mockResolvedValueOnce([]);
+      mockStravaService.filterCyclingActivities.mockImplementation((items: unknown[]) => items);
+      mockStravaService.processStravaActivity.mockImplementation((activity: { id: number }, _ftp: number, userId: string) =>
+        createTestActivity({ id: `created-${activity.id}`, stravaId: activity.id, userId })
+      );
+      mockCyclingService.getCyclingActivities.mockResolvedValue([
+        createTestActivity({ id: 'existing', stravaId: 2003 }),
+      ]);
+      mockCyclingService.createCyclingActivity.mockResolvedValue(createTestActivity({ id: 'created-2001', stravaId: 2001 }));
+
+      const prevClientId = process.env['STRAVA_CLIENT_ID'];
+      const prevClientSecret = process.env['STRAVA_CLIENT_SECRET'];
+      process.env['STRAVA_CLIENT_ID'] = 'client';
+      process.env['STRAVA_CLIENT_SECRET'] = 'secret';
+
+      const response = await request(cyclingApp).post('/sync');
+
+      process.env['STRAVA_CLIENT_ID'] = prevClientId;
+      process.env['STRAVA_CLIENT_SECRET'] = prevClientSecret;
+
+      expect(response.status).toBe(200);
+      expect(mockCyclingService.setStravaTokens).toHaveBeenCalledTimes(1);
+      expect(mockCyclingService.createCyclingActivity).toHaveBeenCalledTimes(1);
+      expect(response.body).toEqual({
+        success: true,
+        data: {
+          total: 3,
+          imported: 1,
+          skipped: 2,
+          message: 'Imported 1 activities, skipped 2 (already synced or no power data).',
+        },
+      });
+    });
+  });
+
+  describe('VO2 max endpoints', () => {
+    it('should return latest VO2 max with categorized value', async () => {
+      mockCyclingService.getLatestVO2Max.mockResolvedValue({
+        id: 'vo2-1',
+        userId: 'default-user',
+        date: '2026-02-10',
+        value: 53,
+        method: 'ftp_derived',
+        sourcePower: 250,
+        sourceWeight: 75,
+        createdAt: '2026-02-10T12:00:00.000Z',
+      });
+      mockCyclingService.getVO2MaxHistory.mockResolvedValue([
+        { id: 'vo2-1', date: '2026-02-10', value: 53 },
+      ]);
+      mockVo2MaxService.categorizeVO2Max.mockReturnValue('Excellent');
+
+      const response = await request(cyclingApp).get('/vo2max');
+      const body = response.body as ApiResponse<{
+        latest: { category: string } | null;
+        history: unknown[];
+      }>;
+
+      expect(response.status).toBe(200);
+      expect(body.data?.latest && 'category' in body.data.latest ? body.data.latest.category : null).toBe('Excellent');
+      expect(body.data?.history).toHaveLength(1);
+    });
+
+    it('should return 400 when no FTP is set before VO2 calculation', async () => {
+      mockCyclingService.getCurrentFTP.mockResolvedValue(null);
+
+      const response = await request(cyclingApp).post('/vo2max/calculate').send({ weightKg: 75 });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        success: false,
+        error: 'No FTP set. Please set your FTP first.',
+      });
+    });
+
+    it('should return 400 when VO2 estimate cannot be computed', async () => {
+      mockCyclingService.getCurrentFTP.mockResolvedValue(createTestFTPEntry({ value: 250 }));
+      mockVo2MaxService.estimateVO2MaxFromFTP.mockReturnValue(null);
+
+      const response = await request(cyclingApp).post('/vo2max/calculate').send({ weightKg: 75 });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        success: false,
+        error: 'Invalid FTP or weight values.',
+      });
+    });
+
+    it('should save VO2 estimate and profile weight on successful calculation', async () => {
+      mockCyclingService.getCurrentFTP.mockResolvedValue(createTestFTPEntry({ value: 260 }));
+      mockVo2MaxService.estimateVO2MaxFromFTP.mockReturnValue(54);
+      mockVo2MaxService.categorizeVO2Max.mockReturnValue('Excellent');
+      mockCyclingService.saveVO2MaxEstimate.mockResolvedValue({
+        id: 'vo2-saved',
+        userId: 'default-user',
+        date: '2026-02-10',
+        value: 54,
+        method: 'ftp_derived',
+        sourcePower: 260,
+        sourceWeight: 75,
+        createdAt: '2026-02-10T12:00:00.000Z',
+      });
+      mockCyclingService.setCyclingProfile.mockResolvedValue({
+        userId: 'default-user',
+        weightKg: 75,
+      });
+
+      const response = await request(cyclingApp).post('/vo2max/calculate').send({ weightKg: 75 });
+      const body = response.body as ApiResponse<{ category: string }>;
+
+      expect(response.status).toBe(201);
+      expect(mockCyclingService.saveVO2MaxEstimate).toHaveBeenCalledTimes(1);
+      expect(mockCyclingService.setCyclingProfile).toHaveBeenCalledWith('default-user', { weightKg: 75 });
+      expect(body.data?.category).toBe('Excellent');
+    });
+  });
+
+  describe('Cycling profile and EF endpoints', () => {
+    it('should get and update cycling profile', async () => {
+      mockCyclingService.getCyclingProfile.mockResolvedValue({
+        userId: 'default-user',
+        weightKg: 76,
+        maxHR: 188,
+        restingHR: 50,
+      });
+      mockCyclingService.setCyclingProfile.mockResolvedValue({
+        userId: 'default-user',
+        weightKg: 75,
+        maxHR: 186,
+        restingHR: 49,
+      });
+
+      const getResponse = await request(cyclingApp).get('/profile');
+      const putResponse = await request(cyclingApp).put('/profile').send({
+        weightKg: 75,
+        maxHR: 186,
+        restingHR: 49,
+      });
+      const getBody = getResponse.body as ApiResponse<{ weightKg: number }>;
+      const putBody = putResponse.body as ApiResponse<{ maxHR: number }>;
+
+      expect(getResponse.status).toBe(200);
+      expect(getBody.data?.weightKg).toBe(76);
+      expect(putResponse.status).toBe(200);
+      expect(putBody.data?.maxHR).toBe(186);
+    });
+
+    it('should return EF history filtered to steady rides with valid EF', async () => {
+      mockCyclingService.getCyclingActivities.mockResolvedValue([
+        createTestActivity({ id: 'a1', ef: 1.3, intensityFactor: 0.8 }),
+        createTestActivity({ id: 'a2', ef: 1.2, intensityFactor: 0.9 }),
+        createTestActivity({ id: 'a3', ef: 0, intensityFactor: 0.7 }),
+      ]);
+
+      const response = await request(cyclingApp).get('/ef');
+      const body = response.body as ApiResponse<Array<{ activityId: string; ef: number }>>;
+
+      expect(response.status).toBe(200);
+      expect(body.data).toHaveLength(1);
+      expect(body.data?.[0]).toEqual(
+        expect.objectContaining({
+          activityId: 'a1',
+          ef: 1.3,
+        }),
+      );
     });
   });
 });
