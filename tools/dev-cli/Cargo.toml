@@ -9,19 +9,23 @@ path = "src/bin/validate.rs"
 
 [[bin]]
 name = "brad-run-integration-tests"
-path = "src/bin/run-integration-tests.rs"
+path = "src/bin/run_integration_tests.rs"
 
 [[bin]]
 name = "brad-setup-ios-testing"
 path = "src/bin/setup_ios_testing.rs"
 
-[dependencies]
-owo-colors = { version = "4", features = ["supports-colors"] }
-ctrlc = "3.4.4"
-
-[dev-dependencies]
-tempfile = "3"
-
 [[bin]]
 name = "brad-qa-stop"
 path = "src/bin/qa-stop.rs"
+
+[[bin]]
+name = "brad-precommit"
+path = "src/bin/precommit.rs"
+
+[dependencies]
+owo-colors = { version = "4", features = ["supports-colors"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ctrlc = "3"
+tempfile = "3"
