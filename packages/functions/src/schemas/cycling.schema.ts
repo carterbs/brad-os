@@ -22,6 +22,90 @@ export const experienceLevelSchema = z.enum([
 
 export const ftpSourceSchema = z.enum(['manual', 'test']);
 
+const coachingSessionTypeSchema = z.enum([
+  'vo2max',
+  'threshold',
+  'endurance',
+  'tempo',
+  'fun',
+  'recovery',
+  'off',
+]);
+
+/**
+ * Valid session types for schedule generation.
+ */
+const scheduleSessionTypeSchema = z.enum([
+  'vo2max',
+  'threshold',
+  'endurance',
+  'tempo',
+  'fun',
+  'recovery',
+]);
+
+/**
+ * Schema for session recommendations returned by the cycling coach.
+ */
+export const sessionRecommendationSchema = z.object({
+  type: coachingSessionTypeSchema,
+  durationMinutes: z.number().positive(),
+  pelotonClassTypes: z.array(z.string()),
+  pelotonTip: z.string(),
+  targetTSS: z.object({
+    min: z.number(),
+    max: z.number(),
+  }).strict(),
+  targetZones: z.string(),
+}).strict();
+
+const coachWarningSchema = z.object({
+  type: z.string(),
+  message: z.string(),
+});
+
+/**
+ * Schema for AI coaching response payloads.
+ */
+export const cyclingCoachResponseSchema = z.object({
+  session: sessionRecommendationSchema,
+  reasoning: z.string(),
+  coachingTips: z.array(z.string()).optional(),
+  warnings: z.array(coachWarningSchema).nullable().optional(),
+  suggestFTPTest: z.boolean().optional(),
+}).strict();
+
+export const generateScheduleSessionSchema = z.object({
+  order: z.number().int().positive(),
+  sessionType: scheduleSessionTypeSchema,
+  pelotonClassTypes: z.array(z.string()),
+  suggestedDurationMinutes: z.number().positive(),
+  description: z.string(),
+});
+
+const generateSchedulePhaseSchema = z.object({
+  name: z.string(),
+  weeks: z.string(),
+  description: z.string(),
+});
+
+/**
+ * Schema for AI schedule generation response payloads.
+ */
+export const generateScheduleResponseSchema = z.object({
+  sessions: z.array(generateScheduleSessionSchema),
+  weeklyPlan: z.object({
+    totalEstimatedHours: z.number(),
+    phases: z.array(generateSchedulePhaseSchema),
+  }).strict(),
+  rationale: z.string(),
+}).strict();
+
+export type SessionRecommendationSchema = z.infer<typeof sessionRecommendationSchema>;
+export type CyclingCoachResponseDTO = z.infer<typeof cyclingCoachResponseSchema>;
+export type GenerateScheduleResponseDTO = z.infer<typeof generateScheduleResponseSchema>;
+export type GenerateScheduleSessionDTO = z.infer<typeof generateScheduleSessionSchema>;
+
 // --- FTP Entry Schema ---
 
 /**
@@ -39,9 +123,9 @@ export type CreateFTPEntryInput = z.infer<typeof createFTPEntrySchema>;
 
 // --- Weekly Session Schema ---
 
-const weeklySessionSchema = z.object({
+export const weeklySessionSchema = z.object({
   order: z.number().int().positive(),
-  sessionType: z.string().min(1),
+  sessionType: z.string(),
   pelotonClassTypes: z.array(z.string()),
   suggestedDurationMinutes: z.number().positive(),
   description: z.string(),

@@ -10,7 +10,7 @@ import { getFirestoreDb } from '../firebase.js';
 import { generateMealPlan, InsufficientMealsError } from '../services/mealplan-generation.service.js';
 import { processCritique } from '../services/mealplan-critique.service.js';
 import { applyOperations } from '../services/mealplan-operations.service.js';
-import { critiqueInputSchema, type CritiqueInput } from '../shared.js';
+import { critiqueInputSchema } from '../shared.js';
 
 const app = createBaseApp('mealplans');
 app.use((_req, res, next) => {
@@ -107,7 +107,7 @@ app.post('/:sessionId/critique', validate(critiqueInputSchema), asyncHandler(asy
     throw new AppError(400, 'SESSION_FINALIZED', 'Session is already finalized');
   }
 
-  const { critique } = req.body as CritiqueInput;
+  const { critique } = critiqueInputSchema.parse(req.body);
   const apiKey = process.env['OPENAI_API_KEY'] ?? '';
   if (apiKey === '') {
     throw new AppError(500, 'MISSING_API_KEY', 'OpenAI API key is not configured');

@@ -368,8 +368,8 @@ describe('Training Load Service', () => {
     });
 
     it('should not double-count a single activity for two sessions', () => {
-      const vo2maxSession = threeSessions[0] as WeeklySession;
-      const funSession = threeSessions[2] as WeeklySession;
+      const vo2maxSession = threeSessions[0];
+      const funSession = threeSessions[2];
       const sessions: WeeklySession[] = [
         { ...vo2maxSession },
         { ...vo2maxSession, order: 2 },
