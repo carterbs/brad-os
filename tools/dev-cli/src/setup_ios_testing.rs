@@ -86,7 +86,7 @@ pub fn parse_args(args: &[String]) -> SetupConfig {
     let project_dir = exe_path
         .parent()
         .and_then(|path| locate_repo_root(path))
-        .unwrap_or_else(|_| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+        .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
     let ios_dir = project_dir.join("ios/BradOS");
     let derived_data = env::var("HOME")
         .map(PathBuf::from)
