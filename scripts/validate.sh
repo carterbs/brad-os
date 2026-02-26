@@ -16,16 +16,6 @@ set -uo pipefail
 #   BRAD_VALIDATE_TEST_FILES=$'packages/functions/src/services/foo.test.ts\n' \
 #   BRAD_VALIDATE_TEST_PROJECTS=$'functions\n' npm run validate
 
-# --- Rust delegation (set BRAD_USE_RUST_VALIDATE=0 to force legacy Bash) ---
-if [ "${BRAD_USE_RUST_VALIDATE:-1}" = "1" ]; then
-  REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-  RUST_BINARY="$REPO_ROOT/target/release/brad-validate"
-  if [ -f "$RUST_BINARY" ]; then
-    exec "$RUST_BINARY" "$@"
-  fi
-  # Rust binary not built yet — fall through to legacy Bash
-fi
-
 for arg in "$@"; do
   case "$arg" in
     --quick)

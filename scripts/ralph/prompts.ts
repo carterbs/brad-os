@@ -109,10 +109,12 @@ and concrete examples where helpful.
 After writing thoughts/shared/plans/active/ralph-improvement.md, output the title line as: PLAN: <title>`;
 }
 
-export function buildImplPrompt(): string {
+const DEFAULT_PLAN_DOC_PATH = "thoughts/shared/plans/active/ralph-improvement.md";
+
+export function buildImplPrompt(planDocPath = DEFAULT_PLAN_DOC_PATH): string {
   return `You are implementing a harness improvement for the brad-os project.
 
-YOUR FIRST STEP: Read thoughts/shared/plans/active/ralph-improvement.md in the current directory. This contains a detailed
+YOUR FIRST STEP: Read ${planDocPath} in the current directory. This contains a detailed
 implementation plan written by a planning agent. Implement exactly what it describes.
 
 Do NOT re-research or second-guess the plan. The planning agent already surveyed the
@@ -120,24 +122,24 @@ codebase and picked the highest-leverage improvement. Your job is to execute the
 faithfully, with high quality.
 
 Implementation:
-- Read thoughts/shared/plans/active/ralph-improvement.md thoroughly before writing any code.
-- Follow the file list, function signatures, and test plan in thoughts/shared/plans/active/ralph-improvement.md.
+- Read ${planDocPath} thoroughly before writing any code.
+- Follow the file list, function signatures, and test plan in ${planDocPath}.
 - Read AGENTS.md and docs/conventions/ for project rules.
 - Write tests as specified in the plan.
-- Do NOT modify application product code unless thoughts/shared/plans/active/ralph-improvement.md says to.
+- Do NOT modify application product code unless ${planDocPath} says to.
 
 Constraints:
 - Follow all rules in AGENTS.md exactly.
 - 100% test coverage on new utilities.
-- Keep changes focused on what thoughts/shared/plans/active/ralph-improvement.md describes.
+- Keep changes focused on what ${planDocPath} describes.
 - Never modify scripts/ralph/backlog.md (main-managed; only updated after merge on main).
 - Run and pass: npm run typecheck && npm run lint && npm test
-- Do NOT push to any remote. Do NOT run git push. Everything stays local.
+- Do NOT push to any remote. Push is handled by the orchestrator.
 
 QA (MANDATORY — do not skip this):
 - After implementation, you MUST actually exercise what you built. Do not just
   run tests and declare victory.
-- thoughts/shared/plans/active/ralph-improvement.md has a QA section — follow it.
+- ${planDocPath} has a QA section — follow it.
 - If you built a script: run it and verify it produces correct output.
 - If you built a linter: run it against the codebase and show it catches violations.
 - If you built a test utility: use it in a test and show it works end-to-end.
@@ -172,7 +174,10 @@ Constraints:
 When done, output a one-line summary starting with "DONE:" describing what you resolved.`;
 }
 
-export function buildFixPrompt(reviewOutput: string): string {
+export function buildFixPrompt(
+  reviewOutput: string,
+  planDocPath = DEFAULT_PLAN_DOC_PATH,
+): string {
   // Truncate review output to avoid blowing up the prompt
   const maxLen = 4000;
   const truncated =
@@ -182,7 +187,7 @@ export function buildFixPrompt(reviewOutput: string): string {
 
   return `You are fixing issues found by a reviewer in the brad-os project.
 
-YOUR FIRST STEP: Read thoughts/shared/plans/active/ralph-improvement.md in the current directory for the original plan.
+YOUR FIRST STEP: Read ${planDocPath} in the current directory for the original plan.
 
 A reviewer found the following issues with the implementation. Fix them.
 
@@ -194,25 +199,34 @@ ${truncated}
 - Fix ONLY the issues described above. Do not refactor or add unrelated changes.
 - Never modify scripts/ralph/backlog.md (main-managed; only updated after merge on main).
 - Run and pass: npm run typecheck && npm run lint && npm test
-- Do NOT push to any remote. Do NOT run git push. Everything stays local.
+- Do NOT push to any remote. Push is handled by the orchestrator.
 
 When done, output a one-line summary starting with "FIXED:" describing what you changed.`;
 }
 
-export function buildReviewPrompt(): string {
-  return `You are an independent reviewer. Review the changes in this worktree against main.
+export function buildReviewPrompt(
+  prNumber: number,
+  prUrl: string,
+  cycle: number,
+  maxCycles: number,
+): string {
+  return `You are an independent reviewer. Review GitHub PR #${prNumber}.
 
 Context: Read docs/references/codex-agent-team-article.md to understand the philosophy.
 This is the review step of the Ralph Wiggum Loop. Your job is to ensure the improvement
 is high-leverage harness work that increases agent velocity — not product code changes
 or low-value busywork.
 
-IMPORTANT: Do NOT push to any remote. Do NOT run git push. Everything stays local.
+PR URL: ${prUrl}
+Review cycle: ${cycle}/${maxCycles}
+
+IMPORTANT: Do NOT modify any files in this review step.
+IMPORTANT: Do NOT push to any remote.
 IMPORTANT: Do NOT modify scripts/ralph/backlog.md (main-managed; only updated after merge on main).
 
 Steps:
-1. Run: git diff main --stat   (see scope of changes)
-2. Run: git diff main           (read every changed line)
+1. Run: gh pr view ${prNumber} --comments
+2. Run: gh pr diff ${prNumber}
 3. Read AGENTS.md and docs/conventions/ for project rules.
 4. Run: npm run typecheck && npm run lint && npm test
 5. Evaluate:
@@ -224,8 +238,9 @@ Steps:
      of harness/tooling work that compounds — linters, test infrastructure, architecture
      enforcement, observability, dev-loop scaffolding?
    - QA: Was the thing actually run? Don't trust that tests alone prove it works.
-     Run the script/linter/tool/integration yourself and verify real output.
-6. If you find issues, fix them directly in the files and re-run validations.
-7. When satisfied AND you've verified it works by running it, output exactly: REVIEW_PASSED
-   If unfixable issues remain, output: REVIEW_FAILED followed by explanation.`;
+6. If issues exist, output exactly:
+   REVIEW_FAILED
+   <concise actionable findings>
+7. If no issues exist, output exactly:
+   REVIEW_PASSED`;
 }

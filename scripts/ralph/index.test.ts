@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Config, StepResult } from './types.js';
 import {
+  IMPLEMENT_PLAN_TASK_PREFIX,
   MAIN_NOT_GREEN_TRIAGE_TASK,
   MERGE_CONFLICT_TRIAGE_PREFIX,
   activeWorktrees,
   checkDeps,
   enforceMainManagedBacklog,
+  extractPlanDocPathFromTask,
   hasMoreWork,
   isMergeConflictTriageTask,
   main,
@@ -31,6 +33,8 @@ const {
   mockSyncTaskFilesFromLog,
   mockResolveConfig,
   mockMergeQueueEnqueue,
+  mockEnsurePullRequest,
+  mockPushBranch,
   mockBuildBacklogRefillPrompt,
   mockBuildTaskPlanPrompt,
   mockBuildPlanPrompt,
@@ -58,6 +62,8 @@ const {
   mockSyncTaskFilesFromLog: vi.fn(),
   mockResolveConfig: vi.fn(),
   mockMergeQueueEnqueue: vi.fn(),
+  mockEnsurePullRequest: vi.fn(),
+  mockPushBranch: vi.fn(),
   mockBuildBacklogRefillPrompt: vi.fn(),
   mockBuildTaskPlanPrompt: vi.fn(),
   mockBuildPlanPrompt: vi.fn(),
@@ -108,6 +114,11 @@ vi.mock('./merge-queue.js', () => ({
   MergeQueue: vi.fn().mockImplementation(() => ({
     enqueue: mockMergeQueueEnqueue,
   })),
+}));
+
+vi.mock('./pr.js', () => ({
+  ensurePullRequest: mockEnsurePullRequest,
+  pushBranch: mockPushBranch,
 }));
 
 vi.mock('./prompts.js', () => ({
@@ -163,6 +174,7 @@ function makeConfig(overrides: Partial<Config> = {}): Config {
     verbose: false,
     repoDir: '/repo',
     worktreeDir: '/tmp/worktrees',
+    minReviewCycles: 1,
     maxReviewCycles: 3,
     logFile: '/repo/ralph-loop.jsonl',
     agents: {
@@ -228,6 +240,36 @@ describe('isMergeConflictTriageTask', () => {
 
   it('returns false for undefined taskText', async () => {
     expect(isMergeConflictTriageTask(undefined, 'triage')).toBe(false);
+  });
+});
+
+// ────────────────────────────────────────────────────────────────────────────
+// describe("extractPlanDocPathFromTask")
+// ────────────────────────────────────────────────────────────────────────────
+
+describe('extractPlanDocPathFromTask', () => {
+  it('returns undefined for non implement-plan task', async () => {
+    expect(extractPlanDocPathFromTask('Add tests')).toBeUndefined();
+  });
+
+  it('returns default active-plans path for filename tasks', async () => {
+    expect(
+      extractPlanDocPathFromTask(`${IMPLEMENT_PLAN_TASK_PREFIX}my-plan.md`)
+    ).toBe('thoughts/shared/plans/active/my-plan.md');
+  });
+
+  it('appends .md when missing extension', async () => {
+    expect(
+      extractPlanDocPathFromTask(`${IMPLEMENT_PLAN_TASK_PREFIX}my-plan`)
+    ).toBe('thoughts/shared/plans/active/my-plan.md');
+  });
+
+  it('preserves explicit relative paths', async () => {
+    expect(
+      extractPlanDocPathFromTask(
+        `${IMPLEMENT_PLAN_TASK_PREFIX}thoughts/shared/plans/completed/old.md`
+      )
+    ).toBe('thoughts/shared/plans/completed/old.md');
   });
 });
 
@@ -669,6 +711,13 @@ describe('runWorker', () => {
     mockCommitAll.mockReset();
     mockHasNewCommits.mockReset();
     mockExecFileSync.mockReset();
+    mockPushBranch.mockReset();
+    mockEnsurePullRequest.mockReset();
+    mockPushBranch.mockReturnValue(true);
+    mockEnsurePullRequest.mockReturnValue({
+      number: 123,
+      url: 'https://github.com/org/repo/pull/123',
+    });
   });
 
   it('returns failure when worktree creation fails', async () => {
@@ -785,6 +834,59 @@ describe('runWorker', () => {
     expect(planCalls).toHaveLength(0);
     // Verify merge conflict resolve was called instead of impl
     expect(mockBuildMergeConflictResolvePrompt).toHaveBeenCalled();
+  });
+
+  it('skips planning for implement-plan task', async () => {
+    mockCreateWorktree.mockReturnValue({ created: true, resumed: false });
+    mockExistsSync.mockReturnValue(true);
+    mockRunStep.mockResolvedValueOnce(
+      makeStepResult({ outputText: 'DONE: Implemented plan' })
+    );
+    mockCommitAll.mockReturnValue(true);
+    mockRunStep.mockResolvedValueOnce(
+      makeStepResult({ outputText: 'REVIEW_PASSED' })
+    );
+    const config = makeConfig();
+    const abortController = new AbortController();
+    const taskText = 'Implement Plan 2026-02-26-rust-migrate-qa-start.md';
+
+    const result = await runWorker(
+      0,
+      1,
+      config,
+      createMockLogger() as any,
+      abortController,
+      taskText,
+      'backlog'
+    );
+
+    expect(result.success).toBe(true);
+    const runStepCalls = mockRunStep.mock.calls;
+    const planCalls = runStepCalls.filter((c) => c[0].stepName === 'plan');
+    expect(planCalls).toHaveLength(0);
+    expect(mockBuildImplPrompt).toHaveBeenCalledWith(
+      'thoughts/shared/plans/active/2026-02-26-rust-migrate-qa-start.md'
+    );
+  });
+
+  it('fails early when implement-plan task references missing plan file', async () => {
+    mockCreateWorktree.mockReturnValue({ created: true, resumed: false });
+    mockExistsSync.mockReturnValue(false);
+    const config = makeConfig();
+    const abortController = new AbortController();
+
+    const result = await runWorker(
+      0,
+      1,
+      config,
+      createMockLogger() as any,
+      abortController,
+      'Implement Plan does-not-exist.md',
+      'backlog'
+    );
+
+    expect(result.success).toBe(false);
+    expect(mockRunStep).not.toHaveBeenCalled();
   });
 
   it('task-based planning succeeds', async () => {
@@ -1350,7 +1452,8 @@ describe('runWorker', () => {
 
     expect(result.success).toBe(true);
     expect(mockBuildFixPrompt).toHaveBeenCalledWith(
-      expect.stringContaining('npm run validate failed')
+      expect.stringContaining('npm run validate failed'),
+      'thoughts/shared/plans/active/ralph-improvement.md'
     );
   });
 
@@ -1615,6 +1718,8 @@ describe('main', () => {
     mockSyncTaskFilesFromLog.mockReset();
     mockResolveConfig.mockReset();
     mockMergeQueueEnqueue.mockReset();
+    mockPushBranch.mockReset();
+    mockEnsurePullRequest.mockReset();
     mockBuildBacklogRefillPrompt.mockReset();
     mockBuildTaskPlanPrompt.mockReset();
     mockBuildPlanPrompt.mockReset();
@@ -1624,6 +1729,11 @@ describe('main', () => {
     mockBuildFixPrompt.mockReset();
     mockLoggerConstructor.mockReset();
     mockLoggerConstructor.mockImplementation(createMockLogger);
+    mockPushBranch.mockReturnValue(true);
+    mockEnsurePullRequest.mockReturnValue({
+      number: 123,
+      url: 'https://github.com/org/repo/pull/123',
+    });
     mockProcessExit = vi.spyOn(process, 'exit').mockImplementation((() => {
       // no-op — just record the call
     }) as never);
@@ -1769,7 +1879,7 @@ describe('main', () => {
     expect(mockCreateWorktree).toHaveBeenCalledTimes(3);
   });
 
-  it('handles merge failure and parks backlog task', async () => {
+  it('handles merge failure and escalates backlog task to triage', async () => {
     setupMainDefaults({ target: 2, parallelism: 1 });
     mockReadTriage.mockReturnValue([]);
     mockReadBacklog.mockReturnValue(['Task A', 'Task B']);
@@ -1807,9 +1917,9 @@ describe('main', () => {
     }
     await p;
 
-    expect(mockMoveTaskToMergeConflicts).toHaveBeenCalledWith(
-      'Task A',
-      expect.objectContaining({ improvement: 1 })
+    expect(mockRemoveTask).toHaveBeenCalledWith('Task A');
+    expect(mockAddTriageTask).toHaveBeenCalledWith(
+      expect.stringContaining('Human escalation required')
     );
   });
 
@@ -1837,8 +1947,10 @@ describe('main', () => {
     }
     await p;
 
-    // For triage tasks that fail merge, addTriageTask is called to re-add
-    expect(mockAddTriageTask).toHaveBeenCalledWith('Triage fix');
+    expect(mockRemoveTriageTask).toHaveBeenCalledWith('Triage fix');
+    expect(mockAddTriageTask).toHaveBeenCalledWith(
+      expect.stringContaining('Human escalation required')
+    );
   });
 
   it('removes triage task on successful merge', async () => {
@@ -2036,7 +2148,7 @@ describe('main', () => {
     expect(mockRemoveTriageTask).not.toHaveBeenCalled();
   });
 
-  it('parkTaskAfterMergeConflict is no-op when no taskText', async () => {
+  it('escalation parking is no-op in CLI task mode', async () => {
     setupMainDefaults({ target: 1, parallelism: 1 });
     mockReadTriage.mockReturnValue([]);
     mockReadBacklog.mockReturnValue(['task']);
@@ -2069,8 +2181,8 @@ describe('main', () => {
     }
     await p;
 
-    // parkTaskAfterMergeConflict returns early because config.task is set
-    expect(mockMoveTaskToMergeConflicts).not.toHaveBeenCalled();
+    expect(mockRemoveTask).not.toHaveBeenCalled();
+    expect(mockRemoveTriageTask).not.toHaveBeenCalled();
     expect(mockAddTriageTask).not.toHaveBeenCalled();
   });
 
@@ -2218,8 +2330,9 @@ describe('main', () => {
 
     await p;
 
-    // Remaining worker merge failed → parkTaskAfterMergeConflict called
-    expect(mockMoveTaskToMergeConflicts).toHaveBeenCalled();
+    expect(mockAddTriageTask).toHaveBeenCalledWith(
+      expect.stringContaining('Human escalation required')
+    );
   });
 
   it('remaining worker with triage task removes from triage on successful merge', async () => {

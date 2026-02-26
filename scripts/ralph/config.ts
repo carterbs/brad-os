@@ -22,6 +22,7 @@ interface RalphConfigFile {
   branchPrefix?: string;
   parallelism?: number;
   maxTurns?: number;
+  minReviewCycles?: number;
   maxReviewCycles?: number;
   verbose?: boolean;
   agent?: AgentBackend;
@@ -136,7 +137,8 @@ export function resolveConfig(): Config {
     task: values.task as string | undefined,
     repoDir,
     worktreeDir: WORKTREE_DIR,
-    maxReviewCycles: configFile?.maxReviewCycles ?? 4,
+    minReviewCycles: configFile?.minReviewCycles ?? 2,
+    maxReviewCycles: configFile?.maxReviewCycles ?? 3,
     logFile: `${repoDir}/ralph-loop.jsonl`,
     agents,
   };

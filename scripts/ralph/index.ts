@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { join } from "node:path";
 import { Logger } from "./log.js";
 import { runStep } from "./agent.js";
 import {
@@ -18,6 +19,7 @@ import {
   commitAll,
   hasNewCommits,
 } from "./git.js";
+import { ensurePullRequest, pushBranch } from "./pr.js";
 import {
   readBacklog,
   readTriage,
@@ -25,7 +27,6 @@ import {
   removeTask,
   removeTriageTask,
   backlogPath,
-  moveTaskToMergeConflicts,
   syncTaskFilesFromLog,
 } from "./backlog.js";
 import { resolveConfig } from "./config.js";
@@ -42,6 +43,8 @@ export interface WorkerResult {
   worktreePath: string;
   taskText?: string;
   taskSource: TaskSource;
+  prNumber?: number;
+  prUrl?: string;
   stepResults: StepSummary[];
   failureReason?: "no_changes";
 }
@@ -53,6 +56,8 @@ export const MAIN_NOT_GREEN_TRIAGE_TASK =
 export const MAIN_NOT_GREEN_RETRY_COOLDOWN_MS = 15 * 60 * 1000;
 export const MERGE_CONFLICT_TRIAGE_PREFIX =
   "Resolve merge conflict for improvement #";
+export const IMPLEMENT_PLAN_TASK_PREFIX = "Implement Plan ";
+const DEFAULT_PLAN_DOC_PATH = "thoughts/shared/plans/active/ralph-improvement.md";
 
 // ── Validation helper ──
 
@@ -73,6 +78,35 @@ export function isMergeConflictTriageTask(
     taskSource === "triage" &&
     taskText?.startsWith(MERGE_CONFLICT_TRIAGE_PREFIX) === true
   );
+}
+
+export function extractPlanDocPathFromTask(
+  taskText: string | undefined,
+): string | undefined {
+  if (!taskText) return undefined;
+
+  const trimmedTask = taskText.trim();
+  if (
+    !trimmedTask
+      .toLowerCase()
+      .startsWith(IMPLEMENT_PLAN_TASK_PREFIX.toLowerCase())
+  ) {
+    return undefined;
+  }
+
+  const remainder = trimmedTask
+    .slice(IMPLEMENT_PLAN_TASK_PREFIX.length)
+    .trim()
+    .replace(/^`|`$/g, "")
+    .replace(/\.$/, "");
+  if (!remainder) return undefined;
+
+  const normalizedFile = remainder.endsWith(".md")
+    ? remainder
+    : `${remainder}.md`;
+  return normalizedFile.includes("/")
+    ? normalizedFile
+    : `thoughts/shared/plans/active/${normalizedFile}`;
 }
 
 export function enforceMainManagedBacklog(cwd: string, logger: Logger): void {
@@ -134,6 +168,13 @@ export function checkDeps(config: Config, logger: Logger): void {
     process.exit(1);
   }
 
+  try {
+    execFileSync("which", ["gh"], { stdio: "pipe" });
+  } catch {
+    logger.error("Missing dependency: gh (needed for GitHub PR workflow)");
+    process.exit(1);
+  }
+
   const backendsInUse = new Set<AgentBackend>([
     config.agents.backlog.backend,
     config.agents.plan.backend,
@@ -160,7 +201,7 @@ export function checkDeps(config: Config, logger: Logger): void {
   }
 }
 
-// ── Single worker: plan -> implement -> review (no merge) ──
+// ── Single worker: plan -> implement -> push/pr -> review ──
 
 export async function runWorker(
   workerSlot: number,
@@ -207,18 +248,38 @@ export async function runWorker(
       taskText,
       taskSource,
     );
+    const taskPlanDocPath = extractPlanDocPathFromTask(taskText);
+    const planDocPath = taskPlanDocPath ?? DEFAULT_PLAN_DOC_PATH;
 
     // ── 1. Planning (skip if resuming) ──
     let planSummary = "";
 
     if (wtResult.resumed) {
-      logger.info("[1/4] Skipping planning (resuming from prior work)");
+      logger.info("[1/5] Skipping planning (resuming from prior work)");
     } else if (mergeConflictTriageTask) {
       logger.info(
-        "[1/4] Skipping generic planning (merge-conflict triage task)",
+        "[1/5] Skipping generic planning (merge-conflict triage task)",
       );
+    } else if (taskPlanDocPath) {
+      logger.info(
+        `[1/5] Skipping planning (task already references plan: ${taskPlanDocPath})`,
+      );
+      if (!existsSync(join(worktreePath, taskPlanDocPath))) {
+        logger.error(`Plan file not found: ${taskPlanDocPath}`);
+        logger.info(`  Worktree preserved at: ${worktreePath}`);
+        return {
+          success: false,
+          improvement,
+          workerSlot,
+          branchName,
+          worktreePath,
+          taskText,
+          taskSource,
+          stepResults,
+        };
+      }
     } else if (taskText) {
-      logger.info(`[1/4] Planning for task: ${taskText.slice(0, 80)}...`);
+      logger.info(`[1/5] Planning for task: ${taskText.slice(0, 80)}...`);
       const planResult = await runStep({
         prompt: buildTaskPlanPrompt(taskText),
         stepName: "plan",
@@ -267,7 +328,7 @@ export async function runWorker(
       logger.stepSummary("plan", stepResults[stepResults.length - 1]);
     } else {
       // No task — full ideation planning
-      logger.info("[1/4] Planning (full ideation)...");
+      logger.info("[1/5] Planning (full ideation)...");
       const planResult = await runStep({
         prompt: buildPlanPrompt(improvement, config.target ?? 0),
         stepName: "plan",
@@ -317,10 +378,10 @@ export async function runWorker(
     }
 
     // ── 2. Implementation ──
-    logger.info("[2/4] Implementing...");
+    logger.info("[2/5] Implementing...");
     const implementPrompt = mergeConflictTriageTask
       ? buildMergeConflictResolvePrompt(taskText ?? "")
-      : buildImplPrompt();
+      : buildImplPrompt(planDocPath);
     let implResult = await runStep({
       prompt: implementPrompt,
       stepName: "implement",
@@ -406,7 +467,51 @@ export async function runWorker(
       }
     }
 
-    // ── 3. Review loop ──
+    // ── 3. Push + create PR ──
+    logger.info("[3/5] Pushing branch to GitHub...");
+    if (!pushBranch(worktreePath, branchName)) {
+      logger.error(`Failed to push ${branchName} to origin`);
+      logger.info(`  Worktree preserved at: ${worktreePath}`);
+      return {
+        success: false,
+        improvement,
+        workerSlot,
+        branchName,
+        worktreePath,
+        taskText,
+        taskSource,
+        stepResults,
+      };
+    }
+
+    const prTitle = commitTitle;
+    const prBody =
+      [
+        `Improvement #${improvement}`,
+        taskText ? `Task: ${taskText}` : undefined,
+        "",
+        doneSummary || "Automated harness improvement update.",
+      ]
+        .filter((line) => line !== undefined)
+        .join("\n");
+    const pr = ensurePullRequest(worktreePath, branchName, prTitle, prBody);
+    if (!pr) {
+      logger.error("Failed to create or find GitHub pull request");
+      logger.info(`  Worktree preserved at: ${worktreePath}`);
+      return {
+        success: false,
+        improvement,
+        workerSlot,
+        branchName,
+        worktreePath,
+        taskText,
+        taskSource,
+        stepResults,
+      };
+    }
+    logger.success(`Opened PR #${pr.number}: ${pr.url}`);
+
+    // ── 4. Review/fix loop on PR ──
     let passed = false;
     let cycle = 0;
     const reviewAccum: StepSummary = {
@@ -434,11 +539,14 @@ export async function runWorker(
         return { success: false, improvement, workerSlot, branchName, worktreePath, taskText, taskSource, stepResults };
       }
 
-      logger.info(
-        `[3/4] Review (cycle ${cycle}/${config.maxReviewCycles})...`,
-      );
+      logger.info(`[4/5] Review PR #${pr.number} (cycle ${cycle}/${config.maxReviewCycles})...`);
       const reviewResult = await runStep({
-        prompt: buildReviewPrompt(),
+        prompt: buildReviewPrompt(
+          pr.number,
+          pr.url,
+          cycle,
+          config.maxReviewCycles,
+        ),
         stepName: "review",
         improvement,
         cwd: worktreePath,
@@ -448,13 +556,6 @@ export async function runWorker(
         logger,
         abortController,
       });
-
-      enforceMainManagedBacklog(worktreePath, logger);
-      commitAll(
-        worktreePath,
-        `${commitTitle} \u2014 review fixes (cycle ${cycle})`,
-      );
-
       reviewAccum.turns += reviewResult.turns;
       reviewAccum.costUsd += reviewResult.costUsd;
       reviewAccum.tokens +=
@@ -462,11 +563,17 @@ export async function runWorker(
       reviewAccum.durationMs += reviewResult.durationMs;
 
       if (reviewResult.outputText.includes("REVIEW_PASSED")) {
-        passed = true;
+        if (cycle >= config.minReviewCycles) {
+          passed = true;
+        } else {
+          logger.info(
+            `Review passed early; running additional cycle to satisfy minimum ${config.minReviewCycles} cycles.`,
+          );
+        }
       } else if (reviewResult.outputText.includes("REVIEW_FAILED")) {
         logger.warn("Reviewer found issues \u2014 running fix step...");
         const fixResult = await runStep({
-          prompt: buildFixPrompt(reviewResult.outputText),
+          prompt: buildFixPrompt(reviewResult.outputText, planDocPath),
           stepName: "implement",
           improvement,
           cwd: worktreePath,
@@ -478,7 +585,7 @@ export async function runWorker(
         });
 
         enforceMainManagedBacklog(worktreePath, logger);
-        commitAll(
+        const committedFix = commitAll(
           worktreePath,
           `${commitTitle} \u2014 fix from review (cycle ${cycle})`,
         );
@@ -493,6 +600,21 @@ export async function runWorker(
           .split("\n")
           .find((l) => l.startsWith("FIXED:"));
         if (fixLine) logger.info(`  ${fixLine}`);
+
+        if (committedFix && !pushBranch(worktreePath, branchName)) {
+          logger.error(`Failed to push review fixes for cycle ${cycle}`);
+          logger.info(`  Worktree preserved at: ${worktreePath}`);
+          return {
+            success: false,
+            improvement,
+            workerSlot,
+            branchName,
+            worktreePath,
+            taskText,
+            taskSource,
+            stepResults,
+          };
+        }
       } else {
         logger.warn(
           "Ambiguous review output, running validation as fallback...",
@@ -505,6 +627,7 @@ export async function runWorker(
             prompt: buildFixPrompt(
               "Review output was ambiguous, but npm run validate failed. " +
                 "Run npm run validate, read the error output, and fix all issues.",
+              planDocPath,
             ),
             stepName: "implement",
             improvement,
@@ -517,7 +640,7 @@ export async function runWorker(
           });
 
           enforceMainManagedBacklog(worktreePath, logger);
-          commitAll(
+          const committedFix = commitAll(
             worktreePath,
             `${commitTitle} \u2014 fix from validation (cycle ${cycle})`,
           );
@@ -527,6 +650,21 @@ export async function runWorker(
           reviewAccum.tokens +=
             fixResult.inputTokens + fixResult.outputTokens;
           reviewAccum.durationMs += fixResult.durationMs;
+
+          if (committedFix && !pushBranch(worktreePath, branchName)) {
+            logger.error(`Failed to push validation fixes for cycle ${cycle}`);
+            logger.info(`  Worktree preserved at: ${worktreePath}`);
+            return {
+              success: false,
+              improvement,
+              workerSlot,
+              branchName,
+              worktreePath,
+              taskText,
+              taskSource,
+              stepResults,
+            };
+          }
         }
       }
     }
@@ -534,7 +672,7 @@ export async function runWorker(
     stepResults.push(reviewAccum);
     logger.stepSummary("review", reviewAccum);
 
-    // Worker done — merge is handled by the orchestrator via MergeQueue
+    // Worker done — final merge decision is handled by orchestrator via MergeQueue
     const totalCost = stepResults.reduce((s, r) => s + r.costUsd, 0);
     const totalDuration = stepResults.reduce((s, r) => s + r.durationMs, 0);
     logger.improvementSummary(improvement, stepResults);
@@ -546,7 +684,18 @@ export async function runWorker(
       ts: new Date().toISOString(),
     });
 
-    return { success: true, improvement, workerSlot, branchName, worktreePath, taskText, taskSource, stepResults };
+    return {
+      success: true,
+      improvement,
+      workerSlot,
+      branchName,
+      worktreePath,
+      taskText,
+      taskSource,
+      prNumber: pr.number,
+      prUrl: pr.url,
+      stepResults,
+    };
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
     logger.error(`Improvement #${improvement} failed: ${errMsg}`);
@@ -620,13 +769,13 @@ export async function main(): Promise<void> {
     : "until backlog empty";
 
   orchestratorLogger.info("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
-  orchestratorLogger.info(`  Ralph Loop (local) \u2014 target: ${targetLabel}`);
+  orchestratorLogger.info(`  Ralph Loop (GitHub PR) \u2014 target: ${targetLabel}`);
   orchestratorLogger.info(`  Parallelism    : ${config.parallelism}`);
   orchestratorLogger.info(`  Branch prefix  : ${config.branchPrefix}`);
   orchestratorLogger.info(`  Repo           : ${config.repoDir}`);
   orchestratorLogger.info(`  Worktrees      : ${config.worktreeDir}`);
   orchestratorLogger.info(`  Max turns/step : ${config.maxTurns}`);
-  orchestratorLogger.info(`  Max review cyc : ${config.maxReviewCycles}`);
+  orchestratorLogger.info(`  Review cycles  : ${config.minReviewCycles}-${config.maxReviewCycles}`);
   orchestratorLogger.info(`  Backlog agent  : ${fmtStep(agents.backlog)}`);
   orchestratorLogger.info(`  Plan agent     : ${fmtStep(agents.plan)}`);
   orchestratorLogger.info(`  Impl agent     : ${fmtStep(agents.implement)}`);
@@ -748,26 +897,18 @@ export async function main(): Promise<void> {
     return true;
   }
 
-  function parkTaskAfterMergeConflict(result: WorkerResult, logger: Logger): void {
+  function parkTaskAfterEscalation(result: WorkerResult, logger: Logger): void {
     if (!result.taskText || config.task) return;
 
     tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
-    if (result.taskSource === "backlog") {
-      moveTaskToMergeConflicts(result.taskText, {
-        improvement: result.improvement,
-        branchName: result.branchName,
-        worktreePath: result.worktreePath,
-      });
-      logger.warn(
-        `Backlog task moved to triage after merge conflict (branch preserved at ${result.worktreePath})`,
-      );
-      return;
-    }
+    if (result.taskSource === "backlog") removeTask(result.taskText);
+    if (result.taskSource === "triage") removeTriageTask(result.taskText);
 
-    addTriageTask(result.taskText);
-    logger.warn(
-      `Triage task still unresolved after merge conflict (branch preserved at ${result.worktreePath})`,
+    const prLabel = result.prNumber !== undefined ? `PR #${result.prNumber}` : result.branchName;
+    addTriageTask(
+      `Human escalation required for ${prLabel} (improvement #${result.improvement}). Worktree: ${result.worktreePath}. Original task: ${result.taskText}`,
     );
+    logger.warn(`Escalated to human review (${prLabel}); branch preserved at ${result.worktreePath}`);
   }
 
   // ── Main orchestration loop ──
@@ -883,11 +1024,19 @@ export async function main(): Promise<void> {
     });
 
     if (result.success) {
+      if (result.prNumber === undefined) {
+        finishedLogger.error("Missing PR number for successful worker result");
+        activeWorktrees.delete(finishedSlot);
+        consecutiveFailures++;
+        continue;
+      }
+
       // Enqueue to merge queue
       const mergeResult = await mergeQueue.enqueue({
         repoDir: config.repoDir,
         worktreePath: result.worktreePath,
         branchName: result.branchName,
+        prNumber: result.prNumber,
         improvement: result.improvement,
         worker: finishedSlot,
         logger: finishedLogger,
@@ -914,7 +1063,7 @@ export async function main(): Promise<void> {
         );
       } else {
         // Merge failed (conflict) — treat as failure
-        parkTaskAfterMergeConflict(result, finishedLogger);
+        parkTaskAfterEscalation(result, finishedLogger);
         activeWorktrees.delete(finishedSlot);
         consecutiveFailures++;
         orchestratorLogger.warn(
@@ -958,11 +1107,16 @@ export async function main(): Promise<void> {
     for (const r of results) {
       if (r.status === "fulfilled" && r.value.success) {
         const result = r.value;
+        if (result.prNumber === undefined) {
+          consecutiveFailures++;
+          continue;
+        }
         const workerLogger = new Logger(config.logFile, config.verbose, result.workerSlot);
         const mergeResult = await mergeQueue.enqueue({
           repoDir: config.repoDir,
           worktreePath: result.worktreePath,
           branchName: result.branchName,
+          prNumber: result.prNumber,
           improvement: result.improvement,
           worker: result.workerSlot,
           logger: workerLogger,
@@ -980,7 +1134,7 @@ export async function main(): Promise<void> {
           activeWorktrees.delete(result.workerSlot);
           completed++;
         } else {
-          parkTaskAfterMergeConflict(result, workerLogger);
+          parkTaskAfterEscalation(result, workerLogger);
           activeWorktrees.delete(result.workerSlot);
           consecutiveFailures++;
         }
