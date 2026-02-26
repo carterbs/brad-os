@@ -1,20 +1,20 @@
 # Domain Quality Grades
 
-Last updated: 2026-02-25
+Last updated: 2026-02-26
 
 ## Grading Methodology
 
-Grades are based on four dimensions, each weighted equally:
+Grades are based on four dimensions, with line coverage as the primary signal:
 
-1. **Test Coverage** - Count of backend test files (handler + service + repository + integration) and iOS test files per domain. High = 10+, Medium = 4-9, Low = 0-3.
-2. **API Completeness** - Does the backend have all endpoints the iOS app needs? Are there handlers without tests?
-3. **iOS Completeness** - Are all views, view models, and services present for the full user flow?
-4. **Architecture Health** - Clean layer separation, no TODO/FIXME debt, schemas validated, proper typing.
+1. **Coverage Strength (Primary)** - Domain line coverage drives the baseline grade. 95%+ is top tier, 90-94% is strong, 80-89% is solid, below 80% degrades quickly.
+2. **Test Quality** - Assertion density (assertions per test case) adjusts grades up/down to reward strong assertions and penalize weak checks.
+3. **API Completeness** - Untested high-risk handlers/services and API gaps apply explicit penalties.
+4. **iOS Completeness** - iOS test presence and feature completeness still influence the final grade.
 
 **Grade scale:**
-- **A** - All four dimensions are strong. High test coverage, complete API and iOS, clean architecture.
-- **B** - Most dimensions are strong but one area has a gap (e.g., medium test coverage, or one untested handler).
-- **C** - Multiple gaps. Low test coverage, missing tests for key services, or incomplete feature.
+- **A** - Coverage is excellent and quality/completeness checks are strong.
+- **B** - Coverage is good but quality/completeness has a meaningful gap.
+- **C** - Coverage or quality is weak, or multiple completeness gaps exist.
 - **D** - Significant gaps across multiple dimensions. Feature works but is fragile.
 - **F** - Broken or non-functional.
 
@@ -26,15 +26,15 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 
 | Domain | Grade | Backend Tests | iOS Tests | Assertions | Density | Coverage | API Complete | iOS Complete | Notes |
 |--------|-------|---------------|-----------|------------|---------|----------|--------------|--------------|-------|
-| Lifting | **A** | High (23) | Medium (8) | 1225 | 2.2x | 92% | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. Deepest test architecture with full repository, service, handler, and integration layers covered. |
-| Meal Planning | **A** | High (16) | Medium (7) | 509 | 2.5x | 71% | Yes | Yes | 6 handler, 3 service, 5 repo, 1 integration, 1 schema tests. Broad multi-entity API surface covered at handler, service, and repository layers. |
-| Cycling | **A** | High (11) | Low (2) | 566 | 2.2x | 53% | Yes | Yes | 3 handler, 7 service, 1 integration tests. Strong service-layer depth, but iOS tests remain the lightest among A-grade domains. |
-| Stretching | **B+** | Medium (5) | Medium (4) | 134 | 2.6x | 99% | Yes | Yes | 2 handler, 2 repo, 1 integration tests. Near-perfect backend line coverage despite the smallest overall test suite. |
-| Calendar | **B** | Low (3) | Low (3) | 220 | 2.5x | 100% | Yes | Yes | 1 handler, 1 service, 1 integration tests. Perfect backend coverage but carries the thinnest test suite of any domain. |
-| Meditation | **B+** | Medium (6) | Medium (4) | 257 | 2.8x | 51% | Yes | Yes | 3 handler, 2 repo, 1 integration tests. API fully complete but low coverage signals significant untested logic paths. |
-| Health Sync | **B-** | Medium (4) | Low (3) | 287 | 2.6x | 25% | Yes | Yes | 2 handler, 1 service, 1 integration tests. Lowest coverage in the project; HealthKit sync logic is substantially undertested. |
+| Lifting | **A** | High (555) | Medium (8) | 1225 | 2.2x | 92% | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. Broadest test suite in the project, spanning handlers, services, and repositories exhaustively. |
+| Meal Planning | **A** | High (207) | Medium (7) | 509 | 2.5x | 96% | Yes | Yes | 6 handler, 3 service, 5 repo, 1 integration, 1 schema tests. AI-powered generation and critique pipeline fully tested alongside barcode and ingredient lookup. |
+| Cycling | **A** | High (306) | Low (2) | 676 | 2.2x | 95% | Yes | Yes | 3 handler, 7 service, 1 integration tests. Most complex domain, with AI coach and Strava webhook integration fully tested. |
+| Stretching | **A** | Medium (52) | Medium (4) | 134 | 2.6x | 99% | Yes | Yes | 2 handler, 2 repo, 1 integration tests. Smallest backend surface area yet achieves near-perfect coverage across all layers. |
+| Calendar | **A** | High (96) | Medium (4) | 243 | 2.5x | 100% | Yes | Yes | 1 handler, 1 service, 1 integration, 1 schema tests. Perfect coverage with dedicated integration tests across all aggregation and scheduling logic. |
+| Meditation | **A** | High (111) | Medium (4) | 288 | 2.6x | 100% | Yes | Yes | 3 handler, 2 service, 2 repo, 1 integration, 2 schema tests. Complete 100% coverage across TTS pipeline, guided scripts, and session management. |
+| Health Sync | **A** | High (133) | Medium (4) | 315 | 2.4x | 100% | Yes | Yes | 2 handler, 1 service, 1 integration, 1 schema tests. Full HealthKit sync pipeline with recovery scoring covered at all three backend layers. |
 | History | **B-** | (shared) | (shared) | 0 | — | -- | Yes | Yes | Reuses Calendar backend/ViewModel. No additional tests needed, but filter logic is untested. |
-| Today | **B** | Medium (4) | Low (3) | 93 | 2.3x | 67% | Yes | Yes | 1 handler, 2 service, 1 integration tests. AI briefing pipeline is now tested, but line coverage still has room to grow. |
+| Today | **A** | Medium (49) | Medium (4) | 123 | 2.5x | 96% | Yes | Yes | 1 handler, 2 service, 1 integration tests. AI briefing pipeline fully covered through handler, data service, and integration tests. |
 | Profile | **B-** | (shared) | (shared) | 0 | — | -- | Yes | Yes | Settings hub, no own backend. Relies on health-sync and cycling backends. |
 
 ---
@@ -61,30 +61,34 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 - Services: cycling-coach, efficiency-factor, firestore-cycling, lifting-context, strava, training-load, vo2max
 - Integration: cycling
 
-**Meditation (6 test files):**
+**Meditation (10 test files):**
 - Handlers: guidedMeditations, meditationSessions, tts
+- Services: guided-meditation, tts
 - Repositories: guided-meditation, meditationSession
 - Integration: meditationSessions
+- Schemas: meditation.schema, tts.schema
+
+**Health Sync (5 test files):**
+- Handlers: health-sync, health
+- Services: firestore-recovery
+- Integration: health
+- Schemas: health-sync.schema
 
 **Stretching (5 test files):**
 - Handlers: stretchSessions, stretches
 - Repositories: stretch, stretchSession
 - Integration: stretchSessions
 
-**Health Sync (4 test files):**
-- Handlers: health-sync, health
-- Services: firestore-recovery
-- Integration: health
+**Calendar (4 test files):**
+- Handlers: calendar
+- Services: calendar
+- Integration: calendar
+- Schemas: calendar.schema
 
 **Today (4 test files):**
 - Handlers: today-coach
 - Services: today-coach-data, today-coach
 - Integration: today-coach
-
-**Calendar (3 test files):**
-- Handlers: calendar
-- Services: calendar
-- Integration: calendar
 
 **Other:** shared (1)
 
@@ -94,10 +98,10 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 - Meal Planning: MealPlanActionTests, MealPlanDecodingTests, MealPlanCacheServiceTests, RecipeCacheServiceTests, RemindersServiceTests, ShoppingListBuilderTests, ShoppingListFormatterTests (7)
 - Stretching: StretchUrgencyTests, CompletedStretchTests, StretchDefinitionTests, StretchSessionTests (4)
 - Meditation: GuidedMeditationComponentTests, GuidedMeditationScriptTests, MeditationSessionTests, MeditationStatsTests (4)
-- Calendar: CalendarActivityTests, CalendarViewModelTests, APIClientCalendarTests (3)
-- Today: DashboardViewModelTests, TodayCoachClientTests, TodayCoachCardStateTests (3)
+- Calendar: CalendarActivityTests, CalendarRecentActivitiesTests, CalendarViewModelTests, APIClientCalendarTests (4)
+- Today: DashboardViewModelTests, TodayCoachModelsTests, TodayCoachClientTests, TodayCoachCardStateTests (4)
 - Profile: ProfileViewModelTests (1)
-- Health Sync: HealthChartModelsTests, HealthSyncModelsTests, HealthMetricHistoryViewModelTests (3)
+- Health Sync: HealthChartModelsTests, HealthSyncModelsTests, HealthMetricConfigurationTests, HealthMetricHistoryViewModelTests (4)
 - Cycling: CyclingTestDoubles, CyclingViewModelTests (2)
 - Shared: DateHelpersTests, TestHelpers, APIErrorTests, LoadStateTests (4)
 

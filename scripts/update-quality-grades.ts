@@ -440,14 +440,37 @@ interface DomainGrade {
   notes: string;
 }
 
-function testCountLevel(count: number): string {
+function fileCountLevel(count: number): string {
   if (count >= 10) return 'High';
   if (count >= 4) return 'Medium';
   return 'Low';
 }
 
+function testQuantityLevel(testCaseCount: number): string {
+  if (testCaseCount >= 60) return 'High';
+  if (testCaseCount >= 20) return 'Medium';
+  return 'Low';
+}
+
+function degradeGrade(grade: Grade): Grade {
+  const gradeOrder: Grade[] = ['A', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F'];
+  const idx = gradeOrder.indexOf(grade);
+  if (idx >= 0 && idx < gradeOrder.length - 1) {
+    return gradeOrder[idx + 1]!;
+  }
+  return grade;
+}
+
+function improveGrade(grade: Grade): Grade {
+  const gradeOrder: Grade[] = ['A', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F'];
+  const idx = gradeOrder.indexOf(grade);
+  if (idx > 0) {
+    return gradeOrder[idx - 1]!;
+  }
+  return grade;
+}
+
 function calculateGrade(
-  backendCount: number,
   iosCount: number,
   hasUntested: boolean,
   hasUntestedHighRisk: boolean,
@@ -458,72 +481,51 @@ function calculateGrade(
   assertionCount: number,
 ): Grade {
   let baseGrade: Grade;
-
-  if (isSharedDomain) {
-    baseGrade = 'B-';
-  } else {
-    const backendLevel = testCountLevel(backendCount);
-    const iosLevel = testCountLevel(iosCount);
-    const apiPartial = apiComplete !== 'Yes';
-
-    if (backendLevel === 'High' && !hasUntested && !apiPartial) {
-      baseGrade = (iosLevel === 'High' || iosLevel === 'Medium') ? 'A' : 'B+';
-    } else if (backendLevel === 'High' && hasUntested && !hasUntestedHighRisk) {
-      baseGrade = (iosLevel === 'High' || iosLevel === 'Medium') ? 'B+' : 'B';
-    } else if (backendLevel === 'Medium') {
-      if (hasUntestedHighRisk) baseGrade = 'C+';
-      else if (iosLevel === 'High') baseGrade = 'B+';
-      else if (iosLevel === 'Medium') baseGrade = 'B';
-      else baseGrade = 'B-';
-    } else if (backendLevel === 'High' && hasUntestedHighRisk) {
-      baseGrade = 'B';
-    } else if (backendLevel === 'Low') {
-      if (hasUntestedHighRisk) {
-        baseGrade = backendCount === 0 ? 'C' : 'C+';
-      } else if (apiPartial) {
-        baseGrade = 'C+';
-      } else if (hasUntested && backendCount > 0) {
-        baseGrade = 'C+';
-      } else if (backendCount > 0 && !hasUntested) {
-        baseGrade = 'B-';
-      } else if (iosCount >= 1) {
-        baseGrade = 'C';
-      } else {
-        baseGrade = 'C';
-      }
-    } else {
-      baseGrade = 'C';
-    }
-  }
-
-  // Coverage penalty: below 50% line coverage downgrades one notch
-  if (coveragePct !== null && coveragePct < 50) {
-    const gradeOrder: Grade[] = ['A', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F'];
-    const idx = gradeOrder.indexOf(baseGrade);
-    if (idx >= 0 && idx < gradeOrder.length - 1) {
-      baseGrade = gradeOrder[idx + 1]!;
-    }
-  }
-
-  // Assertion density adjustment (±1 sub-grade)
   const density = testCaseCount > 0
     ? assertionCount / testCaseCount
     : 0;
 
-  if (density >= 2.0) {
-    // Thorough tests — positive adjustment (e.g., B → B+)
-    const gradeOrder: Grade[] = ['A', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F'];
-    const idx = gradeOrder.indexOf(baseGrade);
-    if (idx > 0) {
-      baseGrade = gradeOrder[idx - 1]!;
+  if (isSharedDomain) {
+    baseGrade = 'B-';
+  } else {
+    const iosLevel = fileCountLevel(iosCount);
+    const apiPartial = apiComplete !== 'Yes';
+    const coverage = coveragePct ?? 0;
+
+    // Coverage-first baseline.
+    if (coverage >= 95) {
+      baseGrade = (iosLevel === 'High' || iosLevel === 'Medium') ? 'A' : 'B+';
+    } else if (coverage >= 90) {
+      baseGrade = (iosLevel === 'High' || iosLevel === 'Medium') ? 'B+' : 'B';
+    } else if (coverage >= 80) {
+      baseGrade = (iosLevel === 'High' || iosLevel === 'Medium') ? 'B' : 'B-';
+    } else if (coverage >= 70) {
+      baseGrade = 'C+';
+    } else if (coverage >= 60) {
+      baseGrade = 'C';
+    } else if (coverage >= 50) {
+      baseGrade = 'C-';
+    } else {
+      baseGrade = 'D';
     }
+
+    // High-risk untested files and API gaps are hard penalties.
+    if (hasUntestedHighRisk) {
+      baseGrade = degradeGrade(baseGrade);
+      baseGrade = degradeGrade(baseGrade);
+    } else if (hasUntested) {
+      baseGrade = degradeGrade(baseGrade);
+    }
+    if (apiPartial) {
+      baseGrade = degradeGrade(baseGrade);
+    }
+  }
+
+  // Assertion density adjustment (±1 sub-grade)
+  if (density >= 2.0 && testCaseCount >= 10) {
+    baseGrade = improveGrade(baseGrade);
   } else if (density < 1.0 && testCaseCount > 0) {
-    // Weak tests — negative adjustment (e.g., B+ → B)
-    const gradeOrder: Grade[] = ['A', 'B+', 'B', 'B-', 'C+', 'C', 'C-', 'D', 'F'];
-    const idx = gradeOrder.indexOf(baseGrade);
-    if (idx >= 0 && idx < gradeOrder.length - 1) {
-      baseGrade = gradeOrder[idx + 1]!;
-    }
+    baseGrade = degradeGrade(baseGrade);
   }
 
   return baseGrade;
@@ -1015,7 +1017,7 @@ function main(): void {
     const coveragePct = domainCoverage.get(domain) ?? null;
     const domainTestCaseCount = backendCounts?.testCaseCount ?? 0;
     const domainAssertionCount = backendCounts?.assertionCount ?? 0;
-    const grade = calculateGrade(backendCount, iosCount, hasUntested, hasUntestedHighRisk, meta.isShared, meta.apiComplete, coveragePct, domainTestCaseCount, domainAssertionCount);
+    const grade = calculateGrade(iosCount, hasUntested, hasUntestedHighRisk, meta.isShared, meta.apiComplete, coveragePct, domainTestCaseCount, domainAssertionCount);
 
     const densityStr = domainTestCaseCount > 0
       ? (domainAssertionCount / domainTestCaseCount).toFixed(1) + 'x'
@@ -1024,10 +1026,10 @@ function main(): void {
     grades.push({
       domain,
       grade,
-      backendTestCount: backendCount,
+      backendTestCount: domainTestCaseCount,
       iosTestCount: iosCount,
-      testLevel: meta.isShared ? '(shared)' : `${testCountLevel(backendCount)} (${backendCount})`,
-      iosLevel: meta.isShared ? '(shared)' : `${testCountLevel(iosCount)} (${iosCount})`,
+      testLevel: meta.isShared ? '(shared)' : `${testQuantityLevel(domainTestCaseCount)} (${domainTestCaseCount})`,
+      iosLevel: meta.isShared ? '(shared)' : `${fileCountLevel(iosCount)} (${iosCount})`,
       apiComplete: meta.apiComplete,
       iosComplete: meta.iosComplete,
       coveragePct,
@@ -1073,17 +1075,17 @@ Last updated: ${today}
 
 ## Grading Methodology
 
-Grades are based on four dimensions, each weighted equally:
+Grades are based on four dimensions, with line coverage as the primary signal:
 
-1. **Test Coverage** - Count of backend test files (handler + service + repository + integration) and iOS test files per domain. High = 10+, Medium = 4-9, Low = 0-3.
-2. **API Completeness** - Does the backend have all endpoints the iOS app needs? Are there handlers without tests?
-3. **iOS Completeness** - Are all views, view models, and services present for the full user flow?
-4. **Architecture Health** - Clean layer separation, no TODO/FIXME debt, schemas validated, proper typing.
+1. **Coverage Strength (Primary)** - Domain line coverage drives the baseline grade. 95%+ is top tier, 90-94% is strong, 80-89% is solid, below 80% degrades quickly.
+2. **Test Quality** - Assertion density (assertions per test case) adjusts grades up/down to reward strong assertions and penalize weak checks.
+3. **API Completeness** - Untested high-risk handlers/services and API gaps apply explicit penalties.
+4. **iOS Completeness** - iOS test presence and feature completeness still influence the final grade.
 
 **Grade scale:**
-- **A** - All four dimensions are strong. High test coverage, complete API and iOS, clean architecture.
-- **B** - Most dimensions are strong but one area has a gap (e.g., medium test coverage, or one untested handler).
-- **C** - Multiple gaps. Low test coverage, missing tests for key services, or incomplete feature.
+- **A** - Coverage is excellent and quality/completeness checks are strong.
+- **B** - Coverage is good but quality/completeness has a meaningful gap.
+- **C** - Coverage or quality is weak, or multiple completeness gaps exist.
 - **D** - Significant gaps across multiple dimensions. Feature works but is fragile.
 - **F** - Broken or non-functional.
 
