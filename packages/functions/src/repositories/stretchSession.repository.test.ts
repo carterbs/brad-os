@@ -110,7 +110,7 @@ describe('StretchSessionRepository', () => {
         regionsCompleted: 5,
         regionsSkipped: 1,
         stretches: [
-          { regionId: 'hamstrings', stretchId: 'seated-toe-touch', durationSeconds: 30, skipped: false },
+          { region: 'hamstrings', stretchId: 'seated-toe-touch', stretchName: 'Seated Toe Touch', durationSeconds: 30, skippedSegments: 0 },
         ],
       };
       (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(createMockDoc('session-1', sessionData));
@@ -122,6 +122,22 @@ describe('StretchSessionRepository', () => {
         id: 'session-1',
         ...sessionData,
       });
+    });
+
+    it('should return null when session payload is malformed', async () => {
+      const repository = new StretchSessionRepository(mockDb as Firestore);
+      const sessionData = {
+        completedAt: 42,
+        totalDurationSeconds: '300',
+        regionsCompleted: '5',
+        regionsSkipped: null,
+        stretches: [{ region: 'hamstrings', stretchId: 'seated-toe-touch', stretchName: 'Seated Toe Touch', durationSeconds: 30, skippedSegments: 0 }],
+      };
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(createMockDoc('session-invalid', sessionData));
+
+      const result = await repository.findById('session-invalid');
+
+      expect(result).toBeNull();
     });
 
     it('should return null when stretch session not found', async () => {
@@ -191,6 +207,40 @@ describe('StretchSessionRepository', () => {
       const result = await repository.findAll();
 
       expect(result).toEqual([]);
+    });
+
+    it('should skip malformed sessions when listing all records', async () => {
+      const repository = new StretchSessionRepository(mockDb as Firestore);
+      const sessions = [
+        {
+          id: 'valid',
+          data: {
+            completedAt: '2024-01-16T10:00:00Z',
+            totalDurationSeconds: 300,
+            regionsCompleted: 5,
+            regionsSkipped: 1,
+            stretches: [{ region: 'hamstrings', stretchId: 'seated-toe-touch', stretchName: 'Seated Toe Touch', durationSeconds: 30, skippedSegments: 0 }],
+          },
+        },
+        {
+          id: 'invalid',
+          data: {
+            completedAt: 123,
+            totalDurationSeconds: 250,
+            regionsCompleted: 4,
+            regionsSkipped: 0,
+            stretches: [{ region: 'quads', stretchId: 'standing-quad', stretchName: 'Standing Quad', durationSeconds: 20, skippedSegments: 0 }],
+          },
+        },
+      ];
+
+      const mockQuery = createMockQuery(createMockQuerySnapshot(sessions));
+      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      const result = await repository.findAll();
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe('valid');
     });
   });
 
@@ -269,6 +319,40 @@ describe('StretchSessionRepository', () => {
       await repository.findInDateRange('2024-01-15', '2024-01-31');
 
       expect(mockCollection.where).toHaveBeenCalled();
+    });
+
+    it('should skip malformed sessions from date-range results', async () => {
+      const repository = new StretchSessionRepository(mockDb as Firestore);
+      const sessions = [
+        {
+          id: 'valid-range',
+          data: {
+            completedAt: '2024-01-15T10:00:00Z',
+            totalDurationSeconds: 300,
+            regionsCompleted: 5,
+            regionsSkipped: 0,
+            stretches: [{ region: 'hamstrings', stretchId: 'seated-toe-touch', stretchName: 'Seated Toe Touch', durationSeconds: 30, skippedSegments: 0 }],
+          },
+        },
+        {
+          id: 'invalid-range',
+          data: {
+            completedAt: '2024-01-16T10:00:00Z',
+            totalDurationSeconds: 250,
+            regionsCompleted: 4,
+            regionsSkipped: 1,
+            stretches: [{ region: 'calves', stretchId: 'wall-calf', stretchName: 'Wall Calf', durationSeconds: 0, skippedSegments: null }],
+          },
+        },
+      ];
+
+      const mockQuery = createMockQuery(createMockQuerySnapshot(sessions));
+      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      const result = await repository.findInDateRange('2024-01-01', '2024-01-31', 0);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe('valid-range');
     });
   });
 });

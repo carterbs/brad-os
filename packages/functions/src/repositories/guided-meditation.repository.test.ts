@@ -231,6 +231,48 @@ describe('GuidedMeditationRepository', () => {
 
       expect(result).toEqual([]);
     });
+
+    it('should skip malformed scripts when listing all scripts', async () => {
+      const repository = new GuidedMeditationRepository(mockDb as Firestore);
+      const scripts = [
+        {
+          id: 'valid',
+          data: {
+            category: 'focus',
+            title: 'Focus',
+            subtitle: 'Breath',
+            orderIndex: 1,
+            durationSeconds: 120,
+            segments: [{ id: 'seg', startSeconds: 0, text: 'Breathe', phase: 'opening' }],
+            interjections: [{ windowStartSeconds: 0, windowEndSeconds: 10, textOptions: ['calm'] }],
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
+        },
+        {
+          id: 'invalid',
+          data: {
+            category: 'focus',
+            title: 'Broken',
+            subtitle: 'Bad segment',
+            orderIndex: 2,
+            durationSeconds: 90,
+            segments: ['not-a-segment'],
+            interjections: [],
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
+        },
+      ];
+
+      const mockQuery = createMockQuery(createMockQuerySnapshot(scripts));
+      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      const result = await repository.findAll();
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe('valid');
+    });
   });
 
   describe('findAllByCategory', () => {
@@ -298,6 +340,48 @@ describe('GuidedMeditationRepository', () => {
       expect((result[0] as Record<string, unknown>)).not.toHaveProperty('segments');
       expect((result[0] as Record<string, unknown>)).not.toHaveProperty('interjections');
     });
+
+    it('should skip malformed scripts in category results', async () => {
+      const repository = new GuidedMeditationRepository(mockDb as Firestore);
+      const scripts = [
+        {
+          id: 'good',
+          data: {
+            category: 'focus',
+            title: 'Focus',
+            subtitle: 'Stay',
+            orderIndex: 1,
+            durationSeconds: 100,
+            segments: [],
+            interjections: [{ windowStartSeconds: 0, windowEndSeconds: 1, textOptions: ['a'] }],
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
+        },
+        {
+          id: 'bad',
+          data: {
+            category: 'focus',
+            title: 'Focus',
+            subtitle: 'Bad',
+            orderIndex: 2,
+            durationSeconds: 100,
+            segments: [],
+            interjections: [{ windowStartSeconds: 0, windowEndSeconds: 1, textOptions: [1] }],
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
+        },
+      ];
+
+      const mockQuery = createMockQuery(createMockQuerySnapshot(scripts));
+      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      const result = await repository.findAllByCategory('focus');
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe('good');
+    });
   });
 
   describe('getCategories', () => {
@@ -336,6 +420,27 @@ describe('GuidedMeditationRepository', () => {
       const result = await repository.getCategories();
 
       expect(result).toEqual([]);
+    });
+
+    it('should skip invalid category payloads when aggregating', async () => {
+      const repository = new GuidedMeditationRepository(mockDb as Firestore);
+      const scripts = [
+        { id: 'a', data: { category: 'focus' } },
+        { id: 'b', data: { category: 2 as unknown } },
+        { id: 'c', data: {} },
+      ];
+      const mockSnapshot = createMockQuerySnapshot(scripts);
+      (mockCollection.get as ReturnType<typeof vi.fn>).mockResolvedValue(mockSnapshot);
+
+      const result = await repository.getCategories();
+
+      expect(result).toEqual([
+        {
+          id: 'focus',
+          name: 'focus',
+          scriptCount: 1,
+        },
+      ]);
     });
   });
 

@@ -128,6 +128,22 @@ describe('WorkoutRepository', () => {
 
       expect(result).toEqual([]);
     });
+
+    it('should skip malformed workouts when querying by mesocycle', async () => {
+      const repository = new WorkoutRepository(mockDb as Firestore);
+      const workouts = [
+        { id: 'w-valid', data: { mesocycle_id: 'meso-1', plan_day_id: 'pd-1', week_number: 1, scheduled_date: '2024-01-15', status: 'completed', started_at: null, completed_at: null } },
+        { id: 'w-invalid', data: { mesocycle_id: 'meso-1', plan_day_id: 'pd-2', week_number: 'bad', scheduled_date: '2024-01-16', status: 'completed', started_at: null, completed_at: null } },
+      ];
+
+      const mockQuery = createMockQuery(createMockQuerySnapshot(workouts));
+      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      const result = await repository.findByMesocycleId('meso-1');
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe('w-valid');
+    });
   });
 
   describe('findByStatus', () => {

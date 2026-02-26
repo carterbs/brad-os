@@ -75,17 +75,15 @@ export function createResourceRouter<
   }));
 
   // POST /
-  app.post('/', validate(config.createSchema), asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-    const body = req.body as CreateDTO;
-    const item = await getRepo().create(body);
+  app.post('/', validate(config.createSchema), asyncHandler(async (req: Request<unknown, unknown, CreateDTO>, res: Response, _next: NextFunction) => {
+    const item = await getRepo().create(req.body);
     res.status(201).json({ success: true, data: item });
   }));
 
   // PUT /:id
-  app.put('/:id', validate(config.updateSchema), asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  app.put('/:id', validate(config.updateSchema), asyncHandler(async (req: Request<Record<string, string>, unknown, UpdateDTO>, res: Response, next: NextFunction) => {
     const id = req.params['id'] ?? '';
-    const body = req.body as UpdateDTO;
-    const item = await getRepo().update(id, body);
+    const item = await getRepo().update(id, req.body);
     if (item === null) {
       next(new NotFoundError(config.displayName, id));
       return;

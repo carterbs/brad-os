@@ -12,6 +12,13 @@ import type { Firestore } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
 import { getFirestoreDb, getCollectionName } from '../firebase.js';
 import type { CyclingActivity, ActivityStreamData, CyclingActivityUpdate, DeleteCyclingActivityResult } from '../types/cycling.js';
+import {
+  isRecord,
+  readEnum,
+  readNumber,
+  readNumberArray,
+  readString,
+} from './firestore-type-guards.js';
 
 export class CyclingActivityRepository {
   private db: Firestore;
@@ -33,28 +40,94 @@ export class CyclingActivityRepository {
    */
   private mapActivityDoc(
     id: string,
-    data: FirebaseFirestore.DocumentData
-  ): CyclingActivity {
+    data: Record<string, unknown>
+  ): CyclingActivity | null {
+    const stravaId = readNumber(data, 'stravaId');
+    const userId = readString(data, 'userId');
+    const date = readString(data, 'date');
+    const durationMinutes = readNumber(data, 'durationMinutes');
+    const avgPower = readNumber(data, 'avgPower');
+    const normalizedPower = readNumber(data, 'normalizedPower');
+    const maxPower = readNumber(data, 'maxPower');
+    const avgHeartRate = readNumber(data, 'avgHeartRate');
+    const maxHeartRate = readNumber(data, 'maxHeartRate');
+    const tss = readNumber(data, 'tss');
+    const intensityFactor = readNumber(data, 'intensityFactor');
+    const type = readEnum(
+      data,
+      'type',
+      ['vo2max', 'threshold', 'fun', 'recovery', 'unknown'] as const
+    );
+    const source = readEnum(data, 'source', ['strava'] as const);
+    const createdAt = readString(data, 'createdAt');
+
+    const rawEf = data['ef'];
+    const rawPeak5MinPower = data['peak5MinPower'];
+    const rawPeak20MinPower = data['peak20MinPower'];
+    const rawHrCompleteness = data['hrCompleteness'];
+
+    const parsedEf = rawEf === undefined || rawEf === null ? undefined : readNumber(data, 'ef');
+    const peak5MinPower =
+      rawPeak5MinPower === undefined || rawPeak5MinPower === null
+        ? undefined
+        : readNumber(data, 'peak5MinPower');
+    const peak20MinPower =
+      rawPeak20MinPower === undefined || rawPeak20MinPower === null
+        ? undefined
+        : readNumber(data, 'peak20MinPower');
+    const hrCompleteness =
+      rawHrCompleteness === undefined || rawHrCompleteness === null
+        ? undefined
+        : readNumber(data, 'hrCompleteness');
+
+    const ef = parsedEf ?? undefined;
+    const sanitizedPeak5MinPower = peak5MinPower ?? undefined;
+    const sanitizedPeak20MinPower = peak20MinPower ?? undefined;
+    const sanitizedHrCompleteness = hrCompleteness ?? undefined;
+
+    if (
+      stravaId === null ||
+      userId === null ||
+      date === null ||
+      durationMinutes === null ||
+      avgPower === null ||
+      normalizedPower === null ||
+      maxPower === null ||
+      avgHeartRate === null ||
+      maxHeartRate === null ||
+      tss === null ||
+      intensityFactor === null ||
+      type === null ||
+      source === null ||
+      createdAt === null ||
+      (rawEf !== undefined && rawEf !== null && ef === undefined) ||
+      (rawPeak5MinPower !== undefined && rawPeak5MinPower !== null && sanitizedPeak5MinPower === undefined) ||
+      (rawPeak20MinPower !== undefined && rawPeak20MinPower !== null && sanitizedPeak20MinPower === undefined) ||
+      (rawHrCompleteness !== undefined && rawHrCompleteness !== null && sanitizedHrCompleteness === undefined)
+    ) {
+      return null;
+    }
+
     return {
       id,
-      stravaId: data['stravaId'] as number,
-      userId: data['userId'] as string,
-      date: data['date'] as string,
-      durationMinutes: data['durationMinutes'] as number,
-      avgPower: data['avgPower'] as number,
-      normalizedPower: data['normalizedPower'] as number,
-      maxPower: data['maxPower'] as number,
-      avgHeartRate: data['avgHeartRate'] as number,
-      maxHeartRate: data['maxHeartRate'] as number,
-      tss: data['tss'] as number,
-      intensityFactor: data['intensityFactor'] as number,
-      type: data['type'] as CyclingActivity['type'],
-      source: data['source'] as CyclingActivity['source'],
-      ef: data['ef'] as number | undefined,
-      peak5MinPower: data['peak5MinPower'] as number | undefined,
-      peak20MinPower: data['peak20MinPower'] as number | undefined,
-      hrCompleteness: data['hrCompleteness'] as number | undefined,
-      createdAt: data['createdAt'] as string,
+      stravaId,
+      userId,
+      date,
+      durationMinutes,
+      avgPower,
+      normalizedPower,
+      maxPower,
+      avgHeartRate,
+      maxHeartRate,
+      tss,
+      intensityFactor,
+      type,
+      source,
+      ef,
+      peak5MinPower: sanitizedPeak5MinPower,
+      peak20MinPower: sanitizedPeak20MinPower,
+      hrCompleteness: sanitizedHrCompleteness,
+      createdAt,
     };
   }
 
@@ -75,10 +148,15 @@ export class CyclingActivityRepository {
 
     const snapshot = await query.get();
 
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return this.mapActivityDoc(doc.id, data);
-    });
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.mapActivityDoc(doc.id, data);
+      })
+      .filter((activity): activity is CyclingActivity => activity !== null);
   }
 
   /**
@@ -97,7 +175,7 @@ export class CyclingActivityRepository {
     }
 
     const data = doc.data();
-    if (!data) {
+    if (!data || !isRecord(data)) {
       return null;
     }
 
@@ -129,6 +207,10 @@ export class CyclingActivityRepository {
     }
 
     const data = doc.data();
+    if (!isRecord(data)) {
+      return null;
+    }
+
     return this.mapActivityDoc(doc.id, data);
   }
 
@@ -299,19 +381,53 @@ export class CyclingActivityRepository {
     }
 
     const data = doc.data();
-    if (!data) {
+    if (!data || !isRecord(data)) {
+      return null;
+    }
+
+    const activityIdField = readString(data, 'activityId');
+    const stravaActivityId = readNumber(data, 'stravaActivityId');
+    const sampleCount = readNumber(data, 'sampleCount');
+    const wattsRaw = data['watts'];
+    const heartrateRaw = data['heartrate'];
+    const timeRaw = data['time'];
+    const cadenceRaw = data['cadence'];
+
+    const rawWatts = wattsRaw === undefined || wattsRaw === null ? undefined : readNumberArray(data, 'watts');
+    const rawHeartrate =
+      heartrateRaw === undefined || heartrateRaw === null ? undefined : readNumberArray(data, 'heartrate');
+    const rawTime = timeRaw === undefined || timeRaw === null ? undefined : readNumberArray(data, 'time');
+    const rawCadence =
+      cadenceRaw === undefined || cadenceRaw === null ? undefined : readNumberArray(data, 'cadence');
+
+    const watts = rawWatts === null ? null : rawWatts;
+    const heartrate = rawHeartrate === null ? null : rawHeartrate;
+    const time = rawTime === null ? null : rawTime;
+    const cadence = rawCadence === null ? null : rawCadence;
+    const createdAt = readString(data, 'createdAt');
+
+    if (
+      activityIdField === null ||
+      stravaActivityId === null ||
+      sampleCount === null ||
+      (wattsRaw !== undefined && wattsRaw !== null && watts === null) ||
+      (heartrateRaw !== undefined && heartrateRaw !== null && heartrate === null) ||
+      (timeRaw !== undefined && timeRaw !== null && time === null) ||
+      (cadenceRaw !== undefined && cadenceRaw !== null && cadence === null) ||
+      createdAt === null
+    ) {
       return null;
     }
 
     return {
-      activityId: data['activityId'] as string,
-      stravaActivityId: data['stravaActivityId'] as number,
-      watts: data['watts'] as number[] | undefined,
-      heartrate: data['heartrate'] as number[] | undefined,
-      time: data['time'] as number[] | undefined,
-      cadence: data['cadence'] as number[] | undefined,
-      sampleCount: data['sampleCount'] as number,
-      createdAt: data['createdAt'] as string,
+      activityId: activityIdField,
+      stravaActivityId,
+      watts: watts ?? undefined,
+      heartrate: heartrate ?? undefined,
+      time: time ?? undefined,
+      cadence: cadence ?? undefined,
+      sampleCount,
+      createdAt,
     };
   }
 }

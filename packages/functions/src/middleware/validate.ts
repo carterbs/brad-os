@@ -2,7 +2,11 @@ import type { Request, Response, NextFunction } from 'express';
 import type { ZodSchema } from 'zod';
 
 export function validate<T>(schema: ZodSchema<T>) {
-  return (req: Request, _res: Response, next: NextFunction): void => {
+  return (
+    req: Request<unknown, unknown, T>,
+    _res: Response,
+    next: NextFunction
+  ): void => {
     const result = schema.safeParse(req.body);
     if (!result.success) {
       throw result.error;
@@ -12,24 +16,28 @@ export function validate<T>(schema: ZodSchema<T>) {
   };
 }
 
-export function validateParams<T>(schema: ZodSchema<T>) {
-  return (req: Request, _res: Response, next: NextFunction): void => {
+export function validateParams<T extends Request['params']>(schema: ZodSchema<T>) {
+  return (req: Request<T>, _res: Response, next: NextFunction): void => {
     const result = schema.safeParse(req.params);
     if (!result.success) {
       throw result.error;
     }
-    req.params = result.data as typeof req.params;
+    req.params = result.data;
     next();
   };
 }
 
-export function validateQuery<T>(schema: ZodSchema<T>) {
-  return (req: Request, _res: Response, next: NextFunction): void => {
+export function validateQuery<T extends Request['query']>(schema: ZodSchema<T>) {
+  return (
+    req: Request<unknown, unknown, unknown, T>,
+    _res: Response,
+    next: NextFunction
+  ): void => {
     const result = schema.safeParse(req.query);
     if (!result.success) {
       throw result.error;
     }
-    req.query = result.data as typeof req.query;
+    req.query = result.data;
     next();
   };
 }

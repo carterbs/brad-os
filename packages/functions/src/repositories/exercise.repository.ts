@@ -6,11 +6,17 @@ import type {
 } from '../shared.js';
 import { BaseRepository } from './base.repository.js';
 import { getCollectionName } from '../firebase.js';
+import {
+  isRecord,
+  readBoolean,
+  readNumber,
+  readString,
+} from './firestore-type-guards.js';
 
 export class ExerciseRepository extends BaseRepository<
   Exercise,
   CreateExerciseDTO,
-  UpdateExerciseDTO
+  UpdateExerciseDTO & Record<string, unknown>
 > {
   constructor(db?: Firestore) {
     super('exercises', db);
@@ -34,21 +40,56 @@ export class ExerciseRepository extends BaseRepository<
     return exercise;
   }
 
+  protected parseEntity(id: string, data: Record<string, unknown>): Exercise | null {
+    const name = readString(data, 'name');
+    const weightIncrement = readNumber(data, 'weight_increment');
+    const isCustom = readBoolean(data, 'is_custom');
+    const createdAt = readString(data, 'created_at');
+    const updatedAt = readString(data, 'updated_at');
+
+    if (
+      name === null ||
+      weightIncrement === null ||
+      isCustom === null ||
+      createdAt === null ||
+      updatedAt === null
+    ) {
+      return null;
+    }
+
+    return {
+      id,
+      name,
+      weight_increment: weightIncrement,
+      is_custom: isCustom,
+      created_at: createdAt,
+      updated_at: updatedAt,
+    };
+  }
+
   async findByName(name: string): Promise<Exercise | null> {
     const snapshot = await this.collection.where('name', '==', name).limit(1).get();
     if (snapshot.empty) {
       return null;
     }
     const doc = snapshot.docs[0];
-    if (!doc) {
+    if (!doc || !isRecord(doc.data())) {
       return null;
     }
-    return { id: doc.id, ...doc.data() } as Exercise;
+    return this.parseEntity(doc.id, doc.data());
   }
 
   async findAll(): Promise<Exercise[]> {
     const snapshot = await this.collection.orderBy('name').get();
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Exercise);
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((exercise): exercise is Exercise => exercise !== null);
   }
 
   async findDefaultExercises(): Promise<Exercise[]> {
@@ -56,7 +97,15 @@ export class ExerciseRepository extends BaseRepository<
       .where('is_custom', '==', false)
       .orderBy('name')
       .get();
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Exercise);
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((exercise): exercise is Exercise => exercise !== null);
   }
 
   async findCustomExercises(): Promise<Exercise[]> {
@@ -64,7 +113,15 @@ export class ExerciseRepository extends BaseRepository<
       .where('is_custom', '==', true)
       .orderBy('name')
       .get();
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Exercise);
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((exercise): exercise is Exercise => exercise !== null);
   }
 
   async isInUse(id: string): Promise<boolean> {

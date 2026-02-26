@@ -64,6 +64,7 @@
     "lint:oxlint": "oxlint packages/functions/src --config .oxlintrc.json",
     "lint:oxlint:fix": "oxlint packages/functions/src --config .oxlintrc.json --fix",
     "lint:oxlint:type-aware": "oxlint packages/functions/src --config .oxlintrc.json --type-aware",
+    "lint:oxlint:type-aware:repos-middleware": "oxlint packages/functions/src/repositories/*.repository.ts packages/functions/src/repositories/base.repository.ts packages/functions/src/middleware/*.ts --config .oxlintrc.json --type-aware",
     "lint:cleanup:ts-eslint:list": "tsx scripts/oxlint-cleanup.ts list",
     "lint:cleanup:ts-eslint:all": "tsx scripts/oxlint-cleanup.ts run all",
     "lint:cleanup:ts-eslint:unsafe-type-assertion:repositories": "tsx scripts/oxlint-cleanup.ts run unsafe-type-assertion:repositories",
