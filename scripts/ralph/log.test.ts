@@ -29,6 +29,125 @@ describe('Logger', () => {
     consoleErrorSpy.mockRestore();
   });
 
+  describe('StatusBar', () => {
+    type StatusBarInternals = {
+      enabled: boolean;
+      timer?: ReturnType<typeof setInterval>;
+      workers: Map<number, { step?: string; toolCalls: number; startTime?: number }>;
+      statusVisible: boolean;
+    };
+
+    const getStatusBarInternals = (): StatusBarInternals => statusBar as unknown as StatusBarInternals;
+
+    const resetStatusBar = (): void => {
+      const state = getStatusBarInternals();
+      if (state.timer) {
+        statusBar.stop();
+      }
+      state.enabled = true;
+      state.workers.clear();
+      state.statusVisible = false;
+    };
+
+    it('starts and stops the redraw timer', () => {
+      resetStatusBar();
+      const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
+      const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval');
+      const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      statusBar.start();
+      const timer = getStatusBarInternals().timer;
+
+      expect(setIntervalSpy).toHaveBeenCalledWith(expect.any(Function), 1000);
+      expect(timer).toBeDefined();
+
+      statusBar.stop();
+      expect(clearIntervalSpy).toHaveBeenCalledWith(timer);
+      expect(getStatusBarInternals().timer).toBeUndefined();
+      expect(getStatusBarInternals().statusVisible).toBe(false);
+
+      writeSpy.mockRestore();
+      setIntervalSpy.mockRestore();
+      clearIntervalSpy.mockRestore();
+    });
+
+    it('updates worker state with merge semantics and renders a status row', () => {
+      resetStatusBar();
+      const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      statusBar.updateWorker(3, { step: 'plan', toolCalls: 1, startTime: 1000 });
+      statusBar.updateWorker(3, { toolCalls: 2 });
+
+      const state = getStatusBarInternals();
+      expect(state.workers.get(3)?.step).toBe('plan');
+      expect(state.workers.get(3)?.toolCalls).toBe(2);
+
+      const output = writeSpy.mock.calls.map((c) => String(c[0])).join('');
+      expect(output).toContain('W3');
+      expect(output).toContain('plan');
+      expect(output).toContain('2t');
+
+      writeSpy.mockRestore();
+    });
+
+    it('removes a worker and clears the status when no workers remain', () => {
+      resetStatusBar();
+      const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      statusBar.updateWorker(1, { step: 'implement', toolCalls: 1 });
+      statusBar.updateWorker(2, { step: 'review', toolCalls: 1 });
+      expect(getStatusBarInternals().workers.has(1)).toBe(true);
+      expect(getStatusBarInternals().workers.has(2)).toBe(true);
+
+      writeSpy.mockClear();
+      statusBar.removeWorker(2);
+
+      expect(getStatusBarInternals().workers.has(1)).toBe(true);
+      expect(getStatusBarInternals().workers.has(2)).toBe(false);
+      const output = writeSpy.mock.calls.map((c) => String(c[0])).join('');
+      expect(output).toContain('W1');
+      expect(getStatusBarInternals().workers.size).toBe(1);
+
+      writeSpy.mockRestore();
+    });
+
+    it('writes a log line by clearing status first', () => {
+      resetStatusBar();
+      const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      statusBar.updateWorker(1, { step: 'review', toolCalls: 1 });
+      writeSpy.mockClear();
+      statusBar.writeLine('status bar write line test');
+
+      const output = writeSpy.mock.calls.map((c) => String(c[0])).join('');
+      expect(output).toContain('\x1b[2K\r');
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining('status bar write line test')
+      );
+      expect(output).toContain('W1');
+
+      writeSpy.mockRestore();
+    });
+
+    it('draws a single status line with the expected format', () => {
+      resetStatusBar();
+      const writeSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+      statusBar.updateWorker(0, { step: 'implement', toolCalls: 1 });
+      statusBar.updateWorker(1, { step: 'plan', toolCalls: 3 });
+
+      const output = writeSpy.mock.calls.map((c) => String(c[0])).join('');
+      expect(output).toContain('\x1b[2m\u2500\u2500\x1b[0m');
+      expect(output).toContain('\x1b[32mW0');
+      expect(output).toContain('impl');
+      expect(output).toContain('\x1b[36mW1');
+      expect(output).toContain('plan');
+      expect(output).toContain('\x1b[2m │ \x1b[0m');
+
+      writeSpy.mockRestore();
+    });
+  });
+
   describe('constructor', () => {
     it('sets prefix when workerSlot is provided', async () => {
       const logger = new Logger('/test/log.jsonl', false, 5);
