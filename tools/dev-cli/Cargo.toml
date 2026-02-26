@@ -7,8 +7,13 @@ edition = "2021"
 name = "brad-validate"
 path = "src/bin/validate.rs"
 
+[[bin]]
+name = "brad-run-integration-tests"
+path = "src/bin/run-integration-tests.rs"
+
 [dependencies]
 owo-colors = { version = "4", features = ["supports-colors"] }
+ctrlc = "3.4.4"
 
 [dev-dependencies]
 tempfile = "3"
