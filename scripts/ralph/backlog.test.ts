@@ -81,7 +81,7 @@ describe('syncTaskFilesFromLog', () => {
   it('removes semantically equivalent task using merged branch history', async () => {
     mockExecFileSync.mockImplementation((_cmd: string, args: string[]) => {
       if (args.includes('--pretty=format:%s')) {
-        return "Merge branch 'harness-improvement-041'";
+        return "Merge branch 'change-041'";
       }
       return '';
     });
@@ -765,7 +765,7 @@ describe('moveTaskToMergeConflicts', () => {
     });
     moveTaskToMergeConflicts('Conflicted Task', {
       improvement: 42,
-      branchName: 'harness-improvement-042',
+      branchName: 'change-042',
       worktreePath: '/tmp/worktree-042',
     });
 
@@ -776,7 +776,7 @@ describe('moveTaskToMergeConflicts', () => {
     expect(mockWriteFileSync).toHaveBeenCalledWith(
       expect.stringContaining('scripts/ralph/triage.md'),
       expect.stringContaining(
-        'Resolve merge conflict for improvement #42 (harness-improvement-042)'
+        'Resolve merge conflict for improvement #42 (change-042)'
       )
     );
     expect(mockAppendFileSync).toHaveBeenCalledWith(
@@ -794,13 +794,13 @@ describe('moveTaskToMergeConflicts', () => {
         return '';
       }
       if (path.endsWith('merge-conflicts.md')) {
-        return '- [2026-02-25T12:00:00.000Z] Task | improvement=5 branch=harness-improvement-005 | worktree=/tmp/worktree-005 | ...\n';
+        return '- [2026-02-25T12:00:00.000Z] Task | improvement=5 branch=change-005 | worktree=/tmp/worktree-005 | ...\n';
       }
       return '';
     });
     moveTaskToMergeConflicts('Task', {
       improvement: 5,
-      branchName: 'harness-improvement-005',
+      branchName: 'change-005',
       worktreePath: '/tmp/worktree-005',
     });
 
@@ -822,7 +822,7 @@ describe('moveTaskToMergeConflicts', () => {
     });
     moveTaskToMergeConflicts('New Task', {
       improvement: 10,
-      branchName: 'harness-improvement-010',
+      branchName: 'change-010',
       worktreePath: '/tmp/worktree-010',
     });
 

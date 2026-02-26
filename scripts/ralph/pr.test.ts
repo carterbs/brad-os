@@ -33,7 +33,7 @@ describe('ensurePullRequestMergeable', () => {
     });
 
     expect(
-      ensurePullRequestMergeable('/tmp/wt', 'harness-improvement-065', 20)
+      ensurePullRequestMergeable('/tmp/wt', 'change-065', 20)
     ).toBe(true);
   });
 
@@ -60,7 +60,7 @@ describe('ensurePullRequestMergeable', () => {
     });
 
     expect(
-      ensurePullRequestMergeable('/tmp/wt', 'harness-improvement-065', 20)
+      ensurePullRequestMergeable('/tmp/wt', 'change-065', 20)
     ).toBe(true);
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'git',
@@ -69,7 +69,7 @@ describe('ensurePullRequestMergeable', () => {
     );
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'git',
-      ['checkout', 'harness-improvement-065'],
+      ['checkout', 'change-065'],
       expect.any(Object)
     );
     expect(mockExecFileSync).toHaveBeenCalledWith(
@@ -79,7 +79,7 @@ describe('ensurePullRequestMergeable', () => {
     );
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'git',
-      ['push', 'origin', 'harness-improvement-065'],
+      ['push', 'origin', 'change-065'],
       expect.any(Object)
     );
   });
@@ -100,7 +100,7 @@ describe('ensurePullRequestMergeable', () => {
     });
 
     expect(
-      ensurePullRequestMergeable('/tmp/wt', 'harness-improvement-065', 20)
+      ensurePullRequestMergeable('/tmp/wt', 'change-065', 20)
     ).toBe(false);
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'git',
@@ -122,7 +122,7 @@ describe('listOpenRalphPullRequests', () => {
           {
             number: 19,
             url: 'https://github.com/carterbs/brad-os/pull/19',
-            headRefName: 'harness-improvement-067',
+            headRefName: 'change-067',
           },
           {
             number: 88,
@@ -134,11 +134,11 @@ describe('listOpenRalphPullRequests', () => {
       return '';
     });
 
-    expect(listOpenRalphPullRequests('/repo', 'harness-improvement')).toEqual([
+    expect(listOpenRalphPullRequests('/repo', 'change')).toEqual([
       {
         number: 19,
         url: 'https://github.com/carterbs/brad-os/pull/19',
-        headRefName: 'harness-improvement-067',
+        headRefName: 'change-067',
       },
     ]);
   });
@@ -193,10 +193,10 @@ describe('pushBranch', () => {
 
   it('returns true on initial push success', async () => {
     mockExecFileSync.mockReturnValue('');
-    expect(pushBranch('/repo', 'harness-improvement-066')).toBe(true);
+    expect(pushBranch('/repo', 'change-066')).toBe(true);
     expect(mockExecFileSync).toHaveBeenCalledWith(
       'git',
-      ['push', '--set-upstream', 'origin', 'harness-improvement-066'],
+      ['push', '--set-upstream', 'origin', 'change-066'],
       expect.any(Object)
     );
   });
@@ -206,7 +206,7 @@ describe('pushBranch', () => {
       throw new Error('push failed');
     });
 
-    expect(pushBranch('/repo', 'harness-improvement-066')).toBe(false);
+    expect(pushBranch('/repo', 'change-066')).toBe(false);
   });
 });
 

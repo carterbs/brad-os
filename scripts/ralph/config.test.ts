@@ -24,7 +24,7 @@ describe('resolveConfig', () => {
     const config = resolveConfig();
 
     expect(config.parallelism).toBe(2);
-    expect(config.branchPrefix).toBe('harness-improvement');
+    expect(config.branchPrefix).toBe('change');
     expect(config.maxTurns).toBe(100);
     expect(config.minReviewCycles).toBe(2);
     expect(config.maxReviewCycles).toBe(3);
@@ -309,7 +309,7 @@ describe('resolveConfig', () => {
 
     // Should use all defaults
     expect(config.parallelism).toBe(2);
-    expect(config.branchPrefix).toBe('harness-improvement');
+    expect(config.branchPrefix).toBe('change');
   });
 
   // ===== 16. Config file with null =====
@@ -322,7 +322,7 @@ describe('resolveConfig', () => {
 
     // Should use all defaults
     expect(config.parallelism).toBe(2);
-    expect(config.branchPrefix).toBe('harness-improvement');
+    expect(config.branchPrefix).toBe('change');
   });
 
   // ===== 17. Config file with invalid JSON =====
@@ -335,7 +335,7 @@ describe('resolveConfig', () => {
 
     // Should use all defaults
     expect(config.parallelism).toBe(2);
-    expect(config.branchPrefix).toBe('harness-improvement');
+    expect(config.branchPrefix).toBe('change');
   });
 
   // ===== 18. Per-step model override via CLI =====
@@ -666,7 +666,7 @@ describe('resolveConfig', () => {
 
     // Should use all defaults
     expect(config.parallelism).toBe(2);
-    expect(config.branchPrefix).toBe('harness-improvement');
+    expect(config.branchPrefix).toBe('change');
     expect(config.maxTurns).toBe(100);
     expect(config.minReviewCycles).toBe(2);
     expect(config.maxReviewCycles).toBe(3);
@@ -684,7 +684,7 @@ describe('resolveConfig', () => {
     const config = resolveConfig();
 
     expect(config.parallelism).toBe(5);
-    expect(config.branchPrefix).toBe('harness-improvement'); // default
+    expect(config.branchPrefix).toBe('change'); // default
     expect(config.maxTurns).toBe(100); // default
     expect(config.minReviewCycles).toBe(2);
     expect(config.maxReviewCycles).toBe(3); // default

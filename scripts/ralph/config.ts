@@ -129,7 +129,7 @@ export function resolveConfig(): Config {
   return {
     target,
     parallelism,
-    branchPrefix: (values["branch-prefix"] as string) ?? configFile?.branchPrefix ?? "harness-improvement",
+    branchPrefix: (values["branch-prefix"] as string) ?? configFile?.branchPrefix ?? "change",
     maxTurns: values["max-turns"] !== undefined
       ? parseInt(values["max-turns"] as string, 10)
       : configFile?.maxTurns ?? 100,
