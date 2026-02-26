@@ -134,7 +134,7 @@ All handler and service files have corresponding tests.
 
 ### Other
 
-- [x] **Calendar missing cycling activities** - Calendar now imports and calls `getCyclingActivities('default-user')`; cycling summaries include `durationMinutes`, `tss`, and `cyclingType`; and day summaries set `hasCycling` when cycling activities are present (validated in `calendar.service.test.ts`).
+- [x] **Calendar missing cycling activities** - Completed: Calendar aggregation includes cycling activities via `CalendarService.getMonthData`, with cycling duration/tss/type mapped into summaries and `hasCycling` now reported in daily totals.
 - [x] **No integration tests for Meal Planning** - 10 unit tests but zero integration tests.
 - [x] **No integration tests for Cycling** - 7 unit tests but zero integration tests.
 
@@ -142,6 +142,7 @@ All handler and service files have corresponding tests.
 
 ## Recently Completed
 
+- [x] **Calendar cycle-activity aggregation** - Calendar aggregation now includes cycling in `CalendarService.getMonthData` and maps cycling fields (`durationMinutes`, `tss`, `cyclingType`) with `hasCycling` tracking; validated by 6+ cycling-focused calendar service tests.
 - [x] **Cycling integration tests** - `cycling.integration.test.ts` now covers the cycling API end-to-end.
 - [x] **Guided Meditations handler tests** - `guidedMeditations.test.ts` now covers category browsing and script fetching.
 - [x] **Firestore Recovery service tests** - `firestore-recovery.service.test.ts` now covers all health data CRUD.
