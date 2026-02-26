@@ -5,9 +5,9 @@ Complete the `hooks/pre-commit` Rust migration already started on `main`, preser
 
 ## Current State Analysis
 - `main` now includes `tools/dev-cli` with `brad-precommit` plus reusable logic in `src/precommit.rs` and `src/timing.rs`.
-- Hook contains branch protection, gitleaks invocation, staged-file scope analysis, and validate dispatch: [`hooks/pre-commit:149`](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:149), [`hooks/pre-commit:199`](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:199).
-- It emits JSONL timing metrics with mode metadata: [`hooks/pre-commit:53`](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:53).
-- Hook path is configured via postinstall: [`package.json:61`](/Users/bradcarter/Documents/Dev/brad-os/package.json:61).
+- Hook contains branch protection, gitleaks invocation, staged-file scope analysis, and validate dispatch: `hooks/pre-commit:149`, `hooks/pre-commit:199`.
+- It emits JSONL timing metrics with mode metadata: `hooks/pre-commit:53`.
+- Hook path is configured via postinstall: `package.json:61`.
 
 ## Desired End State
 - `hooks/pre-commit` remains only a thin launcher to `target/release/brad-precommit`.
@@ -15,8 +15,8 @@ Complete the `hooks/pre-commit` Rust migration already started on `main`, preser
 - Coverage >=95% target (>=90 enforced minimum).
 
 ## Key Discoveries
-- Scoped routing currently covers `packages/functions/src/*` and `scripts/*` with fallback for unknown scope: [`hooks/pre-commit:203`](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:203).
-- Timing log schema fields must remain stable for downstream analysis: [`hooks/pre-commit:72`](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:72).
+- Scoped routing currently covers `packages/functions/src/*` and `scripts/*` with fallback for unknown scope: `hooks/pre-commit:203`.
+- Timing log schema fields must remain stable for downstream analysis: `hooks/pre-commit:72`.
 
 ## What We're NOT Doing
 - No relaxation of branch protection or secret scanning requirements.
@@ -65,6 +65,6 @@ Build on `tools/dev-cli/src/bin/precommit.rs` and shared modules; avoid creating
 - Manual: run actual `git commit` scenarios.
 
 ## References
-- [`hooks/pre-commit`](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit)
-- [`docs/conventions/workflow.md`](/Users/bradcarter/Documents/Dev/brad-os/docs/conventions/workflow.md)
-- [`package.json`](/Users/bradcarter/Documents/Dev/brad-os/package.json)
+- `hooks/pre-commit`
+- `docs/conventions/workflow.md`
+- `package.json`

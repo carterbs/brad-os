@@ -134,7 +134,7 @@ Constraints:
 - Keep changes focused on what ${planDocPath} describes.
 - Never modify scripts/ralph/backlog.md (main-managed; only updated after merge on main).
 - Run and pass: npm run typecheck && npm run lint && npm test
-- Do NOT push to any remote. Do NOT run git push. Everything stays local.
+- Do NOT push to any remote. Push is handled by the orchestrator.
 
 QA (MANDATORY — do not skip this):
 - After implementation, you MUST actually exercise what you built. Do not just
@@ -199,25 +199,34 @@ ${truncated}
 - Fix ONLY the issues described above. Do not refactor or add unrelated changes.
 - Never modify scripts/ralph/backlog.md (main-managed; only updated after merge on main).
 - Run and pass: npm run typecheck && npm run lint && npm test
-- Do NOT push to any remote. Do NOT run git push. Everything stays local.
+- Do NOT push to any remote. Push is handled by the orchestrator.
 
 When done, output a one-line summary starting with "FIXED:" describing what you changed.`;
 }
 
-export function buildReviewPrompt(): string {
-  return `You are an independent reviewer. Review the changes in this worktree against main.
+export function buildReviewPrompt(
+  prNumber: number,
+  prUrl: string,
+  cycle: number,
+  maxCycles: number,
+): string {
+  return `You are an independent reviewer. Review GitHub PR #${prNumber}.
 
 Context: Read docs/references/codex-agent-team-article.md to understand the philosophy.
 This is the review step of the Ralph Wiggum Loop. Your job is to ensure the improvement
 is high-leverage harness work that increases agent velocity — not product code changes
 or low-value busywork.
 
-IMPORTANT: Do NOT push to any remote. Do NOT run git push. Everything stays local.
+PR URL: ${prUrl}
+Review cycle: ${cycle}/${maxCycles}
+
+IMPORTANT: Do NOT modify any files in this review step.
+IMPORTANT: Do NOT push to any remote.
 IMPORTANT: Do NOT modify scripts/ralph/backlog.md (main-managed; only updated after merge on main).
 
 Steps:
-1. Run: git diff main --stat   (see scope of changes)
-2. Run: git diff main           (read every changed line)
+1. Run: gh pr view ${prNumber} --comments
+2. Run: gh pr diff ${prNumber}
 3. Read AGENTS.md and docs/conventions/ for project rules.
 4. Run: npm run typecheck && npm run lint && npm test
 5. Evaluate:
@@ -229,8 +238,9 @@ Steps:
      of harness/tooling work that compounds — linters, test infrastructure, architecture
      enforcement, observability, dev-loop scaffolding?
    - QA: Was the thing actually run? Don't trust that tests alone prove it works.
-     Run the script/linter/tool/integration yourself and verify real output.
-6. If you find issues, fix them directly in the files and re-run validations.
-7. When satisfied AND you've verified it works by running it, output exactly: REVIEW_PASSED
-   If unfixable issues remain, output: REVIEW_FAILED followed by explanation.`;
+6. If issues exist, output exactly:
+   REVIEW_FAILED
+   <concise actionable findings>
+7. If no issues exist, output exactly:
+   REVIEW_PASSED`;
 }

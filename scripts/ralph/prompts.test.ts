@@ -238,21 +238,21 @@ describe('prompts module', () => {
 
   describe('buildReviewPrompt', () => {
     it('returns non-empty string', async () => {
-      const prompt = buildReviewPrompt();
+      const prompt = buildReviewPrompt(123, 'https://github.com/org/repo/pull/123', 1, 3);
 
       expect(typeof prompt).toBe('string');
       expect(prompt.length).toBeGreaterThan(0);
     });
 
     it('contains review context', async () => {
-      const prompt = buildReviewPrompt();
+      const prompt = buildReviewPrompt(123, 'https://github.com/org/repo/pull/123', 1, 3);
 
       expect(prompt).toContain('reviewer');
       expect(prompt).toContain('review');
     });
 
     it('contains evaluation criteria', async () => {
-      const prompt = buildReviewPrompt();
+      const prompt = buildReviewPrompt(123, 'https://github.com/org/repo/pull/123', 1, 3);
 
       expect(prompt).toContain('Correctness');
       expect(prompt).toContain('Tests');
@@ -262,13 +262,13 @@ describe('prompts module', () => {
     });
 
     it('contains REVIEW_PASSED output marker', async () => {
-      const prompt = buildReviewPrompt();
+      const prompt = buildReviewPrompt(123, 'https://github.com/org/repo/pull/123', 1, 3);
 
       expect(prompt).toContain('REVIEW_PASSED');
     });
 
     it('contains REVIEW_FAILED output marker', async () => {
-      const prompt = buildReviewPrompt();
+      const prompt = buildReviewPrompt(123, 'https://github.com/org/repo/pull/123', 1, 3);
 
       expect(prompt).toContain('REVIEW_FAILED');
     });

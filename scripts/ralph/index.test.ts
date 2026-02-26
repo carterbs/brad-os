@@ -33,6 +33,8 @@ const {
   mockSyncTaskFilesFromLog,
   mockResolveConfig,
   mockMergeQueueEnqueue,
+  mockEnsurePullRequest,
+  mockPushBranch,
   mockBuildBacklogRefillPrompt,
   mockBuildTaskPlanPrompt,
   mockBuildPlanPrompt,
@@ -60,6 +62,8 @@ const {
   mockSyncTaskFilesFromLog: vi.fn(),
   mockResolveConfig: vi.fn(),
   mockMergeQueueEnqueue: vi.fn(),
+  mockEnsurePullRequest: vi.fn(),
+  mockPushBranch: vi.fn(),
   mockBuildBacklogRefillPrompt: vi.fn(),
   mockBuildTaskPlanPrompt: vi.fn(),
   mockBuildPlanPrompt: vi.fn(),
@@ -110,6 +114,11 @@ vi.mock('./merge-queue.js', () => ({
   MergeQueue: vi.fn().mockImplementation(() => ({
     enqueue: mockMergeQueueEnqueue,
   })),
+}));
+
+vi.mock('./pr.js', () => ({
+  ensurePullRequest: mockEnsurePullRequest,
+  pushBranch: mockPushBranch,
 }));
 
 vi.mock('./prompts.js', () => ({
@@ -165,6 +174,7 @@ function makeConfig(overrides: Partial<Config> = {}): Config {
     verbose: false,
     repoDir: '/repo',
     worktreeDir: '/tmp/worktrees',
+    minReviewCycles: 1,
     maxReviewCycles: 3,
     logFile: '/repo/ralph-loop.jsonl',
     agents: {
@@ -701,6 +711,13 @@ describe('runWorker', () => {
     mockCommitAll.mockReset();
     mockHasNewCommits.mockReset();
     mockExecFileSync.mockReset();
+    mockPushBranch.mockReset();
+    mockEnsurePullRequest.mockReset();
+    mockPushBranch.mockReturnValue(true);
+    mockEnsurePullRequest.mockReturnValue({
+      number: 123,
+      url: 'https://github.com/org/repo/pull/123',
+    });
   });
 
   it('returns failure when worktree creation fails', async () => {
@@ -1701,6 +1718,8 @@ describe('main', () => {
     mockSyncTaskFilesFromLog.mockReset();
     mockResolveConfig.mockReset();
     mockMergeQueueEnqueue.mockReset();
+    mockPushBranch.mockReset();
+    mockEnsurePullRequest.mockReset();
     mockBuildBacklogRefillPrompt.mockReset();
     mockBuildTaskPlanPrompt.mockReset();
     mockBuildPlanPrompt.mockReset();
@@ -1710,6 +1729,11 @@ describe('main', () => {
     mockBuildFixPrompt.mockReset();
     mockLoggerConstructor.mockReset();
     mockLoggerConstructor.mockImplementation(createMockLogger);
+    mockPushBranch.mockReturnValue(true);
+    mockEnsurePullRequest.mockReturnValue({
+      number: 123,
+      url: 'https://github.com/org/repo/pull/123',
+    });
     mockProcessExit = vi.spyOn(process, 'exit').mockImplementation((() => {
       // no-op — just record the call
     }) as never);
@@ -1855,7 +1879,7 @@ describe('main', () => {
     expect(mockCreateWorktree).toHaveBeenCalledTimes(3);
   });
 
-  it('handles merge failure and parks backlog task', async () => {
+  it('handles merge failure and escalates backlog task to triage', async () => {
     setupMainDefaults({ target: 2, parallelism: 1 });
     mockReadTriage.mockReturnValue([]);
     mockReadBacklog.mockReturnValue(['Task A', 'Task B']);
@@ -1893,9 +1917,9 @@ describe('main', () => {
     }
     await p;
 
-    expect(mockMoveTaskToMergeConflicts).toHaveBeenCalledWith(
-      'Task A',
-      expect.objectContaining({ improvement: 1 })
+    expect(mockRemoveTask).toHaveBeenCalledWith('Task A');
+    expect(mockAddTriageTask).toHaveBeenCalledWith(
+      expect.stringContaining('Human escalation required')
     );
   });
 
@@ -1923,8 +1947,10 @@ describe('main', () => {
     }
     await p;
 
-    // For triage tasks that fail merge, addTriageTask is called to re-add
-    expect(mockAddTriageTask).toHaveBeenCalledWith('Triage fix');
+    expect(mockRemoveTriageTask).toHaveBeenCalledWith('Triage fix');
+    expect(mockAddTriageTask).toHaveBeenCalledWith(
+      expect.stringContaining('Human escalation required')
+    );
   });
 
   it('removes triage task on successful merge', async () => {
@@ -2122,7 +2148,7 @@ describe('main', () => {
     expect(mockRemoveTriageTask).not.toHaveBeenCalled();
   });
 
-  it('parkTaskAfterMergeConflict is no-op when no taskText', async () => {
+  it('escalation parking is no-op in CLI task mode', async () => {
     setupMainDefaults({ target: 1, parallelism: 1 });
     mockReadTriage.mockReturnValue([]);
     mockReadBacklog.mockReturnValue(['task']);
@@ -2155,8 +2181,8 @@ describe('main', () => {
     }
     await p;
 
-    // parkTaskAfterMergeConflict returns early because config.task is set
-    expect(mockMoveTaskToMergeConflicts).not.toHaveBeenCalled();
+    expect(mockRemoveTask).not.toHaveBeenCalled();
+    expect(mockRemoveTriageTask).not.toHaveBeenCalled();
     expect(mockAddTriageTask).not.toHaveBeenCalled();
   });
 
@@ -2304,8 +2330,9 @@ describe('main', () => {
 
     await p;
 
-    // Remaining worker merge failed → parkTaskAfterMergeConflict called
-    expect(mockMoveTaskToMergeConflicts).toHaveBeenCalled();
+    expect(mockAddTriageTask).toHaveBeenCalledWith(
+      expect.stringContaining('Human escalation required')
+    );
   });
 
   it('remaining worker with triage task removes from triage on successful merge', async () => {

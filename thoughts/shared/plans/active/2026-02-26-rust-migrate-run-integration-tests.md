@@ -4,9 +4,9 @@
 Migrate `scripts/run-integration-tests.sh` to Rust while preserving emulator lifecycle orchestration, readiness waiting, cleanup guarantees, and final exit semantics.
 
 ## Current State Analysis
-- Script handles lifecycle with trap-based cleanup and process-group kill logic: [`scripts/run-integration-tests.sh:23`](/Users/bradcarter/Documents/Dev/brad-os/scripts/run-integration-tests.sh:23), [`scripts/run-integration-tests.sh:47`](/Users/bradcarter/Documents/Dev/brad-os/scripts/run-integration-tests.sh:47).
-- It delegates readiness to `wait-for-emulator.sh`: [`scripts/run-integration-tests.sh:58`](/Users/bradcarter/Documents/Dev/brad-os/scripts/run-integration-tests.sh:58).
-- Invoked by npm script `test:integration:emulator`: [`package.json:34`](/Users/bradcarter/Documents/Dev/brad-os/package.json:34).
+- Script handles lifecycle with trap-based cleanup and process-group kill logic: `scripts/run-integration-tests.sh:23`, `scripts/run-integration-tests.sh:47`.
+- It delegates readiness to `wait-for-emulator.sh`: `scripts/run-integration-tests.sh:58`.
+- Invoked by npm script `test:integration:emulator`: `package.json:34`.
 - `main` now has reusable Rust subprocess/timing patterns in `tools/dev-cli`.
 
 ## Desired End State
@@ -65,6 +65,6 @@ Build a Rust orchestration binary with signal handling and deterministic subproc
 - Manual: end-to-end emulator-backed integration run.
 
 ## References
-- [`scripts/run-integration-tests.sh`](/Users/bradcarter/Documents/Dev/brad-os/scripts/run-integration-tests.sh)
-- [`scripts/wait-for-emulator.sh`](/Users/bradcarter/Documents/Dev/brad-os/scripts/wait-for-emulator.sh)
-- [`package.json`](/Users/bradcarter/Documents/Dev/brad-os/package.json)
+- `scripts/run-integration-tests.sh`
+- `scripts/wait-for-emulator.sh`
+- `package.json`

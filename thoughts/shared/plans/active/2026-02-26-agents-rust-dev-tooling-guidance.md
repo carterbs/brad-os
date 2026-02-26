@@ -4,8 +4,8 @@
 Add explicit agent-facing guidance to prefer Rust for non-trivial dev tooling and shell only for thin wrappers.
 
 ## Current State Analysis
-- Agent policy entrypoint is [`AGENTS.md`](/Users/bradcarter/Documents/Dev/brad-os/AGENTS.md).
-- Workflow conventions document quality gates and validate behavior: [`docs/conventions/workflow.md`](/Users/bradcarter/Documents/Dev/brad-os/docs/conventions/workflow.md).
+- Agent policy entrypoint is `AGENTS.md`.
+- Workflow conventions document quality gates and validate behavior: `docs/conventions/workflow.md`.
 - No current explicit preference statement for Rust over complex shell orchestration.
 - `main` now provides a shared Rust dev-tooling foundation in `tools/dev-cli` (`runner`, `reporter`, `timing`, `precommit` helpers).
 
@@ -55,6 +55,6 @@ Add concise normative rules in AGENTS + workflow docs with objective criteria ti
 - Manual review for clarity and non-ambiguity.
 
 ## References
-- [`AGENTS.md`](/Users/bradcarter/Documents/Dev/brad-os/AGENTS.md)
-- [`docs/conventions/workflow.md`](/Users/bradcarter/Documents/Dev/brad-os/docs/conventions/workflow.md)
-- [`thoughts/shared/plans/active/2026-02-26-shell-complexity-guardrail.md`](/Users/bradcarter/Documents/Dev/brad-os/thoughts/shared/plans/active/2026-02-26-shell-complexity-guardrail.md)
+- `AGENTS.md`
+- `docs/conventions/workflow.md`
+- `thoughts/shared/plans/active/2026-02-26-shell-complexity-guardrail.md`

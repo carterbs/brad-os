@@ -4,18 +4,18 @@
 Migrate the current Bash-based pre-commit and validation orchestration to Rust while preserving all external behavior contracts used by developers, CI, and repo tooling. The migration is incremental: ship Rust binaries behind shell wrappers first, then cut over defaults after parity and stability gates pass.
 
 ## Current State Analysis
-- Git hook wiring is configured in npm `postinstall` via `git config core.hooksPath hooks` ([package.json](/Users/bradcarter/Documents/Dev/brad-os/package.json:61)).
+- Git hook wiring is configured in npm `postinstall` via `git config core.hooksPath hooks` (package.json).
 - `hooks/pre-commit` enforces:
-  - main/master direct-commit gate with merge + `ALLOW_MAIN_COMMIT=1` bypass ([hooks/pre-commit](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:152), [hooks/pre-commit](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:156)).
-  - staged secrets scan through `gitleaks protect --staged --verbose` ([hooks/pre-commit](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:179)).
-  - scoped-vs-full routing for validation and fallback behavior ([hooks/pre-commit](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:204), [hooks/pre-commit](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:220)).
-  - timing telemetry appended to `.cache/pre-commit-timings.jsonl` ([hooks/pre-commit](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:10), [hooks/pre-commit](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:84)).
+  - main/master direct-commit gate with merge + `ALLOW_MAIN_COMMIT=1` bypass (hooks/pre-commit, hooks/pre-commit).
+  - staged secrets scan through `gitleaks protect --staged --verbose` (hooks/pre-commit).
+  - scoped-vs-full routing for validation and fallback behavior (hooks/pre-commit, hooks/pre-commit).
+  - timing telemetry appended to `.cache/pre-commit-timings.jsonl` (hooks/pre-commit, hooks/pre-commit).
 - `scripts/validate.sh` runs checks in parallel and emits compact summary:
-  - checks: `typecheck`, `lint`, plus `test` + `architecture` unless quick mode ([scripts/validate.sh](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:55)).
-  - each check logs to `.validate/*.log`; status files are `.validate/*.status` internal artifacts ([scripts/validate.sh](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:91), [scripts/validate.sh](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:112)).
-  - supports targeted tests through newline-delimited `BRAD_VALIDATE_TEST_FILES` and `BRAD_VALIDATE_TEST_PROJECTS` ([scripts/validate.sh](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:30), [scripts/validate.sh](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:38)).
-- CI depends on `npm run validate` exit semantics and `.validate/*.log` artifacts, not on Bash internals ([.github/workflows/ci.yml](/Users/bradcarter/Documents/Dev/brad-os/.github/workflows/ci.yml:36), [.github/workflows/ci.yml](/Users/bradcarter/Documents/Dev/brad-os/.github/workflows/ci.yml:43)).
-- Docs codify current user-facing behavior and must remain accurate ([docs/conventions/workflow.md](/Users/bradcarter/Documents/Dev/brad-os/docs/conventions/workflow.md:34), [docs/conventions/workflow.md](/Users/bradcarter/Documents/Dev/brad-os/docs/conventions/workflow.md:54)).
+  - checks: `typecheck`, `lint`, plus `test` + `architecture` unless quick mode (scripts/validate.sh).
+  - each check logs to `.validate/*.log`; status files are `.validate/*.status` internal artifacts (scripts/validate.sh, scripts/validate.sh).
+  - supports targeted tests through newline-delimited `BRAD_VALIDATE_TEST_FILES` and `BRAD_VALIDATE_TEST_PROJECTS` (scripts/validate.sh, scripts/validate.sh).
+- CI depends on `npm run validate` exit semantics and `.validate/*.log` artifacts, not on Bash internals (.github/workflows/ci.yml, .github/workflows/ci.yml).
+- Docs codify current user-facing behavior and must remain accurate (docs/conventions/workflow.md, docs/conventions/workflow.md).
 
 ## Desired End State
 - Two Rust CLIs replace Bash logic:
@@ -31,17 +31,17 @@ Migrate the current Bash-based pre-commit and validation orchestration to Rust w
 - Bash scripts become thin compatibility wrappers (or removed in final phase after explicit cutover).
 
 ## Key Discoveries
-- No runtime consumer parses `.cache/pre-commit-timings.jsonl`; this is telemetry + documentation contract only ([hooks/pre-commit](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:84), [docs/conventions/workflow.md](/Users/bradcarter/Documents/Dev/brad-os/docs/conventions/workflow.md:41)).
-- `.validate/*.status` files are internal to `validate.sh`; they can be eliminated in Rust implementation if summary behavior is preserved ([scripts/validate.sh](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:91), [scripts/validate.sh](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:112)).
-- `scripts/ralph` cares about validate success/failure, not exact output formatting ([scripts/ralph/index.ts](/Users/bradcarter/Documents/Dev/brad-os/scripts/ralph/index.ts:59)).
-- Rust toolchain is already expected in CI for architecture lint flow, reducing adoption friction ([.github/workflows/ci.yml](/Users/bradcarter/Documents/Dev/brad-os/.github/workflows/ci.yml:28), [scripts/arch-lint](/Users/bradcarter/Documents/Dev/brad-os/scripts/arch-lint:7)).
-- `validate.sh` uses `set -uo pipefail` (no `-e`) intentionally — it collects exit codes from parallel checks via `|| rc=$?` rather than bailing on first failure. The Rust implementation must replicate this collect-all-then-summarize pattern ([scripts/validate.sh](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:1), [scripts/validate.sh](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:61)).
-- `validate.sh` deletes and recreates `.validate/` on every run (`rm -rf "$LOG_DIR" && mkdir -p "$LOG_DIR"`), ensuring stale logs never persist ([scripts/validate.sh](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:47-48)).
-- Pre-commit hook hard-fails (exit 1) if `gitleaks` binary is not installed, separate from scan failure. Both paths emit the install hint but serve different purposes ([hooks/pre-commit](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:174-183)).
-- `VALIDATE_MODE` in timing JSONL takes one of four string values: `"full"` (initial default), `"full_no_staged"` (no staged files), `"full_fallback"` (unknown/mixed scope), `"scoped"` (targeted checks). These must be preserved exactly for telemetry compatibility ([hooks/pre-commit](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:16), [hooks/pre-commit](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:187), [hooks/pre-commit](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:222), [hooks/pre-commit](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:251)).
-- Timing JSONL fields (all must be preserved): `timestamp`, `branch`, `mode`, `staged_files`, `exit_code`, `hook_ms`, `gitleaks_ms`, `validate_ms`, `validate_status`, `targeted_test_file_count`, `targeted_test_project_count` ([hooks/pre-commit](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit:72-83)).
+- No runtime consumer parses `.cache/pre-commit-timings.jsonl`; this is telemetry + documentation contract only (hooks/pre-commit, docs/conventions/workflow.md).
+- `.validate/*.status` files are internal to `validate.sh`; they can be eliminated in Rust implementation if summary behavior is preserved (scripts/validate.sh, scripts/validate.sh).
+- `scripts/ralph` cares about validate success/failure, not exact output formatting (scripts/ralph/index.ts).
+- Rust toolchain is already expected in CI for architecture lint flow, reducing adoption friction (.github/workflows/ci.yml, scripts/arch-lint).
+- `validate.sh` uses `set -uo pipefail` (no `-e`) intentionally — it collects exit codes from parallel checks via `|| rc=$?` rather than bailing on first failure. The Rust implementation must replicate this collect-all-then-summarize pattern (scripts/validate.sh, scripts/validate.sh).
+- `validate.sh` deletes and recreates `.validate/` on every run (`rm -rf "$LOG_DIR" && mkdir -p "$LOG_DIR"`), ensuring stale logs never persist (scripts/validate.sh).
+- Pre-commit hook hard-fails (exit 1) if `gitleaks` binary is not installed, separate from scan failure. Both paths emit the install hint but serve different purposes (hooks/pre-commit).
+- `VALIDATE_MODE` in timing JSONL takes one of four string values: `"full"` (initial default), `"full_no_staged"` (no staged files), `"full_fallback"` (unknown/mixed scope), `"scoped"` (targeted checks). These must be preserved exactly for telemetry compatibility (hooks/pre-commit, hooks/pre-commit, hooks/pre-commit, hooks/pre-commit).
+- Timing JSONL fields (all must be preserved): `timestamp`, `branch`, `mode`, `staged_files`, `exit_code`, `hook_ms`, `gitleaks_ms`, `validate_ms`, `validate_status`, `targeted_test_file_count`, `targeted_test_project_count` (hooks/pre-commit).
 - macOS `date +%s%N` for nanosecond timing is non-standard (requires GNU coreutils). Rust's `std::time::Instant` provides cross-platform nanosecond timing natively — this is a portability win.
-- `doctor.sh` does not currently check for `cargo`/Rust toolchain despite `scripts/arch-lint` already requiring it. Adding two more Rust binaries makes this gap more important ([scripts/doctor.sh](/Users/bradcarter/Documents/Dev/brad-os/scripts/doctor.sh:86-91)).
+- `doctor.sh` does not currently check for `cargo`/Rust toolchain despite `scripts/arch-lint` already requiring it. Adding two more Rust binaries makes this gap more important (scripts/doctor.sh).
 
 ## What We Are Not Doing
 - Replacing `gitleaks` itself.
@@ -212,12 +212,12 @@ Team sign-off after one full sprint of stable usage.
   - CI run validation confirming `.validate/*.log` artifacts still upload.
 
 ## References
-- [hooks/pre-commit](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit)
-- [scripts/validate.sh](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh)
-- [package.json](/Users/bradcarter/Documents/Dev/brad-os/package.json)
-- [scripts/doctor.sh](/Users/bradcarter/Documents/Dev/brad-os/scripts/doctor.sh)
-- [scripts/arch-lint](/Users/bradcarter/Documents/Dev/brad-os/scripts/arch-lint)
-- [docs/conventions/workflow.md](/Users/bradcarter/Documents/Dev/brad-os/docs/conventions/workflow.md)
-- [docs/guides/local-dev-quickstart.md](/Users/bradcarter/Documents/Dev/brad-os/docs/guides/local-dev-quickstart.md)
-- [.github/workflows/ci.yml](/Users/bradcarter/Documents/Dev/brad-os/.github/workflows/ci.yml)
-- [research note](/Users/bradcarter/Documents/Dev/brad-os/thoughts/shared/research/2026-02-26-validate-sh-dependencies-contracts.md)
+- hooks/pre-commit
+- scripts/validate.sh
+- package.json
+- scripts/doctor.sh
+- scripts/arch-lint
+- docs/conventions/workflow.md
+- docs/guides/local-dev-quickstart.md
+- .github/workflows/ci.yml
+- research note

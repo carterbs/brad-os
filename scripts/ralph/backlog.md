@@ -1,4 +1,13 @@
-- Add `typescript-eslint` cleanup tasks to reduce noise from the temporary oxlint suppression:
-  - Re-enable `typescript-eslint/no-unsafe-type-assertion` in repositories and middleware after targeted type-guard refactors.
-  - Re-enable `typescript-eslint/no-unnecessary-type-assertion` once all broad `as`-casts are replaced with schema-safe parsing.
-  - Re-enable `typescript-eslint/no-base-to-string` after replacing implicit string coercions in serialization paths.
+- Implement plan rust-migrate-qa-start: migrate scripts/qa-start.sh orchestration engine to Rust with parity contracts and >=90% coverage gate.
+- Implement plan rust-migrate-qa-stop: migrate scripts/qa-stop.sh teardown and lock lifecycle logic to Rust with parity and >=90% coverage.
+- Implement plan rust-migrate-validate: migrate scripts/validate.sh parallel validation pipeline to Rust while preserving .validate contracts.
+- Implement plan rust-migrate-doctor: migrate scripts/doctor.sh environment diagnostics to Rust with equivalent remediation output.
+- Implement plan rust-migrate-setup-ios-testing: migrate scripts/setup-ios-testing.sh iOS bootstrap orchestration to Rust.
+- Implement plan rust-migrate-run-integration-tests: migrate scripts/run-integration-tests.sh emulator and test lifecycle runner to Rust.
+- Implement plan rust-migrate-pre-commit-hook: migrate hooks/pre-commit routing and policy logic to a Rust engine with a shim hook.
+- Implement plan shell-complexity-guardrail: add architecture lint check to prevent complex shell scripts from creeping back in.
+- Implement plan agents-rust-dev-tooling-guidance: add explicit agent guidance to prefer Rust for non-trivial dev tooling.
+- Add `typescript-eslint` cleanup tasks to reduce noise from the temporary oxlint suppression.
+- Re-enable `typescript-eslint/no-unsafe-type-assertion` in repositories and middleware after targeted type-guard refactors.
+- Re-enable `typescript-eslint/no-unnecessary-type-assertion` once broad `as` casts are replaced with schema-safe parsing.
+- Re-enable `typescript-eslint/no-base-to-string` after replacing implicit string coercions in serialization paths.
