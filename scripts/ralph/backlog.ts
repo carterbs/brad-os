@@ -60,7 +60,7 @@ function readMergedImprovementNumbersFromGit(repoDir: string): Set<number> {
       { encoding: "utf-8", stdio: "pipe" },
     );
     for (const line of output.split("\n")) {
-      const match = line.match(/harness-improvement-(\d+)/);
+      const match = line.match(/(?:harness-improvement|change)-(\d+)/);
       if (!match?.[1]) continue;
       const n = parseInt(match[1], 10);
       if (!Number.isNaN(n)) merged.add(n);

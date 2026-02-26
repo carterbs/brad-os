@@ -434,23 +434,30 @@ describe('git module', () => {
   });
 
   describe('countCompleted', () => {
-    it('returns sum of merge commits and legacy commits', async () => {
+    it('returns sum of current merges, legacy merges, and legacy direct commits', async () => {
       mockExecFileSync.mockImplementation(
         (_cmd: string, args: string[] | unknown[], _opts?: unknown) => {
           const argsArray = Array.isArray(args) ? args : [];
-          // Merge commits
+          // Current merge commits (change-NNN)
           if (
             argsArray.includes('--merges') &&
-            argsArray.includes('--grep=harness-improvement')
+            argsArray.includes('--grep=change-[0-9]')
           ) {
-            return "abc1234 Merge branch 'harness-improvement-001'\ndef5678 Merge branch 'harness-improvement-002'";
+            return "abc1234 Merge branch 'change-001'\ndef5678 Merge branch 'change-002'";
           }
-          // Legacy commits
+          // Legacy merge commits (harness-improvement-NNN)
+          if (
+            argsArray.includes('--merges') &&
+            argsArray.includes('--grep=harness-improvement-')
+          ) {
+            return "ghi9012 Merge branch 'harness-improvement-003'";
+          }
+          // Legacy direct commits
           if (
             argsArray.includes('--no-merges') &&
             argsArray.includes('--grep=^harness: improvement #')
           ) {
-            return 'ghi9012 harness: improvement #3\njkl3456 harness: improvement #4';
+            return 'jkl3456 harness: improvement #4';
           }
           return '';
         }
@@ -467,23 +474,15 @@ describe('git module', () => {
       expect(result).toBe(0);
     });
 
-    it('counts only merge commits when no legacy commits', async () => {
+    it('counts only current merge commits when no legacy commits exist', async () => {
       mockExecFileSync.mockImplementation(
         (_cmd: string, args: string[] | unknown[], _opts?: unknown) => {
           const argsArray = Array.isArray(args) ? args : [];
-          // Merge commits
           if (
             argsArray.includes('--merges') &&
-            argsArray.includes('--grep=harness-improvement')
+            argsArray.includes('--grep=change-[0-9]')
           ) {
-            return "abc1234 Merge branch 'harness-improvement-001'";
-          }
-          // Legacy commits (empty)
-          if (
-            argsArray.includes('--no-merges') &&
-            argsArray.includes('--grep=^harness: improvement #')
-          ) {
-            return '';
+            return "abc1234 Merge branch 'change-001'";
           }
           return '';
         }
@@ -493,18 +492,22 @@ describe('git module', () => {
       expect(result).toBe(1);
     });
 
-    it('counts only legacy commits when no merge commits', async () => {
+    it('counts only legacy commits when no current merge commits exist', async () => {
       mockExecFileSync.mockImplementation(
         (_cmd: string, args: string[] | unknown[], _opts?: unknown) => {
           const argsArray = Array.isArray(args) ? args : [];
-          // Merge commits (empty)
           if (
             argsArray.includes('--merges') &&
-            argsArray.includes('--grep=harness-improvement')
+            argsArray.includes('--grep=change-[0-9]')
           ) {
             return '';
           }
-          // Legacy commits
+          if (
+            argsArray.includes('--merges') &&
+            argsArray.includes('--grep=harness-improvement-')
+          ) {
+            return "abc1234 Merge branch 'harness-improvement-001'";
+          }
           if (
             argsArray.includes('--no-merges') &&
             argsArray.includes('--grep=^harness: improvement #')
@@ -516,7 +519,7 @@ describe('git module', () => {
       );
       const result = countCompleted('/repo');
 
-      expect(result).toBe(1);
+      expect(result).toBe(2);
     });
   });
 

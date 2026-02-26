@@ -284,6 +284,23 @@ function truncateTitle(value: string): string {
   return `${value.slice(0, TITLE_MAX_LENGTH - 3).trimEnd()}...`;
 }
 
+const CONVENTIONAL_PREFIX_RE = /^(feat|fix|chore|refactor|test|docs|ci|perf|style|build)(\(.+?\))?:\s*/i;
+
+function hasConventionalPrefix(value: string): boolean {
+  return CONVENTIONAL_PREFIX_RE.test(value);
+}
+
+function inferConventionalPrefix(value: string): string {
+  const lower = value.toLowerCase();
+  if (/\btest(s|ing)?\b/.test(lower)) return "test";
+  if (/\bdoc(s|umentation)?\b/.test(lower)) return "docs";
+  if (/\b(lint|ci|pipeline|workflow)\b/.test(lower)) return "ci";
+  if (/\brefactor\b/.test(lower)) return "refactor";
+  if (/\bfix(es|ed)?\b/.test(lower)) return "fix";
+  if (/\b(add|implement|create|introduce)\b/.test(lower)) return "feat";
+  return "chore";
+}
+
 export function buildImprovementTitle(
   improvement: number,
   planSummary: string,
@@ -298,10 +315,12 @@ export function buildImprovementTitle(
       ? taskCandidate
       : `improvement #${improvement}`;
 
-  const prefixed = /^harness:\s*/i.test(bestCandidate)
-    ? bestCandidate
-    : `harness: ${bestCandidate}`;
-  return truncateTitle(prefixed);
+  if (hasConventionalPrefix(bestCandidate)) {
+    return truncateTitle(bestCandidate);
+  }
+
+  const prefix = inferConventionalPrefix(bestCandidate);
+  return truncateTitle(`${prefix}: ${bestCandidate}`);
 }
 
 // ── Validation helper ──
