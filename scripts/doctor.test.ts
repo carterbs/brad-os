@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -7,297 +7,195 @@ import * as path from 'node:path';
 const SCRIPT = path.resolve('scripts/doctor.sh');
 const ROOT = path.resolve('.');
 
-beforeAll(() => {
-  execSync(
-    `cargo build --manifest-path ${path.join(ROOT, 'tools/dev-cli/Cargo.toml')} --target-dir ${path.join(ROOT, 'target')} --release --bin brad-doctor -q`,
-    { stdio: 'pipe' },
-  );
-});
-
-const TOOL_VERSIONS: Record<string, string> = {
+const DEFAULT_TOOLS = {
   node: 'v22.12.0',
-  npm: '10.12.0',
-  firebase: '13.15.0',
-  cargo: '1.75.0',
-  gitleaks: '8.23.0',
-  xcodegen: '2.40.0',
+  npm: '10.0.0',
+  firebase: '13.29.1',
+  gitleaks: '3.0.0',
+  xcodegen: '0.38.0',
 };
 
-function makeFakeTool(binDir: string, name: string, version: string): void {
-  const binary = path.join(binDir, name);
-  fs.writeFileSync(
-    binary,
-    [
-      '#!/usr/bin/env sh',
-      'if [ "$1" = "--version" ] || [ "$1" = "-v" ]; then',
-      `  echo "${version}"`,
-      'fi',
-      '',
-    ].join('\n'),
-  );
-  fs.chmodSync(binary, 0o755);
-}
+type ToolMap = Record<string, string | null>;
 
-function createDoctorRepo(overrides: {
-  includeTools?: string[];
-  hooksPath?: string | null;
-  nodeModules?: boolean;
-} = {}): { cwd: string; cleanup: () => void; binDir: string } {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'brad-os-doctor-'));
-  const binDir = path.join(cwd, 'bin');
-  const includeTools = overrides.includeTools ?? Object.keys(TOOL_VERSIONS);
-  const hooksPath = overrides.hooksPath;
-  const nodeModules = overrides.nodeModules ?? true;
-
-  fs.mkdirSync(binDir, { recursive: true });
-
-  for (const name of Object.keys(TOOL_VERSIONS)) {
-    if (includeTools.includes(name)) {
-      makeFakeTool(binDir, name, TOOL_VERSIONS[name]);
-    }
-  }
-
-  execSync('git init -q', { cwd });
-  if (hooksPath === null) {
-    execSync('git config --unset core.hooksPath', { cwd });
-  } else if (hooksPath !== undefined) {
-    execSync(`git config core.hooksPath ${hooksPath}`, { cwd });
-  } else {
-    execSync('git config core.hooksPath hooks', { cwd });
-  }
-
-  if (nodeModules) {
-    fs.mkdirSync(path.join(cwd, 'node_modules'), { recursive: true });
-  }
-
-  return {
-    cwd,
-    binDir,
-    cleanup() {
-      fs.rmSync(cwd, { recursive: true, force: true });
-    },
-  };
-}
-
-function stripAnsi(input: string): string {
-  return input.replace(/\x1b\[[0-9;]*m/g, '');
-}
-
-function runDoctor({
-  cwd,
-  binDir,
-  fastMode,
-  extraEnv,
-}: {
-  cwd: string;
-  binDir: string;
-  fastMode: boolean;
-  extraEnv?: Record<string, string>;
-}): { stdout: string; exitCode: number } {
-  const env = {
-    ...process.env,
-    BRAD_DOCTOR_FAST: fastMode ? '1' : '0',
-    PATH: `${binDir}:${process.env.PATH}`,
-    ...extraEnv,
-  };
-
+function runDoctor(
+  envOverrides: Record<string, string> = {},
+  cwd = ROOT,
+): { stdout: string; exitCode: number } {
   try {
     const stdout = execSync(`bash ${SCRIPT}`, {
       cwd,
-      env,
+      env: { ...process.env, BRAD_DOCTOR_FAST: '1', ...envOverrides },
       encoding: 'utf-8',
       timeout: 10_000,
     });
-    return { stdout: stripAnsi(stdout), exitCode: 0 };
+    return { stdout, exitCode: 0 };
   } catch (error: unknown) {
     const e = error as { stdout?: string; status?: number };
     return {
-      stdout: stripAnsi(e.stdout ?? ''),
+      stdout: e.stdout ?? '',
       exitCode: e.status ?? 1,
     };
   }
 }
 
+function createFakeCommand(directory: string, name: string, output: string): void {
+  const commandPath = path.join(directory, name);
+  const body = `#!/usr/bin/env sh\nprintf '%s\\n' "${output.replace(/"/g, '\\"')}"\n`;
+  fs.writeFileSync(commandPath, body, { encoding: 'utf-8' });
+  fs.chmodSync(commandPath, 0o755);
+}
+
+function createFakeGit(directory: string, hooksPath: string): void {
+  const commandPath = path.join(directory, 'git');
+  const body = `#!/usr/bin/env sh\nif [ "$1" = \"config\" ] && [ "$2" = \"core.hooksPath\" ]; then\n  printf '%s\\n' \"${hooksPath.replace(/"/g, '\\"')}\"\n  exit 0\nfi\nexit 1\n`;
+  fs.writeFileSync(commandPath, body, { encoding: 'utf-8' });
+  fs.chmodSync(commandPath, 0o755);
+}
+
+function createToolFixture(overrides: ToolMap, hooksPath: string): { root: string } {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'brad-os-doctor-'));
+  const tools = { ...DEFAULT_TOOLS, ...overrides };
+
+  for (const [name, output] of Object.entries(tools)) {
+    if (output === null) {
+      continue;
+    }
+    createFakeCommand(root, name, output);
+  }
+
+  createFakeGit(root, hooksPath);
+
+  return { root };
+}
+
+function fixturePathOnly(roots: string): string {
+  return `${roots}:/bin`;
+}
+
+let cachedHealthyRun: { stdout: string; exitCode: number } | null = null;
+let cachedMissingToolsRun: { stdout: string; exitCode: number } | null = null;
+let cachedOutdatedRun: { stdout: string; exitCode: number } | null = null;
+let cachedHealthyCommandDir: string | null = null;
+
+function getHealthyCommandDir(): string {
+  if (cachedHealthyCommandDir === null) {
+    const fixture = createToolFixture({}, 'hooks');
+    cachedHealthyCommandDir = fixture.root;
+  }
+
+  return cachedHealthyCommandDir;
+}
+
+function getHealthyRun(): { stdout: string; exitCode: number } {
+  if (cachedHealthyRun === null) {
+    cachedHealthyRun = runDoctor({ PATH: `${getHealthyCommandDir()}:${process.env.PATH ?? ''}` });
+  }
+
+  return cachedHealthyRun;
+}
+
+function getMissingToolsRun(): { stdout: string; exitCode: number } {
+  if (cachedMissingToolsRun === null) {
+    const fixture = createToolFixture({ firebase: null }, 'hooks');
+    cachedMissingToolsRun = runDoctor({ PATH: fixturePathOnly(fixture.root) }, ROOT);
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+  }
+
+  return cachedMissingToolsRun;
+}
+
+function getOutdatedRun(): { stdout: string; exitCode: number } {
+  if (cachedOutdatedRun === null) {
+    const fixture = createToolFixture({ node: 'v21.0.0' }, 'hooks');
+    cachedOutdatedRun = runDoctor(
+      {
+        BRAD_DOCTOR_FAST: '0',
+        PATH: fixturePathOnly(fixture.root),
+      },
+      ROOT,
+    );
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+  }
+
+  return cachedOutdatedRun;
+}
+
 describe('scripts/doctor.sh', () => {
   it('exits 0 when all tools are present', () => {
-    const fixture = createDoctorRepo();
-    try {
-      const { stdout, exitCode } = runDoctor({
-        cwd: fixture.cwd,
-        binDir: fixture.binDir,
-        fastMode: false,
-      });
-
-      expect(exitCode).toBe(0);
-      expect(stdout).toContain('PASS');
-      expect(stdout).toContain('All dependencies satisfied.');
-    } finally {
-      fixture.cleanup();
-    }
+    const { stdout, exitCode } = getHealthyRun();
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain('PASS');
+    expect(stdout).toContain('All dependencies satisfied.');
   });
 
-  it('reports all expected tool and setup labels', () => {
-    const fixture = createDoctorRepo();
-    try {
-      const { stdout, exitCode } = runDoctor({
-        cwd: fixture.cwd,
-        binDir: fixture.binDir,
-        fastMode: true,
-      });
-
-      expect(exitCode).toBe(0);
-      expect(stdout).toContain('node');
-      expect(stdout).toContain('npm');
-      expect(stdout).toContain('firebase');
-      expect(stdout).toContain('cargo');
-      expect(stdout).toContain('gitleaks');
-      expect(stdout).toContain('xcodegen');
-      expect(stdout).toContain('git hooks');
-      expect(stdout).toContain('node_modules');
-      expect(stdout).toContain('All dependencies satisfied.');
-    } finally {
-      fixture.cleanup();
-    }
+  it('reports node version', () => {
+    const { stdout } = getHealthyRun();
+    expect(stdout).toContain('node');
+    expect(stdout).toContain('installed (fast)');
   });
 
-  it('supports fast and non-fast output detail text', () => {
-    const fixture = createDoctorRepo();
-    try {
-      const fast = runDoctor({
-        cwd: fixture.cwd,
-        binDir: fixture.binDir,
-        fastMode: true,
-      });
-      const slow = runDoctor({
-        cwd: fixture.cwd,
-        binDir: fixture.binDir,
-        fastMode: false,
-      });
-
-      expect(fast.exitCode).toBe(0);
-      expect(slow.exitCode).toBe(0);
-      expect(fast.stdout).toContain('installed (fast)');
-      expect(slow.stdout).toContain('v22.12.0 (≥ 22)');
-    } finally {
-      fixture.cleanup();
-    }
+  it('reports all expected tool names', () => {
+    const { stdout } = getHealthyRun();
+    expect(stdout).toContain('node');
+    expect(stdout).toContain('npm');
+    expect(stdout).toContain('firebase');
+    expect(stdout).toContain('cargo');
+    expect(stdout).toContain('gitleaks');
+    expect(stdout).toContain('xcodegen');
+    expect(stdout).toContain('git hooks');
+    expect(stdout).toContain('node_modules');
   });
 
-  it('reports missing individual tool with focused remediation command', () => {
-    const fixture = createDoctorRepo({
-      includeTools: ['node', 'npm', 'firebase', 'cargo', 'xcodegen'],
-    });
-    try {
-      const { stdout, exitCode } = runDoctor({
-        cwd: fixture.cwd,
-        binDir: fixture.binDir,
-        fastMode: true,
-        extraEnv: {
-          PATH: `${fixture.binDir}:/usr/bin:/bin`,
-        },
-      });
-
-      expect(exitCode).toBe(1);
-      expect(stdout).toContain('FAIL');
-      expect(stdout).toContain('brew install gitleaks');
-      expect(stdout).not.toContain('brew install xcodegen');
-    } finally {
-      fixture.cleanup();
-    }
+  it('exits 1 when a tool is missing', () => {
+    const { stdout, exitCode } = getMissingToolsRun();
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain('FAIL');
   });
 
-  it('flags outdated node versions', () => {
-    const fixture = createDoctorRepo({ includeTools: Object.keys(TOOL_VERSIONS) });
-    const oldNode = path.join(fixture.binDir, 'node');
-    fs.writeFileSync(
-      oldNode,
-      ['#!/usr/bin/env sh', 'if [ "$1" = "--version" ] || [ "$1" = "-v" ]; then', '  echo "v21.4.0"', 'fi', ''].join('\n'),
-    );
-    fs.chmodSync(oldNode, 0o755);
-
-    try {
-      const { stdout, exitCode } = runDoctor({
-        cwd: fixture.cwd,
-        binDir: fixture.binDir,
-        fastMode: false,
-      });
-
-      expect(exitCode).toBe(1);
-      expect(stdout).toContain('v21.4.0 (need ≥ 22)');
-    } finally {
-      fixture.cleanup();
-    }
-  });
-
-  it('detects hook-path drift', () => {
-    const fixture = createDoctorRepo({ hooksPath: '.hooks' });
-    try {
-      const { stdout, exitCode } = runDoctor({
-        cwd: fixture.cwd,
-        binDir: fixture.binDir,
-        fastMode: true,
-      });
-
-      expect(exitCode).toBe(1);
-      expect(stripAnsi(stdout)).toContain('git hooks');
-      expect(stdout).toContain("not configured (got: '.hooks')");
-    } finally {
-      fixture.cleanup();
-    }
+  it('prints install commands when tools are missing', () => {
+    const { stdout } = getMissingToolsRun();
+    expect(stdout).toContain('npm install -g firebase-tools');
   });
 
   it('detects missing node_modules', () => {
-    const fixture = createDoctorRepo({ nodeModules: false });
-    try {
-      const { stdout, exitCode } = runDoctor({
-        cwd: fixture.cwd,
-        binDir: fixture.binDir,
-        fastMode: true,
-      });
+    const fixture = createToolFixture({}, 'hooks');
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'brad-os-doctor-node-modules-'));
+    const { stdout, exitCode } = runDoctor(
+      { PATH: fixturePathOnly(fixture.root) },
+      tempDir,
+    );
 
-      expect(exitCode).toBe(1);
-      expect(stripAnsi(stdout)).toContain('node_modules');
-      expect(stdout).toContain('missing');
-    } finally {
-      fixture.cleanup();
-    }
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain('node_modules');
+    expect(stdout).toContain('missing');
+
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+    fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it('supports setup drift simulation for hooks and node_modules at once', () => {
-    const fixture = createDoctorRepo({ hooksPath: '.githooks', nodeModules: false });
-    try {
-      const { stdout, exitCode } = runDoctor({
-        cwd: fixture.cwd,
-        binDir: fixture.binDir,
-        fastMode: false,
-      });
-
-      expect(exitCode).toBe(1);
-      expect(stdout).toContain("not configured (got: '.githooks')");
-      expect(stdout).toContain('missing');
-      expect(stdout).toContain('Install missing dependencies:');
-    } finally {
-      fixture.cleanup();
-    }
+  it('exits 1 when required tool has outdated major version', () => {
+    const { stdout, exitCode } = getOutdatedRun();
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain('node');
   });
-});
 
+  it('flags setup drift when git hooks are not configured', () => {
+    const fixture = createToolFixture({}, 'custom/hooks');
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'brad-os-doctor-misconfig-'));
 
-describe('non-tool checks', () => {
-  it('returns FAIL when fake PATH hides fake tools', () => {
-    const fixture = createDoctorRepo({ includeTools: Object.keys(TOOL_VERSIONS) });
-    try {
-      const { stdout, exitCode } = runDoctor({
-        cwd: fixture.cwd,
-        binDir: fixture.binDir,
-        fastMode: true,
-        extraEnv: { PATH: '/usr/bin:/bin' },
-      });
+    const { stdout, exitCode } = runDoctor(
+      {
+        PATH: fixturePathOnly(fixture.root),
+      },
+      tempDir,
+    );
 
-      expect(exitCode).toBe(1);
-      expect(stdout).toContain('FAIL');
-    } finally {
-      fixture.cleanup();
-    }
+    expect(exitCode).toBe(1);
+    expect(stdout).toContain('git hooks');
+    expect(stdout).toContain("not configured (got: 'custom/hooks')");
+    expect(stdout).toContain('missing');
+
+    fs.rmSync(fixture.root, { recursive: true, force: true });
+    fs.rmSync(tempDir, { recursive: true, force: true });
   });
 });

@@ -225,14 +225,14 @@ Remove obsolete legacy lint wiring and align docs with Oxlint enforcement model.
 ## References
 
 - Local:
-  - [`.legacy-lint.cjs`](/Users/bradcarter/Documents/Dev/brad-os/.legacy-lint.cjs)
-  - [`package.json`](/Users/bradcarter/Documents/Dev/brad-os/package.json)
-  - [`scripts/validate.sh`](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh)
-  - [`hooks/pre-commit`](/Users/bradcarter/Documents/Dev/brad-os/hooks/pre-commit)
-  - [`.github/workflows/ci.yml`](/Users/bradcarter/Documents/Dev/brad-os/.github/workflows/ci.yml)
-  - [`.claude/settings.json`](/Users/bradcarter/Documents/Dev/brad-os/.claude/settings.json)
-  - [`thoughts/shared/research/2026-02-26-legacy-lint-biome-oxlint-assessment.md`](/Users/bradcarter/Documents/Dev/brad-os/thoughts/shared/research/2026-02-26-legacy-lint-biome-oxlint-assessment.md)
-  - [`thoughts/shared/research/2026-02-26-type-safety-priority-context.md`](/Users/bradcarter/Documents/Dev/brad-os/thoughts/shared/research/2026-02-26-type-safety-priority-context.md)
+  - `.legacy-lint.cjs`
+  - `package.json`
+  - `scripts/validate.sh`
+  - `hooks/pre-commit`
+  - `.github/workflows/ci.yml`
+  - `.claude/settings.json`
+  - `thoughts/shared/research/2026-02-26-legacy-lint-biome-oxlint-assessment.md`
+  - `thoughts/shared/research/2026-02-26-type-safety-priority-context.md`
 - External:
   - https://oxc.rs/docs/guide/usage/linter.html
   - https://oxc.rs/docs/guide/usage/linter/migrate-from-legacy-lint.html

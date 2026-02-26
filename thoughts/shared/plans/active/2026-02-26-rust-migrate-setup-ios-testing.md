@@ -4,8 +4,8 @@
 Migrate `scripts/setup-ios-testing.sh` to Rust while preserving iOS prerequisite checks, simulator boot behavior, optional build, and operator guidance output.
 
 ## Current State Analysis
-- Script orchestrates prerequisite checks, xcodegen, simulator boot detection, and optional build: [`scripts/setup-ios-testing.sh:45`](/Users/bradcarter/Documents/Dev/brad-os/scripts/setup-ios-testing.sh:45), [`scripts/setup-ios-testing.sh:87`](/Users/bradcarter/Documents/Dev/brad-os/scripts/setup-ios-testing.sh:87).
-- Script is documented for setup workflows: [`scripts/setup-ios-testing.sh:8`](/Users/bradcarter/Documents/Dev/brad-os/scripts/setup-ios-testing.sh:8).
+- Script orchestrates prerequisite checks, xcodegen, simulator boot detection, and optional build: `scripts/setup-ios-testing.sh:45`, `scripts/setup-ios-testing.sh:87`.
+- Script is documented for setup workflows: `scripts/setup-ios-testing.sh:8`.
 - It has no npm entrypoint today; likely invoked manually/docs.
 - `main` now has shared Rust dev-tooling infrastructure in `tools/dev-cli` that can host additional binaries.
 
@@ -15,8 +15,8 @@ Migrate `scripts/setup-ios-testing.sh` to Rust while preserving iOS prerequisite
 - Coverage >=90% minimum, target >=95%.
 
 ## Key Discoveries
-- Simulator behavior branches on any already-booted device and otherwise boots named target: [`scripts/setup-ios-testing.sh:77`](/Users/bradcarter/Documents/Dev/brad-os/scripts/setup-ios-testing.sh:77).
-- Build path surfaces only last log lines (`tail -5`) before success: [`scripts/setup-ios-testing.sh:99`](/Users/bradcarter/Documents/Dev/brad-os/scripts/setup-ios-testing.sh:99).
+- Simulator behavior branches on any already-booted device and otherwise boots named target: `scripts/setup-ios-testing.sh:77`.
+- Build path surfaces only last log lines (`tail -5`) before success: `scripts/setup-ios-testing.sh:99`.
 
 ## What We're NOT Doing
 - No changes to iOS build flags or simulator default name unless needed for parity.
@@ -63,5 +63,5 @@ Create a Rust CLI binary with command runner abstraction and injectable outputs 
 - Manual: real run on developer machine.
 
 ## References
-- [`scripts/setup-ios-testing.sh`](/Users/bradcarter/Documents/Dev/brad-os/scripts/setup-ios-testing.sh)
-- [`docs/guides/ios-build-and-run.md`](/Users/bradcarter/Documents/Dev/brad-os/docs/guides/ios-build-and-run.md)
+- `scripts/setup-ios-testing.sh`
+- `docs/guides/ios-build-and-run.md`

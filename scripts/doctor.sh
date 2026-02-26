@@ -1,22 +1,24 @@
-#!/usr/bin/env bash
+#!/bin/bash
+
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-BINARY="$REPO_ROOT/target/release/brad-doctor"
+SCRIPT_DIR="${BASH_SOURCE[0]%/*}"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+RELEASE_BIN="$ROOT_DIR/target/release/brad-doctor"
+DEBUG_BIN="$ROOT_DIR/target/debug/brad-doctor"
 
-# Ensure cargo is in PATH
-if ! command -v cargo &>/dev/null; then
-  [ -f "$HOME/.cargo/env" ] && source "$HOME/.cargo/env"
+if [ -x "$RELEASE_BIN" ]; then
+  exec "$RELEASE_BIN" "$@"
 fi
 
-# Build on demand if binary is missing or source is stale
-if [ ! -f "$BINARY" ] || [ "$(find "$REPO_ROOT/tools/dev-cli/src" -newer "$BINARY" -print -quit 2>/dev/null)" ]; then
-  cargo build \
-    --manifest-path "$REPO_ROOT/tools/dev-cli/Cargo.toml" \
-    --target-dir "$REPO_ROOT/target" \
-    --release \
-    --bin brad-doctor \
-    -q
+if [ -x "$DEBUG_BIN" ]; then
+  exec "$DEBUG_BIN" "$@"
 fi
 
-exec "$BINARY" "$@"
+if ! command -v cargo >/dev/null 2>&1; then
+  echo "cargo is required to run brad doctor checks" >&2
+  exit 1
+fi
+
+cd "$ROOT_DIR"
+exec cargo run -q -p dev-cli --bin brad-doctor -- "$@"
