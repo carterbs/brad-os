@@ -4,6 +4,15 @@
 
 | Plan | Summary | Created |
 |------|---------|---------|
+| [rust-migrate-qa-start](active/2026-02-26-rust-migrate-qa-start.md) | Migrate `scripts/qa-start.sh` orchestration engine to Rust with parity contracts and >=90% coverage gate | 2026-02-26 |
+| [rust-migrate-qa-stop](active/2026-02-26-rust-migrate-qa-stop.md) | Migrate `scripts/qa-stop.sh` teardown/lock lifecycle logic to Rust with parity and >=90% coverage | 2026-02-26 |
+| [rust-migrate-validate](active/2026-02-26-rust-migrate-validate.md) | Migrate `scripts/validate.sh` parallel validation pipeline to Rust with unchanged `.validate` contracts | 2026-02-26 |
+| [rust-migrate-doctor](active/2026-02-26-rust-migrate-doctor.md) | Migrate `scripts/doctor.sh` environment diagnostics to Rust with equivalent remediation output | 2026-02-26 |
+| [rust-migrate-setup-ios-testing](active/2026-02-26-rust-migrate-setup-ios-testing.md) | Migrate `scripts/setup-ios-testing.sh` iOS bootstrap orchestration to Rust | 2026-02-26 |
+| [rust-migrate-run-integration-tests](active/2026-02-26-rust-migrate-run-integration-tests.md) | Migrate `scripts/run-integration-tests.sh` emulator/test lifecycle runner to Rust | 2026-02-26 |
+| [rust-migrate-pre-commit-hook](active/2026-02-26-rust-migrate-pre-commit-hook.md) | Migrate complex `hooks/pre-commit` routing/policy logic to Rust engine with shim hook | 2026-02-26 |
+| [shell-complexity-guardrail](active/2026-02-26-shell-complexity-guardrail.md) | Add architecture lint check to prevent complex shell scripts from creeping back in | 2026-02-26 |
+| [agents-rust-dev-tooling-guidance](active/2026-02-26-agents-rust-dev-tooling-guidance.md) | Add explicit agent guidance to prefer Rust for non-trivial dev tooling | 2026-02-26 |
 | [google-auth-phase1](active/2026-02-11-google-auth-phase1.md) | Google OAuth via Firebase Auth to gate app access and verify ID tokens | 2026-02-11 |
 | [usage-instrumentation](active/2026-02-11-usage-instrumentation.md) | Self-instrumentation for Cloud Functions to track API usage against free-tier limits | 2026-02-11 |
 | [training-block-enhancement](active/2026-02-09-training-block-enhancement.md) | Configurable cycling schedule + Peloton-aware AI coach recommendations (Draft) | 2026-02-09 |
