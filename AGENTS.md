@@ -14,10 +14,18 @@ Full bootstrap: [Local Dev Quickstart](docs/guides/local-dev-quickstart.md)
 
 ## Dev Tooling Language Preference
 
-For any new non-trivial developer tooling:
-- Implement orchestration/stateful workflows in Rust under `tools/dev-cli`.
-- Keep shell scripts to thin delegation wrappers, thin compatibility glue, and trivial command routers.
+- Use Rust for non-trivial dev tooling and orchestration (validation, lint runners, repo scanners, CI helpers, migration helpers, and stateful orchestration flows).
+- Implement orchestration/stateful tooling in Rust under `tools/dev-cli` first.
+- Restrict shell scripts to thin delegation wrappers or very small, low-complexity tasks; prefer wrappers for argument pass-through and process execution only.
 - Treat reusable helpers as non-shell first-class tooling: e.g. `tools/dev-cli/src/runner.rs`, `tools/dev-cli/src/reporter.rs`, `tools/dev-cli/src/timing.rs`, `tools/dev-cli/src/precommit.rs`.
+- Keep any shell wrapper focused on argument passthrough and process execution.
+- Coverage rule: tooling code changed under this policy must target Rust-line coverage floor `90%` and prefer `>=95%`.
+- Exempt scripts (thin delegation wrappers only):
+  - `scripts/validate.sh`, `scripts/doctor.sh`, `scripts/arch-lint`
+  - `hooks/pre-commit`, `scripts/run-integration-tests.sh`
+  - `scripts/qa-start.sh`, `scripts/qa-stop.sh`
+  - `scripts/brad-validate`, `scripts/brad-precommit`
+- See `docs/conventions/workflow.md` for enforcement and migration guardrails.
 
 Current examples of preferred Rust-first delegation:
 - `scripts/validate.sh` delegates to `tools/dev-cli/src/bin/validate.rs`.
@@ -40,6 +48,25 @@ Current examples of preferred Rust-first delegation:
 | iOS / Swift | [docs/conventions/ios-swift.md](docs/conventions/ios-swift.md) | SwiftLint, shared APIClient, theme system, XcodeGen |
 | API Patterns | [docs/conventions/api-patterns.md](docs/conventions/api-patterns.md) | REST structure, BaseRepository, router factories |
 | Testing | [docs/conventions/testing.md](docs/conventions/testing.md) | TDD, vitest (not jest), never skip tests |
+
+## Dev Tooling Language Preference
+
+Default to Rust for non-trivial dev tooling and orchestration.
+
+- Complex flow, state, retries, branching, argument parsing, subprocess orchestration, or structured output/IO should live in Rust under `tools/dev-cli` first.
+- Shell scripts are allowed only as thin delegation shims:
+  - Resolve repo paths and toolchains.
+  - Optionally build/exec a Rust binary.
+  - No substantive business logic.
+- If a shell script exceeds shell complexity guardrail thresholds, migrate it to Rust.
+- New or modified Rust tooling must meet 90% line coverage (floor) with a target ≥ 95%.
+- Examples of expected shim-only scripts (Rust-backed):
+  - [`scripts/arch-lint`](scripts/arch-lint)
+  - [`scripts/brad-precommit`](scripts/brad-precommit)
+  - [`scripts/brad-validate`](scripts/brad-validate)
+  - [`scripts/run-integration-tests.sh`](scripts/run-integration-tests.sh)
+
+See the shell complexity guardrail policy in [workflow conventions](docs/conventions/workflow.md#shell-script-complexity-guardrail).
 
 ## Guides
 
