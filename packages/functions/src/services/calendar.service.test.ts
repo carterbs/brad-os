@@ -12,6 +12,13 @@ import { WorkoutSetRepository } from '../repositories/workout-set.repository.js'
 import { PlanDayRepository } from '../repositories/plan-day.repository.js';
 import { StretchSessionRepository } from '../repositories/stretchSession.repository.js';
 import { MeditationSessionRepository } from '../repositories/meditationSession.repository.js';
+import {
+  createMockMeditationSessionRepository,
+  createMockPlanDayRepository,
+  createMockStretchSessionRepository,
+  createMockWorkoutRepository,
+  createMockWorkoutSetRepository,
+} from '../__tests__/utils/mock-repository.js';
 import { createWorkout, createWorkoutSet, createStretchSession, createMeditationSession, createPlanDay } from '../__tests__/utils/index.js';
 
 const mockCyclingService = {
@@ -43,21 +50,11 @@ function createTestActivity(overrides: Partial<CalendarActivity> = {}): Calendar
 
 describe('CalendarService', () => {
   let service: CalendarService;
-  let mockWorkoutRepo: {
-    findCompletedInDateRange: Mock;
-  };
-  let mockWorkoutSetRepo: {
-    findByWorkoutId: Mock;
-  };
-  let mockPlanDayRepo: {
-    findById: Mock;
-  };
-  let mockStretchSessionRepo: {
-    findInDateRange: Mock;
-  };
-  let mockMeditationSessionRepo: {
-    findInDateRange: Mock;
-  };
+  let mockWorkoutRepo: ReturnType<typeof createMockWorkoutRepository>;
+  let mockWorkoutSetRepo: ReturnType<typeof createMockWorkoutSetRepository>;
+  let mockPlanDayRepo: ReturnType<typeof createMockPlanDayRepository>;
+  let mockStretchSessionRepo: ReturnType<typeof createMockStretchSessionRepository>;
+  let mockMeditationSessionRepo: ReturnType<typeof createMockMeditationSessionRepository>;
   let mockCyclingRepo: {
     getCyclingActivities: Mock;
   };
@@ -134,25 +131,11 @@ describe('CalendarService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockWorkoutRepo = {
-      findCompletedInDateRange: vi.fn(),
-    };
-
-    mockWorkoutSetRepo = {
-      findByWorkoutId: vi.fn(),
-    };
-
-    mockPlanDayRepo = {
-      findById: vi.fn(),
-    };
-
-    mockStretchSessionRepo = {
-      findInDateRange: vi.fn(),
-    };
-
-    mockMeditationSessionRepo = {
-      findInDateRange: vi.fn(),
-    };
+    mockWorkoutRepo = createMockWorkoutRepository();
+    mockWorkoutSetRepo = createMockWorkoutSetRepository();
+    mockPlanDayRepo = createMockPlanDayRepository();
+    mockStretchSessionRepo = createMockStretchSessionRepository();
+    mockMeditationSessionRepo = createMockMeditationSessionRepository();
 
     mockCyclingRepo = {
       getCyclingActivities: vi.fn(),

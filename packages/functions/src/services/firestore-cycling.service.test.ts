@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { CollectionReference, DocumentReference } from 'firebase-admin/firestore';
+import { createFirestoreMocks } from '../test-utils/index.js';
+import { createMockCyclingActivityRepository } from '../__tests__/utils/mock-repository.js';
 
 // Mock node:crypto
 vi.mock('node:crypto', () => ({
@@ -13,12 +16,10 @@ const mockUpdate = vi.fn().mockResolvedValue(undefined);
 const mockOrderBy = vi.fn();
 const mockLimit = vi.fn();
 const mockWhere = vi.fn();
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockDocRef: Record<string, any> = {};
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockCollectionRef: Record<string, any> = {};
-const mockDb = { collection: vi.fn(() => mockCollectionRef) };
+let mockDb: { collection: ReturnType<typeof vi.fn> };
+let mockDocRef: Partial<DocumentReference>;
+let mockUsersCollection: Partial<CollectionReference>;
+let mockCollectionRef: Partial<CollectionReference>;
 
 vi.mock('../firebase.js', () => ({
   getFirestoreDb: vi.fn(() => mockDb),
@@ -105,30 +106,42 @@ const sampleStravaTokens = {
 
 describe('Firestore Cycling Service', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    const mocks = createFirestoreMocks();
+    mockDb = { collection: mocks.mockDb.collection as ReturnType<typeof vi.fn> };
+    mockDocRef = mocks.mockDocRef;
+    mockUsersCollection = mocks.mockCollection;
 
-    // Reset mock chain objects
-    Object.assign(mockDocRef, {
-      get: mockGet,
-      set: mockSet,
-      delete: mockDelete,
-      update: mockUpdate,
-      collection: vi.fn(() => mockCollectionRef),
-    });
-
-    Object.assign(mockCollectionRef, {
+    mockCollectionRef = {
       doc: vi.fn(() => mockDocRef),
       orderBy: mockOrderBy,
       where: mockWhere,
       get: mockGet,
-    });
+    };
+
+    mockUsersCollection.doc = vi.fn(() => mockDocRef);
+    mockUsersCollection.orderBy = mockOrderBy;
+    mockUsersCollection.where = mockWhere;
+    mockUsersCollection.get = mockGet;
+
+    mockDocRef.get = mockGet;
+    mockDocRef.set = mockSet;
+    mockDocRef.delete = mockDelete;
+    mockDocRef.update = mockUpdate;
+    mockDocRef.collection = vi.fn(() => mockCollectionRef);
+
+    mockDb.collection = vi.fn(() => mockUsersCollection);
+
+    mockCollectionRef.orderBy = mockOrderBy;
+    mockCollectionRef.where = mockWhere;
+    mockCollectionRef.doc = vi.fn(() => mockDocRef);
+    mockCollectionRef.get = mockGet;
+
+    vi.clearAllMocks();
 
     // Query chaining
     mockOrderBy.mockReturnValue({ get: mockGet, limit: mockLimit });
     mockLimit.mockReturnValue({ get: mockGet });
     mockWhere.mockReturnValue({ get: mockGet, limit: mockLimit, orderBy: mockOrderBy });
-
-    mockDb.collection.mockReturnValue(mockCollectionRef);
   });
 
   // ============ getCyclingActivities ============
@@ -490,23 +503,16 @@ describe('Firestore Cycling Service', () => {
 
   describe('repository-backed stream and update helpers', () => {
     it('should save and read activity streams via repository', async () => {
-      const repository = {
-        findAllByUser: vi.fn(),
-        findById: vi.fn(),
-        findByStravaId: vi.fn(),
-        create: vi.fn(),
-        delete: vi.fn(),
-        saveStreams: vi.fn().mockResolvedValue(undefined),
-        getStreams: vi.fn().mockResolvedValue({
-          activityId: 'act-1',
-          stravaActivityId: 12345,
-          watts: [100, 120],
-          heartrate: [130, 132],
-          sampleCount: 2,
-          createdAt: '2026-02-10T12:00:00.000Z',
-        }),
-        update: vi.fn(),
-      };
+      const repository = createMockCyclingActivityRepository();
+      repository.saveStreams.mockResolvedValue(undefined);
+      repository.getStreams.mockResolvedValue({
+        activityId: 'act-1',
+        stravaActivityId: 12345,
+        watts: [100, 120],
+        heartrate: [130, 132],
+        sampleCount: 2,
+        createdAt: '2026-02-10T12:00:00.000Z',
+      });
 
       const repoSpy = vi
         .spyOn(repositories, 'getCyclingActivityRepository')
@@ -536,16 +542,8 @@ describe('Firestore Cycling Service', () => {
     });
 
     it('should only log update when activity update succeeds', async () => {
-      const repository = {
-        findAllByUser: vi.fn(),
-        findById: vi.fn(),
-        findByStravaId: vi.fn(),
-        create: vi.fn(),
-        delete: vi.fn(),
-        saveStreams: vi.fn(),
-        getStreams: vi.fn(),
-        update: vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false),
-      };
+      const repository = createMockCyclingActivityRepository();
+      repository.update.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
 
       const repoSpy = vi
         .spyOn(repositories, 'getCyclingActivityRepository')

@@ -1,15 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Firestore, CollectionReference, DocumentReference } from 'firebase-admin/firestore';
-import { CyclingActivityRepository } from './cycling-activity.repository.js';
 import type { CyclingActivity, ActivityStreamData, CyclingActivityUpdate } from '../types/cycling.js';
-
-// Mock firebase module before importing repository
-vi.mock('../firebase.js', () => ({
-  getFirestoreDb: vi.fn(),
-  getCollectionName: vi.fn((name: string) => name),
-}));
-
-import { getFirestoreDb, getCollectionName } from '../firebase.js';
+import { createFirestoreMocks, setupFirebaseMock } from '../test-utils/index.js';
 
 describe('CyclingActivityRepository', () => {
   let mockDb: Partial<Firestore>;
@@ -19,74 +11,48 @@ describe('CyclingActivityRepository', () => {
   let mockActivitiesCollection: Partial<CollectionReference>;
   let mockUserDoc: Partial<DocumentReference>;
   let mockUsersCollection: Partial<CollectionReference>;
+  let repositoryClass: typeof import('./cycling-activity.repository.js').CyclingActivityRepository;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    vi.resetModules();
     vi.clearAllMocks();
 
-    // Mock streams doc
-    mockStreamsDoc = {
-      get: vi.fn(),
-      set: vi.fn().mockResolvedValue(undefined),
-      delete: vi.fn().mockResolvedValue(undefined),
-    } as unknown as Partial<DocumentReference>;
+    const mocks = createFirestoreMocks();
+    mockDb = mocks.mockDb;
+    mockStreamsDoc = {};
+    mockStreamsCollection = {};
+    mockActivityDoc = {};
+    mockActivitiesCollection = {};
+    mockUserDoc = {};
+    mockUsersCollection = mocks.mockCollection;
 
-    // Mock streams collection
-    mockStreamsCollection = {
-      doc: vi.fn(() => mockStreamsDoc),
-    } as unknown as Partial<CollectionReference>;
+    mockDb.collection = vi.fn(() => mockUsersCollection);
+    mockUsersCollection.doc = vi.fn(() => mockUserDoc);
+    mockUserDoc.collection = vi.fn(() => mockActivitiesCollection);
+    mockActivitiesCollection.doc = vi.fn(() => mockActivityDoc);
+    mockActivitiesCollection.orderBy = vi.fn().mockReturnThis();
+    mockActivitiesCollection.where = vi.fn().mockReturnThis();
+    mockActivityDoc.collection = vi.fn(() => mockStreamsCollection);
+    mockStreamsCollection.doc = vi.fn(() => mockStreamsDoc);
 
-    // Mock activity doc
-    mockActivityDoc = {
-      get: vi.fn(),
-      set: vi.fn().mockResolvedValue(undefined),
-      update: vi.fn().mockResolvedValue(undefined),
-      delete: vi.fn().mockResolvedValue(undefined),
-      collection: vi.fn(() => mockStreamsCollection),
-    } as unknown as Partial<DocumentReference>;
+    mockStreamsDoc.get = vi.fn();
+    mockStreamsDoc.set = vi.fn().mockResolvedValue(undefined);
+    mockStreamsDoc.delete = vi.fn().mockResolvedValue(undefined);
 
-    // Mock activities collection with chainable query methods
-    const mockQueryObj: Record<string, unknown> = {
-      orderBy: vi.fn(function (_field: string, _direction: string): Record<string, unknown> {
-        return mockQueryObj;
-      }),
-      limit: vi.fn(function (_limit: number): Record<string, unknown> {
-        return mockQueryObj;
-      }),
-      where: vi.fn(function (_field: string, _op: string, _value: unknown): Record<string, unknown> {
-        return mockQueryObj;
-      }),
-      get: vi.fn(),
-    };
+    mockActivityDoc.get = vi.fn();
+    mockActivityDoc.set = vi.fn().mockResolvedValue(undefined);
+    mockActivityDoc.update = vi.fn().mockResolvedValue(undefined);
+    mockActivityDoc.delete = vi.fn().mockResolvedValue(undefined);
 
-    mockActivitiesCollection = {
-      doc: vi.fn(() => mockActivityDoc),
-      orderBy: vi.fn(() => mockQueryObj),
-      where: vi.fn(() => mockQueryObj),
-    } as unknown as Partial<CollectionReference>;
+    setupFirebaseMock(mocks);
 
-    // Mock user doc
-    mockUserDoc = {
-      collection: vi.fn(() => mockActivitiesCollection),
-    } as unknown as Partial<DocumentReference>;
-
-    // Mock users collection
-    mockUsersCollection = {
-      doc: vi.fn(() => mockUserDoc),
-    } as unknown as Partial<CollectionReference>;
-
-    // Mock database
-    mockDb = {
-      collection: vi.fn(() => mockUsersCollection),
-    };
-
-    // Setup mocks
-    (getFirestoreDb as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
-    (getCollectionName as ReturnType<typeof vi.fn>).mockImplementation((name: string) => name);
+    const module = await import('./cycling-activity.repository.js');
+    repositoryClass = module.CyclingActivityRepository;
   });
 
   describe('findAllByUser', () => {
     it('should fetch cycling activities from user subcollection', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       const mockActivityData = {
         stravaId: 123,
@@ -131,7 +97,7 @@ describe('CyclingActivityRepository', () => {
     });
 
     it('should return empty array when no activities exist', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       const mockQuery = {
         orderBy: vi.fn(),
@@ -148,7 +114,7 @@ describe('CyclingActivityRepository', () => {
 
   describe('findById', () => {
     it('should return mapped CyclingActivity when doc exists', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       const mockActivityData: Record<string, unknown> = {
         stravaId: 456,
@@ -187,7 +153,7 @@ describe('CyclingActivityRepository', () => {
     });
 
     it('should return null when doc does not exist', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: false,
@@ -199,7 +165,7 @@ describe('CyclingActivityRepository', () => {
     });
 
     it('should return null when doc data is empty', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: true,
@@ -212,7 +178,7 @@ describe('CyclingActivityRepository', () => {
     });
 
     it('should return null when doc payload is malformed', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: true,
@@ -242,7 +208,7 @@ describe('CyclingActivityRepository', () => {
 
   describe('findByStravaId', () => {
     it('should query activities by Strava ID', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       const mockActivityData: Record<string, unknown> = {
         stravaId: 789,
@@ -284,7 +250,7 @@ describe('CyclingActivityRepository', () => {
     });
 
     it('should return null when no results found', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       const mockQuery = {
         where: vi.fn(),
@@ -301,7 +267,7 @@ describe('CyclingActivityRepository', () => {
     });
 
     it('should return null when matched document payload is malformed', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       const mockActivityData: Record<string, unknown> = {
         stravaId: 789,
@@ -337,7 +303,7 @@ describe('CyclingActivityRepository', () => {
 
   describe('create', () => {
     it('should create activity with required and optional fields', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       const activityInput: Omit<CyclingActivity, 'id'> = {
         stravaId: 111,
@@ -369,7 +335,7 @@ describe('CyclingActivityRepository', () => {
     });
 
     it('should omit optional fields when undefined', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       const activityInput: Omit<CyclingActivity, 'id'> = {
         stravaId: 222,
@@ -400,7 +366,7 @@ describe('CyclingActivityRepository', () => {
 
   describe('update', () => {
     it('should return false when activity not found', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: false,
@@ -412,7 +378,7 @@ describe('CyclingActivityRepository', () => {
     });
 
     it('should update activity when found', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: true,
@@ -428,7 +394,7 @@ describe('CyclingActivityRepository', () => {
 
   describe('delete', () => {
     it('should return false when activity not found', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: false,
@@ -440,7 +406,7 @@ describe('CyclingActivityRepository', () => {
     });
 
     it('should delete activity and streams', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: true,
@@ -458,7 +424,7 @@ describe('CyclingActivityRepository', () => {
     });
 
     it('should delete activity even when streams not found', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: true,
@@ -477,7 +443,7 @@ describe('CyclingActivityRepository', () => {
 
   describe('saveStreams', () => {
     it('should save stream data with createdAt timestamp', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       const streamInput: Omit<ActivityStreamData, 'createdAt'> = {
         activityId: 'activity-8',
@@ -499,7 +465,7 @@ describe('CyclingActivityRepository', () => {
 
   describe('getStreams', () => {
     it('should return stream data when exists', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       const mockStreamData: Record<string, unknown> = {
         activityId: 'activity-9',
@@ -524,7 +490,7 @@ describe('CyclingActivityRepository', () => {
     });
 
     it('should return null when stream doc not found', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       (mockStreamsDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: false,
@@ -536,7 +502,7 @@ describe('CyclingActivityRepository', () => {
     });
 
     it('should return null when stream payload is malformed', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       (mockStreamsDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: true,
@@ -560,7 +526,7 @@ describe('CyclingActivityRepository', () => {
 
   describe('user-scoped path resolution', () => {
     it('should use getCollectionName for users collection', async (): Promise<void> => {
-      const repository = new CyclingActivityRepository(mockDb as Firestore);
+      const repository = new repositoryClass(mockDb as Firestore);
 
       const mockQuery = {
         orderBy: vi.fn(),
@@ -571,8 +537,7 @@ describe('CyclingActivityRepository', () => {
 
       await repository.findAllByUser('test-user-123');
 
-      expect(getCollectionName).toHaveBeenCalledWith('users');
-      expect(mockDb.collection).toHaveBeenCalledWith('users');
+      expect(mockDb.collection).toHaveBeenCalledWith('test_users');
       expect(mockUsersCollection.doc).toHaveBeenCalledWith('test-user-123');
     });
   });
