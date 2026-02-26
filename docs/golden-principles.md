@@ -31,6 +31,7 @@ Invariants for the Brad OS codebase. Every line is verifiable by a linter or cod
 - No focused tests (`.only`, `test.only`, `fit`, `fdescribe`) — these silently skip the rest of the suite
 - No empty or assertion-free tests — every test file must have `expect()` calls; test bodies must not be empty
 - No `archive`/`archives` directories — delete obsolete docs/plans instead of preserving archive folders
+- Architecture docs and guides must stay fresh: unchecked quality-grade debt entries are flagged when completion evidence exists, architecture-map backtick references must resolve, and AGENTS.md guide links must stay under `docs/guides/`.
 
 ### Swift [swiftlint via xcodebuild]
 - No force unwrapping (`!`) — use `guard let` or `?? default`

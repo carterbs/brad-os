@@ -1,3 +1,4 @@
+pub mod doc_freshness;
 pub mod arch_map_refs;
 pub mod doc_freshness;
 pub mod claude_md_refs;
