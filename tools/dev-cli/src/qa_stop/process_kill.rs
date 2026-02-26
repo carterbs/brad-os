@@ -2,7 +2,7 @@ use std::fs;
 use std::path::Path;
 use std::time::Duration;
 
-use crate::qa_stop::runner::{CommandCall, CommandRunner};
+use crate::runner::{CommandCall, CommandRunner};
 
 pub fn stop_pid_file<R: CommandRunner>(
     pid_file: &Path,

@@ -148,7 +148,7 @@ fn run_boots_simulator_when_none_are_booted() {
     fs::create_dir_all(&ios_dir).expect("prepare dirs");
     fs::write(ios_dir.join("project.yml"), "xcodegen: {}").expect("write project.yml");
 
-    let mut responses = vec![
+    let responses = vec![
         FakeRunner::response(0, "xcodegen 0.1.0\n"),
         FakeRunner::response(0, "Xcode 15.0\n"),
         FakeRunner::response(0, "xcrun 1.0\n"),

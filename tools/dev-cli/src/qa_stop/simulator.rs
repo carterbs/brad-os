@@ -1,4 +1,4 @@
-use crate::qa_stop::runner::{CommandCall, CommandRunner};
+use crate::runner::{CommandCall, CommandRunner};
 
 pub fn cleanup_simulator<R: CommandRunner>(
     runner: &R,

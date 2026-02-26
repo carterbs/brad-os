@@ -1,4 +1,4 @@
-use crate::qa_stop::runner::{CommandCall, CommandRunner};
+use crate::runner::{CommandCall, CommandRunner};
 
 pub fn cleanup_listener_ports<R: CommandRunner>(runner: &R, port: &str) {
     let lsof_arg = format!("-tiTCP:{port}");
