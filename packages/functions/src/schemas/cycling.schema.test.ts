@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { z } from 'zod';
 import {
   calculateVO2MaxSchema,
   createCyclingActivitySchema,
   createFTPEntrySchema,
   createTrainingBlockSchema,
   createWeightGoalSchema,
+  cyclingCoachResponseSchema,
   experienceLevelSchema,
   ftpSourceSchema,
+  generateScheduleResponseSchema,
   generateScheduleSchema,
   stravaCallbackSchema,
   stravaWebhookEventSchema,
@@ -16,483 +17,736 @@ import {
   syncStravaTokensSchema,
   trainingGoalSchema,
   updateCyclingProfileSchema,
-  cyclingCoachResponseSchema,
-  generateScheduleResponseSchema,
 } from './cycling.schema.js';
 
-const buildValidTrainingBlock = (): z.input<typeof createTrainingBlockSchema> => ({
-  startDate: '2026-03-01',
-  endDate: '2026-03-14',
-  goals: ['regain_fitness'],
-});
+const validFTPEntryPayload = {
+  value: 250,
+  date: '2024-01-01',
+  source: 'manual',
+};
 
-const buildValidScheduleRequest = (): z.input<typeof generateScheduleSchema> => ({
+const validTrainingBlockPayload = {
+  startDate: '2024-01-01',
+  endDate: '2024-02-01',
+  goals: ['regain_fitness'],
+};
+
+const validWeeklySession = {
+  order: 1,
+  sessionType: 'threshold',
+  pelotonClassTypes: ['Power Zone'],
+  suggestedDurationMinutes: 45,
+  description: 'Tempo-focused ride',
+  preferredDay: 2,
+};
+
+const validGenerateSchedulePayload = {
   sessionsPerWeek: 3,
   preferredDays: [1, 3, 5],
   goals: ['regain_fitness'],
   experienceLevel: 'intermediate',
-  weeklyHoursAvailable: 10,
-});
+  weeklyHoursAvailable: 4,
+  ftp: 250,
+};
 
-const buildValidCyclingActivity = (): z.input<typeof createCyclingActivitySchema> => ({
-  stravaId: 123456,
-  date: '2026-03-01',
-  durationMinutes: 45,
+const validWeightGoalPayload = {
+  targetWeightLbs: 175,
+  targetDate: '2026-01-01',
+  startWeightLbs: 180,
+  startDate: '2025-12-01',
+};
+
+const validStravaCallbackPayload = {
+  code: 'abc123',
+};
+
+const validSyncTokensPayload = {
+  accessToken: 'access-token',
+  refreshToken: 'refresh-token',
+  expiresAt: 1700000000,
+  athleteId: 12345,
+};
+
+const validWebhookValidationPayload = {
+  'hub.mode': 'subscribe',
+  'hub.challenge': 'challenge-123',
+  'hub.verify_token': 'verify-token',
+};
+
+const validWebhookEventPayload = {
+  aspect_type: 'create',
+  event_time: 1700000000,
+  object_id: 111,
+  object_type: 'activity',
+  owner_id: 222,
+  subscription_id: 333,
+};
+
+const validCalculateVO2MaxPayload = {
+  weightKg: 75,
+};
+
+const validCyclingProfilePayload = {
+  weightKg: 75,
+  maxHR: 180,
+  restingHR: 50,
+};
+
+const validCyclingActivityPayload = {
+  stravaId: 999,
+  date: '2026-02-20',
+  durationMinutes: 60,
   avgPower: 200,
-  normalizedPower: 210,
-  maxPower: 250,
+  normalizedPower: 220,
+  maxPower: 300,
   avgHeartRate: 140,
   maxHeartRate: 170,
-  tss: 42,
-  intensityFactor: 0.78,
-  type: 'vo2max',
+  tss: 55,
+  intensityFactor: 0.8,
+  type: 'threshold',
   source: 'strava',
-});
+};
 
-const buildValidWebhookEvent = (): z.input<typeof stravaWebhookEventSchema> => ({
-  aspect_type: 'create',
-  event_time: 1710000000,
-  object_id: 9001,
-  object_type: 'activity',
-  owner_id: 321,
-  subscription_id: 77,
-});
-
-describe('cycling schemas', () => {
+describe('cycling.schema', () => {
   describe('trainingGoalSchema', () => {
-    it('accepts all allowed training goals', () => {
-      expect(trainingGoalSchema.safeParse('regain_fitness').success).toBe(true);
-      expect(trainingGoalSchema.safeParse('maintain_muscle').success).toBe(true);
-      expect(trainingGoalSchema.safeParse('lose_weight').success).toBe(true);
+    it('accepts all valid goal literals', () => {
+      const valid = ['regain_fitness', 'maintain_muscle', 'lose_weight'];
+
+      for (const goal of valid) {
+        expect(trainingGoalSchema.safeParse(goal).success).toBe(true);
+      }
     });
 
-    it('rejects invalid training goals', () => {
-      expect(trainingGoalSchema.safeParse('bulk').success).toBe(false);
+    it('rejects invalid goal literals including case mismatch', () => {
+      const invalid = ['gain', 'REGAIN_FITNESS', 'loseWeight', ''];
+
+      for (const goal of invalid) {
+        expect(trainingGoalSchema.safeParse(goal).success).toBe(false);
+      }
     });
   });
 
   describe('experienceLevelSchema', () => {
-    it('accepts beginner, intermediate, and advanced', () => {
-      expect(experienceLevelSchema.safeParse('beginner').success).toBe(true);
-      expect(experienceLevelSchema.safeParse('intermediate').success).toBe(true);
-      expect(experienceLevelSchema.safeParse('advanced').success).toBe(true);
+    it('accepts all valid experience levels', () => {
+      const valid = ['beginner', 'intermediate', 'advanced'];
+
+      for (const level of valid) {
+        expect(experienceLevelSchema.safeParse(level).success).toBe(true);
+      }
     });
 
-    it('rejects invalid experience levels', () => {
-      expect(experienceLevelSchema.safeParse('pro').success).toBe(false);
+    it('rejects invalid experience levels including case mismatch', () => {
+      const invalid = ['expert', 'Beginner', 'intermediates', ''];
+
+      for (const level of invalid) {
+        expect(experienceLevelSchema.safeParse(level).success).toBe(false);
+      }
     });
   });
 
   describe('ftpSourceSchema', () => {
     it('accepts manual and test values', () => {
-      expect(ftpSourceSchema.safeParse('manual').success).toBe(true);
-      expect(ftpSourceSchema.safeParse('test').success).toBe(true);
+      const valid = ['manual', 'test'];
+
+      for (const source of valid) {
+        expect(ftpSourceSchema.safeParse(source).success).toBe(true);
+      }
     });
 
-    it('rejects invalid source values', () => {
-      expect(ftpSourceSchema.safeParse('auto').success).toBe(false);
+    it('rejects invalid ftp sources including case mismatch', () => {
+      const invalid = ['MANUAL', 'Manual', 'auto', ''];
+
+      for (const source of invalid) {
+        expect(ftpSourceSchema.safeParse(source).success).toBe(false);
+      }
     });
   });
 
   describe('createFTPEntrySchema', () => {
-    const validPayload = {
-      value: 300,
-      date: '2026-03-01',
-      source: 'manual' as const,
-    };
-
-    it('accepts valid payload and boundary values', () => {
-      expect(createFTPEntrySchema.safeParse(validPayload).success).toBe(true);
-      expect(createFTPEntrySchema.safeParse({ ...validPayload, value: 1 }).success).toBe(true);
-      expect(createFTPEntrySchema.safeParse({ ...validPayload, value: 500 }).success).toBe(true);
+    it('accepts value boundaries and valid payload', () => {
+      expect(createFTPEntrySchema.safeParse({ ...validFTPEntryPayload, value: 1 }).success).toBe(true);
+      expect(createFTPEntrySchema.safeParse({ ...validFTPEntryPayload, value: 500 }).success).toBe(true);
+      expect(createFTPEntrySchema.safeParse(validFTPEntryPayload).success).toBe(true);
     });
 
-    it('rejects invalid value boundaries and non-integer values', () => {
-      expect(createFTPEntrySchema.safeParse({ ...validPayload, value: 0 }).success).toBe(false);
-      expect(createFTPEntrySchema.safeParse({ ...validPayload, value: 501 }).success).toBe(false);
-      expect(createFTPEntrySchema.safeParse({ ...validPayload, value: 42.5 }).success).toBe(false);
-    });
-
-    it('rejects invalid date format and source', () => {
-      expect(createFTPEntrySchema.safeParse({ ...validPayload, date: '03/01/2026' }).success).toBe(false);
-      expect(createFTPEntrySchema.safeParse({ ...validPayload, source: 'manual1' as const }).success).toBe(false);
+    it('rejects value, date, and source violations', () => {
+      expect(createFTPEntrySchema.safeParse({ ...validFTPEntryPayload, value: 0 }).success).toBe(false);
+      expect(createFTPEntrySchema.safeParse({ ...validFTPEntryPayload, value: 501 }).success).toBe(false);
+      expect(createFTPEntrySchema.safeParse({ ...validFTPEntryPayload, value: 250.5 }).success).toBe(false);
+      expect(createFTPEntrySchema.safeParse({ ...validFTPEntryPayload, date: '2026-2-1' }).success).toBe(false);
+      expect(createFTPEntrySchema.safeParse({ ...validFTPEntryPayload, date: 'not-a-date' }).success).toBe(false);
+      expect(createFTPEntrySchema.safeParse({ ...validFTPEntryPayload, source: 'manual-ish' }).success).toBe(false);
     });
   });
 
   describe('createTrainingBlockSchema', () => {
-    it('accepts minimal valid payload', () => {
-      expect(createTrainingBlockSchema.safeParse(buildValidTrainingBlock()).success).toBe(true);
-    });
-
-    it('accepts full payload with weekly sessions and preferred days', () => {
-      const payload: z.input<typeof createTrainingBlockSchema> = {
-        ...buildValidTrainingBlock(),
-        daysPerWeek: 3,
-        weeklySessions: [
-          {
-            order: 1,
-            sessionType: 'VO2max',
-            pelotonClassTypes: ['interval'],
-            suggestedDurationMinutes: 45,
-            description: 'Tuesday intervals',
-            preferredDay: 1,
-          },
-        ],
-        preferredDays: [0, 2, 4],
-        experienceLevel: 'advanced',
-        weeklyHoursAvailable: 12,
-      };
-
-      expect(createTrainingBlockSchema.safeParse(payload).success).toBe(true);
-    });
-
-    it('rejects goals outside 1..3 range', () => {
-      expect(createTrainingBlockSchema.safeParse({ ...buildValidTrainingBlock(), goals: [] }).success).toBe(false);
+    it('accepts minimal and full payloads', () => {
+      expect(createTrainingBlockSchema.safeParse(validTrainingBlockPayload).success).toBe(true);
       expect(
         createTrainingBlockSchema.safeParse({
-          ...buildValidTrainingBlock(),
+          ...validTrainingBlockPayload,
+          daysPerWeek: 2,
+          weeklySessions: [validWeeklySession],
+          preferredDays: [0, 2, 4, 6],
+          experienceLevel: 'intermediate',
+          weeklyHoursAvailable: 4.5,
+        }).success
+      ).toBe(true);
+    });
+
+    it('accepts boundary values', () => {
+      expect(
+        createTrainingBlockSchema.safeParse({
+          ...validTrainingBlockPayload,
+          daysPerWeek: 2,
+          weeklyHoursAvailable: 1,
+          preferredDays: [0],
+        }).success
+      ).toBe(true);
+      expect(
+        createTrainingBlockSchema.safeParse({
+          ...validTrainingBlockPayload,
+          daysPerWeek: 5,
+          weeklyHoursAvailable: 20,
+          preferredDays: [6],
+        }).success
+      ).toBe(true);
+      expect(
+        createTrainingBlockSchema.safeParse({
+          ...validTrainingBlockPayload,
+          weeklySessions: [{ ...validWeeklySession, preferredDay: 0 }],
+        }).success
+      ).toBe(true);
+      expect(
+        createTrainingBlockSchema.safeParse({
+          ...validTrainingBlockPayload,
+          weeklySessions: [{ ...validWeeklySession, preferredDay: 6 }],
+        }).success
+      ).toBe(true);
+    });
+
+    it('rejects list limits and weekly session boundaries', () => {
+      expect(
+        createTrainingBlockSchema.safeParse({
+          ...validTrainingBlockPayload,
+          goals: [],
+        }).success
+      ).toBe(false);
+      expect(
+        createTrainingBlockSchema.safeParse({
+          ...validTrainingBlockPayload,
           goals: ['regain_fitness', 'maintain_muscle', 'lose_weight', 'regain_fitness'],
         }).success
       ).toBe(false);
-    });
-
-    it('rejects daysPerWeek outside accepted bounds', () => {
-      expect(createTrainingBlockSchema.safeParse({ ...buildValidTrainingBlock(), daysPerWeek: 1 }).success).toBe(false);
-      expect(createTrainingBlockSchema.safeParse({ ...buildValidTrainingBlock(), daysPerWeek: 6 }).success).toBe(false);
-    });
-
-    it('rejects non-integer daysPerWeek', () => {
-      expect(createTrainingBlockSchema.safeParse({ ...buildValidTrainingBlock(), daysPerWeek: 3.5 }).success).toBe(false);
-    });
-
-    it('rejects invalid preferredDays entries', () => {
-      expect(createTrainingBlockSchema.safeParse({ ...buildValidTrainingBlock(), preferredDays: [-1] }).success).toBe(false);
-      expect(createTrainingBlockSchema.safeParse({ ...buildValidTrainingBlock(), preferredDays: [7] }).success).toBe(false);
-      expect(createTrainingBlockSchema.safeParse({ ...buildValidTrainingBlock(), preferredDays: [1.5] }).success).toBe(false);
-    });
-
-    it('rejects invalid weekly session entries', () => {
-      const base = {
-        ...buildValidTrainingBlock(),
-        weeklySessions: [
-          {
-            order: 0,
-            sessionType: 'VO2max',
-            pelotonClassTypes: ['interval'],
-            suggestedDurationMinutes: 45,
-            description: 'Tuesday intervals',
-            preferredDay: 1,
-          },
-        ],
-      };
-      const emptySessionType = {
-        ...buildValidTrainingBlock(),
-        weeklySessions: [
-          {
-            order: 1,
-            sessionType: '',
-            pelotonClassTypes: ['interval'],
-            suggestedDurationMinutes: 45,
-            description: 'Tuesday intervals',
-            preferredDay: 1,
-          },
-        ],
-      };
-      const nonPositiveDuration = {
-        ...buildValidTrainingBlock(),
-        weeklySessions: [
-          {
-            order: 1,
-            sessionType: 'VO2max',
-            pelotonClassTypes: ['interval'],
-            suggestedDurationMinutes: 0,
-            description: 'Tuesday intervals',
-            preferredDay: 1,
-          },
-        ],
-      };
-      const invalidPreferredDay = {
-        ...buildValidTrainingBlock(),
-        weeklySessions: [
-          {
-            order: 1,
-            sessionType: 'VO2max',
-            pelotonClassTypes: ['interval'],
-            suggestedDurationMinutes: 45,
-            description: 'Tuesday intervals',
-            preferredDay: 8,
-          },
-        ],
-      };
-
-      expect(createTrainingBlockSchema.safeParse(base).success).toBe(false);
-      expect(createTrainingBlockSchema.safeParse(emptySessionType).success).toBe(true);
-      expect(createTrainingBlockSchema.safeParse(nonPositiveDuration).success).toBe(false);
-      expect(createTrainingBlockSchema.safeParse(invalidPreferredDay).success).toBe(false);
-    });
-
-    it('rejects weeklyHoursAvailable outside 1..20', () => {
-      expect(createTrainingBlockSchema.safeParse({ ...buildValidTrainingBlock(), weeklyHoursAvailable: 0 }).success).toBe(false);
-      expect(createTrainingBlockSchema.safeParse({ ...buildValidTrainingBlock(), weeklyHoursAvailable: 21 }).success).toBe(false);
+      expect(
+        createTrainingBlockSchema.safeParse({
+          ...validTrainingBlockPayload,
+          preferredDays: [0, 7],
+        }).success
+      ).toBe(false);
+      expect(
+        createTrainingBlockSchema.safeParse({
+          ...validTrainingBlockPayload,
+          preferredDays: [1.5],
+        }).success
+      ).toBe(false);
+      expect(
+        createTrainingBlockSchema.safeParse({
+          ...validTrainingBlockPayload,
+          weeklySessions: [{ ...validWeeklySession, order: 1.5 }],
+        }).success
+      ).toBe(false);
+      expect(
+        createTrainingBlockSchema.safeParse({
+          ...validTrainingBlockPayload,
+          weeklySessions: [{ ...validWeeklySession, suggestedDurationMinutes: 0 }],
+        }).success
+      ).toBe(false);
+      expect(
+        createTrainingBlockSchema.safeParse({
+          ...validTrainingBlockPayload,
+          weeklySessions: [{ ...validWeeklySession, sessionType: '' }],
+        }).success
+      ).toBe(true);
+      expect(
+        createTrainingBlockSchema.safeParse({
+          ...validTrainingBlockPayload,
+          weeklySessions: [{ ...validWeeklySession, preferredDay: 7 }],
+        }).success
+      ).toBe(false);
+      expect(
+        createTrainingBlockSchema.safeParse({
+          ...validTrainingBlockPayload,
+          daysPerWeek: 1,
+        }).success
+      ).toBe(false);
+      expect(
+        createTrainingBlockSchema.safeParse({
+          ...validTrainingBlockPayload,
+          daysPerWeek: 6,
+        }).success
+      ).toBe(false);
+      expect(
+        createTrainingBlockSchema.safeParse({
+          ...validTrainingBlockPayload,
+          weeklyHoursAvailable: 0,
+        }).success
+      ).toBe(false);
+      expect(
+        createTrainingBlockSchema.safeParse({
+          ...validTrainingBlockPayload,
+          weeklyHoursAvailable: 21,
+        }).success
+      ).toBe(false);
     });
   });
 
   describe('generateScheduleSchema', () => {
-    it('accepts valid required payload', () => {
-      expect(generateScheduleSchema.safeParse(buildValidScheduleRequest()).success).toBe(true);
+    it('accepts valid payload with optional ftp', () => {
+      expect(generateScheduleSchema.safeParse(validGenerateSchedulePayload).success).toBe(true);
     });
 
-    it('accepts payload with optional ftp', () => {
-      expect(generateScheduleSchema.safeParse({ ...buildValidScheduleRequest(), ftp: 240 }).success).toBe(true);
-    });
-
-    it('rejects sessionsPerWeek outside 2..5', () => {
-      expect(generateScheduleSchema.safeParse({ ...buildValidScheduleRequest(), sessionsPerWeek: 1 }).success).toBe(false);
-      expect(generateScheduleSchema.safeParse({ ...buildValidScheduleRequest(), sessionsPerWeek: 6 }).success).toBe(false);
-    });
-
-    it('rejects invalid preferredDays values', () => {
-      expect(generateScheduleSchema.safeParse({ ...buildValidScheduleRequest(), preferredDays: [1, 7] }).success).toBe(false);
-    });
-
-    it('rejects goals outside 1..3', () => {
-      expect(generateScheduleSchema.safeParse({ ...buildValidScheduleRequest(), goals: [] }).success).toBe(false);
+    it('accepts sessions/week and ftp boundaries', () => {
       expect(
         generateScheduleSchema.safeParse({
-          ...buildValidScheduleRequest(),
-          goals: ['regain_fitness', 'maintain_muscle', 'lose_weight', 'lose_weight'],
+          ...validGenerateSchedulePayload,
+          sessionsPerWeek: 2,
+          ftp: 1,
+        }).success
+      ).toBe(true);
+      expect(
+        generateScheduleSchema.safeParse({
+          ...validGenerateSchedulePayload,
+          sessionsPerWeek: 5,
+          ftp: 500,
+        }).success
+      ).toBe(true);
+    });
+
+    it('rejects invalid schedule values', () => {
+      expect(
+        generateScheduleSchema.safeParse({
+          ...validGenerateSchedulePayload,
+          sessionsPerWeek: 1,
         }).success
       ).toBe(false);
-    });
-
-    it('rejects invalid experienceLevel', () => {
-      expect(generateScheduleSchema.safeParse({ ...buildValidScheduleRequest(), experienceLevel: 'champion' as const }).success).toBe(false);
-    });
-
-    it('rejects weeklyHoursAvailable outside bounds', () => {
-      expect(generateScheduleSchema.safeParse({ ...buildValidScheduleRequest(), weeklyHoursAvailable: 0 }).success).toBe(false);
-      expect(generateScheduleSchema.safeParse({ ...buildValidScheduleRequest(), weeklyHoursAvailable: 21 }).success).toBe(false);
-    });
-
-    it('rejects ftp outside positive to 500 bounds', () => {
-      expect(generateScheduleSchema.safeParse({ ...buildValidScheduleRequest(), ftp: 0 }).success).toBe(false);
-      expect(generateScheduleSchema.safeParse({ ...buildValidScheduleRequest(), ftp: 501 }).success).toBe(false);
+      expect(
+        generateScheduleSchema.safeParse({
+          ...validGenerateSchedulePayload,
+          sessionsPerWeek: 6,
+        }).success
+      ).toBe(false);
+      expect(
+        generateScheduleSchema.safeParse({
+          ...validGenerateSchedulePayload,
+          goals: ['not_real'],
+        }).success
+      ).toBe(false);
+      expect(
+        generateScheduleSchema.safeParse({
+          ...validGenerateSchedulePayload,
+          experienceLevel: 'guru',
+        }).success
+      ).toBe(false);
+      expect(
+        generateScheduleSchema.safeParse({
+          ...validGenerateSchedulePayload,
+          preferredDays: [-1, 2],
+        }).success
+      ).toBe(false);
+      expect(
+        generateScheduleSchema.safeParse({
+          ...validGenerateSchedulePayload,
+          preferredDays: [0, 8],
+        }).success
+      ).toBe(false);
+      expect(
+        generateScheduleSchema.safeParse({
+          ...validGenerateSchedulePayload,
+          ftp: 0,
+        }).success
+      ).toBe(false);
+      expect(
+        generateScheduleSchema.safeParse({
+          ...validGenerateSchedulePayload,
+          ftp: 501,
+        }).success
+      ).toBe(false);
     });
   });
 
   describe('createWeightGoalSchema', () => {
-    const validPayload = {
-      targetWeightLbs: 175,
-      targetDate: '2026-06-01',
-      startWeightLbs: 190,
-      startDate: '2026-01-01',
-    };
-
-    it('accepts valid payload with realistic numeric values', () => {
-      expect(createWeightGoalSchema.safeParse(validPayload).success).toBe(true);
-      expect(createWeightGoalSchema.safeParse({
-        targetWeightLbs: 175.7,
-        targetDate: '2026-06-01',
-        startWeightLbs: 190.3,
-        startDate: '2026-01-01',
-      }).success).toBe(true);
+    it('accepts positive weights and valid dates', () => {
+      expect(createWeightGoalSchema.safeParse(validWeightGoalPayload).success).toBe(true);
+      expect(createWeightGoalSchema.safeParse({ ...validWeightGoalPayload, targetWeightLbs: 175.7 }).success).toBe(true);
+      expect(createWeightGoalSchema.safeParse({ ...validWeightGoalPayload, startWeightLbs: 180.9 }).success).toBe(true);
     });
 
-    it('rejects non-positive or excessive weight values', () => {
-      expect(createWeightGoalSchema.safeParse({ ...validPayload, targetWeightLbs: 0 }).success).toBe(false);
-      expect(createWeightGoalSchema.safeParse({ ...validPayload, targetWeightLbs: 501 }).success).toBe(false);
-      expect(createWeightGoalSchema.safeParse({ ...validPayload, startWeightLbs: 0 }).success).toBe(false);
-      expect(createWeightGoalSchema.safeParse({ ...validPayload, startWeightLbs: 501 }).success).toBe(false);
-    });
-
-    it('rejects invalid date formats', () => {
-      expect(createWeightGoalSchema.safeParse({ ...validPayload, targetDate: '06/01/2026' }).success).toBe(false);
-      expect(createWeightGoalSchema.safeParse({ ...validPayload, startDate: '2026/01/01' }).success).toBe(false);
+    it('rejects invalid weights and malformed dates', () => {
+      expect(
+        createWeightGoalSchema.safeParse({
+          ...validWeightGoalPayload,
+          targetWeightLbs: 0,
+        }).success
+      ).toBe(false);
+      expect(
+        createWeightGoalSchema.safeParse({
+          ...validWeightGoalPayload,
+          startWeightLbs: 501,
+        }).success
+      ).toBe(false);
+      expect(
+        createWeightGoalSchema.safeParse({
+          ...validWeightGoalPayload,
+          targetDate: '01-01-2026',
+        }).success
+      ).toBe(false);
+      expect(
+        createWeightGoalSchema.safeParse({
+          ...validWeightGoalPayload,
+          startDate: 'invalid',
+        }).success
+      ).toBe(false);
     });
   });
 
   describe('stravaCallbackSchema', () => {
-    const validPayload = {
-      code: 'auth-code',
-      state: 'some-state',
-      scope: 'read,activity:read',
-    };
-
-    it('accepts required code and optional fields', () => {
-      expect(stravaCallbackSchema.safeParse({ code: 'auth-code' }).success).toBe(true);
-      expect(stravaCallbackSchema.safeParse(validPayload).success).toBe(true);
+    it('accepts callback payload with optional state and scope omitted', () => {
+      expect(stravaCallbackSchema.safeParse(validStravaCallbackPayload).success).toBe(true);
     });
 
-    it('rejects empty code', () => {
-      expect(stravaCallbackSchema.safeParse({ code: '' }).success).toBe(false);
+    it('accepts callback payload with state and scope', () => {
+      expect(
+        stravaCallbackSchema.safeParse({
+          ...validStravaCallbackPayload,
+          state: 'abc',
+          scope: 'read_all',
+        }).success
+      ).toBe(true);
+    });
+
+    it('rejects missing or empty code', () => {
+      expect(stravaCallbackSchema.safeParse({}).success).toBe(false);
+      expect(
+        stravaCallbackSchema.safeParse({
+          ...validStravaCallbackPayload,
+          code: '',
+        }).success
+      ).toBe(false);
     });
   });
 
   describe('syncStravaTokensSchema', () => {
-    const validPayload = {
-      accessToken: 'access',
-      refreshToken: 'refresh',
-      expiresAt: 1700000000,
-      athleteId: 123,
-    };
-
-    it('accepts valid payload', () => {
-      expect(syncStravaTokensSchema.safeParse(validPayload).success).toBe(true);
+    it('accepts valid token payload', () => {
+      expect(syncStravaTokensSchema.safeParse(validSyncTokensPayload).success).toBe(true);
     });
 
-    it('rejects empty token strings', () => {
-      expect(syncStravaTokensSchema.safeParse({ ...validPayload, accessToken: '' }).success).toBe(false);
-      expect(syncStravaTokensSchema.safeParse({ ...validPayload, refreshToken: '' }).success).toBe(false);
-    });
-
-    it('rejects non-positive and non-integer expiresAt and athleteId', () => {
-      expect(syncStravaTokensSchema.safeParse({ ...validPayload, expiresAt: 0 }).success).toBe(false);
-      expect(syncStravaTokensSchema.safeParse({ ...validPayload, athleteId: 0 }).success).toBe(false);
-      expect(syncStravaTokensSchema.safeParse({ ...validPayload, expiresAt: 1.5 }).success).toBe(false);
-      expect(syncStravaTokensSchema.safeParse({ ...validPayload, athleteId: 1.5 }).success).toBe(false);
+    it('rejects empty strings and non-positive/non-integer numeric values', () => {
+      expect(
+        syncStravaTokensSchema.safeParse({
+          ...validSyncTokensPayload,
+          accessToken: '',
+        }).success
+      ).toBe(false);
+      expect(
+        syncStravaTokensSchema.safeParse({
+          ...validSyncTokensPayload,
+          refreshToken: '',
+        }).success
+      ).toBe(false);
+      expect(
+        syncStravaTokensSchema.safeParse({
+          ...validSyncTokensPayload,
+          expiresAt: 0,
+        }).success
+      ).toBe(false);
+      expect(
+        syncStravaTokensSchema.safeParse({
+          ...validSyncTokensPayload,
+          athleteId: -1,
+        }).success
+      ).toBe(false);
+      expect(
+        syncStravaTokensSchema.safeParse({
+          ...validSyncTokensPayload,
+          athleteId: 0,
+        }).success
+      ).toBe(false);
+      expect(
+        syncStravaTokensSchema.safeParse({
+          ...validSyncTokensPayload,
+          expiresAt: 1.5,
+        }).success
+      ).toBe(false);
+      expect(
+        syncStravaTokensSchema.safeParse({
+          ...validSyncTokensPayload,
+          athleteId: 2.5,
+        }).success
+      ).toBe(false);
     });
   });
 
   describe('stravaWebhookValidationSchema', () => {
-    const validPayload = {
-      'hub.mode': 'subscribe',
-      'hub.challenge': 'abc123',
-      'hub.verify_token': 'token',
-    };
-
-    it('accepts exact subscribe payload', () => {
-      expect(stravaWebhookValidationSchema.safeParse(validPayload).success).toBe(true);
+    it('accepts valid webhook verification payload', () => {
+      expect(stravaWebhookValidationSchema.safeParse(validWebhookValidationPayload).success).toBe(true);
     });
 
-    it('rejects wrong modes and missing fields', () => {
+    it('rejects invalid mode and missing/empty required keys', () => {
       expect(
         stravaWebhookValidationSchema.safeParse({
+          ...validWebhookValidationPayload,
           'hub.mode': 'unsubscribe',
-          'hub.challenge': 'abc123',
-          'hub.verify_token': 'token',
         }).success
       ).toBe(false);
-      expect(stravaWebhookValidationSchema.safeParse({ 'hub.challenge': 'abc123', 'hub.verify_token': 'token' }).success).toBe(false);
+      expect(
+        stravaWebhookValidationSchema.safeParse({
+          ...validWebhookValidationPayload,
+          'hub.challenge': '',
+        }).success
+      ).toBe(false);
+      expect(
+        stravaWebhookValidationSchema.safeParse({
+          ...validWebhookValidationPayload,
+          'hub.verify_token': '',
+        }).success
+      ).toBe(false);
+      expect(stravaWebhookValidationSchema.safeParse({}).success).toBe(false);
     });
   });
 
   describe('stravaWebhookEventSchema', () => {
-    it('accepts all valid aspect_type enum values', () => {
-      expect(stravaWebhookEventSchema.safeParse({ ...buildValidWebhookEvent(), aspect_type: 'create' }).success).toBe(true);
-      expect(stravaWebhookEventSchema.safeParse({ ...buildValidWebhookEvent(), aspect_type: 'update' }).success).toBe(true);
-      expect(stravaWebhookEventSchema.safeParse({ ...buildValidWebhookEvent(), aspect_type: 'delete' }).success).toBe(true);
-    });
-
-    it('accepts optional updates object', () => {
+    it('accepts event payloads for both object types', () => {
+      expect(stravaWebhookEventSchema.safeParse(validWebhookEventPayload).success).toBe(true);
       expect(
         stravaWebhookEventSchema.safeParse({
-          ...buildValidWebhookEvent(),
-          updates: { title: 'Test', title_slug: 'test' },
+          ...validWebhookEventPayload,
+          object_type: 'athlete',
         }).success
       ).toBe(true);
     });
 
-    it('rejects invalid enums and non-positive IDs/timestamps', () => {
-      expect(stravaWebhookEventSchema.safeParse({ ...buildValidWebhookEvent(), aspect_type: 'invalid' as const }).success).toBe(false);
-      expect(stravaWebhookEventSchema.safeParse({ ...buildValidWebhookEvent(), object_type: 'bike' as const }).success).toBe(false);
-      expect(stravaWebhookEventSchema.safeParse({ ...buildValidWebhookEvent(), event_time: 0 }).success).toBe(false);
-      expect(stravaWebhookEventSchema.safeParse({ ...buildValidWebhookEvent(), object_id: 0 }).success).toBe(false);
-      expect(stravaWebhookEventSchema.safeParse({ ...buildValidWebhookEvent(), owner_id: -1 }).success).toBe(false);
-      expect(stravaWebhookEventSchema.safeParse({ ...buildValidWebhookEvent(), subscription_id: 0 }).success).toBe(false);
+    it('accepts optional updates map with unknown values', () => {
+      expect(
+        stravaWebhookEventSchema.safeParse({
+          ...validWebhookEventPayload,
+          updates: {
+            title: 'Morning Ride',
+            effort: 7,
+            nested: { status: 'ok' },
+          },
+        }).success
+      ).toBe(true);
+    });
+
+    it('rejects invalid enums and non-positive/non-integer numeric fields', () => {
+      expect(
+        stravaWebhookEventSchema.safeParse({
+          ...validWebhookEventPayload,
+          aspect_type: 'pause',
+        }).success
+      ).toBe(false);
+      expect(
+        stravaWebhookEventSchema.safeParse({
+          ...validWebhookEventPayload,
+          object_type: 'run',
+        }).success
+      ).toBe(false);
+      expect(
+        stravaWebhookEventSchema.safeParse({
+          ...validWebhookEventPayload,
+          event_time: -1,
+        }).success
+      ).toBe(false);
+      expect(
+        stravaWebhookEventSchema.safeParse({
+          ...validWebhookEventPayload,
+          event_time: 12.5,
+        }).success
+      ).toBe(false);
+      expect(
+        stravaWebhookEventSchema.safeParse({
+          ...validWebhookEventPayload,
+          object_id: 0,
+        }).success
+      ).toBe(false);
+      expect(
+        stravaWebhookEventSchema.safeParse({
+          ...validWebhookEventPayload,
+          owner_id: -10,
+        }).success
+      ).toBe(false);
+      expect(
+        stravaWebhookEventSchema.safeParse({
+          ...validWebhookEventPayload,
+          subscription_id: 1.2,
+        }).success
+      ).toBe(false);
     });
   });
 
   describe('stravaWebhookSchema', () => {
-    it('accepts validation payload branch', () => {
-      expect(
-        stravaWebhookSchema.safeParse({
-          'hub.mode': 'subscribe',
-          'hub.challenge': 'abc123',
-          'hub.verify_token': 'token',
-        }).success
-      ).toBe(true);
+    it('accepts pure validation payload', () => {
+      expect(stravaWebhookSchema.safeParse(validWebhookValidationPayload).success).toBe(true);
     });
 
-    it('accepts event payload branch', () => {
-      expect(stravaWebhookSchema.safeParse(buildValidWebhookEvent()).success).toBe(true);
+    it('accepts pure event payload', () => {
+      expect(stravaWebhookSchema.safeParse(validWebhookEventPayload).success).toBe(true);
     });
 
-    it('rejects payloads that match neither branch', () => {
-      expect(stravaWebhookSchema.safeParse({ foo: 'bar' }).success).toBe(false);
+    it('rejects unrelated payload', () => {
+      expect(stravaWebhookSchema.safeParse({ hello: 'world' }).success).toBe(false);
+    });
+
+    it('explicitly favors validation branch for mixed payloads with validation keys', () => {
+      const mixedPayload = {
+        ...validWebhookValidationPayload,
+        ...validWebhookEventPayload,
+        aspect_type: 'invalid',
+      };
+
+      const result = stravaWebhookSchema.safeParse(mixedPayload);
+      expect(result.success).toBe(true);
     });
   });
 
   describe('calculateVO2MaxSchema', () => {
-    it('accepts weight above 0 and up to 300', () => {
-      expect(calculateVO2MaxSchema.safeParse({ weightKg: 70 }).success).toBe(true);
-      expect(calculateVO2MaxSchema.safeParse({ weightKg: 300 }).success).toBe(true);
+    it('accepts weight bounds', () => {
+      expect(calculateVO2MaxSchema.safeParse({ ...validCalculateVO2MaxPayload, weightKg: 1 }).success).toBe(true);
+      expect(calculateVO2MaxSchema.safeParse({ ...validCalculateVO2MaxPayload, weightKg: 300 }).success).toBe(true);
     });
 
-    it('rejects zero and overweight values', () => {
-      expect(calculateVO2MaxSchema.safeParse({ weightKg: 0 }).success).toBe(false);
-      expect(calculateVO2MaxSchema.safeParse({ weightKg: 301 }).success).toBe(false);
+    it('rejects non-positive and out-of-range weight values', () => {
+      expect(calculateVO2MaxSchema.safeParse({ ...validCalculateVO2MaxPayload, weightKg: 0 }).success).toBe(false);
+      expect(calculateVO2MaxSchema.safeParse({ ...validCalculateVO2MaxPayload, weightKg: -1 }).success).toBe(false);
+      expect(calculateVO2MaxSchema.safeParse({ ...validCalculateVO2MaxPayload, weightKg: 301 }).success).toBe(false);
     });
   });
 
   describe('updateCyclingProfileSchema', () => {
-    const validPayload = {
-      weightKg: 75,
-      maxHR: 180,
-      restingHR: 55,
-    };
-
-    it('accepts required weight and optional heart rates', () => {
-      expect(updateCyclingProfileSchema.safeParse({ weightKg: 75 }).success).toBe(true);
-      expect(updateCyclingProfileSchema.safeParse(validPayload).success).toBe(true);
+    it('accepts required weight with optional HR fields omitted', () => {
+      expect(updateCyclingProfileSchema.safeParse({ weightKg: 70 }).success).toBe(true);
+      expect(updateCyclingProfileSchema.safeParse(validCyclingProfilePayload).success).toBe(true);
     });
 
-    it('rejects out-of-range, non-integer, and non-positive heart rate values', () => {
-      expect(updateCyclingProfileSchema.safeParse({ weightKg: 75, maxHR: 0 }).success).toBe(false);
-      expect(updateCyclingProfileSchema.safeParse({ weightKg: 75, maxHR: 251 }).success).toBe(false);
-      expect(updateCyclingProfileSchema.safeParse({ weightKg: 75, maxHR: 180.5 }).success).toBe(false);
-      expect(updateCyclingProfileSchema.safeParse({ weightKg: 75, restingHR: 0 }).success).toBe(false);
-      expect(updateCyclingProfileSchema.safeParse({ weightKg: 75, restingHR: 151 }).success).toBe(false);
-      expect(updateCyclingProfileSchema.safeParse({ weightKg: 75, restingHR: 55.5 }).success).toBe(false);
+    it('accepts HR boundary values', () => {
+      expect(updateCyclingProfileSchema.safeParse({ ...validCyclingProfilePayload, maxHR: 250, restingHR: 150 }).success).toBe(true);
+    });
+
+    it('rejects invalid weight and HR inputs', () => {
+      expect(updateCyclingProfileSchema.safeParse({ ...validCyclingProfilePayload, weightKg: 0 }).success).toBe(false);
+      expect(updateCyclingProfileSchema.safeParse({ ...validCyclingProfilePayload, weightKg: 301 }).success).toBe(false);
+      expect(updateCyclingProfileSchema.safeParse({ ...validCyclingProfilePayload, maxHR: 0 }).success).toBe(false);
+      expect(updateCyclingProfileSchema.safeParse({ ...validCyclingProfilePayload, maxHR: 1.5 }).success).toBe(false);
+      expect(updateCyclingProfileSchema.safeParse({ ...validCyclingProfilePayload, maxHR: 251 }).success).toBe(false);
+      expect(updateCyclingProfileSchema.safeParse({ ...validCyclingProfilePayload, restingHR: 0 }).success).toBe(false);
+      expect(updateCyclingProfileSchema.safeParse({ ...validCyclingProfilePayload, restingHR: 1.5 }).success).toBe(false);
+      expect(updateCyclingProfileSchema.safeParse({ ...validCyclingProfilePayload, restingHR: 151 }).success).toBe(false);
     });
   });
 
   describe('createCyclingActivitySchema', () => {
-    it('accepts valid minimal payload', () => {
-      expect(createCyclingActivitySchema.safeParse(buildValidCyclingActivity()).success).toBe(true);
-    });
-
-  it('accepts optional fields', () => {
+    it('accepts valid minimal payload and zero-valued metrics', () => {
+      expect(createCyclingActivitySchema.safeParse(validCyclingActivityPayload).success).toBe(true);
       expect(
         createCyclingActivitySchema.safeParse({
-          ...buildValidCyclingActivity(),
-          ef: 0.5,
-          peak5MinPower: 210,
-          peak20MinPower: 190,
-          hrCompleteness: 88,
+          ...validCyclingActivityPayload,
+          avgPower: 0,
+          normalizedPower: 0,
+          maxPower: 0,
+          avgHeartRate: 0,
+          maxHeartRate: 0,
+          tss: 0,
+          intensityFactor: 0,
+          hrCompleteness: 0,
+        }).success
+      ).toBe(true);
+    });
+
+    it('accepts optional performance fields', () => {
+      expect(
+        createCyclingActivitySchema.safeParse({
+          ...validCyclingActivityPayload,
+          ef: 1.2,
+          peak5MinPower: 250,
+          peak20MinPower: 240,
+          hrCompleteness: 100,
           userId: 'user-123',
           createdAt: '2026-03-01T07:00:00.000Z',
         }).success
       ).toBe(true);
     });
 
-    it('rejects invalid enum values', () => {
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), type: 'invalid' as const }).success).toBe(false);
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), source: 'fitbit' as const }).success).toBe(false);
+    it('rejects invalid enums and non-positive identifiers/duration', () => {
+      expect(
+        createCyclingActivitySchema.safeParse({
+          ...validCyclingActivityPayload,
+          type: 'sprint',
+        }).success
+      ).toBe(false);
+      expect(
+        createCyclingActivitySchema.safeParse({
+          ...validCyclingActivityPayload,
+          source: 'manual',
+        }).success
+      ).toBe(false);
+      expect(
+        createCyclingActivitySchema.safeParse({
+          ...validCyclingActivityPayload,
+          stravaId: 0,
+        }).success
+      ).toBe(false);
+      expect(
+        createCyclingActivitySchema.safeParse({
+          ...validCyclingActivityPayload,
+          durationMinutes: 0,
+        }).success
+      ).toBe(false);
     });
 
-    it('rejects negative metrics where minimum is zero', () => {
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), avgPower: -1 }).success).toBe(false);
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), normalizedPower: -1 }).success).toBe(false);
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), maxPower: -1 }).success).toBe(false);
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), tss: -1 }).success).toBe(false);
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), hrCompleteness: -1 }).success).toBe(false);
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), hrCompleteness: 101 }).success).toBe(false);
-    });
-
-    it('rejects non-positive optional power and efficiency fields', () => {
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), ef: 0 }).success).toBe(false);
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), peak5MinPower: 0 }).success).toBe(false);
-      expect(createCyclingActivitySchema.safeParse({ ...buildValidCyclingActivity(), peak20MinPower: 0 }).success).toBe(false);
+    it('rejects negative metrics and bounded fields', () => {
+      expect(
+        createCyclingActivitySchema.safeParse({
+          ...validCyclingActivityPayload,
+          avgPower: -1,
+        }).success
+      ).toBe(false);
+      expect(
+        createCyclingActivitySchema.safeParse({
+          ...validCyclingActivityPayload,
+          tss: -1,
+        }).success
+      ).toBe(false);
+      expect(
+        createCyclingActivitySchema.safeParse({
+          ...validCyclingActivityPayload,
+          hrCompleteness: -1,
+        }).success
+      ).toBe(false);
+      expect(
+        createCyclingActivitySchema.safeParse({
+          ...validCyclingActivityPayload,
+          hrCompleteness: 101,
+        }).success
+      ).toBe(false);
+      expect(
+        createCyclingActivitySchema.safeParse({
+          ...validCyclingActivityPayload,
+          ef: -0.1,
+        }).success
+      ).toBe(false);
+      expect(
+        createCyclingActivitySchema.safeParse({
+          ...validCyclingActivityPayload,
+          peak5MinPower: 0,
+        }).success
+      ).toBe(false);
+      expect(
+        createCyclingActivitySchema.safeParse({
+          ...validCyclingActivityPayload,
+          peak20MinPower: 0,
+        }).success
+      ).toBe(false);
     });
   });
 

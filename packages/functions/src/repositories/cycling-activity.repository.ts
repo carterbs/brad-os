@@ -10,15 +10,22 @@
 
 import type { Firestore } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
 import { getFirestoreDb, getCollectionName } from '../firebase.js';
 import type { CyclingActivity, ActivityStreamData, CyclingActivityUpdate, DeleteCyclingActivityResult } from '../types/cycling.js';
 import {
   isRecord,
-  readEnum,
-  readNumber,
   readNumberArray,
-  readString,
 } from './firestore-type-guards.js';
+import { createCyclingActivitySchema } from '../shared.js';
+
+const cyclingActivityDocSchema = createCyclingActivitySchema.extend({
+  type: createCyclingActivitySchema.shape.type.or(z.literal('virtual')).transform((value) => {
+    return value === 'virtual' ? 'unknown' : value;
+  }),
+  userId: z.string(),
+  createdAt: z.string(),
+});
 
 export class CyclingActivityRepository {
   private db: Firestore;
@@ -40,94 +47,33 @@ export class CyclingActivityRepository {
    */
   private mapActivityDoc(
     id: string,
-    data: Record<string, unknown>
+    data: FirebaseFirestore.DocumentData
   ): CyclingActivity | null {
-    const stravaId = readNumber(data, 'stravaId');
-    const userId = readString(data, 'userId');
-    const date = readString(data, 'date');
-    const durationMinutes = readNumber(data, 'durationMinutes');
-    const avgPower = readNumber(data, 'avgPower');
-    const normalizedPower = readNumber(data, 'normalizedPower');
-    const maxPower = readNumber(data, 'maxPower');
-    const avgHeartRate = readNumber(data, 'avgHeartRate');
-    const maxHeartRate = readNumber(data, 'maxHeartRate');
-    const tss = readNumber(data, 'tss');
-    const intensityFactor = readNumber(data, 'intensityFactor');
-    const type = readEnum(
-      data,
-      'type',
-      ['vo2max', 'threshold', 'fun', 'recovery', 'unknown'] as const
-    );
-    const source = readEnum(data, 'source', ['strava'] as const);
-    const createdAt = readString(data, 'createdAt');
-
-    const rawEf = data['ef'];
-    const rawPeak5MinPower = data['peak5MinPower'];
-    const rawPeak20MinPower = data['peak20MinPower'];
-    const rawHrCompleteness = data['hrCompleteness'];
-
-    const parsedEf = rawEf === undefined || rawEf === null ? undefined : readNumber(data, 'ef');
-    const peak5MinPower =
-      rawPeak5MinPower === undefined || rawPeak5MinPower === null
-        ? undefined
-        : readNumber(data, 'peak5MinPower');
-    const peak20MinPower =
-      rawPeak20MinPower === undefined || rawPeak20MinPower === null
-        ? undefined
-        : readNumber(data, 'peak20MinPower');
-    const hrCompleteness =
-      rawHrCompleteness === undefined || rawHrCompleteness === null
-        ? undefined
-        : readNumber(data, 'hrCompleteness');
-
-    const ef = parsedEf ?? undefined;
-    const sanitizedPeak5MinPower = peak5MinPower ?? undefined;
-    const sanitizedPeak20MinPower = peak20MinPower ?? undefined;
-    const sanitizedHrCompleteness = hrCompleteness ?? undefined;
-
-    if (
-      stravaId === null ||
-      userId === null ||
-      date === null ||
-      durationMinutes === null ||
-      avgPower === null ||
-      normalizedPower === null ||
-      maxPower === null ||
-      avgHeartRate === null ||
-      maxHeartRate === null ||
-      tss === null ||
-      intensityFactor === null ||
-      type === null ||
-      source === null ||
-      createdAt === null ||
-      (rawEf !== undefined && rawEf !== null && ef === undefined) ||
-      (rawPeak5MinPower !== undefined && rawPeak5MinPower !== null && sanitizedPeak5MinPower === undefined) ||
-      (rawPeak20MinPower !== undefined && rawPeak20MinPower !== null && sanitizedPeak20MinPower === undefined) ||
-      (rawHrCompleteness !== undefined && rawHrCompleteness !== null && sanitizedHrCompleteness === undefined)
-    ) {
+    const parsed = cyclingActivityDocSchema.safeParse(data);
+    if (!parsed.success) {
       return null;
     }
 
     return {
       id,
-      stravaId,
-      userId,
-      date,
-      durationMinutes,
-      avgPower,
-      normalizedPower,
-      maxPower,
-      avgHeartRate,
-      maxHeartRate,
-      tss,
-      intensityFactor,
-      type,
-      source,
-      ef,
-      peak5MinPower: sanitizedPeak5MinPower,
-      peak20MinPower: sanitizedPeak20MinPower,
-      hrCompleteness: sanitizedHrCompleteness,
-      createdAt,
+      stravaId: parsed.data.stravaId,
+      userId: parsed.data.userId,
+      date: parsed.data.date,
+      durationMinutes: parsed.data.durationMinutes,
+      avgPower: parsed.data.avgPower,
+      normalizedPower: parsed.data.normalizedPower,
+      maxPower: parsed.data.maxPower,
+      avgHeartRate: parsed.data.avgHeartRate,
+      maxHeartRate: parsed.data.maxHeartRate,
+      tss: parsed.data.tss,
+      intensityFactor: parsed.data.intensityFactor,
+      type: parsed.data.type,
+      source: parsed.data.source,
+      ef: parsed.data.ef,
+      peak5MinPower: parsed.data.peak5MinPower,
+      peak20MinPower: parsed.data.peak20MinPower,
+      hrCompleteness: parsed.data.hrCompleteness,
+      createdAt: parsed.data.createdAt,
     };
   }
 
