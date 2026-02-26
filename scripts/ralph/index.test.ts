@@ -51,6 +51,9 @@ const {
   mockBuildFixPrompt,
   mockLoggerConstructor,
   mockBacklogPath,
+  mockReadSuppressedTypeScriptEslintRules,
+  mockNormalizeBacklogForTypeScriptEslintCleanup,
+  mockWriteBacklog,
 } = vi.hoisted(() => ({
   mockExecFileSync: vi.fn(),
   mockExistsSync: vi.fn(),
@@ -84,6 +87,9 @@ const {
   mockBuildFixPrompt: vi.fn(),
   mockLoggerConstructor: vi.fn(),
   mockBacklogPath: vi.fn(() => 'scripts/ralph/backlog.md'),
+  mockReadSuppressedTypeScriptEslintRules: vi.fn(),
+  mockNormalizeBacklogForTypeScriptEslintCleanup: vi.fn(),
+  mockWriteBacklog: vi.fn(),
 }));
 
 vi.mock('node:fs', () => ({
@@ -115,6 +121,11 @@ vi.mock('./backlog.js', () => ({
   removeTriageTask: mockRemoveTriageTask,
   moveTaskToMergeConflicts: mockMoveTaskToMergeConflicts,
   syncTaskFilesFromLog: mockSyncTaskFilesFromLog,
+  readSuppressedTypeScriptEslintRules:
+    mockReadSuppressedTypeScriptEslintRules,
+  normalizeBacklogForTypeScriptEslintCleanup:
+    mockNormalizeBacklogForTypeScriptEslintCleanup,
+  writeBacklog: mockWriteBacklog,
   backlogPath: mockBacklogPath,
 }));
 
@@ -1970,6 +1981,15 @@ describe('main', () => {
       url: 'https://github.com/org/repo/pull/123',
     });
     mockListOpenRalphPullRequests.mockReturnValue([]);
+    mockReadSuppressedTypeScriptEslintRules.mockReturnValue([]);
+    mockNormalizeBacklogForTypeScriptEslintCleanup.mockImplementation(
+      (tasks) => ({
+        normalizedTasks: tasks,
+        addedCleanupTasks: [],
+        removedNoiseTasks: [],
+      }),
+    );
+    mockWriteBacklog.mockReset();
     mockProcessExit = vi.spyOn(process, 'exit').mockImplementation((() => {
       // no-op — just record the call
     }) as never);
@@ -2374,6 +2394,132 @@ describe('main', () => {
     await p;
 
     expect(mockBuildBacklogRefillPrompt).toHaveBeenCalled();
+  });
+
+  it('normalizes refilled backlog with suppression cleanup and writes updates', async () => {
+    setupMainDefaults({ target: 1, parallelism: 1 });
+    mockExecFileSync.mockReturnValue('');
+    mockReadTriage.mockReturnValue([]);
+
+    const rawBacklog = [
+      'Add `typescript-eslint` cleanup tasks to reduce noise from the temporary oxlint suppression.',
+      'Refill baseline task',
+    ];
+    const normalizedBacklog = [
+      'Refill baseline task',
+      'Re-enable `typescript-eslint/no-unsafe-type-assertion` in repositories and middleware after targeted type-guard refactors.',
+      'Re-enable `typescript-eslint/no-unnecessary-type-assertion` once broad `as` casts are replaced with schema-safe parsing.',
+      'Re-enable `typescript-eslint/no-base-to-string` after replacing implicit string coercions in serialization paths.',
+    ];
+    const addedTasks = [
+      'Re-enable `typescript-eslint/no-unsafe-type-assertion` in repositories and middleware after targeted type-guard refactors.',
+      'Re-enable `typescript-eslint/no-unnecessary-type-assertion` once broad `as` casts are replaced with schema-safe parsing.',
+      'Re-enable `typescript-eslint/no-base-to-string` after replacing implicit string coercions in serialization paths.',
+    ];
+    const removedTasks = [
+      'Add `typescript-eslint` cleanup tasks to reduce noise from the temporary oxlint suppression.',
+    ];
+    mockReadSuppressedTypeScriptEslintRules.mockReturnValue([
+      'typescript-eslint/no-unsafe-type-assertion',
+      'typescript-eslint/no-unnecessary-type-assertion',
+      'typescript-eslint/no-base-to-string',
+    ]);
+    mockNormalizeBacklogForTypeScriptEslintCleanup.mockReturnValue({
+      normalizedTasks: normalizedBacklog,
+      addedCleanupTasks: addedTasks,
+      removedNoiseTasks: removedTasks,
+    });
+
+    let backlogCallCount = 0;
+    mockReadBacklog.mockImplementation(() => {
+      backlogCallCount++;
+      if (backlogCallCount <= 3) return [];
+      if (backlogCallCount === 4) return rawBacklog;
+      return normalizedBacklog;
+    });
+
+    mockRunStep
+      .mockResolvedValueOnce(makeStepResult({ success: true })) // backlog-refill
+      .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' })) // plan
+      .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' })) // implement
+      .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' })); // review
+
+    mockCreateWorktree.mockReturnValue({ created: true, resumed: false });
+    mockExistsSync.mockReturnValue(true);
+
+    const mainPromise = main();
+    for (let i = 0; i < 10; i++) {
+      await vi.advanceTimersByTimeAsync(3000);
+    }
+    await mainPromise;
+
+    expect(mockReadSuppressedTypeScriptEslintRules).toHaveBeenCalledWith(
+      '/repo/.oxlintrc.json',
+    );
+    expect(mockNormalizeBacklogForTypeScriptEslintCleanup).toHaveBeenCalledWith(
+      rawBacklog,
+      [
+        'typescript-eslint/no-unsafe-type-assertion',
+        'typescript-eslint/no-unnecessary-type-assertion',
+        'typescript-eslint/no-base-to-string',
+      ],
+    );
+    expect(mockWriteBacklog).toHaveBeenCalledWith(normalizedBacklog);
+    const logger = mockLoggerConstructor.mock.results[0].value;
+    expect(logger.info).toHaveBeenCalledWith(
+      'Backlog normalization removed 1 generic suppression task(s) during refill:',
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      `  - removed: ${removedTasks[0]}`,
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      'Backlog normalization added 3 canonical suppression cleanup task(s) during refill:',
+    );
+    expect(logger.info).toHaveBeenCalledWith(`  - added: ${addedTasks[0]}`);
+  });
+
+  it('leaves refilled backlog untouched when normalization makes no changes', async () => {
+    setupMainDefaults({ target: 1, parallelism: 1 });
+    mockExecFileSync.mockReturnValue('');
+    mockReadTriage.mockReturnValue([]);
+
+    const rawBacklog = ['Refill baseline task', 'Another task'];
+    mockReadSuppressedTypeScriptEslintRules.mockReturnValue([]);
+    mockNormalizeBacklogForTypeScriptEslintCleanup.mockReturnValue({
+      normalizedTasks: rawBacklog,
+      addedCleanupTasks: [],
+      removedNoiseTasks: [],
+    });
+
+    let backlogCallCount = 0;
+    mockReadBacklog.mockImplementation(() => {
+      backlogCallCount++;
+      if (backlogCallCount <= 3) return [];
+      if (backlogCallCount === 4) return rawBacklog;
+      return rawBacklog;
+    });
+
+    mockRunStep
+      .mockResolvedValueOnce(makeStepResult({ success: true })) // backlog-refill
+      .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' })) // plan
+      .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' })) // implement
+      .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' })); // review
+
+    mockCreateWorktree.mockReturnValue({ created: true, resumed: false });
+    mockExistsSync.mockReturnValue(true);
+
+    const mainPromise = main();
+    for (let i = 0; i < 10; i++) {
+      await vi.advanceTimersByTimeAsync(3000);
+    }
+    await mainPromise;
+
+    expect(mockNormalizeBacklogForTypeScriptEslintCleanup).toHaveBeenCalledWith(
+      rawBacklog,
+      [],
+    );
+    expect(mockWriteBacklog).not.toHaveBeenCalled();
+    expect(mockBuildBacklogRefillPrompt).toHaveBeenCalledTimes(1);
   });
 
   it('exits when backlog refill fails and no workers running', async () => {

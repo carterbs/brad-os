@@ -27,6 +27,9 @@ Order tasks by **effort vs. impact**. Low-hanging fruit comes first:
 4. Read docs/ for architecture context.
 5. Scan the codebase for untested files, low-coverage domains, and harness gaps.
 6. Produce 10 tasks ordered by effort/impact ratio (easiest high-impact tasks first).
+7. For temporary \`typescript-eslint\` suppression cleanup, emit one task per currently suppressed rule.
+   Do not emit generic duplicate suppression-cleanup tasks (for example, avoid umbrella
+   "re-enable temporary \`typescript-eslint\` suppressions" tasks).
 
 ## Output format
 

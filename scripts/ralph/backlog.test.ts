@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  normalizeBacklogForTypeScriptEslintCleanup,
+  readSuppressedTypeScriptEslintRules,
   addTriageTask,
   backlogPath,
   moveTaskToMergeConflicts,
@@ -12,6 +14,119 @@ import {
   syncTaskFilesFromLog,
   writeBacklog,
 } from './backlog.js';
+
+const TYPESCRIPT_ESLINT_CLEANUP_UNSAFE =
+  'Re-enable `typescript-eslint/no-unsafe-type-assertion` in repositories and middleware after targeted type-guard refactors.';
+const TYPESCRIPT_ESLINT_CLEANUP_UNNECESSARY =
+  'Re-enable `typescript-eslint/no-unnecessary-type-assertion` once broad `as` casts are replaced with schema-safe parsing.';
+const TYPESCRIPT_ESLINT_CLEANUP_TO_STRING =
+  'Re-enable `typescript-eslint/no-base-to-string` after replacing implicit string coercions in serialization paths.';
+
+describe('readSuppressedTypeScriptEslintRules', () => {
+  beforeEach(() => {
+    mockAppendFileSync.mockReset();
+    mockReadFileSync.mockReset();
+    mockWriteFileSync.mockReset();
+    mockExecFileSync.mockReset();
+  });
+
+  it('returns only suppressed typescript-eslint rules set to off', async () => {
+    const config = {
+      rules: {
+        'typescript-eslint/no-unsafe-type-assertion': 'off',
+        'typescript-eslint/no-unnecessary-type-assertion': ['warn'],
+        'typescript-eslint/no-base-to-string': [0],
+        'typescript/no-explicit-any': 'off',
+        'typescript-eslint/no-unsafe-call': 'error',
+      },
+    };
+    mockReadFileSync.mockReturnValue(JSON.stringify(config));
+
+    const suppressed = readSuppressedTypeScriptEslintRules(
+      '/repo/.oxlintrc.json',
+    );
+
+    expect(suppressed).toEqual([
+      'typescript-eslint/no-unsafe-type-assertion',
+      'typescript-eslint/no-base-to-string',
+    ]);
+  });
+
+  it('returns empty when only non-target rules are suppressed', async () => {
+    const config = {
+      rules: {
+        'typescript/no-explicit-any': 'off',
+        'typescript-eslint/no-unnecessary-type-assertion': 'warn',
+        'typescript-eslint/no-base-to-string': 'error',
+      },
+    };
+    mockReadFileSync.mockReturnValue(JSON.stringify(config));
+
+    const suppressed = readSuppressedTypeScriptEslintRules(
+      '/repo/.oxlintrc.json',
+    );
+
+    expect(suppressed).toEqual([]);
+  });
+});
+
+describe('normalizeBacklogForTypeScriptEslintCleanup', () => {
+  it('removes generic suppression noise and adds missing canonical cleanup tasks', () => {
+    const result = normalizeBacklogForTypeScriptEslintCleanup(
+      [
+        'Add `typescript-eslint` cleanup tasks to reduce noise from the temporary oxlint suppression.',
+        'A normal maintenance task',
+      ],
+      [
+        'typescript-eslint/no-unsafe-type-assertion',
+        'typescript-eslint/no-unnecessary-type-assertion',
+        'typescript-eslint/no-base-to-string',
+      ],
+    );
+
+    expect(result.removedNoiseTasks).toEqual([
+      'Add `typescript-eslint` cleanup tasks to reduce noise from the temporary oxlint suppression.',
+    ]);
+    expect(result.addedCleanupTasks).toEqual([
+      TYPESCRIPT_ESLINT_CLEANUP_UNSAFE,
+      TYPESCRIPT_ESLINT_CLEANUP_UNNECESSARY,
+      TYPESCRIPT_ESLINT_CLEANUP_TO_STRING,
+    ]);
+    expect(result.normalizedTasks).toEqual([
+      'A normal maintenance task',
+      TYPESCRIPT_ESLINT_CLEANUP_UNSAFE,
+      TYPESCRIPT_ESLINT_CLEANUP_UNNECESSARY,
+      TYPESCRIPT_ESLINT_CLEANUP_TO_STRING,
+    ]);
+  });
+
+  it('deduplicates existing canonical tasks before appending missing ones', async () => {
+    const result = normalizeBacklogForTypeScriptEslintCleanup(
+      [
+        TYPESCRIPT_ESLINT_CLEANUP_UNSAFE,
+        TYPESCRIPT_ESLINT_CLEANUP_UNSAFE,
+        'A normal maintenance task',
+        TYPESCRIPT_ESLINT_CLEANUP_TO_STRING,
+      ],
+      [
+        'typescript-eslint/no-unsafe-type-assertion',
+        'typescript-eslint/no-base-to-string',
+        'typescript-eslint/no-unnecessary-type-assertion',
+      ],
+    );
+
+    expect(result.normalizedTasks).toEqual([
+      TYPESCRIPT_ESLINT_CLEANUP_UNSAFE,
+      'A normal maintenance task',
+      TYPESCRIPT_ESLINT_CLEANUP_TO_STRING,
+      TYPESCRIPT_ESLINT_CLEANUP_UNNECESSARY,
+    ]);
+    expect(result.addedCleanupTasks).toEqual([
+      TYPESCRIPT_ESLINT_CLEANUP_UNNECESSARY,
+    ]);
+    expect(result.removedNoiseTasks).toEqual([]);
+  });
+});
 
 const {
   mockAppendFileSync,
