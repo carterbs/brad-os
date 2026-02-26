@@ -244,10 +244,13 @@ app.post(
   validate(coachRecommendRequestSchema),
   asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
     const userId = getUserId(req);
+    const requestBody = coachRecommendRequestSchema.parse(req.body);
 
     // Recovery data: prefer from request body (iOS-provided), fallback to Firestore
-    const requestBody = req.body as { recovery?: RecoverySnapshot };
-    let recovery: RecoverySnapshot | undefined = requestBody.recovery;
+    let recovery: RecoverySnapshot | undefined;
+    if (requestBody.recovery !== undefined) {
+      recovery = requestBody.recovery;
+    }
 
     if (!recovery) {
       // Fetch from Firestore if not provided in request
@@ -325,7 +328,11 @@ app.post(
       : 0);
 
     // Build lifting context, mesocycle context in parallel
-    const timezoneOffset = parseInt(req.headers['x-timezone-offset'] as string, 10) || 0;
+    const timezoneOffsetHeader = req.headers['x-timezone-offset'];
+    const timezoneOffsetValue = Array.isArray(timezoneOffsetHeader) ? timezoneOffsetHeader[0] : timezoneOffsetHeader;
+    const parsedTimezoneOffset = typeof timezoneOffsetValue === 'string' ? Number.parseInt(timezoneOffsetValue, 10) : NaN;
+    const timezoneOffset = Number.isNaN(parsedTimezoneOffset) ? 0 : parsedTimezoneOffset;
+
     const [recentLiftingWorkouts, liftingSchedule, mesocycleContext] = await Promise.all([
       buildLiftingContext(timezoneOffset),
       buildLiftingSchedule(),
