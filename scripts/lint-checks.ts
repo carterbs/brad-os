@@ -11,7 +11,7 @@
  *   4. Firebase route consistency (rewrite paths match stripPathPrefix)
  *   5. iOS architecture layers (Views->Services, Components->ViewModels)
  *   6. Architecture map file references (docs/architecture/*.md paths exist)
- *   7. CLAUDE.md file path references (backtick-quoted paths resolve)
+ *   7. AGENTS.md file path references (backtick-quoted paths resolve)
  *   8. Orphan features (handlers with routes have architecture docs)
  *   9. Plan lifecycle (plans in active/ or completed/, not root)
  *  10. No console.log in Cloud Functions
@@ -919,15 +919,15 @@ export function checkArchMapRefs(config: LinterConfig): CheckResult {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Check 7: CLAUDE.md File Path References
+// Check 7: AGENTS.md File Path References
 //
-// Verifies backtick-quoted file/directory paths in CLAUDE.md resolve to real
+// Verifies backtick-quoted file/directory paths in AGENTS.md resolve to real
 // files or directories on disk.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function checkClaudeMdRefs(config: LinterConfig): CheckResult {
-  const name = 'CLAUDE.md file path references';
-  const CLAUDE_MD = path.join(config.rootDir, 'CLAUDE.md');
+  const name = 'AGENTS.md file path references';
+  const CLAUDE_MD = path.join(config.rootDir, 'AGENTS.md');
 
   if (!fs.existsSync(CLAUDE_MD)) {
     return { name, passed: true, violations: [] };
@@ -973,9 +973,9 @@ export function checkClaudeMdRefs(config: LinterConfig): CheckResult {
 
       if (!fs.existsSync(fullPath)) {
         violations.push(
-          `CLAUDE.md:${i + 1} references \`${refPath}\` but the path does not exist.\n` +
-          `    Rule: All backtick-quoted file paths in CLAUDE.md must resolve to real files or directories on disk.\n` +
-          `    Fix: 1. If the file was renamed or moved, update the path in CLAUDE.md.\n` +
+          `AGENTS.md:${i + 1} references \`${refPath}\` but the path does not exist.\n` +
+          `    Rule: All backtick-quoted file paths in AGENTS.md must resolve to real files or directories on disk.\n` +
+          `    Fix: 1. If the file was renamed or moved, update the path in AGENTS.md.\n` +
           `         2. If the file was deleted intentionally, remove the reference.\n` +
           `         3. Run \`git log --diff-filter=R -- '${refPath}'\` to find renames.\n` +
           `    See: docs/golden-principles.md`

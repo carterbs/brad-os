@@ -465,7 +465,7 @@ describe('checkArchMapRefs', () => {
   });
 });
 
-// ── Check 7: CLAUDE.md File Path References ──────────────────────────────────
+// ── Check 7: AGENTS.md File Path References ──────────────────────────────────
 
 describe('checkClaudeMdRefs', () => {
   let rootDir: string;
@@ -478,16 +478,16 @@ describe('checkClaudeMdRefs', () => {
 
   it('passes when all backtick-quoted paths exist', () => {
     writeFixture(rootDir, 'docs/conventions/typescript.md', '');
-    writeFixture(rootDir, 'CLAUDE.md',
-      '# CLAUDE.md\n\nSee `docs/conventions/typescript.md` for conventions.');
+    writeFixture(rootDir, 'AGENTS.md',
+      '# AGENTS.md\n\nSee `docs/conventions/typescript.md` for conventions.');
 
     const result = checkClaudeMdRefs(config);
     expect(result.passed).toBe(true);
   });
 
   it('fails when a referenced path does not exist', () => {
-    writeFixture(rootDir, 'CLAUDE.md',
-      '# CLAUDE.md\n\nSee `docs/conventions/missing.md` for conventions.');
+    writeFixture(rootDir, 'AGENTS.md',
+      '# AGENTS.md\n\nSee `docs/conventions/missing.md` for conventions.');
 
     const result = checkClaudeMdRefs(config);
     expect(result.passed).toBe(false);
@@ -495,16 +495,16 @@ describe('checkClaudeMdRefs', () => {
   });
 
   it('ignores paths inside code fences', () => {
-    writeFixture(rootDir, 'CLAUDE.md',
-      '# CLAUDE.md\n\n```bash\ncat docs/conventions/nonexistent.md\n```');
+    writeFixture(rootDir, 'AGENTS.md',
+      '# AGENTS.md\n\n```bash\ncat docs/conventions/nonexistent.md\n```');
 
     const result = checkClaudeMdRefs(config);
     expect(result.passed).toBe(true);
   });
 
   it('ignores paths with template variables like <feature>', () => {
-    writeFixture(rootDir, 'CLAUDE.md',
-      '# CLAUDE.md\n\nSee `docs/architecture/<feature>.md` for architecture.');
+    writeFixture(rootDir, 'AGENTS.md',
+      '# AGENTS.md\n\nSee `docs/architecture/<feature>.md` for architecture.');
 
     const result = checkClaudeMdRefs(config);
     expect(result.passed).toBe(true);

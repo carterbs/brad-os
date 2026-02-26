@@ -2,38 +2,11 @@ import { getApp } from 'firebase-admin/app';
 import { getRemoteConfig } from 'firebase-admin/remote-config';
 import { warn } from 'firebase-functions/logger';
 
+import type { FirebaseAppLike, GoogleTtsResponse, RemoteConfigLike, TtsServiceDeps } from '../types/tts.js';
+
+export type { GoogleTtsResponse, TtsServiceDeps } from '../types/tts.js';
+
 export const DEFAULT_TTS_VOICE = 'en-US-Chirp3-HD-Algenib';
-
-export interface GoogleTtsResponse {
-  audioContent: string;
-}
-
-interface AppCredentialLike {
-  getAccessToken: () => Promise<{ access_token: string }>;
-}
-
-interface FirebaseAppLike {
-  options: {
-    credential?: AppCredentialLike;
-  };
-}
-
-interface RemoteConfigTemplateLike {
-  evaluate: () => {
-    getString: (key: string) => string;
-  };
-}
-
-interface RemoteConfigLike {
-  getServerTemplate: (options: { defaultConfig: { TTS_VOICE: string } }) => Promise<RemoteConfigTemplateLike>;
-}
-
-export interface TtsServiceDeps {
-  getApp: () => FirebaseAppLike;
-  getRemoteConfig: () => RemoteConfigLike;
-  fetchFn: typeof fetch;
-  warn: (...args: unknown[]) => void;
-}
 
 export class TtsAuthError extends Error {
   constructor(message = 'Failed to obtain credentials for TTS API') {

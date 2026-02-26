@@ -1,6 +1,6 @@
 # Documentation Index
 
-> Map of all docs in the Brad OS project. See [CLAUDE.md](../CLAUDE.md) for project rules.
+> Map of all docs in the Brad OS project. See [AGENTS.md](../AGENTS.md) for project rules.
 
 ## Conventions
 

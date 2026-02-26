@@ -3,6 +3,8 @@
 # Pre-commit hook:
 #   1. Block direct commits to main (worktree workflow enforced)
 #   2. Scan staged changes for secrets using gitleaks
+#   3. Quick quality checks (typecheck + lint staged files)
+#   4. Architecture lint (enforces layer boundaries, conventions, etc.)
 #
 
 # --- Worktree gate: reject commits directly on main ---
@@ -21,7 +23,7 @@ if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
     echo "All changes must be made in git worktrees:"
     echo "  git worktree add ../lifting-worktrees/<branch-name> -b <branch-name>"
     echo ""
-    echo "See CLAUDE.md for the full worktree workflow."
+    echo "See AGENTS.md for the full worktree workflow."
     echo ""
     echo "To override (merge commits, etc): ALLOW_MAIN_COMMIT=1 git commit ..."
     echo ""
@@ -64,6 +66,14 @@ if [ -n "$STAGED_TS" ]; then
   echo "✓ ESLint passed (staged files)"
 else
   echo "✓ ESLint skipped (no staged .ts files)"
+fi
+
+# 3. Architecture lint (layer boundaries, conventions, test quality)
+if ! npx tsx scripts/lint-architecture.ts; then
+  echo ""
+  echo "ERROR: Architecture lint failed. Fix violations before committing."
+  echo "  Run 'npm run lint:architecture' to see full output."
+  exit 1
 fi
 
 echo ""

@@ -22,7 +22,7 @@ Order tasks by **effort vs. impact**. Low-hanging fruit comes first:
 
 ## Steps
 1. Read docs/quality-grades.md to understand current grades, gaps, and tech debt.
-2. Read CLAUDE.md and docs/conventions/ to understand the project rules and structure.
+2. Read AGENTS.md and docs/conventions/ to understand the project rules and structure.
 3. Read docs/references/codex-agent-team-article.md to understand the harness philosophy.
 4. Read docs/ for architecture context.
 5. Scan the codebase for untested files, low-coverage domains, and harness gaps.
@@ -57,7 +57,7 @@ task or look for alternatives. Just plan HOW to implement it.
 ${task}
 
 ## Steps
-1. Read CLAUDE.md and docs/conventions/ to understand the project rules and structure.
+1. Read AGENTS.md and docs/conventions/ to understand the project rules and structure.
 2. Read relevant docs/ and source files to understand the area this task touches.
 3. Write a detailed implementation plan to thoughts/shared/plans/active/ralph-improvement.md.
 
@@ -68,7 +68,7 @@ thoughts/shared/plans/active/ralph-improvement.md must contain:
 - **Files**: Every file to create or modify, with what goes in each
 - **Tests**: What tests to write and what they verify
 - **QA**: How to exercise the thing after building it (not just "run tests")
-- **Conventions**: Any project conventions from CLAUDE.md/docs that apply
+- **Conventions**: Any project conventions from AGENTS.md/docs that apply
 
 The plan should be detailed enough that a separate agent can implement it without
 needing to re-research the codebase. Include file paths, function signatures,
@@ -84,7 +84,7 @@ or modify any source files. Your only output is thoughts/shared/plans/active/ral
 
 Steps:
 1. Read docs/references/codex-agent-team-article.md to understand the philosophy.
-2. Read CLAUDE.md and docs/conventions/ to understand the project rules and structure.
+2. Read AGENTS.md and docs/conventions/ to understand the project rules and structure.
 3. Read docs/ for architecture context.
 4. Scan the codebase thoroughly for gaps: what harness/tooling/infrastructure is missing?
    "Harness" means: test infrastructure, CI tooling, linters, architecture
@@ -100,7 +100,7 @@ thoughts/shared/plans/active/ralph-improvement.md must contain:
 - **Files**: Every file to create or modify, with what goes in each
 - **Tests**: What tests to write and what they verify
 - **QA**: How to exercise the thing after building it (not just "run tests")
-- **Conventions**: Any project conventions from CLAUDE.md/docs that apply
+- **Conventions**: Any project conventions from AGENTS.md/docs that apply
 
 The plan should be detailed enough that a separate agent can implement it without
 needing to re-research the codebase. Include file paths, function signatures,
@@ -122,12 +122,12 @@ faithfully, with high quality.
 Implementation:
 - Read thoughts/shared/plans/active/ralph-improvement.md thoroughly before writing any code.
 - Follow the file list, function signatures, and test plan in thoughts/shared/plans/active/ralph-improvement.md.
-- Read CLAUDE.md and docs/conventions/ for project rules.
+- Read AGENTS.md and docs/conventions/ for project rules.
 - Write tests as specified in the plan.
 - Do NOT modify application product code unless thoughts/shared/plans/active/ralph-improvement.md says to.
 
 Constraints:
-- Follow all rules in CLAUDE.md exactly.
+- Follow all rules in AGENTS.md exactly.
 - 100% test coverage on new utilities.
 - Keep changes focused on what thoughts/shared/plans/active/ralph-improvement.md describes.
 - Never modify scripts/ralph/backlog.md (main-managed; only updated after merge on main).
@@ -190,7 +190,7 @@ A reviewer found the following issues with the implementation. Fix them.
 ${truncated}
 
 ## Instructions
-- Read CLAUDE.md and docs/conventions/ for project rules.
+- Read AGENTS.md and docs/conventions/ for project rules.
 - Fix ONLY the issues described above. Do not refactor or add unrelated changes.
 - Never modify scripts/ralph/backlog.md (main-managed; only updated after merge on main).
 - Run and pass: npm run typecheck && npm run lint && npm test
@@ -213,7 +213,7 @@ IMPORTANT: Do NOT modify scripts/ralph/backlog.md (main-managed; only updated af
 Steps:
 1. Run: git diff main --stat   (see scope of changes)
 2. Run: git diff main           (read every changed line)
-3. Read CLAUDE.md and docs/conventions/ for project rules.
+3. Read AGENTS.md and docs/conventions/ for project rules.
 4. Run: npm run typecheck && npm run lint && npm test
 5. Evaluate:
    - Correctness: Does the code do what it claims?

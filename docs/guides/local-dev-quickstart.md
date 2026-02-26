@@ -106,7 +106,8 @@ At this point you should have:
 
 ## Next Steps
 
-- **[CLAUDE.md](../../CLAUDE.md)** — Project rules, worktree workflow, validation commands
+- **[AGENTS.md](../../AGENTS.md)** — Project rules, navigation map
+- **[Workflow Rules](../conventions/workflow.md)** — Worktrees, validation, subagents, QA
 - **[Isolated QA Loop](isolated-qa-loop.md)** — Session isolation details, device leasing, and advanced options
 - **[iOS Build and Run](ios-build-and-run.md)** — Advanced manual build commands and exploratory testing
 - **[Debugging Cloud Functions](debugging-cloud-functions.md)** — Troubleshooting endpoints
