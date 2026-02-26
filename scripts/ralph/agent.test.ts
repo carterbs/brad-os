@@ -91,6 +91,7 @@ function makeConfig(overrides: Partial<Config> = {}): Config {
     verbose: false,
     repoDir: '/repo',
     worktreeDir: '/tmp/wt',
+    minReviewCycles: 2,
     maxReviewCycles: 3,
     logFile: '/repo/log.jsonl',
     agents: {

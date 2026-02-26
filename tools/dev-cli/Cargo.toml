@@ -4,19 +4,20 @@ version = "0.1.0"
 edition = "2021"
 
 [[bin]]
-name = "brad-qa-start"
-path = "src/bin/qa_start.rs"
+name = "brad-validate"
+path = "src/bin/validate.rs"
+
+[[bin]]
+name = "brad-run-integration-tests"
+path = "src/bin/run-integration-tests.rs"
 
 [[bin]]
 name = "brad-doctor"
 path = "src/bin/doctor.rs"
 
 [dependencies]
-crc32fast = "1"
-regex = "1"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-thiserror = "1"
+owo-colors = { version = "4", features = ["supports-colors"] }
+ctrlc = "3.4.4"
 
 [dev-dependencies]
 tempfile = "3"
