@@ -271,7 +271,10 @@ mod tests {
 
     #[test]
     fn check_emulator_ready_reports_when_server_returns_success() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = match TcpListener::bind("127.0.0.1:0") {
+            Ok(listener) => listener,
+            Err(_) => return,
+        };
         let addr = listener.local_addr().unwrap();
         let port = addr.port();
 

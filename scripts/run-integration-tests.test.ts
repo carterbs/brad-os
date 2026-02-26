@@ -37,7 +37,7 @@ describe('run-integration-tests.sh', () => {
     expect(content).not.toContain('--export-on-exit');
   });
 
-  it('should run npm run test:integration', () => {
+  it('should build the Rust binary via cargo before running', () => {
     const content = readFileSync(SCRIPT_PATH, 'utf-8');
     expect(content).toContain('cargo build -p dev-cli --release');
   });
