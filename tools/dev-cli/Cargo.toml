@@ -11,6 +11,10 @@ path = "src/bin/validate.rs"
 name = "brad-precommit"
 path = "src/bin/precommit.rs"
 
+[[bin]]
+name = "brad-setup-ios-testing"
+path = "src/bin/setup_ios_testing.rs"
+
 [dependencies]
 owo-colors = { version = "4", features = ["supports-colors"] }
 serde = { version = "1", features = ["derive"] }

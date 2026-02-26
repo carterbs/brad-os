@@ -55,6 +55,7 @@
     "qa:build": "bash scripts/qa-build.sh",
     "qa:launch": "bash scripts/qa-launch.sh",
     "qa:sweep": "bash scripts/qa-sweep.sh",
+    "setup:ios-testing": "bash scripts/setup-ios-testing.sh",
     "ralph:improve-harness": "tsx scripts/ralph/index.ts",
     "ralph:sync-backlog": "tsx scripts/ralph/sync-backlog.ts",
     "preinstall": "node scripts/check-node-version.js",
