@@ -4,6 +4,10 @@ use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::time::Instant;
+use std::time::Duration;
+use std::thread;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 pub struct CheckResult {
     pub name: String,
@@ -19,7 +23,14 @@ pub struct RunOpts<'a> {
     pub env: Option<&'a HashMap<String, String>>,
 }
 
-/// Run a subprocess, capture stdout+stderr to a log file, return result.
+pub struct LiveRunOpts<'a> {
+    pub name: &'a str,
+    pub program: &'a str,
+    pub args: &'a [&'a str],
+    pub env: Option<&'a HashMap<String, String>>,
+}
+
+/// Run a subprocess, capture stdout+stderr to a log file, and return the result.
 pub fn run_check(opts: &RunOpts) -> CheckResult {
     let start = Instant::now();
     let log_path = opts.log_dir.join(format!("{}.log", opts.name));
@@ -59,56 +70,56 @@ pub fn run_check(opts: &RunOpts) -> CheckResult {
     }
 }
 
-/// Run a command and return (exit_code, elapsed_ms). Does not capture to log.
-pub fn run_passthrough(program: &str, args: &[&str]) -> (i32, u64) {
-    let start = Instant::now();
-    let status = Command::new(program)
-        .args(args)
-        .status()
-        .map(|s| s.code().unwrap_or(1))
-        .unwrap_or(1);
-    let ms = start.elapsed().as_millis() as u64;
-    (status, ms)
+/// Run a subprocess with inherited stdio, returning only the exit code.
+pub fn run_live(opts: &LiveRunOpts) -> i32 {
+    run_live_interrupted(opts, &Arc::new(AtomicBool::new(false)))
 }
 
-/// Run a command with env vars, inheriting stdio. Returns (exit_code, elapsed_ms).
-pub fn run_passthrough_with_env(
-    program: &str,
-    args: &[&str],
-    env: &HashMap<String, String>,
-) -> (i32, u64) {
-    let start = Instant::now();
-    let mut cmd = Command::new(program);
-    cmd.args(args);
-    for (k, v) in env {
-        cmd.env(k, v);
+pub fn run_live_interrupted(opts: &LiveRunOpts, interrupted: &Arc<AtomicBool>) -> i32 {
+    let mut cmd = Command::new(opts.program);
+    cmd.args(opts.args)
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+
+    if let Some(env) = opts.env {
+        for (k, v) in env {
+            cmd.env(k, v);
+        }
     }
-    let status = cmd
-        .status()
-        .map(|s| s.code().unwrap_or(1))
-        .unwrap_or(1);
-    let ms = start.elapsed().as_millis() as u64;
-    (status, ms)
-}
 
-/// Check if a command is available on PATH.
-pub fn command_exists(name: &str) -> bool {
-    Command::new("which")
-        .arg(name)
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
+    let mut child = match cmd.spawn() {
+        Ok(child) => child,
+        Err(_) => return 1,
+    };
+
+    loop {
+        if interrupted.load(Ordering::SeqCst) {
+            let _ = child.kill();
+            let _ = child.wait();
+            return 130;
+        }
+
+        match child.try_wait() {
+            Ok(Some(status)) => return status.code().unwrap_or(1),
+            Ok(None) => thread::sleep(Duration::from_millis(50)),
+            Err(_) => {
+                let _ = child.wait();
+                return 1;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::HashMap;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
 
     #[test]
-    fn run_check_success() {
+    fn run_check_writes_stdout_to_log() {
         let dir = tempfile::tempdir().unwrap();
         let result = run_check(&RunOpts {
             name: "echo-test",
@@ -117,14 +128,14 @@ mod tests {
             log_dir: dir.path(),
             env: None,
         });
-        assert_eq!(result.exit_code, 0);
         assert_eq!(result.name, "echo-test");
+        assert_eq!(result.exit_code, 0);
         let log = std::fs::read_to_string(dir.path().join("echo-test.log")).unwrap();
         assert!(log.contains("hello"));
     }
 
     #[test]
-    fn run_check_failure() {
+    fn run_check_preserves_failure_status() {
         let dir = tempfile::tempdir().unwrap();
         let result = run_check(&RunOpts {
             name: "false-test",
@@ -137,25 +148,11 @@ mod tests {
     }
 
     #[test]
-    fn run_check_missing_command() {
-        let dir = tempfile::tempdir().unwrap();
-        let result = run_check(&RunOpts {
-            name: "missing",
-            program: "this-command-does-not-exist-xyz",
-            args: &[],
-            log_dir: dir.path(),
-            env: None,
-        });
-        assert_eq!(result.exit_code, 1);
-        let log = std::fs::read_to_string(dir.path().join("missing.log")).unwrap();
-        assert!(log.contains("Failed to execute"));
-    }
-
-    #[test]
-    fn run_check_with_env() {
+    fn run_check_records_env_value() {
         let dir = tempfile::tempdir().unwrap();
         let mut env = HashMap::new();
         env.insert("MY_TEST_VAR".to_string(), "42".to_string());
+
         let result = run_check(&RunOpts {
             name: "env-test",
             program: "sh",
@@ -169,29 +166,49 @@ mod tests {
     }
 
     #[test]
-    fn run_passthrough_returns_exit_code() {
-        let (code, _ms) = run_passthrough("true", &[]);
-        assert_eq!(code, 0);
-        let (code, _ms) = run_passthrough("false", &[]);
-        assert_ne!(code, 0);
+    fn run_check_reports_command_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = run_check(&RunOpts {
+            name: "missing",
+            program: "this-command-does-not-exist-xyz",
+            args: &[],
+            log_dir: dir.path(),
+            env: None,
+        });
+        assert_eq!(result.exit_code, 1);
+        let log = std::fs::read_to_string(dir.path().join("missing.log")).unwrap();
+        assert!(log.contains("Failed to execute command"));
     }
 
     #[test]
-    fn run_passthrough_with_env_passes_vars() {
+    fn run_live_runs_command_and_returns_exit_code() {
         let mut env = HashMap::new();
-        env.insert("MY_VAR".to_string(), "ok".to_string());
-        let (code, _ms) =
-            run_passthrough_with_env("sh", &["-c", "test \"$MY_VAR\" = ok"], &env);
-        assert_eq!(code, 0);
+        env.insert("TEST_RUN_LIVE".to_string(), "42".to_string());
+        let status = run_live(&LiveRunOpts {
+            name: "live-test",
+            program: "sh",
+            args: &["-c", "test \"$TEST_RUN_LIVE\" = 42"],
+            env: Some(&env),
+        });
+        assert_eq!(status, 0);
     }
 
     #[test]
-    fn command_exists_finds_sh() {
-        assert!(command_exists("sh"));
-    }
+    fn run_live_returns_sigint_exit_code_on_interrupt() {
+        let should_interrupt = Arc::new(AtomicBool::new(false));
+        let should_interrupt_for_worker = should_interrupt.clone();
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(50));
+            should_interrupt_for_worker.store(true, Ordering::SeqCst);
+        });
 
-    #[test]
-    fn command_exists_rejects_missing() {
-        assert!(!command_exists("this-command-does-not-exist-xyz"));
+        let status = run_live_interrupted(&LiveRunOpts {
+            name: "live-interrupt",
+            program: "sh",
+            args: &["-c", "sleep 5"],
+            env: None,
+        }, &should_interrupt);
+
+        assert_eq!(status, 130);
     }
 }

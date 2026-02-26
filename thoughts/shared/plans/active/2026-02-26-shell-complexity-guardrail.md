@@ -4,8 +4,8 @@
 Add a new architecture-lint check to prevent shell scripts from accumulating substantial orchestration complexity again.
 
 ## Current State Analysis
-- Architecture lint Rust crate is the correct enforcement home: [`tools/arch-lint/src/main.rs:36`](/Users/bradcarter/Documents/Dev/brad-os/tools/arch-lint/src/main.rs:36), [`tools/arch-lint/src/checks/mod.rs:1`](/Users/bradcarter/Documents/Dev/brad-os/tools/arch-lint/src/checks/mod.rs:1).
-- Current validate pipeline already runs `arch-lint`: [`scripts/validate.sh:87`](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh:87).
+- Architecture lint Rust crate is the correct enforcement home: `tools/arch-lint/src/main.rs:36`, `tools/arch-lint/src/checks/mod.rs:1`.
+- Current validate pipeline already runs `arch-lint`: `scripts/validate.sh:87`.
 - `main` has already moved `validate`/`pre-commit` logic into Rust (`tools/dev-cli`), with shell files now acting as delegation shims.
 - Remaining shell complexity hotspots are primarily `qa-start` and `qa-stop`.
 
@@ -66,6 +66,6 @@ Implement lexical complexity scoring over shell files (`*.sh`, hook scripts with
 - Manual: add synthetic complex script and verify failure message.
 
 ## References
-- [`tools/arch-lint/src/main.rs`](/Users/bradcarter/Documents/Dev/brad-os/tools/arch-lint/src/main.rs)
-- [`tools/arch-lint/src/lib.rs`](/Users/bradcarter/Documents/Dev/brad-os/tools/arch-lint/src/lib.rs)
-- [`scripts/validate.sh`](/Users/bradcarter/Documents/Dev/brad-os/scripts/validate.sh)
+- `tools/arch-lint/src/main.rs`
+- `tools/arch-lint/src/lib.rs`
+- `scripts/validate.sh`

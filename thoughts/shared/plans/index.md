@@ -5,9 +5,10 @@
 | Plan | Summary | Created |
 |------|---------|---------|
 | [rust-migrate-qa-start](active/2026-02-26-rust-migrate-qa-start.md) | Migrate `scripts/qa-start.sh` orchestration engine to Rust with parity contracts and >=90% coverage gate | 2026-02-26 |
-| [rust-migrate-qa-stop](active/2026-02-26-rust-migrate-qa-stop.md) | Migrate `scripts/qa-stop.sh` teardown/lock lifecycle logic to Rust with parity and >=90% coverage | 2026-02-26 |
 | [rust-migrate-validate](active/2026-02-26-rust-migrate-validate.md) | Migrate `scripts/validate.sh` parallel validation pipeline to Rust with unchanged `.validate` contracts | 2026-02-26 |
+| [rust-migration-precommit-validate](active/2026-02-26-rust-migration-precommit-validate.md) | Rust migration plan for pre-commit + validate orchestration parity and rollout | 2026-02-26 |
 | [rust-migrate-doctor](active/2026-02-26-rust-migrate-doctor.md) | Migrate `scripts/doctor.sh` environment diagnostics to Rust with equivalent remediation output | 2026-02-26 |
+| [rust-migration-precommit-validate](active/2026-02-26-rust-migration-precommit-validate.md) | Migrate `hooks/pre-commit` and `scripts/validate.sh` orchestration to Rust | 2026-02-26 |
 | [rust-migrate-setup-ios-testing](active/2026-02-26-rust-migrate-setup-ios-testing.md) | Migrate `scripts/setup-ios-testing.sh` iOS bootstrap orchestration to Rust | 2026-02-26 |
 | [rust-migrate-run-integration-tests](active/2026-02-26-rust-migrate-run-integration-tests.md) | Migrate `scripts/run-integration-tests.sh` emulator/test lifecycle runner to Rust | 2026-02-26 |
 | [rust-migrate-pre-commit-hook](active/2026-02-26-rust-migrate-pre-commit-hook.md) | Migrate complex `hooks/pre-commit` routing/policy logic to Rust engine with shim hook | 2026-02-26 |
@@ -22,6 +23,7 @@
 
 | Plan | Summary | Completed |
 |------|---------|-----------|
+| [rust-migrate-qa-stop](completed/2026-02-26-rust-migrate-qa-stop.md) | Migrate `scripts/qa-stop.sh` teardown/lock lifecycle logic to Rust with parity and >=90% coverage | 2026-02-26 |
 | [oxlint-migration](completed/2026-02-26-oxlint-migration.md) | Speed-first legacy-lint to Oxlint migration with strict no-`any` enforcement and staged type-aware unsafe checks | 2026-02-26 |
 | [today-coach](completed/2026-02-09-today-coach.md) | Holistic daily AI briefing aggregating all activity domains | ~2026-02-09 |
 | [ai-cycling-coach](completed/2026-02-08-ai-cycling-coach.md) | AI-powered cycling coach with HealthKit + Strava + Peloton integration | ~2026-02-08 |

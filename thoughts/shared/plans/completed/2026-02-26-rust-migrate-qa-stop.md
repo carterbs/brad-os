@@ -68,3 +68,10 @@ Implement `qa-stop` as a Rust binary target (prefer `tools/dev-cli`) with module
 - [`scripts/qa-stop.sh`](/Users/bradcarter/Documents/Dev/brad-os/scripts/qa-stop.sh)
 - [`scripts/qa-start.sh`](/Users/bradcarter/Documents/Dev/brad-os/scripts/qa-start.sh)
 - [`package.json`](/Users/bradcarter/Documents/Dev/brad-os/package.json)
+
+## Completion Evidence
+- Executed evidence command sequence:
+  - `npm run qa:env:start -- --id qa-stop-gate-e2e --no-firebase --no-otel --no-simulator`
+  - `npm run qa:env:stop -- --id qa-stop-gate-e2e --shutdown-simulator`
+- Evidence log: `thoughts/shared/plans/qa-stop-e2e-2026-02-26.md`
+- Result: matching simulator lock `device-locks/qa-stop-gate-e2e.lock` was released and scan-based stale-lock cleanup completed with no residual locks.
