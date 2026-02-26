@@ -26,15 +26,15 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 
 | Domain | Grade | Backend Tests | iOS Tests | Assertions | Density | Coverage | API Complete | iOS Complete | Notes |
 |--------|-------|---------------|-----------|------------|---------|----------|--------------|--------------|-------|
-| Lifting | **A** | High (555) | Medium (8) | 1225 | 2.2x | 92% | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. Deepest repository layer coverage with dedicated tests for every data access pattern. |
-| Meal Planning | **A** | High (207) | Medium (7) | 509 | 2.5x | 96% | Yes | Yes | 6 handler, 3 service, 5 repo, 1 integration, 1 schema tests. AI generation and critique pipeline fully tested through handler, service, and repository layers. |
-| Cycling | **A** | High (306) | Low (2) | 676 | 2.2x | 95% | Yes | Yes | 3 handler, 7 service, 1 integration tests. Multi-service Strava integration tested end-to-end including webhook, coach, and efficiency factor logic. |
-| Stretching | **A** | Medium (52) | Medium (4) | 134 | 2.6x | 99% | Yes | Yes | 2 handler, 2 repo, 1 integration tests. Lean domain with near-perfect coverage and a focused handler and repository test suite. |
-| Calendar | **A** | High (96) | Medium (4) | 243 | 2.5x | 100% | Yes | Yes | 1 handler, 1 service, 1 integration, 1 schema tests. Perfect coverage achieved across handler, service, and integration layers. |
-| Meditation | **A** | High (111) | Medium (4) | 288 | 2.6x | 100% | Yes | Yes | 3 handler, 2 service, 2 repo, 1 integration, 2 schema tests. Full TTS pipeline and guided meditation script handling tested through all three layers. |
-| Health Sync | **A** | High (158) | Medium (4) | 364 | 2.3x | 100% | Yes | Yes | 2 handler, 1 service, 1 integration, 1 schema tests. HealthKit sync pipeline fully covered including recovery service and integration tests. |
+| Lifting | **A** | High (555) | Medium (8) | 1225 | 2.2x | 92% | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. Largest backend test suite in the project, covering the full mesocycle and progression pipeline. |
+| Meal Planning | **A** | High (207) | Medium (7) | 509 | 2.5x | 96% | Yes | Yes | 6 handler, 3 service, 5 repo, 1 integration, 1 schema tests. AI generation, critique, and barcode lookup all covered end-to-end. |
+| Cycling | **A** | High (306) | Low (2) | 676 | 2.2x | 95% | Yes | Yes | 3 handler, 7 service, 1 integration tests. Deep Strava integration with coach, efficiency, and VO2 max analytics fully tested. |
+| Stretching | **A** | Medium (52) | Medium (4) | 134 | 2.6x | 99% | Yes | Yes | 2 handler, 2 repo, 1 integration tests. Lean domain achieving near-perfect coverage across a compact handler surface. |
+| Calendar | **A** | High (96) | Medium (4) | 243 | 2.5x | 100% | Yes | Yes | 1 handler, 1 service, 1 integration, 1 schema tests. Perfect coverage across handler, service, and integration layers. |
+| Meditation | **A** | High (111) | Medium (4) | 288 | 2.6x | 100% | Yes | Yes | 3 handler, 2 service, 2 repo, 1 integration, 2 schema tests. TTS pipeline and guided script browsing achieve perfect backend coverage. |
+| Health Sync | **A** | High (158) | Medium (4) | 364 | 2.3x | 100% | Yes | Yes | 2 handler, 1 service, 1 integration, 1 schema tests. HealthKit sync with recovery scoring reaches perfect backend coverage. |
 | History | **B-** | (shared) | (shared) | 0 | — | -- | Yes | Yes | Reuses Calendar backend/ViewModel. No additional tests needed, but filter logic is untested. |
-| Today | **A** | Medium (49) | Medium (4) | 123 | 2.5x | 96% | Yes | Yes | 1 handler, 2 service, 1 integration tests. AI briefing coach pipeline tested end-to-end with handler, service, and integration coverage. |
+| Today | **A** | Medium (49) | Medium (4) | 123 | 2.5x | 96% | Yes | Yes | 1 handler, 2 service, 1 integration tests. AI coach briefing pipeline fully tested across handler, service, and integration. |
 | Profile | **B-** | (shared) | (shared) | 0 | — | -- | Yes | Yes | Settings hub, no own backend. Relies on health-sync and cycling backends. |
 
 ---
