@@ -11,10 +11,11 @@ const DIM: &str = "\x1b[2m";
 const RESET: &str = "\x1b[0m";
 const LABEL_WIDTH: usize = 18;
 
-const INSTALL_CMDS: [&str; 5] = [
+const INSTALL_CMDS: [&str; 6] = [
     "brew install node@22  # or: nvm install 22",
     "# npm comes with Node — reinstall Node to update npm",
     "npm install -g firebase-tools",
+    "Install Rust: https://rustup.rs/",
     "brew install gitleaks",
     "brew install xcodegen",
 ];
@@ -87,7 +88,7 @@ where
     )?;
     check_tool(
         writer,
-        "gitleaks",
+        "cargo",
         INSTALL_CMDS[3],
         None,
         fast_mode,
@@ -97,8 +98,18 @@ where
     )?;
     check_tool(
         writer,
-        "xcodegen",
+        "gitleaks",
         INSTALL_CMDS[4],
+        None,
+        fast_mode,
+        &probe_tool,
+        &mut issues,
+        &mut install_cmds,
+    )?;
+    check_tool(
+        writer,
+        "xcodegen",
+        INSTALL_CMDS[5],
         None,
         fast_mode,
         &probe_tool,
