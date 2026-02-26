@@ -285,6 +285,7 @@ Review cycle: ${cycle}/${maxCycles}
 IMPORTANT: Do NOT modify any files in this review step.
 IMPORTANT: Do NOT push to any remote.
 IMPORTANT: Do NOT modify scripts/ralph/backlog.md (main-managed; only updated after merge on main).
+IMPORTANT: Do NOT use Playwright MCP to review the PR.
 
 Steps:
 1. Run: gh pr view ${prNumber} --comments
