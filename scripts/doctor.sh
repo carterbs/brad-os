@@ -83,10 +83,16 @@ check_setup() {
 # --- Run checks ---
 printf "\n"
 
+# Ensure cargo is in PATH if installed via rustup
+if ! command -v cargo &>/dev/null; then
+  [ -f "$HOME/.cargo/env" ] && source "$HOME/.cargo/env"
+fi
+
 # Tool checks
 check_tool "node" "brew install node@22  # or: nvm install 22" 22
 check_tool "npm" "# npm comes with Node — reinstall Node to update npm" 10
 check_tool "firebase" "npm install -g firebase-tools"
+check_tool "cargo" "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
 check_tool "gitleaks" "brew install gitleaks"
 check_tool "xcodegen" "brew install xcodegen"
 

@@ -64,6 +64,7 @@ describe('scripts/doctor.sh', () => {
     expect(stdout).toContain('node');
     expect(stdout).toContain('npm');
     expect(stdout).toContain('firebase');
+    expect(stdout).toContain('cargo');
     expect(stdout).toContain('gitleaks');
     expect(stdout).toContain('xcodegen');
     expect(stdout).toContain('git hooks');

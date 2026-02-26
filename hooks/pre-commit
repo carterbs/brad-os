@@ -7,6 +7,16 @@
 #
 set -euo pipefail
 
+# --- Rust delegation (set BRAD_USE_RUST_PRECOMMIT=0 to force legacy Bash) ---
+if [ "${BRAD_USE_RUST_PRECOMMIT:-1}" = "1" ]; then
+  REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+  RUST_BINARY="$REPO_ROOT/target/release/brad-precommit"
+  if [ -f "$RUST_BINARY" ]; then
+    exec "$RUST_BINARY" "$@"
+  fi
+  # Rust binary not built yet — fall through to legacy Bash
+fi
+
 PRE_COMMIT_TIMING_FILE="${PRE_COMMIT_TIMING_FILE:-.cache/pre-commit-timings.jsonl}"
 
 HOOK_START_NS=$(date +%s%N)
