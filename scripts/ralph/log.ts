@@ -35,7 +35,7 @@ function formatCost(backend: AgentBackend, costUsd: number, tokens: number): str
   return `$${costUsd.toFixed(2)}, ${Math.round(tokens / 1000)}k tok`;
 }
 
-function formatElapsed(ms: number): string {
+export function formatElapsed(ms: number): string {
   const secs = Math.floor(ms / 1000);
   if (secs < 60) return `${secs}s`;
   const mins = Math.floor(secs / 60);
@@ -51,7 +51,7 @@ interface WorkerState {
   startTime?: number;
 }
 
-class StatusBar {
+export class StatusBar {
   private workers = new Map<number, WorkerState>();
   private enabled = process.stdout.isTTY ?? false;
   private timer?: NodeJS.Timeout;
