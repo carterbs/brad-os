@@ -4,6 +4,16 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BINARY="$REPO_ROOT/target/release/brad-precommit"
 SOURCE_DIR="$REPO_ROOT/tools/dev-cli/src"
+LEGACY_SCRIPT="$REPO_ROOT/hooks/pre-commit-legacy"
+
+if [ "${BRAD_USE_RUST_PRECOMMIT:-1}" = "0" ]; then
+  if [ -f "$LEGACY_SCRIPT" ]; then
+    exec bash "$LEGACY_SCRIPT" "$@"
+  fi
+
+  echo "BRAD_USE_RUST_PRECOMMIT=0 requires hooks/pre-commit-legacy to exist" >&2
+  exit 1
+fi
 
 if ! command -v cargo >/dev/null 2>&1; then
   if [ -f "$HOME/.cargo/env" ]; then
