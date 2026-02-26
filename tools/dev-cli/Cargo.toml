@@ -4,12 +4,24 @@ version = "0.1.0"
 edition = "2021"
 
 [[bin]]
+name = "brad-doctor"
+path = "src/bin/doctor.rs"
+
+[[bin]]
+name = "brad-precommit"
+path = "src/bin/precommit.rs"
+
+[[bin]]
+name = "brad-qa-start"
+path = "src/bin/qa_start.rs"
+
+[[bin]]
 name = "brad-validate"
 path = "src/bin/validate.rs"
 
 [[bin]]
 name = "brad-run-integration-tests"
-path = "src/bin/run_integration_tests.rs"
+path = "src/bin/run-integration-tests.rs"
 
 [[bin]]
 name = "brad-setup-ios-testing"
@@ -19,19 +31,10 @@ path = "src/bin/setup_ios_testing.rs"
 name = "brad-qa-stop"
 path = "src/bin/qa-stop.rs"
 
-[[bin]]
-name = "brad-precommit"
-path = "src/bin/precommit.rs"
-
-[[bin]]
-name = "brad-doctor"
-path = "src/bin/doctor.rs"
-
 [dependencies]
 owo-colors = { version = "4", features = ["supports-colors"] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-ctrlc = "3"
-tempfile = "3"
-regex = "1"
+ctrlc = "3.4.4"
 crc32fast = "1"
+regex = "1"
+serde_json = "1"
+tempfile = "3"

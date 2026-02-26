@@ -4,14 +4,12 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BINARY="$REPO_ROOT/target/release/brad-setup-ios-testing"
 
-# Ensure cargo is in PATH
 if ! command -v cargo &>/dev/null; then
   [ -f "$HOME/.cargo/env" ] && source "$HOME/.cargo/env"
 fi
 
 if [ ! -f "$BINARY" ] || [ "$(find "$REPO_ROOT/tools/dev-cli/src" -newer "$BINARY" -print -quit 2>/dev/null)" ]; then
-  cargo build -p dev-cli --release --bin brad-setup-ios-testing --manifest-path "$REPO_ROOT/Cargo.toml" -q
+  cargo build --manifest-path "$REPO_ROOT/tools/dev-cli/Cargo.toml" --release --bin brad-setup-ios-testing -q
 fi
 
-cd "$REPO_ROOT"
 exec "$BINARY" "$@"

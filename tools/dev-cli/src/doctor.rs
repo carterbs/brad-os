@@ -164,7 +164,9 @@ where
 
 pub fn parse_version(output: &str) -> Option<String> {
     let regex = Regex::new(r"[0-9]+\.[0-9]+\.[0-9]+").expect("valid regex");
-    regex.find(output).map(|match_result| match_result.as_str().to_string())
+    regex
+        .find(output)
+        .map(|match_result: regex::Match<'_>| match_result.as_str().to_string())
 }
 
 pub fn major_from_version(version: &str) -> Option<u32> {

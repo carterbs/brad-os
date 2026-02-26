@@ -26,78 +26,7 @@ run_rust_validate() {
   if [ -x "$binary" ]; then
     exec "$binary" "$@"
   fi
-}
-
-LOG_DIR=".validate"
-rm -rf "$LOG_DIR"
-mkdir -p "$LOG_DIR"
-
-QUICK="${QUICK:-false}"
-
-TOTAL_START=$(date +%s)
-
-# --- Define checks ---
-CHECKS=("typecheck" "lint")
-$QUICK || CHECKS+=("test" "architecture" "rust-coverage")
-
-run_check() {
-  local key="$1"
-  local start=$(date +%s)
-  local rc=0
-  local -a vitest_args=()
-  local project
-  local file
-
-  case "$key" in
-    typecheck)    npx tsc -b                                                             > "$LOG_DIR/typecheck.log"    2>&1 || rc=$? ;;
-    lint)         npx oxlint packages/functions/src --config .oxlintrc.json > "$LOG_DIR/lint.log" 2>&1 || rc=$? ;;
-    test)
-      if [ "${#TEST_PROJECTS[@]}" -gt 0 ]; then
-        for project in "${TEST_PROJECTS[@]}"; do
-          vitest_args+=(--project "$project")
-        done
-      fi
-      if [ "${#TEST_FILES[@]}" -gt 0 ]; then
-        for file in "${TEST_FILES[@]}"; do
-          vitest_args+=("$file")
-        done
-      fi
-
-      if [ "${#vitest_args[@]}" -gt 0 ]; then
-        npx vitest run "${vitest_args[@]}" > "$LOG_DIR/test.log" 2>&1 || rc=$?
-      else
-        npx vitest run > "$LOG_DIR/test.log" 2>&1 || rc=$?
-      fi
-      ;;
-    architecture) bash scripts/arch-lint > "$LOG_DIR/architecture.log" 2>&1 || rc=$? ;;
-    rust-coverage)
-      if ! command -v cargo >/dev/null 2>&1; then
-        echo "cargo is missing. Install Rust/Cargo (rustup) before running Rust coverage checks." >> "$LOG_DIR/rust-coverage.log"
-        rc=1
-      elif ! command -v rustup >/dev/null 2>&1; then
-        echo "rustup is missing. Install rustup before running Rust coverage checks." >> "$LOG_DIR/rust-coverage.log"
-        rc=1
-      elif ! command -v cargo-llvm-cov >/dev/null 2>&1; then
-        echo "cargo-llvm-cov is missing. Install it with: cargo install cargo-llvm-cov --locked" >> "$LOG_DIR/rust-coverage.log"
-        rc=1
-      elif ! rustup component list --installed | grep -Fxq "llvm-tools-preview"; then
-        echo "Missing Rust component: llvm-tools-preview." >> "$LOG_DIR/rust-coverage.log"
-        echo "Install with: rustup component add llvm-tools-preview" >> "$LOG_DIR/rust-coverage.log"
-        rc=1
-      elif [ "$rc" -eq 0 ]; then
-        cargo llvm-cov --workspace --summary-only --fail-under-lines 90 > "$LOG_DIR/rust-coverage.log" 2>&1 || rc=$?
-        if [ "$rc" -eq 0 ]; then
-          cargo llvm-cov --package dev-cli --summary-only --fail-under-lines 95 >> "$LOG_DIR/rust-coverage.log" 2>&1 || rc=$?
-          if [ "$rc" -ne 0 ]; then
-            echo "dev-cli coverage below 95% target (workspace hard-fail at 90%)." >> "$LOG_DIR/rust-coverage.log"
-          fi
-        fi
-      fi
-      ;;
-  esac
-
-  local elapsed=$(( $(date +%s) - start ))
-  echo "$rc $elapsed" > "$LOG_DIR/$key.status"
+  return 1
 }
 
 run_legacy_validate() {

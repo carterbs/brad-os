@@ -50,8 +50,10 @@ pub fn parse_available_simulators(raw: &str) -> Vec<SimulatorCandidate> {
         }
 
         if let Some(captures) = re.captures(line) {
-            let name = captures.get(1).map(|m| m.as_str().trim().to_string());
-            let udid = captures.get(2).map(|m| m.as_str().to_string());
+            let name: Option<String> = captures.get(1).map(|m: regex::Match<'_>| {
+                m.as_str().trim().to_string()
+            });
+            let udid: Option<String> = captures.get(2).map(|m: regex::Match<'_>| m.as_str().to_string());
             if let (Some(name), Some(udid)) = (name, udid) {
                 if !name.is_empty() && !udid.is_empty() {
                     candidates.push(SimulatorCandidate { name, udid });
