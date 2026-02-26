@@ -153,10 +153,15 @@ const createMockLogger = () => ({
   verboseMsg: vi.fn(),
   tool: vi.fn(),
   compaction: vi.fn(),
+  setStep: vi.fn(),
+  clearStep: vi.fn(),
+  incrementToolCalls: vi.fn(),
+  flush: vi.fn(),
 });
 
 vi.mock('./log.js', () => ({
   Logger: mockLoggerConstructor,
+  statusBar: { start: vi.fn(), stop: vi.fn() },
 }));
 
 // Helper to create a valid StepResult
