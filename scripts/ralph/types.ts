@@ -28,6 +28,7 @@ export interface Config {
   task?: string;
   repoDir: string;
   worktreeDir: string;
+  minReviewCycles: number;
   maxReviewCycles: number;
   logFile: string;
   agents: AgentConfig;

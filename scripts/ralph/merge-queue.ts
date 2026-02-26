@@ -1,10 +1,12 @@
-import { mergeToMain, cleanupWorktree } from "./git.js";
+import { cleanupWorktree } from "./git.js";
 import { Logger } from "./log.js";
+import { mergePullRequest } from "./pr.js";
 
 export interface MergeJob {
   repoDir: string;
   worktreePath: string;
   branchName: string;
+  prNumber: number;
   improvement: number;
   worker: number;
   logger: Logger;
@@ -20,7 +22,7 @@ export interface MergeResult {
 /**
  * Sequential merge queue using chained promises.
  * Each enqueue() call chains onto the previous, ensuring FIFO order.
- * This prevents merge conflicts from concurrent merges to main.
+ * This serializes final PR decisions to avoid noisy concurrent merge actions.
  */
 export class MergeQueue {
   private chain: Promise<void> = Promise.resolve();
@@ -35,7 +37,7 @@ export class MergeQueue {
   }
 
   private async processJob(job: MergeJob): Promise<MergeResult> {
-    const { repoDir, worktreePath, branchName, improvement, worker, logger } = job;
+    const { repoDir, worktreePath, branchName, prNumber, improvement, worker, logger } = job;
 
     logger.jsonl({
       event: "merge_queued",
@@ -45,15 +47,17 @@ export class MergeQueue {
       ts: new Date().toISOString(),
     });
 
-    logger.info(`[4/4] Merging ${branchName} to main...`);
+    logger.info(`[5/5] Deciding merge for PR #${prNumber} (${branchName})...`);
 
-    const success = mergeToMain(repoDir, branchName);
+    const success = mergePullRequest(repoDir, prNumber);
 
     if (success) {
       cleanupWorktree(repoDir, worktreePath, branchName);
-      logger.success(`Merged ${branchName} to main`);
+      logger.success(`Merge decision: merged PR #${prNumber}`);
     } else {
-      logger.error(`Merge conflict \u2014 worktree preserved at: ${worktreePath}`);
+      logger.error(
+        `Merge decision: escalated to human review (PR #${prNumber}); worktree preserved at: ${worktreePath}`,
+      );
     }
 
     logger.jsonl({

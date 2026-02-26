@@ -26,7 +26,8 @@ describe('resolveConfig', () => {
     expect(config.parallelism).toBe(2);
     expect(config.branchPrefix).toBe('harness-improvement');
     expect(config.maxTurns).toBe(100);
-    expect(config.maxReviewCycles).toBe(4);
+    expect(config.minReviewCycles).toBe(2);
+    expect(config.maxReviewCycles).toBe(3);
     expect(config.verbose).toBe(false);
     expect(config.target).toBeUndefined();
     expect(config.task).toBeUndefined();
@@ -667,7 +668,8 @@ describe('resolveConfig', () => {
     expect(config.parallelism).toBe(2);
     expect(config.branchPrefix).toBe('harness-improvement');
     expect(config.maxTurns).toBe(100);
-    expect(config.maxReviewCycles).toBe(4);
+    expect(config.minReviewCycles).toBe(2);
+    expect(config.maxReviewCycles).toBe(3);
   });
 
   // ===== 37. Partial config file only overrides what's specified =====
@@ -684,7 +686,8 @@ describe('resolveConfig', () => {
     expect(config.parallelism).toBe(5);
     expect(config.branchPrefix).toBe('harness-improvement'); // default
     expect(config.maxTurns).toBe(100); // default
-    expect(config.maxReviewCycles).toBe(4); // default
+    expect(config.minReviewCycles).toBe(2);
+    expect(config.maxReviewCycles).toBe(3); // default
   });
 
   // ===== 38. all four agent steps are resolved =====
@@ -748,7 +751,8 @@ describe('resolveConfig', () => {
     expect(config.maxTurns).toBe(75);
 
     // Defaults apply when neither CLI nor config
-    expect(config.maxReviewCycles).toBe(4);
+    expect(config.minReviewCycles).toBe(2);
+    expect(config.maxReviewCycles).toBe(3);
 
     // Agent resolution with multiple sources
     // backlog: config global agent (claude) applies, config-step model (backlog-custom) applies
