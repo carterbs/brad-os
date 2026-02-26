@@ -59,6 +59,7 @@ export interface MockWorkoutRepository extends MockBaseRepository {
   findPreviousWeekWorkout: MockFn;
   findNextPending: MockFn;
   findCompletedInDateRange: MockFn;
+  findByCompletedAtRange: MockFn;
 }
 
 export function createMockWorkoutRepository(): MockWorkoutRepository {
@@ -74,6 +75,7 @@ export function createMockWorkoutRepository(): MockWorkoutRepository {
     findPreviousWeekWorkout: vi.fn(),
     findNextPending: vi.fn(),
     findCompletedInDateRange: vi.fn(),
+    findByCompletedAtRange: vi.fn(),
   };
 }
 
@@ -192,6 +194,22 @@ export function createMockStretchSessionRepository(): MockStretchSessionReposito
   };
 }
 
+// ============ Stretch Repository Mock ============
+
+export interface MockStretchRepository {
+  findAll: MockFn;
+  findByRegion: MockFn;
+  seed: MockFn;
+}
+
+export function createMockStretchRepository(): MockStretchRepository {
+  return {
+    findAll: vi.fn(),
+    findByRegion: vi.fn(),
+    seed: vi.fn(),
+  };
+}
+
 // ============ Meditation Session Repository Mock ============
 
 export interface MockMeditationSessionRepository {
@@ -213,6 +231,32 @@ export function createMockMeditationSessionRepository(): MockMeditationSessionRe
     findInDateRange: vi.fn(),
     getStats: vi.fn(),
     delete: vi.fn(),
+  };
+}
+
+// ============ Cycling Activity Repository Mock ==========
+
+export interface MockCyclingActivityRepository {
+  findAllByUser: MockFn;
+  findById: MockFn;
+  findByStravaId: MockFn;
+  create: MockFn;
+  update: MockFn;
+  delete: MockFn;
+  saveStreams: MockFn;
+  getStreams: MockFn;
+}
+
+export function createMockCyclingActivityRepository(): MockCyclingActivityRepository {
+  return {
+    findAllByUser: vi.fn(),
+    findById: vi.fn(),
+    findByStravaId: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    saveStreams: vi.fn(),
+    getStreams: vi.fn(),
   };
 }
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-
-// ---- Firestore mock chain ----
+import type { CollectionReference, DocumentReference } from 'firebase-admin/firestore';
+import { createFirestoreMocks } from '../test-utils/index.js';
 
 const mockGet = vi.fn();
 const mockSet = vi.fn().mockResolvedValue(undefined);
@@ -9,27 +9,9 @@ const mockLimit = vi.fn();
 const mockWhere = vi.fn();
 const mockBatchSet = vi.fn();
 const mockBatchCommit = vi.fn().mockResolvedValue(undefined);
-
-const mockDocRef: Record<string, unknown> = {
-  get: mockGet,
-  set: mockSet,
-  collection: vi.fn(),
-};
-
-const mockCollectionRef = {
-  doc: vi.fn(() => mockDocRef),
-  orderBy: mockOrderBy,
-  where: mockWhere,
-  get: mockGet,
-};
-
-// Circular: docRef.collection -> collectionRef
-(mockDocRef['collection'] as ReturnType<typeof vi.fn>).mockReturnValue(mockCollectionRef);
-
-const mockDb = {
-  collection: vi.fn(() => mockCollectionRef),
-  batch: vi.fn(() => ({ set: mockBatchSet, commit: mockBatchCommit })),
-};
+let mockDb: { collection: ReturnType<typeof vi.fn>; batch: ReturnType<typeof vi.fn> };
+let mockDocRef: Partial<DocumentReference>;
+let mockCollectionRef: Partial<CollectionReference>;
 
 // ---- Module mocks (must be before service import) ----
 
@@ -156,18 +138,29 @@ describe('firestore-recovery.service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Re-wire the default chain after clearAllMocks resets return values
-    mockDb.collection.mockReturnValue(mockCollectionRef);
-    mockDb.batch.mockReturnValue({ set: mockBatchSet, commit: mockBatchCommit });
-    mockCollectionRef.doc.mockReturnValue(mockDocRef);
-    (mockDocRef['collection'] as ReturnType<typeof vi.fn>).mockReturnValue(mockCollectionRef);
-    mockDocRef['get'] = mockGet;
-    mockDocRef['set'] = mockSet;
+    const firestoreMocks = createFirestoreMocks();
+    mockDb = {
+      collection: firestoreMocks.mockDb.collection as ReturnType<typeof vi.fn>,
+      batch: vi.fn(() => ({ set: mockBatchSet, commit: mockBatchCommit })),
+    };
+    mockDocRef = firestoreMocks.mockDocRef;
+    mockCollectionRef = firestoreMocks.mockCollection;
+
+    mockDb.collection = vi.fn(() => mockCollectionRef);
+
+    mockCollectionRef.doc = vi.fn(() => mockDocRef);
+    mockCollectionRef.orderBy = mockOrderBy;
+    mockCollectionRef.where = mockWhere;
+    mockCollectionRef.get = mockGet;
+
+    mockDocRef.collection = vi.fn(() => mockCollectionRef);
+    mockDocRef.get = mockGet;
+    mockDocRef.set = mockSet;
 
     // Query chaining
     mockOrderBy.mockReturnValue({ get: mockGet, limit: mockLimit });
     mockLimit.mockReturnValue({ get: mockGet });
-    mockWhere.mockReturnValue({ orderBy: mockOrderBy });
+    mockWhere.mockReturnValue({ orderBy: mockOrderBy, get: mockGet });
   });
 
   // ============ Recovery Snapshots ============

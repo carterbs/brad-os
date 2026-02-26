@@ -1,19 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createMockPlanDayRepository, createMockWorkoutRepository, createMockWorkoutSetRepository } from '../__tests__/utils/mock-repository.js';
 
 // Define mock objects with vi.hoisted (before any imports)
-const mockWorkoutRepo = vi.hoisted(() => ({
-  findCompletedInDateRange: vi.fn(),
-  findByDate: vi.fn(),
-}));
-const mockPlanDayRepo = vi.hoisted(() => ({
-  findById: vi.fn(),
-}));
-const mockWorkoutSetRepo = vi.hoisted(() => ({
-  findByWorkoutId: vi.fn(),
-}));
-const mockMesocycleService = vi.hoisted(() => ({
+const mockWorkoutRepo = createMockWorkoutRepository();
+const mockPlanDayRepo = createMockPlanDayRepository();
+const mockWorkoutSetRepo = createMockWorkoutSetRepository();
+const mockMesocycleService = {
   getActive: vi.fn(),
-}));
+};
 
 // Mock modules — getters return our mock objects
 vi.mock('../repositories/index.js', () => ({
