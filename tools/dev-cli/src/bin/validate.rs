@@ -116,6 +116,7 @@ fn parse_newline_env(key: &str) -> Vec<String> {
     env::var(key)
         .unwrap_or_default()
         .lines()
+        .map(str::trim)
         .filter(|line| !line.is_empty())
         .map(str::to_string)
         .collect()
@@ -143,6 +144,16 @@ mod tests {
         env::set_var("BRAD_VALIDATE_TEST_FILES", "a\n\nb\n");
         assert_eq!(parse_newline_env("BRAD_VALIDATE_TEST_FILES"), vec!["a".to_string(), "b".to_string()]);
         env::remove_var("BRAD_VALIDATE_TEST_FILES");
+    }
+
+    #[test]
+    fn parse_newline_env_trims_whitespace() {
+        env::set_var("BRAD_VALIDATE_TEST_PROJECTS", " functions \n\tweb \n");
+        assert_eq!(
+            parse_newline_env("BRAD_VALIDATE_TEST_PROJECTS"),
+            vec!["functions".to_string(), "web".to_string()]
+        );
+        env::remove_var("BRAD_VALIDATE_TEST_PROJECTS");
     }
 
     #[test]
