@@ -10,22 +10,15 @@
 
 import type { Firestore } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
-import { z } from 'zod';
 import { getFirestoreDb, getCollectionName } from '../firebase.js';
 import type { CyclingActivity, ActivityStreamData, CyclingActivityUpdate, DeleteCyclingActivityResult } from '../types/cycling.js';
 import {
   isRecord,
   readNumberArray,
+  readString,
+  readNumber,
 } from './firestore-type-guards.js';
-import { createCyclingActivitySchema } from '../shared.js';
-
-const cyclingActivityDocSchema = createCyclingActivitySchema.extend({
-  type: createCyclingActivitySchema.shape.type.or(z.literal('virtual')).transform((value) => {
-    return value === 'virtual' ? 'unknown' : value;
-  }),
-  userId: z.string(),
-  createdAt: z.string(),
-});
+import { cyclingActivityDocSchema } from '../shared.js';
 
 export class CyclingActivityRepository {
   private db: Firestore;

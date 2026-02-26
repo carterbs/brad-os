@@ -152,6 +152,37 @@ describe('CyclingActivityRepository', () => {
       expect(result?.peak5MinPower).toBe(400);
     });
 
+    it('should map legacy virtual activity type to unknown', async (): Promise<void> => {
+      const repository = new CyclingActivityRepository(mockDb as Firestore);
+
+      const mockActivityData: Record<string, unknown> = {
+        stravaId: 333,
+        userId: 'user-1',
+        date: '2026-02-15',
+        durationMinutes: 30,
+        avgPower: 150,
+        normalizedPower: 160,
+        maxPower: 280,
+        avgHeartRate: 130,
+        maxHeartRate: 155,
+        tss: 40,
+        intensityFactor: 0.7,
+        type: 'virtual',
+        source: 'strava',
+        createdAt: '2026-02-15T12:00:00.000Z',
+      };
+
+      (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+        exists: true,
+        id: 'activity-legacy',
+        data: (): Record<string, unknown> => mockActivityData,
+      });
+
+      const result = await repository.findById('user-1', 'activity-legacy');
+
+      expect(result?.type).toBe('unknown');
+    });
+
     it('should return null when doc does not exist', async (): Promise<void> => {
       const repository = new repositoryClass(mockDb as Firestore);
 

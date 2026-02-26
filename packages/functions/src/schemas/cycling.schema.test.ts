@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateVO2MaxSchema,
   createCyclingActivitySchema,
+  cyclingActivityDocSchema,
   createFTPEntrySchema,
   createTrainingBlockSchema,
   createWeightGoalSchema,
@@ -92,7 +93,7 @@ const validCyclingProfilePayload = {
   restingHR: 50,
 };
 
-const validCyclingActivityPayload = {
+  const validCyclingActivityPayload = {
   stravaId: 999,
   date: '2026-02-20',
   durationMinutes: 60,
@@ -104,7 +105,13 @@ const validCyclingActivityPayload = {
   tss: 55,
   intensityFactor: 0.8,
   type: 'threshold',
-  source: 'strava',
+    source: 'strava',
+  };
+
+const validCyclingActivityDocPayload = {
+  ...validCyclingActivityPayload,
+  userId: 'user-1',
+  createdAt: '2026-02-20T12:00:00.000Z',
 };
 
 describe('cycling.schema', () => {
@@ -747,6 +754,44 @@ describe('cycling.schema', () => {
           peak20MinPower: 0,
         }).success
       ).toBe(false);
+    });
+  });
+
+  describe('cyclingActivityDocSchema', () => {
+    it('accepts valid persisted payload with required user and created timestamps', () => {
+      const result = cyclingActivityDocSchema.safeParse(validCyclingActivityDocPayload);
+
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects payload missing userId', () => {
+      const payload = {
+        ...validCyclingActivityDocPayload,
+      };
+      delete payload.userId;
+
+      expect(cyclingActivityDocSchema.safeParse(payload).success).toBe(false);
+    });
+
+    it('rejects payload missing createdAt', () => {
+      const payload = {
+        ...validCyclingActivityDocPayload,
+      };
+      delete payload.createdAt;
+
+      expect(cyclingActivityDocSchema.safeParse(payload).success).toBe(false);
+    });
+
+    it('accepts legacy virtual type and transforms to unknown', () => {
+      const result = cyclingActivityDocSchema.safeParse({
+        ...validCyclingActivityDocPayload,
+        type: 'virtual',
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.type).toBe('unknown');
+      }
     });
   });
 

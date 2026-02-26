@@ -303,4 +303,12 @@ export const createCyclingActivitySchema = z.object({
   createdAt: z.string().min(1).optional(),
 });
 
+export const cyclingActivityDocSchema = createCyclingActivitySchema.extend({
+  type: createCyclingActivitySchema.shape.type
+    .or(z.literal('virtual'))
+    .transform((value) => (value === 'virtual' ? 'unknown' : value)),
+  userId: z.string(),
+  createdAt: z.string(),
+});
+
 export type CreateCyclingActivityInput = z.infer<typeof createCyclingActivitySchema>;
