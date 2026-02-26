@@ -9,34 +9,13 @@ import { getCalendarService } from '../services/index.js';
 import { errorHandler } from '../middleware/error-handler.js';
 import { createBaseApp } from '../middleware/create-resource-router.js';
 import { asyncHandler } from '../middleware/async-handler.js';
+import {
+  parseCalendarMonth,
+  parseCalendarTimezoneOffset,
+  parseCalendarYear,
+} from '../schemas/calendar.schema.js';
 
 const app = createBaseApp('calendar');
-
-/**
- * Validate year parameter - must be a valid 4-digit year (1000-9999)
- */
-function isValidYear(value: string): boolean {
-  const year = parseInt(value, 10);
-  return !isNaN(year) && year >= 1000 && year <= 9999;
-}
-
-/**
- * Validate month parameter - must be 1-12
- */
-function isValidMonth(value: string): boolean {
-  const month = parseInt(value, 10);
-  return !isNaN(month) && month >= 1 && month <= 12;
-}
-
-/**
- * Validate timezone offset parameter - must be between -720 and 840 minutes
- * This covers UTC-12 to UTC+14 (the full range of real-world timezones)
- */
-function isValidTimezoneOffset(value: string | undefined): boolean {
-  if (value === undefined) return true; // Optional parameter
-  const offset = parseInt(value, 10);
-  return !isNaN(offset) && offset >= -720 && offset <= 840;
-}
 
 /**
  * GET /calendar/:year/:month
@@ -47,9 +26,12 @@ app.get('/:year/:month', asyncHandler(async (req: Request, res: Response): Promi
   const yearParam = req.params['year'] ?? '';
   const monthParam = req.params['month'] ?? '';
   const tzParam = req.query['tz'] as string | undefined;
+  const year = parseCalendarYear(yearParam);
+  const month = parseCalendarMonth(monthParam);
+  const timezoneOffset = parseCalendarTimezoneOffset(tzParam);
 
   // Validate year
-  if (!isValidYear(yearParam)) {
+  if (year === null) {
     res.status(400).json(
       createErrorResponse(
         'VALIDATION_ERROR',
@@ -60,7 +42,7 @@ app.get('/:year/:month', asyncHandler(async (req: Request, res: Response): Promi
   }
 
   // Validate month
-  if (!isValidMonth(monthParam)) {
+  if (month === null) {
     res.status(400).json(
       createErrorResponse(
         'VALIDATION_ERROR',
@@ -71,7 +53,7 @@ app.get('/:year/:month', asyncHandler(async (req: Request, res: Response): Promi
   }
 
   // Validate timezone offset
-  if (!isValidTimezoneOffset(tzParam)) {
+  if (timezoneOffset === null) {
     res.status(400).json(
       createErrorResponse(
         'VALIDATION_ERROR',
@@ -80,10 +62,6 @@ app.get('/:year/:month', asyncHandler(async (req: Request, res: Response): Promi
     );
     return;
   }
-
-  const year = parseInt(yearParam, 10);
-  const month = parseInt(monthParam, 10);
-  const timezoneOffset = tzParam !== undefined ? parseInt(tzParam, 10) : 0;
 
   try {
     const service = getCalendarService();
