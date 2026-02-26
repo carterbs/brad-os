@@ -14,6 +14,7 @@
 import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions.js';
 import { info, warn, error as logError } from 'firebase-functions/logger';
+import { todayCoachResponseSchema } from '../schemas/today-coach.schema.js';
 import type {
   TodayCoachRequest,
   TodayCoachResponse,
@@ -279,119 +280,7 @@ Important:
  * Enforces strict validation of all required nested fields to catch partial responses.
  */
 export function isValidTodayCoachResponse(data: unknown): data is TodayCoachResponse {
-  if (typeof data !== 'object' || data === null) {
-    return false;
-  }
-
-  const obj = data as Record<string, unknown>;
-
-  // Check dailyBriefing
-  if (typeof obj['dailyBriefing'] !== 'string') {
-    return false;
-  }
-
-  // Check sections
-  const sections = obj['sections'];
-  if (typeof sections !== 'object' || sections === null) {
-    return false;
-  }
-
-  const sec = sections as Record<string, unknown>;
-
-  // Recovery section (required)
-  const recovery = sec['recovery'];
-  if (typeof recovery !== 'object' || recovery === null) {
-    return false;
-  }
-  const rec = recovery as Record<string, unknown>;
-  if (typeof rec['insight'] !== 'string') return false;
-  const validStatuses = ['great', 'good', 'caution', 'warning'];
-  if (!validStatuses.includes(rec['status'] as string)) return false;
-
-  // Lifting section (nullable)
-  if (sec['lifting'] !== null && sec['lifting'] !== undefined) {
-    const lifting = sec['lifting'] as Record<string, unknown>;
-    if (typeof lifting['insight'] !== 'string') return false;
-    const validPriorities = ['high', 'normal', 'rest'];
-    if (!validPriorities.includes(lifting['priority'] as string)) return false;
-    // Workout details (nullable within lifting section)
-    if (lifting['workout'] !== null && lifting['workout'] !== undefined) {
-      const workout = lifting['workout'] as Record<string, unknown>;
-      if (typeof workout['planDayName'] !== 'string') return false;
-      if (typeof workout['weekNumber'] !== 'number') return false;
-      if (typeof workout['isDeload'] !== 'boolean') return false;
-      if (typeof workout['exerciseCount'] !== 'number') return false;
-      const validStatuses = ['pending', 'in_progress', 'completed', 'skipped'];
-      if (!validStatuses.includes(workout['status'] as string)) return false;
-    }
-  }
-
-  // Cycling section (nullable)
-  if (sec['cycling'] !== null && sec['cycling'] !== undefined) {
-    const cycling = sec['cycling'] as Record<string, unknown>;
-    if (typeof cycling['insight'] !== 'string') return false;
-    const validCyclingPriorities = ['high', 'normal', 'skip'];
-    if (!validCyclingPriorities.includes(cycling['priority'] as string)) return false;
-
-    // Validate session object if present
-    if (cycling['session'] !== null && cycling['session'] !== undefined) {
-      const session = cycling['session'] as Record<string, unknown>;
-      if (typeof session['type'] !== 'string') return false;
-      if (typeof session['durationMinutes'] !== 'number') return false;
-      if (!Array.isArray(session['pelotonClassTypes'])) return false;
-      if (typeof session['pelotonTip'] !== 'string') return false;
-
-      const targetTSS = session['targetTSS'];
-      if (typeof targetTSS !== 'object' || targetTSS === null) return false;
-      const tss = targetTSS as Record<string, unknown>;
-      if (typeof tss['min'] !== 'number') return false;
-      if (typeof tss['max'] !== 'number') return false;
-
-      if (typeof session['targetZones'] !== 'string') return false;
-    }
-  }
-
-  // Stretching section (required)
-  const stretching = sec['stretching'];
-  if (typeof stretching !== 'object' || stretching === null) {
-    return false;
-  }
-  const str = stretching as Record<string, unknown>;
-  if (typeof str['insight'] !== 'string') return false;
-  if (!Array.isArray(str['suggestedRegions'])) return false;
-  const validStretchPriorities = ['high', 'normal', 'low'];
-  if (!validStretchPriorities.includes(str['priority'] as string)) return false;
-
-  // Meditation section (required)
-  const meditation = sec['meditation'];
-  if (typeof meditation !== 'object' || meditation === null) {
-    return false;
-  }
-  const med = meditation as Record<string, unknown>;
-  if (typeof med['insight'] !== 'string') return false;
-  if (typeof med['suggestedDurationMinutes'] !== 'number') return false;
-  const validMeditationPriorities = ['high', 'normal', 'low'];
-  if (!validMeditationPriorities.includes(med['priority'] as string)) return false;
-
-  // Weight section (nullable)
-  if (sec['weight'] !== null && sec['weight'] !== undefined) {
-    const weight = sec['weight'] as Record<string, unknown>;
-    if (typeof weight['insight'] !== 'string') return false;
-  }
-
-  // Warnings (required array with strict item validation)
-  if (!Array.isArray(obj['warnings'])) {
-    return false;
-  }
-  const warnings = obj['warnings'] as unknown[];
-  for (const warning of warnings) {
-    if (typeof warning !== 'object' || warning === null) return false;
-    const w = warning as Record<string, unknown>;
-    if (typeof w['type'] !== 'string') return false;
-    if (typeof w['message'] !== 'string') return false;
-  }
-
-  return true;
+  return todayCoachResponseSchema.safeParse(data).success;
 }
 
 /**
@@ -579,20 +468,22 @@ export async function getTodayCoachRecommendation(
   try {
     const responseContent = await callOpenAIWithRetry(client, messages);
     const parsed: unknown = JSON.parse(responseContent);
+    const parsedResponse = todayCoachResponseSchema.safeParse(parsed);
 
-    if (isValidTodayCoachResponse(parsed)) {
+    if (parsedResponse.success) {
+      const response = parsedResponse.data;
       info('today-coach:response', {
         phase: 'parse_response',
-        recovery_status: parsed.sections.recovery.status,
-        has_lifting: parsed.sections.lifting !== null,
-        has_lifting_workout: parsed.sections.lifting?.workout !== null && parsed.sections.lifting?.workout !== undefined,
-        lifting_workout_details: parsed.sections.lifting?.workout,
-        has_cycling: parsed.sections.cycling !== null,
-        has_weight: parsed.sections.weight !== null,
-        warning_count: parsed.warnings.length,
+        recovery_status: response.sections.recovery.status,
+        has_lifting: response.sections.lifting !== null,
+        has_lifting_workout: response.sections.lifting?.workout !== null && response.sections.lifting?.workout !== undefined,
+        lifting_workout_details: response.sections.lifting?.workout,
+        has_cycling: response.sections.cycling !== null,
+        has_weight: response.sections.weight !== null,
+        warning_count: response.warnings.length,
       });
 
-      return parsed;
+      return response;
     }
 
     logError('today-coach:invalid_shape', {

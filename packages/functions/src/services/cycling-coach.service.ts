@@ -11,6 +11,10 @@ import { info, warn, error as logError } from 'firebase-functions/logger';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  cyclingCoachResponseSchema,
+  generateScheduleResponseSchema,
+} from '../schemas/cycling.schema.js';
 import type {
   CyclingCoachRequest,
   CyclingCoachResponse,
@@ -131,71 +135,6 @@ Important notes:
 }
 
 /**
- * Validates that a parsed response matches the CyclingCoachResponse shape.
- */
-function isValidCoachResponse(data: unknown): data is CyclingCoachResponse {
-  if (typeof data !== 'object' || data === null) {
-    return false;
-  }
-
-  const obj = data as Record<string, unknown>;
-
-  // Check required fields
-  if (typeof obj['reasoning'] !== 'string') {
-    return false;
-  }
-
-  // Check session object
-  const session = obj['session'];
-  if (typeof session !== 'object' || session === null) {
-    return false;
-  }
-
-  const sessionObj = session as Record<string, unknown>;
-  const validTypes = ['vo2max', 'threshold', 'endurance', 'tempo', 'fun', 'recovery', 'off'];
-  if (!validTypes.includes(sessionObj['type'] as string)) {
-    return false;
-  }
-
-  if (typeof sessionObj['durationMinutes'] !== 'number') {
-    return false;
-  }
-
-  // Check Peloton fields (required in new format)
-  if (!Array.isArray(sessionObj['pelotonClassTypes'])) {
-    return false;
-  }
-  if (typeof sessionObj['pelotonTip'] !== 'string') {
-    return false;
-  }
-
-  // Check targetTSS
-  const targetTSS = sessionObj['targetTSS'];
-  if (typeof targetTSS !== 'object' || targetTSS === null) {
-    return false;
-  }
-  const tssObj = targetTSS as Record<string, unknown>;
-  if (typeof tssObj['min'] !== 'number' || typeof tssObj['max'] !== 'number') {
-    return false;
-  }
-
-  if (typeof sessionObj['targetZones'] !== 'string') {
-    return false;
-  }
-
-  // Check optional fields
-  if (obj['coachingTips'] !== undefined && !Array.isArray(obj['coachingTips'])) {
-    return false;
-  }
-
-  if (obj['warnings'] !== undefined && obj['warnings'] !== null && !Array.isArray(obj['warnings'])) {
-    return false;
-  }
-
-  return true;
-}
-
-/**
  * Calls the OpenAI API with retry and exponential backoff.
  */
 async function callOpenAIWithRetry(
@@ -289,23 +228,23 @@ export async function getCyclingRecommendation(
 
   try {
     const parsed: unknown = JSON.parse(responseContent);
+    const parsedResponse = cyclingCoachResponseSchema.safeParse(parsed);
 
-    if (isValidCoachResponse(parsed)) {
+    if (parsedResponse.success) {
+      const response = parsedResponse.data;
+      const warnings = response.warnings === null ? undefined : response.warnings;
       info('cycling-coach:response', {
         phase: 'parse_response',
-        session_type: parsed.session.type,
-        duration_minutes: parsed.session.durationMinutes,
-        peloton_class_types: parsed.session.pelotonClassTypes,
-        warning_count: parsed.warnings?.length ?? 0,
-        suggest_ftp_test: parsed.suggestFTPTest ?? false,
+        session_type: response.session.type,
+        duration_minutes: response.session.durationMinutes,
+        peloton_class_types: response.session.pelotonClassTypes,
+        warning_count: warnings?.length ?? 0,
+        suggest_ftp_test: response.suggestFTPTest ?? false,
       });
 
       return {
-        session: parsed.session,
-        reasoning: parsed.reasoning,
-        coachingTips: parsed.coachingTips,
-        warnings: parsed.warnings,
-        suggestFTPTest: parsed.suggestFTPTest,
+        ...response,
+        warnings,
       };
     }
 
@@ -409,8 +348,6 @@ Respond with valid JSON matching this schema:
   }
 }
 
-const VALID_SESSION_TYPES = new Set(['vo2max', 'threshold', 'endurance', 'tempo', 'fun', 'recovery']);
-
 /**
  * Validates the shape of a schedule generation response.
  * @param data - The parsed AI response
@@ -420,34 +357,12 @@ export function isValidScheduleResponse(
   data: unknown,
   expectedSessionCount: number,
 ): data is GenerateScheduleResponse {
-  if (typeof data !== 'object' || data === null) return false;
-
-  const obj = data as Record<string, unknown>;
-  if (!Array.isArray(obj['sessions'])) return false;
-  if (typeof obj['rationale'] !== 'string') return false;
-
-  // Validate session count matches expected
-  if (obj['sessions'].length !== expectedSessionCount) return false;
-
-  const weeklyPlan = obj['weeklyPlan'];
-  if (typeof weeklyPlan !== 'object' || weeklyPlan === null) return false;
-  const planObj = weeklyPlan as Record<string, unknown>;
-  if (typeof planObj['totalEstimatedHours'] !== 'number') return false;
-  if (!Array.isArray(planObj['phases'])) return false;
-
-  // Validate each session has required fields with correct types
-  for (const session of obj['sessions'] as unknown[]) {
-    if (typeof session !== 'object' || session === null) return false;
-    const s = session as Record<string, unknown>;
-    if (typeof s['order'] !== 'number') return false;
-    if (typeof s['sessionType'] !== 'string') return false;
-    if (!VALID_SESSION_TYPES.has(s['sessionType'])) return false;
-    if (!Array.isArray(s['pelotonClassTypes'])) return false;
-    if (typeof s['suggestedDurationMinutes'] !== 'number') return false;
-    if (typeof s['description'] !== 'string') return false;
+  const parsed = generateScheduleResponseSchema.safeParse(data);
+  if (!parsed.success) {
+    return false;
   }
 
-  return true;
+  return parsed.data.sessions.length === expectedSessionCount;
 }
 
 /**
@@ -594,14 +509,15 @@ export async function generateSchedule(
   try {
     const responseContent = await callOpenAIWithRetry(client, messages, SCHEDULE_RESPONSE_FORMAT);
     const parsed: unknown = JSON.parse(responseContent);
+    const parsedResponse = generateScheduleResponseSchema.safeParse(parsed);
 
-    if (isValidScheduleResponse(parsed, request.sessionsPerWeek)) {
+    if (parsedResponse.success && parsedResponse.data.sessions.length === request.sessionsPerWeek) {
       info('cycling-coach:schedule_generated', {
         phase: 'parse_response',
-        session_count: parsed.sessions.length,
-        total_hours: parsed.weeklyPlan.totalEstimatedHours,
+        session_count: parsedResponse.data.sessions.length,
+        total_hours: parsedResponse.data.weeklyPlan.totalEstimatedHours,
       });
-      return parsed;
+      return parsedResponse.data;
     }
 
     logError('cycling-coach:schedule_invalid_shape', {

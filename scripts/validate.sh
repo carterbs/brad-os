@@ -9,7 +9,6 @@ run_rust_validate() {
   local repo_root
   local binary
   local source_dir
-
   repo_root="$(cd "$(dirname "$0")/.." && pwd)"
   binary="$repo_root/target/release/brad-validate"
   source_dir="$repo_root/tools/dev-cli/src"
