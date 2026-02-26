@@ -11,8 +11,8 @@
   "scripts": {
     "dev": "npm run advanced:emulators",
     "build": "npm run build -w @brad-os/functions",
-    "lint": "oxlint packages/functions/src scripts/lint-*.ts --config .oxlintrc.json",
-    "lint:fix": "oxlint packages/functions/src scripts/lint-*.ts --config .oxlintrc.json --fix",
+    "lint": "oxlint packages/functions/src --config .oxlintrc.json",
+    "lint:fix": "oxlint packages/functions/src --config .oxlintrc.json --fix",
     "format": "prettier --write \"**/*.{ts,json,md}\"",
     "format:check": "prettier --check \"**/*.{ts,json,md}\"",
     "typecheck": "tsc -b",
@@ -36,7 +36,7 @@
     "validate": "bash scripts/validate.sh",
     "validate:quick": "bash scripts/validate.sh --quick",
     "doctor": "bash scripts/doctor.sh",
-    "lint:architecture": "tsx scripts/lint-architecture.ts",
+    "lint:architecture": "bash scripts/arch-lint",
     "generate:rewrites": "tsx scripts/generate-firebase-rewrites.ts",
     "update:quality-grades": "tsx scripts/update-quality-grades.ts",
     "advanced:otel:start": "OTEL_DIR=${OTEL_OUTPUT_DIR:-.otel}; mkdir -p \"$OTEL_DIR\"; nohup npx tsx scripts/otel-collector/index.ts > \"$OTEL_DIR/collector.log\" 2>&1 &",
@@ -59,9 +59,9 @@
     "ralph:sync-backlog": "tsx scripts/ralph/sync-backlog.ts",
     "preinstall": "node scripts/check-node-version.js",
     "postinstall": "git config core.hooksPath hooks",
-    "lint:oxlint": "oxlint packages/functions/src scripts/lint-*.ts --config .oxlintrc.json",
-    "lint:oxlint:fix": "oxlint packages/functions/src scripts/lint-*.ts --config .oxlintrc.json --fix",
-    "lint:oxlint:type-aware": "oxlint packages/functions/src --config .oxlintrc.json --type-aware && oxlint scripts/lint-*.ts --config .oxlintrc.json --type-aware"
+    "lint:oxlint": "oxlint packages/functions/src --config .oxlintrc.json",
+    "lint:oxlint:fix": "oxlint packages/functions/src --config .oxlintrc.json --fix",
+    "lint:oxlint:type-aware": "oxlint packages/functions/src --config .oxlintrc.json --type-aware"
   },
   "devDependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.52",

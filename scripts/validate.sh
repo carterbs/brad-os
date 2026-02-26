@@ -29,9 +29,9 @@ run_check() {
 
   case "$key" in
     typecheck)    npx tsc -b                                                             > "$LOG_DIR/typecheck.log"    2>&1 || rc=$? ;;
-    lint)         npx oxlint packages/functions/src scripts/lint-*.ts --config .oxlintrc.json > "$LOG_DIR/lint.log" 2>&1 || rc=$? ;;
+    lint)         npx oxlint packages/functions/src --config .oxlintrc.json > "$LOG_DIR/lint.log" 2>&1 || rc=$? ;;
     test)         npx vitest run                                                         > "$LOG_DIR/test.log"         2>&1 || rc=$? ;;
-    architecture) npx tsx scripts/lint-architecture.ts > "$LOG_DIR/architecture.log" 2>&1 || rc=$? ;;
+    architecture) bash scripts/arch-lint > "$LOG_DIR/architecture.log" 2>&1 || rc=$? ;;
   esac
 
   local elapsed=$(( $(date +%s) - start ))

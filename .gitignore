@@ -81,5 +81,8 @@ packages/functions/shared/
 # Validation logs
 .validate/
 
+# Rust build artifacts
+target/
+
 # Ralph per-task active plan (local/ephemeral)
 thoughts/shared/plans/active/ralph-improvement.md
