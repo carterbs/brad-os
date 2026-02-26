@@ -26,15 +26,15 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 
 | Domain | Grade | Backend Tests | iOS Tests | Assertions | Density | Coverage | API Complete | iOS Complete | Notes |
 |--------|-------|---------------|-----------|------------|---------|----------|--------------|--------------|-------|
-| Lifting | **A** | High (555) | Medium (8) | 1225 | 2.2x | 92% | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. Broadest test suite in the project, spanning handlers, services, and repositories exhaustively. |
-| Meal Planning | **A** | High (207) | Medium (7) | 509 | 2.5x | 96% | Yes | Yes | 6 handler, 3 service, 5 repo, 1 integration, 1 schema tests. AI-powered generation and critique pipeline fully tested alongside barcode and ingredient lookup. |
-| Cycling | **A** | High (306) | Low (2) | 676 | 2.2x | 95% | Yes | Yes | 3 handler, 7 service, 1 integration tests. Most complex domain, with AI coach and Strava webhook integration fully tested. |
-| Stretching | **A** | Medium (52) | Medium (4) | 134 | 2.6x | 99% | Yes | Yes | 2 handler, 2 repo, 1 integration tests. Smallest backend surface area yet achieves near-perfect coverage across all layers. |
-| Calendar | **A** | High (96) | Medium (4) | 243 | 2.5x | 100% | Yes | Yes | 1 handler, 1 service, 1 integration, 1 schema tests. Perfect coverage with dedicated integration tests across all aggregation and scheduling logic. |
-| Meditation | **A** | High (111) | Medium (4) | 288 | 2.6x | 100% | Yes | Yes | 3 handler, 2 service, 2 repo, 1 integration, 2 schema tests. Complete 100% coverage across TTS pipeline, guided scripts, and session management. |
-| Health Sync | **A** | High (133) | Medium (4) | 315 | 2.4x | 100% | Yes | Yes | 2 handler, 1 service, 1 integration, 1 schema tests. Full HealthKit sync pipeline with recovery scoring covered at all three backend layers. |
+| Lifting | **A** | High (555) | Medium (8) | 1225 | 2.2x | 92% | Yes | Yes | 5 handler, 6 service, 7 repo, 5 integration tests. Deepest test pyramid with thorough coverage across repository, service, and handler layers. |
+| Meal Planning | **A** | High (207) | Medium (7) | 509 | 2.5x | 96% | Yes | Yes | 6 handler, 3 service, 5 repo, 1 integration, 1 schema tests. Broadest API surface spans barcode scanning, AI generation, critique, and ingredient management. |
+| Cycling | **A** | High (306) | Low (2) | 676 | 2.2x | 95% | Yes | Yes | 3 handler, 7 service, 1 integration tests. Rich analytics pipeline covering VO2max estimation, efficiency factor, and AI coach recommendations. |
+| Stretching | **A** | Medium (52) | Medium (4) | 134 | 2.6x | 99% | Yes | Yes | 2 handler, 2 repo, 1 integration tests. Near-perfect coverage for a focused, well-bounded domain. |
+| Calendar | **A** | High (96) | Medium (4) | 243 | 2.5x | 100% | Yes | Yes | 1 handler, 1 service, 1 integration, 1 schema tests. Perfect coverage maintained consistently across handler, service, and integration test layers. |
+| Meditation | **A** | High (111) | Medium (4) | 288 | 2.6x | 100% | Yes | Yes | 3 handler, 2 service, 2 repo, 1 integration, 2 schema tests. Perfect coverage including the full TTS script generation and audio pipeline. |
+| Health Sync | **A** | High (133) | Medium (4) | 315 | 2.4x | 100% | Yes | Yes | 2 handler, 1 service, 1 integration, 1 schema tests. Perfect coverage across the HealthKit sync, recovery scoring, and Firestore persistence pipeline. |
 | History | **B-** | (shared) | (shared) | 0 | — | -- | Yes | Yes | Reuses Calendar backend/ViewModel. No additional tests needed, but filter logic is untested. |
-| Today | **A** | Medium (49) | Medium (4) | 123 | 2.5x | 96% | Yes | Yes | 1 handler, 2 service, 1 integration tests. AI briefing pipeline fully covered through handler, data service, and integration tests. |
+| Today | **A** | Medium (49) | Medium (4) | 123 | 2.5x | 96% | Yes | Yes | 1 handler, 2 service, 1 integration tests. Smallest domain by test count but fully covers the AI briefing aggregation logic. |
 | Profile | **B-** | (shared) | (shared) | 0 | — | -- | Yes | Yes | Settings hub, no own backend. Relies on health-sync and cycling backends. |
 
 ---

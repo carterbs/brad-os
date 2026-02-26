@@ -26,6 +26,7 @@ import {
   checkQualityGradesFreshness,
   checkRepositoryTestCoverage,
   checkMarkdownLinks,
+  checkNoArchiveDirectories,
 } from './lint-checks.js';
 import { generateRewrites } from './rewrite-utils.js';
 import { type EndpointEntry } from '../packages/functions/src/endpoint-manifest.js';
@@ -1297,5 +1298,43 @@ describe('checkMarkdownLinks', () => {
     const result = checkMarkdownLinks(config);
     expect(result.passed).toBe(true);
     expect(result.violations).toHaveLength(0);
+  });
+});
+
+// ── Check 22: No archive directories ────────────────────────────────────────
+
+describe('checkNoArchiveDirectories', () => {
+  let rootDir: string;
+  let config: LinterConfig;
+
+  beforeEach(() => {
+    ({ rootDir, config } = createFixture());
+  });
+  afterEach(() => cleanup(rootDir));
+
+  it('passes when no archive directories exist', () => {
+    writeFixture(rootDir, 'docs/guides/local-dev-quickstart.md', '# Local Dev');
+
+    const result = checkNoArchiveDirectories(config);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
+
+  it('fails when docs/archive exists', () => {
+    writeFixture(rootDir, 'docs/archive/legacy.md', '# Legacy');
+
+    const result = checkNoArchiveDirectories(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0]).toContain('docs/archive');
+  });
+
+  it('fails when nested archives directory exists', () => {
+    writeFixture(rootDir, 'thoughts/shared/archives/old-plan.md', '# Old');
+
+    const result = checkNoArchiveDirectories(config);
+    expect(result.passed).toBe(false);
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0]).toContain('thoughts/shared/archives');
   });
 });

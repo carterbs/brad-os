@@ -28,6 +28,7 @@ Invariants for the Brad OS codebase. Every line is verifiable by a linter or cod
 - No inline `ApiResponse` interface in test files — import from `__tests__/utils/api-types.ts`
 - No focused tests (`.only`, `test.only`, `fit`, `fdescribe`) — these silently skip the rest of the suite
 - No empty or assertion-free tests — every test file must have `expect()` calls; test bodies must not be empty
+- No `archive`/`archives` directories — delete obsolete docs/plans instead of preserving archive folders
 
 ### Swift [swiftlint via xcodebuild]
 - No force unwrapping (`!`) — use `guard let` or `?? default`

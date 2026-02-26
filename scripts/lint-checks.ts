@@ -26,6 +26,7 @@
  *  19. Test quality (no empty test bodies, no assertion-free test files)
  *  20. Repository test coverage (every concrete repository has a colocated test)
  *  21. Markdown link targets (links in docs/ and root .md files resolve to real files)
+ *  22. No archive directories (delete obsolete docs/plans instead of archiving)
  */
 
 import * as fs from 'node:fs';
@@ -1993,6 +1994,48 @@ export function checkMarkdownLinks(config: LinterConfig): CheckResult {
   for (const file of files) {
     violations.push(...checkFile(file));
   }
+
+  return { name, passed: violations.length === 0, violations };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Check 22: No Archive Directories
+//
+// Prevent archive folders like docs/archive from accumulating stale docs that
+// agents may keep using. Delete obsolete content instead.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function checkNoArchiveDirectories(config: LinterConfig): CheckResult {
+  const name = 'No archive directories';
+  const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.validate', '.claude']);
+  const TARGET_NAMES = new Set(['archive', 'archives']);
+  const violations: string[] = [];
+
+  function walk(dirPath: string): void {
+    if (!fs.existsSync(dirPath)) return;
+
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue;
+
+      if (SKIP_DIRS.has(entry.name)) continue;
+
+      const fullPath = path.join(dirPath, entry.name);
+      const relPath = path.relative(config.rootDir, fullPath);
+      if (TARGET_NAMES.has(entry.name.toLowerCase())) {
+        violations.push(
+          `${relPath} exists.\n` +
+          `    Rule: Archive directories are not allowed.\n` +
+          `    Fix: Move any still-relevant content into active docs/plans, then delete ${relPath}/.\n` +
+          `    See: docs/golden-principles.md`
+        );
+      }
+
+      walk(fullPath);
+    }
+  }
+
+  walk(config.rootDir);
 
   return { name, passed: violations.length === 0, violations };
 }

@@ -51,9 +51,3 @@ Feature-level architecture docs describing data flow, file locations, and key ty
 | Doc | Summary |
 |-----|---------|
 | [codex-agent-team-article.md](references/codex-agent-team-article.md) | Reference article on Codex agent team patterns |
-
-## Archive
-
-| Doc | Summary |
-|-----|---------|
-| [FIREBASE_SETUP-legacy.md](archive/FIREBASE_SETUP-legacy.md) | Legacy Firebase setup instructions (superseded) |
