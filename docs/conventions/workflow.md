@@ -53,6 +53,25 @@ npm run doctor            # Check: all required tooling installed
 
 **Do NOT run `npx vitest run` directly.** `npm run validate` captures output to `.validate/*.log` and prints only a pass/fail summary. If a check fails, use Grep/Read on the log file (e.g., `.validate/test.log`).
 
+### Shell Script Complexity Guardrail
+
+`arch-lint` includes a `shell_complexity` check that enforces script-level complexity thresholds:
+
+- Scope: all `*.sh` files and hook scripts with a shell shebang.
+- Metric: estimated cyclomatic complexity score (`CC_estimate`).
+- Default policy: `CC_estimate <= 10`.
+- Allowed exceptions (temporary): migration targets that are intentionally retained in shell until refactors land.
+  - `scripts/qa-start.sh`
+  - `scripts/qa-stop.sh`
+  - `scripts/setup-ios-testing.sh` (if still being migrated)
+- Shim-only shell scripts (thin wrappers or delegation shims) are allowed to bypass strict limits.
+  - `hooks/pre-commit`
+  - `scripts/validate.sh`
+  - `scripts/doctor.sh`
+  - `scripts/run-integration-tests.sh`
+
+Violation output includes per-file lines, branches, loop counts, and `CC_estimate` to make migrations actionable.
+
 ### CI
 
 GitHub Actions runs on every push to `main` and every PR:

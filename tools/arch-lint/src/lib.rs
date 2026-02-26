@@ -33,6 +33,7 @@ pub fn run_all_checks(config: &LinterConfig) -> (Vec<CheckResult>, FreshnessResu
         checks::repository_test_coverage::check,
         checks::markdown_links::check,
         checks::no_archive_dirs::check,
+        checks::shell_complexity::check,
     ];
 
     let mut results = Vec::new();

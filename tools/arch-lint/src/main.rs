@@ -56,6 +56,7 @@ fn main() {
         arch_lint::checks::repository_test_coverage::check,
         arch_lint::checks::markdown_links::check,
         arch_lint::checks::no_archive_dirs::check,
+        arch_lint::checks::shell_complexity::check,
     ];
 
     let debug_timing = std::env::var("ARCH_LINT_TIMING").is_ok();

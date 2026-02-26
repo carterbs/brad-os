@@ -5,6 +5,7 @@ pub mod ios_layers;
 pub mod layer_deps;
 pub mod markdown_links;
 pub mod no_archive_dirs;
+pub mod shell_complexity;
 pub mod no_console_log;
 pub mod no_focused_tests;
 pub mod no_inline_api_response;
