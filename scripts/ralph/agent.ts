@@ -38,8 +38,13 @@ function summarizeToolInput(
     case "Glob":
       return typeof input.pattern === "string" ? input.pattern : "";
     case "Bash": {
-      const cmd = typeof input.command === "string" ? input.command : "";
-      return cmd.length > 60 ? cmd.slice(0, 60) + "..." : cmd;
+      let cmd = typeof input.command === "string" ? input.command : "";
+      // Strip shell wrapper (e.g. `/bin/zsh -lc "actual command"`)
+      const shellMatch = cmd.match(/^\/bin\/(?:zsh|bash|sh)\s+-lc\s+(['"])(.*)\1$/s);
+      if (shellMatch?.[2]) cmd = shellMatch[2];
+      // Make paths relative to cwd
+      if (cwd && cmd.includes(cwd)) cmd = cmd.replaceAll(cwd + "/", "");
+      return cmd.length > 80 ? cmd.slice(0, 80) + "…" : cmd;
     }
     case "Task":
       return typeof input.description === "string" ? input.description : "";
@@ -115,6 +120,7 @@ async function runStepClaude(options: RunStepOptions): Promise<StepResult> {
     backend: "claude",
     ts: new Date().toISOString(),
   });
+  logger.setStep(stepName);
 
   const preToolHook: HookCallback = async (input) => {
     const hook = input as PreToolUseHookInput;
@@ -280,6 +286,8 @@ async function runStepClaude(options: RunStepOptions): Promise<StepResult> {
       durationMs,
       outputText: "",
     };
+  } finally {
+    logger.clearStep();
   }
 }
 
@@ -295,6 +303,7 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
     backend: "codex",
     ts: new Date().toISOString(),
   });
+  logger.setStep(stepName);
 
   const tmpDir = mkdtempSync(join(tmpdir(), "ralph-codex-"));
   const outputFile = join(tmpDir, "output.txt");
@@ -504,6 +513,7 @@ async function runStepCodex(options: RunStepOptions): Promise<StepResult> {
         ts: new Date().toISOString(),
       });
 
+      logger.clearStep();
       resolve({
         success,
         backend: "codex",
