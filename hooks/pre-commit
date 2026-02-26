@@ -1,10 +1,71 @@
-#!/bin/sh
+#!/usr/bin/env bash
 #
 # Pre-commit hook:
 #   1. Block direct commits to main (worktree workflow enforced)
 #   2. Scan staged changes for secrets using gitleaks
-#   3. Full validation pipeline (typecheck + lint + test + architecture)
+#   3. Targeted validation pipeline for changed files, with conservative fallback
 #
+set -euo pipefail
+
+has_test_file() {
+  local changed_file="$1"
+  if [ "${#SCOPED_TEST_FILES[@]}" -gt 0 ]; then
+    for target in "${SCOPED_TEST_FILES[@]}"; do
+      [ "$target" = "$changed_file" ] && return 0
+    done
+  fi
+  return 1
+}
+
+add_test_file() {
+  local test_file="$1"
+  if ! has_test_file "$test_file"; then
+    SCOPED_TEST_FILES+=("$test_file")
+  fi
+}
+
+has_test_project() {
+  local test_project="$1"
+  if [ "${#SCOPED_TEST_PROJECTS[@]}" -gt 0 ]; then
+    for project in "${SCOPED_TEST_PROJECTS[@]}"; do
+      [ "$project" = "$test_project" ] && return 0
+    done
+  fi
+  return 1
+}
+
+add_test_project() {
+  local test_project="$1"
+  if ! has_test_project "$test_project"; then
+    SCOPED_TEST_PROJECTS+=("$test_project")
+  fi
+}
+
+resolve_tests_for_changed_file() {
+  local changed_file="$1"
+
+  if [[ "$changed_file" == *.test.ts ]]; then
+    add_test_file "$changed_file"
+    return 0
+  fi
+
+  if [[ "$changed_file" != *.ts ]]; then
+    return 1
+  fi
+
+  local candidate_test_file="${changed_file%.ts}.test.ts"
+  if [ -f "$candidate_test_file" ]; then
+    add_test_file "$candidate_test_file"
+    return 0
+  fi
+
+  return 1
+}
+
+STAGED_FILES=()
+while IFS= read -r file; do
+  STAGED_FILES+=("$file")
+done < <(git diff --cached --name-only --diff-filter=ACMRTD)
 
 # --- Worktree gate: reject commits directly on main ---
 BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null)"
@@ -13,7 +74,7 @@ if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
   # Allow merge commits (git merge creates MERGE_HEAD)
   if git rev-parse MERGE_HEAD >/dev/null 2>&1; then
     : # merge commit — allow
-  elif [ "$ALLOW_MAIN_COMMIT" = "1" ]; then
+  elif [ "${ALLOW_MAIN_COMMIT:-}" = "1" ]; then
     : # explicit override — allow
   else
     echo ""
@@ -38,17 +99,80 @@ fi
 
 gitleaks protect --staged --verbose
 
-# --- Full validation pipeline ---
-
-echo ""
-echo "Running quality checks..."
-
-# 1. Validate all quality gates before commit
-if ! npm run validate; then
+if [ "${#STAGED_FILES[@]}" -eq 0 ]; then
+  echo "No staged files found; running full validation."
+  if ! npm run validate; then
+    echo ""
+    echo "ERROR: Validation failed. Fix failures before committing."
+    echo "  Run 'npm run validate' to reproduce."
+    exit 1
+  fi
   echo ""
-  echo "ERROR: Validation failed. Fix failures before committing."
-  echo "  Run 'npm run validate' to reproduce."
-  exit 1
+  echo "All pre-commit checks passed."
+  exit 0
+fi
+
+# --- Scoped validation routing ---
+SCOPED_TEST_FILES=()
+SCOPED_TEST_PROJECTS=()
+UNKNOWN_SCOPE=false
+
+for file in "${STAGED_FILES[@]}"; do
+  case "$file" in
+    packages/functions/src/*)
+      if ! resolve_tests_for_changed_file "$file"; then
+        add_test_project "functions"
+      fi
+      ;;
+    scripts/*)
+      if ! resolve_tests_for_changed_file "$file"; then
+        add_test_project "scripts"
+      fi
+      ;;
+    *)
+      UNKNOWN_SCOPE=true
+      ;;
+  esac
+done
+
+if [ "$UNKNOWN_SCOPE" = true ] || ( [ "${#SCOPED_TEST_FILES[@]}" -eq 0 ] && [ "${#SCOPED_TEST_PROJECTS[@]}" -eq 0 ] ); then
+  echo "Running full validation (no safe scoped path found)."
+
+  if ! npm run validate; then
+    echo ""
+    echo "ERROR: Validation failed. Fix failures before committing."
+    echo "  Run 'npm run validate' to reproduce."
+    exit 1
+  fi
+else
+  if [ "${#SCOPED_TEST_FILES[@]}" -gt 0 ]; then
+    SCOPED_TEST_FILE_LIST="$(printf "%s\n" "${SCOPED_TEST_FILES[@]}")"
+  else
+    SCOPED_TEST_FILE_LIST=""
+  fi
+  if [ "${#SCOPED_TEST_PROJECTS[@]}" -gt 0 ]; then
+    SCOPED_TEST_PROJECT_LIST="$(printf "%s\n" "${SCOPED_TEST_PROJECTS[@]}")"
+  else
+    SCOPED_TEST_PROJECT_LIST=""
+  fi
+
+  echo ""
+  echo "Running targeted quality checks..."
+  if [ "${#SCOPED_TEST_FILES[@]}" -gt 0 ]; then
+    echo "  Tests: ${SCOPED_TEST_FILES[*]}"
+  fi
+  if [ "${#SCOPED_TEST_PROJECTS[@]}" -gt 0 ]; then
+    echo "  Test projects: ${SCOPED_TEST_PROJECTS[*]}"
+  fi
+
+  if ! BRAD_VALIDATE_TEST_FILES="$SCOPED_TEST_FILE_LIST" \
+      BRAD_VALIDATE_TEST_PROJECTS="$SCOPED_TEST_PROJECT_LIST" \
+      npm run validate; then
+    echo ""
+    echo "ERROR: Validation failed. Fix failures before committing."
+    echo "  Run 'npm run validate' to reproduce."
+    exit 1
+  fi
 fi
 
 echo ""

@@ -1,4 +1,3 @@
-- Complete "Zod-only types" migration by removing duplicate DTO interfaces and standardizing on schema inference (`z.infer` + `.partial()` update schemas).
 - Add `typescript-eslint` cleanup tasks to reduce noise from the temporary oxlint suppression:
   - Re-enable `typescript-eslint/no-unsafe-type-assertion` in repositories and middleware after targeted type-guard refactors.
   - Re-enable `typescript-eslint/no-unnecessary-type-assertion` once all broad `as`-casts are replaced with schema-safe parsing.
