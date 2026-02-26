@@ -3,8 +3,7 @@
 # Pre-commit hook:
 #   1. Block direct commits to main (worktree workflow enforced)
 #   2. Scan staged changes for secrets using gitleaks
-#   3. Quick quality checks (typecheck + lint staged files)
-#   4. Architecture lint (enforces layer boundaries, conventions, etc.)
+#   3. Full validation pipeline (typecheck + lint + test + architecture)
 #
 
 # --- Worktree gate: reject commits directly on main ---
@@ -39,40 +38,16 @@ fi
 
 gitleaks protect --staged --verbose
 
-# --- Quick quality checks (typecheck + lint staged files) ---
-# These catch the most common errors before they enter the repo.
+# --- Full validation pipeline ---
 
 echo ""
 echo "Running quality checks..."
 
-# 1. TypeScript compilation (incremental, fast for small changes)
-if ! npx tsc -b; then
+# 1. Validate all quality gates before commit
+if ! npm run validate; then
   echo ""
-  echo "ERROR: TypeScript compilation failed. Fix type errors before committing."
-  echo "  Run 'npm run typecheck' to see full output."
-  exit 1
-fi
-echo "✓ TypeScript compilation passed"
-
-# 2. ESLint on staged .ts files only (proportional to change size)
-STAGED_TS=$(git diff --cached --name-only --diff-filter=ACM -- '*.ts' | grep -v '\.config\.ts$' | grep -v 'scripts/' || true)
-if [ -n "$STAGED_TS" ]; then
-  if ! echo "$STAGED_TS" | xargs npx eslint --cache --cache-strategy content; then
-    echo ""
-    echo "ERROR: ESLint errors found in staged files."
-    echo "  Run 'npm run lint:fix' to auto-fix, then re-stage."
-    exit 1
-  fi
-  echo "✓ ESLint passed (staged files)"
-else
-  echo "✓ ESLint skipped (no staged .ts files)"
-fi
-
-# 3. Architecture lint (layer boundaries, conventions, test quality)
-if ! npx tsx scripts/lint-architecture.ts; then
-  echo ""
-  echo "ERROR: Architecture lint failed. Fix violations before committing."
-  echo "  Run 'npm run lint:architecture' to see full output."
+  echo "ERROR: Validation failed. Fix failures before committing."
+  echo "  Run 'npm run validate' to reproduce."
   exit 1
 fi
 

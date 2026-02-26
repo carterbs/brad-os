@@ -1,6 +1,6 @@
 # Workflow Rules
 
-Operational rules for coding agents working in Brad OS.
+Operational rules for development workflow in Brad OS.
 
 ## Git Worktree Workflow (MANDATORY)
 
@@ -29,15 +29,12 @@ git branch -d <branch-name>
 ```
 
 - Symlink `node_modules` from main. Only run `npm install` if the branch changes `package.json`.
-- **TCC Safety:** Worktrees must NOT be under `~/Documents/` when used by subagents — macOS TCC blocks subprocess access. Always use `/tmp/brad-os-worktrees/`.
-
 ### Pre-commit Hook
 
 `hooks/pre-commit` runs these checks — all must pass:
 1. Blocks direct commits to `main` (merge commits allowed via `MERGE_HEAD`)
 2. Gitleaks secret scanning
-3. TypeScript compilation + ESLint on staged files
-4. **Architecture lint** (`npm run lint:architecture`)
+3. Full validation pipeline (`npm run validate`: typecheck + lint + test + architecture)
 
 **Never use `--no-verify` to skip these checks.** Fix violations, don't bypass the hook.
 For the main-branch gate only: `ALLOW_MAIN_COMMIT=1 git commit ...`.
@@ -59,15 +56,6 @@ GitHub Actions runs on every push to `main` and every PR:
 2. **integration** — Firebase emulators + `npm run test:integration`
 
 On failure, `.validate/*.log` artifacts are uploaded. See `.github/workflows/ci.yml`.
-
-## Subagent Usage (MANDATORY)
-
-**All validation commands MUST be run in subagents to conserve context.**
-
-Use the Task tool with `subagent_type=Bash` for `npm run typecheck`, `npm run lint`, `npm test`, `npm run validate`.
-
-**Why**: Verbose output consumes context. Subagents keep the main conversation focused.
-**Exception**: Quick single-command checks (like `git status`) can run directly.
 
 ## When Implementing Features
 
