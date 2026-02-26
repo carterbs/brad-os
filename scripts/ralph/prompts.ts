@@ -174,6 +174,65 @@ Constraints:
 When done, output a one-line summary starting with "DONE:" describing what you resolved.`;
 }
 
+export function buildOutstandingPrMergePrompt(
+  task: string,
+  prNumber: number,
+  branchName: string,
+): string {
+  return `You are handling an outstanding Ralph PR triage task for the brad-os project.
+
+## Task
+${task}
+
+## Objective
+Take existing PR #${prNumber} on branch ${branchName} and make it mergeable with main.
+This is NOT feature work. Do not create a plan and do not run the review loop.
+
+Workflow:
+1. Confirm branch state with: git status && git branch --show-current
+2. Fetch latest main: git fetch origin main
+3. Rebase current branch onto origin/main.
+4. If conflicts appear, resolve them carefully in conflicted files only.
+5. Keep both sides' behavior where appropriate; avoid unrelated refactors.
+6. Ensure no conflict markers remain.
+7. Run validation in this worktree: npm run typecheck && npm run lint && npm test
+
+Constraints:
+- Do NOT modify scripts/ralph/backlog.md.
+- Keep changes minimal and mergeability-focused.
+
+When done, output a one-line summary starting with "DONE:" describing what was done to make PR #${prNumber} mergeable.`;
+}
+
+export function buildAgentMergePrompt(
+  prNumber: number,
+  branchName: string,
+): string {
+  return `You are handling the final merge step for Ralph.
+
+Branch: ${branchName}
+PR: #${prNumber}
+
+Goal: merge this PR safely and verify it is actually merged.
+
+Workflow:
+1. Confirm branch + working tree state.
+2. Ensure latest main is integrated (rebase or merge from origin/main if needed).
+3. Push branch to origin.
+   - Decide the safest push strategy based on branch state.
+   - If non-fast-forward is expected due to rebase, use --force-with-lease.
+4. Merge PR #${prNumber} with gh CLI.
+5. Verify merge with:
+   gh pr view ${prNumber} --json state,mergedAt,mergeable,mergeStateStatus
+6. If merge state is not MERGED with mergedAt set, explain why and stop.
+
+Constraints:
+- Keep changes strictly merge-related.
+- Do NOT modify scripts/ralph/backlog.md.
+
+When complete, output one line starting with "MERGED:" and include the final PR state summary.`;
+}
+
 export function buildFixPrompt(
   reviewOutput: string,
   planDocPath = DEFAULT_PLAN_DOC_PATH,

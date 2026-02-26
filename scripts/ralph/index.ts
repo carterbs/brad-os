@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { Logger } from "./log.js";
@@ -9,6 +9,8 @@ import {
   buildPlanPrompt,
   buildImplPrompt,
   buildMergeConflictResolvePrompt,
+  buildOutstandingPrMergePrompt,
+  buildAgentMergePrompt,
   buildReviewPrompt,
   buildFixPrompt,
 } from "./prompts.js";
@@ -19,7 +21,12 @@ import {
   commitAll,
   hasNewCommits,
 } from "./git.js";
-import { ensurePullRequest, pushBranch } from "./pr.js";
+import {
+  ensurePullRequest,
+  listOpenRalphPullRequests,
+  pushBranch,
+  readPullRequestMergeState,
+} from "./pr.js";
 import {
   readBacklog,
   readTriage,
@@ -47,6 +54,7 @@ export interface WorkerResult {
   prUrl?: string;
   stepResults: StepSummary[];
   failureReason?: "no_changes";
+  mergeHandledByWorker?: boolean;
 }
 
 export type TaskSource = "backlog" | "triage" | "cli";
@@ -59,6 +67,13 @@ export const MERGE_CONFLICT_TRIAGE_PREFIX =
 export const IMPLEMENT_PLAN_TASK_PREFIX = "Implement Plan ";
 const DEFAULT_PLAN_DOC_PATH = "thoughts/shared/plans/active/ralph-improvement.md";
 const TITLE_MAX_LENGTH = 72;
+const OUTSTANDING_RALPH_PR_TRIAGE_PREFIX = "Resolve outstanding Ralph PR #";
+
+export interface OutstandingRalphPrTriageTaskDetails {
+  prNumber: number;
+  branchName: string;
+  prUrl: string;
+}
 
 function normalizeSpaces(value: string): string {
   return value.replace(/\s+/g, " ").trim();
@@ -136,6 +151,55 @@ export function isMergeConflictTriageTask(
   );
 }
 
+export function buildOutstandingRalphPrTriageTask(details: {
+  prNumber: number;
+  branchName: string;
+  prUrl: string;
+}): string {
+  return (
+    `Resolve outstanding Ralph PR #${details.prNumber} ` +
+    `(${details.branchName}) and merge to main. PR: ${details.prUrl}`
+  );
+}
+
+export function parseOutstandingRalphPrTriageTask(
+  taskText: string | undefined,
+  taskSource: TaskSource,
+): OutstandingRalphPrTriageTaskDetails | undefined {
+  if (taskSource !== "triage" || !taskText) return undefined;
+
+  function parseDirectTask(
+    value: string,
+  ): OutstandingRalphPrTriageTaskDetails | undefined {
+    if (!value.startsWith(OUTSTANDING_RALPH_PR_TRIAGE_PREFIX)) return undefined;
+
+    const match = value.match(
+      /^Resolve outstanding Ralph PR #(\d+) \(([^)]+)\) and merge to main\. PR: (https:\/\/github\.com\/\S+)$/,
+    );
+    if (!match) return undefined;
+
+    const prNumber = Number.parseInt(match[1] ?? "", 10);
+    const branchName = (match[2] ?? "").trim();
+    const prUrl = (match[3] ?? "").trim();
+    if (!Number.isFinite(prNumber) || prNumber <= 0) return undefined;
+    if (!branchName || !prUrl) return undefined;
+
+    return { prNumber, branchName, prUrl };
+  }
+
+  let current = taskText.trim();
+  for (let depth = 0; depth < 8; depth++) {
+    const direct = parseDirectTask(current);
+    if (direct) return direct;
+
+    const escalatedPrefix = "Original task:";
+    const markerIndex = current.indexOf(escalatedPrefix);
+    if (markerIndex < 0) return undefined;
+    current = current.slice(markerIndex + escalatedPrefix.length).trim();
+  }
+  return undefined;
+}
+
 export function extractPlanDocPathFromTask(
   taskText: string | undefined,
 ): string | undefined {
@@ -157,12 +221,40 @@ export function extractPlanDocPathFromTask(
     .replace(/\.$/, "");
   if (!remainder) return undefined;
 
-  const normalizedFile = remainder.endsWith(".md")
-    ? remainder
-    : `${remainder}.md`;
+  const planRef = remainder
+    .split(":")[0]
+    ?.trim()
+    .replace(/[.,]$/, "");
+  if (!planRef) return undefined;
+
+  const normalizedFile = planRef.endsWith(".md") ? planRef : `${planRef}.md`;
+  if (normalizedFile.includes("/")) {
+    return normalizedFile;
+  }
+
+  const activePlanDir = "thoughts/shared/plans/active";
+  const directPath = `${activePlanDir}/${normalizedFile}`;
+  if (existsSync(directPath)) {
+    return directPath;
+  }
+
+  // Support short slugs in backlog tasks by matching date-prefixed plan files.
+  const slug = normalizedFile.replace(/\.md$/, "");
+  const suffix = `-${slug}.md`;
+  try {
+    const matches = readdirSync(activePlanDir)
+      .filter((entry) => entry.endsWith(suffix))
+      .sort();
+    if (matches.length > 0) {
+      return `${activePlanDir}/${matches[matches.length - 1]}`;
+    }
+  } catch {
+    // Best effort: fall back to default active path.
+  }
+
   return normalizedFile.includes("/")
     ? normalizedFile
-    : `thoughts/shared/plans/active/${normalizedFile}`;
+    : `${activePlanDir}/${normalizedFile}`;
 }
 
 export function enforceMainManagedBacklog(cwd: string, logger: Logger): void {
@@ -268,7 +360,13 @@ export async function runWorker(
   taskText?: string,
   taskSource: TaskSource = "backlog",
 ): Promise<WorkerResult> {
-  const branchName = `${config.branchPrefix}-${String(improvement).padStart(3, "0")}`;
+  const outstandingPrTask = parseOutstandingRalphPrTriageTask(
+    taskText,
+    taskSource,
+  );
+  const branchName =
+    outstandingPrTask?.branchName ??
+    `${config.branchPrefix}-${String(improvement).padStart(3, "0")}`;
   const worktreePath = `${config.worktreeDir}/${branchName}`;
 
   const targetLabel = config.target !== undefined ? `/${config.target}` : "";
@@ -312,6 +410,8 @@ export async function runWorker(
 
     if (wtResult.resumed) {
       logger.info("[1/5] Skipping planning (resuming from prior work)");
+    } else if (outstandingPrTask) {
+      logger.info("[1/5] Skipping planning (outstanding PR triage task)");
     } else if (mergeConflictTriageTask) {
       logger.info(
         "[1/5] Skipping generic planning (merge-conflict triage task)",
@@ -435,9 +535,15 @@ export async function runWorker(
 
     // ── 2. Implementation ──
     logger.info("[2/5] Implementing...");
-    const implementPrompt = mergeConflictTriageTask
-      ? buildMergeConflictResolvePrompt(taskText ?? "")
-      : buildImplPrompt(planDocPath);
+    const implementPrompt = outstandingPrTask
+      ? buildOutstandingPrMergePrompt(
+          taskText ?? "",
+          outstandingPrTask.prNumber,
+          outstandingPrTask.branchName,
+        )
+      : mergeConflictTriageTask
+        ? buildMergeConflictResolvePrompt(taskText ?? "")
+        : buildImplPrompt(planDocPath);
     let implResult = await runStep({
       prompt: implementPrompt,
       stepName: "implement",
@@ -485,6 +591,99 @@ export async function runWorker(
       durationMs: implResult.durationMs,
     });
     logger.stepSummary("implement", stepResults[stepResults.length - 1]);
+
+    if (outstandingPrTask) {
+      logger.info("[3/5] Reusing existing PR for merge...");
+      const pr = {
+        number: outstandingPrTask.prNumber,
+        url: outstandingPrTask.prUrl,
+      };
+      logger.success(`Reusing PR #${pr.number}: ${pr.url}`);
+      logger.info("[4/5] Skipping review (outstanding PR triage task)");
+
+      logger.info(`[5/5] Agent handling merge for PR #${pr.number}...`);
+      const mergeResult = await runStep({
+        prompt: buildAgentMergePrompt(pr.number, branchName),
+        stepName: "merge",
+        improvement,
+        cwd: worktreePath,
+        model: config.agents.implement.model,
+        backend: config.agents.implement.backend,
+        config,
+        logger,
+        abortController,
+      });
+      if (!mergeResult.success) {
+        logger.error(`Agent merge step failed for PR #${pr.number}`);
+        logger.info(`  Worktree preserved at: ${worktreePath}`);
+        return {
+          success: false,
+          improvement,
+          workerSlot,
+          branchName,
+          worktreePath,
+          taskText,
+          taskSource,
+          prNumber: pr.number,
+          prUrl: pr.url,
+          stepResults,
+        };
+      }
+      stepResults.push({
+        step: "merge",
+        backend: mergeResult.backend,
+        turns: mergeResult.turns,
+        costUsd: mergeResult.costUsd,
+        tokens: mergeResult.inputTokens + mergeResult.outputTokens,
+        durationMs: mergeResult.durationMs,
+      });
+      logger.stepSummary("merge", stepResults[stepResults.length - 1]);
+
+      const mergeState = readPullRequestMergeState(worktreePath, pr.number);
+      if (!mergeState?.mergedAt) {
+        logger.error(
+          `PR #${pr.number} is not merged after agent merge step (state=${mergeState?.state ?? "UNKNOWN"}).`,
+        );
+        logger.info(`  Worktree preserved at: ${worktreePath}`);
+        return {
+          success: false,
+          improvement,
+          workerSlot,
+          branchName,
+          worktreePath,
+          taskText,
+          taskSource,
+          prNumber: pr.number,
+          prUrl: pr.url,
+          stepResults,
+        };
+      }
+
+      const totalCost = stepResults.reduce((s, r) => s + r.costUsd, 0);
+      const totalDuration = stepResults.reduce((s, r) => s + r.durationMs, 0);
+      logger.improvementSummary(improvement, stepResults);
+      logger.jsonl({
+        event: "improvement_done",
+        improvement,
+        total_cost_usd: totalCost,
+        total_duration_ms: totalDuration,
+        ts: new Date().toISOString(),
+      });
+
+      return {
+        success: true,
+        improvement,
+        workerSlot,
+        branchName,
+        worktreePath,
+        taskText,
+        taskSource,
+        prNumber: pr.number,
+        prUrl: pr.url,
+        stepResults,
+        mergeHandledByWorker: true,
+      };
+    }
 
     const commitTitle = buildImprovementTitle(
       improvement,
@@ -544,17 +743,24 @@ export async function runWorker(
       };
     }
 
-    const prTitle = commitTitle;
-    const prBody =
-      [
-        `Improvement #${improvement}`,
-        taskText ? `Task: ${taskText}` : undefined,
-        "",
-        doneSummary || "Automated harness improvement update.",
-      ]
-        .filter((line) => line !== undefined)
-        .join("\n");
-    const pr = ensurePullRequest(worktreePath, branchName, prTitle, prBody);
+    const pr = outstandingPrTask
+      ? {
+          number: outstandingPrTask.prNumber,
+          url: outstandingPrTask.prUrl,
+        }
+      : (() => {
+          const prTitle = commitTitle;
+          const prBody =
+            [
+              `Improvement #${improvement}`,
+              taskText ? `Task: ${taskText}` : undefined,
+              "",
+              doneSummary || "Automated harness improvement update.",
+            ]
+              .filter((line) => line !== undefined)
+              .join("\n");
+          return ensurePullRequest(worktreePath, branchName, prTitle, prBody);
+        })();
     if (!pr) {
       logger.error("Failed to create or find GitHub pull request");
       logger.info(`  Worktree preserved at: ${worktreePath}`);
@@ -569,7 +775,11 @@ export async function runWorker(
         stepResults,
       };
     }
-    logger.success(`Opened PR #${pr.number}: ${pr.url}`);
+    if (outstandingPrTask) {
+      logger.success(`Reusing PR #${pr.number}: ${pr.url}`);
+    } else {
+      logger.success(`Opened PR #${pr.number}: ${pr.url}`);
+    }
 
     // ── 4. Review/fix loop on PR ──
     let passed = false;
@@ -732,6 +942,64 @@ export async function runWorker(
     stepResults.push(reviewAccum);
     logger.stepSummary("review", reviewAccum);
 
+    logger.info(`[5/5] Agent handling merge for PR #${pr.number}...`);
+    const mergeResult = await runStep({
+      prompt: buildAgentMergePrompt(pr.number, branchName),
+      stepName: "merge",
+      improvement,
+      cwd: worktreePath,
+      model: config.agents.implement.model,
+      backend: config.agents.implement.backend,
+      config,
+      logger,
+      abortController,
+    });
+    if (!mergeResult.success) {
+      logger.error(`Agent merge step failed for PR #${pr.number}`);
+      logger.info(`  Worktree preserved at: ${worktreePath}`);
+      return {
+        success: false,
+        improvement,
+        workerSlot,
+        branchName,
+        worktreePath,
+        taskText,
+        taskSource,
+        prNumber: pr.number,
+        prUrl: pr.url,
+        stepResults,
+      };
+    }
+    stepResults.push({
+      step: "merge",
+      backend: mergeResult.backend,
+      turns: mergeResult.turns,
+      costUsd: mergeResult.costUsd,
+      tokens: mergeResult.inputTokens + mergeResult.outputTokens,
+      durationMs: mergeResult.durationMs,
+    });
+    logger.stepSummary("merge", stepResults[stepResults.length - 1]);
+
+    const mergeState = readPullRequestMergeState(worktreePath, pr.number);
+    if (!mergeState?.mergedAt) {
+      logger.error(
+        `PR #${pr.number} is not merged after agent merge step (state=${mergeState?.state ?? "UNKNOWN"}).`,
+      );
+      logger.info(`  Worktree preserved at: ${worktreePath}`);
+      return {
+        success: false,
+        improvement,
+        workerSlot,
+        branchName,
+        worktreePath,
+        taskText,
+        taskSource,
+        prNumber: pr.number,
+        prUrl: pr.url,
+        stepResults,
+      };
+    }
+
     // Worker done — final merge decision is handled by orchestrator via MergeQueue
     const totalCost = stepResults.reduce((s, r) => s + r.costUsd, 0);
     const totalDuration = stepResults.reduce((s, r) => s + r.durationMs, 0);
@@ -755,6 +1023,7 @@ export async function runWorker(
       prNumber: pr.number,
       prUrl: pr.url,
       stepResults,
+      mergeHandledByWorker: true,
     };
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err);
@@ -819,6 +1088,27 @@ export async function main(): Promise<void> {
 
   checkDeps(config, orchestratorLogger);
   syncBacklog(orchestratorLogger, "startup");
+
+  if (!config.task) {
+    const outstandingRalphPrs = listOpenRalphPullRequests(
+      config.repoDir,
+      config.branchPrefix,
+    );
+    let addedTriage = 0;
+    for (const pr of outstandingRalphPrs) {
+      const task = buildOutstandingRalphPrTriageTask({
+        prNumber: pr.number,
+        branchName: pr.headRefName,
+        prUrl: pr.url,
+      });
+      if (addTriageTask(task)) addedTriage++;
+    }
+    if (addedTriage > 0) {
+      orchestratorLogger.warn(
+        `Imported ${addedTriage} outstanding Ralph PR(s) into triage.`,
+      );
+    }
+  }
 
   const { agents } = config;
   const fmtStep = (s: { backend: AgentBackend; model: string }): string =>
@@ -1084,6 +1374,27 @@ export async function main(): Promise<void> {
     });
 
     if (result.success) {
+      if (result.mergeHandledByWorker) {
+        if (result.taskText && !config.task) {
+          if (result.taskSource === "triage") {
+            removeTriageTask(result.taskText);
+            finishedLogger.info("Task removed from triage after agent-merged PR");
+          } else {
+            removeTask(result.taskText);
+            finishedLogger.info("Task removed from backlog after agent-merged PR");
+          }
+          tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
+        }
+        syncBacklog(orchestratorLogger, "post-merge");
+        activeWorktrees.delete(finishedSlot);
+        completed++;
+        consecutiveFailures = 0;
+        orchestratorLogger.success(
+          `Progress: ${completed}${config.target !== undefined ? `/${config.target}` : ""} \u2713`,
+        );
+        continue;
+      }
+
       if (result.prNumber === undefined) {
         finishedLogger.error("Missing PR number for successful worker result");
         activeWorktrees.delete(finishedSlot);
@@ -1132,6 +1443,13 @@ export async function main(): Promise<void> {
       }
     } else {
       // Worker failed
+      if (
+        result.prNumber !== undefined &&
+        result.taskText &&
+        !config.task
+      ) {
+        parkTaskAfterEscalation(result, finishedLogger);
+      }
       if (result.taskText) {
         tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
       }
@@ -1167,6 +1485,21 @@ export async function main(): Promise<void> {
     for (const r of results) {
       if (r.status === "fulfilled" && r.value.success) {
         const result = r.value;
+        if (result.mergeHandledByWorker) {
+          if (result.taskText && !config.task) {
+            if (result.taskSource === "triage") {
+              removeTriageTask(result.taskText);
+            } else {
+              removeTask(result.taskText);
+            }
+            tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
+          }
+          syncBacklog(orchestratorLogger, "post-merge");
+          activeWorktrees.delete(result.workerSlot);
+          completed++;
+          continue;
+        }
+
         if (result.prNumber === undefined) {
           consecutiveFailures++;
           continue;
@@ -1198,6 +1531,22 @@ export async function main(): Promise<void> {
           activeWorktrees.delete(result.workerSlot);
           consecutiveFailures++;
         }
+      }
+      if (r.status === "fulfilled" && !r.value.success) {
+        const result = r.value;
+        const workerLogger = new Logger(
+          config.logFile,
+          config.verbose,
+          result.workerSlot,
+        );
+        if (result.prNumber !== undefined && result.taskText && !config.task) {
+          parkTaskAfterEscalation(result, workerLogger);
+        }
+        if (result.taskText) {
+          tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
+        }
+        activeWorktrees.delete(result.workerSlot);
+        consecutiveFailures++;
       }
     }
   }

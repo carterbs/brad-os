@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MergeQueue } from './merge-queue.js';
 
-const { mockMergePullRequest, mockCleanupWorktree } = vi.hoisted(() => ({
+const { mockMergePullRequest, mockEnsurePullRequestMergeable, mockCleanupWorktree } = vi.hoisted(() => ({
   mockMergePullRequest: vi.fn(),
+  mockEnsurePullRequestMergeable: vi.fn(),
   mockCleanupWorktree: vi.fn(),
 }));
 
@@ -11,6 +12,7 @@ vi.mock('./git.js', () => ({
 }));
 vi.mock('./pr.js', () => ({
   mergePullRequest: mockMergePullRequest,
+  ensurePullRequestMergeable: mockEnsurePullRequestMergeable,
 }));
 
 describe('MergeQueue', () => {
@@ -18,8 +20,10 @@ describe('MergeQueue', () => {
 
   beforeEach(() => {
     mockMergePullRequest.mockReset();
+    mockEnsurePullRequestMergeable.mockReset();
     mockCleanupWorktree.mockReset();
     mockLogger = createMockLogger();
+    mockEnsurePullRequestMergeable.mockReturnValue(true);
   });
 
   describe('enqueue: merge succeeds', () => {
@@ -45,6 +49,11 @@ describe('MergeQueue', () => {
       });
 
       expect(mockMergePullRequest).toHaveBeenCalledWith('/repo', 101);
+      expect(mockEnsurePullRequestMergeable).toHaveBeenCalledWith(
+        '/tmp/worktrees/test-branch',
+        'test-branch',
+        101
+      );
       expect(mockCleanupWorktree).toHaveBeenCalledWith(
         '/repo',
         '/tmp/worktrees/test-branch',
@@ -82,6 +91,30 @@ describe('MergeQueue', () => {
       expect(mockCleanupWorktree).not.toHaveBeenCalled();
       expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining('escalated to human review')
+      );
+    });
+  });
+
+  describe('enqueue: branch still unmergeable after sync', () => {
+    it('returns success=false without calling gh pr merge', async () => {
+      mockEnsurePullRequestMergeable.mockReturnValue(false);
+      const queue = new MergeQueue();
+
+      const result = await queue.enqueue({
+        repoDir: '/repo',
+        worktreePath: '/tmp/worktrees/conflict-branch',
+        branchName: 'conflict-branch',
+        prNumber: 33,
+        improvement: 3,
+        worker: 0,
+        logger: mockLogger,
+      });
+
+      expect(result.success).toBe(false);
+      expect(mockMergePullRequest).not.toHaveBeenCalled();
+      expect(mockCleanupWorktree).not.toHaveBeenCalled();
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        expect.stringContaining('still not mergeable')
       );
     });
   });
@@ -238,7 +271,7 @@ describe('MergeQueue', () => {
       });
 
       expect(mockLogger.info).toHaveBeenCalledWith(
-        expect.stringContaining('[5/5] Deciding merge')
+        expect.stringContaining('[5/5] Ensuring mergeability + deciding merge')
       );
       expect(mockLogger.info).toHaveBeenCalledWith(
         expect.stringContaining('test-branch')

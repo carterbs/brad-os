@@ -1,6 +1,6 @@
 import { cleanupWorktree } from "./git.js";
 import { Logger } from "./log.js";
-import { mergePullRequest } from "./pr.js";
+import { ensurePullRequestMergeable, mergePullRequest } from "./pr.js";
 
 export interface MergeJob {
   repoDir: string;
@@ -47,13 +47,24 @@ export class MergeQueue {
       ts: new Date().toISOString(),
     });
 
-    logger.info(`[5/5] Deciding merge for PR #${prNumber} (${branchName})...`);
+    logger.info(
+      `[5/5] Ensuring mergeability + deciding merge for PR #${prNumber} (${branchName})...`,
+    );
 
-    const success = mergePullRequest(repoDir, prNumber);
+    const mergeable = ensurePullRequestMergeable(
+      worktreePath,
+      branchName,
+      prNumber,
+    );
+    const success = mergeable && mergePullRequest(repoDir, prNumber);
 
     if (success) {
       cleanupWorktree(repoDir, worktreePath, branchName);
       logger.success(`Merge decision: merged PR #${prNumber}`);
+    } else if (!mergeable) {
+      logger.error(
+        `Merge decision: PR #${prNumber} is still not mergeable after syncing with main; worktree preserved at: ${worktreePath}`,
+      );
     } else {
       logger.error(
         `Merge decision: escalated to human review (PR #${prNumber}); worktree preserved at: ${worktreePath}`,

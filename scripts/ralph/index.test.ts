@@ -6,11 +6,13 @@ import {
   MERGE_CONFLICT_TRIAGE_PREFIX,
   activeWorktrees,
   buildImprovementTitle,
+  buildOutstandingRalphPrTriageTask,
   checkDeps,
   enforceMainManagedBacklog,
   extractPlanDocPathFromTask,
   hasMoreWork,
   isMergeConflictTriageTask,
+  parseOutstandingRalphPrTriageTask,
   main,
   runValidation,
   runWorker,
@@ -19,6 +21,7 @@ import {
 const {
   mockExecFileSync,
   mockExistsSync,
+  mockReaddirSync,
   mockRunStep,
   mockCreateWorktree,
   mockCleanupWorktree,
@@ -35,12 +38,16 @@ const {
   mockResolveConfig,
   mockMergeQueueEnqueue,
   mockEnsurePullRequest,
+  mockListOpenRalphPullRequests,
   mockPushBranch,
+  mockReadPullRequestMergeState,
   mockBuildBacklogRefillPrompt,
   mockBuildTaskPlanPrompt,
   mockBuildPlanPrompt,
   mockBuildImplPrompt,
   mockBuildMergeConflictResolvePrompt,
+  mockBuildOutstandingPrMergePrompt,
+  mockBuildAgentMergePrompt,
   mockBuildReviewPrompt,
   mockBuildFixPrompt,
   mockLoggerConstructor,
@@ -48,6 +55,7 @@ const {
 } = vi.hoisted(() => ({
   mockExecFileSync: vi.fn(),
   mockExistsSync: vi.fn(),
+  mockReaddirSync: vi.fn(),
   mockRunStep: vi.fn(),
   mockCreateWorktree: vi.fn(),
   mockCleanupWorktree: vi.fn(),
@@ -64,12 +72,16 @@ const {
   mockResolveConfig: vi.fn(),
   mockMergeQueueEnqueue: vi.fn(),
   mockEnsurePullRequest: vi.fn(),
+  mockListOpenRalphPullRequests: vi.fn(),
   mockPushBranch: vi.fn(),
+  mockReadPullRequestMergeState: vi.fn(),
   mockBuildBacklogRefillPrompt: vi.fn(),
   mockBuildTaskPlanPrompt: vi.fn(),
   mockBuildPlanPrompt: vi.fn(),
   mockBuildImplPrompt: vi.fn(),
   mockBuildMergeConflictResolvePrompt: vi.fn(),
+  mockBuildOutstandingPrMergePrompt: vi.fn(),
+  mockBuildAgentMergePrompt: vi.fn(),
   mockBuildReviewPrompt: vi.fn(),
   mockBuildFixPrompt: vi.fn(),
   mockLoggerConstructor: vi.fn(),
@@ -78,6 +90,7 @@ const {
 
 vi.mock('node:fs', () => ({
   existsSync: mockExistsSync,
+  readdirSync: mockReaddirSync,
 }));
 
 vi.mock('node:child_process', () => ({
@@ -119,7 +132,9 @@ vi.mock('./merge-queue.js', () => ({
 
 vi.mock('./pr.js', () => ({
   ensurePullRequest: mockEnsurePullRequest,
+  listOpenRalphPullRequests: mockListOpenRalphPullRequests,
   pushBranch: mockPushBranch,
+  readPullRequestMergeState: mockReadPullRequestMergeState,
 }));
 
 vi.mock('./prompts.js', () => ({
@@ -128,6 +143,8 @@ vi.mock('./prompts.js', () => ({
   buildPlanPrompt: mockBuildPlanPrompt,
   buildImplPrompt: mockBuildImplPrompt,
   buildMergeConflictResolvePrompt: mockBuildMergeConflictResolvePrompt,
+  buildOutstandingPrMergePrompt: mockBuildOutstandingPrMergePrompt,
+  buildAgentMergePrompt: mockBuildAgentMergePrompt,
   buildReviewPrompt: mockBuildReviewPrompt,
   buildFixPrompt: mockBuildFixPrompt,
 }));
@@ -249,6 +266,13 @@ describe('isMergeConflictTriageTask', () => {
 // ────────────────────────────────────────────────────────────────────────────
 
 describe('extractPlanDocPathFromTask', () => {
+  beforeEach(() => {
+    mockExistsSync.mockReset();
+    mockReaddirSync.mockReset();
+    mockExistsSync.mockReturnValue(false);
+    mockReaddirSync.mockReturnValue([]);
+  });
+
   it('returns undefined for non implement-plan task', async () => {
     expect(extractPlanDocPathFromTask('Add tests')).toBeUndefined();
   });
@@ -271,6 +295,37 @@ describe('extractPlanDocPathFromTask', () => {
         `${IMPLEMENT_PLAN_TASK_PREFIX}thoughts/shared/plans/completed/old.md`
       )
     ).toBe('thoughts/shared/plans/completed/old.md');
+  });
+
+  it('extracts slug before colon and resolves dated active plan file', async () => {
+    mockReaddirSync.mockReturnValue([
+      '2026-02-26-rust-migrate-setup-ios-testing.md',
+      '2026-02-26-rust-migrate-run-integration-tests.md',
+    ]);
+
+    expect(
+      extractPlanDocPathFromTask(
+        'Implement plan rust-migrate-setup-ios-testing: migrate scripts/setup-ios-testing.sh iOS bootstrap orchestration to Rust.'
+      )
+    ).toBe(
+      'thoughts/shared/plans/active/2026-02-26-rust-migrate-setup-ios-testing.md'
+    );
+  });
+
+  it('uses direct active path when exact plan filename exists', async () => {
+    mockExistsSync.mockImplementation(
+      (path: string) =>
+        path ===
+        'thoughts/shared/plans/active/2026-02-26-rust-migrate-setup-ios-testing.md'
+    );
+
+    expect(
+      extractPlanDocPathFromTask(
+        `${IMPLEMENT_PLAN_TASK_PREFIX}2026-02-26-rust-migrate-setup-ios-testing.md`
+      )
+    ).toBe(
+      'thoughts/shared/plans/active/2026-02-26-rust-migrate-setup-ios-testing.md'
+    );
   });
 });
 
@@ -300,6 +355,76 @@ describe('buildImprovementTitle', () => {
     );
     expect(title.length).toBeLessThanOrEqual(72);
     expect(title.endsWith('...')).toBe(true);
+  });
+});
+
+describe('buildOutstandingRalphPrTriageTask', () => {
+  it('returns deterministic triage text for open Ralph PRs', async () => {
+    expect(
+      buildOutstandingRalphPrTriageTask({
+        prNumber: 21,
+        branchName: 'harness-improvement-066',
+        prUrl: 'https://github.com/carterbs/brad-os/pull/21',
+      })
+    ).toBe(
+      'Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21'
+    );
+  });
+});
+
+describe('parseOutstandingRalphPrTriageTask', () => {
+  it('parses valid outstanding PR triage task', async () => {
+    expect(
+      parseOutstandingRalphPrTriageTask(
+        'Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
+        'triage'
+      )
+    ).toEqual({
+      prNumber: 21,
+      branchName: 'harness-improvement-066',
+      prUrl: 'https://github.com/carterbs/brad-os/pull/21',
+    });
+  });
+
+  it('returns undefined for non-triage source', async () => {
+    expect(
+      parseOutstandingRalphPrTriageTask(
+        'Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
+        'backlog'
+      )
+    ).toBeUndefined();
+  });
+
+  it('returns undefined for non-matching text', async () => {
+    expect(
+      parseOutstandingRalphPrTriageTask('Resolve merge conflict for improvement #66', 'triage')
+    ).toBeUndefined();
+  });
+
+  it('parses outstanding PR task nested inside human-escalation wrapper', async () => {
+    expect(
+      parseOutstandingRalphPrTriageTask(
+        'Human escalation required for PR #21 (improvement #65). Worktree: /tmp/brad-os-ralph-worktrees/harness-improvement-066. Original task: Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
+        'triage'
+      )
+    ).toEqual({
+      prNumber: 21,
+      branchName: 'harness-improvement-066',
+      prUrl: 'https://github.com/carterbs/brad-os/pull/21',
+    });
+  });
+
+  it('parses outstanding PR task through multiple escalation wrappers', async () => {
+    expect(
+      parseOutstandingRalphPrTriageTask(
+        'Human escalation required for PR #21 (improvement #65). Worktree: /tmp/a. Original task: Human escalation required for PR #21 (improvement #65). Worktree: /tmp/b. Original task: Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
+        'triage'
+      )
+    ).toEqual({
+      prNumber: 21,
+      branchName: 'harness-improvement-066',
+      prUrl: 'https://github.com/carterbs/brad-os/pull/21',
+    });
   });
 });
 
@@ -743,10 +868,19 @@ describe('runWorker', () => {
     mockExecFileSync.mockReset();
     mockPushBranch.mockReset();
     mockEnsurePullRequest.mockReset();
+    mockListOpenRalphPullRequests.mockReset();
     mockPushBranch.mockReturnValue(true);
+    mockRunStep.mockResolvedValue(
+      makeStepResult({ outputText: 'REVIEW_PASSED' })
+    );
     mockEnsurePullRequest.mockReturnValue({
       number: 123,
       url: 'https://github.com/org/repo/pull/123',
+    });
+    mockListOpenRalphPullRequests.mockReturnValue([]);
+    mockReadPullRequestMergeState.mockReturnValue({
+      state: 'MERGED',
+      mergedAt: '2026-02-26T17:18:45Z',
     });
   });
 
@@ -864,6 +998,57 @@ describe('runWorker', () => {
     expect(planCalls).toHaveLength(0);
     // Verify merge conflict resolve was called instead of impl
     expect(mockBuildMergeConflictResolvePrompt).toHaveBeenCalled();
+  });
+
+  it('uses merge-only flow for outstanding PR triage task', async () => {
+    mockCreateWorktree.mockReturnValue({ created: true, resumed: false });
+    mockRunStep.mockResolvedValueOnce(
+      makeStepResult({ outputText: 'DONE: Rebased and resolved conflicts' })
+    );
+    mockCommitAll.mockReturnValue(true);
+    const config = makeConfig();
+    const abortController = new AbortController();
+    const taskText =
+      'Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21';
+
+    const result = await runWorker(
+      0,
+      1,
+      config,
+      createMockLogger() as any,
+      abortController,
+      taskText,
+      'triage'
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.prNumber).toBe(21);
+    expect(result.branchName).toBe('harness-improvement-066');
+    expect(result.prUrl).toBe(
+      'https://github.com/carterbs/brad-os/pull/21'
+    );
+    expect(result.mergeHandledByWorker).toBe(true);
+    expect(mockRunStep).toHaveBeenCalledTimes(2);
+    expect(mockRunStep.mock.calls[0]?.[0]?.stepName).toBe('implement');
+    expect(mockRunStep.mock.calls[1]?.[0]?.stepName).toBe('merge');
+    expect(mockBuildOutstandingPrMergePrompt).toHaveBeenCalledWith(
+      taskText,
+      21,
+      'harness-improvement-066'
+    );
+    expect(mockBuildAgentMergePrompt).toHaveBeenCalledWith(
+      21,
+      'harness-improvement-066'
+    );
+    expect(mockReadPullRequestMergeState).toHaveBeenCalledWith(
+      `${config.worktreeDir}/harness-improvement-066`,
+      21
+    );
+    expect(mockCommitAll).not.toHaveBeenCalled();
+    expect(mockPushBranch).not.toHaveBeenCalled();
+    expect(mockEnsurePullRequest).not.toHaveBeenCalled();
+    const stepNames = mockRunStep.mock.calls.map((call) => call[0].stepName);
+    expect(stepNames).not.toContain('review');
   });
 
   it('skips planning for implement-plan task', async () => {
@@ -1750,6 +1935,7 @@ describe('main', () => {
     mockMergeQueueEnqueue.mockReset();
     mockPushBranch.mockReset();
     mockEnsurePullRequest.mockReset();
+    mockListOpenRalphPullRequests.mockReset();
     mockBuildBacklogRefillPrompt.mockReset();
     mockBuildTaskPlanPrompt.mockReset();
     mockBuildPlanPrompt.mockReset();
@@ -1760,10 +1946,19 @@ describe('main', () => {
     mockLoggerConstructor.mockReset();
     mockLoggerConstructor.mockImplementation(createMockLogger);
     mockPushBranch.mockReturnValue(true);
+    mockRunStep.mockResolvedValue(
+      makeStepResult({ outputText: 'REVIEW_PASSED' })
+    );
+    mockReadPullRequestMergeState.mockReset();
+    mockReadPullRequestMergeState.mockReturnValue({
+      state: 'MERGED',
+      mergedAt: '2026-02-26T17:30:24Z',
+    });
     mockEnsurePullRequest.mockReturnValue({
       number: 123,
       url: 'https://github.com/org/repo/pull/123',
     });
+    mockListOpenRalphPullRequests.mockReturnValue([]);
     mockProcessExit = vi.spyOn(process, 'exit').mockImplementation((() => {
       // no-op — just record the call
     }) as never);
@@ -1779,6 +1974,8 @@ describe('main', () => {
   });
 
   afterEach(() => {
+    vi.clearAllTimers();
+    vi.clearAllMocks();
     vi.useRealTimers();
     mockProcessExit.mockRestore();
     mockProcessOn.mockRestore();
@@ -1821,7 +2018,7 @@ describe('main', () => {
     await vi.advanceTimersByTimeAsync(3000);
     await mainPromise;
 
-    expect(mockMergeQueueEnqueue).toHaveBeenCalled();
+    expect(mockMergeQueueEnqueue).not.toHaveBeenCalled();
   });
 
   it('adds triage task when main is not green', async () => {
@@ -1855,6 +2052,54 @@ describe('main', () => {
     await p;
 
     expect(mockAddTriageTask).toHaveBeenCalledWith(MAIN_NOT_GREEN_TRIAGE_TASK);
+  });
+
+  it('imports outstanding Ralph PRs into triage at startup', async () => {
+    setupMainDefaults({ target: 1 });
+    mockReadTriage.mockReturnValue([]);
+    mockReadBacklog.mockReturnValue(['Some task']);
+    mockAddTriageTask.mockReturnValue(true);
+    mockListOpenRalphPullRequests.mockReturnValue([
+      {
+        number: 19,
+        url: 'https://github.com/carterbs/brad-os/pull/19',
+        headRefName: 'harness-improvement-067',
+      },
+      {
+        number: 20,
+        url: 'https://github.com/carterbs/brad-os/pull/20',
+        headRefName: 'harness-improvement-065',
+      },
+    ]);
+
+    mockCreateWorktree.mockReturnValue({ created: true, resumed: false });
+    mockExistsSync.mockReturnValue(true);
+    mockRunStep
+      .mockResolvedValueOnce(makeStepResult({ outputText: 'PLAN: X' }))
+      .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
+      .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
+    mockCommitAll.mockReturnValue(true);
+    mockMergeQueueEnqueue.mockResolvedValue({
+      success: true,
+      improvement: 1,
+      worker: 0,
+      branchName: 'x',
+    });
+
+    const p = main();
+    await vi.advanceTimersByTimeAsync(3000);
+    await p;
+
+    expect(mockListOpenRalphPullRequests).toHaveBeenCalledWith(
+      '/repo',
+      'harness-improvement'
+    );
+    expect(mockAddTriageTask).toHaveBeenCalledWith(
+      'Resolve outstanding Ralph PR #19 (harness-improvement-067) and merge to main. PR: https://github.com/carterbs/brad-os/pull/19'
+    );
+    expect(mockAddTriageTask).toHaveBeenCalledWith(
+      'Resolve outstanding Ralph PR #20 (harness-improvement-065) and merge to main. PR: https://github.com/carterbs/brad-os/pull/20'
+    );
   });
 
   it('skips initial validation when --task is set', async () => {
@@ -1928,19 +2173,9 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
     mockCommitAll.mockReturnValue(true);
 
-    mockMergeQueueEnqueue
-      .mockResolvedValueOnce({
-        success: false,
-        improvement: 1,
-        worker: 0,
-        branchName: 'x',
-      })
-      .mockResolvedValueOnce({
-        success: true,
-        improvement: 2,
-        worker: 0,
-        branchName: 'y',
-      });
+    mockReadPullRequestMergeState
+      .mockReturnValueOnce({ state: 'OPEN', mergedAt: null })
+      .mockReturnValueOnce({ state: 'MERGED', mergedAt: '2026-02-26T17:30:24Z' });
     const p = main();
     for (let i = 0; i < 10; i++) {
       await vi.advanceTimersByTimeAsync(3000);
@@ -1965,11 +2200,9 @@ describe('main', () => {
       .mockResolvedValueOnce(makeStepResult({ outputText: 'DONE: Y' }))
       .mockResolvedValueOnce(makeStepResult({ outputText: 'REVIEW_PASSED' }));
     mockCommitAll.mockReturnValue(true);
-    mockMergeQueueEnqueue.mockResolvedValue({
-      success: false,
-      improvement: 1,
-      worker: 0,
-      branchName: 'x',
+    mockReadPullRequestMergeState.mockReturnValueOnce({
+      state: 'OPEN',
+      mergedAt: null,
     });
     const p = main();
     for (let i = 0; i < 10; i++) {
@@ -2311,7 +2544,7 @@ describe('main', () => {
     await p;
 
     // Remaining worker was processed through merge queue
-    expect(mockMergeQueueEnqueue).toHaveBeenCalled();
+    expect(mockMergeQueueEnqueue).not.toHaveBeenCalled();
   });
 
   it('handles remaining worker merge failure after loop exits', async () => {
@@ -2344,12 +2577,10 @@ describe('main', () => {
 
     mockExistsSync.mockReturnValue(true);
     mockCommitAll.mockReturnValue(true);
-    // Merge FAILS for remaining worker
-    mockMergeQueueEnqueue.mockResolvedValue({
-      success: false,
-      improvement: 2,
-      worker: 1,
-      branchName: 'y',
+    // Agent merge state check fails for remaining worker
+    mockReadPullRequestMergeState.mockReturnValueOnce({
+      state: 'OPEN',
+      mergedAt: null,
     });
     const p = main();
 
@@ -2506,13 +2737,14 @@ describe('main', () => {
     // target: undefined → hasMoreWork depends on triage/backlog/inFlight counts
     setupMainDefaults({ target: undefined, parallelism: 1 });
 
-    // Triage always has the main-green task, backlog always empty.
-    // After the first worker fails with no_changes, mainNotGreenRetryAfter is set.
-    // On the second loop iteration, acquireTask should:
-    //   - Defer the main-green task (cooldown active, line 685-687)
-    //   - Find no backlog tasks
-    //   - Return deferredMainNotGreenTask (line 698)
-    mockReadTriage.mockReturnValue([MAIN_NOT_GREEN_TRIAGE_TASK]);
+    // Provide the main-green task for the first few reads, then empty triage
+    // so the orchestration loop can terminate deterministically.
+    let triageReadCount = 0;
+    mockReadTriage.mockImplementation(() => {
+      triageReadCount++;
+      if (triageReadCount <= 8) return [MAIN_NOT_GREEN_TRIAGE_TASK];
+      return [];
+    });
     mockReadBacklog.mockReturnValue([]);
 
     mockCreateWorktree.mockReturnValue({ created: true, resumed: false });
@@ -2562,6 +2794,6 @@ describe('main', () => {
     await p;
 
     // If lines 685-698 were hit, the worker ran and merged the deferred task
-    expect(mockMergeQueueEnqueue).toHaveBeenCalled();
+    expect(mockMergeQueueEnqueue).not.toHaveBeenCalled();
   });
 });

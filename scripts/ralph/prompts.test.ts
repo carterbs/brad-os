@@ -5,6 +5,7 @@ import {
   buildPlanPrompt,
   buildImplPrompt,
   buildMergeConflictResolvePrompt,
+  buildOutstandingPrMergePrompt,
   buildReviewPrompt,
   buildFixPrompt,
 } from './prompts.js';
@@ -150,6 +151,25 @@ describe('prompts module', () => {
     it('contains DONE: output marker', async () => {
       const prompt = buildMergeConflictResolvePrompt('Test');
 
+      expect(prompt).toContain('DONE:');
+    });
+  });
+
+  describe('buildOutstandingPrMergePrompt', () => {
+    it('includes task, pr number, and branch', async () => {
+      const prompt = buildOutstandingPrMergePrompt(
+        'Resolve outstanding Ralph PR #21 (harness-improvement-066) and merge to main. PR: https://github.com/carterbs/brad-os/pull/21',
+        21,
+        'harness-improvement-066'
+      );
+
+      expect(prompt).toContain('PR #21');
+      expect(prompt).toContain('harness-improvement-066');
+      expect(prompt).toContain('Rebase');
+    });
+
+    it('contains DONE: output marker', async () => {
+      const prompt = buildOutstandingPrMergePrompt('task', 1, 'branch');
       expect(prompt).toContain('DONE:');
     });
   });

@@ -136,3 +136,8 @@ export interface StepSummary {
   tokens: number;
   durationMs: number;
 }
+
+export interface PrMergeState {
+  state?: string;
+  mergedAt?: string | null;
+}
