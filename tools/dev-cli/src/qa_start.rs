@@ -333,13 +333,15 @@ fn start_otel(
         collector_port: port,
         output_dir: otel_dir.to_path_buf(),
     };
+    let collector_port = config.collector_port.to_string();
+    let output_dir = config.output_dir.to_string_lossy().into_owned();
     let pid = run_to_file_detach(
         "nohup",
         &["npx", "tsx", "scripts/otel-collector/index.ts"],
         Some(root_dir),
         &[
-            ("OTEL_COLLECTOR_PORT", &config.collector_port.to_string()),
-            ("OTEL_OUTPUT_DIR", &config.output_dir.to_string_lossy()),
+            ("OTEL_COLLECTOR_PORT", collector_port.as_str()),
+            ("OTEL_OUTPUT_DIR", output_dir.as_str()),
         ],
         otel_log,
     )?;

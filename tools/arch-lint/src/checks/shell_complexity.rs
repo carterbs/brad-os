@@ -129,7 +129,7 @@ fn has_shell_shebang(raw: &[u8]) -> bool {
 }
 
 fn cc_limit_for(path: &Path, content: &str) -> usize {
-    if is_skimmed_shim(path, content) {
+    if is_known_shim_path(path) || is_skimmed_shim(path, content) {
         return usize::MAX;
     }
 
@@ -146,6 +146,17 @@ fn is_transitional_legacy(path: &Path) -> bool {
         .is_some_and(|name| {
             matches!(name, "qa-start.sh" | "qa-stop.sh" | "setup-ios-testing.sh")
         })
+}
+
+fn is_known_shim_path(path: &Path) -> bool {
+    let normalized = path.to_string_lossy().replace('\\', "/");
+    normalized.ends_with("hooks/pre-commit")
+        || normalized.ends_with("scripts/validate.sh")
+        || normalized.ends_with("scripts/doctor.sh")
+        || normalized.ends_with("scripts/run-integration-tests.sh")
+        || normalized.ends_with("scripts/arch-lint")
+        || normalized.ends_with("scripts/brad-precommit")
+        || normalized.ends_with("scripts/brad-validate")
 }
 
 fn is_skimmed_shim(path: &Path, content: &str) -> bool {
@@ -226,7 +237,10 @@ fn strip_inline_comment(line: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{estimate_complexity, is_transitional_legacy, is_skimmed_shim, strip_inline_comment};
+    use super::{
+        estimate_complexity, is_known_shim_path, is_transitional_legacy, is_skimmed_shim,
+        strip_inline_comment,
+    };
 
     #[test]
     fn strips_inline_comment_only_after_comment_operator() {
@@ -293,5 +307,13 @@ cargo build -p arch-lint --release >/dev/null
 exec "$BINARY" "$@"
 "#;
         assert!(is_skimmed_shim(std::path::Path::new("scripts/arch-lint"), shim));
+    }
+
+    #[test]
+    fn documented_shim_paths_are_exempt() {
+        assert!(is_known_shim_path(std::path::Path::new("hooks/pre-commit")));
+        assert!(is_known_shim_path(std::path::Path::new("scripts/validate.sh")));
+        assert!(is_known_shim_path(std::path::Path::new("scripts/doctor.sh")));
+        assert!(is_known_shim_path(std::path::Path::new("scripts/run-integration-tests.sh")));
     }
 }

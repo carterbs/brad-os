@@ -232,9 +232,8 @@ EOF
 }
 
 if [ "${BRAD_USE_RUST_VALIDATE:-1}" = "1" ]; then
-  if run_rust_validate "$@"; then
-    exit 0
-  fi
+  run_rust_validate "$@"
+  exit $?
 fi
 
 run_legacy_validate "$@"

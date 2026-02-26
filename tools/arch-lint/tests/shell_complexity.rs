@@ -76,7 +76,7 @@ exec "$BINARY" "$@"
 }
 
 #[test]
-fn shell_complexity_check_scans_hook_shebang_scripts() {
+fn shell_complexity_check_exempts_documented_pre_commit_shim() {
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path();
 
@@ -88,9 +88,8 @@ fn shell_complexity_check_scans_hook_shebang_scripts() {
     let config = LinterConfig::from_root(root);
     let result = shell_complexity::check(&config);
 
-    assert!(!result.passed);
-    assert_eq!(result.violations.len(), 1);
-    assert!(result.violations[0].contains("hooks/pre-commit"));
+    assert!(result.passed);
+    assert!(result.violations.is_empty());
 }
 
 fn default_complexity_script(branches: usize) -> String {

@@ -22,7 +22,6 @@ pub mod test_quality;
 pub mod type_dedup;
 pub mod types_in_types_dir;
 pub mod untested_high_risk;
-pub mod shell_complexity;
 
 use crate::config::LinterConfig;
 
