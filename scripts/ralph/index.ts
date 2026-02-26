@@ -58,6 +58,62 @@ export const MERGE_CONFLICT_TRIAGE_PREFIX =
   "Resolve merge conflict for improvement #";
 export const IMPLEMENT_PLAN_TASK_PREFIX = "Implement Plan ";
 const DEFAULT_PLAN_DOC_PATH = "thoughts/shared/plans/active/ralph-improvement.md";
+const TITLE_MAX_LENGTH = 72;
+
+function normalizeSpaces(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function cleanTitleCandidate(value: string): string {
+  return normalizeSpaces(value)
+    .replace(/^(PLAN|Title)\s*:\s*/i, "")
+    .replace(/[.;:,\s]+$/g, "");
+}
+
+function isLowSignalTitle(value: string): boolean {
+  const normalized = cleanTitleCandidate(value).toLowerCase();
+  if (!normalized) return true;
+  if (normalized.length < 4) return true;
+
+  const lowSignal = new Set([
+    "x",
+    "fix",
+    "fixes",
+    "something",
+    "improvement",
+    "update",
+    "changes",
+    "misc",
+  ]);
+  if (lowSignal.has(normalized)) return true;
+
+  return normalized.split(" ").length < 2;
+}
+
+function truncateTitle(value: string): string {
+  if (value.length <= TITLE_MAX_LENGTH) return value;
+  return `${value.slice(0, TITLE_MAX_LENGTH - 3).trimEnd()}...`;
+}
+
+export function buildImprovementTitle(
+  improvement: number,
+  planSummary: string,
+  taskText?: string,
+): string {
+  const planCandidate = cleanTitleCandidate(planSummary);
+  const taskCandidate = cleanTitleCandidate(taskText ?? "");
+
+  const bestCandidate = !isLowSignalTitle(planCandidate)
+    ? planCandidate
+    : !isLowSignalTitle(taskCandidate)
+      ? taskCandidate
+      : `improvement #${improvement}`;
+
+  const prefixed = /^harness:\s*/i.test(bestCandidate)
+    ? bestCandidate
+    : `harness: ${bestCandidate}`;
+  return truncateTitle(prefixed);
+}
 
 // ── Validation helper ──
 
@@ -430,7 +486,11 @@ export async function runWorker(
     });
     logger.stepSummary("implement", stepResults[stepResults.length - 1]);
 
-    const commitTitle = planSummary || `harness: improvement #${improvement}`;
+    const commitTitle = buildImprovementTitle(
+      improvement,
+      planSummary,
+      taskText,
+    );
     const commitBody = doneSummary ? `\n${doneSummary}` : "";
     const commitMsg = `${commitTitle}${commitBody}`;
 
