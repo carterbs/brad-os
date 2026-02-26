@@ -1,0 +1,60 @@
+import { describe, expect, it } from 'vitest';
+import { ingredientResponseSchema } from './ingredient.schema.js';
+
+describe('ingredientResponseSchema', () => {
+  const validPayload = {
+    id: 'ingredient-1',
+    name: 'Chicken Breast',
+    store_section: 'Meat',
+    created_at: '2026-02-25T00:00:00.000Z',
+    updated_at: '2026-02-25T00:05:00.000Z',
+  };
+
+  it('accepts a fully valid payload', () => {
+    const result = ingredientResponseSchema.safeParse(validPayload);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.id).toBe('ingredient-1');
+      expect(result.data.name).toBe('Chicken Breast');
+    }
+  });
+
+  it('accepts empty strings for string fields', () => {
+    const result = ingredientResponseSchema.safeParse({
+      id: '',
+      name: '',
+      store_section: '',
+      created_at: '',
+      updated_at: '',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects missing required fields', () => {
+    const missing = ingredientResponseSchema.safeParse({
+      id: 'ingredient-1',
+      name: 'Chicken Breast',
+      store_section: 'Meat',
+      created_at: '2026-02-25T00:00:00.000Z',
+    });
+
+    expect(missing.success).toBe(false);
+  });
+
+  it('rejects wrong types for each required field', () => {
+    const wrongTypePayloads = [
+      { id: 99, name: 'Chicken', store_section: 'Meat', created_at: '2026-02-25T00:00:00.000Z', updated_at: '2026-02-25T00:00:00.000Z' },
+      { id: 'ingredient-1', name: 42, store_section: 'Meat', created_at: '2026-02-25T00:00:00.000Z', updated_at: '2026-02-25T00:00:00.000Z' },
+      { id: 'ingredient-1', name: 'Chicken', store_section: true, created_at: '2026-02-25T00:00:00.000Z', updated_at: '2026-02-25T00:00:00.000Z' },
+      { id: 'ingredient-1', name: 'Chicken', store_section: 'Meat', created_at: { value: '2026-02-25' }, updated_at: '2026-02-25T00:00:00.000Z' },
+      { id: 'ingredient-1', name: 'Chicken', store_section: 'Meat', created_at: '2026-02-25T00:00:00.000Z', updated_at: ['2026-02-25'] },
+    ];
+
+    for (const payload of wrongTypePayloads) {
+      const result = ingredientResponseSchema.safeParse(payload);
+      expect(result.success).toBe(false);
+    }
+  });
+});

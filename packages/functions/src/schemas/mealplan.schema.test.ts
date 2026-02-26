@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { critiqueResponseSchema } from './mealplan.schema.js';
+import { describe, expect, it } from 'vitest';
+import { critiqueInputSchema, critiqueResponseSchema } from './mealplan.schema.js';
 
 describe('critiqueResponseSchema', () => {
   it('accepts a valid critique response with a meal change', () => {
@@ -47,3 +47,47 @@ describe('critiqueResponseSchema', () => {
   });
 });
 
+describe('critiqueInputSchema', () => {
+  it('accepts valid critique text', () => {
+    const result = critiqueInputSchema.safeParse({
+      critique: 'Great meal plan with good variety and balance.',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.critique).toBe('Great meal plan with good variety and balance.');
+    }
+  });
+
+  it('accepts boundary text lengths', () => {
+    const min = critiqueInputSchema.safeParse({
+      critique: 'a',
+    });
+    const max = critiqueInputSchema.safeParse({
+      critique: 'a'.repeat(2000),
+    });
+
+    expect(min.success).toBe(true);
+    expect(max.success).toBe(true);
+  });
+
+  it('rejects empty and too long critique text', () => {
+    const empty = critiqueInputSchema.safeParse({
+      critique: '',
+    });
+    const tooLong = critiqueInputSchema.safeParse({
+      critique: 'a'.repeat(2001),
+    });
+
+    expect(empty.success).toBe(false);
+    expect(tooLong.success).toBe(false);
+  });
+
+  it('rejects missing critique and non-string critique', () => {
+    const missing = critiqueInputSchema.safeParse({});
+    const numeric = critiqueInputSchema.safeParse({ critique: 123 });
+
+    expect(missing.success).toBe(false);
+    expect(numeric.success).toBe(false);
+  });
+});
