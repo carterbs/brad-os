@@ -75,6 +75,13 @@ npm run doctor            # Check: all required tooling installed
 
 Violation output includes per-file lines, branches, loop counts, and `CC_estimate` to make migrations actionable.
 
+This policy is enforced through architecture lint:
+
+- `npm run lint:architecture`
+- `bash scripts/arch-lint`
+
+If a wrapper violates the policy, either migrate to Rust or add a temporary allowlist entry using the process in [shell-complexity guardrail plan](../../thoughts/shared/plans/active/2026-02-26-shell-complexity-guardrail.md).
+
 ### CI
 
 GitHub Actions runs on every push to `main` and every PR:
