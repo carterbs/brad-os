@@ -5,11 +5,16 @@ import type {
   UpdatePlanDayExerciseDTO,
 } from '../shared.js';
 import { BaseRepository } from './base.repository.js';
+import {
+  isRecord,
+  readNumber,
+  readString,
+} from './firestore-type-guards.js';
 
 export class PlanDayExerciseRepository extends BaseRepository<
   PlanDayExercise,
   CreatePlanDayExerciseDTO,
-  UpdatePlanDayExerciseDTO
+  UpdatePlanDayExerciseDTO & Record<string, unknown>
 > {
   protected override includeTimestampOnUpdate = false;
 
@@ -39,14 +44,59 @@ export class PlanDayExerciseRepository extends BaseRepository<
     return planDayExercise;
   }
 
+  protected parseEntity(id: string, data: Record<string, unknown>): PlanDayExercise | null {
+    const planDayId = readString(data, 'plan_day_id');
+    const exerciseId = readString(data, 'exercise_id');
+    const sets = readNumber(data, 'sets');
+    const reps = readNumber(data, 'reps');
+    const weight = readNumber(data, 'weight');
+    const restSeconds = readNumber(data, 'rest_seconds');
+    const sortOrder = readNumber(data, 'sort_order');
+    const minReps = readNumber(data, 'min_reps');
+    const maxReps = readNumber(data, 'max_reps');
+
+    if (
+      planDayId === null ||
+      exerciseId === null ||
+      sets === null ||
+      reps === null ||
+      weight === null ||
+      restSeconds === null ||
+      sortOrder === null ||
+      minReps === null ||
+      maxReps === null
+    ) {
+      return null;
+    }
+
+    return {
+      id,
+      plan_day_id: planDayId,
+      exercise_id: exerciseId,
+      sets,
+      reps,
+      weight,
+      rest_seconds: restSeconds,
+      sort_order: sortOrder,
+      min_reps: minReps,
+      max_reps: maxReps,
+    };
+  }
+
   async findByPlanDayId(planDayId: string): Promise<PlanDayExercise[]> {
     const snapshot = await this.collection
       .where('plan_day_id', '==', planDayId)
       .orderBy('sort_order')
       .get();
-    return snapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() }) as PlanDayExercise
-    );
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((planDayExercise): planDayExercise is PlanDayExercise => planDayExercise !== null);
   }
 
   async findAll(): Promise<PlanDayExercise[]> {
@@ -54,8 +104,14 @@ export class PlanDayExerciseRepository extends BaseRepository<
       .orderBy('plan_day_id')
       .orderBy('sort_order')
       .get();
-    return snapshot.docs.map(
-      (doc) => ({ id: doc.id, ...doc.data() }) as PlanDayExercise
-    );
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((planDayExercise): planDayExercise is PlanDayExercise => planDayExercise !== null);
   }
 }

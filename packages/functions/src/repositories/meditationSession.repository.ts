@@ -5,6 +5,12 @@ import type {
   CreateMeditationSessionRequest,
 } from '../shared.js';
 import { getFirestoreDb, getCollectionName } from '../firebase.js';
+import {
+  isRecord,
+  readBoolean,
+  readNumber,
+  readString,
+} from './firestore-type-guards.js';
 
 /**
  * Convert a local date boundary to a UTC timestamp.
@@ -86,14 +92,10 @@ export class MeditationSessionRepository {
       return null;
     }
     const data = doc.data();
-    return {
-      id: doc.id,
-      completedAt: data?.['completedAt'] as string,
-      sessionType: data?.['sessionType'] as string,
-      plannedDurationSeconds: data?.['plannedDurationSeconds'] as number,
-      actualDurationSeconds: data?.['actualDurationSeconds'] as number,
-      completedFully: data?.['completedFully'] as boolean,
-    };
+    if (!isRecord(data)) {
+      return null;
+    }
+    return this.parseEntity(doc.id, data);
   }
 
   /**
@@ -114,14 +116,10 @@ export class MeditationSessionRepository {
       return null;
     }
     const data = doc.data();
-    return {
-      id: doc.id,
-      completedAt: data['completedAt'] as string,
-      sessionType: data['sessionType'] as string,
-      plannedDurationSeconds: data['plannedDurationSeconds'] as number,
-      actualDurationSeconds: data['actualDurationSeconds'] as number,
-      completedFully: data['completedFully'] as boolean,
-    };
+    if (!isRecord(data)) {
+      return null;
+    }
+    return this.parseEntity(doc.id, data);
   }
 
   /**
@@ -130,17 +128,15 @@ export class MeditationSessionRepository {
   async findAll(): Promise<MeditationSessionRecord[]> {
     const snapshot = await this.collection.orderBy('completedAt', 'desc').get();
 
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        completedAt: data['completedAt'] as string,
-        sessionType: data['sessionType'] as string,
-        plannedDurationSeconds: data['plannedDurationSeconds'] as number,
-        actualDurationSeconds: data['actualDurationSeconds'] as number,
-        completedFully: data['completedFully'] as boolean,
-      };
-    });
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((session): session is MeditationSessionRecord => session !== null);
   }
 
   /**
@@ -160,17 +156,15 @@ export class MeditationSessionRepository {
       .orderBy('completedAt')
       .get();
 
-    return snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        completedAt: data['completedAt'] as string,
-        sessionType: data['sessionType'] as string,
-        plannedDurationSeconds: data['plannedDurationSeconds'] as number,
-        actualDurationSeconds: data['actualDurationSeconds'] as number,
-        completedFully: data['completedFully'] as boolean,
-      };
-    });
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((session): session is MeditationSessionRecord => session !== null);
   }
 
   /**
@@ -183,9 +177,17 @@ export class MeditationSessionRepository {
     let totalSeconds = 0;
 
     for (const doc of snapshot.docs) {
-      totalSessions++;
       const data = doc.data();
-      totalSeconds += (data['actualDurationSeconds'] as number) || 0;
+      if (!isRecord(data)) {
+        continue;
+      }
+      const session = this.parseEntity(doc.id, data);
+      if (session === null) {
+        continue;
+      }
+
+      totalSessions++;
+      totalSeconds += session.actualDurationSeconds;
     }
 
     return {
@@ -204,5 +206,32 @@ export class MeditationSessionRepository {
     }
     await this.collection.doc(id).delete();
     return true;
+  }
+
+  protected parseEntity(id: string, data: Record<string, unknown>): MeditationSessionRecord | null {
+    const completedAt = readString(data, 'completedAt');
+    const sessionType = readString(data, 'sessionType');
+    const plannedDurationSeconds = readNumber(data, 'plannedDurationSeconds');
+    const actualDurationSeconds = readNumber(data, 'actualDurationSeconds');
+    const completedFully = readBoolean(data, 'completedFully');
+
+    if (
+      completedAt === null ||
+      sessionType === null ||
+      plannedDurationSeconds === null ||
+      actualDurationSeconds === null ||
+      completedFully === null
+    ) {
+      return null;
+    }
+
+    return {
+      id,
+      completedAt,
+      sessionType,
+      plannedDurationSeconds,
+      actualDurationSeconds,
+      completedFully,
+    };
   }
 }

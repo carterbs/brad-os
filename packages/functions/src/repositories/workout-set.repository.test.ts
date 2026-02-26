@@ -509,6 +509,33 @@ describe('WorkoutSetRepository', () => {
       expect(result).toEqual([]);
     });
 
+    it('should skip malformed set payloads when building completed exercise history', async () => {
+      const repository = new WorkoutSetRepository(mockDb as Firestore);
+      const sets = [
+        { id: 's-valid', data: { workout_id: 'w-1', exercise_id: 'ex-1', set_number: 1, target_reps: 10, target_weight: 100, actual_reps: 10, actual_weight: 100, status: 'completed' } },
+        { id: 's-bad', data: { workout_id: 'w-1', exercise_id: 'ex-1', set_number: 'bad', target_reps: 10, target_weight: 100, actual_reps: 10, actual_weight: 100, status: 'completed' } },
+      ];
+      const workoutData = {
+        scheduled_date: '2024-01-15',
+        completed_at: '2024-01-15T11:00:00Z',
+        week_number: 1,
+        mesocycle_id: 'meso-1',
+        status: 'completed',
+      };
+
+      const mockQuery = createMockQuery(createMockQuerySnapshot(sets));
+      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      (mockWorkoutsCollection.doc as ReturnType<typeof vi.fn>).mockReturnValue({
+        get: vi.fn().mockResolvedValue(createMockDoc('w-1', workoutData)),
+      });
+
+      const result = await repository.findCompletedByExerciseId('ex-1');
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.set_number).toBe(1);
+    });
+
     it('should filter out sets with null actual values', async () => {
       const repository = new WorkoutSetRepository(mockDb as Firestore);
       const sets = [

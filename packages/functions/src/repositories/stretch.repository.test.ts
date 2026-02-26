@@ -44,7 +44,9 @@ describe('StretchRepository', () => {
             region: 'back',
             displayName: 'Back',
             iconName: 'figure.flexibility',
-            stretches: [{ id: 'back-childs-pose', name: "Child's Pose", description: 'Kneel...', bilateral: false }],
+            stretches: [{ id: 'back-childs-pose', name: "Child's Pose", description: 'Kneel...', bilateral: false, image: null }],
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
           },
         },
         {
@@ -53,7 +55,9 @@ describe('StretchRepository', () => {
             region: 'neck',
             displayName: 'Neck',
             iconName: 'figure.head',
-            stretches: [{ id: 'neck-rotation', name: 'Neck Rotation', description: 'Slowly...', bilateral: true }],
+            stretches: [{ id: 'neck-rotation', name: 'Neck Rotation', description: 'Slowly...', bilateral: true, image: null }],
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
           },
         },
       ]);
@@ -86,7 +90,17 @@ describe('StretchRepository', () => {
         region: 'back',
         displayName: 'Back',
         iconName: 'figure.flexibility',
-        stretches: [{ id: 'back-childs-pose', name: "Child's Pose", description: 'Kneel...', bilateral: false }],
+        stretches: [
+          {
+            id: 'back-childs-pose',
+            name: "Child's Pose",
+            description: 'Kneel...',
+            bilateral: false,
+            image: null,
+          },
+        ],
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
       };
 
       (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(createMockDoc('back', regionData));

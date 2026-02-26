@@ -6,6 +6,12 @@ import type {
   WorkoutStatus,
 } from '../shared.js';
 import { BaseRepository } from './base.repository.js';
+import {
+  isRecord,
+  readEnum,
+  readNumber,
+  readString,
+} from './firestore-type-guards.js';
 
 /**
  * Convert a local date boundary to a UTC timestamp.
@@ -42,7 +48,7 @@ function localDateToUtcBoundary(
 export class WorkoutRepository extends BaseRepository<
   Workout,
   CreateWorkoutDTO,
-  UpdateWorkoutDTO
+  UpdateWorkoutDTO & Record<string, unknown>
 > {
   protected override includeTimestampOnUpdate = false;
 
@@ -70,12 +76,65 @@ export class WorkoutRepository extends BaseRepository<
     return workout;
   }
 
+  protected parseEntity(id: string, data: Record<string, unknown>): Workout | null {
+    const mesocycleId = readString(data, 'mesocycle_id');
+    const planDayId = readString(data, 'plan_day_id');
+    const weekNumber = readNumber(data, 'week_number');
+    const scheduledDate = readString(data, 'scheduled_date');
+    const status = readEnum(
+      data,
+      'status',
+      ['pending', 'in_progress', 'completed', 'skipped'] as const
+    );
+    const rawStartedAt = data['started_at'];
+    const rawCompletedAt = data['completed_at'];
+    const startedAt =
+      rawStartedAt === undefined || rawStartedAt === null
+        ? null
+        : readString(data, 'started_at');
+    const completedAt =
+      rawCompletedAt === undefined || rawCompletedAt === null
+        ? null
+        : readString(data, 'completed_at');
+
+    if (
+      mesocycleId === null ||
+      planDayId === null ||
+      weekNumber === null ||
+      scheduledDate === null ||
+      status === null ||
+      (rawStartedAt !== undefined && rawStartedAt !== null && startedAt === null) ||
+      (rawCompletedAt !== undefined && rawCompletedAt !== null && completedAt === null)
+    ) {
+      return null;
+    }
+
+    return {
+      id,
+      mesocycle_id: mesocycleId,
+      plan_day_id: planDayId,
+      week_number: weekNumber,
+      scheduled_date: scheduledDate,
+      status,
+      started_at: startedAt,
+      completed_at: completedAt,
+    };
+  }
+
   async findByMesocycleId(mesocycleId: string): Promise<Workout[]> {
     const snapshot = await this.collection
       .where('mesocycle_id', '==', mesocycleId)
       .orderBy('scheduled_date')
       .get();
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Workout);
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((workout): workout is Workout => workout !== null);
   }
 
   async findByStatus(status: WorkoutStatus): Promise<Workout[]> {
@@ -83,14 +142,30 @@ export class WorkoutRepository extends BaseRepository<
       .where('status', '==', status)
       .orderBy('scheduled_date')
       .get();
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Workout);
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((workout): workout is Workout => workout !== null);
   }
 
   async findByDate(date: string): Promise<Workout[]> {
     const snapshot = await this.collection
       .where('scheduled_date', '==', date)
       .get();
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Workout);
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((workout): workout is Workout => workout !== null);
   }
 
   async findByCompletedAtRange(startTimestamp: string, endTimestamp: string): Promise<Workout[]> {
@@ -99,7 +174,15 @@ export class WorkoutRepository extends BaseRepository<
       .where('completed_at', '<=', endTimestamp)
       .orderBy('completed_at', 'desc')
       .get();
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Workout);
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((workout): workout is Workout => workout !== null);
   }
 
   async findPreviousWeekWorkout(
@@ -125,7 +208,11 @@ export class WorkoutRepository extends BaseRepository<
     if (doc === undefined) {
       return null;
     }
-    return { id: doc.id, ...doc.data() } as Workout;
+    const data = doc.data();
+    if (!isRecord(data)) {
+      return null;
+    }
+    return this.parseEntity(doc.id, data);
   }
 
   async findNextPending(): Promise<Workout | null> {
@@ -146,14 +233,26 @@ export class WorkoutRepository extends BaseRepository<
     if (!pendingSnapshot.empty) {
       const doc = pendingSnapshot.docs[0];
       if (doc !== undefined) {
-        candidates.push({ id: doc.id, ...doc.data() } as Workout);
+        const data = doc.data();
+        if (isRecord(data)) {
+          const parsed = this.parseEntity(doc.id, data);
+          if (parsed !== null) {
+            candidates.push(parsed);
+          }
+        }
       }
     }
 
     if (!inProgressSnapshot.empty) {
       const doc = inProgressSnapshot.docs[0];
       if (doc !== undefined) {
-        candidates.push({ id: doc.id, ...doc.data() } as Workout);
+        const data = doc.data();
+        if (isRecord(data)) {
+          const parsed = this.parseEntity(doc.id, data);
+          if (parsed !== null) {
+            candidates.push(parsed);
+          }
+        }
       }
     }
 
@@ -167,7 +266,15 @@ export class WorkoutRepository extends BaseRepository<
 
   async findAll(): Promise<Workout[]> {
     const snapshot = await this.collection.orderBy('scheduled_date', 'desc').get();
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Workout);
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((workout): workout is Workout => workout !== null);
   }
 
   async findCompletedInDateRange(
@@ -185,6 +292,14 @@ export class WorkoutRepository extends BaseRepository<
       .orderBy('completed_at')
       .get();
 
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Workout);
+    return snapshot.docs
+      .map((doc) => {
+        const data = doc.data();
+        if (!isRecord(data)) {
+          return null;
+        }
+        return this.parseEntity(doc.id, data);
+      })
+      .filter((workout): workout is Workout => workout !== null);
   }
 }

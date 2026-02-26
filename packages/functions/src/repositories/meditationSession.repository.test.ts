@@ -136,6 +136,17 @@ describe('MeditationSessionRepository', () => {
 
       expect(result).toBeNull();
     });
+
+    it('should return null when session payload is malformed', async () => {
+      const repository = new MeditationSessionRepository(mockDb as Firestore);
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createMockDoc('session-invalid', { completedAt: 123, plannedDurationSeconds: '600' } as unknown as Record<string, unknown>)
+      );
+
+      const result = await repository.findById('session-invalid');
+
+      expect(result).toBeNull();
+    });
   });
 
   describe('findLatest', () => {
@@ -195,6 +206,40 @@ describe('MeditationSessionRepository', () => {
       const result = await repository.findAll();
 
       expect(result).toEqual([]);
+    });
+
+    it('should skip malformed sessions from list results', async () => {
+      const repository = new MeditationSessionRepository(mockDb as Firestore);
+      const sessions = [
+        {
+          id: 'valid',
+          data: {
+            completedAt: '2024-01-15T08:00:00Z',
+            sessionType: 'guided',
+            plannedDurationSeconds: 600,
+            actualDurationSeconds: 600,
+            completedFully: true,
+          },
+        },
+        {
+          id: 'invalid',
+          data: {
+            completedAt: '2024-01-16T08:00:00Z',
+            sessionType: 'guided',
+            plannedDurationSeconds: '600',
+            actualDurationSeconds: null,
+            completedFully: 'yes',
+          },
+        },
+      ];
+
+      const mockQuery = createMockQuery(createMockQuerySnapshot(sessions));
+      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      const result = await repository.findAll();
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe('valid');
     });
   });
 
@@ -298,6 +343,23 @@ describe('MeditationSessionRepository', () => {
 
       expect(result.totalSessions).toBe(1);
       expect(result.totalMinutes).toBe(0);
+    });
+
+    it('should ignore malformed sessions when computing stats', async () => {
+      const repository = new MeditationSessionRepository(mockDb as Firestore);
+      const sessions = [
+        { id: 'good', data: { completedAt: '2024-01-15T08:00:00Z', sessionType: 'guided', plannedDurationSeconds: 600, actualDurationSeconds: 600, completedFully: true } },
+        { id: 'bad', data: { completedAt: '2024-01-16T08:00:00Z', sessionType: 'breathing', plannedDurationSeconds: '600', actualDurationSeconds: 600, completedFully: true } },
+      ];
+
+      (mockCollection.get as ReturnType<typeof vi.fn>).mockResolvedValue(createMockQuerySnapshot(sessions));
+
+      const result = await repository.getStats();
+
+      expect(result).toEqual({
+        totalSessions: 1,
+        totalMinutes: 10,
+      });
     });
   });
 

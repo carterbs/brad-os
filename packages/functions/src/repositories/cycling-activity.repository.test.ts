@@ -210,6 +210,34 @@ describe('CyclingActivityRepository', () => {
 
       expect(result).toBeNull();
     });
+
+    it('should return null when doc payload is malformed', async (): Promise<void> => {
+      const repository = new CyclingActivityRepository(mockDb as Firestore);
+
+      (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+        exists: true,
+        data: (): Record<string, unknown> => ({
+          stravaId: 'bad',
+          userId: 'user-1',
+          date: 2026,
+          durationMinutes: '60',
+          avgPower: 200,
+          normalizedPower: 210,
+          maxPower: 350,
+          avgHeartRate: 150,
+          maxHeartRate: 175,
+          tss: 80,
+          intensityFactor: 0.85,
+          type: 'vo2max',
+          source: 'strava',
+          createdAt: '2026-02-20T12:00:00.000Z',
+        }),
+      });
+
+      const result = await repository.findById('user-1', 'activity-invalid');
+
+      expect(result).toBeNull();
+    });
   });
 
   describe('findByStravaId', () => {
@@ -268,6 +296,40 @@ describe('CyclingActivityRepository', () => {
       (mockQuery.limit as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
 
       const result = await repository.findByStravaId('user-1', 999);
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when matched document payload is malformed', async (): Promise<void> => {
+      const repository = new CyclingActivityRepository(mockDb as Firestore);
+
+      const mockActivityData: Record<string, unknown> = {
+        stravaId: 789,
+        userId: 'user-1',
+        date: '2026-02-18',
+        durationMinutes: 90,
+        avgPower: 220,
+        normalizedPower: 230,
+        maxPower: 380,
+        avgHeartRate: '155',
+        maxHeartRate: 180,
+        tss: 100,
+        intensityFactor: 0.9,
+        type: 'vo2max',
+        source: 'strava',
+        createdAt: '2026-02-18T12:00:00.000Z',
+      };
+
+      const mockQuery = {
+        where: vi.fn(),
+        limit: vi.fn(),
+        get: vi.fn().mockResolvedValue({ empty: false, docs: [{ id: 'activity-bad', data: (): Record<string, unknown> => mockActivityData }] }),
+      };
+
+      (mockActivitiesCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      (mockQuery.limit as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      const result = await repository.findByStravaId('user-1', 789);
 
       expect(result).toBeNull();
     });
@@ -469,6 +531,28 @@ describe('CyclingActivityRepository', () => {
       });
 
       const result = await repository.getStreams('user-1', 'missing-activity');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when stream payload is malformed', async (): Promise<void> => {
+      const repository = new CyclingActivityRepository(mockDb as Firestore);
+
+      (mockStreamsDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+        exists: true,
+        data: (): Record<string, unknown> => ({
+          activityId: 555,
+          stravaActivityId: 555,
+          watts: [200, 210, 220],
+          heartrate: [160, 165, 170],
+          time: [0, 1, 2],
+          cadence: ['90', 95, 100],
+          sampleCount: 3,
+          createdAt: '2026-02-14T12:00:00.000Z',
+        }),
+      });
+
+      const result = await repository.getStreams('user-1', 'activity-9');
 
       expect(result).toBeNull();
     });
