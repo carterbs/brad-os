@@ -31,7 +31,7 @@
     "emulators:seed": "npm run advanced:emulators:seed",
     "test:integration": "vitest run --config vitest.integration.config.ts --no-file-parallelism",
     "test:integration:watch": "vitest --config vitest.integration.config.ts --no-file-parallelism",
-    "test:integration:emulator": "bash scripts/run-integration-tests.sh",
+    "test:integration:emulator": "bash scripts/brad-run-integration-tests",
     "seed:generate": "npx tsx scripts/generate-seed-data.ts",
     "validate": "bash scripts/validate.sh",
     "validate:quick": "bash scripts/validate.sh --quick",
