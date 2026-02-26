@@ -34,6 +34,20 @@ describe('stretch.schema', () => {
       expect(result.success).toBe(true);
     });
 
+    it('accepts optional image at the 200-character upper boundary', () => {
+      const result = stretchDefinitionSchema.safeParse({
+        ...validStretchDefinition,
+        image: 'a'.repeat(200),
+      });
+
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts valid stretch definition with required fields', () => {
+      const result = stretchDefinitionSchema.safeParse(validStretchDefinition);
+      expect(result.success).toBe(true);
+    });
+
     it('rejects empty required strings', () => {
       const emptyId = stretchDefinitionSchema.safeParse({
         ...validStretchDefinition,
@@ -56,15 +70,15 @@ describe('stretch.schema', () => {
     it('rejects length overflow for name, description, and image', () => {
       const longName = stretchDefinitionSchema.safeParse({
         ...validStretchDefinition,
-        name: 'A'.repeat(101),
+        name: 'a'.repeat(101),
       });
       const longDescription = stretchDefinitionSchema.safeParse({
         ...validStretchDefinition,
-        description: 'A'.repeat(1001),
+        description: 'a'.repeat(1001),
       });
       const longImage = stretchDefinitionSchema.safeParse({
         ...validStretchDefinition,
-        image: 'A'.repeat(201),
+        image: 'a'.repeat(201),
       });
 
       expect(longName.success).toBe(false);
@@ -89,7 +103,7 @@ describe('stretch.schema', () => {
     });
 
     it('accepts each allowed region enum value', () => {
-      const validRegions = [
+      const regions = [
         'neck',
         'shoulders',
         'back',
@@ -98,9 +112,9 @@ describe('stretch.schema', () => {
         'hamstrings',
         'quads',
         'calves',
-      ];
+      ] as const;
 
-      for (const region of validRegions) {
+      for (const region of regions) {
         const result = stretchRegionSchema.safeParse({
           ...validStretchRegion,
           region,
@@ -110,13 +124,18 @@ describe('stretch.schema', () => {
       }
     });
 
-    it('rejects unknown region value', () => {
-      const result = stretchRegionSchema.safeParse({
+    it('rejects unknown region values', () => {
+      const arms = stretchRegionSchema.safeParse({
         ...validStretchRegion,
         region: 'arms',
       });
+      const lowerBack = stretchRegionSchema.safeParse({
+        ...validStretchRegion,
+        region: 'lower_back',
+      });
 
-      expect(result.success).toBe(false);
+      expect(arms.success).toBe(false);
+      expect(lowerBack.success).toBe(false);
     });
 
     it('rejects empty/overflow displayName and iconName', () => {
@@ -126,7 +145,7 @@ describe('stretch.schema', () => {
       });
       const longDisplayName = stretchRegionSchema.safeParse({
         ...validStretchRegion,
-        displayName: 'A'.repeat(51),
+        displayName: 'a'.repeat(51),
       });
       const emptyIconName = stretchRegionSchema.safeParse({
         ...validStretchRegion,
@@ -134,7 +153,7 @@ describe('stretch.schema', () => {
       });
       const longIconName = stretchRegionSchema.safeParse({
         ...validStretchRegion,
-        iconName: 'A'.repeat(101),
+        iconName: 'a'.repeat(101),
       });
 
       expect(emptyDisplayName.success).toBe(false);
@@ -161,6 +180,18 @@ describe('stretch.schema', () => {
             name: '',
           },
         ],
+      });
+
+      expect(result.success).toBe(false);
+    });
+
+    it('also rejects nested stretchDefinition entries missing required identifiers', () => {
+      const result = stretchRegionSchema.safeParse({
+        ...validStretchRegion,
+        stretches: [{
+          ...validStretchDefinition,
+          id: '',
+        }],
       });
 
       expect(result.success).toBe(false);
