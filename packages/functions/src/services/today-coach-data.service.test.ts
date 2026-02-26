@@ -1,4 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  createMockMeditationSessionRepository,
+  createMockPlanDayRepository,
+  createMockStretchSessionRepository,
+  createMockWorkoutRepository,
+  createMockWorkoutSetRepository,
+} from '../__tests__/utils/mock-repository.js';
 
 // Mock all external dependencies before importing
 const mockCyclingService = vi.hoisted(() => ({
@@ -31,28 +38,11 @@ const mockLiftingContextService = vi.hoisted(() => ({
   buildMesocycleContext: vi.fn(),
 }));
 
-const mockWorkoutRepo = vi.hoisted(() => ({
-  findByDate: vi.fn(),
-  findByCompletedAtRange: vi.fn(),
-}));
-
-const mockPlanDayRepo = vi.hoisted(() => ({
-  findById: vi.fn(),
-}));
-
-const mockWorkoutSetRepo = vi.hoisted(() => ({
-  findByWorkoutId: vi.fn(),
-}));
-
-const mockStretchSessionRepo = vi.hoisted(() => ({
-  findLatest: vi.fn(),
-  findInDateRange: vi.fn(),
-}));
-
-const mockMeditationSessionRepo = vi.hoisted(() => ({
-  findLatest: vi.fn(),
-  findInDateRange: vi.fn(),
-}));
+const mockWorkoutRepo = createMockWorkoutRepository();
+const mockPlanDayRepo = createMockPlanDayRepository();
+const mockWorkoutSetRepo = createMockWorkoutSetRepository();
+const mockStretchSessionRepo = createMockStretchSessionRepository();
+const mockMeditationSessionRepo = createMockMeditationSessionRepository();
 
 vi.mock('./firestore-cycling.service.js', () => mockCyclingService);
 vi.mock('./firestore-recovery.service.js', () => mockRecoveryService);

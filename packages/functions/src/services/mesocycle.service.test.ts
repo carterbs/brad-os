@@ -12,6 +12,15 @@ import { PlanDayExerciseRepository } from '../repositories/plan-day-exercise.rep
 import { ExerciseRepository } from '../repositories/exercise.repository.js';
 import { WorkoutRepository } from '../repositories/workout.repository.js';
 import { WorkoutSetRepository } from '../repositories/workout-set.repository.js';
+import {
+  createMockExerciseRepository,
+  createMockMesocycleRepository,
+  createMockPlanDayExerciseRepository,
+  createMockPlanDayRepository,
+  createMockPlanRepository,
+  createMockWorkoutRepository,
+  createMockWorkoutSetRepository,
+} from '../__tests__/utils/mock-repository.js';
 import { createPlan, createPlanDay, createPlanDayExercise, createExercise, createMesocycle, createWorkout, createWorkoutSet } from '../__tests__/utils/index.js';
 
 // Mock repositories
@@ -36,34 +45,13 @@ describe('MesocycleService', () => {
     set: Mock;
     commit: Mock;
   };
-  let mockMesocycleRepo: {
-    findById: Mock;
-    findActive: Mock;
-    findAll: Mock;
-    create: Mock;
-    update: Mock;
-  };
-  let mockPlanRepo: {
-    findById: Mock;
-  };
-  let mockPlanDayRepo: {
-    findById: Mock;
-    findByPlanId: Mock;
-  };
-  let mockPlanDayExerciseRepo: {
-    findByPlanDayId: Mock;
-  };
-  let mockExerciseRepo: {
-    findById: Mock;
-  };
-  let mockWorkoutRepo: {
-    findByMesocycleId: Mock;
-    create: Mock;
-  };
-  let mockWorkoutSetRepo: {
-    findByWorkoutId: Mock;
-    create: Mock;
-  };
+  let mockMesocycleRepo: ReturnType<typeof createMockMesocycleRepository>;
+  let mockPlanRepo: ReturnType<typeof createMockPlanRepository>;
+  let mockPlanDayRepo: ReturnType<typeof createMockPlanDayRepository>;
+  let mockPlanDayExerciseRepo: ReturnType<typeof createMockPlanDayExerciseRepository>;
+  let mockExerciseRepo: ReturnType<typeof createMockExerciseRepository>;
+  let mockWorkoutRepo: ReturnType<typeof createMockWorkoutRepository>;
+  let mockWorkoutSetRepo: ReturnType<typeof createMockWorkoutSetRepository>;
 
   // Fixtures
   const mockPlan = createPlan({
@@ -153,40 +141,13 @@ describe('MesocycleService', () => {
       })),
     };
 
-    mockMesocycleRepo = {
-      findById: vi.fn(),
-      findActive: vi.fn(),
-      findAll: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-    };
-
-    mockPlanRepo = {
-      findById: vi.fn(),
-    };
-
-    mockPlanDayRepo = {
-      findById: vi.fn(),
-      findByPlanId: vi.fn(),
-    };
-
-    mockPlanDayExerciseRepo = {
-      findByPlanDayId: vi.fn(),
-    };
-
-    mockExerciseRepo = {
-      findById: vi.fn(),
-    };
-
-    mockWorkoutRepo = {
-      findByMesocycleId: vi.fn(),
-      create: vi.fn(),
-    };
-
-    mockWorkoutSetRepo = {
-      findByWorkoutId: vi.fn(),
-      create: vi.fn(),
-    };
+    mockMesocycleRepo = createMockMesocycleRepository();
+    mockPlanRepo = createMockPlanRepository();
+    mockPlanDayRepo = createMockPlanDayRepository();
+    mockPlanDayExerciseRepo = createMockPlanDayExerciseRepository();
+    mockExerciseRepo = createMockExerciseRepository();
+    mockWorkoutRepo = createMockWorkoutRepository();
+    mockWorkoutSetRepo = createMockWorkoutSetRepository();
 
     vi.mocked(MesocycleRepository).mockImplementation(() => mockMesocycleRepo as unknown as MesocycleRepository);
     vi.mocked(PlanRepository).mockImplementation(() => mockPlanRepo as unknown as PlanRepository);

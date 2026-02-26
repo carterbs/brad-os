@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { StretchRegion } from '../shared.js';
 import { type ApiResponse } from '../__tests__/utils/index.js';
+import { createMockStretchRepository } from '../__tests__/utils/mock-repository.js';
 
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({
@@ -13,12 +14,7 @@ vi.mock('../middleware/app-check.js', () => ({
   requireAppCheck: (_req: unknown, _res: unknown, next: () => void): void => next(),
 }));
 
-// Mock the repository
-const mockStretchRepo = {
-  findAll: vi.fn(),
-  findByRegion: vi.fn(),
-  seed: vi.fn(),
-};
+const mockStretchRepo = createMockStretchRepository();
 
 vi.mock('../repositories/stretch.repository.js', () => ({
   StretchRepository: vi.fn().mockImplementation(() => mockStretchRepo),
