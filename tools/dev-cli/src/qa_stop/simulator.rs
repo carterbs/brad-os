@@ -1,4 +1,4 @@
-use crate::qa_stop::runner::{CommandCall, CommandRunner};
+use crate::runner::{CommandCall, CommandRunner};
 
 pub fn cleanup_simulator<R: CommandRunner>(
     runner: &R,
@@ -22,6 +22,7 @@ pub fn cleanup_simulator<R: CommandRunner>(
                 "unsetenv".to_string(),
                 variable.to_string(),
             ],
+            current_dir: None,
         });
     }
 
@@ -33,6 +34,7 @@ pub fn cleanup_simulator<R: CommandRunner>(
                 "shutdown".to_string(),
                 simulator_udid.to_string(),
             ],
+            current_dir: None,
         });
         messages.push(format!("Simulator: shut down {simulator_udid}"));
     }
