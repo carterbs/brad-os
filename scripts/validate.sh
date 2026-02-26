@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
+if [ "${BRAD_USE_RUST_VALIDATE:-1}" != "0" ]; then
+  exec bash "$(cd "$(dirname "$0")" && pwd)/brad-validate" "$@"
+fi
+
 run_rust_validate() {
   local repo_root
   local binary

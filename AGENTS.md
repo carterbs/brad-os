@@ -12,6 +12,19 @@ npm run qa:start   # Default app QA loop (simulator + Firebase + OTel + build + 
 
 Full bootstrap: [Local Dev Quickstart](docs/guides/local-dev-quickstart.md)
 
+## Dev Tooling Language Preference
+
+- Use Rust for non-trivial dev tooling and orchestration (validation, lint runners, repo scanners, CI helpers, migration helpers).
+- Restrict shell scripts to thin delegation wrappers or very small, low-complexity tasks.
+- Prefer adding logic to Rust under `tools/dev-cli` and `tools/arch-lint` before extending shell.
+- Keep any shell wrapper focused on argument passthrough and process execution.
+- Coverage rule: tooling code changed under this policy must target Rust-line coverage floor `90%` and prefer `>=95%`.
+- Exempt scripts (thin delegation wrappers only):
+  - `scripts/validate.sh`, `scripts/doctor.sh`, `scripts/arch-lint`
+  - `hooks/pre-commit`, `scripts/run-integration-tests.sh`
+  - `scripts/brad-validate`, `scripts/brad-precommit`
+- See `docs/conventions/workflow.md` for enforcement and migration guardrails.
+
 ## Rules
 
 **Read [Workflow Rules](docs/conventions/workflow.md) before making any changes.** 
@@ -22,6 +35,25 @@ Full bootstrap: [Local Dev Quickstart](docs/guides/local-dev-quickstart.md)
 | iOS / Swift | [docs/conventions/ios-swift.md](docs/conventions/ios-swift.md) | SwiftLint, shared APIClient, theme system, XcodeGen |
 | API Patterns | [docs/conventions/api-patterns.md](docs/conventions/api-patterns.md) | REST structure, BaseRepository, router factories |
 | Testing | [docs/conventions/testing.md](docs/conventions/testing.md) | TDD, vitest (not jest), never skip tests |
+
+## Dev Tooling Language Preference
+
+Default to Rust for non-trivial dev tooling and orchestration.
+
+- Complex flow, state, retries, branching, argument parsing, subprocess orchestration, or structured output/IO should live in Rust under `tools/dev-cli` first.
+- Shell scripts are allowed only as thin delegation shims:
+  - Resolve repo paths and toolchains.
+  - Optionally build/exec a Rust binary.
+  - No substantive business logic.
+- If a shell script exceeds shell complexity guardrail thresholds, migrate it to Rust.
+- New or modified Rust tooling must meet 90% line coverage (floor) with a target ≥ 95%.
+- Examples of expected shim-only scripts (Rust-backed):
+  - [`scripts/arch-lint`](scripts/arch-lint)
+  - [`scripts/brad-precommit`](scripts/brad-precommit)
+  - [`scripts/brad-validate`](scripts/brad-validate)
+  - [`scripts/run-integration-tests.sh`](scripts/run-integration-tests.sh)
+
+See the shell complexity guardrail policy in [workflow conventions](docs/conventions/workflow.md#shell-script-complexity-guardrail).
 
 ## Guides
 
