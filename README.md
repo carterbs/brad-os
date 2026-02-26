@@ -75,7 +75,7 @@ npm run validate         # Full check: typecheck + lint + test + architecture
 npm run emulators        # Start Firebase emulators (port 5001)
 npm run build            # Build Cloud Functions
 npm run typecheck        # TypeScript compilation
-npm run lint             # ESLint checks
+npm run lint             # Oxlint checks
 npm run test             # Unit tests
 ```
 

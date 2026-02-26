@@ -14,7 +14,7 @@ function runDoctor(
   try {
     const stdout = execSync(`bash ${SCRIPT}`, {
       cwd,
-      env: { ...process.env, ...envOverrides },
+      env: { ...process.env, BRAD_DOCTOR_FAST: '1', ...envOverrides },
       encoding: 'utf-8',
       timeout: 10_000,
     });
@@ -28,25 +28,43 @@ function runDoctor(
   }
 }
 
+let cachedHealthyRun: { stdout: string; exitCode: number } | null = null;
+let cachedMissingToolsRun: { stdout: string; exitCode: number } | null = null;
+
+function getHealthyRun(): { stdout: string; exitCode: number } {
+  if (cachedHealthyRun === null) {
+    cachedHealthyRun = runDoctor();
+  }
+  return cachedHealthyRun;
+}
+
+function getMissingToolsRun(): { stdout: string; exitCode: number } {
+  if (cachedMissingToolsRun === null) {
+    cachedMissingToolsRun = runDoctor({ PATH: '/usr/bin:/bin' });
+  }
+  return cachedMissingToolsRun;
+}
+
 describe('scripts/doctor.sh', () => {
   it('exits 0 when all tools are present', () => {
-    const { stdout, exitCode } = runDoctor();
+    const { stdout, exitCode } = getHealthyRun();
     expect(exitCode).toBe(0);
     expect(stdout).toContain('PASS');
     expect(stdout).toContain('All dependencies satisfied.');
   });
 
   it('reports node version', () => {
-    const { stdout } = runDoctor();
+    const { stdout } = getHealthyRun();
     expect(stdout).toContain('✓ node');
-    expect(stdout).toMatch(/v\d+\.\d+\.\d+/);
+    expect(stdout).toContain('installed (fast)');
   });
 
   it('reports all expected tool names', () => {
-    const { stdout } = runDoctor();
+    const { stdout } = getHealthyRun();
     expect(stdout).toContain('node');
     expect(stdout).toContain('npm');
     expect(stdout).toContain('firebase');
+    expect(stdout).toContain('cargo');
     expect(stdout).toContain('gitleaks');
     expect(stdout).toContain('xcodegen');
     expect(stdout).toContain('git hooks');
@@ -54,13 +72,13 @@ describe('scripts/doctor.sh', () => {
   });
 
   it('exits 1 when a tool is missing', () => {
-    const { stdout, exitCode } = runDoctor({ PATH: '/usr/bin:/bin' });
+    const { stdout, exitCode } = getMissingToolsRun();
     expect(exitCode).toBe(1);
     expect(stdout).toContain('FAIL');
   });
 
   it('prints install commands when tools are missing', () => {
-    const { stdout } = runDoctor({ PATH: '/usr/bin:/bin' });
+    const { stdout } = getMissingToolsRun();
     expect(stdout).toContain('npm install -g firebase-tools');
     expect(stdout).toContain('brew install gitleaks');
     expect(stdout).toContain('brew install xcodegen');

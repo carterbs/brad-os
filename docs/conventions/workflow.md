@@ -34,7 +34,11 @@ git branch -d <branch-name>
 `hooks/pre-commit` runs these checks — all must pass:
 1. Blocks direct commits to `main` (merge commits allowed via `MERGE_HEAD`)
 2. Gitleaks secret scanning
-3. Full validation pipeline (`npm run validate`: typecheck + lint + test + architecture)
+3. Validation pipeline for changed files:
+   - default path is scoped to changed areas (for example, function tests when only `packages/functions/**` changed)
+   - conservative fallback to full `npm run validate` for unknown or mixed changes
+   - full validation remains unchanged in CI (`npm run validate`)
+   - pre-commit durations are appended as JSONL to `.cache/pre-commit-timings.jsonl` for trend analysis
 
 **Never use `--no-verify` to skip these checks.** Fix violations, don't bypass the hook.
 For the main-branch gate only: `ALLOW_MAIN_COMMIT=1 git commit ...`.

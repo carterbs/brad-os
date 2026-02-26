@@ -48,6 +48,7 @@ e2e/test-results/
 tmp/
 temp/
 .playwright-mcp/
+.cache/pre-commit-timings.jsonl
 
 # Generated audio assets (TTS) - ignore wav files but keep json manifest
 packages/client/public/audio/**/*.wav
@@ -81,8 +82,11 @@ packages/functions/shared/
 # Validation logs
 .validate/
 
-# ESLint cache
-.eslintcache
+# Local agent worktrees
+.claude/worktrees/
+
+# Rust build artifacts
+target/
 
 # Ralph per-task active plan (local/ephemeral)
 thoughts/shared/plans/active/ralph-improvement.md

@@ -19,6 +19,7 @@ RESET='\033[0m'
 # --- State ---
 ISSUES=0
 INSTALL_CMDS=()
+FAST_MODE="${BRAD_DOCTOR_FAST:-0}"
 
 # --- Helper: check a command exists ---
 # check_tool <name> <install_cmd> [min_major_version]
@@ -37,14 +38,18 @@ check_tool() {
     return
   fi
 
-  # Get version string
   local version
-  version=$("$name" --version 2>/dev/null || "$name" -v 2>/dev/null || echo "unknown")
-  # Extract first version-like number (e.g., "v22.12.0" → "22.12.0", "13.29.1" → "13.29.1")
-  version=$(echo "$version" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-  [ -z "$version" ] && version="installed"
+  if [ "$FAST_MODE" = "1" ]; then
+    version="installed (fast)"
+  else
+    # Get version string
+    version=$("$name" --version 2>/dev/null || "$name" -v 2>/dev/null || echo "unknown")
+    # Extract first version-like number (e.g., "v22.12.0" → "22.12.0", "13.29.1" → "13.29.1")
+    version=$(echo "$version" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    [ -z "$version" ] && version="installed"
+  fi
 
-  if [ -n "$min_major" ] && [ "$version" != "installed" ]; then
+  if [ -n "$min_major" ] && [ "$version" != "installed" ] && [ "$FAST_MODE" != "1" ]; then
     local major
     major=$(echo "$version" | cut -d. -f1)
     if [ "$major" -lt "$min_major" ] 2>/dev/null; then
@@ -78,10 +83,16 @@ check_setup() {
 # --- Run checks ---
 printf "\n"
 
+# Ensure cargo is in PATH if installed via rustup
+if ! command -v cargo &>/dev/null; then
+  [ -f "$HOME/.cargo/env" ] && source "$HOME/.cargo/env"
+fi
+
 # Tool checks
 check_tool "node" "brew install node@22  # or: nvm install 22" 22
 check_tool "npm" "# npm comes with Node — reinstall Node to update npm" 10
 check_tool "firebase" "npm install -g firebase-tools"
+check_tool "cargo" "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
 check_tool "gitleaks" "brew install gitleaks"
 check_tool "xcodegen" "brew install xcodegen"
 

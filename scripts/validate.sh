@@ -8,13 +8,56 @@ set -uo pipefail
 # Usage:
 #   npm run validate          # All checks (typecheck + lint + test + architecture)
 #   npm run validate:quick    # Fast checks only (typecheck + lint)
+#
+# Targeted test execution (optional):
+#   BRAD_VALIDATE_TEST_FILES - newline-separated file paths to pass to vitest
+#   BRAD_VALIDATE_TEST_PROJECTS - newline-separated vitest project names to run
+#   Example:
+#   BRAD_VALIDATE_TEST_FILES=$'packages/functions/src/services/foo.test.ts\n' \
+#   BRAD_VALIDATE_TEST_PROJECTS=$'functions\n' npm run validate
+
+# --- Rust delegation (set BRAD_USE_RUST_VALIDATE=0 to force legacy Bash) ---
+if [ "${BRAD_USE_RUST_VALIDATE:-1}" = "1" ]; then
+  REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+  RUST_BINARY="$REPO_ROOT/target/release/brad-validate"
+  if [ -f "$RUST_BINARY" ]; then
+    exec "$RUST_BINARY" "$@"
+  fi
+  # Rust binary not built yet — fall through to legacy Bash
+fi
+
+for arg in "$@"; do
+  case "$arg" in
+    --quick)
+      QUICK=true
+      ;;
+  esac
+done
+
+TEST_FILES=()
+TEST_PROJECTS=()
+
+if [ -n "${BRAD_VALIDATE_TEST_FILES:-}" ]; then
+  while IFS= read -r file; do
+    [ -n "$file" ] && TEST_FILES+=("$file")
+  done <<EOF
+$(printf "%s" "${BRAD_VALIDATE_TEST_FILES}")
+EOF
+fi
+
+if [ -n "${BRAD_VALIDATE_TEST_PROJECTS:-}" ]; then
+  while IFS= read -r project; do
+    [ -n "$project" ] && TEST_PROJECTS+=("$project")
+  done <<EOF
+$(printf "%s" "${BRAD_VALIDATE_TEST_PROJECTS}")
+EOF
+fi
 
 LOG_DIR=".validate"
 rm -rf "$LOG_DIR"
 mkdir -p "$LOG_DIR"
 
-QUICK=false
-[[ "${1:-}" == "--quick" ]] && QUICK=true
+QUICK="${QUICK:-false}"
 
 TOTAL_START=$(date +%s)
 
@@ -26,12 +69,32 @@ run_check() {
   local key="$1"
   local start=$(date +%s)
   local rc=0
+  local -a vitest_args=()
+  local project
+  local file
 
   case "$key" in
     typecheck)    npx tsc -b                                                             > "$LOG_DIR/typecheck.log"    2>&1 || rc=$? ;;
-    lint)         npx eslint . --ext .ts --cache --cache-strategy content                  > "$LOG_DIR/lint.log"         2>&1 || rc=$? ;;
-    test)         npx vitest run                                                         > "$LOG_DIR/test.log"         2>&1 || rc=$? ;;
-    architecture) npx tsx scripts/lint-architecture.ts > "$LOG_DIR/architecture.log" 2>&1 || rc=$? ;;
+    lint)         npx oxlint packages/functions/src --config .oxlintrc.json > "$LOG_DIR/lint.log" 2>&1 || rc=$? ;;
+    test)
+      if [ "${#TEST_PROJECTS[@]}" -gt 0 ]; then
+        for project in "${TEST_PROJECTS[@]}"; do
+          vitest_args+=(--project "$project")
+        done
+      fi
+      if [ "${#TEST_FILES[@]}" -gt 0 ]; then
+        for file in "${TEST_FILES[@]}"; do
+          vitest_args+=("$file")
+        done
+      fi
+
+      if [ "${#vitest_args[@]}" -gt 0 ]; then
+        npx vitest run "${vitest_args[@]}" > "$LOG_DIR/test.log" 2>&1 || rc=$?
+      else
+        npx vitest run > "$LOG_DIR/test.log" 2>&1 || rc=$?
+      fi
+      ;;
+    architecture) bash scripts/arch-lint > "$LOG_DIR/architecture.log" 2>&1 || rc=$? ;;
   esac
 
   local elapsed=$(( $(date +%s) - start ))

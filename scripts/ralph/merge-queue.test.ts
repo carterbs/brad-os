@@ -1,36 +1,34 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MergeQueue } from './merge-queue.js';
 
 const { mockMergeToMain, mockCleanupWorktree } = vi.hoisted(() => ({
   mockMergeToMain: vi.fn(),
   mockCleanupWorktree: vi.fn(),
 }));
 
-vi.mock("./git.js", () => ({
+vi.mock('./git.js', () => ({
   mergeToMain: mockMergeToMain,
   cleanupWorktree: mockCleanupWorktree,
 }));
 
-describe("MergeQueue", () => {
+describe('MergeQueue', () => {
   let mockLogger: ReturnType<typeof createMockLogger>;
 
   beforeEach(() => {
-    vi.resetModules();
     mockMergeToMain.mockReset();
     mockCleanupWorktree.mockReset();
     mockLogger = createMockLogger();
   });
 
-  describe("enqueue: merge succeeds", () => {
-    it("calls cleanupWorktree and returns success=true", async () => {
+  describe('enqueue: merge succeeds', () => {
+    it('calls cleanupWorktree and returns success=true', async () => {
       mockMergeToMain.mockReturnValue(true);
-
-      const { MergeQueue } = await import("./merge-queue.js");
       const queue = new MergeQueue();
 
       const result = await queue.enqueue({
-        repoDir: "/repo",
-        worktreePath: "/tmp/worktrees/test-branch",
-        branchName: "test-branch",
+        repoDir: '/repo',
+        worktreePath: '/tmp/worktrees/test-branch',
+        branchName: 'test-branch',
         improvement: 1,
         worker: 0,
         logger: mockLogger,
@@ -40,32 +38,30 @@ describe("MergeQueue", () => {
         success: true,
         improvement: 1,
         worker: 0,
-        branchName: "test-branch",
+        branchName: 'test-branch',
       });
 
-      expect(mockMergeToMain).toHaveBeenCalledWith("/repo", "test-branch");
+      expect(mockMergeToMain).toHaveBeenCalledWith('/repo', 'test-branch');
       expect(mockCleanupWorktree).toHaveBeenCalledWith(
-        "/repo",
-        "/tmp/worktrees/test-branch",
-        "test-branch",
+        '/repo',
+        '/tmp/worktrees/test-branch',
+        'test-branch'
       );
       expect(mockLogger.success).toHaveBeenCalledWith(
-        "Merged test-branch to main",
+        'Merged test-branch to main'
       );
     });
   });
 
-  describe("enqueue: merge fails", () => {
-    it("does NOT call cleanupWorktree and returns success=false", async () => {
+  describe('enqueue: merge fails', () => {
+    it('does NOT call cleanupWorktree and returns success=false', async () => {
       mockMergeToMain.mockReturnValue(false);
-
-      const { MergeQueue } = await import("./merge-queue.js");
       const queue = new MergeQueue();
 
       const result = await queue.enqueue({
-        repoDir: "/repo",
-        worktreePath: "/tmp/worktrees/test-branch",
-        branchName: "test-branch",
+        repoDir: '/repo',
+        worktreePath: '/tmp/worktrees/test-branch',
+        branchName: 'test-branch',
         improvement: 1,
         worker: 0,
         logger: mockLogger,
@@ -75,54 +71,52 @@ describe("MergeQueue", () => {
         success: false,
         improvement: 1,
         worker: 0,
-        branchName: "test-branch",
+        branchName: 'test-branch',
       });
 
       expect(mockMergeToMain).toHaveBeenCalled();
       expect(mockCleanupWorktree).not.toHaveBeenCalled();
       expect(mockLogger.error).toHaveBeenCalledWith(
-        expect.stringContaining("Merge conflict — worktree preserved at:"),
+        expect.stringContaining('Merge conflict — worktree preserved at:')
       );
     });
   });
 
-  describe("sequential processing", () => {
-    it("processes enqueued jobs in FIFO order", async () => {
+  describe('sequential processing', () => {
+    it('processes enqueued jobs in FIFO order', async () => {
       mockMergeToMain.mockReturnValue(true);
       const processingOrder: number[] = [];
 
       // Track order via jsonl events
       mockLogger.jsonl.mockImplementation((event: Record<string, unknown>) => {
-        if (event.event === "merge_queued" && event.improvement !== undefined) {
+        if (event.event === 'merge_queued' && event.improvement !== undefined) {
           processingOrder.push(event.improvement as number);
         }
       });
-
-      const { MergeQueue } = await import("./merge-queue.js");
       const queue = new MergeQueue();
 
       const promise1 = queue.enqueue({
-        repoDir: "/repo",
-        worktreePath: "/tmp/worktrees/branch1",
-        branchName: "branch1",
+        repoDir: '/repo',
+        worktreePath: '/tmp/worktrees/branch1',
+        branchName: 'branch1',
         improvement: 10,
         worker: 0,
         logger: mockLogger,
       });
 
       const promise2 = queue.enqueue({
-        repoDir: "/repo",
-        worktreePath: "/tmp/worktrees/branch2",
-        branchName: "branch2",
+        repoDir: '/repo',
+        worktreePath: '/tmp/worktrees/branch2',
+        branchName: 'branch2',
         improvement: 11,
         worker: 1,
         logger: mockLogger,
       });
 
       const promise3 = queue.enqueue({
-        repoDir: "/repo",
-        worktreePath: "/tmp/worktrees/branch3",
-        branchName: "branch3",
+        repoDir: '/repo',
+        worktreePath: '/tmp/worktrees/branch3',
+        branchName: 'branch3',
         improvement: 12,
         worker: 2,
         logger: mockLogger,
@@ -141,81 +135,77 @@ describe("MergeQueue", () => {
     });
   });
 
-  describe("logging", () => {
-    it("logs merge_queued event with correct fields", async () => {
+  describe('logging', () => {
+    it('logs merge_queued event with correct fields', async () => {
       mockMergeToMain.mockReturnValue(true);
-
-      const { MergeQueue } = await import("./merge-queue.js");
       const queue = new MergeQueue();
 
       await queue.enqueue({
-        repoDir: "/repo",
-        worktreePath: "/tmp/worktrees/test-branch",
-        branchName: "test-branch",
+        repoDir: '/repo',
+        worktreePath: '/tmp/worktrees/test-branch',
+        branchName: 'test-branch',
         improvement: 5,
         worker: 1,
         logger: mockLogger,
       });
 
       const queuedCall = mockLogger.jsonl.mock.calls.find(
-        (call) => (call[0] as Record<string, unknown>).event === "merge_queued",
+        (call) => (call[0] as Record<string, unknown>).event === 'merge_queued'
       );
 
       expect(queuedCall).toBeDefined();
       const event = queuedCall![0] as Record<string, unknown>;
-      expect(event.event).toBe("merge_queued");
+      expect(event.event).toBe('merge_queued');
       expect(event.worker).toBe(1);
       expect(event.improvement).toBe(5);
-      expect(event.branch).toBe("test-branch");
-      expect(typeof event.ts).toBe("string");
+      expect(event.branch).toBe('test-branch');
+      expect(typeof event.ts).toBe('string');
     });
 
-    it("logs merge_completed event with success=true", async () => {
+    it('logs merge_completed event with success=true', async () => {
       mockMergeToMain.mockReturnValue(true);
-
-      const { MergeQueue } = await import("./merge-queue.js");
       const queue = new MergeQueue();
 
       await queue.enqueue({
-        repoDir: "/repo",
-        worktreePath: "/tmp/worktrees/test-branch",
-        branchName: "test-branch",
+        repoDir: '/repo',
+        worktreePath: '/tmp/worktrees/test-branch',
+        branchName: 'test-branch',
         improvement: 3,
         worker: 2,
         logger: mockLogger,
       });
 
       const completedCall = mockLogger.jsonl.mock.calls.find(
-        (call) => (call[0] as Record<string, unknown>).event === "merge_completed",
+        (call) =>
+          (call[0] as Record<string, unknown>).event === 'merge_completed'
       );
 
       expect(completedCall).toBeDefined();
       const event = completedCall![0] as Record<string, unknown>;
-      expect(event.event).toBe("merge_completed");
+      expect(event.event).toBe('merge_completed');
       expect(event.worker).toBe(2);
       expect(event.improvement).toBe(3);
-      expect(event.branch).toBe("test-branch");
+      expect(event.branch).toBe('test-branch');
       expect(event.success).toBe(true);
-      expect(typeof event.ts).toBe("string");
+      expect(typeof event.ts).toBe('string');
     });
 
-    it("logs merge_completed event with success=false", async () => {
+    it('logs merge_completed event with success=false', async () => {
       mockMergeToMain.mockReturnValue(false);
-
-      const { MergeQueue } = await import("./merge-queue.js");
       const queue = new MergeQueue();
 
       await queue.enqueue({
-        repoDir: "/repo",
-        worktreePath: "/tmp/worktrees/conflict-branch",
-        branchName: "conflict-branch",
+        repoDir: '/repo',
+        worktreePath: '/tmp/worktrees/conflict-branch',
+        branchName: 'conflict-branch',
         improvement: 99,
         worker: 0,
         logger: mockLogger,
       });
 
       const completedCall = mockLogger.jsonl.mock.calls.find(
-        (call) => (call[0] as Record<string, unknown>).event === "merge_completed",
+        (call) =>
+          (call[0] as Record<string, unknown>).event === 'merge_completed'
       );
 
       expect(completedCall).toBeDefined();
@@ -223,26 +213,24 @@ describe("MergeQueue", () => {
       expect(event.success).toBe(false);
     });
 
-    it("logs info message indicating merge in progress", async () => {
+    it('logs info message indicating merge in progress', async () => {
       mockMergeToMain.mockReturnValue(true);
-
-      const { MergeQueue } = await import("./merge-queue.js");
       const queue = new MergeQueue();
 
       await queue.enqueue({
-        repoDir: "/repo",
-        worktreePath: "/tmp/worktrees/test-branch",
-        branchName: "test-branch",
+        repoDir: '/repo',
+        worktreePath: '/tmp/worktrees/test-branch',
+        branchName: 'test-branch',
         improvement: 1,
         worker: 0,
         logger: mockLogger,
       });
 
       expect(mockLogger.info).toHaveBeenCalledWith(
-        expect.stringContaining("[4/4] Merging"),
+        expect.stringContaining('[4/4] Merging')
       );
       expect(mockLogger.info).toHaveBeenCalledWith(
-        expect.stringContaining("test-branch"),
+        expect.stringContaining('test-branch')
       );
     });
   });

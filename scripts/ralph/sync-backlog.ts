@@ -1,8 +1,10 @@
 #!/usr/bin/env tsx
-import { resolveConfig } from "./config.js";
-import { syncTaskFilesFromLog } from "./backlog.js";
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
+import { resolveConfig } from './config.js';
+import { syncTaskFilesFromLog } from './backlog.js';
 
-function main(): void {
+export function runSyncBacklog(): void {
   const config = resolveConfig();
   const result = syncTaskFilesFromLog(config.logFile);
   const removedCount =
@@ -21,4 +23,12 @@ function main(): void {
   }
 }
 
-main();
+const modulePath = fileURLToPath(import.meta.url);
+const entrypointPath = process.argv[1] ? path.resolve(process.argv[1]) : '';
+if (modulePath === entrypointPath) {
+  runSyncBacklog();
+}
+
+export function main(): void {
+  runSyncBacklog();
+}

@@ -44,7 +44,7 @@ vi.mock('../services/vo2max.service.js', () => ({
 }));
 
 // Import after mocks
-import { stravaWebhookApp } from './strava-webhook.js';
+import { stravaWebhookApp, waitForStravaWebhookProcessing } from './strava-webhook.js';
 
 describe('Strava Webhook Handler', () => {
   const originalEnv = process.env;
@@ -157,8 +157,7 @@ describe('Strava Webhook Handler', () => {
       expect(response.status).toBe(200);
       expect(response.text).toBe('EVENT_RECEIVED');
 
-      // Wait for async processing
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await waitForStravaWebhookProcessing();
 
       expect(mockStravaService.fetchStravaActivity).toHaveBeenCalledWith(
         'token',
@@ -224,8 +223,7 @@ describe('Strava Webhook Handler', () => {
 
       expect(response.status).toBe(200);
 
-      // Wait for async processing
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await waitForStravaWebhookProcessing();
 
       expect(mockCyclingService.createCyclingActivity).not.toHaveBeenCalled();
     });
@@ -249,8 +247,7 @@ describe('Strava Webhook Handler', () => {
 
       expect(response.status).toBe(200);
 
-      // Wait for async processing
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await waitForStravaWebhookProcessing();
 
       expect(mockStravaService.fetchStravaActivity).not.toHaveBeenCalled();
       expect(mockCyclingService.createCyclingActivity).not.toHaveBeenCalled();
@@ -311,8 +308,7 @@ describe('Strava Webhook Handler', () => {
 
       expect(response.status).toBe(200);
 
-      // Wait for async processing
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await waitForStravaWebhookProcessing();
 
       expect(mockStravaService.refreshStravaTokens).toHaveBeenCalled();
       expect(mockCyclingService.setStravaTokens).toHaveBeenCalled();
@@ -382,8 +378,7 @@ describe('Strava Webhook Handler', () => {
 
       expect(response.status).toBe(200);
 
-      // Wait for async processing
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await waitForStravaWebhookProcessing();
 
       expect(mockCyclingService.saveActivityStreams).toHaveBeenCalledWith(
         'default-user',
@@ -416,8 +411,7 @@ describe('Strava Webhook Handler', () => {
 
       expect(response.status).toBe(200);
 
-      // Wait for async processing
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await waitForStravaWebhookProcessing();
 
       expect(mockCyclingService.getStravaTokens).not.toHaveBeenCalled();
       expect(mockCyclingService.createCyclingActivity).not.toHaveBeenCalled();
@@ -443,8 +437,7 @@ describe('Strava Webhook Handler', () => {
 
       expect(response.status).toBe(200);
 
-      // Wait for async processing
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await waitForStravaWebhookProcessing();
 
       expect(mockCyclingService.deleteCyclingActivity).toHaveBeenCalledWith(
         'default-user',

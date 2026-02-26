@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock OpenAI before importing the service - expose mockCreate for test control
 const mockCreate = vi.fn();
@@ -89,6 +89,9 @@ function createMinimalCoachRequest(
 describe('Today Coach Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe('buildTodayCoachSystemPrompt', () => {
@@ -415,8 +418,11 @@ describe('Today Coach Service', () => {
       const request = createMinimalCoachRequest();
 
       mockCreate.mockRejectedValue(new Error('Connection timeout'));
+      vi.useFakeTimers();
 
-      const result = await getTodayCoachRecommendation(request, 'test-api-key');
+      const recommendationPromise = getTodayCoachRecommendation(request, 'test-api-key');
+      await vi.runAllTimersAsync();
+      const result = await recommendationPromise;
 
       expect(result.sections.recovery).toBeDefined();
       const fallbackWarning = result.warnings.find((w) => w.type === 'fallback');
@@ -478,8 +484,11 @@ describe('Today Coach Service', () => {
           choices: [{ message: { content: JSON.stringify(validAIResponse) } }],
           usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
         });
+      vi.useFakeTimers();
 
-      const result = await getTodayCoachRecommendation(request, 'test-api-key');
+      const recommendationPromise = getTodayCoachRecommendation(request, 'test-api-key');
+      await vi.runAllTimersAsync();
+      const result = await recommendationPromise;
 
       expect(result.dailyBriefing).toBe('Good recovery.');
       expect(mockCreate).toHaveBeenCalledTimes(2);

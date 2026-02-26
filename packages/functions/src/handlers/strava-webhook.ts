@@ -23,6 +23,7 @@ import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
 import { requireAppCheck } from '../middleware/app-check.js';
 
 const TAG = '[Strava Webhook]';
+const pendingActivityTasks = new Set<Promise<void>>();
 
 // Strava webhook uses manual middleware — no global App Check since Strava calls
 // the webhook endpoints. Only /tokens uses App Check (iOS app calls it).
@@ -140,7 +141,7 @@ app.post(
 
     // Process in background (in production, this should use a queue like Cloud Tasks)
     if (event.object_type === 'activity') {
-      processActivityEvent(
+      const task = processActivityEvent(
         event.owner_id,
         event.object_id,
         event.aspect_type
@@ -149,6 +150,10 @@ app.post(
           activityId: event.object_id,
           error: error instanceof Error ? { message: error.message, stack: error.stack } : error,
         });
+      });
+      pendingActivityTasks.add(task);
+      task.finally(() => {
+        pendingActivityTasks.delete(task);
       });
     } else {
       info(`${TAG} Ignoring non-activity event`, { objectType: event.object_type });
@@ -558,3 +563,13 @@ async function handleActivityDelete(
 app.use(errorHandler);
 
 export const stravaWebhookApp = app;
+
+/**
+ * Test-only helper to await completion of in-flight webhook background tasks.
+ */
+export async function waitForStravaWebhookProcessing(): Promise<void> {
+  if (pendingActivityTasks.size === 0) {
+    return;
+  }
+  await Promise.allSettled(Array.from(pendingActivityTasks));
+}

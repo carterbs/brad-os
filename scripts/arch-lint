@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -e
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+BINARY="$REPO_ROOT/target/release/arch-lint"
+
+# Ensure cargo is in PATH
+if ! command -v cargo &>/dev/null; then
+  [ -f "$HOME/.cargo/env" ] && source "$HOME/.cargo/env"
+fi
+
+if [ ! -f "$BINARY" ] || [ "$(find "$REPO_ROOT/tools/arch-lint/src" -newer "$BINARY" -print -quit 2>/dev/null)" ]; then
+  cargo build -p arch-lint --release --manifest-path "$REPO_ROOT/Cargo.toml" -q
+fi
+exec "$BINARY" "$@"

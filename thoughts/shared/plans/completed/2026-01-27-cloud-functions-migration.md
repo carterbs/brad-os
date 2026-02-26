@@ -178,7 +178,7 @@ packages/functions/
 │   └── .gitkeep
 ├── package.json
 ├── tsconfig.json
-└── .eslintrc.js
+└── .legacy-lint.js
 ```
 
 #### 1.2 Create `packages/functions/package.json`
@@ -195,7 +195,7 @@ packages/functions/
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --ext .ts"
+    "lint": "legacy-lint src --ext .ts"
   },
   "engines": {
     "node": "20"

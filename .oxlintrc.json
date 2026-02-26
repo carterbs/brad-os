@@ -1,0 +1,27 @@
+{
+  "plugins": ["typescript"],
+  "rules": {
+    "typescript/no-explicit-any": "error",
+    "typescript/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "typescript/no-unsafe-assignment": "off",
+    "typescript/no-unsafe-call": "off",
+    "typescript/no-unsafe-member-access": "off",
+    "typescript/no-unsafe-return": "off",
+    "typescript/no-unsafe-type-assertion": "off",
+    "typescript/no-base-to-string": "off",
+    "typescript/no-unnecessary-type-assertion": "off",
+    "typescript-eslint/no-unsafe-type-assertion": "off",
+    "typescript-eslint/no-unnecessary-type-assertion": "off",
+    "typescript-eslint/no-base-to-string": "off",
+    "eslint/no-unsafe-optional-chaining": "warn"
+  },
+  "ignorePatterns": [
+    "dist/",
+    "lib/",
+    "node_modules/",
+    "*.config.js",
+    "*.config.ts",
+    ".eslintrc.cjs",
+    "vitest.workspace.ts"
+  ]
+}

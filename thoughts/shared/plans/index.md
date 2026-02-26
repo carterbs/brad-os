@@ -12,6 +12,7 @@
 
 | Plan | Summary | Completed |
 |------|---------|-----------|
+| [oxlint-migration](completed/2026-02-26-oxlint-migration.md) | Speed-first legacy-lint to Oxlint migration with strict no-`any` enforcement and staged type-aware unsafe checks | 2026-02-26 |
 | [today-coach](completed/2026-02-09-today-coach.md) | Holistic daily AI briefing aggregating all activity domains | ~2026-02-09 |
 | [ai-cycling-coach](completed/2026-02-08-ai-cycling-coach.md) | AI-powered cycling coach with HealthKit + Strava + Peloton integration | ~2026-02-08 |
 | [vo2-max-estimation](completed/2026-02-08-vo2-max-estimation.md) | Estimated VO2 max from cycling power/HR data with Efficiency Factor trend | ~2026-02-08 |

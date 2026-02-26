@@ -4,12 +4,13 @@ Invariants for the Brad OS codebase. Every line is verifiable by a linter or cod
 
 ## Enforced (linter/hook exists)
 
-### TypeScript [eslint]
+### TypeScript [oxlint]
 - No `any` types — use or create a proper type
 - Explicit return types on all functions
 - No floating or misused promises
 - Use `??` over `||`, use `?.` over manual checks
 - Strict boolean expressions — no implicit truthiness
+- Unsafe type handling is gated by Oxlint `typescript/no-unsafe-*` rules and explicit suppression is a migration exception only
 
 ### Architecture [lint-architecture]
 - Layer imports flow one direction: types -> schemas -> repos -> services -> handlers

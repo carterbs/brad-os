@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { MealPlanSession, MealPlanEntry, ConversationMessage } from '../shared.js';
 import { createMeal, createMealPlanEntry, createMealPlanSession } from '../__tests__/utils/index.js';
 
@@ -41,6 +41,9 @@ function createTestSession(overrides: Partial<MealPlanSession> = {}): MealPlanSe
 describe('MealPlan Critique Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   describe('processCritique', () => {
@@ -102,10 +105,12 @@ describe('MealPlan Critique Service', () => {
       const session = createTestSession();
 
       mockCreate.mockRejectedValue(new Error('Rate limit exceeded'));
+      vi.useFakeTimers();
 
-      await expect(
-        processCritique(session, 'Do something', 'test-api-key')
-      ).rejects.toThrow('OpenAI API call failed after 3 attempts: Rate limit exceeded');
+      const critiquePromise = processCritique(session, 'Do something', 'test-api-key');
+      const rejection = expect(critiquePromise).rejects.toThrow('OpenAI API call failed after 3 attempts: Rate limit exceeded');
+      await vi.runAllTimersAsync();
+      await rejection;
 
       // Should have retried 3 times
       expect(mockCreate).toHaveBeenCalledTimes(3);
@@ -124,8 +129,11 @@ describe('MealPlan Critique Service', () => {
           choices: [{ message: { content: JSON.stringify(responseJson) } }],
           usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
         });
+      vi.useFakeTimers();
 
-      const result = await processCritique(session, 'Looks good', 'test-api-key');
+      const critiquePromise = processCritique(session, 'Looks good', 'test-api-key');
+      await vi.runAllTimersAsync();
+      const result = await critiquePromise;
 
       expect(result.explanation).toBe('Done.');
       expect(result.operations).toEqual([]);

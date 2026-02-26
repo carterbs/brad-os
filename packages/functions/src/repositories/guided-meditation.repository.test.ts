@@ -416,6 +416,9 @@ describe('GuidedMeditationRepository', () => {
         interjections: [],
         segments: [{ startSeconds: 15, text: 'y', phase: 'closing' }],
       });
+      if (result === null) {
+        throw new Error('Expected repository.update to return a script when script exists');
+      }
 
       expect(mockDocRef.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -435,9 +438,9 @@ describe('GuidedMeditationRepository', () => {
           updated_at: expect.any(String) as unknown as string,
         })
       );
-      expect(result?.title).toBe('Evening');
-      expect(result?.updated_at).toBe('2024-01-02T00:00:00Z');
-      expect((result?.segments[0] as { id: string }).id).toBe('segment-id-1');
+      expect(result.title).toBe('Evening');
+      expect(result.updated_at).toBe('2024-01-02T00:00:00Z');
+      expect(result.segments[0].id).toBe('segment-id-1');
       expect(randomUUIDMock).toHaveBeenCalledTimes(1);
     });
 
@@ -480,6 +483,9 @@ describe('GuidedMeditationRepository', () => {
       const result = await repository.update('script-1', {
         title: 'Updated Title',
       });
+      if (result === null) {
+        throw new Error('Expected repository.update to return a script when script exists');
+      }
 
       expect(mockDocRef.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -487,8 +493,8 @@ describe('GuidedMeditationRepository', () => {
           updated_at: expect.any(String) as unknown as string,
         })
       );
-      expect(result?.title).toBe('Updated Title');
-      expect((result?.segments[0] as { id: string }).id).toBe('seg-old');
+      expect(result.title).toBe('Updated Title');
+      expect(result.segments[0].id).toBe('seg-old');
       // Verify no new UUIDs were generated for this scalar-only update
       expect(randomUUIDMock.mock.calls.length).toBe(initialCallCount);
     });

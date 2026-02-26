@@ -33,6 +33,7 @@ import {
 } from '../services/vo2max.service.js';
 
 const app = createBaseApp('cycling');
+const BACKFILL_DELAY_MS = process.env['NODE_ENV'] === 'test' ? 0 : 1000;
 
 // For now, we'll use a header to identify the user
 // In production, this would come from Firebase Auth
@@ -149,8 +150,10 @@ app.post(
           skipped++;
         }
 
-        // Rate limit: 1 second delay between Strava API calls
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Rate limit Strava requests in production; tests run with zero delay.
+        if (BACKFILL_DELAY_MS > 0) {
+          await new Promise((resolve) => setTimeout(resolve, BACKFILL_DELAY_MS));
+        }
       } catch {
         failed++;
       }
