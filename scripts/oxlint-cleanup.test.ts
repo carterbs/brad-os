@@ -55,6 +55,18 @@ describe('scripts/oxlint-cleanup', () => {
     });
   });
 
+  it('prints all cleanup profiles for list command', () => {
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    const result = main(['list']);
+
+    expect(result).toBe(0);
+    const lines = logSpy.mock.calls.map((call) => String(call[0])).join('\n');
+    for (const profile of getCleanupProfiles()) {
+      expect(lines).toContain(profile.id);
+    }
+  });
+
   it('builds Oxlint arguments with shared base flags and scoped paths', () => {
     const profile = getCleanupProfiles()[2];
     const args = buildOxlintArgs(profile);
@@ -71,24 +83,24 @@ describe('scripts/oxlint-cleanup', () => {
     ]);
   });
 
-    it('prints available task IDs on unknown task lookup', () => {
-      const spawnSpy = vi.spyOn(childProcess, 'spawnSync');
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-      const result = main(['run', 'not-a-task']);
+  it('prints available task IDs on unknown task lookup', () => {
+    const spawnSpy = vi.spyOn(childProcess, 'spawnSync');
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const result = main(['run', 'not-a-task']);
 
-      expect(result).toBe(1);
-      expect(spawnSpy).not.toHaveBeenCalled();
-      const lines = [
-        ...errorSpy.mock.calls,
-        ...logSpy.mock.calls,
-      ]
-        .map((call) => String(call[0]))
-        .join('\n');
-      expect(lines).toContain('Unknown cleanup task: not-a-task');
-      expect(lines).toContain('unsafe-type-assertion:repositories');
-      expect(lines).toContain('base-to-string:health-sync');
-    });
+    expect(result).toBe(1);
+    expect(spawnSpy).not.toHaveBeenCalled();
+    const lines = [
+      ...errorSpy.mock.calls,
+      ...logSpy.mock.calls,
+    ]
+      .map((call) => String(call[0]))
+      .join('\n');
+    expect(lines).toContain('Unknown cleanup task: not-a-task');
+    expect(lines).toContain('unsafe-type-assertion:repositories');
+    expect(lines).toContain('base-to-string:health-sync');
+  });
 
   it('runs all profiles and returns non-zero if any profile fails', () => {
     const spawnSpy = vi
