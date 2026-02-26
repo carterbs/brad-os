@@ -390,6 +390,27 @@ mod tests {
     }
 
     #[test]
+    fn checks_cargo_installation_hint() {
+        let output = run_with_output(
+            true,
+            |command| {
+                if command == "cargo" {
+                    ProbeResult::Missing
+                } else {
+                    ProbeResult::Installed
+                }
+            },
+            RuntimeContext {
+                git_hooks_path: "hooks".to_string(),
+                has_node_modules: true,
+            },
+        );
+        assert!(output.contains("✗ cargo"));
+        assert!(output.contains("Install Rust: https://rustup.rs/"));
+        assert!(output.contains("FAIL"));
+    }
+
+    #[test]
     fn checks_setup_state() {
         let output = run_with_output(
             true,
