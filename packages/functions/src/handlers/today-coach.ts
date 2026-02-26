@@ -42,10 +42,6 @@ app.post(
     const requestBody = coachRecommendRequestSchema.parse(req.body);
 
     // Recovery data: prefer from request body (iOS-provided), fallback to Firestore
-<<<<<<< Updated upstream
-=======
-    const requestBody = coachRecommendRequestSchema.parse(req.body);
->>>>>>> Stashed changes
     let recovery: RecoverySnapshot | undefined;
     if (requestBody.recovery !== undefined) {
       recovery = requestBody.recovery;
