@@ -1,7 +1,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { join } from "node:path";
-import { Logger } from "./log.js";
+import { Logger, statusBar } from "./log.js";
 import { runStep } from "./agent.js";
 import {
   buildBacklogRefillPrompt,
@@ -1363,12 +1363,16 @@ export async function main(): Promise<void> {
   const orchestratorLogger = new Logger(config.logFile, config.verbose);
   const abortController = new AbortController();
 
+  statusBar.start();
+
   // Signal handling
   process.on("SIGINT", () => {
+    statusBar.stop();
     orchestratorLogger.warn("Interrupted \u2014 cleaning up...");
     abortController.abort();
   });
   process.on("SIGTERM", () => {
+    statusBar.stop();
     abortController.abort();
   });
 
@@ -1903,6 +1907,7 @@ export async function main(): Promise<void> {
     }
   }
 
+  statusBar.stop();
   orchestratorLogger.info("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
   orchestratorLogger.success(
     `  \u2713 Done! ${completed} harness improvements shipped locally.`,

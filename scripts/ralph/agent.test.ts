@@ -78,6 +78,10 @@ function createMockLogger(): Logger {
     verboseMsg: vi.fn(),
     tool: vi.fn(),
     compaction: vi.fn(),
+    setStep: vi.fn(),
+    clearStep: vi.fn(),
+    incrementToolCalls: vi.fn(),
+    flush: vi.fn(),
   } as any;
 }
 
@@ -1667,7 +1671,7 @@ describe('agent.ts', () => {
       const toolCall = (logger_mock.tool as any).mock.calls.find(
         (call: any) => call[0] === 'Bash'
       );
-      expect(toolCall[1]).toMatch(/\.\.\.$/);
+      expect(toolCall[1]).toMatch(/…$/);
     });
 
     it('summarizes Task tool with description', async () => {

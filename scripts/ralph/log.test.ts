@@ -181,6 +181,7 @@ describe('Logger', () => {
     it('logs tool name and summary with cyan color', async () => {
       const logger = new Logger('/test/log.jsonl');
       logger.tool('fetch', 'Fetched data from API');
+      logger.flush();
       expect(consoleLogSpy).toHaveBeenCalled();
       const call = consoleLogSpy.mock.calls[0][0] as string;
       expect(call).toContain('fetch');
@@ -191,6 +192,7 @@ describe('Logger', () => {
     it('pads tool name to 6 characters', async () => {
       const logger = new Logger('/test/log.jsonl');
       logger.tool('abc', 'summary');
+      logger.flush();
       expect(consoleLogSpy).toHaveBeenCalled();
       const call = consoleLogSpy.mock.calls[0][0] as string;
       // The tool name should be padded
@@ -200,6 +202,7 @@ describe('Logger', () => {
     it('includes prefix when workerSlot is set', async () => {
       const logger = new Logger('/test/log.jsonl', false, 2);
       logger.tool('test', 'summary');
+      logger.flush();
       expect(consoleLogSpy).toHaveBeenCalledWith(
         expect.stringContaining('[W2]')
       );
