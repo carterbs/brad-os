@@ -1,9 +1,9 @@
 pub mod qa_start;
 pub mod doctor;
 pub mod runner;
-pub mod setup_ios_testing;
 pub mod timing;
-pub mod qa_stop;
 pub mod precommit;
 pub mod reporter;
+pub mod qa_stop;
+pub mod setup_ios_testing;
 pub mod integration_tests_runner;

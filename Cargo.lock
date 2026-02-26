@@ -83,7 +83,6 @@ dependencies = [
  "ctrlc",
  "owo-colors",
  "regex",
- "serde",
  "serde_json",
  "tempfile",
 ]

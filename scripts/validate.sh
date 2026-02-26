@@ -26,7 +26,6 @@ run_rust_validate() {
   if [ -x "$binary" ]; then
     exec "$binary" "$@"
   fi
-}
 
 LOG_DIR=".validate"
 rm -rf "$LOG_DIR"
