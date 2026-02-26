@@ -8,6 +8,16 @@ use std::path::{Path, PathBuf};
 
 const DEFAULT_CC_THRESHOLD: usize = 10;
 const TRANSITIONAL_CC_THRESHOLD: usize = 20;
+const SHELL_INTERPRETERS: &[&str] = &["sh", "bash", "dash", "ksh", "zsh", "ash", "csh", "tcsh"];
+const KNOWN_SHIM_SCRIPTS: &[&str] = &[
+    "hooks/pre-commit",
+    "scripts/validate.sh",
+    "scripts/doctor.sh",
+    "scripts/run-integration-tests.sh",
+    "scripts/arch-lint",
+    "scripts/brad-precommit",
+    "scripts/brad-validate",
+];
 
 pub fn check(config: &LinterConfig) -> CheckResult {
     let name = "Shell script complexity guardrail".to_string();
@@ -21,7 +31,8 @@ pub fn check(config: &LinterConfig) -> CheckResult {
         };
 
         let metrics = estimate_complexity(&content);
-        if metrics.cc_estimate <= cc_limit_for(&file, &content) {
+        let limit = cc_limit_for(&file, &content);
+        if metrics.cc_estimate <= limit {
             continue;
         }
 
@@ -41,7 +52,7 @@ pub fn check(config: &LinterConfig) -> CheckResult {
             } else {
                 "default"
             },
-            cc_limit_for(&file, &content),
+            limit,
         ));
     }
 
@@ -124,8 +135,22 @@ fn has_shell_shebang(raw: &[u8]) -> bool {
         return false;
     }
 
-    let shell = first_line.to_lowercase();
-    shell.contains("sh") && !shell.contains("node")
+    let shebang = first_line.trim_start_matches("#!").trim();
+    let mut tokens = shebang.split_whitespace();
+    let interpreter = match tokens.next() {
+        Some(i) => i,
+        None => return false,
+    };
+
+    if is_shell_interpreter(interpreter) {
+        return true;
+    }
+
+    if interpreter.ends_with("/env") {
+        return tokens.any(is_shell_interpreter);
+    }
+
+    false
 }
 
 fn cc_limit_for(path: &Path, content: &str) -> usize {
@@ -150,13 +175,7 @@ fn is_transitional_legacy(path: &Path) -> bool {
 
 fn is_known_shim_path(path: &Path) -> bool {
     let normalized = path.to_string_lossy().replace('\\', "/");
-    normalized.ends_with("hooks/pre-commit")
-        || normalized.ends_with("scripts/validate.sh")
-        || normalized.ends_with("scripts/doctor.sh")
-        || normalized.ends_with("scripts/run-integration-tests.sh")
-        || normalized.ends_with("scripts/arch-lint")
-        || normalized.ends_with("scripts/brad-precommit")
-        || normalized.ends_with("scripts/brad-validate")
+    KNOWN_SHIM_SCRIPTS.iter().any(|shim| normalized.ends_with(shim))
 }
 
 fn is_skimmed_shim(path: &Path, content: &str) -> bool {
@@ -167,11 +186,11 @@ fn is_skimmed_shim(path: &Path, content: &str) -> bool {
     }
 
     let has_target_binary = content.contains("target/release/");
-    let has_exec = Regex::new("\\bexec\\s+\"?\\$?BINARY\"?")
-        .ok()
-        .is_some_and(|regex| regex.is_match(content));
     let has_build = content.contains("cargo build");
-    has_target_binary && has_exec && has_build
+    let has_exec = content
+        .lines()
+        .any(|line| line.trim_start().starts_with("exec "));
+    has_target_binary && has_build && has_exec
 }
 
 fn estimate_complexity(contents: &str) -> ComplexityMetrics {
@@ -212,6 +231,12 @@ fn count_control_tokens(line: &str, tokens: &[&str]) -> usize {
         .count()
 }
 
+fn is_shell_interpreter(token: &str) -> bool {
+    let binary = token.rsplit('/').next().unwrap_or(token);
+    let binary = binary.to_ascii_lowercase();
+    SHELL_INTERPRETERS.contains(&binary.as_str())
+}
+
 fn strip_inline_comment(line: &str) -> String {
     let mut result = String::new();
     let mut in_single_quote = false;
@@ -238,7 +263,9 @@ fn strip_inline_comment(line: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        estimate_complexity, is_known_shim_path, is_transitional_legacy, is_skimmed_shim,
+        cc_limit_for, count_control_tokens, estimate_complexity, has_shell_shebang,
+        DEFAULT_CC_THRESHOLD, TRANSITIONAL_CC_THRESHOLD,
+        is_known_shim_path, is_shell_interpreter, is_transitional_legacy, is_skimmed_shim,
         strip_inline_comment,
     };
 
@@ -315,5 +342,43 @@ exec "$BINARY" "$@"
         assert!(is_known_shim_path(std::path::Path::new("scripts/validate.sh")));
         assert!(is_known_shim_path(std::path::Path::new("scripts/doctor.sh")));
         assert!(is_known_shim_path(std::path::Path::new("scripts/run-integration-tests.sh")));
+    }
+
+    #[test]
+    fn detects_shell_shebang_variants_and_rejects_node() {
+        let sh = "#!/usr/bin/env bash\n";
+        let direct = "#!/bin/sh\n";
+        let node = "#!/usr/bin/env node\n";
+
+        assert!(has_shell_shebang(sh.as_bytes()));
+        assert!(has_shell_shebang(direct.as_bytes()));
+        assert!(!has_shell_shebang(node.as_bytes()));
+    }
+
+    #[test]
+    fn recognizes_shell_interpreter_tokens() {
+        assert!(is_shell_interpreter("bash"));
+        assert!(is_shell_interpreter("/usr/bin/zsh"));
+        assert!(!is_shell_interpreter("node"));
+        assert!(!is_shell_interpreter("python"));
+    }
+
+    #[test]
+    fn honors_cc_limits_for_shim_and_default_paths() {
+        assert_eq!(
+            cc_limit_for(std::path::Path::new("scripts/qa-start.sh"), ""),
+            TRANSITIONAL_CC_THRESHOLD
+        );
+        assert_eq!(
+            cc_limit_for(std::path::Path::new("scripts/validate.sh"), ""),
+            usize::MAX
+        );
+        assert_eq!(cc_limit_for(std::path::Path::new("scripts/normal.sh"), ""), DEFAULT_CC_THRESHOLD);
+    }
+
+    #[test]
+    fn count_control_tokens_is_word_boundary_safe() {
+        assert_eq!(count_control_tokens("ifcase if else", &["if", "elif", "case"]), 1);
+        assert_eq!(count_control_tokens("if_then_case", &["if", "case"]), 0);
     }
 }

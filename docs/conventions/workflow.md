@@ -69,6 +69,9 @@ npm run doctor            # Check: all required tooling installed
   - `scripts/validate.sh`
   - `scripts/doctor.sh`
   - `scripts/run-integration-tests.sh`
+  - `scripts/arch-lint`
+  - `scripts/brad-precommit`
+  - `scripts/brad-validate`
 
 Violation output includes per-file lines, branches, loop counts, and `CC_estimate` to make migrations actionable.
 
@@ -111,13 +114,3 @@ After implementation, exercise what you built — don't just run tests and decla
 3. Re-read relevant `docs/conventions/` for the area you touched
 4. Run `npm run validate`
 5. Ask: does this actually achieve the goal? Is anything missing?
-
-## Shell Script Complexity Guardrail
-
-- `shell_complexity` enforces `CC_estimate <= 10` for shell scripts scanned by `arch-lint`.
-- Transitional legacy files may use a higher ceiling:
-  - `scripts/qa-start.sh`
-  - `scripts/qa-stop.sh`
-  - `scripts/setup-ios-testing.sh` (temporary exception)
-- Shim-only delegation scripts are exempt from strict limits (`scripts/arch-lint`, `scripts/brad-precommit`, `scripts/brad-validate`).
-- `CC_estimate` is a lightweight lexical cyclomatic estimator using `if`/`elif`/`case`, loop constructs, and `&&`/`||`.
