@@ -247,6 +247,10 @@ app.post(
     const requestBody = coachRecommendRequestSchema.parse(req.body);
 
     // Recovery data: prefer from request body (iOS-provided), fallback to Firestore
+<<<<<<< Updated upstream
+=======
+    const requestBody = coachRecommendRequestSchema.parse(req.body);
+>>>>>>> Stashed changes
     let recovery: RecoverySnapshot | undefined;
     if (requestBody.recovery !== undefined) {
       recovery = requestBody.recovery;
@@ -332,7 +336,10 @@ app.post(
     const timezoneOffsetValue = Array.isArray(timezoneOffsetHeader) ? timezoneOffsetHeader[0] : timezoneOffsetHeader;
     const parsedTimezoneOffset = typeof timezoneOffsetValue === 'string' ? Number.parseInt(timezoneOffsetValue, 10) : NaN;
     const timezoneOffset = Number.isNaN(parsedTimezoneOffset) ? 0 : parsedTimezoneOffset;
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
     const [recentLiftingWorkouts, liftingSchedule, mesocycleContext] = await Promise.all([
       buildLiftingContext(timezoneOffset),
       buildLiftingSchedule(),

@@ -1,8 +1,13 @@
 import OpenAI from 'openai';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions.js';
 import { info, warn, error as logError } from 'firebase-functions/logger';
+<<<<<<< Updated upstream
 import type { MealPlanSession, CritiqueResponse } from '../shared.js';
 import { critiqueResponseSchema } from '../schemas/mealplan.schema.js';
+=======
+import { critiqueResponseSchema } from '../schemas/mealplan.schema.js';
+import type { MealPlanSession, CritiqueResponse, CritiqueOperation } from '../shared.js';
+>>>>>>> Stashed changes
 
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -183,7 +188,18 @@ export async function processCritique(
         phase: 'parse_response',
         operation_count: parsedResponse.data.operations.length,
       });
+<<<<<<< Updated upstream
       return parsedResponse.data;
+=======
+      return {
+        explanation: parsedResponse.data.explanation,
+        operations: parsedResponse.data.operations.map((op: CritiqueOperation) => ({
+          day_index: op.day_index,
+          meal_type: op.meal_type,
+          new_meal_id: op.new_meal_id,
+        })),
+      };
+>>>>>>> Stashed changes
     }
 
     logError('critique:invalid_shape', {
