@@ -1,151 +1,170 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -uo pipefail
 
-# Unified validation pipeline for brad-os
-# Runs all quality checks IN PARALLEL, logs verbose output to .validate/*.log,
-# and prints a tiny pass/fail summary.
-#
-# Usage:
-#   npm run validate          # All checks (typecheck + lint + test + architecture)
-#   npm run validate:quick    # Fast checks only (typecheck + lint)
-#
-# Targeted test execution (optional):
-#   BRAD_VALIDATE_TEST_FILES - newline-separated file paths to pass to vitest
-#   BRAD_VALIDATE_TEST_PROJECTS - newline-separated vitest project names to run
-#   Example:
-#   BRAD_VALIDATE_TEST_FILES=$'packages/functions/src/services/foo.test.ts\n' \
-#   BRAD_VALIDATE_TEST_PROJECTS=$'functions\n' npm run validate
+run_rust_validate() {
+  local repo_root
+  local binary
+  local source_dir
 
-for arg in "$@"; do
-  case "$arg" in
-    --quick)
-      QUICK=true
-      ;;
-  esac
-done
+  repo_root="$(cd "$(dirname "$0")/.." && pwd)"
+  binary="$repo_root/target/release/brad-validate"
+  source_dir="$repo_root/tools/dev-cli/src"
 
-TEST_FILES=()
-TEST_PROJECTS=()
+  if ! command -v cargo >/dev/null 2>&1; then
+    if [ -f "$HOME/.cargo/env" ]; then
+      # shellcheck disable=SC1091
+      source "$HOME/.cargo/env"
+    fi
+  fi
 
-if [ -n "${BRAD_VALIDATE_TEST_FILES:-}" ]; then
-  while IFS= read -r file; do
-    [ -n "$file" ] && TEST_FILES+=("$file")
-  done <<EOF
-$(printf "%s" "${BRAD_VALIDATE_TEST_FILES}")
-EOF
-fi
+  if [ ! -f "$binary" ] || [ -n "$(find "$source_dir" -newer "$binary" 2>/dev/null -print -quit)" ]; then
+    if ! cargo build -p dev-cli --release --manifest-path "$repo_root/Cargo.toml" -q; then
+      return 1
+    fi
+  fi
 
-if [ -n "${BRAD_VALIDATE_TEST_PROJECTS:-}" ]; then
-  while IFS= read -r project; do
-    [ -n "$project" ] && TEST_PROJECTS+=("$project")
-  done <<EOF
-$(printf "%s" "${BRAD_VALIDATE_TEST_PROJECTS}")
-EOF
-fi
+  if [ -x "$binary" ]; then
+    exec "$binary" "$@"
+  fi
 
-LOG_DIR=".validate"
-rm -rf "$LOG_DIR"
-mkdir -p "$LOG_DIR"
-
-QUICK="${QUICK:-false}"
-
-TOTAL_START=$(date +%s)
-
-# --- Define checks ---
-CHECKS=("typecheck" "lint")
-$QUICK || CHECKS+=("test" "architecture" "rust-coverage")
-
-run_check() {
-  local key="$1"
-  local start=$(date +%s)
-  local rc=0
-  local -a vitest_args=()
-  local project
-  local file
-
-  case "$key" in
-    typecheck)    npx tsc -b                                                             > "$LOG_DIR/typecheck.log"    2>&1 || rc=$? ;;
-    lint)         npx oxlint packages/functions/src --config .oxlintrc.json > "$LOG_DIR/lint.log" 2>&1 || rc=$? ;;
-    test)
-      if [ "${#TEST_PROJECTS[@]}" -gt 0 ]; then
-        for project in "${TEST_PROJECTS[@]}"; do
-          vitest_args+=(--project "$project")
-        done
-      fi
-      if [ "${#TEST_FILES[@]}" -gt 0 ]; then
-        for file in "${TEST_FILES[@]}"; do
-          vitest_args+=("$file")
-        done
-      fi
-
-      if [ "${#vitest_args[@]}" -gt 0 ]; then
-        npx vitest run "${vitest_args[@]}" > "$LOG_DIR/test.log" 2>&1 || rc=$?
-      else
-        npx vitest run > "$LOG_DIR/test.log" 2>&1 || rc=$?
-      fi
-      ;;
-    architecture) bash scripts/arch-lint > "$LOG_DIR/architecture.log" 2>&1 || rc=$? ;;
-    rust-coverage)
-      if ! command -v cargo >/dev/null 2>&1; then
-        echo "cargo is missing. Install Rust/Cargo (rustup) before running Rust coverage checks." >> "$LOG_DIR/rust-coverage.log"
-        rc=1
-      elif ! command -v rustup >/dev/null 2>&1; then
-        echo "rustup is missing. Install rustup before running Rust coverage checks." >> "$LOG_DIR/rust-coverage.log"
-        rc=1
-      elif ! command -v cargo-llvm-cov >/dev/null 2>&1; then
-        echo "cargo-llvm-cov is missing. Install it with: cargo install cargo-llvm-cov --locked" >> "$LOG_DIR/rust-coverage.log"
-        rc=1
-      elif ! rustup component list --installed | grep -Fxq "llvm-tools-preview"; then
-        echo "Missing Rust component: llvm-tools-preview." >> "$LOG_DIR/rust-coverage.log"
-        echo "Install with: rustup component add llvm-tools-preview" >> "$LOG_DIR/rust-coverage.log"
-        rc=1
-      elif [ "$rc" -eq 0 ]; then
-        cargo llvm-cov --workspace --summary-only --fail-under-lines 90 > "$LOG_DIR/rust-coverage.log" 2>&1 || rc=$?
-        if [ "$rc" -eq 0 ]; then
-          line_coverage="$(awk 'tolower($0) ~ /line coverage/ { if (match($0, /([0-9]+(\.[0-9]+)?)/, match_arr) ) { print match_arr[1]; exit } }' "$LOG_DIR/rust-coverage.log")"
-          if [ -n "$line_coverage" ] && awk -v coverage="$line_coverage" 'BEGIN { if (coverage < 95) exit 0; exit 1 }'; then
-            echo "Coverage ${line_coverage}% is below 95%; target for this gate is 95% (hard fail below 90%)." >> "$LOG_DIR/rust-coverage.log"
-          fi
-        fi
-      fi
-      ;;
-  esac
-
-  local elapsed=$(( $(date +%s) - start ))
-  echo "$rc $elapsed" > "$LOG_DIR/$key.status"
+  return 1
 }
 
-# --- Launch all checks in parallel ---
-for check in "${CHECKS[@]}"; do
-  run_check "$check" &
-done
-wait
+run_legacy_validate() {
+  # Unified validation pipeline for brad-os
+  # Runs all quality checks IN PARALLEL, logs verbose output to .validate/*.log,
+  # and prints a tiny pass/fail summary.
+  #
+  # Usage:
+  #   npm run validate          # All checks (typecheck + lint + test + architecture)
+  #   npm run validate:quick    # Fast checks only (typecheck + lint)
+  #
+  # Targeted test execution (optional):
+  #   BRAD_VALIDATE_TEST_FILES - newline-separated file paths to pass to vitest
+  #   BRAD_VALIDATE_TEST_PROJECTS - newline-separated vitest project names to run
+  #   Example:
+  #   BRAD_VALIDATE_TEST_FILES=$'packages/functions/src/services/foo.test.ts\n' \
+  #   BRAD_VALIDATE_TEST_PROJECTS=$'functions\n' npm run validate
 
-# --- Summary ---
-BOLD='\033[1m'
-GREEN='\033[32m'
-RED='\033[31m'
-DIM='\033[2m'
-RESET='\033[0m'
+  set -o pipefail
 
-TOTAL_ELAPSED=$(( $(date +%s) - TOTAL_START ))
-ALL_PASSED=true
+  for arg in "$@"; do
+    case "$arg" in
+      --quick)
+        QUICK=true
+        ;;
+    esac
+  done
 
-printf "\n"
-for check in "${CHECKS[@]}"; do
-  read -r rc elapsed < "$LOG_DIR/$check.status"
-  if [ "$rc" -eq 0 ]; then
-    printf "  ${GREEN}✓ %-15s${RESET} ${DIM}%ss${RESET}\n" "$check" "$elapsed"
-  else
-    printf "  ${RED}✗ %-15s${RESET} ${DIM}%ss  → .validate/%s.log${RESET}\n" "$check" "$elapsed" "$check"
-    ALL_PASSED=false
+  TEST_FILES=()
+  TEST_PROJECTS=()
+
+  if [ -n "${BRAD_VALIDATE_TEST_FILES:-}" ]; then
+    while IFS= read -r file; do
+      [ -n "$file" ] && TEST_FILES+=("$file")
+    done <<EOF
+$(printf "%s" "${BRAD_VALIDATE_TEST_FILES}")
+EOF
   fi
-done
 
-printf "\n"
-if $ALL_PASSED; then
-  printf "  ${GREEN}${BOLD}PASS${RESET} ${DIM}(%ss)${RESET}\n\n" "$TOTAL_ELAPSED"
-else
-  printf "  ${RED}${BOLD}FAIL${RESET} ${DIM}(%ss)  Logs: .validate/*.log${RESET}\n\n" "$TOTAL_ELAPSED"
-  exit 1
+  if [ -n "${BRAD_VALIDATE_TEST_PROJECTS:-}" ]; then
+    while IFS= read -r project; do
+      [ -n "$project" ] && TEST_PROJECTS+=("$project")
+    done <<EOF
+$(printf "%s" "${BRAD_VALIDATE_TEST_PROJECTS}")
+EOF
+  fi
+
+  LOG_DIR=".validate"
+  rm -rf "$LOG_DIR"
+  mkdir -p "$LOG_DIR"
+
+  QUICK="${QUICK:-false}"
+
+  TOTAL_START=$(date +%s)
+
+  # --- Define checks ---
+  CHECKS=("typecheck" "lint")
+  $QUICK || CHECKS+=("test" "architecture")
+
+  run_check() {
+    local key="$1"
+    local start
+    local rc=0
+    local -a vitest_args=()
+    local project
+    local file
+
+    start=$(date +%s)
+    case "$key" in
+      typecheck) npx tsc -b > "$LOG_DIR/typecheck.log" 2>&1 || rc=$? ;;
+      lint) npx oxlint packages/functions/src --config .oxlintrc.json > "$LOG_DIR/lint.log" 2>&1 || rc=$? ;;
+      test)
+        if [ "${#TEST_PROJECTS[@]}" -gt 0 ]; then
+          for project in "${TEST_PROJECTS[@]}"; do
+            vitest_args+=(--project "$project")
+          done
+        fi
+        if [ "${#TEST_FILES[@]}" -gt 0 ]; then
+          for file in "${TEST_FILES[@]}"; do
+            vitest_args+=("$file")
+          done
+        fi
+
+        if [ "${#vitest_args[@]}" -gt 0 ]; then
+          npx vitest run "${vitest_args[@]}" > "$LOG_DIR/test.log" 2>&1 || rc=$?
+        else
+          npx vitest run > "$LOG_DIR/test.log" 2>&1 || rc=$?
+        fi
+        ;;
+      architecture) bash scripts/arch-lint > "$LOG_DIR/architecture.log" 2>&1 || rc=$? ;;
+    esac
+
+    local elapsed
+    elapsed=$(( $(date +%s) - start ))
+    echo "$rc $elapsed" > "$LOG_DIR/$key.status"
+  }
+
+  # --- Launch all checks in parallel ---
+  for check in "${CHECKS[@]}"; do
+    run_check "$check" &
+  done
+  wait
+
+  # --- Summary ---
+  BOLD='\033[1m'
+  GREEN='\033[32m'
+  RED='\033[31m'
+  DIM='\033[2m'
+  RESET='\033[0m'
+
+  TOTAL_ELAPSED=$(( $(date +%s) - TOTAL_START ))
+  ALL_PASSED=true
+
+  printf "\n"
+  for check in "${CHECKS[@]}"; do
+    read -r rc elapsed < "$LOG_DIR/$check.status"
+    if [ "$rc" -eq 0 ]; then
+      printf "  ${GREEN}✓ %-15s${RESET} ${DIM}%ss${RESET}\n" "$check" "$elapsed"
+    else
+      printf "  ${RED}✗ %-15s${RESET} ${DIM}%ss  → .validate/%s.log${RESET}\n" "$check" "$elapsed" "$check"
+      ALL_PASSED=false
+    fi
+  done
+
+  printf "\n"
+  if $ALL_PASSED; then
+    printf "  ${GREEN}${BOLD}PASS${RESET} ${DIM}(%ss)${RESET}\n\n" "$TOTAL_ELAPSED"
+  else
+    printf "  ${RED}${BOLD}FAIL${RESET} ${DIM}(%ss)  Logs: .validate/*.log${RESET}\n\n" "$TOTAL_ELAPSED"
+    exit 1
+  fi
+}
+
+if [ "${BRAD_USE_RUST_VALIDATE:-1}" = "1" ]; then
+  if run_rust_validate "$@"; then
+    exit 0
+  fi
 fi
+
+run_legacy_validate "$@"
