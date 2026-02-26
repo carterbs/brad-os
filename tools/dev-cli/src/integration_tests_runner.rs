@@ -103,6 +103,7 @@ impl EmulatorProcess {
     fn stop(&mut self) {
         let pid = self.pid();
         let negative_pid = format!("-{pid}");
+        let grace_period = Duration::from_secs(10);
 
         let killed_process_group = Command::new("kill")
             .args(["--", negative_pid.as_str()])
@@ -120,7 +121,20 @@ impl EmulatorProcess {
                 .status();
         }
 
-        let _ = self.process.wait();
+        let started_waiting = Instant::now();
+        while self.process.try_wait().ok().and_then(|status| status).is_none() {
+            if started_waiting.elapsed() >= grace_period {
+                let _ = Command::new("kill")
+                    .args(["-9", pid.to_string().as_str()])
+                    .stdout(Stdio::null())
+                    .stderr(Stdio::null())
+                    .status();
+                break;
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
+
+        let _ = self.process.try_wait();
     }
 }
 
