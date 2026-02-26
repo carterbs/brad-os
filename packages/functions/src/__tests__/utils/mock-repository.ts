@@ -286,6 +286,23 @@ export function createMockIngredientRepository(): MockIngredientRepository {
   };
 }
 
+// ============ Stretch Repository Mock ============
+
+export interface MockStretchRepository extends MockBaseRepository {
+  findByRegion: MockFn;
+}
+
+export function createMockStretchRepository(): MockStretchRepository {
+  return {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findAll: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    findByRegion: vi.fn(),
+  };
+}
+
 // ============ Barcode Repository Mock ============
 
 export interface MockBarcodeRepository extends MockBaseRepository {}
@@ -383,6 +400,7 @@ export interface MockRepositories {
   mealRepository: MockMealRepository;
   recipeRepository: MockRecipeRepository;
   ingredientRepository: MockIngredientRepository;
+  stretchRepository: MockStretchRepository;
   mealPlanSessionRepository: MockMealPlanSessionRepository;
   barcodeRepository: MockBarcodeRepository;
 }
@@ -401,6 +419,7 @@ export function createMockRepositories(): MockRepositories {
     mealRepository: createMockMealRepository(),
     recipeRepository: createMockRecipeRepository(),
     ingredientRepository: createMockIngredientRepository(),
+    stretchRepository: createMockStretchRepository(),
     mealPlanSessionRepository: createMockMealPlanSessionRepository(),
     barcodeRepository: createMockBarcodeRepository(),
   };

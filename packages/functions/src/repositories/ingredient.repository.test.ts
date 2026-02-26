@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Firestore, CollectionReference } from 'firebase-admin/firestore';
+import type { Firestore, CollectionReference, DocumentReference } from 'firebase-admin/firestore';
 import {
+  createMockDoc,
   createMockQuerySnapshot,
   createMockQuery,
   createFirestoreMocks,
@@ -10,6 +11,7 @@ import {
 describe('IngredientRepository', () => {
   let mockDb: Partial<Firestore>;
   let mockCollection: Partial<CollectionReference>;
+  let mockDocRef: Partial<DocumentReference>;
   let IngredientRepository: typeof import('./ingredient.repository.js').IngredientRepository;
 
   beforeEach(async () => {
@@ -18,6 +20,7 @@ describe('IngredientRepository', () => {
     const mocks = createFirestoreMocks();
     mockDb = mocks.mockDb;
     mockCollection = mocks.mockCollection;
+    mockDocRef = mocks.mockDocRef;
 
     setupFirebaseMock(mocks);
 
@@ -106,29 +109,97 @@ describe('IngredientRepository', () => {
     });
   });
 
-  describe('write-guard methods', () => {
-    it('should reject create with not implemented error', async () => {
+  describe('create', () => {
+    it('should create an ingredient with timestamps', async () => {
       const repository = new IngredientRepository(mockDb as Firestore);
+      (mockCollection.add as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'new-ingredient-id' });
 
-      await expect(repository.create({ name: 'Carrot', store_section: 'Produce' })).rejects.toThrow(
-        'IngredientRepository.create is not implemented'
+      const result = await repository.create({
+        name: 'Carrot',
+        store_section: 'Produce',
+      });
+
+      expect(mockCollection.add).toHaveBeenCalledWith({
+        name: 'Carrot',
+        store_section: 'Produce',
+        created_at: expect.any(String),
+        updated_at: expect.any(String),
+      });
+      expect(result).toEqual({
+        id: 'new-ingredient-id',
+        name: 'Carrot',
+        store_section: 'Produce',
+        created_at: expect.any(String),
+        updated_at: expect.any(String),
+      });
+    });
+  });
+
+  describe('update', () => {
+    it('should update ingredient fields and refresh updated_at', async () => {
+      const repository = new IngredientRepository(mockDb as Firestore);
+      (mockDocRef.get as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(
+          createMockDoc('ing-1', {
+            name: 'Carrot',
+            store_section: 'Produce',
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          })
+        )
+        .mockResolvedValueOnce(
+          createMockDoc('ing-1', {
+            name: 'Baby Carrot',
+            store_section: 'Produce',
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-02T00:00:00Z',
+          })
+        );
+
+      const result = await repository.update('ing-1', { name: 'Baby Carrot' });
+
+      expect(mockDocRef.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Baby Carrot',
+          updated_at: expect.any(String),
+        })
       );
+      expect(result).toEqual({
+        id: 'ing-1',
+        name: 'Baby Carrot',
+        store_section: 'Produce',
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-02T00:00:00Z',
+      });
+    });
+  });
+
+  describe('delete', () => {
+    it('should return true for existing ingredient delete', async () => {
+      const repository = new IngredientRepository(mockDb as Firestore);
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createMockDoc('ing-1', {
+          name: 'Carrot',
+          store_section: 'Produce',
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
+        })
+      );
+
+      const result = await repository.delete('ing-1');
+
+      expect(mockDocRef.delete).toHaveBeenCalledTimes(1);
+      expect(result).toBe(true);
     });
 
-    it('should reject update with not implemented error', async () => {
+    it('should return false for missing ingredient delete', async () => {
       const repository = new IngredientRepository(mockDb as Firestore);
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(createMockDoc('missing', null));
 
-      await expect(repository.update('ing-1', { name: 'Modified' })).rejects.toThrow(
-        'IngredientRepository.update is not implemented'
-      );
-    });
+      const result = await repository.delete('missing');
 
-    it('should reject delete with not implemented error', async () => {
-      const repository = new IngredientRepository(mockDb as Firestore);
-
-      await expect(repository.delete('ing-1')).rejects.toThrow(
-        'IngredientRepository.delete is not implemented'
-      );
+      expect(mockDocRef.delete).not.toHaveBeenCalled();
+      expect(result).toBe(false);
     });
   });
 });

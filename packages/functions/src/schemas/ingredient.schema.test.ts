@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ingredientResponseSchema } from './ingredient.schema.js';
+import { createIngredientSchema, updateIngredientSchema, ingredientResponseSchema } from './ingredient.schema.js';
 
 describe('ingredientResponseSchema', () => {
   const validPayload = {
@@ -56,5 +56,49 @@ describe('ingredientResponseSchema', () => {
       const result = ingredientResponseSchema.safeParse(payload);
       expect(result.success).toBe(false);
     }
+  });
+});
+
+describe('createIngredientSchema', () => {
+  it('accepts valid payload', () => {
+    const result = createIngredientSchema.safeParse({
+      name: 'Chicken Breast',
+      store_section: 'Meat',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects empty names', () => {
+    const result = createIngredientSchema.safeParse({
+      name: '',
+      store_section: 'Meat',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects missing required fields', () => {
+    const result = createIngredientSchema.safeParse({ name: 'Chicken' });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('updateIngredientSchema', () => {
+  it('accepts partial payloads', () => {
+    const result = updateIngredientSchema.safeParse({
+      name: 'Updated',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts empty object', () => {
+    const result = updateIngredientSchema.safeParse({});
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects invalid partial values', () => {
+    const result = updateIngredientSchema.safeParse({
+      store_section: 123,
+    });
+    expect(result.success).toBe(false);
   });
 });

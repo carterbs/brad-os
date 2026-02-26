@@ -28,7 +28,6 @@ PUT    /api/workout-sets/:id/skip
 - Base repositories follow `BaseRepository<T extends { id: string }, CreateDTO, UpdateDTO>` in `packages/functions/src/repositories/base.repository.ts`.
 - Router-facing contracts use `IBaseRepository<T, CreateDTO, UpdateDTO>` in `packages/functions/src/types/repository.ts`.
 - Override `protected buildUpdatePayload(data: UpdateDTO): Record<string, unknown>` when a domain needs specialized Firestore payload shaping.
-- Ingredient and recipe repositories intentionally reject write operations through override points when read-only by design.
 
 ## Router Factory Pattern
 
@@ -36,6 +35,7 @@ Cloud Functions handlers should use shared router construction helpers in `packa
 
 - `createResourceRouter<T, CreateDTO, UpdateDTO, TRepo extends IBaseRepository<T, CreateDTO, UpdateDTO>>(config)`
 - `createBaseApp(resourceName: string): express.Application`
+- `registerCustomRoutes` and `beforeDelete` callback hooks for handlers that need extra routes/guards while retaining shared CRUD behavior.
 
 Use this config shape with `createResourceRouter`:
 
@@ -65,12 +65,28 @@ export const barcodesApp = createResourceRouter({
 });
 ```
 
-### Custom behavior example (`createBaseApp`)
+### Custom behavior example (`createResourceRouter` with custom hooks)
 
 ```ts
-export const exercisesApp = createBaseApp('exercises');
-exercisesApp.get('/default', async (_req, res) => { ... });
-exercisesApp.get('/:id/history', async (_req, res) => { ... });
+export const exercisesApp = createResourceRouter({
+  resourceName: 'exercises',
+  displayName: 'Exercise',
+  RepoClass: ExerciseRepository,
+  createSchema: createExerciseSchema,
+  updateSchema: updateExerciseSchema,
+  registerCustomRoutes: ({ app, getRepo }) => {
+    app.get('/default', async (_req, res) => {
+      const exercises = await getRepo().findDefaultExercises();
+      res.json({ success: true, data: exercises });
+    });
+  },
+  beforeDelete: async ({ id, repo }) => {
+    const isInUse = await repo.isInUse(id);
+    if (isInUse) {
+      throw new ConflictError('Cannot delete exercise in use');
+    }
+  },
+});
 ```
 
 ## Shared APIClient (iOS)

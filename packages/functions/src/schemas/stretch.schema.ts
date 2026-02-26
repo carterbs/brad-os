@@ -26,5 +26,13 @@ export const stretchRegionSchema = z.object({
   stretches: z.array(stretchDefinitionSchema).min(1),
 });
 
+export const createStretchSchema = stretchRegionSchema;
+export const updateStretchSchema = createStretchSchema.partial();
+
+export type CreateStretchInput = z.input<typeof createStretchSchema>;
+export type UpdateStretchInput = z.input<typeof updateStretchSchema>;
+export type CreateStretchDTO = CreateStretchInput;
+export type UpdateStretchDTO = UpdateStretchInput;
+
 export type StretchDefinitionInput = z.infer<typeof stretchDefinitionSchema>;
 export type StretchRegionInput = z.infer<typeof stretchRegionSchema>;

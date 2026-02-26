@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { stretchDefinitionSchema, stretchRegionSchema } from './stretch.schema.js';
+import {
+  createStretchSchema,
+  updateStretchSchema,
+  stretchDefinitionSchema,
+  stretchRegionSchema,
+} from './stretch.schema.js';
 
 describe('stretch.schema', () => {
   const validStretchDefinition = {
@@ -194,6 +199,55 @@ describe('stretch.schema', () => {
         }],
       });
 
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('createStretchSchema', () => {
+    it('accepts a valid create payload', () => {
+      const result = createStretchSchema.safeParse({
+        region: 'neck',
+        displayName: 'Neck',
+        iconName: 'figure.flexibility',
+        stretches: [
+          {
+            id: 'neck-forward-tilt',
+            name: 'Neck Forward Tilt',
+            description: 'Gently stretch your neck forward and hold.',
+            bilateral: false,
+            image: 'https://example.com/stretch.png',
+          },
+        ],
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects missing required fields', () => {
+      const result = createStretchSchema.safeParse({
+        region: 'neck',
+        displayName: 'Neck',
+      });
+      expect(result.success).toBe(false);
+    });
+  });
+
+  describe('updateStretchSchema', () => {
+    it('accepts partial payloads', () => {
+      const result = updateStretchSchema.safeParse({
+        displayName: 'Updated Neck',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('accepts empty object', () => {
+      const result = updateStretchSchema.safeParse({});
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects invalid payloads', () => {
+      const result = updateStretchSchema.safeParse({
+        region: 'not-a-region',
+      });
       expect(result.success).toBe(false);
     });
   });

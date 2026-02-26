@@ -1,23 +1,12 @@
 import type { Firestore } from 'firebase-admin/firestore';
-import type { Ingredient } from '../shared.js';
+import type { Ingredient, CreateIngredientDTO, UpdateIngredientDTO } from '../shared.js';
 import { BaseRepository } from './base.repository.js';
 import { isRecord, readString } from './firestore-type-guards.js';
 
-/** Read-only DTO placeholders for BaseRepository contract */
-interface IngredientCreateDTO {
-  name: string;
-  store_section: string;
-}
-
-interface IngredientUpdateDTO extends Record<string, unknown> {
-  name?: string;
-  store_section?: string;
-}
-
 export class IngredientRepository extends BaseRepository<
   Ingredient,
-  IngredientCreateDTO,
-  IngredientUpdateDTO
+  CreateIngredientDTO,
+  UpdateIngredientDTO & Record<string, unknown>
 > {
   constructor(db?: Firestore) {
     super('ingredients', db);
@@ -40,6 +29,21 @@ export class IngredientRepository extends BaseRepository<
     };
   }
 
+  async create(data: CreateIngredientDTO): Promise<Ingredient> {
+    const timestamps = this.createTimestamps();
+    const ingredientData = {
+      name: data.name,
+      store_section: data.store_section,
+      ...timestamps,
+    };
+
+    const docRef = await this.collection.add(ingredientData);
+    return {
+      id: docRef.id,
+      ...ingredientData,
+    };
+  }
+
   async findAll(): Promise<Ingredient[]> {
     const snapshot = await this.collection.orderBy('name').get();
     return snapshot.docs
@@ -51,20 +55,5 @@ export class IngredientRepository extends BaseRepository<
         return this.parseEntity(doc.id, data);
       })
       .filter((ingredient): ingredient is Ingredient => ingredient !== null);
-  }
-
-  // Intentional read-only guardrail: Ingredient data is managed externally and not writable via this repository.
-  create(_data: IngredientCreateDTO): Promise<Ingredient> {
-    return Promise.reject(new Error('IngredientRepository.create is not implemented'));
-  }
-
-  // Intentional read-only guardrail: Ingredient data is managed externally and not writable via this repository.
-  override async update(_id: string, _data: IngredientUpdateDTO): Promise<Ingredient | null> {
-    return Promise.reject(new Error('IngredientRepository.update is not implemented'));
-  }
-
-  // Intentional read-only guardrail: Ingredient data is managed externally and not writable via this repository.
-  override async delete(_id: string): Promise<boolean> {
-    return Promise.reject(new Error('IngredientRepository.delete is not implemented'));
   }
 }
