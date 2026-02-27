@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
+<<<<<<< Updated upstream
 import {
   createIngredientSchema,
   ingredientResponseSchema,
   updateIngredientSchema,
 } from './ingredient.schema.js';
+=======
+import { ingredientResponseSchema } from './ingredient.schema.js';
+>>>>>>> Stashed changes
 
 describe('ingredientResponseSchema', () => {
   const validPayload = {
@@ -11,7 +15,11 @@ describe('ingredientResponseSchema', () => {
     name: 'Chicken Breast',
     store_section: 'Meat',
     created_at: '2026-02-25T00:00:00.000Z',
+<<<<<<< Updated upstream
     updated_at: '2026-02-05T00:05:00.000Z',
+=======
+    updated_at: '2026-02-25T00:05:00.000Z',
+>>>>>>> Stashed changes
   };
 
   it('accepts a fully valid payload', () => {
@@ -46,6 +54,7 @@ describe('ingredientResponseSchema', () => {
 
     expect(missing.success).toBe(false);
   });
+<<<<<<< Updated upstream
 });
 
 describe('ingredient create/update schemas', () => {
@@ -83,5 +92,21 @@ describe('ingredient create/update schemas', () => {
     });
 
     expect(result.success).toBe(false);
+=======
+
+  it('rejects wrong types for each required field', () => {
+    const wrongTypePayloads = [
+      { id: 99, name: 'Chicken', store_section: 'Meat', created_at: '2026-02-25T00:00:00.000Z', updated_at: '2026-02-25T00:00:00.000Z' },
+      { id: 'ingredient-1', name: 42, store_section: 'Meat', created_at: '2026-02-25T00:00:00.000Z', updated_at: '2026-02-25T00:00:00.000Z' },
+      { id: 'ingredient-1', name: 'Chicken', store_section: true, created_at: '2026-02-25T00:00:00.000Z', updated_at: '2026-02-25T00:00:00.000Z' },
+      { id: 'ingredient-1', name: 'Chicken', store_section: 'Meat', created_at: { value: '2026-02-25' }, updated_at: '2026-02-25T00:00:00.000Z' },
+      { id: 'ingredient-1', name: 'Chicken', store_section: 'Meat', created_at: '2026-02-25T00:00:00.000Z', updated_at: ['2026-02-25'] },
+    ];
+
+    for (const payload of wrongTypePayloads) {
+      const result = ingredientResponseSchema.safeParse(payload);
+      expect(result.success).toBe(false);
+    }
+>>>>>>> Stashed changes
   });
 });

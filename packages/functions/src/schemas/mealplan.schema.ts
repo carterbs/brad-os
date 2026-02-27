@@ -28,7 +28,7 @@ const mealSchema = z.object({
   has_red_meat: z.boolean(),
   prep_ahead: z.boolean(),
   url: z.string().min(0).max(2000),
-    last_planned: z.string().nullable(),
+  last_planned: z.string().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
 }).strict();

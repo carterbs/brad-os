@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+<<<<<<< Updated upstream
   createRecipeSchema,
   recipeIngredientSchema,
   recipeResponseSchema,
   recipeStepSchema,
   updateRecipeSchema,
+=======
+  recipeIngredientSchema,
+  recipeResponseSchema,
+  recipeStepSchema,
+>>>>>>> Stashed changes
 } from './recipe.schema.js';
 
 describe('recipeIngredientSchema', () => {
@@ -191,6 +197,7 @@ describe('recipeResponseSchema', () => {
     expect(invalidStep.success).toBe(false);
   });
 });
+<<<<<<< Updated upstream
 
 describe('recipe create/update DTO schemas', () => {
   it('accepts a valid create payload', () => {
@@ -229,3 +236,5 @@ describe('recipe create/update DTO schemas', () => {
     expect(result.success).toBe(false);
   });
 });
+=======
+>>>>>>> Stashed changes

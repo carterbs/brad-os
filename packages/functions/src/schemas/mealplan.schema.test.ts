@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+<<<<<<< Updated upstream
 import {
   applyOperationsResultSchema,
   conversationMessageSchema,
@@ -9,6 +10,9 @@ import {
   mealPlanSessionSchema,
   updateMealPlanSessionSchema,
 } from './mealplan.schema.js';
+=======
+import { critiqueInputSchema, critiqueResponseSchema } from './mealplan.schema.js';
+>>>>>>> Stashed changes
 
 describe('critiqueResponseSchema', () => {
   it('accepts a valid critique response with a meal change', () => {
@@ -100,6 +104,7 @@ describe('critiqueInputSchema', () => {
     expect(numeric.success).toBe(false);
   });
 });
+<<<<<<< Updated upstream
 
 describe('meal plan session schemas', () => {
   const samplePlanEntry = {
@@ -217,3 +222,5 @@ describe('meal plan session schemas', () => {
     }
   });
 });
+=======
+>>>>>>> Stashed changes

@@ -27,7 +27,11 @@
         "typescript-eslint/no-unsafe-type-assertion": "error"
       }
     }
+<<<<<<< Updated upstream
   ],
+=======
+  },
+>>>>>>> Stashed changes
   "ignorePatterns": [
     "dist/",
     "lib/",

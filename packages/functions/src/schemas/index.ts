@@ -32,13 +32,3 @@ export {
   nextWeekExerciseSchema,
   nextWeekResponseSchema,
 } from './progression.schema.js';
-export {
-  exerciseChangesSchema,
-  addedExerciseSchema,
-  removedExerciseSchema,
-  modifiedExerciseSchema,
-  planDiffSchema,
-  modificationResultSchema,
-  planUpdateResponseSchema,
-  updateWorkoutSetTargetsSchema,
-} from './plan-modification.schema.js';

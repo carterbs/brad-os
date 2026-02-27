@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import { describe, expect, it } from 'vitest';
 import {
   calculateVO2MaxSchema,
@@ -749,6 +750,10 @@ describe('cycling.schema', () => {
       ).toBe(false);
     });
   });
+=======
+import { describe, it, expect } from 'vitest';
+import { cyclingCoachResponseSchema, generateScheduleResponseSchema } from './cycling.schema.js';
+>>>>>>> Stashed changes
 
 describe('cyclingCoachResponseSchema', () => {
   it('accepts a valid coaching response', () => {
@@ -875,4 +880,7 @@ describe('generateScheduleResponseSchema', () => {
   });
 });
 
+<<<<<<< Updated upstream
 });
+=======
+>>>>>>> Stashed changes
