@@ -5,7 +5,6 @@ export default defineConfig({
     environment: 'node',
     include: [
       'packages/functions/src/**/*.test.ts',
-      'scripts/ralph/**/*.test.ts',
     ],
     exclude: ['packages/functions/src/__tests__/integration/**'],
     setupFiles: ['./packages/functions/src/__tests__/vitest.setup.ts'],

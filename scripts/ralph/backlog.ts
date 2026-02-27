@@ -5,7 +5,6 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const BACKLOG_PATH = join(__dirname, "backlog.md");
-const TRIAGE_PATH = join(__dirname, "triage.md");
 const MERGE_CONFLICTS_PATH = join(__dirname, "merge-conflicts.md");
 
 const CANONICAL_TYPESCRIPT_ESLINT_RULES = [
@@ -241,11 +240,6 @@ function readTaskFile(path: string): string[] {
     .filter(Boolean);
 }
 
-function writeTaskFile(path: string, tasks: string[]): void {
-  const content = tasks.map((t) => `- ${t}`).join("\n") + "\n";
-  writeFileSync(path, content);
-}
-
 /** Parse backlog.md into an array of task strings. */
 export function readBacklog(): string[] {
   return readTaskFile(BACKLOG_PATH);
@@ -282,30 +276,6 @@ export function removeTask(taskText: string): boolean {
   return true;
 }
 
-/** Parse triage.md into an array of task strings. */
-export function readTriage(): string[] {
-  return readTaskFile(TRIAGE_PATH);
-}
-
-/** Add a triage task if it is not already present. */
-export function addTriageTask(taskText: string): boolean {
-  const tasks = readTriage();
-  if (tasks.includes(taskText)) return false;
-  tasks.push(taskText);
-  writeTaskFile(TRIAGE_PATH, tasks);
-  return true;
-}
-
-/** Remove a specific triage task by text. */
-export function removeTriageTask(taskText: string): boolean {
-  const tasks = readTriage();
-  const idx = tasks.findIndex((t) => t === taskText);
-  if (idx === -1) return false;
-  tasks.splice(idx, 1);
-  writeTaskFile(TRIAGE_PATH, tasks);
-  return true;
-}
-
 /**
  * Move a task from the active backlog to merge-conflicts.md so it is not
  * re-run automatically when a branch is complete but cannot merge cleanly.
@@ -319,9 +289,6 @@ export function moveTaskToMergeConflicts(
   },
 ): void {
   removeTask(taskText);
-  addTriageTask(
-    `Resolve merge conflict for improvement #${details.improvement} (${details.branchName}) and merge to main. Worktree: ${details.worktreePath}. Original task: ${taskText}`,
-  );
   const marker = `improvement=${details.improvement} branch=${details.branchName}`;
   let existing = "";
   try {
@@ -356,7 +323,6 @@ export function backlogPath(): string {
 export interface BacklogSyncResult {
   mergedTasksSeen: number;
   removedFromBacklog: string[];
-  removedFromTriage: string[];
 }
 
 /**
@@ -375,7 +341,6 @@ export function syncTaskFilesFromLog(logFilePath: string): BacklogSyncResult {
     return {
       mergedTasksSeen: 0,
       removedFromBacklog: [],
-      removedFromTriage: [],
     };
   }
 
@@ -425,18 +390,13 @@ export function syncTaskFilesFromLog(logFilePath: string): BacklogSyncResult {
     return {
       mergedTasksSeen: 0,
       removedFromBacklog: [],
-      removedFromTriage: [],
     };
   }
 
   const backlog = readBacklog();
-  const triage = readTriage();
   const mergedTokenSets = [...mergedTaskKeys].map((task) => tokenSet(task));
 
   const removedFromBacklog = backlog.filter((task) =>
-    overlapsMergedTask(task, mergedTaskKeys, mergedTokenSets),
-  );
-  const removedFromTriage = triage.filter((task) =>
     overlapsMergedTask(task, mergedTaskKeys, mergedTokenSets),
   );
 
@@ -447,16 +407,8 @@ export function syncTaskFilesFromLog(logFilePath: string): BacklogSyncResult {
     writeBacklog(keptBacklog);
   }
 
-  if (removedFromTriage.length > 0) {
-    const keptTriage = triage.filter((task) =>
-      !overlapsMergedTask(task, mergedTaskKeys, mergedTokenSets),
-    );
-    writeTaskFile(TRIAGE_PATH, keptTriage);
-  }
-
   return {
     mergedTasksSeen: mergedTaskKeys.size,
     removedFromBacklog,
-    removedFromTriage,
   };
 }

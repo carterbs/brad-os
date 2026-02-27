@@ -8,8 +8,6 @@ import {
   buildTaskPlanPrompt,
   buildPlanPrompt,
   buildImplPrompt,
-  buildMergeConflictResolvePrompt,
-  buildOutstandingPrMergePrompt,
   buildAgentMergePrompt,
   buildReviewPrompt,
   buildFixPrompt,
@@ -23,17 +21,12 @@ import {
 } from "./git.js";
 import {
   ensurePullRequest,
-  listOpenRalphPullRequests,
   pushBranch,
   readPullRequestMergeState,
 } from "./pr.js";
 import {
   readBacklog,
-  readTriage,
-  addTriageTask,
   removeTask,
-  removeTriageTask,
-  moveTaskToMergeConflicts,
   readSuppressedTypeScriptEslintRules,
   normalizeBacklogForTypeScriptEslintCleanup,
   writeBacklog,
@@ -234,23 +227,11 @@ async function runPostMergeRecoveryCycle({
   return false;
 }
 
-export type TaskSource = "backlog" | "triage" | "cli";
+export type TaskSource = "backlog" | "cli";
 
-export const MAIN_NOT_GREEN_TRIAGE_TASK =
-  "Restore main to green: run npm run validate on main, fix failures, then rerun validate.";
-export const MAIN_NOT_GREEN_RETRY_COOLDOWN_MS = 15 * 60 * 1000;
-export const MERGE_CONFLICT_TRIAGE_PREFIX =
-  "Resolve merge conflict for improvement #";
 export const IMPLEMENT_PLAN_TASK_PREFIX = "Implement Plan ";
 const DEFAULT_PLAN_DOC_PATH = "thoughts/shared/plans/active/ralph-improvement.md";
 const TITLE_MAX_LENGTH = 72;
-const OUTSTANDING_RALPH_PR_TRIAGE_PREFIX = "Resolve outstanding Ralph PR #";
-
-export interface OutstandingRalphPrTriageTaskDetails {
-  prNumber: number;
-  branchName: string;
-  prUrl: string;
-}
 
 function normalizeSpaces(value: string): string {
   return value.replace(/\s+/g, " ").trim();
@@ -335,75 +316,6 @@ export function runValidation(cwd: string): boolean {
   } catch {
     return false;
   }
-}
-
-export function isMergeConflictTriageTask(
-  taskText: string | undefined,
-  taskSource: TaskSource,
-): boolean {
-  return (
-    taskSource === "triage" &&
-    taskText?.startsWith(MERGE_CONFLICT_TRIAGE_PREFIX) === true
-  );
-}
-
-export function buildOutstandingRalphPrTriageTask(details: {
-  prNumber: number;
-  branchName: string;
-  prUrl: string;
-}): string {
-  return (
-    `Resolve outstanding Ralph PR #${details.prNumber} ` +
-    `(${details.branchName}) and merge to main. PR: ${details.prUrl}`
-  );
-}
-
-export function parseOutstandingRalphPrTriageTask(
-  taskText: string | undefined,
-  _taskSource: TaskSource,
-): OutstandingRalphPrTriageTaskDetails | undefined {
-  if (!taskText) return undefined;
-
-  function parseDirectTask(
-    value: string,
-  ): OutstandingRalphPrTriageTaskDetails | undefined {
-    if (!value.startsWith(OUTSTANDING_RALPH_PR_TRIAGE_PREFIX)) return undefined;
-
-    const match = value.match(
-      /^Resolve outstanding Ralph PR #(\d+) \(([^)]+)\) and merge to main\. PR: (https:\/\/github\.com\/\S+)$/,
-    );
-    if (!match) return undefined;
-
-    const prNumber = Number.parseInt(match[1] ?? "", 10);
-    const branchName = (match[2] ?? "").trim();
-    const prUrl = (match[3] ?? "").trim();
-    if (!Number.isFinite(prNumber) || prNumber <= 0) return undefined;
-    if (!branchName || !prUrl) return undefined;
-
-    return { prNumber, branchName, prUrl };
-  }
-
-  let current = taskText.trim();
-  for (let depth = 0; depth < 64; depth++) {
-    const direct = parseDirectTask(current);
-    if (direct) return direct;
-
-    const escalatedPrefix = "Original task:";
-    const markerIndex = current.indexOf(escalatedPrefix);
-    if (markerIndex < 0) return undefined;
-    current = current.slice(markerIndex + escalatedPrefix.length).trim();
-  }
-  return undefined;
-}
-
-function unwrapEscalatedTask(taskText: string): string {
-  let current = taskText.trim();
-  for (let depth = 0; depth < 64; depth++) {
-    const markerIndex = current.indexOf("Original task:");
-    if (markerIndex < 0) return current;
-    current = current.slice(markerIndex + "Original task:".length).trim();
-  }
-  return current;
 }
 
 export function extractPlanDocPathFromTask(
@@ -566,13 +478,7 @@ export async function runWorker(
   taskText?: string,
   taskSource: TaskSource = "backlog",
 ): Promise<WorkerResult> {
-  const outstandingPrTask = parseOutstandingRalphPrTriageTask(
-    taskText,
-    taskSource,
-  );
-  const branchName =
-    outstandingPrTask?.branchName ??
-    `${config.branchPrefix}-${String(improvement).padStart(3, "0")}`;
+  const branchName = `${config.branchPrefix}-${String(improvement).padStart(3, "0")}`;
   const worktreePath = `${config.worktreeDir}/${branchName}`;
 
   const targetLabel = config.target !== undefined ? `/${config.target}` : "";
@@ -604,10 +510,6 @@ export async function runWorker(
 
   try {
     const stepResults: StepSummary[] = [];
-    const mergeConflictTriageTask = isMergeConflictTriageTask(
-      taskText,
-      taskSource,
-    );
     const taskPlanDocPath = extractPlanDocPathFromTask(taskText);
     const planDocPath = taskPlanDocPath ?? DEFAULT_PLAN_DOC_PATH;
 
@@ -616,12 +518,6 @@ export async function runWorker(
 
     if (wtResult.resumed) {
       logger.info("[1/5] Skipping planning (resuming from prior work)");
-    } else if (outstandingPrTask) {
-      logger.info("[1/5] Skipping planning (outstanding PR triage task)");
-    } else if (mergeConflictTriageTask) {
-      logger.info(
-        "[1/5] Skipping generic planning (merge-conflict triage task)",
-      );
     } else if (taskPlanDocPath) {
       logger.info(
         `[1/5] Skipping planning (task already references plan: ${taskPlanDocPath})`,
@@ -741,15 +637,7 @@ export async function runWorker(
 
     // ── 2. Implementation ──
     logger.info("[2/5] Implementing...");
-    const implementPrompt = outstandingPrTask
-      ? buildOutstandingPrMergePrompt(
-          taskText ?? "",
-          outstandingPrTask.prNumber,
-          outstandingPrTask.branchName,
-        )
-      : mergeConflictTriageTask
-        ? buildMergeConflictResolvePrompt(taskText ?? "")
-        : buildImplPrompt(planDocPath);
+    const implementPrompt = buildImplPrompt(planDocPath);
     let implResult = await runStep({
       prompt: implementPrompt,
       stepName: "implement",
@@ -798,140 +686,6 @@ export async function runWorker(
     });
     logger.stepSummary("implement", stepResults[stepResults.length - 1]);
 
-    if (outstandingPrTask) {
-      logger.info("[3/5] Reusing existing PR for merge...");
-      const pr = {
-        number: outstandingPrTask.prNumber,
-        url: outstandingPrTask.prUrl,
-      };
-      logger.success(`Reusing PR #${pr.number}: ${pr.url}`);
-      logger.info("[4/5] Skipping review (outstanding PR triage task)");
-
-      const attemptMerge = async (): Promise<boolean> => {
-        logger.info(`[5/5] Agent handling merge for PR #${pr.number}...`);
-        const mergeResult = await runStep({
-          prompt: buildAgentMergePrompt(pr.number, branchName),
-          stepName: "merge",
-          improvement,
-          cwd: worktreePath,
-          model: config.agents.implement.model,
-          backend: config.agents.implement.backend,
-          config,
-          logger,
-          abortController,
-        });
-        if (!mergeResult.success) {
-          logger.error(`Agent merge step failed for PR #${pr.number}`);
-          logger.info(`  Worktree preserved at: ${worktreePath}`);
-          return false;
-        }
-
-        stepResults.push({
-          step: "merge",
-          backend: mergeResult.backend,
-          turns: mergeResult.turns,
-          costUsd: mergeResult.costUsd,
-          tokens: mergeResult.inputTokens + mergeResult.outputTokens,
-          durationMs: mergeResult.durationMs,
-        });
-        logger.stepSummary("merge", stepResults[stepResults.length - 1]);
-
-        const mergeState = readPullRequestMergeState(worktreePath, pr.number);
-        if (!mergeState?.mergedAt) {
-          logger.error(
-            `PR #${pr.number} is not merged after agent merge step (state=${mergeState?.state ?? "UNKNOWN"}).`,
-          );
-          logger.info(`  Worktree preserved at: ${worktreePath}`);
-          return false;
-        }
-
-        return true;
-      };
-
-      let merged = await attemptMerge();
-      if (!merged) {
-        logger.warn(
-          `PR #${pr.number} merge attempt failed; running post-merge review/fix cycle before retry...`,
-        );
-        const recovered = await runPostMergeRecoveryCycle({
-          config,
-          logger,
-          abortController,
-          attemptCycle: 1,
-          maxReviewCycles: config.maxReviewCycles,
-          prNumber: pr.number,
-          prUrl: pr.url,
-          worktreePath,
-          branchName,
-          improvement,
-          commitTitle: `Merge recovery for PR #${pr.number}`,
-          planDocPath,
-          stepResults,
-          runMergeAttempt: attemptMerge,
-        });
-        if (!recovered) {
-          return {
-            success: false,
-            improvement,
-            workerSlot,
-            branchName,
-            worktreePath,
-            taskText,
-            taskSource,
-            prNumber: pr.number,
-            prUrl: pr.url,
-            stepResults,
-            planDocPath,
-            failureReason: "merge_failed",
-          };
-        }
-        merged = true;
-      }
-
-      if (!merged) {
-        return {
-          success: false,
-          improvement,
-          workerSlot,
-          branchName,
-          worktreePath,
-          taskText,
-          taskSource,
-          prNumber: pr.number,
-          prUrl: pr.url,
-          stepResults,
-          planDocPath,
-          failureReason: "merge_failed",
-        };
-      }
-
-      const totalCost = stepResults.reduce((s, r) => s + r.costUsd, 0);
-      const totalDuration = stepResults.reduce((s, r) => s + r.durationMs, 0);
-      logger.improvementSummary(improvement, stepResults);
-      logger.jsonl({
-        event: "improvement_done",
-        improvement,
-        total_cost_usd: totalCost,
-        total_duration_ms: totalDuration,
-        ts: new Date().toISOString(),
-      });
-
-      return {
-        success: true,
-        improvement,
-        workerSlot,
-        branchName,
-        worktreePath,
-        taskText,
-        taskSource,
-        prNumber: pr.number,
-        prUrl: pr.url,
-        stepResults,
-        mergeHandledByWorker: true,
-        planDocPath,
-      };
-    }
-
     const commitTitle = buildImprovementTitle(
       improvement,
       planSummary,
@@ -943,21 +697,6 @@ export async function runWorker(
     enforceMainManagedBacklog(worktreePath, logger);
     if (!commitAll(worktreePath, commitMsg)) {
       if (!hasNewCommits(worktreePath)) {
-        if (taskText === MAIN_NOT_GREEN_TRIAGE_TASK && runValidation(config.repoDir)) {
-          logger.success("No changes needed: main is already green");
-          logger.improvementSummary(improvement, stepResults);
-          return {
-            success: true,
-            improvement,
-            workerSlot,
-            branchName,
-            worktreePath,
-            taskText,
-            taskSource,
-            stepResults,
-            mergeHandledByWorker: true,
-          };
-        }
         logger.error("No changes produced");
         logger.info(`  Worktree preserved at: ${worktreePath}`);
         return {
@@ -991,24 +730,17 @@ export async function runWorker(
       };
     }
 
-    const pr = outstandingPrTask
-      ? {
-          number: outstandingPrTask.prNumber,
-          url: outstandingPrTask.prUrl,
-        }
-      : (() => {
-          const prTitle = commitTitle;
-          const prBody =
-            [
-              `Improvement #${improvement}`,
-              taskText ? `Task: ${taskText}` : undefined,
-              "",
-              doneSummary || "Automated harness improvement update.",
-            ]
-              .filter((line) => line !== undefined)
-              .join("\n");
-          return ensurePullRequest(worktreePath, branchName, prTitle, prBody);
-        })();
+    const prTitle = commitTitle;
+    const prBody =
+      [
+        `Improvement #${improvement}`,
+        taskText ? `Task: ${taskText}` : undefined,
+        "",
+        doneSummary || "Automated harness improvement update.",
+      ]
+        .filter((line) => line !== undefined)
+        .join("\n");
+    const pr = ensurePullRequest(worktreePath, branchName, prTitle, prBody);
     if (!pr) {
       logger.error("Failed to create or find GitHub pull request");
       logger.info(`  Worktree preserved at: ${worktreePath}`);
@@ -1023,11 +755,7 @@ export async function runWorker(
         stepResults,
       };
     }
-    if (outstandingPrTask) {
-      logger.success(`Reusing PR #${pr.number}: ${pr.url}`);
-    } else {
-      logger.success(`Opened PR #${pr.number}: ${pr.url}`);
-    }
+    logger.success(`Opened PR #${pr.number}: ${pr.url}`);
 
     // ── 4. Review/fix loop on PR ──
     let passed = false;
@@ -1349,13 +1077,12 @@ export const activeWorktrees = new Map<number, { path: string; branch: string }>
 export function hasMoreWork(
   completed: number,
   target: number | undefined,
-  triageCount: number,
   backlogCount: number,
   inFlightCount: number,
 ): boolean {
   if (target !== undefined) return completed < target;
-  // No target: run until triage+backlog are empty and nothing is in flight
-  return triageCount > 0 || backlogCount > 0 || inFlightCount > 0;
+  // No target: run until backlog is empty and nothing is in flight
+  return backlogCount > 0 || inFlightCount > 0;
 }
 
 export async function main(): Promise<void> {
@@ -1394,27 +1121,6 @@ export async function main(): Promise<void> {
   checkDeps(config, orchestratorLogger);
   syncBacklog(orchestratorLogger, "startup");
 
-  if (!config.task) {
-    const outstandingRalphPrs = listOpenRalphPullRequests(
-      config.repoDir,
-      config.branchPrefix,
-    );
-    let addedTriage = 0;
-    for (const pr of outstandingRalphPrs) {
-      const task = buildOutstandingRalphPrTriageTask({
-        prNumber: pr.number,
-        branchName: pr.headRefName,
-        prUrl: pr.url,
-      });
-      if (addTriageTask(task)) addedTriage++;
-    }
-    if (addedTriage > 0) {
-      orchestratorLogger.warn(
-        `Imported ${addedTriage} outstanding Ralph PR(s) into triage.`,
-      );
-    }
-  }
-
   const { agents } = config;
   const fmtStep = (s: { backend: AgentBackend; model: string }): string =>
     `${s.backend}/${s.model}`;
@@ -1436,7 +1142,6 @@ export async function main(): Promise<void> {
   orchestratorLogger.info(`  Impl agent     : ${fmtStep(agents.implement)}`);
   orchestratorLogger.info(`  Review agent   : ${fmtStep(agents.review)}`);
   if (config.task) orchestratorLogger.info(`  Task           : ${config.task}`);
-  orchestratorLogger.info(`  Triage         : ${readTriage().length} tasks`);
   orchestratorLogger.info(`  Backlog        : ${readBacklog().length} tasks`);
   orchestratorLogger.info("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
 
@@ -1448,7 +1153,6 @@ export async function main(): Promise<void> {
   const failureThreshold = Math.max(3, config.parallelism + 2);
   let nextImprovement = completed + 1;
   const tasksInFlight = new Set<string>();
-  let mainNotGreenRetryAfter = 0;
 
   // Active worker promises keyed by worker slot
   const activeWorkers = new Map<number, Promise<WorkerResult>>();
@@ -1459,57 +1163,29 @@ export async function main(): Promise<void> {
 
   function syncBacklog(logger: Logger, reason: string): void {
     const sync = syncTaskFilesFromLog(config.logFile);
-    const removedCount =
-      sync.removedFromBacklog.length + sync.removedFromTriage.length;
-    if (removedCount === 0) return;
+    if (sync.removedFromBacklog.length === 0) return;
 
     logger.warn(
-      `Backlog sync (${reason}) removed ${removedCount} completed task(s) ` +
-        `(${sync.removedFromBacklog.length} backlog, ${sync.removedFromTriage.length} triage).`,
+      `Backlog sync (${reason}) removed ${sync.removedFromBacklog.length} completed task(s).`,
     );
     for (const task of sync.removedFromBacklog.slice(0, 5)) {
       logger.info(`  - removed from backlog: ${task}`);
     }
-    for (const task of sync.removedFromTriage.slice(0, 5)) {
-      logger.info(`  - removed from triage: ${task}`);
-    }
   }
 
-  /** Find first triage/backlog task not already in flight (triage first). */
+  /** Find first backlog task not already in flight. */
   function acquireTask(): { text: string; source: TaskSource } | undefined {
-    const now = Date.now();
-    let deferredMainNotGreenTask: { text: string; source: TaskSource } | undefined;
-    const triage = readTriage();
-    for (const t of triage) {
-      if (!tasksInFlight.has(makeTaskKey(t, "triage"))) {
-        if (
-          t === MAIN_NOT_GREEN_TRIAGE_TASK &&
-          now < mainNotGreenRetryAfter
-        ) {
-          deferredMainNotGreenTask = { text: t, source: "triage" };
-          continue;
-        }
-        return { text: t, source: "triage" };
-      }
-    }
-
     const backlog = readBacklog();
     for (const t of backlog) {
       if (!tasksInFlight.has(makeTaskKey(t, "backlog"))) {
         return { text: t, source: "backlog" };
       }
     }
-    return deferredMainNotGreenTask;
+    return undefined;
   }
 
-  /** Ensure triage/backlog has tasks, refilling backlog if needed. */
+  /** Ensure backlog has tasks, refilling if needed. */
   async function ensureBacklog(): Promise<boolean> {
-    const triage = readTriage();
-    const triageAvailable = triage.filter(
-      (t) => !tasksInFlight.has(makeTaskKey(t, "triage")),
-    );
-    if (triageAvailable.length > 0) return true;
-
     const tasks = readBacklog();
     const available = tasks.filter(
       (t) => !tasksInFlight.has(makeTaskKey(t, "backlog")),
@@ -1587,95 +1263,13 @@ export async function main(): Promise<void> {
     return true;
   }
 
-  function parkTaskAfterEscalation(result: WorkerResult, logger: Logger): void {
-    if (!result.taskText || config.task) return;
-
-    tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
-    if (result.taskSource === "backlog") removeTask(result.taskText);
-    if (result.taskSource === "triage") removeTriageTask(result.taskText);
-
-    const prLabel = result.prNumber !== undefined ? `PR #${result.prNumber}` : result.branchName;
-    const originalTask = unwrapEscalatedTask(result.taskText);
-    addTriageTask(
-      `Human escalation required for ${prLabel} (improvement #${result.improvement}). Worktree: ${result.worktreePath}. Original task: ${originalTask}`,
-    );
-    logger.warn(`Escalated to human review (${prLabel}); branch preserved at ${result.worktreePath}`);
-  }
-
-  function escalateMergeConflict(result: WorkerResult, logger: Logger): void {
-    if (!result.taskText || config.task) return;
-
-    const prLabel =
-      result.prNumber !== undefined ? `PR #${result.prNumber}` : result.branchName;
-    tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
-    if (result.taskSource === "triage") {
-      removeTriageTask(result.taskText);
-    } else {
-      removeTask(result.taskText);
-    }
-    moveTaskToMergeConflicts(result.taskText, {
-      improvement: result.improvement,
-      branchName: result.branchName,
-      worktreePath: result.worktreePath,
-    });
-    logger.warn(
-      `Escalated to merge-conflict triage (${prLabel}); branch preserved at ${result.worktreePath}`,
-    );
-  }
-
   // ── Main orchestration loop ──
 
-  function importOutstandingRalphPrs(): number {
-    if (config.task) return 0;
-
-    const outstandingRalphPrs = listOpenRalphPullRequests(
-      config.repoDir,
-      config.branchPrefix,
-    );
-    if (outstandingRalphPrs.length === 0) return 0;
-
-    const attachedBranches = new Set(
-      [...activeWorktrees.values()].map((worktree) => worktree.branch),
-    );
-    let added = 0;
-
-    for (const pr of outstandingRalphPrs) {
-      if (attachedBranches.has(pr.headRefName)) continue;
-
-      const task = buildOutstandingRalphPrTriageTask({
-        prNumber: pr.number,
-        branchName: pr.headRefName,
-        prUrl: pr.url,
-      });
-      if (addTriageTask(task)) {
-        added++;
-      }
-    }
-
-    if (added > 0) {
-      orchestratorLogger.warn(
-        `Imported ${added} outstanding Ralph PR(s) into triage.`,
-      );
-    }
-
-    return added;
-  }
-
-  if (!config.task && !runValidation(config.repoDir)) {
-    if (addTriageTask(MAIN_NOT_GREEN_TRIAGE_TASK)) {
-      orchestratorLogger.warn(
-        "Main is not green; triage task added and will be prioritized.",
-      );
-    }
-  }
-
   while (true) {
-    importOutstandingRalphPrs();
     if (
       !hasMoreWork(
         completed,
         config.target,
-        readTriage().length,
         readBacklog().length,
         tasksInFlight.size,
       )
@@ -1778,13 +1372,8 @@ export async function main(): Promise<void> {
     if (result.success) {
       if (result.mergeHandledByWorker) {
         if (result.taskText && !config.task) {
-          if (result.taskSource === "triage") {
-            removeTriageTask(result.taskText);
-            finishedLogger.info("Task removed from triage after agent-merged PR");
-          } else {
-            removeTask(result.taskText);
-            finishedLogger.info("Task removed from backlog after agent-merged PR");
-          }
+          removeTask(result.taskText);
+          finishedLogger.info("Task removed from backlog after agent-merged PR");
           tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
         }
         syncBacklog(orchestratorLogger, "post-merge");
@@ -1806,37 +1395,12 @@ export async function main(): Promise<void> {
       finishedLogger.warn(
         `Result for improvement #${result.improvement} was successful but merge was not worker-handled; escalating for visibility`,
       );
-      escalateMergeConflict(result, finishedLogger);
       activeWorktrees.delete(finishedSlot);
       consecutiveFailures++;
     } else {
       // Worker failed
-      if (
-        result.prNumber !== undefined &&
-        result.taskText &&
-        !config.task
-      ) {
-        if (result.failureReason === "review_failed") {
-          parkTaskAfterEscalation(result, finishedLogger);
-        } else {
-          escalateMergeConflict(result, finishedLogger);
-        }
-      }
       if (result.taskText) {
         tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
-      }
-      if (
-        result.failureReason === "no_changes" &&
-        result.taskText === MAIN_NOT_GREEN_TRIAGE_TASK
-      ) {
-        mainNotGreenRetryAfter = Date.now() + MAIN_NOT_GREEN_RETRY_COOLDOWN_MS;
-        const retryAt = new Date(mainNotGreenRetryAfter).toLocaleTimeString(
-          "en-US",
-          { hour12: false },
-        );
-        orchestratorLogger.warn(
-          `Main-green task produced no changes; deferring retries until ${retryAt}.`,
-        );
       }
       activeWorktrees.delete(finishedSlot);
       consecutiveFailures++;
@@ -1859,11 +1423,7 @@ export async function main(): Promise<void> {
         const result = r.value;
         if (result.mergeHandledByWorker) {
           if (result.taskText && !config.task) {
-            if (result.taskSource === "triage") {
-              removeTriageTask(result.taskText);
-            } else {
-              removeTask(result.taskText);
-            }
+            removeTask(result.taskText);
             tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
           }
           syncBacklog(orchestratorLogger, "post-merge");
@@ -1880,24 +1440,11 @@ export async function main(): Promise<void> {
         workerLogger.warn(
           `Result for improvement #${result.improvement} was successful but merge was not worker-handled; escalating for visibility`,
         );
-        escalateMergeConflict(result, workerLogger);
         activeWorktrees.delete(result.workerSlot);
         consecutiveFailures++;
       }
       if (r.status === "fulfilled" && !r.value.success) {
         const result = r.value;
-        const workerLogger = new Logger(
-          config.logFile,
-          config.verbose,
-          result.workerSlot,
-        );
-        if (result.prNumber !== undefined && result.taskText && !config.task) {
-          if (result.failureReason === "review_failed") {
-            parkTaskAfterEscalation(result, workerLogger);
-          } else {
-            escalateMergeConflict(result, workerLogger);
-          }
-        }
         if (result.taskText) {
           tasksInFlight.delete(makeTaskKey(result.taskText, result.taskSource));
         }
