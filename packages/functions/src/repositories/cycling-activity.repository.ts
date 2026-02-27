@@ -10,22 +10,21 @@
 
 import type { Firestore } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
-import { z } from 'zod';
 import { getFirestoreDb, getCollectionName } from '../firebase.js';
-import type { CyclingActivity, ActivityStreamData, CyclingActivityUpdate, DeleteCyclingActivityResult } from '../types/cycling.js';
+import type {
+  CyclingActivity,
+  ActivityStreamData,
+  CyclingActivityUpdate,
+  DeleteCyclingActivityResult,
+} from '../types/cycling.js';
+import { cyclingActivityDocSchema } from '../schemas/cycling.schema.js';
 import {
   isRecord,
+  readNumber,
+  readString,
   readNumberArray,
 } from './firestore-type-guards.js';
-import { createCyclingActivitySchema } from '../shared.js';
-
-const cyclingActivityDocSchema = createCyclingActivitySchema.extend({
-  type: createCyclingActivitySchema.shape.type.or(z.literal('virtual')).transform((value) => {
-    return value === 'virtual' ? 'unknown' : value;
-  }),
-  userId: z.string(),
-  createdAt: z.string(),
-});
+// NOTE: schema import stays in repository layer to keep validation at runtime for persistence boundaries.
 
 export class CyclingActivityRepository {
   private db: Firestore;

@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { critiqueInputSchema, critiqueResponseSchema } from './mealplan.schema.js';
+import {
+  applyOperationsResultSchema,
+  conversationMessageSchema,
+  critiqueInputSchema,
+  critiqueResponseSchema,
+  createMealPlanSessionSchema,
+  mealPlanEntrySchema,
+  mealPlanSessionSchema,
+  updateMealPlanSessionSchema,
+} from './mealplan.schema.js';
 
 describe('critiqueResponseSchema', () => {
   it('accepts a valid critique response with a meal change', () => {
@@ -89,5 +98,122 @@ describe('critiqueInputSchema', () => {
 
     expect(missing.success).toBe(false);
     expect(numeric.success).toBe(false);
+  });
+});
+
+describe('meal plan session schemas', () => {
+  const samplePlanEntry = {
+    day_index: 0,
+    meal_type: 'breakfast',
+    meal_id: 'meal-breakfast',
+    meal_name: 'Overnight oats',
+  };
+
+  const sampleMessage = {
+    role: 'user',
+    content: 'Adjust Tuesday breakfast',
+    operations: [
+      {
+        day_index: 2,
+        meal_type: 'breakfast',
+        new_meal_id: 'meal-alt',
+      },
+    ],
+  };
+
+  const sampleSession = {
+    id: 'session-1',
+    plan: [samplePlanEntry],
+    meals_snapshot: [
+      {
+        id: 'meal-breakfast',
+        name: 'Overnight oats',
+        meal_type: 'breakfast',
+        effort: 5,
+        has_red_meat: false,
+        prep_ahead: true,
+        url: 'https://example.com',
+        last_planned: null,
+        created_at: '2026-02-25T00:00:00.000Z',
+        updated_at: '2026-02-25T00:00:00.000Z',
+      },
+    ],
+    history: [sampleMessage],
+    is_finalized: false,
+    created_at: '2026-02-25T00:00:00.000Z',
+    updated_at: '2026-02-25T00:00:00.000Z',
+  };
+
+  it('accepts a valid plan entry', () => {
+    const result = mealPlanEntrySchema.safeParse(samplePlanEntry);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.meal_type).toBe('breakfast');
+      expect(result.data.meal_name).toBe('Overnight oats');
+    }
+  });
+
+  it('accepts a valid conversation message with operations', () => {
+    const result = conversationMessageSchema.safeParse(sampleMessage);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.role).toBe('user');
+      expect(result.data.operations?.[0]?.new_meal_id).toBe('meal-alt');
+    }
+  });
+
+  it('accepts a full meal plan session payload', () => {
+    const result = mealPlanSessionSchema.safeParse(sampleSession);
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.plan).toHaveLength(1);
+      expect(result.data.history).toHaveLength(1);
+    }
+  });
+
+  it('rejects malformed meal session operations payload', () => {
+    const result = mealPlanSessionSchema.safeParse({
+      ...sampleSession,
+      meals_snapshot: [],
+      history: [
+        {
+          role: 'coach',
+          content: 'Bad role',
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts create and update DTO schemas', () => {
+    const createResult = createMealPlanSessionSchema.safeParse({
+      plan: [samplePlanEntry],
+      meals_snapshot: sampleSession.meals_snapshot,
+      history: [sampleMessage],
+      is_finalized: false,
+    });
+    const updateResult = updateMealPlanSessionSchema.safeParse({
+      is_finalized: true,
+      history: [sampleMessage],
+    });
+
+    expect(createResult.success).toBe(true);
+    expect(updateResult.success).toBe(true);
+  });
+
+  it('accepts apply operations result payload', () => {
+    const result = applyOperationsResultSchema.safeParse({
+      updatedPlan: [samplePlanEntry],
+      errors: ['none'],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.errors).toHaveLength(1);
+    }
   });
 });

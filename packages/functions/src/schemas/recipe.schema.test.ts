@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createRecipeSchema,
   recipeIngredientSchema,
   recipeResponseSchema,
   recipeStepSchema,
+  updateRecipeSchema,
 } from './recipe.schema.js';
 
 describe('recipeIngredientSchema', () => {
@@ -187,5 +189,43 @@ describe('recipeResponseSchema', () => {
 
     expect(invalidIngredient.success).toBe(false);
     expect(invalidStep.success).toBe(false);
+  });
+});
+
+describe('recipe create/update DTO schemas', () => {
+  it('accepts a valid create payload', () => {
+    const result = createRecipeSchema.safeParse({
+      meal_id: 'meal-1',
+      ingredients: [{ ingredient_id: 'ingredient-1', quantity: 2, unit: 'cup' }],
+      steps: [{ step_number: 1, instruction: 'Boil water.' }],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('requires meal_id for create', () => {
+    const result = createRecipeSchema.safeParse({
+      ingredients: [],
+      steps: [],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts a partial update payload', () => {
+    const result = updateRecipeSchema.safeParse({
+      meal_id: 'meal-2',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects unknown fields in update payload', () => {
+    const result = updateRecipeSchema.safeParse({
+      meal_id: 'meal-2',
+      unknownField: 'bad',
+    });
+
+    expect(result.success).toBe(false);
   });
 });

@@ -1,18 +1,17 @@
-import type { BaseEntity } from './database.js';
+import { z } from 'zod';
 
-export interface RecipeIngredient {
-  ingredient_id: string;
-  quantity: number | null;
-  unit: string | null;
-}
-
-export interface RecipeStep {
-  step_number: number;
-  instruction: string;
-}
-
-export interface Recipe extends BaseEntity {
-  meal_id: string;
-  ingredients: RecipeIngredient[];
-  steps: RecipeStep[] | null;
-}
+export type Recipe = z.infer<
+  typeof import('../schemas/recipe.schema.js').recipeResponseSchema
+>;
+export type RecipeIngredient = z.infer<
+  typeof import('../schemas/recipe.schema.js').recipeIngredientSchema
+>;
+export type RecipeStep = z.infer<
+  typeof import('../schemas/recipe.schema.js').recipeStepSchema
+>;
+export type CreateRecipeDTO = z.infer<
+  typeof import('../schemas/recipe.schema.js').createRecipeSchema
+>;
+export type UpdateRecipeDTO = z.infer<
+  typeof import('../schemas/recipe.schema.js').updateRecipeSchema
+>;
