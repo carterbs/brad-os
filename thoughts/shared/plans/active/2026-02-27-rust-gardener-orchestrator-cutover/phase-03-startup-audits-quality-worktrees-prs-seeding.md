@@ -1,5 +1,7 @@
 ## Phase 3: Startup Audits (Quality Grades, Worktrees, PRs, Backlog Seeding)
 Context: [Vision](./00-gardener-vision.md) | [Shared Foundation](./01-shared-foundation.md)
+
+**Prerequisite:** Phase 02b (Repo Triage + First-Run Interview) must complete before this phase. The repo intelligence profile (`triage.output_path`) is a required input to quality grade generation and backlog seeding.
 ### Changes Required
 - Add startup audit module:
   - `tools/gardener/src/startup.rs`
@@ -12,23 +14,36 @@ Context: [Vision](./00-gardener-vision.md) | [Shared Foundation](./01-shared-fou
   - `tools/gardener/src/seeding.rs`
   - `tools/gardener/src/seed_runner.rs` (temporary direct CLI runner adapter used only until Phase 6).
 - Startup sequence:
-  1. Verify configured quality-grade output document path (`quality_report.path`).
-  2. If missing or stale, run Gardener-integrated quality-grade generation:
-     - discover repository domains via deterministic detector order and domain definition contract from shared foundation
-     - map code/test/docs artifacts into discovered domains within the effective working directory scope
-     - compute per-domain grade + evidence sections using the numeric scoring rubric from shared foundation
-     - write configured quality-grade document deterministically.
+  1. Load repo intelligence profile from `triage.output_path`:
+     - if profile missing: hard stop regardless of interactive/non-interactive mode.
+       Error message: "No repo intelligence profile found. Run `brad-gardener --triage-only` in a terminal to complete setup."
+       A coding agent receiving this error should surface it to a human rather than attempting to proceed.
+     - if profile stale (HEAD diverged by > `triage.stale_after_commits`): emit non-blocking `WARN`, continue with existing profile.
+     - if `user_validated.validation_command` is set and `startup.validation_command` is not: inject profile value into startup config.
+  2. Verify configured quality-grade output document path (`quality_report.path`).
+  3. If missing or stale, run Gardener-integrated quality-grade generation:
+     - load profile `[codex_readiness]` scores for the `## Agent Readiness` section of the unified document.
+     - discover repository domains via deterministic detector order and domain definition contract from shared foundation.
+     - map code/test/docs artifacts into discovered domains within the effective working directory scope.
+     - compute per-domain coverage scores + evidence using the domain scoring rubric from shared foundation:
+       - `codex_readiness.has_coverage_gates = false` → coverage component starts at 0 for all domains (not inferred from absent data).
+     - write unified quality-grade document deterministically following the readiness-first output contract from shared foundation:
+       - headline readiness score and grade from profile,
+       - `## Triage Baseline` section: profile path, `readiness_score`, `readiness_grade`, `primary_gap`,
+       - `## Agent Readiness` section: per-dimension table populated from profile `[codex_readiness]`,
+       - `## Coverage Detail` section: per-domain grade table + evidence sections for tested files, untested files, and prioritized debt.
      - apply staleness policy from config (`quality_report.stale_after_days`, `quality_report.stale_if_head_commit_differs`).
-  3. During cutover only, fallback to legacy repo-defined refresh command if integrated generator is unavailable; emit `P0` migration task.
-  4. If quality-grade generation still fails, enqueue/execute `P0` infra task with diagnostics.
-  5. Reconcile hanging worktrees (stale leases, missing paths, merged branches, detached leftovers).
-  6. Ingest open/unmerged PR signals (`gh pr list`/`gh pr view`).
-  7. If `startup.validate_on_boot=true`, run configured startup validation command (`startup.validation_command`) and enqueue `P0` recovery task when red.
-  8. Seed backlog via dedicated seeding runner:
+  4. During cutover only, fallback to legacy repo-defined refresh command if integrated generator is unavailable; emit `P0` migration task.
+  5. If quality-grade generation still fails, enqueue/execute `P0` infra task with diagnostics.
+  6. Reconcile hanging worktrees (stale leases, missing paths, merged branches, detached leftovers).
+  7. Ingest open/unmerged PR signals (`gh pr list`/`gh pr view`).
+  8. If `startup.validate_on_boot=true`, run configured startup validation command and enqueue `P0` recovery task when red.
+  9. Seed backlog via dedicated seeding runner:
      - invoke direct `codex exec` startup path (Phase 3-owned) using `seeding.backend`/`seeding.model`
-     - provide quality-grade evidence, conventions, architecture summaries, and codex-agent principles
+     - provide quality-grade evidence, repo intelligence profile summary (`codex_readiness` dimensions + `user_validated.additional_context` + `primary_gap`), conventions, architecture summaries, and codex-agent principles
+     - seeding agent must treat `primary_gap` dimension as highest-leverage area; generated tasks must address root Codex readiness gaps, not just low-grade domains in isolation
      - require high-level, right-sized tasks with rationale and expected validation signal
-     - persist input context + output tasks for audit and reproducibility analysis.
+     - persist input context (including profile snapshot) + output tasks for audit and reproducibility analysis.
      - parse output via shared `output_envelope` parser introduced in Phase 1.
      - enforce strict seeding response schema (`tasks[]`) and min/max task count contract.
      - mark this path as `legacy_seed_runner_v1`; Phase 6 must replace it with shared adapter trait and remove legacy path.
@@ -46,10 +61,15 @@ Context: [Vision](./00-gardener-vision.md) | [Shared Foundation](./01-shared-fou
   - backlog counts by priority.
 
 ### Success Criteria
+- Startup loads repo intelligence profile before quality grade generation; missing profile always triggers hard stop with actionable error message — no fallback, no headless bypass.
+- Profile `user_validated.validation_command` overrides startup config when no explicit config value is set.
+- Quality document is readiness-first: headline score + grade, `## Triage Baseline` with profile path/`readiness_score`/`readiness_grade`/`primary_gap`, `## Agent Readiness` table from profile `[codex_readiness]`, `## Coverage Detail` with per-domain grades.
+- `codex_readiness.has_coverage_gates = false` in profile causes coverage component to start at 0 for all domains (not inferred from absent data).
+- Seeding prompt includes `codex_readiness` dimension summary and `primary_gap`; seeding agent output is tested against fixture that confirms `primary_gap` dimension addressed.
 - Startup can recover from stale/hanging worktrees without deadlock.
 - Missing quality grades path is handled deterministically.
 - Stale-threshold detection is deterministic and config-driven (age + head-sha policy).
-- Quality-grade generation covers all discovered domains with deterministic grading output.
+- `## Coverage Detail` section covers all discovered domains with deterministic grading output.
 - Domain discovery and artifact mapping are explicit, drift-detected, and repository-agnostic.
 - Scoped working-directory mode limits discovery/scoring/seeding to the configured subtree.
 - Quality score mapping from evidence to grade is deterministic and reproducible across runs.

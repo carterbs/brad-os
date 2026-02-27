@@ -9,6 +9,9 @@ Updated: 2026-02-27 - Closed implementer gaps: concrete adapter CLI contracts, s
 Updated: 2026-02-27 - Added working-directory scope contract: explicit `--working-dir`/config support, repo-root default resolution, and scoped quality/backlog/validation behavior.
 Updated: 2026-02-27 - Added execution-blocker contracts: fixture catalog, Phase 3->6 seeding handoff, stale-threshold policy, token trimming rules, knowledge ranking, scope-key derivation, profile schema, and meaningful-commit definition.
 Updated: 2026-02-27 - Added remaining execution contracts: prune-only phase behavior, mock-bin argv/output contract, test-mode capability probe policy, fixture git isolation, learning-loop rule set, Claude stream/envelope parsing policy, post-merge validation-failure handling, and FakeTerminal assertion API.
+Updated: 2026-02-27 - Added Codex deterministic parsing contract: `codex exec --json` JSONL lifecycle parsing, `--output-schema` support, terminal-state semantics, and app-server protocol probe for future migration.
+Updated: 2026-02-27 - Added Phase 02b (Repo Triage + First-Run Interview): RepoIntelligenceProfile schema, CodexReadiness derived fields, triage config section, triage modules in crate layout, phase02b fixture contract, first-run detection gate in startup sequence, and profile consumption contract for quality grade generation and backlog seeding.
+Updated: 2026-02-27 - Added agent detection and default model mapping: [agent] config table with single-agent simplicity path, per-task complexity tiers, recommended model mapping per agent, Codex per-repo config contract (.codex/config.toml + AGENTS.override.md multi-level traversal + 32 KiB cap), and --agent CLI flag.
 
 ## Overview
 Replace `scripts/ralph` with a Rust orchestrator under `tools/gardener` that is resilient to git/worktree drift, backlog/PR collisions, and hung worker loops, while preserving the Gardener workflow and enforcing 100% line coverage for the new orchestrator code.
@@ -49,10 +52,11 @@ Replace `scripts/ralph` with a Rust orchestrator under `tools/gardener` that is 
 - Worker lifecycle is a typed state machine with durable transitions: `UNDERSTAND`, conditional `PLANNING`, `DOING`, `GITTING`, `REVIEWING`, `MERGING`, `COMPLETE`.
 - Worker dispatch is highest-priority first, FIFO by `last_updated` within each priority, and in the order workers request work.
 - Startup behavior:
+  - On first run (no repo intelligence profile at `triage.output_path`): hard stop with actionable error directing the user to run `brad-gardener --triage-only` in a terminal. Triage requires a human; there is no automated fallback.
   - Check configured quality-grade output document (`quality_report.path`, default `docs/quality-grades.md`).
-  - If missing: attempt bootstrap generation; if bootstrap cannot complete, enqueue/execute a `P0` infra-repair task.
+  - If missing: attempt bootstrap generation using repo intelligence profile as input context; if bootstrap cannot complete, enqueue/execute a `P0` infra-repair task.
   - Else use existing backlog.
-  - If backlog empty, ask an agent to research the repository and seed tasks using quality-grade evidence plus simplification/agent-legibility principles.
+  - If backlog empty, ask an agent to research the repository and seed tasks using quality-grade evidence, repo intelligence profile (codex_readiness dimensions), plus simplification/agent-legibility principles.
 - Orchestrator can run `N` workers; each worker can launch `claude` (Claude Code binary) or `codex` via a pluggable adapter interface with per-state backend+model config.
 - Orchestrator can run against a repository root or a scoped subdirectory via explicit working-directory configuration.
 - Terminal UI shows worker state and friendly tool-call stream.
@@ -86,6 +90,7 @@ Replace `scripts/ralph` with a Rust orchestrator under `tools/gardener` that is 
 | State model | Immutable append-only event log + mutable projection caches | Preserves full auditability while keeping scheduler/TUI reads fast. |
 | Internal protocol | Typed lifecycle/escalation events as Rust enums with JSON serialization | Eliminates stringly-typed transitions and ambiguous escalation semantics. |
 | Agent execution model | Child-process adapters for Claude Code and Codex binaries | No SDK lock-in; runtime behavior matches existing CLI-native execution flows. |
+| Codex machine I/O contract | Parse `codex exec --json` stdout JSONL only; treat `turn.completed` as success terminal and `turn.failed`/`error` as failure terminal; use `--output-schema` and `--output-last-message` when configured. | Gives deterministic control-flow for scheduler decisions without scraping human-oriented text output. |
 | V1 permissions stance | Run both adapters in permissive mode first; harden sandbox later | Reduces initial cutover/debug surface and isolates reliability issues before sandbox tuning. |
 | Prompt system | Versioned state templates + deterministic context assembler | Prevents prompt black-box behavior and makes prompt quality testable/reproducible. |
 | Config format | Typed config loaded from file + CLI overrides | Supports per-state backend/model and safe runtime overrides. |
@@ -120,6 +125,8 @@ Replace `scripts/ralph` with a Rust orchestrator under `tools/gardener` that is 
 
 ## Config Schema (Core Excerpt)
 
+Most users only need to set `agent.default`. Gardener auto-detects the agent during triage and writes this for them. Everything else has sensible defaults derived from the chosen agent.
+
 ```toml
 [orchestrator]
 parallelism = 3
@@ -130,6 +137,50 @@ merge_to_main = true
 [scope]
 working_dir = "."  # resolved relative to process cwd; defaults to repo root when inside a repo
 
+# ──────────────────────────────────────────────────────────────────────
+# AGENT CONFIGURATION — written by triage; most users don't touch this
+# ──────────────────────────────────────────────────────────────────────
+
+[agent]
+default = "claude"   # "claude" | "codex" — auto-detected by triage and confirmed by user
+                     # drives backend for all tasks unless overridden per-task below
+                     # model defaults come from Gardener's recommended mapping for this agent
+
+# ── Optional per-task overrides ────────────────────────────────────────
+# Most users: leave everything below this line commented out.
+# Gardener applies its recommended model for each task tier automatically.
+# Power users: uncomment and override any task's backend or model.
+#
+# [states.understand]
+# backend = "claude"
+# model = "claude-haiku-4-5-20251001"   # low-complexity: fast classification
+#
+# [states.planning]
+# backend = "claude"
+# model = "claude-sonnet-4-6"           # high-complexity: architectural reasoning
+#
+# [states.doing]
+# backend = "claude"
+# model = "claude-sonnet-4-6"           # high-complexity: multi-file changes
+#
+# [states.gitting]
+# backend = "claude"
+# model = "claude-haiku-4-5-20251001"   # low-complexity: commit and push
+#
+# [states.reviewing]
+# backend = "claude"
+# model = "claude-sonnet-4-6"           # medium-complexity: PR review
+#
+# [states.merging]
+# backend = "claude"
+# model = "claude-haiku-4-5-20251001"   # low-complexity: rebase and merge
+#
+# [seeding]
+# backend = "claude"
+# model = "claude-sonnet-4-6"           # medium-complexity: task ideation
+# max_turns = 12
+# ───────────────────────────────────────────────────────────────────────
+
 [quality_report]
 path = "docs/quality-grades.md"
 stale_after_days = 7
@@ -137,11 +188,11 @@ stale_if_head_commit_differs = true
 
 [startup]
 validate_on_boot = false
-validation_command = "npm run validate"  # Brad OS profile override
+validation_command = "npm run validate"  # written by triage from Q4 answer
 
 [validation]
-command = "npm run validate"             # preferred repo gate; optional in generic mode
-allow_agent_discovery = true             # if command missing, agent may discover + propose
+command = "npm run validate"
+allow_agent_discovery = true
 
 [execution]
 permissions_mode = "permissive_v1"       # permissive_v1 | restricted
@@ -166,25 +217,18 @@ merging = 5000
 confidence_decay_per_day = 0.01
 deactivate_below_confidence = 0.20
 
-[seeding]
-backend = "codex"
-model = "gpt-5-codex"
-max_turns = 12
-
-[states.understand]
-backend = "claude"
-model = "sonnet"
-
-[states.doing]
-backend = "codex"
-model = "gpt-5-codex"
-max_turns = 100
+[triage]
+output_path = ".gardener/repo-intelligence.toml"
+stale_after_commits = 50
+discovery_max_turns = 12
 ```
 
 Model validity policy:
+- `agent.default` is required if any `[states.*]` or `[seeding]` sections omit `backend`.
 - placeholders such as `"..."`, `"TODO"`, or empty model strings are invalid.
-- startup capability probe must validate configured model/backend combinations before scheduler starts.
+- startup capability probe must validate all configured backend/model combinations before scheduler starts.
 - in `execution.test_mode=true`, fixtures may use synthetic model aliases (`fixture-*`) that map to mock-bin adapters only.
+- if both `agent.default` and an explicit `[states.X] backend` are set, the explicit value wins.
 
 ## V1 Operational Defaults (Normative)
 - `scheduler.lease_timeout_seconds = 900`
@@ -204,6 +248,62 @@ Model validity policy:
 - `seeding.max_turns = 12`
 - `quality_report.stale_after_days = 7`
 - `quality_report.stale_if_head_commit_differs = true`
+- `triage.output_path = ".gardener/repo-intelligence.toml"`
+- `triage.stale_after_commits = 50`
+- `triage.discovery_max_turns = 12`
+
+## Agent Default + Task Model Mapping (Normative)
+
+When `agent.default` is set and no per-task override exists, Gardener applies its recommended model for that agent based on the task's complexity tier.
+
+### Task Complexity Tiers
+
+| Task | Tier | Rationale |
+|------|------|-----------|
+| `triage.discovery` | medium | reads files, reasons about quality — needs capability but not heavy reasoning |
+| `seeding` | medium | task ideation from evidence — capable generalist |
+| `states.understand` | low | classification only — fast and cheap wins |
+| `states.planning` | high | architectural reasoning, multi-file scope design |
+| `states.doing` | high | multi-file implementation, many turns |
+| `states.reviewing` | medium | PR review and feedback — capable generalist |
+| `states.gitting` | low | commit, push, branch ops — deterministic steps |
+| `states.merging` | low | rebase, conflict resolution — deterministic steps |
+
+### Recommended Model Mapping
+
+The mapping below represents Gardener's opinionated defaults. Brad OS uses these unless a `[states.*]` override is present. Update this table as model capabilities and cost profiles evolve.
+
+**Claude:**
+
+| Tier | Recommended model | Notes |
+|------|------------------|-------|
+| low | `claude-haiku-4-5-20251001` | Fastest, cheapest; sufficient for classification and mechanical ops |
+| medium | `claude-sonnet-4-6` | General capable; good cost/quality balance for most tasks |
+| high | `claude-sonnet-4-6` | Default high tier; upgrade to `claude-opus-4-6` for planning if quality matters more than cost |
+
+**Codex:**
+
+| Tier | Recommended model | Notes |
+|------|------------------|-------|
+| low | `gpt-5-codex` | Single model; no tier differentiation in V1 |
+| medium | `gpt-5-codex` | — |
+| high | `gpt-5-codex` | — |
+
+Model IDs are validated at startup against the capability probe. Invalid or unavailable model IDs fail fast with actionable diagnostics.
+
+### Codex Per-Repo Config Contract (Normative)
+
+Codex uses a different config layout than Claude. Gardener's agent detection and discovery prompt must account for both.
+
+- **Primary instruction file:** `AGENTS.md` — shared with Claude, read by both agents.
+- **Override file:** `AGENTS.override.md` — Codex-specific; takes precedence over `AGENTS.md` at the same level. Presence is a strong Codex signal during agent detection.
+- **Named variants:** `AGENTS.<name>.md` and `AGENTS.<name>.override.md` — selected via `codex --agents <name>`.
+- **Per-repo config:** `.codex/config.toml` — present at any directory level; Codex walks from repo root → CWD and loads all, closest wins on key conflicts.
+- **Global config:** `~/.codex/` (config.toml, AGENTS.md, rules/).
+- **Multi-level traversal:** Codex walks root → CWD at each level, reading `AGENTS.override.md` → `AGENTS.md` → fallback names. Concatenated content is capped at 32 KiB (`project_doc_max_bytes`). Content beyond 32 KiB is silently truncated — a critical quality signal.
+- **Fallback filenames:** configurable via `project_doc_fallback_filenames` in `~/.codex/config.toml`. Gardener does not attempt to read global user config; it scans for standard filenames only.
+
+**32 KiB cap implication for quality assessment:** At ~500–700 lines of markdown, combined AGENTS.md content across all levels hits the Codex cap. Monolithic or multi-level AGENTS.md that exceeds this gets silently cut off mid-instruction. This is a concrete, measurable quality defect that the discovery agent must flag.
 
 ## Quality Grade Creation (Integrated, Portable)
 - Gardener owns initial creation and subsequent refresh of configured quality-grade output (`quality_report.path`).
@@ -218,10 +318,14 @@ Model validity policy:
   - test quality (assertion density adjustment),
   - untested file risk weighting (high-risk pathways degrade),
   - API/iOS completeness modifiers.
-- Output contract:
-  - stable markdown structure with `Last updated: YYYY-MM-DD`,
-  - per-domain grade table containing all discovered non-shared domains for that repository,
-  - evidence sections for tested files, untested files, and prioritized debt items.
+- Output contract (unified readiness-first document):
+  - stable markdown structure with `Last updated: YYYY-MM-DD` and generation metadata (profile path, generator version),
+  - `# Repo Quality Report` headline with readiness score and grade (e.g., `Readiness: 65/100 (C) | Primary gap: knowledge_accessible`),
+  - `## Triage Baseline` section: profile path, `readiness_score`, `readiness_grade`, `primary_gap` from loaded profile,
+  - `## Agent Readiness` section: per-dimension table (agent steering, knowledge accessible, mechanical guardrails, local feedback loop, coverage signal) with status and score; populated from profile `[codex_readiness]`,
+  - `## Coverage Detail` section as evidence for the "coverage signal" dimension:
+    - per-domain grade table containing all discovered non-shared domains,
+    - evidence sections for tested files, untested files, and prioritized debt items.
 - Startup coupling:
   - if quality grades missing or stale beyond policy threshold, Gardener refreshes them before normal scheduling.
   - if refresh fails, Gardener records evidence and enqueues/executes `P0` infra-repair task.
@@ -261,7 +365,36 @@ Model validity policy:
   - duplicate `slug` or overlapping explicit overrides fail startup with typed config error.
   - if profile exists, it is authoritative over path inference.
 
+## Repo Intelligence Profile (First-Run Triage, Normative)
+- Location default: `.gardener/repo-intelligence.toml` (override via config key `triage.output_path`).
+- Committed to version control alongside `.gardener/domain-profile.toml`.
+- Written by Phase 02b triage on first run; updated on `--retriage` or when stale.
+- Staleness policy: profile is considered stale when `meta.head_sha` differs from current `git rev-parse HEAD` by more than `triage.stale_after_commits` commits. Stale profile triggers a non-blocking `WARN`; it does not block startup.
+- Schema sections (all required except `[discovery.quality_docs]` which may be absent in new repos):
+  - `[meta]` — schema_version (integer, currently `1`), created_at, head_sha, working_dir, synthesis_used.
+  - `[discovery.steering]` — agents_md_present, agents_md_line_count, agents_md_style ("pointer"|"monolith"|"mixed"|"absent"), claude_md_present, dot_claude_dir_present, skills_dir_present, other_steering_doc_paths.
+  - `[discovery.architecture]` — architecture_md_present, architecture_doc_paths, design_doc_paths.
+  - `[discovery.conventions]` — contributing_md_present, convention_doc_paths, editorconfig_present, other_style_config_paths.
+  - `[discovery.testing]` — test_framework_detected ("jest"|"vitest"|"pytest"|"cargo_test"|"go_test"|"none"|"multiple"), source_file_count, test_file_count, coverage_config_detected, coverage_summary_path, ci_test_step_detected.
+  - `[discovery.linting]` — standard_linters, custom_linters, pre_commit_hooks_present, ci_lint_step_detected.
+  - `[discovery.quality_docs]` — quality_grades_doc_present, quality_grades_path, exec_plans_dir_present, references_dir_present.
+  - `[user_validated]` — architecture_coverage, conventions_coverage, test_coverage_grade, guardrails_grade, agent_steering_grade, validation_command, additional_context, corrections_made, validated_at.
+  - `[codex_readiness]` — boolean flags for each Codex article dimension plus derived `readiness_score` (0–100), `readiness_grade` (A–F), `primary_gap` (dimension slug with highest weight that is unmet).
+- `codex_readiness` flags are computed deterministically from `discovery.*` + `user_validated.*`; no LLM involvement.
+- Quality grade generation (Phase 03) reads this profile: `user_validated.validation_command` overrides startup config; `[codex_readiness]` scores populate the `## Agent Readiness` section of the unified quality document; `primary_gap` is included in the seeding agent prompt.
+- Schema version mismatch returns typed `TriageError::SchemaMismatch` without panic; startup emits actionable error with upgrade instructions.
+- Non-interactive hard stop: if non-interactive environment is detected (`CLAUDECODE` env var, `CODEX_THREAD_ID` env var, `CI` env var, or non-TTY stdin), triage refuses to run and emits: "Triage requires a human and cannot run non-interactively. Run `brad-gardener --triage-only` in a terminal."
+
 ## Quality Scoring Rubric (V1, Deterministic)
+Two distinct scoring formulas apply; both are deterministic and produce reproducible output.
+
+**Readiness dimension scoring** (computed during triage, stored in profile `[codex_readiness]`, read back by quality-grade generator):
+- Grade-to-score mapping: A=90, B=70, C=45, D=25, F=0, unknown=10.
+- Each of the five dimensions carries equal weight=20.
+- `readiness_score = sum(dimension_scores)` clamped 0–100.
+- Quality grade generator does not recompute this; it reads pre-computed values from the profile.
+
+**Domain coverage scoring** (computed at quality-grade generation time; populates `## Coverage Detail` section):
 - Score range is `0..100`, mapped to grade:
   - `A` >= 90
   - `B` >= 80
@@ -305,6 +438,7 @@ Model validity policy:
   - objective header,
   - quality-grade table + evidence excerpts,
   - architecture/domain summary,
+  - repo intelligence profile summary (if present): `codex_readiness` dimension scores + `user_validated.additional_context` + `primary_gap` — seeding agent must treat the `primary_gap` dimension as the highest-leverage area for new tasks,
   - explicit priority rubric (`P0/P1/P2`),
   - response schema requirement.
 - Seeding response schema (strict JSON envelope payload):
@@ -323,6 +457,7 @@ Model validity policy:
 - Required config fixtures:
   - `phase01-minimal.toml`
   - `phase02-backlog.toml`
+  - `phase02b-triage.toml`
   - `phase03-startup-seeding.toml`
   - `phase04-scheduler-stub.toml`
   - `phase05-fsm.toml`
@@ -350,7 +485,7 @@ Model validity policy:
     - `pr view <number> --json state,mergedAt,mergeable,mergeCommit`
   - `codex`/`claude` expected argv patterns:
     - codex: `exec --json --model <model> -C <cwd> ...`
-    - claude: `-p --model <model>`
+    - claude: `-p "<prompt>" --output-format stream-json --verbose --model <model>`
   - each pattern has fixture-defined stdout/stderr + exit code; unknown argv must fail loudly.
 - Scoped fixture repo minimum structure (`tools/gardener/tests/fixtures/repos/scoped-app/`):
   - `.git/` (initialized fixture repo)
@@ -360,6 +495,14 @@ Model validity policy:
   - `packages/functions/coverage/coverage-summary.json`
   - optional `ios/BradOS/Features/<domain>/` sample files for iOS mapping tests
   - `docs/quality-grades.md` (stale + fresh variants for staleness tests)
+- Triage fixture repos (`tools/gardener/tests/fixtures/repos/triage-*/`):
+  - `triage-fully-equipped/` — AGENTS.md (pointer-style, <100 lines) + `ARCHITECTURE.md` + `tools/arch-lint/` + `.github/workflows/ci.yml` with coverage gate + `docs/quality-grades.md` + `docs/exec-plans/`.
+  - `triage-minimal/` — only `README.md`; no AGENTS.md, no tests, no linters, no CI config.
+  - `triage-agents-only/` — `AGENTS.md` (monolith style, >300 lines) but no test, lint, or CI signals.
+  - `triage-no-agents/` — `jest.config.js` + `.eslintrc.json` + `.github/workflows/ci.yml` but no AGENTS.md or CLAUDE.md.
+  - Each triage fixture repo has its own `.git/` (isolated per fixture git isolation contract).
+  - `tests/fixtures/triage/mock-discovery-responses/<repo-slug>.json` — mock agent output_envelope responses for each fixture repo; loaded in `execution.test_mode = true`.
+  - `tests/fixtures/triage/expected-profiles/<repo-slug>.toml` — expected profile output for each fixture repo (used in deterministic assertion tests).
 - Fixture git isolation:
   - each fixture repo is an independent git repository with its own `.git`,
   - all integration tests must set cwd explicitly to the fixture repo root (never parent repo),
@@ -387,6 +530,10 @@ tools/gardener/
 │   ├── backlog_snapshot.rs
 │   ├── priority.rs
 │   ├── task_identity.rs
+│   ├── triage.rs
+│   ├── triage_discovery.rs
+│   ├── triage_interview.rs
+│   ├── repo_intelligence.rs
 │   ├── startup.rs
 │   ├── quality_grades.rs
 │   ├── quality_domain_catalog.rs
@@ -434,6 +581,10 @@ tools/gardener/
     ├── worktree_test.rs
     ├── adapter_contract_test.rs
     ├── tui_problems_test.rs
+    ├── triage_test.rs
+    ├── triage_discovery_test.rs
+    ├── triage_interview_test.rs
+    ├── repo_intelligence_test.rs
     └── integration/
         ├── full_pipeline_test.rs
         ├── concurrency_claims_test.rs
@@ -552,16 +703,18 @@ Startup crash-recovery invariant:
   - version string
   - supported flags from `--help`
   - accepted invocation template
-  - stdin prompt support probe (`echo ... | <bin> ...`)
+  - adapter-specific output-mode probe: Claude checks `--output-format` flag presence; Codex checks `--json`, `--output-schema`, and `--output-last-message` flag presence plus stdin prompt compatibility (`echo ... | codex ...`)
 - Codex invocation template (required in V1):
   - `codex exec --json --dangerously-bypass-approvals-and-sandbox --model <model> -C <cwd> -o <output_file> -`
   - prompt is written to stdin
   - event stream parsed from stdout JSONL; final text prefers output file fallback.
 - Claude invocation template (required in V1):
-  - `claude -p --model <model>`
-  - prompt is written to stdin
-  - output is treated as plain text; Gardener does not require `--output-format` in V1.
-  - structured extraction uses envelope markers from final text payload.
+  - `claude -p "<prompt>" --output-format stream-json --verbose --model <model>`
+  - prompt is passed as the argument to `-p`; **stdin must not be piped** (`Stdio::null()` in Rust) to avoid TTY hang in Ink.
+  - stdout is parsed as newline-delimited JSON (NDJSON) line by line.
+  - `AgentEvent` variants map directly to stream-json message types: `assistant` messages → `OutputText`/`ToolCall`, `result.usage` → `TurnComplete`, tool-result items → `ToolResult`.
+  - structured envelope payload is extracted from the `result` field of the terminal `{"type":"result","subtype":"success","result":"..."}` NDJSON message; `<<GARDENER_JSON_START>>` / `<<GARDENER_JSON_END>>` markers are located within that string, not by scanning raw stdout.
+  - set env `CLAUDECODE=""` to prevent recursive-invocation error if Gardener runs inside a Claude session.
 - Claude optional flags:
   - `--max-turns` and any permission-bypass flags are only used when capability probe confirms support.
   - if unsupported, Gardener enforces turn/cycle limits at FSM layer and records capability downgrade event.
@@ -573,7 +726,7 @@ Startup crash-recovery invariant:
 - Flag detection strategy:
   - parse `--help` output with line-based regex `(^|\\s)(-{1,2}[A-Za-z0-9-]+)` and de-duplicate.
   - required flags for each template must be present exactly as tokens.
-- Stdin compatibility probe success criteria:
+- Stdin compatibility probe success criteria (Codex only; Claude probe checks `--output-format` flag presence instead):
   - process exits `0` OR emits recognizable prompt-consumed output marker from mock/real backend contract.
   - in `execution.test_mode=true`, success may be driven by mock-bin marker env without strict CLI semantics.
 
@@ -593,9 +746,10 @@ Startup crash-recovery invariant:
     "claude": {
       "binary_path": "...",
       "version_text": "...",
-      "supports_stdin_prompt": true,
-      "supported_flags": ["-p", "--model", "..."],
-      "accepted_template": "claude -p --model ..."
+      "supports_stdin_prompt": false,
+      "supports_stream_json": true,
+      "supported_flags": ["-p", "--output-format", "--verbose", "--model", "..."],
+      "accepted_template": "claude -p \"<prompt>\" --output-format stream-json --verbose --model <model>"
     }
   }
 }
@@ -835,14 +989,14 @@ Contract requirements:
 - Envelope payload schema:
   - `{ "schema_version": 1, "state": "<STATE>", "payload": { ...typed fields... } }`
 - Parser algorithm:
-  1. take full adapter text output,
-  2. locate the last complete marker pair,
+  1. for Claude (stream-json): extract `result` string from the terminal `{"type":"result","subtype":"success","result":"..."}` NDJSON message; for Codex: use output file or terminal JSONL event text.
+  2. locate the last complete `<<GARDENER_JSON_START>>` / `<<GARDENER_JSON_END>>` marker pair within that string,
   3. parse enclosed JSON strictly,
   4. validate `state` matches current FSM state,
   5. deserialize `payload` into state-specific struct.
 - Failure behavior:
-  - missing markers, invalid JSON, or schema mismatch -> typed `StructuredOutputError` and retry/escalation path.
-- This contract is independent of adapter stream format and works for both raw text and JSONL-backed adapters.
+  - missing terminal result message, missing markers, invalid JSON, or schema mismatch -> typed `StructuredOutputError` and retry/escalation path.
+- This contract is adapter-format-aware: marker scanning operates on the extracted result string, not raw stdout bytes.
 
 ## Prompt Packet Contract (Normative, Non-Black-Box)
 - Prompt construction is deterministic and state-scoped; templates are versioned in `prompt_registry`.

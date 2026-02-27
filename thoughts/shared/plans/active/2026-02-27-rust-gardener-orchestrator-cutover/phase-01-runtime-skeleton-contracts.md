@@ -24,6 +24,16 @@ Context: [Vision](./00-gardener-vision.md) | [Shared Foundation](./01-shared-fou
   - `--backlog-only`
   - `--quality-grades-only`
   - `--validation-command <cmd>` (override repo/profile default).
+  - `--agent <claude|codex>` (override detected agent; skips Q0 confirmation in triage; writes `agent.default` to config).
+  - `--retriage` (force re-run of triage even if profile is fresh; errors if non-interactive environment detected).
+  - `--triage-only` (run triage then exit; errors if non-interactive environment detected).
+- Non-interactive environment detection contract (evaluated by `triage_agent_detection::is_non_interactive()`):
+  - `CLAUDECODE` env var set (any value) → non-interactive (running inside Claude Code)
+  - `CODEX_THREAD_ID` env var set (any value) → non-interactive (running inside Codex)
+  - `CI` env var set (any value) → non-interactive (CI pipeline)
+  - stdin is not a TTY per Terminal DI trait → non-interactive (generic automation)
+  - All four checks are OR'd; first match wins; result is `NonInteractiveReason` enum variant.
+  - There is no flag to override this detection or force interactive mode in a non-interactive environment.
 - Implement config precedence contract:
   - defaults -> config file -> CLI flags.
 - Implement working-directory resolution contract:
@@ -49,8 +59,11 @@ Context: [Vision](./00-gardener-vision.md) | [Shared Foundation](./01-shared-fou
   - create all phase config fixture files listed in `99-testing-rollout-references.md` (may start as minimal valid stubs, expanded by each phase).
 
 ### Success Criteria
-- `brad-gardener --help` exposes required CLI options.
-- Config parsing supports per-state agent+model mapping and merge settings.
+- `brad-gardener --help` exposes required CLI options including `--agent`; `--headless` does not exist.
+- Non-interactive detection is test-covered for all four signals (`CLAUDECODE`, `CODEX_THREAD_ID`, `CI`, stdin non-TTY) using FakeTerminal and fake env injection.
+- Config parsing supports `agent.default` single-agent simplicity path: when set, all tasks without explicit `[states.*]` backend entries inherit the default and Gardener applies its recommended model for the task tier.
+- Config parsing supports per-state agent+model overrides that take precedence over `agent.default`.
+- `--agent <claude|codex>` flag is validated and writes `agent.default` to config.
 - Config precedence is test-covered and deterministic.
 - Working-directory precedence and fallback resolution are test-covered and deterministic.
 - CLI exposes quality-grade refresh mode for deterministic one-shot generation.

@@ -10,17 +10,28 @@ Context: [Vision](./00-gardener-vision.md) | [Shared Foundation](./01-shared-fou
 - Shared interface for non-interactive command launch, execution-profile config, streamed tool events, and step result normalization.
 - Claude adapter contract:
   - spawn Claude Code binary (`claude`) from Rust (no SDK runtime dependency)
-  - support non-interactive prompt execution and stream parsing.
-  - required V1 invocation: `claude -p --model <model>` with prompt via stdin.
+  - support non-interactive prompt execution and NDJSON stream parsing.
+  - required V1 invocation: `claude -p "<prompt>" --output-format stream-json --verbose --model <model>`.
+  - prompt is passed as the argument to `-p`; **stdin must not be piped** (`Stdio::null()`) to avoid TTY hang in Ink.
+  - stdout is parsed as newline-delimited JSON (NDJSON); `AgentEvent` variants map directly to stream-json message types.
+  - structured envelope payload is extracted from `result.result` in the terminal `{"type":"result","subtype":"success"}` message, not by scanning raw stdout.
+  - set env `CLAUDECODE=""` to prevent recursive-invocation errors if Gardener itself is running inside a Claude session.
   - optional flags (`--max-turns`, permission flags) only enabled when startup capability probe confirms support.
+  - process teardown: send SIGTERM, wait up to 5 s, then SIGKILL if still alive.
 - Codex adapter contract:
   - required V1 invocation: `codex exec --json --dangerously-bypass-approvals-and-sandbox --model <model> -C <cwd> -o <output_file> -`.
-  - parse stdout JSONL events and output-file final text fallback.
+  - parse stdout as strict JSONL event stream (`thread.started`, `turn.started`, `item.started|updated|completed`, `turn.completed|turn.failed`, `error`).
+  - treat `turn.completed` as success terminal state; treat `turn.failed` or `error` as failure terminal state.
+  - use `stderr` for diagnostics only; never use `stderr` for control-flow/event parsing.
+  - support `--output-schema <schema_file>` per worker-state output contract to enforce deterministic final payload shape when configured.
+  - keep `-o <output_file>` final-message fallback for resilience and postmortem.
+  - capability probe records whether `codex app-server` transport is available (`--listen stdio://` or websocket) for future migration to protocol-native orchestration; V1 remains `codex exec --json`.
 - Add adapter capability probe module used by both adapters:
   - run `<bin> --help` and optional `--version`
   - persist accepted templates and supported flags to `.cache/gardener/adapter-capabilities.json`
   - fail fast when configured backend cannot satisfy required V1 template.
-  - include stdin prompt compatibility probe and record output-mode expectations.
+  - for Claude: probe `--output-format` flag support; stdin probe is skipped (prompt is passed as `-p` argument); record output-mode capabilities.
+  - for Codex: probe `--json` flag support (required for JSONL event stream output); probe `--output-schema` and `--output-last-message` flag support; include stdin prompt compatibility probe; record all output-mode capabilities.
 - V1 execution policy:
   - run both adapters in permissive mode to avoid permission/sandbox debugging during cutover.
   - defer sandbox hardening to post-cutover phase.
@@ -41,11 +52,12 @@ Context: [Vision](./00-gardener-vision.md) | [Shared Foundation](./01-shared-fou
 ### Success Criteria
 - Both backends pass identical contract tests for success/failure/timeout/hang.
 - Capability probe is test-covered for supported/unsupported flag matrices.
-- Claude adapter behavior is contract-tested for plain-text output + JSON-envelope extraction (no required `--output-format` dependency).
+- Claude adapter behavior is contract-tested for NDJSON stream-json output + JSON-envelope extraction from `result.result` field of the terminal success message.
 - Placeholder/invalid model values are rejected at startup with actionable error before worker launch.
 - Tool-call events normalize into common event schema.
 - Cancellation behavior is deterministic and test-covered.
 - Adapter output parsing rejects malformed payloads with typed errors.
+- Codex JSONL parser is forward-compatible: unknown event/item variants are retained as unknown typed payloads for logging and do not panic the worker.
 - Internal protocol translation is versioned and test-covered for both adapters.
 - Prompt metadata is propagated end-to-end and visible in event logs for audit/replay.
 - Claude adapter executes via Claude Code binary (no SDK dependency).
