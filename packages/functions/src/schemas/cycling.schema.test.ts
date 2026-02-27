@@ -93,7 +93,7 @@ const validCyclingProfilePayload = {
   restingHR: 50,
 };
 
-  const validCyclingActivityPayload = {
+const validCyclingActivityPayload = {
   stravaId: 999,
   date: '2026-02-20',
   durationMinutes: 60,
@@ -105,8 +105,8 @@ const validCyclingProfilePayload = {
   tss: 55,
   intensityFactor: 0.8,
   type: 'threshold',
-    source: 'strava',
-  };
+  source: 'strava',
+};
 
 const validCyclingActivityDocPayload = {
   ...validCyclingActivityPayload,
