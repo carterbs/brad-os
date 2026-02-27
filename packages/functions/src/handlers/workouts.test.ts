@@ -3,11 +3,13 @@ import request from 'supertest';
 import type { Response } from 'supertest';
 import type { WorkoutWithExercises } from '../services/index.js';
 import { NotFoundError, ValidationError } from '../middleware/error-handler.js';
-import { type ApiResponse, createWorkout, createWorkoutSet } from '../__tests__/utils/index.js';
 import {
+  type ApiResponse,
   createMockWorkoutRepository,
   createMockWorkoutSetRepository,
-} from '../__tests__/utils/mock-repository.js';
+  createWorkout,
+  createWorkoutSet,
+} from '../__tests__/utils/index.js';
 
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({

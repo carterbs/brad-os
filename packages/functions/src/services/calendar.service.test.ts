@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Firestore } from 'firebase-admin/firestore';
 import type {
   CalendarActivity,
@@ -13,13 +13,17 @@ import { PlanDayRepository } from '../repositories/plan-day.repository.js';
 import { StretchSessionRepository } from '../repositories/stretchSession.repository.js';
 import { MeditationSessionRepository } from '../repositories/meditationSession.repository.js';
 import {
-  createMockMeditationSessionRepository,
-  createMockPlanDayRepository,
-  createMockStretchSessionRepository,
   createMockWorkoutRepository,
   createMockWorkoutSetRepository,
-} from '../__tests__/utils/mock-repository.js';
-import { createWorkout, createWorkoutSet, createStretchSession, createMeditationSession, createPlanDay } from '../__tests__/utils/index.js';
+  createMockPlanDayRepository,
+  createMockStretchSessionRepository,
+  createMockMeditationSessionRepository,
+  createWorkout,
+  createWorkoutSet,
+  createStretchSession,
+  createMeditationSession,
+  createPlanDay,
+} from '../__tests__/utils/index.js';
 
 const mockCyclingService = {
   getCyclingActivities: vi.fn(),

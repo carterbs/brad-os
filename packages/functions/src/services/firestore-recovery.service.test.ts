@@ -1,17 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { CollectionReference, DocumentReference } from 'firebase-admin/firestore';
-import { createFirestoreMocks } from '../test-utils/index.js';
+import { createUserScopedFirestoreMocks } from '../test-utils/index.js';
 
-const mockGet = vi.fn();
-const mockSet = vi.fn().mockResolvedValue(undefined);
-const mockOrderBy = vi.fn();
-const mockLimit = vi.fn();
-const mockWhere = vi.fn();
-const mockBatchSet = vi.fn();
-const mockBatchCommit = vi.fn().mockResolvedValue(undefined);
-let mockDb: { collection: ReturnType<typeof vi.fn>; batch: ReturnType<typeof vi.fn> };
-let mockDocRef: Partial<DocumentReference>;
-let mockCollectionRef: Partial<CollectionReference>;
+const firestoreMocks = createUserScopedFirestoreMocks();
+const { mockDb, mockUsersCollection, mockUserDoc, mockCollection, mockDocRef, mockQueryChain } = firestoreMocks;
+const mockGet = mockQueryChain.get;
+const mockSet = mockDocRef.set as ReturnType<typeof vi.fn>;
+const mockOrderBy = mockQueryChain.orderBy;
+const mockLimit = mockQueryChain.limit;
+const mockWhere = mockQueryChain.where;
+const mockBatchSet = firestoreMocks.mockBatchSet;
+const mockBatchCommit = firestoreMocks.mockBatchCommit;
 
 // ---- Module mocks (must be before service import) ----
 
@@ -138,29 +136,16 @@ describe('firestore-recovery.service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    const firestoreMocks = createFirestoreMocks();
-    mockDb = {
-      collection: firestoreMocks.mockDb.collection as ReturnType<typeof vi.fn>,
-      batch: vi.fn(() => ({ set: mockBatchSet, commit: mockBatchCommit })),
-    };
-    mockDocRef = firestoreMocks.mockDocRef;
-    mockCollectionRef = firestoreMocks.mockCollection;
-
-    mockDb.collection = vi.fn(() => mockCollectionRef);
-
-    mockCollectionRef.doc = vi.fn(() => mockDocRef);
-    mockCollectionRef.orderBy = mockOrderBy;
-    mockCollectionRef.where = mockWhere;
-    mockCollectionRef.get = mockGet;
-
-    mockDocRef.collection = vi.fn(() => mockCollectionRef);
-    mockDocRef.get = mockGet;
-    mockDocRef.set = mockSet;
-
-    // Query chaining
-    mockOrderBy.mockReturnValue({ get: mockGet, limit: mockLimit });
-    mockLimit.mockReturnValue({ get: mockGet });
-    mockWhere.mockReturnValue({ orderBy: mockOrderBy, get: mockGet });
+    mockUsersCollection.doc.mockReturnValue(mockUserDoc);
+    mockUserDoc.collection.mockReturnValue(mockCollection);
+    mockCollection.doc.mockReturnValue(mockDocRef);
+    mockQueryChain.orderBy.mockReturnValue(mockQueryChain);
+    mockQueryChain.limit.mockReturnValue(mockQueryChain);
+    mockQueryChain.where.mockReturnValue(mockQueryChain);
+    mockDocRef.get.mockReset();
+    mockDocRef.set.mockReset();
+    mockBatchSet.mockReset();
+    mockBatchCommit.mockReset();
   });
 
   // ============ Recovery Snapshots ============
@@ -173,7 +158,7 @@ describe('firestore-recovery.service', () => {
 
       expect(result).toEqual(sampleSnapshot);
       expect(mockDb.collection).toHaveBeenCalledWith('users');
-      expect(mockCollectionRef.doc).toHaveBeenCalledWith(userId);
+      expect(mockUsersCollection.doc).toHaveBeenCalledWith(userId);
     });
 
     it('returns null when document does not exist', async () => {
@@ -283,7 +268,7 @@ describe('firestore-recovery.service', () => {
       expect(result.score).toBe(78);
       expect(result.state).toBe('ready');
       expect(result.syncedAt).toBeDefined();
-      expect(mockCollectionRef.doc).toHaveBeenCalledWith('2026-02-09');
+      expect(mockCollection.doc).toHaveBeenCalledWith('2026-02-09');
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
           date: '2026-02-09',
@@ -344,7 +329,7 @@ describe('firestore-recovery.service', () => {
       expect(result.rhrMedian).toBe(54);
       expect(result.sampleCount).toBe(30);
       expect(result.calculatedAt).toBeDefined();
-      expect(mockCollectionRef.doc).toHaveBeenCalledWith('recoveryBaseline');
+      expect(mockCollection.doc).toHaveBeenCalledWith('recoveryBaseline');
       expect(mockSet).toHaveBeenCalledWith(
         expect.objectContaining({
           hrvMedian: 45,
@@ -372,7 +357,7 @@ describe('firestore-recovery.service', () => {
       expect(result.date).toBe('2026-02-09');
       expect(result.source).toBe('healthkit');
       expect(result.syncedAt).toBeDefined();
-      expect(mockCollectionRef.doc).toHaveBeenCalledWith('2026-02-09');
+      expect(mockCollection.doc).toHaveBeenCalledWith('2026-02-09');
     });
   });
 

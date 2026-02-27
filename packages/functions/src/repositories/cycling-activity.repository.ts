@@ -14,9 +14,9 @@ import { getFirestoreDb, getCollectionName } from '../firebase.js';
 import type { CyclingActivity, ActivityStreamData, CyclingActivityUpdate, DeleteCyclingActivityResult } from '../types/cycling.js';
 import {
   isRecord,
-  readNumberArray,
-  readString,
   readNumber,
+  readString,
+  readNumberArray,
 } from './firestore-type-guards.js';
 import { cyclingActivityDocSchema } from '../shared.js';
 
