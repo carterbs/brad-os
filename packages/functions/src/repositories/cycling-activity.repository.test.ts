@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Firestore, CollectionReference, DocumentReference } from 'firebase-admin/firestore';
+import type { Firestore } from 'firebase-admin/firestore';
 import { CyclingActivityRepository } from './cycling-activity.repository.js';
 import type { CyclingActivity, ActivityStreamData, CyclingActivityUpdate } from '../types/cycling.js';
+import { createUserScopedFirestoreMocks } from '../test-utils/index.js';
 
 // Mock firebase module before importing repository
 vi.mock('../firebase.js', () => ({
@@ -12,76 +13,31 @@ vi.mock('../firebase.js', () => ({
 import { getFirestoreDb, getCollectionName } from '../firebase.js';
 
 describe('CyclingActivityRepository', () => {
-  let mockDb: Partial<Firestore>;
-  let mockStreamsDoc: Partial<DocumentReference>;
-  let mockStreamsCollection: Partial<CollectionReference>;
-  let mockActivityDoc: Partial<DocumentReference>;
-  let mockActivitiesCollection: Partial<CollectionReference>;
-  let mockUserDoc: Partial<DocumentReference>;
-  let mockUsersCollection: Partial<CollectionReference>;
+  type UserScopedMocks = ReturnType<typeof createUserScopedFirestoreMocks>;
+  let mockDb: UserScopedMocks['mockDb'];
+  let mockCollection: UserScopedMocks['mockCollection'];
+  let mockDocRef: UserScopedMocks['mockDocRef'];
+  let mockUsersCollection: UserScopedMocks['mockUsersCollection'];
+  let mockQueryChain: UserScopedMocks['mockQueryChain'];
 
   beforeEach(() => {
     vi.clearAllMocks();
-
-    // Mock streams doc
-    mockStreamsDoc = {
-      get: vi.fn(),
-      set: vi.fn().mockResolvedValue(undefined),
-      delete: vi.fn().mockResolvedValue(undefined),
-    } as unknown as Partial<DocumentReference>;
-
-    // Mock streams collection
-    mockStreamsCollection = {
-      doc: vi.fn(() => mockStreamsDoc),
-    } as unknown as Partial<CollectionReference>;
-
-    // Mock activity doc
-    mockActivityDoc = {
-      get: vi.fn(),
-      set: vi.fn().mockResolvedValue(undefined),
-      update: vi.fn().mockResolvedValue(undefined),
-      delete: vi.fn().mockResolvedValue(undefined),
-      collection: vi.fn(() => mockStreamsCollection),
-    } as unknown as Partial<DocumentReference>;
-
-    // Mock activities collection with chainable query methods
-    const mockQueryObj: Record<string, unknown> = {
-      orderBy: vi.fn(function (_field: string, _direction: string): Record<string, unknown> {
-        return mockQueryObj;
-      }),
-      limit: vi.fn(function (_limit: number): Record<string, unknown> {
-        return mockQueryObj;
-      }),
-      where: vi.fn(function (_field: string, _op: string, _value: unknown): Record<string, unknown> {
-        return mockQueryObj;
-      }),
-      get: vi.fn(),
-    };
-
-    mockActivitiesCollection = {
-      doc: vi.fn(() => mockActivityDoc),
-      orderBy: vi.fn(() => mockQueryObj),
-      where: vi.fn(() => mockQueryObj),
-    } as unknown as Partial<CollectionReference>;
-
-    // Mock user doc
-    mockUserDoc = {
-      collection: vi.fn(() => mockActivitiesCollection),
-    } as unknown as Partial<DocumentReference>;
-
-    // Mock users collection
-    mockUsersCollection = {
-      doc: vi.fn(() => mockUserDoc),
-    } as unknown as Partial<CollectionReference>;
-
-    // Mock database
-    mockDb = {
-      collection: vi.fn(() => mockUsersCollection),
-    };
+    const mocks = createUserScopedFirestoreMocks();
+    mockDb = mocks.mockDb;
+    mockCollection = mocks.mockCollection;
+    mockDocRef = mocks.mockDocRef;
+    mockUsersCollection = mocks.mockUsersCollection;
+    mockQueryChain = mocks.mockQueryChain;
 
     // Setup mocks
     (getFirestoreDb as ReturnType<typeof vi.fn>).mockReturnValue(mockDb);
     (getCollectionName as ReturnType<typeof vi.fn>).mockImplementation((name: string) => name);
+
+    // Provide baseline chain behavior
+    mockCollection.where.mockReturnValue(mockQueryChain);
+    mockCollection.orderBy.mockReturnValue(mockQueryChain);
+    mockCollection.limit.mockReturnValue(mockQueryChain);
+    mockDocRef.collection.mockImplementation((_path: string) => mockCollection);
   });
 
   describe('findAllByUser', () => {
@@ -119,7 +75,7 @@ describe('CyclingActivityRepository', () => {
       };
 
       // Setup the chain
-      (mockActivitiesCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
       (mockQuery.limit as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
 
       const result = await repository.findAllByUser('user-1', 10);
@@ -138,7 +94,7 @@ describe('CyclingActivityRepository', () => {
         get: vi.fn().mockResolvedValue({ docs: [] }),
       };
 
-      (mockActivitiesCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
 
       const result = await repository.findAllByUser('user-1');
 
@@ -171,7 +127,7 @@ describe('CyclingActivityRepository', () => {
         createdAt: '2026-02-19T12:00:00.000Z',
       };
 
-      (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: true,
         id: 'activity-2',
         data: (): Record<string, unknown> => mockActivityData,
@@ -189,7 +145,7 @@ describe('CyclingActivityRepository', () => {
     it('should return null when doc does not exist', async (): Promise<void> => {
       const repository = new CyclingActivityRepository(mockDb as Firestore);
 
-      (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: false,
       });
 
@@ -201,7 +157,7 @@ describe('CyclingActivityRepository', () => {
     it('should return null when doc data is empty', async (): Promise<void> => {
       const repository = new CyclingActivityRepository(mockDb as Firestore);
 
-      (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: true,
         data: (): undefined => undefined,
       });
@@ -214,7 +170,7 @@ describe('CyclingActivityRepository', () => {
     it('should return null when doc payload is malformed', async (): Promise<void> => {
       const repository = new CyclingActivityRepository(mockDb as Firestore);
 
-      (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: true,
         data: (): Record<string, unknown> => ({
           stravaId: 'bad',
@@ -274,7 +230,7 @@ describe('CyclingActivityRepository', () => {
         get: vi.fn().mockResolvedValue({ empty: false, docs: mockDocs }),
       };
 
-      (mockActivitiesCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
       (mockQuery.limit as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
 
       const result = await repository.findByStravaId('user-1', 789);
@@ -292,7 +248,7 @@ describe('CyclingActivityRepository', () => {
         get: vi.fn().mockResolvedValue({ empty: true, docs: [] }),
       };
 
-      (mockActivitiesCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
       (mockQuery.limit as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
 
       const result = await repository.findByStravaId('user-1', 999);
@@ -326,7 +282,7 @@ describe('CyclingActivityRepository', () => {
         get: vi.fn().mockResolvedValue({ empty: false, docs: [{ id: 'activity-bad', data: (): Record<string, unknown> => mockActivityData }] }),
       };
 
-      (mockActivitiesCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
       (mockQuery.limit as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
 
       const result = await repository.findByStravaId('user-1', 789);
@@ -365,7 +321,7 @@ describe('CyclingActivityRepository', () => {
       expect(result.id).toBeDefined();
       expect(result.stravaId).toBe(111);
       expect(result.ef).toBe(1.3);
-      expect((mockActivityDoc.set as ReturnType<typeof vi.fn>)).toHaveBeenCalled();
+      expect((mockDocRef.set as ReturnType<typeof vi.fn>)).toHaveBeenCalled();
     });
 
     it('should omit optional fields when undefined', async (): Promise<void> => {
@@ -390,7 +346,7 @@ describe('CyclingActivityRepository', () => {
 
       await repository.create('user-1', activityInput);
 
-      const callArgs = (mockActivityDoc.set as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as
+      const callArgs = (mockDocRef.set as ReturnType<typeof vi.fn>).mock.calls[0]?.[0] as
         | Record<string, unknown>
         | undefined;
       expect(callArgs).not.toHaveProperty('ef');
@@ -402,7 +358,7 @@ describe('CyclingActivityRepository', () => {
     it('should return false when activity not found', async (): Promise<void> => {
       const repository = new CyclingActivityRepository(mockDb as Firestore);
 
-      (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: false,
       });
 
@@ -414,14 +370,14 @@ describe('CyclingActivityRepository', () => {
     it('should update activity when found', async (): Promise<void> => {
       const repository = new CyclingActivityRepository(mockDb as Firestore);
 
-      (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: true,
       });
 
       const updates: CyclingActivityUpdate = { ef: 1.4, peak5MinPower: 420 };
       const result = await repository.update('user-1', 'activity-5', updates);
 
-      expect((mockActivityDoc.update as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(updates);
+      expect((mockDocRef.update as ReturnType<typeof vi.fn>)).toHaveBeenCalledWith(updates);
       expect(result).toBe(true);
     });
   });
@@ -430,7 +386,7 @@ describe('CyclingActivityRepository', () => {
     it('should return false when activity not found', async (): Promise<void> => {
       const repository = new CyclingActivityRepository(mockDb as Firestore);
 
-      (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: false,
       });
 
@@ -442,35 +398,35 @@ describe('CyclingActivityRepository', () => {
     it('should delete activity and streams', async (): Promise<void> => {
       const repository = new CyclingActivityRepository(mockDb as Firestore);
 
-      (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
-        exists: true,
-      });
-
-      (mockStreamsDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
-        exists: true,
-      });
+      (mockDocRef.get as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({
+          exists: true,
+        })
+        .mockResolvedValueOnce({
+          exists: true,
+        });
 
       const result = await repository.delete('user-1', 'activity-6');
 
-      expect((mockStreamsDoc.delete as ReturnType<typeof vi.fn>)).toHaveBeenCalled();
-      expect((mockActivityDoc.delete as ReturnType<typeof vi.fn>)).toHaveBeenCalled();
+      expect((mockDocRef.delete as ReturnType<typeof vi.fn>)).toHaveBeenCalled();
+      expect((mockDocRef.delete as ReturnType<typeof vi.fn>)).toHaveBeenCalled();
       expect(result).toEqual({ deleted: true, hadStreams: true });
     });
 
     it('should delete activity even when streams not found', async (): Promise<void> => {
       const repository = new CyclingActivityRepository(mockDb as Firestore);
 
-      (mockActivityDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
-        exists: true,
-      });
-
-      (mockStreamsDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
-        exists: false,
-      });
+      (mockDocRef.get as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({
+          exists: true,
+        })
+        .mockResolvedValueOnce({
+          exists: false,
+        });
 
       const result = await repository.delete('user-1', 'activity-7');
 
-      expect((mockActivityDoc.delete as ReturnType<typeof vi.fn>)).toHaveBeenCalled();
+      expect((mockDocRef.delete as ReturnType<typeof vi.fn>)).toHaveBeenCalled();
       expect(result).toEqual({ deleted: true, hadStreams: false });
     });
   });
@@ -493,7 +449,7 @@ describe('CyclingActivityRepository', () => {
 
       expect(result.activityId).toBe('activity-8');
       expect(result.createdAt).toBeDefined();
-      expect((mockStreamsDoc.set as ReturnType<typeof vi.fn>)).toHaveBeenCalled();
+      expect((mockDocRef.set as ReturnType<typeof vi.fn>)).toHaveBeenCalled();
     });
   });
 
@@ -512,7 +468,7 @@ describe('CyclingActivityRepository', () => {
         createdAt: '2026-02-14T12:00:00.000Z',
       };
 
-      (mockStreamsDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: true,
         data: (): Record<string, unknown> => mockStreamData,
       });
@@ -526,7 +482,7 @@ describe('CyclingActivityRepository', () => {
     it('should return null when stream doc not found', async (): Promise<void> => {
       const repository = new CyclingActivityRepository(mockDb as Firestore);
 
-      (mockStreamsDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: false,
       });
 
@@ -538,7 +494,7 @@ describe('CyclingActivityRepository', () => {
     it('should return null when stream payload is malformed', async (): Promise<void> => {
       const repository = new CyclingActivityRepository(mockDb as Firestore);
 
-      (mockStreamsDoc.get as ReturnType<typeof vi.fn>).mockResolvedValue({
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue({
         exists: true,
         data: (): Record<string, unknown> => ({
           activityId: 'activity-9',
@@ -567,7 +523,7 @@ describe('CyclingActivityRepository', () => {
         get: vi.fn().mockResolvedValue({ docs: [] }),
       };
 
-      (mockActivitiesCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
 
       await repository.findAllByUser('test-user-123');
 

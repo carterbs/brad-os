@@ -6,14 +6,17 @@ export const ingredientResponseSchema = z.object({
   store_section: z.string(),
   created_at: z.string(),
   updated_at: z.string(),
-}).strict();
+});
 
 export const createIngredientSchema = z.object({
-  name: z.string(),
-  store_section: z.string(),
-}).strict();
+  name: z.string().min(1),
+  store_section: z.string().min(1),
+});
 
-export const updateIngredientSchema = z.object({
-  name: z.string().optional(),
-  store_section: z.string().optional(),
-}).strict();
+export const updateIngredientSchema = createIngredientSchema.partial();
+
+export type CreateIngredientInput = z.infer<typeof createIngredientSchema>;
+export type UpdateIngredientInput = z.infer<typeof updateIngredientSchema>;
+export type IngredientResponse = z.infer<typeof ingredientResponseSchema>;
+export type CreateIngredientDTO = CreateIngredientInput;
+export type UpdateIngredientDTO = UpdateIngredientInput;

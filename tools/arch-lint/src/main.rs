@@ -39,7 +39,7 @@ fn main() {
         arch_lint::checks::type_dedup::check,
         arch_lint::checks::firebase_routes::check,
         arch_lint::checks::ios_layers::check,
-        arch_lint::checks::arch_map_refs::check,
+        arch_lint::checks::doc_freshness::check,
         arch_lint::checks::claude_md_refs::check,
         arch_lint::checks::orphan_features::check,
         arch_lint::checks::plan_lifecycle::check,

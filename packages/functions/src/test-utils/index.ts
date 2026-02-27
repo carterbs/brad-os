@@ -3,9 +3,13 @@ export {
   type MockQueryDocumentSnapshot,
   type MockQuerySnapshot,
   type FirestoreMocks,
+  type UserScopedFirestoreMocks,
+  type MockFirestoreQuery,
   createMockDoc,
   createMockQuerySnapshot,
   createMockQuery,
+  createFirestoreQueryChain,
   createFirestoreMocks,
+  createUserScopedFirestoreMocks,
   setupFirebaseMock,
 } from './firestore-mock.js';

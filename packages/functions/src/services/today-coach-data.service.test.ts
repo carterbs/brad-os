@@ -1,57 +1,92 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// Mock all external dependencies before importing
-const mockCyclingService = vi.hoisted(() => ({
-  getCurrentFTP: vi.fn(),
-  getCurrentTrainingBlock: vi.fn(),
-  getCyclingActivities: vi.fn(),
-  getLatestVO2Max: vi.fn(),
-  getVO2MaxHistory: vi.fn(),
-  getActivityStreams: vi.fn(),
-  getWeightGoal: vi.fn(),
-}));
-
-const mockRecoveryService = vi.hoisted(() => ({
-  getRecoveryHistory: vi.fn(),
-  getWeightHistory: vi.fn(),
-  getHRVHistory: vi.fn(),
-  getRHRHistory: vi.fn(),
-}));
-
-const mockTrainingLoadService = vi.hoisted(() => ({
-  calculateTrainingLoadMetrics: vi.fn(),
-  getWeekInBlock: vi.fn(),
-  determineNextSession: vi.fn(),
-  getWeekBoundaries: vi.fn(),
-}));
-
-const mockLiftingContextService = vi.hoisted(() => ({
-  buildLiftingContext: vi.fn(),
-  buildLiftingSchedule: vi.fn(),
-  buildMesocycleContext: vi.fn(),
-}));
-
-const mockWorkoutRepo = vi.hoisted(() => ({
-  findByDate: vi.fn(),
-  findByCompletedAtRange: vi.fn(),
-}));
-
-const mockPlanDayRepo = vi.hoisted(() => ({
-  findById: vi.fn(),
-}));
-
-const mockWorkoutSetRepo = vi.hoisted(() => ({
-  findByWorkoutId: vi.fn(),
-}));
-
-const mockStretchSessionRepo = vi.hoisted(() => ({
-  findLatest: vi.fn(),
-  findInDateRange: vi.fn(),
-}));
-
-const mockMeditationSessionRepo = vi.hoisted(() => ({
-  findLatest: vi.fn(),
-  findInDateRange: vi.fn(),
+const {
+  mockCyclingService,
+  mockRecoveryService,
+  mockTrainingLoadService,
+  mockLiftingContextService,
+  mockWorkoutRepo,
+  mockPlanDayRepo,
+  mockWorkoutSetRepo,
+  mockStretchSessionRepo,
+  mockMeditationSessionRepo,
+} = vi.hoisted(() => ({
+  mockCyclingService: {
+    getCurrentFTP: vi.fn(),
+    getCurrentTrainingBlock: vi.fn(),
+    getCyclingActivities: vi.fn(),
+    getLatestVO2Max: vi.fn(),
+    getVO2MaxHistory: vi.fn(),
+    getActivityStreams: vi.fn(),
+    getWeightGoal: vi.fn(),
+  },
+  mockRecoveryService: {
+    getRecoveryHistory: vi.fn(),
+    getWeightHistory: vi.fn(),
+    getHRVHistory: vi.fn(),
+    getRHRHistory: vi.fn(),
+  },
+  mockTrainingLoadService: {
+    calculateTrainingLoadMetrics: vi.fn(),
+    getWeekInBlock: vi.fn(),
+    determineNextSession: vi.fn(),
+    getWeekBoundaries: vi.fn(),
+  },
+  mockLiftingContextService: {
+    buildLiftingContext: vi.fn(),
+    buildLiftingSchedule: vi.fn(),
+    buildMesocycleContext: vi.fn(),
+  },
+  mockWorkoutRepo: {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findAll: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    findByMesocycleId: vi.fn(),
+    findByStatus: vi.fn(),
+    findByDate: vi.fn(),
+    findPreviousWeekWorkout: vi.fn(),
+    findNextPending: vi.fn(),
+    findCompletedInDateRange: vi.fn(),
+    findByCompletedAtRange: vi.fn(),
+  },
+  mockPlanDayRepo: {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findAll: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    findByPlanId: vi.fn(),
+  },
+  mockWorkoutSetRepo: {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findAll: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    findByWorkoutId: vi.fn(),
+    findByWorkoutAndExercise: vi.fn(),
+    findByStatus: vi.fn(),
+    findCompletedByExerciseId: vi.fn(),
+  },
+  mockStretchSessionRepo: {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findLatest: vi.fn(),
+    findAll: vi.fn(),
+    delete: vi.fn(),
+    findInDateRange: vi.fn(),
+  },
+  mockMeditationSessionRepo: {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findLatest: vi.fn(),
+    findAll: vi.fn(),
+    findInDateRange: vi.fn(),
+    getStats: vi.fn(),
+    delete: vi.fn(),
+  },
 }));
 
 vi.mock('./firestore-cycling.service.js', () => mockCyclingService);

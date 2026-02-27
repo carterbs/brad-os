@@ -305,6 +305,10 @@ describe('Exercises Handler', () => {
         .send({ name: 'Only Name Updated' });
 
       expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        success: true,
+        data: updatedExercise,
+      });
       expect(mockExerciseRepo.update).toHaveBeenCalledWith('exercise-123', {
         name: 'Only Name Updated',
       });

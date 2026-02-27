@@ -1,16 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
-<<<<<<< Updated upstream
   createRecipeSchema,
-  recipeIngredientSchema,
-  recipeResponseSchema,
-  recipeStepSchema,
   updateRecipeSchema,
-=======
   recipeIngredientSchema,
   recipeResponseSchema,
   recipeStepSchema,
->>>>>>> Stashed changes
 } from './recipe.schema.js';
 
 describe('recipeIngredientSchema', () => {
@@ -197,44 +191,69 @@ describe('recipeResponseSchema', () => {
     expect(invalidStep.success).toBe(false);
   });
 });
-<<<<<<< Updated upstream
 
-describe('recipe create/update DTO schemas', () => {
-  it('accepts a valid create payload', () => {
-    const result = createRecipeSchema.safeParse({
-      meal_id: 'meal-1',
-      ingredients: [{ ingredient_id: 'ingredient-1', quantity: 2, unit: 'cup' }],
-      steps: [{ step_number: 1, instruction: 'Boil water.' }],
-    });
+describe('createRecipeSchema', () => {
+  const validPayload = {
+    meal_id: 'meal-1',
+    ingredients: [
+      {
+        ingredient_id: 'ingredient-1',
+        quantity: 1,
+        unit: 'cup',
+      },
+    ],
+    steps: [
+      {
+        step_number: 1,
+        instruction: 'Stir',
+      },
+    ],
+  };
 
+  it('accepts valid create payloads', () => {
+    const result = createRecipeSchema.safeParse(validPayload);
     expect(result.success).toBe(true);
   });
 
-  it('requires meal_id for create', () => {
+  it('rejects missing required fields for create', () => {
     const result = createRecipeSchema.safeParse({
+      meal_id: 'meal-1',
       ingredients: [],
-      steps: [],
     });
 
     expect(result.success).toBe(false);
   });
 
-  it('accepts a partial update payload', () => {
-    const result = updateRecipeSchema.safeParse({
-      meal_id: 'meal-2',
+  it('accepts nullable steps', () => {
+    const result = createRecipeSchema.safeParse({
+      ...validPayload,
+      steps: null,
     });
 
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.steps).toBeNull();
+    }
   });
+});
 
-  it('rejects unknown fields in update payload', () => {
+describe('updateRecipeSchema', () => {
+  it('accepts partial payloads', () => {
     const result = updateRecipeSchema.safeParse({
       meal_id: 'meal-2',
-      unknownField: 'bad',
     });
+    expect(result.success).toBe(true);
+  });
 
+  it('accepts empty object for partial update', () => {
+    const result = updateRecipeSchema.safeParse({});
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects invalid partial values', () => {
+    const result = updateRecipeSchema.safeParse({
+      steps: 'bad',
+    });
     expect(result.success).toBe(false);
   });
 });
-=======
->>>>>>> Stashed changes

@@ -3,7 +3,13 @@ import request from 'supertest';
 import type { Response } from 'supertest';
 import type { WorkoutWithExercises } from '../services/index.js';
 import { NotFoundError, ValidationError } from '../middleware/error-handler.js';
-import { type ApiResponse, createWorkout, createWorkoutSet } from '../__tests__/utils/index.js';
+import {
+  type ApiResponse,
+  createMockWorkoutRepository,
+  createMockWorkoutSetRepository,
+  createWorkout,
+  createWorkoutSet,
+} from '../__tests__/utils/index.js';
 
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({
@@ -16,19 +22,8 @@ vi.mock('../middleware/app-check.js', () => ({
 }));
 
 // Mock repositories
-const mockWorkoutRepo = {
-  findAll: vi.fn(),
-  findById: vi.fn(),
-  create: vi.fn(),
-  update: vi.fn(),
-  delete: vi.fn(),
-};
-
-const mockWorkoutSetRepo = {
-  findByWorkoutId: vi.fn(),
-  create: vi.fn(),
-  delete: vi.fn(),
-};
+const mockWorkoutRepo = createMockWorkoutRepository();
+const mockWorkoutSetRepo = createMockWorkoutSetRepository();
 
 vi.mock('../repositories/index.js', () => ({
   WorkoutRepository: vi.fn().mockImplementation(() => mockWorkoutRepo),

@@ -1,12 +1,8 @@
 import { describe, it, expect } from 'vitest';
-<<<<<<< Updated upstream
 import {
   todayCoachRequestSchema,
   todayCoachResponseSchema,
 } from './today-coach.schema.js';
-=======
-import { todayCoachResponseSchema } from './today-coach.schema.js';
->>>>>>> Stashed changes
 
 describe('todayCoachResponseSchema', () => {
   it('accepts a fully populated valid payload', () => {
@@ -148,7 +144,6 @@ describe('todayCoachResponseSchema', () => {
   });
 });
 
-<<<<<<< Updated upstream
 describe('todayCoachRequestSchema', () => {
   const baseRequest = {
     recovery: {
@@ -325,5 +320,3 @@ describe('todayCoachRequestSchema', () => {
     expect(result.success).toBe(false);
   });
 });
-=======
->>>>>>> Stashed changes

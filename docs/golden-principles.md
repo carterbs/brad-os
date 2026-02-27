@@ -25,11 +25,13 @@ Invariants for the Brad OS codebase. Every line is verifiable by a linter or cod
 - Zod schemas live in `packages/functions/src/schemas/`, not in services/handlers/repositories
 - No skipped tests (`it.skip`, `describe.skip`, `xit`, `xdescribe`) — fix or remove the test
 - High-risk files (AI integrations, coach logic) must have corresponding test files
+- `docs/quality-grades.md` and architecture guide/docs references must remain current: unchecked debt must not stay checked for completed work, and all `docs/architecture/*.md` and AGENTS `## Guides` links must resolve.
 - Prefer shared test factories from `__tests__/utils/` over inline `createMock*`/`createTest*` definitions
 - No inline `ApiResponse` interface in test files — import from `__tests__/utils/api-types.ts`
 - No focused tests (`.only`, `test.only`, `fit`, `fdescribe`) — these silently skip the rest of the suite
 - No empty or assertion-free tests — every test file must have `expect()` calls; test bodies must not be empty
 - No `archive`/`archives` directories — delete obsolete docs/plans instead of preserving archive folders
+- Architecture docs and guides must stay fresh: unchecked quality-grade debt entries are flagged when completion evidence exists, architecture-map backtick references must resolve, and AGENTS.md guide links must stay under `docs/guides/`.
 
 ### Swift [swiftlint via xcodebuild]
 - No force unwrapping (`!`) — use `guard let` or `?? default`

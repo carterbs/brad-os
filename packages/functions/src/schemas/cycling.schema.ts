@@ -304,9 +304,9 @@ export const createCyclingActivitySchema = z.object({
 });
 
 export const cyclingActivityDocSchema = createCyclingActivitySchema.extend({
-  type: createCyclingActivitySchema.shape.type.or(z.literal('virtual')).transform((value) => {
-    return value === 'virtual' ? 'unknown' : value;
-  }),
+  type: createCyclingActivitySchema.shape.type
+    .or(z.literal('virtual'))
+    .transform((value) => (value === 'virtual' ? 'unknown' : value)),
   userId: z.string(),
   createdAt: z.string(),
 });

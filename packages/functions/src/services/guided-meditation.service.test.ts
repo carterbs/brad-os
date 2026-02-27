@@ -1,11 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GuidedMeditationService } from './guided-meditation.service.js';
+import { createMockGuidedMeditationRepository } from '../__tests__/utils/index.js';
 
-const mockRepository = {
-  getCategories: vi.fn(),
-  findAllByCategory: vi.fn(),
-  findById: vi.fn(),
-};
+const mockRepository = createMockGuidedMeditationRepository();
 
 describe('GuidedMeditationService', () => {
   beforeEach(() => {

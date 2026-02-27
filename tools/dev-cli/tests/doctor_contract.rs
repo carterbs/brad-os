@@ -63,6 +63,9 @@ fn doctor_binary_runs_and_prints_pass_in_healthy_context() {
     fake_command(bin_dir.path(), "npm", "10.0.0");
     fake_command(bin_dir.path(), "firebase", "13.0.0");
     fake_command(bin_dir.path(), "cargo", "1.75.0");
+    fake_command(bin_dir.path(), "rustup", "1.25.0");
+    fake_command(bin_dir.path(), "cargo-llvm-cov", "0.5.17");
+    fake_command(bin_dir.path(), "llvm-tools-preview", "18.1.0");
     fake_command(bin_dir.path(), "gitleaks", "8.18.0");
     fake_command(bin_dir.path(), "xcodegen", "2.40.0");
 
@@ -78,10 +81,13 @@ fn doctor_binary_runs_and_prints_pass_in_healthy_context() {
 fn doctor_binary_fails_fast_and_prints_missing_remediation() {
     let repo = make_repo();
     let bin_dir = tempdir().unwrap();
-    fake_command(bin_dir.path(), "node", "v21.12.0");
+    fake_command(bin_dir.path(), "node", "21.12.0");
     fake_command(bin_dir.path(), "npm", "10.0.0");
     fake_command(bin_dir.path(), "firebase", "13.0.0");
     fake_command(bin_dir.path(), "cargo", "1.75.0");
+    fake_command(bin_dir.path(), "rustup", "1.25.0");
+    fake_command(bin_dir.path(), "cargo-llvm-cov", "0.5.17");
+    fake_command(bin_dir.path(), "llvm-tools-preview", "18.1.0");
     fake_command(bin_dir.path(), "gitleaks", "8.18.0");
     fake_command(bin_dir.path(), "xcodegen", "2.40.0");
 
@@ -92,4 +98,27 @@ fn doctor_binary_fails_fast_and_prints_missing_remediation() {
     assert!(stdout.contains("FAIL"));
     assert!(stdout.contains("Install missing dependencies:"));
     assert!(stdout.contains("v21.12.0 (need ≥ 22)"));
+}
+
+#[test]
+fn doctor_binary_checks_rust_toolchain_components() {
+    let repo = make_repo();
+    let bin_dir = tempdir().unwrap();
+    fake_command(bin_dir.path(), "node", "v22.12.0");
+    fake_command(bin_dir.path(), "npm", "10.0.0");
+    fake_command(bin_dir.path(), "firebase", "13.0.0");
+    fake_command(bin_dir.path(), "cargo", "1.75.0");
+    fake_command(bin_dir.path(), "rustup", "1.25.0");
+    fake_command(bin_dir.path(), "cargo-llvm-cov", "0.5.17");
+    fake_command(bin_dir.path(), "llvm-tools-preview", "18.1.0");
+    fake_command(bin_dir.path(), "gitleaks", "8.18.0");
+    fake_command(bin_dir.path(), "xcodegen", "2.40.0");
+
+    let (stdout, _stderr, code) =
+        run_doctor(Path::new(brad_doctor_binary()), repo.path(), bin_dir.path(), true);
+
+    assert_eq!(code, 0);
+    assert!(stdout.contains("✓ rustup"));
+    assert!(stdout.contains("✓ cargo-llvm-cov"));
+    assert!(stdout.contains("✓ llvm-tools-preview"));
 }

@@ -11,13 +11,16 @@ const DIM: &str = "\x1b[2m";
 const RESET: &str = "\x1b[0m";
 const LABEL_WIDTH: usize = 18;
 
-const INSTALL_CMDS: [&str; 6] = [
+const INSTALL_CMDS: [&str; 9] = [
     "brew install node@22  # or: nvm install 22",
     "# npm comes with Node — reinstall Node to update npm",
     "npm install -g firebase-tools",
     "Install Rust: https://rustup.rs/",
     "brew install gitleaks",
     "brew install xcodegen",
+    "Install Rust: https://rustup.rs/",
+    "cargo install cargo-llvm-cov",
+    "rustup component add llvm-tools-preview",
 ];
 
 #[derive(Debug, PartialEq)]
@@ -90,6 +93,36 @@ where
         writer,
         "cargo",
         INSTALL_CMDS[3],
+        None,
+        fast_mode,
+        &probe_tool,
+        &mut issues,
+        &mut install_cmds,
+    )?;
+    check_tool(
+        writer,
+        "rustup",
+        INSTALL_CMDS[6],
+        None,
+        fast_mode,
+        &probe_tool,
+        &mut issues,
+        &mut install_cmds,
+    )?;
+    check_tool(
+        writer,
+        "cargo-llvm-cov",
+        INSTALL_CMDS[7],
+        None,
+        fast_mode,
+        &probe_tool,
+        &mut issues,
+        &mut install_cmds,
+    )?;
+    check_tool(
+        writer,
+        "llvm-tools-preview",
+        INSTALL_CMDS[8],
         None,
         fast_mode,
         &probe_tool,

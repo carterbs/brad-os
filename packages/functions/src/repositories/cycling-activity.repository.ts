@@ -24,7 +24,6 @@ import {
   readString,
   readNumberArray,
 } from './firestore-type-guards.js';
-// NOTE: schema import stays in repository layer to keep validation at runtime for persistence boundaries.
 
 export class CyclingActivityRepository {
   private db: Firestore;

@@ -75,6 +75,32 @@ function createValidMeal(overrides?: Partial<Record<string, unknown>>): Record<s
   };
 }
 
+function createValidIngredient(): Record<string, unknown> {
+  return {
+    name: 'Integration Carrot',
+    store_section: 'Produce',
+  };
+}
+
+function createValidRecipe(mealId: string): Record<string, unknown> {
+  return {
+    meal_id: mealId,
+    ingredients: [
+      {
+        ingredient_id: 'integration-ingredient-id',
+        quantity: 150,
+        unit: 'g',
+      },
+    ],
+    steps: [
+      {
+        step_number: 1,
+        instruction: 'Prepare ingredients',
+      },
+    ],
+  };
+}
+
 describe('Meals API (Integration)', () => {
   const createdMealIds: string[] = [];
 
@@ -101,12 +127,10 @@ describe('Meals API (Integration)', () => {
   });
 
   it('should create a meal with valid data', async () => {
-    const mealData = createValidMeal();
-
     const response = await fetch(MEALS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(mealData),
+      body: JSON.stringify(createValidMeal()),
     });
 
     expect(response.status).toBe(201);
@@ -123,12 +147,10 @@ describe('Meals API (Integration)', () => {
   });
 
   it('should create a breakfast meal', async () => {
-    const mealData = createValidMeal({ name: 'Oatmeal Bowl', meal_type: 'breakfast', effort: 2 });
-
     const response = await fetch(MEALS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(mealData),
+      body: JSON.stringify(createValidMeal({ name: 'Oatmeal Bowl', meal_type: 'breakfast', effort: 2 })),
     });
 
     expect(response.status).toBe(201);
@@ -158,12 +180,10 @@ describe('Meals API (Integration)', () => {
   });
 
   it('should reject invalid meal_type', async () => {
-    const mealData = createValidMeal({ meal_type: 'snack' });
-
     const response = await fetch(MEALS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(mealData),
+      body: JSON.stringify(createValidMeal({ meal_type: 'snack' })),
     });
 
     expect(response.status).toBe(400);
@@ -173,12 +193,10 @@ describe('Meals API (Integration)', () => {
   });
 
   it('should reject effort out of range', async () => {
-    const mealData = createValidMeal({ effort: 11 });
-
     const response = await fetch(MEALS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(mealData),
+      body: JSON.stringify(createValidMeal({ effort: 11 })),
     });
 
     expect(response.status).toBe(400);
@@ -188,7 +206,6 @@ describe('Meals API (Integration)', () => {
   });
 
   it('should list all meals', async () => {
-    // Create a meal first to ensure the list is non-empty
     const createResponse = await fetch(MEALS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -203,10 +220,10 @@ describe('Meals API (Integration)', () => {
     const result = (await response.json()) as ApiResponse<Meal[]>;
     expect(result.success).toBe(true);
     expect(Array.isArray(result.data)).toBe(true);
+    expect(result.data.length).toBeGreaterThan(0);
   });
 
   it('should get a meal by id', async () => {
-    // Create a meal first
     const createResponse = await fetch(MEALS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -216,7 +233,6 @@ describe('Meals API (Integration)', () => {
     const mealId = createResult.data.id;
     createdMealIds.push(mealId);
 
-    // Get by ID
     const response = await fetch(`${MEALS_URL}/${mealId}`);
     expect(response.status).toBe(200);
 
@@ -237,7 +253,6 @@ describe('Meals API (Integration)', () => {
   });
 
   it('should update a meal', async () => {
-    // Create a meal first
     const createResponse = await fetch(MEALS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -247,21 +262,19 @@ describe('Meals API (Integration)', () => {
     const mealId = createResult.data.id;
     createdMealIds.push(mealId);
 
-    // Update the meal
-    const response = await fetch(`${MEALS_URL}/${mealId}`, {
+    const updateResponse = await fetch(`${MEALS_URL}/${mealId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Updated Chicken Stir Fry' }),
     });
 
-    expect(response.status).toBe(200);
-    const result = (await response.json()) as ApiResponse<Meal>;
-    expect(result.success).toBe(true);
-    expect(result.data.name).toBe('Updated Chicken Stir Fry');
+    expect(updateResponse.status).toBe(200);
+    const updateResult = (await updateResponse.json()) as ApiResponse<Meal>;
+    expect(updateResult.success).toBe(true);
+    expect(updateResult.data.name).toBe('Updated Chicken Stir Fry');
   });
 
   it('should delete a meal', async () => {
-    // Create a meal first
     const createResponse = await fetch(MEALS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -270,7 +283,6 @@ describe('Meals API (Integration)', () => {
     const createResult = (await createResponse.json()) as ApiResponse<Meal>;
     const mealId = createResult.data.id;
 
-    // Delete the meal
     const response = await fetch(`${MEALS_URL}/${mealId}`, {
       method: 'DELETE',
     });
@@ -279,11 +291,12 @@ describe('Meals API (Integration)', () => {
     const result = (await response.json()) as ApiResponse<{ deleted: boolean }>;
     expect(result.success).toBe(true);
     expect(result.data.deleted).toBe(true);
-    // No need to add to createdMealIds since it's already deleted
   });
 });
 
 describe('Ingredients API (Integration)', () => {
+  const createdIngredientIds: string[] = [];
+
   beforeAll(async () => {
     const isRunning = await checkEmulatorRunning();
     if (!isRunning) {
@@ -295,7 +308,51 @@ describe('Ingredients API (Integration)', () => {
     }
   });
 
+  afterEach(async () => {
+    for (const id of createdIngredientIds) {
+      try {
+        await fetch(`${INGREDIENTS_URL}/${id}`, { method: 'DELETE' });
+      } catch {
+        // ignore cleanup errors
+      }
+    }
+    createdIngredientIds.length = 0;
+  });
+
+  it('should create and retrieve an ingredient', async () => {
+    const createResponse = await fetch(INGREDIENTS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(createValidIngredient()),
+    });
+    const createResult = (await createResponse.json()) as ApiResponse<Ingredient>;
+
+    expect(createResponse.status).toBe(201);
+    expect(createResult.success).toBe(true);
+    expect(createResult.data.name).toBe('Integration Carrot');
+    createdIngredientIds.push(createResult.data.id);
+
+    const getResponse = await fetch(`${INGREDIENTS_URL}/${createResult.data.id}`);
+    expect(getResponse.status).toBe(200);
+    const getResult = (await getResponse.json()) as ApiResponse<Ingredient>;
+
+    expect(getResult.success).toBe(true);
+    expect(getResult.data.id).toBe(createResult.data.id);
+    expect(getResult.data.store_section).toBe('Produce');
+  });
+
   it('should list ingredients', async () => {
+    await fetch(INGREDIENTS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(createValidIngredient()),
+    }).then(async (response) => {
+      const result = (await response.json()) as ApiResponse<Ingredient>;
+      if (result.success) {
+        createdIngredientIds.push(result.data.id);
+      }
+    });
+
     const response = await fetch(INGREDIENTS_URL);
     expect(response.status).toBe(200);
 
@@ -303,9 +360,61 @@ describe('Ingredients API (Integration)', () => {
     expect(result.success).toBe(true);
     expect(Array.isArray(result.data)).toBe(true);
   });
+
+  it('should update an ingredient', async () => {
+    const createResponse = await fetch(INGREDIENTS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(createValidIngredient()),
+    });
+    const createResult = (await createResponse.json()) as ApiResponse<Ingredient>;
+    const ingredientId = createResult.data.id;
+    createdIngredientIds.push(ingredientId);
+
+    const updateResponse = await fetch(`${INGREDIENTS_URL}/${ingredientId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Integration Carrot Updated' }),
+    });
+    expect(updateResponse.status).toBe(200);
+
+    const updateResult = (await updateResponse.json()) as ApiResponse<Ingredient>;
+    expect(updateResult.success).toBe(true);
+    expect(updateResult.data.name).toBe('Integration Carrot Updated');
+  });
+
+  it('should delete an ingredient', async () => {
+    const createResponse = await fetch(INGREDIENTS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(createValidIngredient()),
+    });
+    const createResult = (await createResponse.json()) as ApiResponse<Ingredient>;
+
+    const response = await fetch(`${INGREDIENTS_URL}/${createResult.data.id}`, {
+      method: 'DELETE',
+    });
+    expect(response.status).toBe(200);
+
+    const result = (await response.json()) as ApiResponse<{ deleted: boolean }>;
+    expect(result.success).toBe(true);
+    expect(result.data.deleted).toBe(true);
+  });
+
+  it('should return 404 for invalid ingredient id', async () => {
+    const response = await fetch(`${INGREDIENTS_URL}/non-existent-id`);
+    expect(response.status).toBe(404);
+
+    const result = (await response.json()) as ApiError;
+    expect(result.success).toBe(false);
+    expect(result.error.code).toBe('NOT_FOUND');
+  });
 });
 
 describe('Recipes API (Integration)', () => {
+  const createdRecipeIds: string[] = [];
+  const createdMealIds: string[] = [];
+
   beforeAll(async () => {
     const isRunning = await checkEmulatorRunning();
     if (!isRunning) {
@@ -317,12 +426,130 @@ describe('Recipes API (Integration)', () => {
     }
   });
 
+  afterEach(async () => {
+    for (const id of createdRecipeIds) {
+      try {
+        await fetch(`${RECIPES_URL}/${id}`, { method: 'DELETE' });
+      } catch {
+        // ignore cleanup errors
+      }
+    }
+    createdRecipeIds.length = 0;
+
+    for (const id of createdMealIds) {
+      try {
+        await fetch(`${MEALS_URL}/${id}`, { method: 'DELETE' });
+      } catch {
+        // ignore cleanup errors
+      }
+    }
+    createdMealIds.length = 0;
+  });
+
+  async function createDependencyMeal(): Promise<string> {
+    const response = await fetch(MEALS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(createValidMeal()),
+    });
+    const result = (await response.json()) as ApiResponse<Meal>;
+    createdMealIds.push(result.data.id);
+    return result.data.id;
+  }
+
+  it('should create and retrieve a recipe', async () => {
+    const mealId = await createDependencyMeal();
+
+    const createResponse = await fetch(RECIPES_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(createValidRecipe(mealId)),
+    });
+    const createResult = (await createResponse.json()) as ApiResponse<Recipe>;
+
+    expect(createResponse.status).toBe(201);
+    expect(createResult.success).toBe(true);
+    expect(createResult.data.meal_id).toBe(mealId);
+    createdRecipeIds.push(createResult.data.id);
+
+    const getResponse = await fetch(`${RECIPES_URL}/${createResult.data.id}`);
+    expect(getResponse.status).toBe(200);
+    const getResult = (await getResponse.json()) as ApiResponse<Recipe>;
+
+    expect(getResult.success).toBe(true);
+    expect(getResult.data.id).toBe(createResult.data.id);
+    expect(getResult.data.meal_id).toBe(mealId);
+  });
+
   it('should list recipes', async () => {
+    const mealId = await createDependencyMeal();
+    const createResponse = await fetch(RECIPES_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(createValidRecipe(mealId)),
+    });
+    const createResult = (await createResponse.json()) as ApiResponse<Recipe>;
+    createdRecipeIds.push(createResult.data.id);
+
     const response = await fetch(RECIPES_URL);
     expect(response.status).toBe(200);
 
     const result = (await response.json()) as ApiResponse<Recipe[]>;
     expect(result.success).toBe(true);
     expect(Array.isArray(result.data)).toBe(true);
+    expect(result.data.length).toBeGreaterThan(0);
+  });
+
+  it('should update a recipe', async () => {
+    const mealId = await createDependencyMeal();
+    const createResponse = await fetch(RECIPES_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(createValidRecipe(mealId)),
+    });
+    const createResult = (await createResponse.json()) as ApiResponse<Recipe>;
+    const recipeId = createResult.data.id;
+    createdRecipeIds.push(recipeId);
+
+    const updateResponse = await fetch(`${RECIPES_URL}/${recipeId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        steps: [{ step_number: 1, instruction: 'Updated mix' }],
+      }),
+    });
+
+    expect(updateResponse.status).toBe(200);
+    const updateResult = (await updateResponse.json()) as ApiResponse<Recipe>;
+    expect(updateResult.success).toBe(true);
+    expect(updateResult.data.steps?.[0]?.instruction).toBe('Updated mix');
+  });
+
+  it('should delete a recipe', async () => {
+    const mealId = await createDependencyMeal();
+    const createResponse = await fetch(RECIPES_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(createValidRecipe(mealId)),
+    });
+    const createResult = (await createResponse.json()) as ApiResponse<Recipe>;
+
+    const response = await fetch(`${RECIPES_URL}/${createResult.data.id}`, {
+      method: 'DELETE',
+    });
+
+    expect(response.status).toBe(200);
+    const result = (await response.json()) as ApiResponse<{ deleted: boolean }>;
+    expect(result.success).toBe(true);
+    expect(result.data.deleted).toBe(true);
+  });
+
+  it('should return 404 for non-existent recipe', async () => {
+    const response = await fetch(`${RECIPES_URL}/non-existent-id`);
+    expect(response.status).toBe(404);
+
+    const result = (await response.json()) as ApiError;
+    expect(result.success).toBe(false);
+    expect(result.error.code).toBe('NOT_FOUND');
   });
 });

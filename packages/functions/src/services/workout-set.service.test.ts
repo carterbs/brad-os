@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Firestore } from 'firebase-admin/firestore';
 import { WorkoutSetService } from './workout-set.service.js';
 import {
@@ -6,7 +6,19 @@ import {
   WorkoutRepository,
   ExerciseRepository,
 } from '../repositories/index.js';
-import { createWorkout, createWorkoutSet, createExercise } from '../__tests__/utils/index.js';
+import {
+  createExercise,
+  createWorkout,
+  createWorkoutSet,
+  createMockExerciseRepository,
+  createMockPlanDayExerciseRepository,
+  createMockWorkoutRepository,
+  createMockWorkoutSetRepository,
+} from '../__tests__/utils/index.js';
+
+const mockWorkoutSetRepo = createMockWorkoutSetRepository();
+const mockWorkoutRepo = createMockWorkoutRepository();
+const mockExerciseRepo = createMockExerciseRepository();
 
 // Mock repositories - the service imports from index.js, so we only need to mock that
 vi.mock('../repositories/index.js', async (importOriginal) => {
@@ -14,13 +26,9 @@ vi.mock('../repositories/index.js', async (importOriginal) => {
   return {
     ...actual,
     createRepositories: vi.fn(() => ({
-      workout: { findByMesocycleId: vi.fn() },
-      workoutSet: {
-        findByWorkoutAndExercise: vi.fn(),
-        create: vi.fn(),
-        delete: vi.fn(),
-      },
-      planDayExercise: { findByPlanDayId: vi.fn() },
+      workout: mockWorkoutRepo,
+      workoutSet: mockWorkoutSetRepo,
+      planDayExercise: createMockPlanDayExerciseRepository(),
     })),
     WorkoutSetRepository: vi.fn(),
     WorkoutRepository: vi.fn(),
@@ -41,20 +49,6 @@ vi.mock('./progression.service.js', () => ({
 
 describe('WorkoutSetService', () => {
   let service: WorkoutSetService;
-  let mockWorkoutSetRepo: {
-    findById: Mock;
-    findByWorkoutAndExercise: Mock;
-    update: Mock;
-    create: Mock;
-    delete: Mock;
-  };
-  let mockWorkoutRepo: {
-    findById: Mock;
-    update: Mock;
-  };
-  let mockExerciseRepo: {
-    findById: Mock;
-  };
 
   // Shared default overrides matching original inline factory defaults
   const workoutDefaults = {
@@ -92,23 +86,6 @@ describe('WorkoutSetService', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-
-    mockWorkoutSetRepo = {
-      findById: vi.fn(),
-      findByWorkoutAndExercise: vi.fn(),
-      update: vi.fn(),
-      create: vi.fn(),
-      delete: vi.fn(),
-    };
-
-    mockWorkoutRepo = {
-      findById: vi.fn(),
-      update: vi.fn(),
-    };
-
-    mockExerciseRepo = {
-      findById: vi.fn(),
-    };
 
     vi.mocked(WorkoutSetRepository).mockImplementation(() => mockWorkoutSetRepo as unknown as WorkoutSetRepository);
     vi.mocked(WorkoutRepository).mockImplementation(() => mockWorkoutRepo as unknown as WorkoutRepository);

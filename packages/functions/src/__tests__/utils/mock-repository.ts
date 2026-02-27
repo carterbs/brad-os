@@ -59,6 +59,7 @@ export interface MockWorkoutRepository extends MockBaseRepository {
   findPreviousWeekWorkout: MockFn;
   findNextPending: MockFn;
   findCompletedInDateRange: MockFn;
+  findByCompletedAtRange: MockFn;
 }
 
 export function createMockWorkoutRepository(): MockWorkoutRepository {
@@ -74,6 +75,7 @@ export function createMockWorkoutRepository(): MockWorkoutRepository {
     findPreviousWeekWorkout: vi.fn(),
     findNextPending: vi.fn(),
     findCompletedInDateRange: vi.fn(),
+    findByCompletedAtRange: vi.fn(),
   };
 }
 
@@ -216,6 +218,8 @@ export function createMockMeditationSessionRepository(): MockMeditationSessionRe
   };
 }
 
+// ============ Cycling Activity Repository Mock ==========
+
 // ============ Meal Repository Mock ============
 
 export interface MockMealRepository extends MockBaseRepository {
@@ -263,6 +267,25 @@ export function createMockIngredientRepository(): MockIngredientRepository {
     findAll: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+  };
+}
+
+// ============ Stretch Repository Mock ============
+
+export interface MockStretchRepository extends MockBaseRepository {
+  findByRegion: MockFn;
+  seed: MockFn;
+}
+
+export function createMockStretchRepository(): MockStretchRepository {
+  return {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findAll: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    findByRegion: vi.fn(),
+    seed: vi.fn(),
   };
 }
 
@@ -322,6 +345,32 @@ export function createMockGuidedMeditationRepository(): MockGuidedMeditationRepo
   };
 }
 
+// ============ Cycling Activity Repository Mock ============
+
+export interface MockCyclingActivityRepository {
+  findAllByUser: MockFn;
+  findById: MockFn;
+  findByStravaId: MockFn;
+  create: MockFn;
+  update: MockFn;
+  delete: MockFn;
+  saveStreams: MockFn;
+  getStreams: MockFn;
+}
+
+export function createMockCyclingActivityRepository(): MockCyclingActivityRepository {
+  return {
+    findAllByUser: vi.fn(),
+    findById: vi.fn(),
+    findByStravaId: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    saveStreams: vi.fn(),
+    getStreams: vi.fn(),
+  };
+}
+
 // ============ All Repositories Mock ============
 
 export interface MockRepositories {
@@ -337,6 +386,7 @@ export interface MockRepositories {
   mealRepository: MockMealRepository;
   recipeRepository: MockRecipeRepository;
   ingredientRepository: MockIngredientRepository;
+  stretchRepository: MockStretchRepository;
   mealPlanSessionRepository: MockMealPlanSessionRepository;
   barcodeRepository: MockBarcodeRepository;
 }
@@ -355,6 +405,7 @@ export function createMockRepositories(): MockRepositories {
     mealRepository: createMockMealRepository(),
     recipeRepository: createMockRecipeRepository(),
     ingredientRepository: createMockIngredientRepository(),
+    stretchRepository: createMockStretchRepository(),
     mealPlanSessionRepository: createMockMealPlanSessionRepository(),
     barcodeRepository: createMockBarcodeRepository(),
   };

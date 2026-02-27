@@ -16,7 +16,7 @@ pub fn run_all_checks(config: &LinterConfig) -> (Vec<CheckResult>, FreshnessResu
         checks::type_dedup::check,
         checks::firebase_routes::check,
         checks::ios_layers::check,
-        checks::arch_map_refs::check,
+        checks::doc_freshness::check,
         checks::claude_md_refs::check,
         checks::orphan_features::check,
         checks::plan_lifecycle::check,

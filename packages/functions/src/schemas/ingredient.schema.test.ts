@@ -1,13 +1,5 @@
 import { describe, expect, it } from 'vitest';
-<<<<<<< Updated upstream
-import {
-  createIngredientSchema,
-  ingredientResponseSchema,
-  updateIngredientSchema,
-} from './ingredient.schema.js';
-=======
-import { ingredientResponseSchema } from './ingredient.schema.js';
->>>>>>> Stashed changes
+import { createIngredientSchema, updateIngredientSchema, ingredientResponseSchema } from './ingredient.schema.js';
 
 describe('ingredientResponseSchema', () => {
   const validPayload = {
@@ -15,11 +7,7 @@ describe('ingredientResponseSchema', () => {
     name: 'Chicken Breast',
     store_section: 'Meat',
     created_at: '2026-02-25T00:00:00.000Z',
-<<<<<<< Updated upstream
-    updated_at: '2026-02-05T00:05:00.000Z',
-=======
     updated_at: '2026-02-25T00:05:00.000Z',
->>>>>>> Stashed changes
   };
 
   it('accepts a fully valid payload', () => {
@@ -54,45 +42,6 @@ describe('ingredientResponseSchema', () => {
 
     expect(missing.success).toBe(false);
   });
-<<<<<<< Updated upstream
-});
-
-describe('ingredient create/update schemas', () => {
-  it('accepts a valid create payload', () => {
-    const result = createIngredientSchema.safeParse({
-      name: 'Chicken Breast',
-      store_section: 'Meat',
-    });
-
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects invalid create payloads', () => {
-    const missingName = createIngredientSchema.safeParse({ store_section: 'Meat' });
-    const badType = createIngredientSchema.safeParse({
-      name: 123,
-      store_section: 'Meat',
-    });
-
-    expect(missingName.success).toBe(false);
-    expect(badType.success).toBe(false);
-  });
-
-  it('accepts a valid partial update payload', () => {
-    const result = updateIngredientSchema.safeParse({
-      name: 'Organic Chicken',
-    });
-
-    expect(result.success).toBe(true);
-  });
-
-  it('rejects invalid update fields', () => {
-    const result = updateIngredientSchema.safeParse({
-      unknown: 'bad',
-    });
-
-    expect(result.success).toBe(false);
-=======
 
   it('rejects wrong types for each required field', () => {
     const wrongTypePayloads = [
@@ -107,6 +56,49 @@ describe('ingredient create/update schemas', () => {
       const result = ingredientResponseSchema.safeParse(payload);
       expect(result.success).toBe(false);
     }
->>>>>>> Stashed changes
+  });
+});
+
+describe('createIngredientSchema', () => {
+  it('accepts valid payload', () => {
+    const result = createIngredientSchema.safeParse({
+      name: 'Chicken Breast',
+      store_section: 'Meat',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects empty names', () => {
+    const result = createIngredientSchema.safeParse({
+      name: '',
+      store_section: 'Meat',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects missing required fields', () => {
+    const result = createIngredientSchema.safeParse({ name: 'Chicken' });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('updateIngredientSchema', () => {
+  it('accepts partial payloads', () => {
+    const result = updateIngredientSchema.safeParse({
+      name: 'Updated',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts empty object', () => {
+    const result = updateIngredientSchema.safeParse({});
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects invalid partial values', () => {
+    const result = updateIngredientSchema.safeParse({
+      store_section: 123,
+    });
+    expect(result.success).toBe(false);
   });
 });

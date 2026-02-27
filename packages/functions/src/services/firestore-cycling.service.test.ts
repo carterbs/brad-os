@@ -1,24 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createUserScopedFirestoreMocks } from '../test-utils/index.js';
 
 // Mock node:crypto
 vi.mock('node:crypto', () => ({
   randomUUID: vi.fn(() => 'test-uuid-1234'),
 }));
 
-// Firestore mock primitives — declared at module scope so the factory closure captures them
-const mockGet = vi.fn();
-const mockSet = vi.fn().mockResolvedValue(undefined);
-const mockDelete = vi.fn().mockResolvedValue(undefined);
-const mockUpdate = vi.fn().mockResolvedValue(undefined);
-const mockOrderBy = vi.fn();
-const mockLimit = vi.fn();
-const mockWhere = vi.fn();
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockDocRef: Record<string, any> = {};
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockCollectionRef: Record<string, any> = {};
-const mockDb = { collection: vi.fn(() => mockCollectionRef) };
+const firestoreMocks = createUserScopedFirestoreMocks();
+const { mockDb, mockUsersCollection, mockUserDoc, mockCollection, mockDocRef, mockQueryChain } = firestoreMocks;
+const mockGet = mockQueryChain.get;
+const mockSet = mockDocRef.set as ReturnType<typeof vi.fn>;
+const mockUserDocSet = mockUserDoc.set as ReturnType<typeof vi.fn>;
+const mockDelete = mockDocRef.delete as ReturnType<typeof vi.fn>;
+const mockUpdate = mockDocRef.update as ReturnType<typeof vi.fn>;
+const mockOrderBy = mockQueryChain.orderBy;
+const mockLimit = mockQueryChain.limit;
+const mockWhere = mockQueryChain.where;
 
 vi.mock('../firebase.js', () => ({
   getFirestoreDb: vi.fn(() => mockDb),
@@ -106,29 +103,21 @@ const sampleStravaTokens = {
 describe('Firestore Cycling Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-
-    // Reset mock chain objects
-    Object.assign(mockDocRef, {
-      get: mockGet,
-      set: mockSet,
-      delete: mockDelete,
-      update: mockUpdate,
-      collection: vi.fn(() => mockCollectionRef),
-    });
-
-    Object.assign(mockCollectionRef, {
-      doc: vi.fn(() => mockDocRef),
-      orderBy: mockOrderBy,
-      where: mockWhere,
-      get: mockGet,
-    });
-
-    // Query chaining
-    mockOrderBy.mockReturnValue({ get: mockGet, limit: mockLimit });
-    mockLimit.mockReturnValue({ get: mockGet });
-    mockWhere.mockReturnValue({ get: mockGet, limit: mockLimit, orderBy: mockOrderBy });
-
-    mockDb.collection.mockReturnValue(mockCollectionRef);
+    mockUserDoc.collection.mockReturnValue(mockCollection);
+    mockCollection.doc.mockReturnValue(mockDocRef);
+    mockUsersCollection.doc.mockReturnValue(mockUserDoc);
+    mockDocRef.collection.mockReturnValue(mockCollection);
+    mockQueryChain.orderBy.mockReturnValue(mockQueryChain);
+    mockQueryChain.limit.mockReturnValue(mockQueryChain);
+    mockQueryChain.where.mockReturnValue(mockQueryChain);
+      mockDocRef.get.mockReset();
+      mockDocRef.set.mockReset();
+      mockUserDocSet.mockReset();
+      mockDocRef.delete.mockReset();
+      mockDocRef.update.mockReset();
+    mockSet.mockResolvedValue(undefined);
+    mockDelete.mockResolvedValue(undefined);
+    mockUpdate.mockResolvedValue(undefined);
   });
 
   // ============ getCyclingActivities ============
@@ -145,7 +134,7 @@ describe('Firestore Cycling Service', () => {
 
       const result = await getCyclingActivities('test-user');
 
-      expect(mockCollectionRef.orderBy).toHaveBeenCalledWith('date', 'desc');
+      expect(mockCollection.orderBy).toHaveBeenCalledWith('date', 'desc');
       expect(result).toHaveLength(2);
       expect(result[0]?.id).toBe('act-1');
       expect(result[1]?.id).toBe('act-2');
@@ -699,7 +688,7 @@ describe('Firestore Cycling Service', () => {
 
     it('writes and reads athlete-to-user mapping', async () => {
       await setAthleteToUserMapping(12345, 'test-user');
-      expect(mockSet).toHaveBeenCalledWith({ userId: 'test-user' });
+      expect(mockUserDocSet).toHaveBeenCalledWith({ userId: 'test-user' });
 
       mockGet.mockResolvedValueOnce({
         exists: true,

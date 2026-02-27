@@ -1,10 +1,11 @@
 import type { Firestore } from 'firebase-admin/firestore';
-import { getFirestoreDb, getCollectionName } from '../firebase.js';
 import type {
-  BodyRegion,
   StretchRegion,
-  CreateStretchRegionDTO,
+  CreateStretchInput,
+  UpdateStretchInput,
+  BodyRegion,
 } from '../shared.js';
+import { BaseRepository } from './base.repository.js';
 import {
   isRecord,
   readBoolean,
@@ -12,6 +13,11 @@ import {
   readNullableString,
   readString,
 } from './firestore-type-guards.js';
+import type { CreateStretchRegionDTO } from '../types/stretch.js';
+
+type StretchUpdate = UpdateStretchInput & {
+  region?: CreateStretchInput['region'];
+};
 
 type StretchDefinitionRecord = {
   id: string;
@@ -32,17 +38,32 @@ const VALID_BODY_REGIONS = [
   'calves',
 ] as const satisfies readonly BodyRegion[];
 
-export class StretchRepository {
-  private db: Firestore;
-  private collectionName: string;
-
+export class StretchRepository extends BaseRepository<
+  StretchRegion,
+  CreateStretchInput,
+  StretchUpdate
+> {
   constructor(db?: Firestore) {
-    this.db = db ?? getFirestoreDb();
-    this.collectionName = getCollectionName('stretches');
+    super('stretches', db);
   }
 
-  private get collection(): FirebaseFirestore.CollectionReference {
-    return this.db.collection(this.collectionName);
+  async create(data: CreateStretchInput): Promise<StretchRegion> {
+    const timestamps = this.createTimestamps();
+    const regionData = {
+      region: data.region,
+      displayName: data.displayName,
+      iconName: data.iconName,
+      stretches: data.stretches,
+      ...timestamps,
+    };
+
+    const docRef = this.collection.doc(data.region);
+    await docRef.set(regionData);
+
+    return {
+      id: data.region,
+      ...regionData,
+    };
   }
 
   async findAll(): Promise<StretchRegion[]> {
@@ -59,18 +80,7 @@ export class StretchRepository {
   }
 
   async findByRegion(region: string): Promise<StretchRegion | null> {
-    const doc = await this.collection.doc(region).get();
-    if (!doc.exists) {
-      return null;
-    }
-    const data = doc.data();
-    if (data === undefined) {
-      return null;
-    }
-    if (!isRecord(data)) {
-      return null;
-    }
-    return this.parseEntity(doc.id, data);
+    return this.findById(region);
   }
 
   async seed(regions: CreateStretchRegionDTO[]): Promise<void> {

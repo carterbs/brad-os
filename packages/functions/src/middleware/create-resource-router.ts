@@ -35,6 +35,15 @@ interface ResourceRouterConfig<
   RepoClass: new (db: Firestore) => TRepo;
   createSchema: ZodSchema<CreateDTO>;
   updateSchema: ZodSchema<UpdateDTO>;
+  registerCustomRoutes?: (context: {
+    app: express.Application;
+    getRepo: () => TRepo;
+  }) => void;
+  beforeDelete?: (context: {
+    id: string;
+    req: Request;
+    repo: TRepo;
+  }) => Promise<void>;
 }
 
 /**
@@ -62,6 +71,11 @@ export function createResourceRouter<
     const items = await getRepo().findAll();
     res.json({ success: true, data: items });
   }));
+
+  config.registerCustomRoutes?.({
+    app,
+    getRepo,
+  });
 
   // GET /:id
   app.get('/:id', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
@@ -94,6 +108,15 @@ export function createResourceRouter<
   // DELETE /:id
   app.delete('/:id', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
     const id = req.params['id'] ?? '';
+
+    if (config.beforeDelete) {
+      await config.beforeDelete({
+        id,
+        req,
+        repo: getRepo(),
+      });
+    }
+
     const deleted = await getRepo().delete(id);
     if (!deleted) {
       next(new NotFoundError(config.displayName, id));

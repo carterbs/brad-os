@@ -29,7 +29,7 @@ View -> StretchSessionManager/StretchDataService -> APIClient -> Cloud Function 
 
 ## Backend Layer
 - **Handlers:**
-  - `packages/functions/src/handlers/stretches.ts` — stretch definition CRUD (GET by region)
+- `packages/functions/src/handlers/stretches.ts` — stretch definition CRUD with region endpoints
   - `packages/functions/src/handlers/stretchSessions.ts` — session logging (create/list/latest)
 - **Repositories:**
   - `packages/functions/src/repositories/stretch.repository.ts` — stretch definitions by region
@@ -46,7 +46,7 @@ View -> StretchSessionManager/StretchDataService -> APIClient -> Cloud Function 
 - `stretch_sessions` — completed session records
 
 ## Key Endpoints
-- `GET /api/stretches` — all regions with stretch definitions
+- `GET/POST/PUT/DELETE /api/stretches` — standard CRUD for stretch definitions (by region key)
 - `GET /api/stretches/:region` — stretches for a specific body region
 - `POST /api/stretch-sessions` — log a completed stretch session
 - `GET /api/stretch-sessions` — list all sessions

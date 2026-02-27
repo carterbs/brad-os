@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Response } from 'supertest';
-import { type ApiResponse } from '../__tests__/utils/index.js';
+import {
+  type ApiResponse,
+  createMockGuidedMeditationRepository,
+} from '../__tests__/utils/index.js';
 
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({
@@ -13,12 +16,7 @@ vi.mock('../middleware/app-check.js', () => ({
   requireAppCheck: (_req: unknown, _res: unknown, next: () => void): void => next(),
 }));
 
-// Mock repository — no factory exists yet, create mock object directly
-const mockGuidedMeditationRepo = {
-  getCategories: vi.fn(),
-  findAllByCategory: vi.fn(),
-  findById: vi.fn(),
-};
+const mockGuidedMeditationRepo = createMockGuidedMeditationRepository();
 
 vi.mock('../repositories/guided-meditation.repository.js', () => ({
   GuidedMeditationRepository: vi.fn().mockImplementation(() => mockGuidedMeditationRepo),

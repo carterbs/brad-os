@@ -6,6 +6,7 @@ import {
   createFirestoreMocks,
   setupFirebaseMock,
 } from '../test-utils/index.js';
+import type { StretchRegion } from '../types/stretch.js';
 
 describe('StretchRepository', () => {
   let mockDb: Partial<Firestore>;
@@ -121,6 +122,131 @@ describe('StretchRepository', () => {
       const result = await repo.findByRegion('invalid');
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('create', () => {
+    it('should persist region using region as document id', async () => {
+      const repo = new StretchRepository(mockDb as Firestore);
+      const input = {
+        region: 'back',
+        displayName: 'Back',
+        iconName: 'figure.flexibility',
+        stretches: [
+          {
+            id: 'back-childs-pose',
+            name: "Child's Pose",
+            description: 'Kneel...',
+            bilateral: false,
+            image: null,
+          },
+        ],
+      };
+
+      const result = await repo.create(input);
+
+      expect(mockCollection.doc).toHaveBeenCalledWith('back');
+      expect(mockDocRef.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          region: 'back',
+          displayName: 'Back',
+          iconName: 'figure.flexibility',
+          stretches: input.stretches,
+          created_at: expect.any(String),
+          updated_at: expect.any(String),
+        })
+      );
+      expect(result).toEqual({
+        id: 'back',
+        region: 'back',
+        displayName: 'Back',
+        iconName: 'figure.flexibility',
+        stretches: [
+          {
+            id: 'back-childs-pose',
+            name: "Child's Pose",
+            description: 'Kneel...',
+            bilateral: false,
+            image: null,
+          },
+        ],
+        created_at: expect.any(String),
+        updated_at: expect.any(String),
+      });
+    });
+  });
+
+  describe('update', () => {
+    it('should update stretch region and return refreshed doc', async () => {
+      const existing: StretchRegion = {
+        id: 'back',
+        region: 'back',
+        displayName: 'Back',
+        iconName: 'figure.flexibility',
+        stretches: [],
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+      };
+
+      (mockDocRef.get as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(createMockDoc('back', existing))
+        .mockResolvedValueOnce(
+          createMockDoc('back', {
+            region: 'back',
+            displayName: 'Core Back',
+            iconName: 'figure.flexibility',
+            stretches: [],
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-02T00:00:00Z',
+          })
+        );
+
+      const repo = new StretchRepository(mockDb as Firestore);
+      const result = await repo.update('back', {
+        displayName: 'Core Back',
+      });
+
+      expect(mockDocRef.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          displayName: 'Core Back',
+          updated_at: expect.any(String),
+        })
+      );
+      expect(result).not.toBeNull();
+      expect(result?.displayName).toBe('Core Back');
+      expect(result?.updated_at).toBe('2024-01-02T00:00:00Z');
+    });
+  });
+
+  describe('delete', () => {
+    it('should return true when deleting an existing region', async () => {
+      const existing: StretchRegion = {
+        id: 'back',
+        region: 'back',
+        displayName: 'Back',
+        iconName: 'figure.flexibility',
+        stretches: [],
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+      };
+
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(createMockDoc('back', existing));
+
+      const repo = new StretchRepository(mockDb as Firestore);
+      const result = await repo.delete('back');
+
+      expect(mockDocRef.delete).toHaveBeenCalledTimes(1);
+      expect(result).toBe(true);
+    });
+
+    it('should return false when deleting a missing region', async () => {
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(createMockDoc('missing', null));
+
+      const repo = new StretchRepository(mockDb as Firestore);
+      const result = await repo.delete('missing');
+
+      expect(mockDocRef.delete).not.toHaveBeenCalled();
+      expect(result).toBe(false);
     });
   });
 
