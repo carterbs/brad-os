@@ -8,14 +8,6 @@ import { WorkoutSetRepository } from '../repositories/workout-set.repository.js'
 import type { ExerciseHistory, ExerciseHistoryEntry } from '../shared.js';
 import { getFirestoreDb } from '../firebase.js';
 
-let exerciseRepo: ExerciseRepository | null = null;
-function getRepo(): ExerciseRepository {
-  if (exerciseRepo === null) {
-    exerciseRepo = new ExerciseRepository(getFirestoreDb());
-  }
-  return exerciseRepo;
-}
-
 let workoutSetRepo: WorkoutSetRepository | null = null;
 function getWorkoutSetRepo(): WorkoutSetRepository {
   if (workoutSetRepo === null) {
@@ -43,7 +35,7 @@ export const exercisesApp = createResourceRouter({
 
     app.get('/:id/history', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
       const id = req.params['id'] ?? '';
-      const exercise = await getRepo().findById(id);
+      const exercise = await getRouterRepo().findById(id);
       if (exercise === null) {
         next(new NotFoundError('Exercise', id));
         return;

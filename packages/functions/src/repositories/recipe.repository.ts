@@ -1,5 +1,5 @@
 import type { Firestore } from 'firebase-admin/firestore';
-import type { Recipe, CreateRecipeDTO, UpdateRecipeDTO, RecipeStep } from '../shared.js';
+import type { Recipe, RecipeStep } from '../shared.js';
 import { BaseRepository } from './base.repository.js';
 import {
   isRecord,
@@ -8,10 +8,19 @@ import {
   readString,
 } from './firestore-type-guards.js';
 
+/** Read-only DTO placeholders for BaseRepository contract */
+interface RecipeCreateDTO {
+  meal_id: string;
+}
+
+interface RecipeUpdateDTO extends Record<string, unknown> {
+  meal_id?: string;
+}
+
 export class RecipeRepository extends BaseRepository<
   Recipe,
-  CreateRecipeDTO,
-  UpdateRecipeDTO & Record<string, unknown>
+  RecipeCreateDTO,
+  RecipeUpdateDTO & Record<string, unknown>
 > {
   constructor(db?: Firestore) {
     super('recipes', db);
@@ -30,20 +39,9 @@ export class RecipeRepository extends BaseRepository<
       .filter((recipe): recipe is Recipe => recipe !== null);
   }
 
-  async create(data: CreateRecipeDTO): Promise<Recipe> {
-    const timestamps = this.createTimestamps();
-    const recipeData = {
-      meal_id: data.meal_id,
-      ingredients: data.ingredients,
-      steps: data.steps,
-      ...timestamps,
-    };
-
-    const docRef = await this.collection.add(recipeData);
-    return {
-      id: docRef.id,
-      ...recipeData,
-    };
+  // Intentional read-only guardrail: Recipe data is managed externally and not writable via this repository.
+  create(_data: RecipeCreateDTO): Promise<Recipe> {
+    return Promise.reject(new Error('RecipeRepository.create is not implemented'));
   }
 
   async findByMealIds(mealIds: string[]): Promise<Recipe[]> {
@@ -157,5 +155,15 @@ export class RecipeRepository extends BaseRepository<
       created_at: createdAt,
       updated_at: updatedAt,
     };
+  }
+
+  // Intentional read-only guardrail: Recipe data is managed externally and not writable via this repository.
+  override async update(_id: string, _data: RecipeUpdateDTO): Promise<Recipe | null> {
+    return Promise.reject(new Error('RecipeRepository.update is not implemented'));
+  }
+
+  // Intentional read-only guardrail: Recipe data is managed externally and not writable via this repository.
+  override async delete(_id: string): Promise<boolean> {
+    return Promise.reject(new Error('RecipeRepository.delete is not implemented'));
   }
 }

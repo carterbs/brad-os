@@ -83,9 +83,9 @@ describe('Stretches Handler', () => {
   });
 
   describe('GET /stretches/:region', () => {
-    it('should resolve region documents through /:region route', async () => {
+    it('should resolve region documents through /:id route', async () => {
       const region = createTestRegion();
-      mockStretchRepo.findByRegion.mockResolvedValue(region);
+      mockStretchRepo.findById.mockResolvedValue(region);
 
       const response = await request(stretchesApp).get('/back');
 
@@ -94,11 +94,11 @@ describe('Stretches Handler', () => {
         success: true,
         data: region,
       });
-      expect(mockStretchRepo.findByRegion).toHaveBeenCalledWith('back');
+      expect(mockStretchRepo.findById).toHaveBeenCalledWith('back');
     });
 
     it('should return 404 when region is missing', async () => {
-      mockStretchRepo.findByRegion.mockResolvedValue(null);
+      mockStretchRepo.findById.mockResolvedValue(null);
 
       const response = await request(stretchesApp).get('/invalid');
 

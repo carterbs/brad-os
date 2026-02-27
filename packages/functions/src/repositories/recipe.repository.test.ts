@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Firestore, CollectionReference, DocumentReference } from 'firebase-admin/firestore';
+import type { Firestore, CollectionReference } from 'firebase-admin/firestore';
 import {
-  createMockDoc,
   createMockQuerySnapshot,
   createMockQuery,
   createFirestoreMocks,
@@ -11,7 +10,6 @@ import {
 describe('RecipeRepository', () => {
   let mockDb: Partial<Firestore>;
   let mockCollection: Partial<CollectionReference>;
-  let mockDocRef: Partial<DocumentReference>;
   let RecipeRepository: typeof import('./recipe.repository.js').RecipeRepository;
 
   beforeEach(async () => {
@@ -20,7 +18,6 @@ describe('RecipeRepository', () => {
     const mocks = createFirestoreMocks();
     mockDb = mocks.mockDb;
     mockCollection = mocks.mockCollection;
-    mockDocRef = mocks.mockDocRef;
 
     setupFirebaseMock(mocks);
 
@@ -64,11 +61,29 @@ describe('RecipeRepository', () => {
       expect(result[0]?.id).toBe('recipe-1');
       expect(result[0]?.meal_id).toBe('meal-1');
       expect(result[0]?.ingredients[0]?.ingredient_id).toBe('ing-1');
+      expect(result[0]?.ingredients[0]?.quantity).toBe(200);
+      expect(result[0]?.ingredients[0]?.unit).toBe('g');
+      expect(result[1]?.id).toBe('recipe-2');
+      expect(result[1]?.ingredients[0]?.ingredient_id).toBe('ing-2');
+      expect(result[1]?.ingredients[0]?.quantity).toBeNull();
+      expect(result[1]?.ingredients[0]?.unit).toBeNull();
+      expect(result[1]?.steps).toBeNull();
+    });
+
+    it('should return empty array when no recipes exist', async () => {
+      const repository = new RecipeRepository(mockDb as Firestore);
+
+      const mockQuery = createMockQuery(createMockQuerySnapshot([]));
+      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      const result = await repository.findAll();
+
+      expect(result).toEqual([]);
     });
   });
 
   describe('findByMealIds', () => {
-    it('should return recipes matching meal IDs', async () => {
+    it('should return recipes matching given meal IDs', async () => {
       const repository = new RecipeRepository(mockDb as Firestore);
       const recipes = [
         {
@@ -81,25 +96,81 @@ describe('RecipeRepository', () => {
             updated_at: '2024-01-01T00:00:00Z',
           },
         },
+        {
+          id: 'recipe-3',
+          data: {
+            meal_id: 'meal-3',
+            ingredients: [{ ingredient_id: 'ing-2', quantity: 100, unit: 'ml' }],
+            steps: null,
+            created_at: '2024-01-03T00:00:00Z',
+            updated_at: '2024-01-03T00:00:00Z',
+          },
+        },
       ];
 
       const mockQuery = createMockQuery(createMockQuerySnapshot(recipes));
       (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
 
-      const result = await repository.findByMealIds(['meal-1']);
+      const result = await repository.findByMealIds(['meal-1', 'meal-3']);
 
-      expect(mockCollection.where).toHaveBeenCalledWith('meal_id', 'in', ['meal-1']);
-      expect(result).toHaveLength(1);
+      expect(mockCollection.where).toHaveBeenCalledWith('meal_id', 'in', ['meal-1', 'meal-3']);
+      expect(result).toHaveLength(2);
       expect(result[0]?.meal_id).toBe('meal-1');
+      expect(result[1]?.meal_id).toBe('meal-3');
     });
 
-    it('should return empty array for empty meal id list', async () => {
+    it('should return empty array when no meal IDs match', async () => {
+      const repository = new RecipeRepository(mockDb as Firestore);
+
+      const mockQuery = createMockQuery(createMockQuerySnapshot([]));
+      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      const result = await repository.findByMealIds(['meal-999']);
+
+      expect(result).toEqual([]);
+    });
+
+    it('should return empty array when given empty meal IDs array', async () => {
       const repository = new RecipeRepository(mockDb as Firestore);
 
       const result = await repository.findByMealIds([]);
 
       expect(result).toEqual([]);
       expect(mockCollection.where).not.toHaveBeenCalled();
+    });
+
+    it('should skip malformed recipes when listing by meal ids', async () => {
+      const repository = new RecipeRepository(mockDb as Firestore);
+      const recipes = [
+        {
+          id: 'recipe-1',
+          data: {
+            meal_id: 'meal-1',
+            ingredients: [{ ingredient_id: 'ing-1', quantity: 200, unit: 'g' }],
+            steps: [{ step_number: 1, instruction: 'Cook chicken' }],
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
+        },
+        {
+          id: 'recipe-invalid',
+          data: {
+            meal_id: 'meal-2',
+            ingredients: [{ ingredient_id: 'ing-2', quantity: 'bad', unit: 'g' }],
+            steps: [],
+            created_at: '2024-01-02T00:00:00Z',
+            updated_at: '2024-01-02T00:00:00Z',
+          },
+        },
+      ];
+
+      const mockQuery = createMockQuery(createMockQuerySnapshot(recipes));
+      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      const result = await repository.findByMealIds(['meal-1', 'meal-2']);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe('recipe-1');
     });
   });
 
@@ -114,9 +185,14 @@ describe('RecipeRepository', () => {
         updated_at: '2024-01-01T00:00:00Z',
       };
 
-      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(
-        createMockDoc('recipe-1', recipeData)
-      );
+      const mockDocRef = {
+        get: vi.fn().mockResolvedValue({
+          id: 'recipe-1',
+          exists: true,
+          data: () => recipeData,
+        }),
+      };
+      (mockCollection.doc as ReturnType<typeof vi.fn>).mockReturnValue(mockDocRef);
 
       const result = await repository.findById('recipe-1');
 
@@ -130,105 +206,67 @@ describe('RecipeRepository', () => {
     it('should return null when recipe not found', async () => {
       const repository = new RecipeRepository(mockDb as Firestore);
 
-      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(
-        createMockDoc('non-existent', null)
-      );
+      const mockDocRef = {
+        get: vi.fn().mockResolvedValue({
+          id: 'non-existent',
+          exists: false,
+          data: () => undefined,
+        }),
+      };
+      (mockCollection.doc as ReturnType<typeof vi.fn>).mockReturnValue(mockDocRef);
 
       const result = await repository.findById('non-existent');
 
       expect(result).toBeNull();
     });
-  });
 
-  describe('create', () => {
-    it('should create a recipe with timestamps', async () => {
-      const repository = new RecipeRepository(mockDb as Firestore);
-      (mockCollection.add as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'new-recipe-id' });
-
-      const result = await repository.create({
-        meal_id: 'meal-1',
-        ingredients: [{ ingredient_id: 'ing-1', quantity: 200, unit: 'g' }],
-        steps: [{ step_number: 1, instruction: 'Stir' }],
-      });
-
-      expect(mockCollection.add).toHaveBeenCalledWith(
-        expect.objectContaining({
-          meal_id: 'meal-1',
-          ingredients: [{ ingredient_id: 'ing-1', quantity: 200, unit: 'g' }],
-          steps: [{ step_number: 1, instruction: 'Stir' }],
-          created_at: expect.any(String),
-          updated_at: expect.any(String),
-        })
-      );
-      expect(result.id).toBe('new-recipe-id');
-      expect(result.created_at).toBe(result.updated_at);
-    });
-  });
-
-  describe('update', () => {
-    it('should return updated recipe when recipe exists', async () => {
-      const repository = new RecipeRepository(mockDb as Firestore);
-      const existingData = {
-        meal_id: 'meal-1',
-        ingredients: [{ ingredient_id: 'ing-1', quantity: 200, unit: 'g' }],
-        steps: [{ step_number: 1, instruction: 'Cook chicken' }],
-        created_at: '2024-01-01T00:00:00Z',
-        updated_at: '2024-01-01T00:00:00Z',
-      };
-
-      (mockDocRef.get as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(createMockDoc('recipe-1', existingData))
-        .mockResolvedValueOnce(createMockDoc('recipe-1', {
-          ...existingData,
-          meal_id: 'meal-updated',
-          updated_at: '2024-01-02T00:00:00Z',
-        }));
-
-      const result = await repository.update('recipe-1', { meal_id: 'meal-updated' });
-
-      expect(mockDocRef.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          meal_id: 'meal-updated',
-          updated_at: expect.any(String),
-        })
-      );
-      expect(result).not.toBeNull();
-      expect(result?.meal_id).toBe('meal-updated');
-    });
-  });
-
-  describe('delete', () => {
-    it('should return true when an existing recipe is deleted', async () => {
+    it('should return null when recipe payload is malformed', async () => {
       const repository = new RecipeRepository(mockDb as Firestore);
 
-      (mockDocRef.get as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(
-          createMockDoc('recipe-1', {
+      const mockDocRef = {
+        get: vi.fn().mockResolvedValue({
+          id: 'recipe-invalid',
+          exists: true,
+          data: (): Record<string, unknown> => ({
             meal_id: 'meal-1',
-            ingredients: [{ ingredient_id: 'ing-1', quantity: 100, unit: 'g' }],
-            steps: [{ step_number: 1, instruction: 'Boil water' }],
+            ingredients: [{ ingredient_id: 'ing-1', quantity: 'bad', unit: 'g' }],
+            steps: [],
             created_at: '2024-01-01T00:00:00Z',
             updated_at: '2024-01-01T00:00:00Z',
-          })
-        );
+          }),
+        }),
+      };
+      (mockCollection.doc as ReturnType<typeof vi.fn>).mockReturnValue(mockDocRef);
 
-      const result = await repository.delete('recipe-1');
+      const result = await repository.findById('recipe-invalid');
 
-      expect(mockDocRef.delete).toHaveBeenCalledTimes(1);
-      expect(result).toBe(true);
+      expect(result).toBeNull();
     });
+  });
 
-    it('should return false when recipe does not exist', async () => {
+  describe('write-guard methods', () => {
+    it('should reject create with not implemented error', async () => {
       const repository = new RecipeRepository(mockDb as Firestore);
 
-      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-        createMockDoc('non-existent', null)
+      await expect(repository.create({ meal_id: 'meal-1' })).rejects.toThrow(
+        'RecipeRepository.create is not implemented'
       );
+    });
 
-      const result = await repository.delete('non-existent');
+    it('should reject update with not implemented error', async () => {
+      const repository = new RecipeRepository(mockDb as Firestore);
 
-      expect(mockDocRef.delete).not.toHaveBeenCalled();
-      expect(result).toBe(false);
+      await expect(repository.update('recipe-1', { meal_id: 'meal-2' })).rejects.toThrow(
+        'RecipeRepository.update is not implemented'
+      );
+    });
+
+    it('should reject delete with not implemented error', async () => {
+      const repository = new RecipeRepository(mockDb as Firestore);
+
+      await expect(repository.delete('recipe-1')).rejects.toThrow(
+        'RecipeRepository.delete is not implemented'
+      );
     });
   });
 });
