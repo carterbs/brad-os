@@ -1707,14 +1707,14 @@ export async function main(): Promise<void> {
 
       if (!taskText) {
         // Ensure backlog has available tasks
-        const ok = await ensureBacklog();
-        if (!ok) {
-          if (activeWorkers.size === 0) {
-            orchestratorLogger.error("No tasks available and no workers running \u2014 stopping.");
-            process.exit(1);
-          }
-          break; // Let running workers finish
-        }
+        // const ok = await ensureBacklog();
+        // if (!ok) {
+        //   if (activeWorkers.size === 0) {
+        //     orchestratorLogger.error("No tasks available and no workers running \u2014 stopping.");
+        //     process.exit(1);
+        //   }
+        //   break; // Let running workers finish
+        // }
 
         const acquired = acquireTask();
         if (!acquired) break; // All tasks in flight, wait for workers to finish
