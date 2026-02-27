@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GuidedMeditationService } from './guided-meditation.service.js';
-import { createMockGuidedMeditationRepository } from '../__tests__/utils/mock-repository.js';
+import { createMockGuidedMeditationRepository } from '../__tests__/utils/index.js';
 
 const mockRepository = createMockGuidedMeditationRepository();
 

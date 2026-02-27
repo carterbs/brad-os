@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createMockPlanDayRepository, createMockWorkoutRepository, createMockWorkoutSetRepository } from '../__tests__/utils/mock-repository.js';
+import {
+  createMockPlanDayRepository,
+  createMockWorkoutRepository,
+  createMockWorkoutSetRepository,
+} from '../__tests__/utils/index.js';
 
-// Define mock objects with vi.hoisted (before any imports)
 const mockWorkoutRepo = createMockWorkoutRepository();
 const mockPlanDayRepo = createMockPlanDayRepository();
 const mockWorkoutSetRepo = createMockWorkoutSetRepository();

@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { StretchRegion } from '../shared.js';
-import { type ApiResponse } from '../__tests__/utils/index.js';
-import { createMockStretchRepository } from '../__tests__/utils/mock-repository.js';
+import {
+  createMockStretchRepository,
+  type ApiResponse,
+} from '../__tests__/utils/index.js';
 
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({

@@ -1,25 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { CollectionReference, DocumentReference } from 'firebase-admin/firestore';
-import { createFirestoreMocks } from '../test-utils/index.js';
-import { createMockCyclingActivityRepository } from '../__tests__/utils/mock-repository.js';
+import { createUserScopedFirestoreMocks } from '../test-utils/index.js';
 
 // Mock node:crypto
 vi.mock('node:crypto', () => ({
   randomUUID: vi.fn(() => 'test-uuid-1234'),
 }));
 
-// Firestore mock primitives — declared at module scope so the factory closure captures them
-const mockGet = vi.fn();
-const mockSet = vi.fn().mockResolvedValue(undefined);
-const mockDelete = vi.fn().mockResolvedValue(undefined);
-const mockUpdate = vi.fn().mockResolvedValue(undefined);
-const mockOrderBy = vi.fn();
-const mockLimit = vi.fn();
-const mockWhere = vi.fn();
-let mockDb: { collection: ReturnType<typeof vi.fn> };
-let mockDocRef: Partial<DocumentReference>;
-let mockUsersCollection: Partial<CollectionReference>;
-let mockCollectionRef: Partial<CollectionReference>;
+const firestoreMocks = createUserScopedFirestoreMocks();
+const { mockDb, mockUsersCollection, mockUserDoc, mockCollection, mockDocRef, mockQueryChain } = firestoreMocks;
+const mockGet = mockQueryChain.get;
+const mockSet = mockDocRef.set as ReturnType<typeof vi.fn>;
+const mockUserDocSet = mockUserDoc.set as ReturnType<typeof vi.fn>;
+const mockDelete = mockDocRef.delete as ReturnType<typeof vi.fn>;
+const mockUpdate = mockDocRef.update as ReturnType<typeof vi.fn>;
+const mockOrderBy = mockQueryChain.orderBy;
+const mockLimit = mockQueryChain.limit;
+const mockWhere = mockQueryChain.where;
 
 vi.mock('../firebase.js', () => ({
   getFirestoreDb: vi.fn(() => mockDb),
@@ -106,42 +102,22 @@ const sampleStravaTokens = {
 
 describe('Firestore Cycling Service', () => {
   beforeEach(() => {
-    const mocks = createFirestoreMocks();
-    mockDb = { collection: mocks.mockDb.collection as ReturnType<typeof vi.fn> };
-    mockDocRef = mocks.mockDocRef;
-    mockUsersCollection = mocks.mockCollection;
-
-    mockCollectionRef = {
-      doc: vi.fn(() => mockDocRef),
-      orderBy: mockOrderBy,
-      where: mockWhere,
-      get: mockGet,
-    };
-
-    mockUsersCollection.doc = vi.fn(() => mockDocRef);
-    mockUsersCollection.orderBy = mockOrderBy;
-    mockUsersCollection.where = mockWhere;
-    mockUsersCollection.get = mockGet;
-
-    mockDocRef.get = mockGet;
-    mockDocRef.set = mockSet;
-    mockDocRef.delete = mockDelete;
-    mockDocRef.update = mockUpdate;
-    mockDocRef.collection = vi.fn(() => mockCollectionRef);
-
-    mockDb.collection = vi.fn(() => mockUsersCollection);
-
-    mockCollectionRef.orderBy = mockOrderBy;
-    mockCollectionRef.where = mockWhere;
-    mockCollectionRef.doc = vi.fn(() => mockDocRef);
-    mockCollectionRef.get = mockGet;
-
     vi.clearAllMocks();
-
-    // Query chaining
-    mockOrderBy.mockReturnValue({ get: mockGet, limit: mockLimit });
-    mockLimit.mockReturnValue({ get: mockGet });
-    mockWhere.mockReturnValue({ get: mockGet, limit: mockLimit, orderBy: mockOrderBy });
+    mockUserDoc.collection.mockReturnValue(mockCollection);
+    mockCollection.doc.mockReturnValue(mockDocRef);
+    mockUsersCollection.doc.mockReturnValue(mockUserDoc);
+    mockDocRef.collection.mockReturnValue(mockCollection);
+    mockQueryChain.orderBy.mockReturnValue(mockQueryChain);
+    mockQueryChain.limit.mockReturnValue(mockQueryChain);
+    mockQueryChain.where.mockReturnValue(mockQueryChain);
+      mockDocRef.get.mockReset();
+      mockDocRef.set.mockReset();
+      mockUserDocSet.mockReset();
+      mockDocRef.delete.mockReset();
+      mockDocRef.update.mockReset();
+    mockSet.mockResolvedValue(undefined);
+    mockDelete.mockResolvedValue(undefined);
+    mockUpdate.mockResolvedValue(undefined);
   });
 
   // ============ getCyclingActivities ============
@@ -158,7 +134,7 @@ describe('Firestore Cycling Service', () => {
 
       const result = await getCyclingActivities('test-user');
 
-      expect(mockCollectionRef.orderBy).toHaveBeenCalledWith('date', 'desc');
+      expect(mockCollection.orderBy).toHaveBeenCalledWith('date', 'desc');
       expect(result).toHaveLength(2);
       expect(result[0]?.id).toBe('act-1');
       expect(result[1]?.id).toBe('act-2');
@@ -503,16 +479,23 @@ describe('Firestore Cycling Service', () => {
 
   describe('repository-backed stream and update helpers', () => {
     it('should save and read activity streams via repository', async () => {
-      const repository = createMockCyclingActivityRepository();
-      repository.saveStreams.mockResolvedValue(undefined);
-      repository.getStreams.mockResolvedValue({
-        activityId: 'act-1',
-        stravaActivityId: 12345,
-        watts: [100, 120],
-        heartrate: [130, 132],
-        sampleCount: 2,
-        createdAt: '2026-02-10T12:00:00.000Z',
-      });
+      const repository = {
+        findAllByUser: vi.fn(),
+        findById: vi.fn(),
+        findByStravaId: vi.fn(),
+        create: vi.fn(),
+        delete: vi.fn(),
+        saveStreams: vi.fn().mockResolvedValue(undefined),
+        getStreams: vi.fn().mockResolvedValue({
+          activityId: 'act-1',
+          stravaActivityId: 12345,
+          watts: [100, 120],
+          heartrate: [130, 132],
+          sampleCount: 2,
+          createdAt: '2026-02-10T12:00:00.000Z',
+        }),
+        update: vi.fn(),
+      };
 
       const repoSpy = vi
         .spyOn(repositories, 'getCyclingActivityRepository')
@@ -542,8 +525,16 @@ describe('Firestore Cycling Service', () => {
     });
 
     it('should only log update when activity update succeeds', async () => {
-      const repository = createMockCyclingActivityRepository();
-      repository.update.mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+      const repository = {
+        findAllByUser: vi.fn(),
+        findById: vi.fn(),
+        findByStravaId: vi.fn(),
+        create: vi.fn(),
+        delete: vi.fn(),
+        saveStreams: vi.fn(),
+        getStreams: vi.fn(),
+        update: vi.fn().mockResolvedValueOnce(true).mockResolvedValueOnce(false),
+      };
 
       const repoSpy = vi
         .spyOn(repositories, 'getCyclingActivityRepository')
@@ -697,7 +688,7 @@ describe('Firestore Cycling Service', () => {
 
     it('writes and reads athlete-to-user mapping', async () => {
       await setAthleteToUserMapping(12345, 'test-user');
-      expect(mockSet).toHaveBeenCalledWith({ userId: 'test-user' });
+      expect(mockUserDocSet).toHaveBeenCalledWith({ userId: 'test-user' });
 
       mockGet.mockResolvedValueOnce({
         exists: true,

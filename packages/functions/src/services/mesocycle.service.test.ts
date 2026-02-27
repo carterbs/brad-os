@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Firestore } from 'firebase-admin/firestore';
 import type {
   Workout,
@@ -13,15 +13,21 @@ import { ExerciseRepository } from '../repositories/exercise.repository.js';
 import { WorkoutRepository } from '../repositories/workout.repository.js';
 import { WorkoutSetRepository } from '../repositories/workout-set.repository.js';
 import {
-  createMockExerciseRepository,
   createMockMesocycleRepository,
-  createMockPlanDayExerciseRepository,
-  createMockPlanDayRepository,
   createMockPlanRepository,
+  createMockPlanDayRepository,
+  createMockPlanDayExerciseRepository,
+  createMockExerciseRepository,
   createMockWorkoutRepository,
   createMockWorkoutSetRepository,
-} from '../__tests__/utils/mock-repository.js';
-import { createPlan, createPlanDay, createPlanDayExercise, createExercise, createMesocycle, createWorkout, createWorkoutSet } from '../__tests__/utils/index.js';
+  createPlan,
+  createPlanDay,
+  createPlanDayExercise,
+  createExercise,
+  createMesocycle,
+  createWorkout,
+  createWorkoutSet,
+} from '../__tests__/utils/index.js';
 
 // Mock repositories
 vi.mock('../repositories/mesocycle.repository.js');
