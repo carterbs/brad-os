@@ -117,8 +117,8 @@ All handler and service files have corresponding tests.
 
 - [x] **Concrete BaseRepository** - Removed update control-flow duplication from GuidedMeditationRepository. Extracted `buildUpdatePayload()` hook into BaseRepository; child classes override only for domain-specific behavior. IngredientRepository and RecipeRepository retain intentional read-only guards.
 - [ ] **Zod-only types** - Three-layer type duplication (DTO interfaces + Zod schemas + z.infer). Eliminate duplicate DTO interfaces, use `.partial()` for update schemas.
-- [ ] **createResourceRouter factory** - No shared CRUD factory. Each handler manually wires the same REST patterns. Create `createResourceRouter` + `createBaseApp` + typed service errors.
-- [ ] **Shared test utilities** - Duplicated Firestore mocks, fixtures, and handler setup across 11+ test files. Extract to `packages/functions/src/test-utils/`.
+- [x] **createResourceRouter factory** - No shared CRUD factory. Each handler manually wires the same REST patterns. Create `createResourceRouter` + `createBaseApp` + typed service errors.
+- [x] **Shared test utilities** - Duplicated Firestore mocks, fixtures, and handler setup across 11+ test files. Extract to `packages/functions/src/test-utils/`.
 - [x] **Update CLAUDE.md with backend patterns** - After refactor tasks merge, document new BaseRepository, Zod-only, router factory, and test util patterns.
 
 ### Test Coverage Gaps
