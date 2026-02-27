@@ -1,5 +1,5 @@
 ## Phase 10: Coverage Gates (100% Line Coverage)
-Context: [Vision](./00-gardner-vision.md) | [Shared Foundation](./01-shared-foundation.md)
+Context: [Vision](./00-gardener-vision.md) | [Shared Foundation](./01-shared-foundation.md)
 ### Changes Required
 - Add dedicated coverage command:
   - `npm run test:gardener:coverage` -> `cargo llvm-cov -p gardener --bin brad-gardener ...`.

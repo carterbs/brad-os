@@ -1,5 +1,5 @@
 ## Phase 6: Agent Adapter Layer (Claude/Codex, Pluggable)
-Context: [Vision](./00-gardner-vision.md) | [Shared Foundation](./01-shared-foundation.md)
+Context: [Vision](./00-gardener-vision.md) | [Shared Foundation](./01-shared-foundation.md)
 ### Changes Required
 - Add adapter trait:
   - `tools/gardener/src/agent/mod.rs`

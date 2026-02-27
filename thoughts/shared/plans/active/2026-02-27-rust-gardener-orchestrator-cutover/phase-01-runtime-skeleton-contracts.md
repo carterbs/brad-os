@@ -1,5 +1,5 @@
 ## Phase 1: Runtime Skeleton + Contracts
-Context: [Vision](./00-gardner-vision.md) | [Shared Foundation](./01-shared-foundation.md)
+Context: [Vision](./00-gardener-vision.md) | [Shared Foundation](./01-shared-foundation.md)
 ### Changes Required
 - Add a dedicated crate:
   - `tools/gardener/Cargo.toml`

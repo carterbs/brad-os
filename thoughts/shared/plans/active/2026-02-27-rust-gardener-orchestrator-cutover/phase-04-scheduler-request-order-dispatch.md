@@ -1,5 +1,5 @@
 ## Phase 4: Scheduler + Request-Order Dispatch
-Context: [Vision](./00-gardner-vision.md) | [Shared Foundation](./01-shared-foundation.md)
+Context: [Vision](./00-gardener-vision.md) | [Shared Foundation](./01-shared-foundation.md)
 ### Changes Required
 - Add scheduler engine:
   - `tools/gardener/src/scheduler.rs`

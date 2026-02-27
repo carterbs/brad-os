@@ -1,5 +1,5 @@
 ## Phase 9: Full Cutover + TypeScript Removal
-Context: [Vision](./00-gardner-vision.md) | [Shared Foundation](./01-shared-foundation.md)
+Context: [Vision](./00-gardener-vision.md) | [Shared Foundation](./01-shared-foundation.md)
 ### Changes Required
 - Repoint npm scripts:
   - `package.json` `gardener:run` and `gardener:sync` to Rust equivalents.

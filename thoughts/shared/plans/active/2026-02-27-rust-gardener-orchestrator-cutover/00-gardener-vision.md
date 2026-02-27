@@ -1,4 +1,4 @@
-# Gardner Vision
+# Gardener Vision
 
 ## The Problem
 
@@ -10,9 +10,9 @@ Agents can't. From an agent's perspective, anything it can't find in its context
 
 The result is that most brownfield repositories are essentially hostile to autonomous work. You can point an agent at them, but you're going to spend most of your time unblocking it, cleaning up the damage from misunderstood instructions, and wondering why it keeps making the same category of mistake. That's not a model problem. That's an environment problem.
 
-## What Gardner Is
+## What Gardener Is
 
-Gardner is a treatment for that environment problem.
+Gardener is a treatment for that environment problem.
 
 You run it against a real repository—one that's been accumulating entropy for months or years—and it systematically builds the scaffolding that makes autonomous agent work possible. Not in theory. In practice. On your actual codebase, with your actual tech stack, against your actual test suite.
 
@@ -34,22 +34,22 @@ That means several concrete things.
 
 **A backlog that reflects reality.** A well-structured backlog seeded from actual quality evidence, graded by domain, prioritized by impact, and expressed in task shapes agents can execute is a different thing entirely from a pile of issues that accumulated over two years. The first thing is a work queue. The second is a graveyard.
 
-## How Gardner Builds This
+## How Gardener Builds This
 
-Gardner runs as a persistent orchestrator. When it starts against a new repository, it audits the current state: it discovers the codebase's domains, grades each one against a consistent rubric, reconciles any hanging work from previous runs, and uses what it learns to seed an initial backlog of high-value tasks.
+Gardener runs as a persistent orchestrator. When it starts against a new repository, it audits the current state: it discovers the codebase's domains, grades each one against a consistent rubric, reconciles any hanging work from previous runs, and uses what it learns to seed an initial backlog of high-value tasks.
 
 Then it works. It spawns workers, each one moving through an explicit state machine—understand the task, plan if needed, do the work, open a PR, get review, merge. Every step is deterministic. Every output is typed and validated. Workers don't freestyle their way through ambiguous state; they follow a protocol with clear failure modes and recovery paths.
 
-While it runs, Gardner learns. Post-merge analysis captures what worked. Postmortems on failed tasks extract the pattern that caused the failure. That knowledge feeds back into how subsequent tasks are prompted—not as vague instruction inflation, but as structured evidence that influences context ranking and task selection.
+While it runs, Gardener learns. Post-merge analysis captures what worked. Postmortems on failed tasks extract the pattern that caused the failure. That knowledge feeds back into how subsequent tasks are prompted—not as vague instruction inflation, but as structured evidence that influences context ranking and task selection.
 
 The coverage floor rises. The quality grades improve. The linters catch categories of mistakes before they spread. The architecture documentation stays in sync with the code. The repo gets harder to break and easier to navigate.
 
 ## The Outcome
 
-After a Gardner run, the repository is a different kind of place.
+After a Gardener run, the repository is a different kind of place.
 
 An agent dropped into it cold can read the AGENTS.md, follow the pointers, understand the domain structure, run the validation command, and trust what it gets back. It can pick a task from the backlog and know that the task is real, sized right, and unambiguous about success criteria. It can make a change and know that the test suite will tell it whether the change worked.
 
 The humans who operate that repository are no longer the load-bearing wall. They're steering. The agents are executing.
 
-That's the field Gardner is growing.
+That's the field Gardener is growing.

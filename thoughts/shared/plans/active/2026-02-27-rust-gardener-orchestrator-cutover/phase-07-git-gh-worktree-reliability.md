@@ -1,5 +1,5 @@
 ## Phase 7: Git/GH/Worktree Reliability Layer
-Context: [Vision](./00-gardner-vision.md) | [Shared Foundation](./01-shared-foundation.md)
+Context: [Vision](./00-gardener-vision.md) | [Shared Foundation](./01-shared-foundation.md)
 ### Changes Required
 - Add strict command abstractions:
   - `tools/gardener/src/git.rs`

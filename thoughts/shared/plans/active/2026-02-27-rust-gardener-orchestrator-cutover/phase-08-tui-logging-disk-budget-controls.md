@@ -1,5 +1,5 @@
 ## Phase 8: TUI + Logging + Disk Budget Controls
-Context: [Vision](./00-gardner-vision.md) | [Shared Foundation](./01-shared-foundation.md)
+Context: [Vision](./00-gardener-vision.md) | [Shared Foundation](./01-shared-foundation.md)
 ### Changes Required
 - Add terminal UI layer:
   - `tools/gardener/src/tui.rs`.

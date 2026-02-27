@@ -1,5 +1,5 @@
 ## Phase 3: Startup Audits (Quality Grades, Worktrees, PRs, Backlog Seeding)
-Context: [Vision](./00-gardner-vision.md) | [Shared Foundation](./01-shared-foundation.md)
+Context: [Vision](./00-gardener-vision.md) | [Shared Foundation](./01-shared-foundation.md)
 ### Changes Required
 - Add startup audit module:
   - `tools/gardener/src/startup.rs`

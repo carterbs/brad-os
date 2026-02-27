@@ -1,5 +1,5 @@
 ## Phase 2: Central Backlog Engine + Priority Classifier
-Context: [Vision](./00-gardner-vision.md) | [Shared Foundation](./01-shared-foundation.md)
+Context: [Vision](./00-gardener-vision.md) | [Shared Foundation](./01-shared-foundation.md)
 ### Changes Required
 - Add backlog store:
   - `tools/gardener/src/backlog_store.rs` (SQLite schema/migrations)
