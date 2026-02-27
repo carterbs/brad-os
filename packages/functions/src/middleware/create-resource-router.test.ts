@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Firestore } from 'firebase-admin/firestore';
 import request from 'supertest';
 import { z } from 'zod';
+import type { Request, Response } from 'express';
 import { createResourceRouter } from './create-resource-router.js';
 import type { IBaseRepository } from '../types/repository.js';
+import { ConflictError } from '../types/errors.js';
 
 const getFirestoreDbMock = vi.hoisted(() => vi.fn());
 
@@ -138,5 +140,63 @@ describe('createResourceRouter', () => {
 
     expect(response.status).toBe(400);
     expect(repository.create).not.toHaveBeenCalled();
+  });
+
+  it('should register custom routes before built-in id routes', async () => {
+    const app = createResourceRouter<TestItem, CreateItemDTO, UpdateItemDTO, TestResourceRepository>({
+      resourceName: 'tests',
+      displayName: 'TestItem',
+      RepoClass: TestResourceRepository,
+      createSchema: createItemSchema,
+      updateSchema: updateItemSchema,
+      registerCustomRoutes: ({ app: customApp }) => {
+        customApp.get('/default', (_req: Request, res: Response) => {
+          res.json({ success: true, data: 'custom-route' });
+        });
+      },
+    });
+
+    const response = await request(app).get('/default');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      success: true,
+      data: 'custom-route',
+    });
+    expect(repository.findById).not.toHaveBeenCalled();
+  });
+
+  it('should block DELETE via beforeDelete hook and skip repository delete', async () => {
+    const beforeDelete = vi.fn(async () => {
+      throw new ConflictError('Cannot delete this item');
+    });
+
+    const app = createResourceRouter<TestItem, CreateItemDTO, UpdateItemDTO, TestResourceRepository>({
+      resourceName: 'tests',
+      displayName: 'TestItem',
+      RepoClass: TestResourceRepository,
+      createSchema: createItemSchema,
+      updateSchema: updateItemSchema,
+      beforeDelete,
+    });
+
+    repository.delete.mockResolvedValue(true);
+
+    const response = await request(app).delete('/item-1');
+
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({
+      success: false,
+      error: {
+        code: 'CONFLICT',
+        message: 'Cannot delete this item',
+      },
+    });
+    expect(beforeDelete).toHaveBeenCalledWith({
+      id: 'item-1',
+      req: expect.any(Object),
+      repo: expect.anything(),
+    });
+    expect(repository.delete).not.toHaveBeenCalled();
   });
 });

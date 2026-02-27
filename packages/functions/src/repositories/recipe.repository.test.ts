@@ -60,10 +60,13 @@ describe('RecipeRepository', () => {
       expect(result).toHaveLength(2);
       expect(result[0]?.id).toBe('recipe-1');
       expect(result[0]?.meal_id).toBe('meal-1');
-      expect(result[0]?.ingredients).toHaveLength(1);
       expect(result[0]?.ingredients[0]?.ingredient_id).toBe('ing-1');
+      expect(result[0]?.ingredients[0]?.quantity).toBe(200);
+      expect(result[0]?.ingredients[0]?.unit).toBe('g');
       expect(result[1]?.id).toBe('recipe-2');
-      expect(result[1]?.ingredients).toEqual([{ ingredient_id: 'ing-2', quantity: null, unit: null }]);
+      expect(result[1]?.ingredients[0]?.ingredient_id).toBe('ing-2');
+      expect(result[1]?.ingredients[0]?.quantity).toBeNull();
+      expect(result[1]?.ingredients[0]?.unit).toBeNull();
       expect(result[1]?.steps).toBeNull();
     });
 

@@ -1,9 +1,5 @@
 import type { Firestore } from 'firebase-admin/firestore';
-import type {
-  Recipe,
-  RecipeIngredient,
-  RecipeStep,
-} from '../shared.js';
+import type { Recipe, RecipeStep } from '../shared.js';
 import { BaseRepository } from './base.repository.js';
 import {
   isRecord,
@@ -24,7 +20,7 @@ interface RecipeUpdateDTO extends Record<string, unknown> {
 export class RecipeRepository extends BaseRepository<
   Recipe,
   RecipeCreateDTO,
-  RecipeUpdateDTO
+  RecipeUpdateDTO & Record<string, unknown>
 > {
   constructor(db?: Firestore) {
     super('recipes', db);
@@ -41,6 +37,11 @@ export class RecipeRepository extends BaseRepository<
         return this.parseEntity(doc.id, data);
       })
       .filter((recipe): recipe is Recipe => recipe !== null);
+  }
+
+  // Intentional read-only guardrail: Recipe data is managed externally and not writable via this repository.
+  create(_data: RecipeCreateDTO): Promise<Recipe> {
+    return Promise.reject(new Error('RecipeRepository.create is not implemented'));
   }
 
   async findByMealIds(mealIds: string[]): Promise<Recipe[]> {
@@ -61,7 +62,7 @@ export class RecipeRepository extends BaseRepository<
 
   protected parseRecipeIngredient(
     ingredientData: unknown
-  ): RecipeIngredient | null {
+  ): Recipe['ingredients'][number] | null {
     if (!isRecord(ingredientData)) {
       return null;
     }
@@ -121,7 +122,7 @@ export class RecipeRepository extends BaseRepository<
       return null;
     }
 
-    const ingredients: RecipeIngredient[] = [];
+    const ingredients: Recipe['ingredients'] = [];
     for (const ingredient of ingredientsRaw) {
       const parsedIngredient = this.parseRecipeIngredient(ingredient);
       if (parsedIngredient === null) {
@@ -130,7 +131,7 @@ export class RecipeRepository extends BaseRepository<
       ingredients.push(parsedIngredient);
     }
 
-    let steps: RecipeStep[] | null;
+    let steps: Recipe['steps'] | null;
     if (stepsRaw === null) {
       steps = null;
     } else if (Array.isArray(stepsRaw)) {
@@ -154,11 +155,6 @@ export class RecipeRepository extends BaseRepository<
       created_at: createdAt,
       updated_at: updatedAt,
     };
-  }
-
-  // Intentional read-only guardrail: Recipe data is managed externally and not writable via this repository.
-  create(_data: RecipeCreateDTO): Promise<Recipe> {
-    return Promise.reject(new Error('RecipeRepository.create is not implemented'));
   }
 
   // Intentional read-only guardrail: Recipe data is managed externally and not writable via this repository.

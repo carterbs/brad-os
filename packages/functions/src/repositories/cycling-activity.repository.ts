@@ -17,6 +17,8 @@ import {
   readNumber,
   readString,
   readNumberArray,
+  readNumber,
+  readString,
 } from './firestore-type-guards.js';
 import { cyclingActivityDocSchema } from '../shared.js';
 

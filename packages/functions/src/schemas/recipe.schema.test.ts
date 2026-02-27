@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createRecipeSchema,
+  updateRecipeSchema,
   recipeIngredientSchema,
   recipeResponseSchema,
   recipeStepSchema,
@@ -187,5 +189,71 @@ describe('recipeResponseSchema', () => {
 
     expect(invalidIngredient.success).toBe(false);
     expect(invalidStep.success).toBe(false);
+  });
+});
+
+describe('createRecipeSchema', () => {
+  const validPayload = {
+    meal_id: 'meal-1',
+    ingredients: [
+      {
+        ingredient_id: 'ingredient-1',
+        quantity: 1,
+        unit: 'cup',
+      },
+    ],
+    steps: [
+      {
+        step_number: 1,
+        instruction: 'Stir',
+      },
+    ],
+  };
+
+  it('accepts valid create payloads', () => {
+    const result = createRecipeSchema.safeParse(validPayload);
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects missing required fields for create', () => {
+    const result = createRecipeSchema.safeParse({
+      meal_id: 'meal-1',
+      ingredients: [],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts nullable steps', () => {
+    const result = createRecipeSchema.safeParse({
+      ...validPayload,
+      steps: null,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.steps).toBeNull();
+    }
+  });
+});
+
+describe('updateRecipeSchema', () => {
+  it('accepts partial payloads', () => {
+    const result = updateRecipeSchema.safeParse({
+      meal_id: 'meal-2',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts empty object for partial update', () => {
+    const result = updateRecipeSchema.safeParse({});
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects invalid partial values', () => {
+    const result = updateRecipeSchema.safeParse({
+      steps: 'bad',
+    });
+    expect(result.success).toBe(false);
   });
 });

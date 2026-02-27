@@ -11,6 +11,9 @@ const DEFAULT_TOOLS = {
   node: 'v22.12.0',
   npm: '10.0.0',
   firebase: '13.29.1',
+  rustup: '1.25.2',
+  'cargo-llvm-cov': '0.5.17',
+  'llvm-tools-preview': '18.1.0',
   gitleaks: '3.0.0',
   xcodegen: '0.38.0',
 };
@@ -140,6 +143,9 @@ describe('scripts/doctor.sh', () => {
     expect(stdout).toContain('npm');
     expect(stdout).toContain('firebase');
     expect(stdout).toContain('cargo');
+    expect(stdout).toContain('rustup');
+    expect(stdout).toContain('cargo-llvm-cov');
+    expect(stdout).toContain('llvm-tools-preview');
     expect(stdout).toContain('gitleaks');
     expect(stdout).toContain('xcodegen');
     expect(stdout).toContain('git hooks');

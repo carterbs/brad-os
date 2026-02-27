@@ -27,8 +27,8 @@ MealPlanView -> MealPlanViewModel -> APIClient -> mealplans/meals handlers -> Ge
 - **Handlers:**
   - `packages/functions/src/handlers/mealplans.ts` — generate, critique, finalize
   - `packages/functions/src/handlers/meals.ts` — CRUD via createResourceRouter
-  - `packages/functions/src/handlers/recipes.ts` — recipe listing
-  - `packages/functions/src/handlers/ingredients.ts` — ingredient listing
+- `packages/functions/src/handlers/recipes.ts` — recipe CRUD via createResourceRouter
+- `packages/functions/src/handlers/ingredients.ts` — ingredient CRUD via createResourceRouter
   - `packages/functions/src/handlers/barcodes.ts` — barcode CRUD via createResourceRouter
   - `packages/functions/src/handlers/mealplan-debug.ts` — debug UI (HTML page)
 - **Services:**
@@ -66,8 +66,8 @@ MealPlanView -> MealPlanViewModel -> APIClient -> mealplans/meals handlers -> Ge
 - `POST /mealplans/:sessionId/critique` — AI-powered plan critique (OpenAI)
 - `POST /mealplans/:sessionId/finalize` — finalize plan, update lastPlanned dates
 - `GET/POST/PUT/DELETE /meals` — standard CRUD for meal definitions
-- `GET /recipes` — list recipes
-- `GET /ingredients` — list ingredients
+- `GET/POST/PUT/DELETE /recipes` — standard CRUD for recipes
+- `GET/POST/PUT/DELETE /ingredients` — standard CRUD for ingredients
 - `GET/POST/PUT/DELETE /barcodes` — barcode CRUD
 
 ## Notes

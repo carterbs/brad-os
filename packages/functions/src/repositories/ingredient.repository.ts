@@ -17,7 +17,7 @@ interface IngredientUpdateDTO extends Record<string, unknown> {
 export class IngredientRepository extends BaseRepository<
   Ingredient,
   IngredientCreateDTO,
-  IngredientUpdateDTO
+  IngredientUpdateDTO & Record<string, unknown>
 > {
   constructor(db?: Firestore) {
     super('ingredients', db);
@@ -40,6 +40,11 @@ export class IngredientRepository extends BaseRepository<
     };
   }
 
+  // Intentional read-only guardrail: Ingredient data is managed externally and not writable via this repository.
+  create(_data: IngredientCreateDTO): Promise<Ingredient> {
+    return Promise.reject(new Error('IngredientRepository.create is not implemented'));
+  }
+
   async findAll(): Promise<Ingredient[]> {
     const snapshot = await this.collection.orderBy('name').get();
     return snapshot.docs
@@ -51,11 +56,6 @@ export class IngredientRepository extends BaseRepository<
         return this.parseEntity(doc.id, data);
       })
       .filter((ingredient): ingredient is Ingredient => ingredient !== null);
-  }
-
-  // Intentional read-only guardrail: Ingredient data is managed externally and not writable via this repository.
-  create(_data: IngredientCreateDTO): Promise<Ingredient> {
-    return Promise.reject(new Error('IngredientRepository.create is not implemented'));
   }
 
   // Intentional read-only guardrail: Ingredient data is managed externally and not writable via this repository.
