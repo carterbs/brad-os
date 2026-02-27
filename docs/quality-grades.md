@@ -117,8 +117,6 @@ All handler and service files have corresponding tests.
 
 - [x] **Concrete BaseRepository** - Removed update control-flow duplication from GuidedMeditationRepository. Extracted `buildUpdatePayload()` hook into BaseRepository; child classes override only for domain-specific behavior. IngredientRepository and RecipeRepository retain intentional read-only guards.
 - [ ] **Zod-only types** - Three-layer type duplication (DTO interfaces + Zod schemas + z.infer). Eliminate duplicate DTO interfaces, use `.partial()` for update schemas.
-- [x] **createResourceRouter factory** - No shared CRUD factory. Each handler manually wires the same REST patterns. Create `createResourceRouter` + `createBaseApp` + typed service errors.
-- [x] **Shared test utilities** - Duplicated Firestore mocks, fixtures, and handler setup across 11+ test files. Extract to `packages/functions/src/test-utils/`.
 - [x] **Update CLAUDE.md with backend patterns** - After refactor tasks merge, document new BaseRepository, Zod-only, router factory, and test util patterns.
 
 ### Test Coverage Gaps
@@ -142,7 +140,8 @@ All handler and service files have corresponding tests.
 
 ## Recently Completed
 
-- [x] **Calendar cycle-activity aggregation** - Calendar aggregation now includes cycling in `CalendarService.getMonthData` and maps cycling fields (`durationMinutes`, `tss`, `cyclingType`) with `hasCycling` tracking; validated by 6+ cycling-focused calendar service tests.
+- [x] **createResourceRouter factory** - No shared CRUD factory. Each handler previously wired REST patterns manually. Added shared `createResourceRouter` + `createBaseApp` + typed service errors.
+- [x] **Shared test utilities** - Duplicated Firestore mocks, fixtures, and handler setup across 11+ test files were unified under `packages/functions/src/test-utils/`.
 - [x] **Cycling integration tests** - `cycling.integration.test.ts` now covers the cycling API end-to-end.
 - [x] **Guided Meditations handler tests** - `guidedMeditations.test.ts` now covers category browsing and script fetching.
 - [x] **Firestore Recovery service tests** - `firestore-recovery.service.test.ts` now covers all health data CRUD.
