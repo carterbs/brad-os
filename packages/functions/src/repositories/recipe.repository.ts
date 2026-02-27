@@ -1,5 +1,10 @@
 import type { Firestore } from 'firebase-admin/firestore';
-import type { Recipe, RecipeStep } from '../shared.js';
+import type {
+  Recipe,
+  RecipeStep,
+  CreateRecipeDTO,
+  UpdateRecipeDTO,
+} from '../shared.js';
 import { BaseRepository } from './base.repository.js';
 import {
   isRecord,
@@ -8,19 +13,10 @@ import {
   readString,
 } from './firestore-type-guards.js';
 
-/** Read-only DTO placeholders for BaseRepository contract */
-interface RecipeCreateDTO {
-  meal_id: string;
-}
-
-interface RecipeUpdateDTO extends Record<string, unknown> {
-  meal_id?: string;
-}
-
 export class RecipeRepository extends BaseRepository<
   Recipe,
-  RecipeCreateDTO,
-  RecipeUpdateDTO & Record<string, unknown>
+  CreateRecipeDTO,
+  UpdateRecipeDTO
 > {
   constructor(db?: Firestore) {
     super('recipes', db);
@@ -40,7 +36,7 @@ export class RecipeRepository extends BaseRepository<
   }
 
   // Intentional read-only guardrail: Recipe data is managed externally and not writable via this repository.
-  create(_data: RecipeCreateDTO): Promise<Recipe> {
+  create(_data: CreateRecipeDTO): Promise<Recipe> {
     return Promise.reject(new Error('RecipeRepository.create is not implemented'));
   }
 
@@ -158,7 +154,7 @@ export class RecipeRepository extends BaseRepository<
   }
 
   // Intentional read-only guardrail: Recipe data is managed externally and not writable via this repository.
-  override async update(_id: string, _data: RecipeUpdateDTO): Promise<Recipe | null> {
+  override async update(_id: string, _data: UpdateRecipeDTO): Promise<Recipe | null> {
     return Promise.reject(new Error('RecipeRepository.update is not implemented'));
   }
 

@@ -11,16 +11,19 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import { randomUUID } from 'node:crypto';
 import { getFirestoreDb, getCollectionName } from '../firebase.js';
-import type { CyclingActivity, ActivityStreamData, CyclingActivityUpdate, DeleteCyclingActivityResult } from '../types/cycling.js';
+import type {
+  CyclingActivity,
+  ActivityStreamData,
+  CyclingActivityUpdate,
+  DeleteCyclingActivityResult,
+} from '../types/cycling.js';
+import { cyclingActivityDocSchema } from '../schemas/cycling.schema.js';
 import {
   isRecord,
   readNumber,
   readString,
   readNumberArray,
-  readNumber,
-  readString,
 } from './firestore-type-guards.js';
-import { cyclingActivityDocSchema } from '../shared.js';
 
 export class CyclingActivityRepository {
   private db: Firestore;

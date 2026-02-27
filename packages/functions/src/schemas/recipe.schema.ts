@@ -4,12 +4,12 @@ export const recipeIngredientSchema = z.object({
   ingredient_id: z.string(),
   quantity: z.number().nullable(),
   unit: z.string().nullable(),
-});
+}).strict();
 
 export const recipeStepSchema = z.object({
   step_number: z.number().int().nonnegative(),
   instruction: z.string(),
-});
+}).strict();
 
 export const createRecipeSchema = z.object({
   meal_id: z.string().min(1),
@@ -29,7 +29,7 @@ export const recipeResponseSchema = z.object({
   steps: z.array(recipeStepSchema).nullable(),
   created_at: z.string(),
   updated_at: z.string(),
-});
+}).strict();
 
 export type RecipeIngredientInput = z.infer<typeof recipeIngredientSchema>;
 export type RecipeStepInput = z.infer<typeof recipeStepSchema>;

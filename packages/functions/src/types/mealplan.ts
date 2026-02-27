@@ -1,54 +1,26 @@
-import type { BaseEntity } from './database.js';
-import type { Meal, MealType } from './meal.js';
+import { z } from 'zod';
 
-// ============ Meal Plan ============
-
-export interface MealPlanEntry {
-  day_index: number;
-  meal_type: MealType;
-  meal_id: string | null;
-  meal_name: string | null;
-}
-
-export interface CritiqueOperation {
-  day_index: number;
-  meal_type: MealType;
-  new_meal_id: string | null;
-}
-
-export interface ConversationMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  operations?: CritiqueOperation[];
-}
-
-export interface MealPlanSession extends BaseEntity {
-  plan: MealPlanEntry[];
-  meals_snapshot: Meal[];
-  history: ConversationMessage[];
-  is_finalized: boolean;
-}
-
-export interface CreateMealPlanSessionDTO {
-  plan: MealPlanEntry[];
-  meals_snapshot: Meal[];
-  history: ConversationMessage[];
-  is_finalized: boolean;
-}
-
-export interface UpdateMealPlanSessionDTO {
-  plan?: MealPlanEntry[];
-  meals_snapshot?: Meal[];
-  history?: ConversationMessage[];
-  is_finalized?: boolean;
-}
-
-export interface CritiqueResponse {
-  explanation: string;
-  operations: CritiqueOperation[];
-}
-
-export interface ApplyOperationsResult {
-  updatedPlan: MealPlanEntry[];
-  errors: string[];
-}
+export type MealPlanEntry = z.infer<
+  typeof import('../schemas/mealplan.schema.js').mealPlanEntrySchema
+>;
+export type ConversationMessage = z.infer<
+  typeof import('../schemas/mealplan.schema.js').conversationMessageSchema
+>;
+export type CritiqueOperation = z.infer<
+  typeof import('../schemas/mealplan.schema.js').critiqueOperationSchema
+>;
+export type MealPlanSession = z.infer<
+  typeof import('../schemas/mealplan.schema.js').mealPlanSessionSchema
+>;
+export type CreateMealPlanSessionDTO = z.infer<
+  typeof import('../schemas/mealplan.schema.js').createMealPlanSessionSchema
+>;
+export type UpdateMealPlanSessionDTO = z.infer<
+  typeof import('../schemas/mealplan.schema.js').updateMealPlanSessionSchema
+>;
+export type CritiqueResponse = z.infer<
+  typeof import('../schemas/mealplan.schema.js').critiqueResponseSchema
+>;
+export type ApplyOperationsResult = z.infer<
+  typeof import('../schemas/mealplan.schema.js').applyOperationsResultSchema
+>;

@@ -332,7 +332,6 @@ app.post(
     const timezoneOffsetValue = Array.isArray(timezoneOffsetHeader) ? timezoneOffsetHeader[0] : timezoneOffsetHeader;
     const parsedTimezoneOffset = typeof timezoneOffsetValue === 'string' ? Number.parseInt(timezoneOffsetValue, 10) : NaN;
     const timezoneOffset = Number.isNaN(parsedTimezoneOffset) ? 0 : parsedTimezoneOffset;
-
     const [recentLiftingWorkouts, liftingSchedule, mesocycleContext] = await Promise.all([
       buildLiftingContext(timezoneOffset),
       buildLiftingSchedule(),

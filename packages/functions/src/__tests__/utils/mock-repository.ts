@@ -102,22 +102,6 @@ export function createMockWorkoutSetRepository(): MockWorkoutSetRepository {
   };
 }
 
-// ============ Stretch Repository Mock ============
-
-export interface MockStretchRepository {
-  findAll: MockFn;
-  findByRegion: MockFn;
-  seed: MockFn;
-}
-
-export function createMockStretchRepository(): MockStretchRepository {
-  return {
-    findAll: vi.fn(),
-    findByRegion: vi.fn(),
-    seed: vi.fn(),
-  };
-}
-
 // ============ Mesocycle Repository Mock ============
 
 export interface MockMesocycleRepository extends MockBaseRepository {
@@ -290,6 +274,7 @@ export function createMockIngredientRepository(): MockIngredientRepository {
 
 export interface MockStretchRepository extends MockBaseRepository {
   findByRegion: MockFn;
+  seed: MockFn;
 }
 
 export function createMockStretchRepository(): MockStretchRepository {
@@ -300,6 +285,7 @@ export function createMockStretchRepository(): MockStretchRepository {
     update: vi.fn(),
     delete: vi.fn(),
     findByRegion: vi.fn(),
+    seed: vi.fn(),
   };
 }
 
