@@ -1,4 +1,7 @@
 import EventKit
+import os
+
+private let log = Logger(subsystem: "com.bradcarter.brad-os", category: "shopping.reminders")
 
 // MARK: - Types
 
@@ -45,21 +48,27 @@ public final class RemindersService: RemindersServiceProtocol, @unchecked Sendab
         let store = EKEventStore()
 
         // Request full access (iOS 17+)
+        log.info("[export] requesting Reminders access…")
         let granted = try await store.requestFullAccessToReminders()
         guard granted else {
+            log.error("[export] Reminders access DENIED")
             throw RemindersError.accessDenied
         }
+        log.info("[export] Reminders access granted")
 
         let targetName = Self.listName
 
         // Find or create the target list
         let list = try findOrCreateList(named: targetName, in: store)
+        log.info("[export] using list '\(targetName, privacy: .public)' (id=\(list.calendarIdentifier, privacy: .public))")
 
         // Collect all items
         let items = sections.flatMap { $0.items }
         guard !items.isEmpty else {
+            log.warning("[export] no items to export — returning 0")
             return RemindersExportResult(itemCount: 0, listName: targetName)
         }
+        log.info("[export] saving \(items.count) reminders…")
 
         // Create reminders (append only — never modify or remove existing items)
         for item in items {
@@ -72,7 +81,9 @@ public final class RemindersService: RemindersServiceProtocol, @unchecked Sendab
         // Batch commit
         do {
             try store.commit()
+            log.info("[export] batch commit succeeded — \(items.count) items saved")
         } catch {
+            log.error("[export] batch commit FAILED: \(error)")
             throw RemindersError.exportFailed(error.localizedDescription)
         }
 

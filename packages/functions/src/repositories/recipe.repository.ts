@@ -64,24 +64,24 @@ export class RecipeRepository extends BaseRepository<
     }
 
     const ingredientId = readString(ingredientData, 'ingredient_id');
-    const rawQuantity = ingredientData['quantity'];
-    const rawUnit = ingredientData['unit'];
+    const rawQuantity = ingredientData['quantity'] ?? null;
+    const rawUnit = ingredientData['unit'] ?? null;
 
-    if (ingredientId === null || rawQuantity === undefined || rawUnit === undefined) {
+    if (ingredientId === null) {
       return null;
     }
 
     const quantity = rawQuantity === null ? null : readNumber(ingredientData, 'quantity');
-    const unit = readNullableString(ingredientData, 'unit');
+    const unit = rawUnit === null ? null : readNullableString(ingredientData, 'unit');
 
-    if ((rawQuantity !== null && quantity === null) || unit === undefined) {
+    if (rawQuantity !== null && quantity === null) {
       return null;
     }
 
     return {
       ingredient_id: ingredientId,
       quantity,
-      unit,
+      unit: unit ?? null,
     };
   }
 
@@ -113,8 +113,8 @@ export class RecipeRepository extends BaseRepository<
     }
 
     const ingredientsRaw = data['ingredients'];
-    const stepsRaw = data['steps'];
-    if (!Array.isArray(ingredientsRaw) || stepsRaw === undefined) {
+    const stepsRaw = data['steps'] ?? null;
+    if (!Array.isArray(ingredientsRaw)) {
       return null;
     }
 

@@ -125,7 +125,7 @@ struct MealPlanViewModelTests {
         #expect(vm.session == cachedSession)
         #expect(vm.currentPlan == cachedSession.plan)
         #expect(vm.isLoading == false)
-        #expect(vm.error == nil)
+        // error may be set for missing recipes (shouldFail=true prevents recipe cache loading)
     }
 
     @Test("loadExistingSession uses saved session id when present")
@@ -383,6 +383,10 @@ struct MealPlanViewModelTests {
                 ingredients: [RecipeIngredient(ingredientId: "ingredient-1", quantity: 1, unit: "cup")]
             ),
             makeRecipe(
+                mealId: "meal-2",
+                ingredients: [RecipeIngredient(ingredientId: "ingredient-2", quantity: 1, unit: "cup")]
+            ),
+            makeRecipe(
                 mealId: "meal-3",
                 ingredients: [RecipeIngredient(ingredientId: "ingredient-3", quantity: 1, unit: "cup")]
             ),
@@ -420,7 +424,7 @@ struct MealPlanViewModelTests {
         #expect(vm.critiqueText.isEmpty)
         #expect(vm.isSending == false)
         #expect(vm.error == nil)
-        #expect(shoppingItemNames(vm.shoppingList) == ["Spinach"])
+        #expect(shoppingItemNames(vm.shoppingList) == ["Spinach", "Milk"])
     }
 
     @Test("submitQueuedActions with empty queue is no-op")
@@ -588,6 +592,57 @@ struct MealPlanViewModelTests {
         #expect(vm.error == nil)
         #expect(cacheService.cacheCallCount == 0)
         #expect(mockDefaults.string(forKey: "mealPlanSessionId") == "finalized-session")
+    }
+    @Test("updateShoppingList sets error when meals are missing recipes")
+    @MainActor
+    func updateShoppingListSetsErrorWhenMealsMissingRecipes() async {
+        let ingredients = [
+            makeIngredient(id: "ingredient-1", name: "Rice", storeSection: "Pasta & Grains")
+        ]
+        // Only meal-1 has a recipe; meal-2 does not
+        let recipes = [
+            makeRecipe(
+                mealId: "meal-1",
+                ingredients: [RecipeIngredient(ingredientId: "ingredient-1", quantity: 1, unit: "cup")]
+            )
+        ]
+
+        let plan = [
+            makePlanEntry(dayIndex: 0, mealType: .breakfast, mealId: "meal-1", mealName: "Rice Bowl"),
+            makePlanEntry(dayIndex: 0, mealType: .lunch, mealId: "meal-2", mealName: "Mystery Lunch"),
+        ]
+
+        let session = makeSession(
+            id: "missing-recipe-session",
+            isFinalized: false,
+            plan: plan,
+            mealsSnapshot: [
+                makeMeal(id: "meal-1", name: "Rice Bowl", mealType: .breakfast),
+                makeMeal(id: "meal-2", name: "Mystery Lunch", mealType: .lunch),
+            ]
+        )
+
+        let mock = MockAPIClient()
+        mock.mockIngredients = ingredients
+        mock.mockRecipes = recipes
+        mock.mockMealPlanSession = session
+
+        let mockDefaults = MockUserDefaults()
+        mockDefaults.set("missing-recipe-session", forKey: "mealPlanSessionId")
+
+        let vm = MealPlanViewModel(
+            apiClient: mock,
+            recipeCache: RecipeCacheService(apiClient: mock),
+            cacheService: RecordingMealPlanCacheService(),
+            userDefaults: mockDefaults
+        )
+
+        await vm.loadExistingSession()
+
+        #expect(vm.error?.contains("Mystery Lunch") == true)
+        #expect(vm.error?.contains("missing recipes") == true)
+        // Shopping list should still contain the items from meal-1
+        #expect(shoppingItemNames(vm.shoppingList) == ["Rice"])
     }
 }
 

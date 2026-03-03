@@ -244,6 +244,110 @@ describe('RecipeRepository', () => {
     });
   });
 
+  describe('parseEntity edge cases', () => {
+    it('should parse recipe when steps field is completely absent from data', async () => {
+      const repository = new RecipeRepository(mockDb as Firestore);
+      const recipes = [
+        {
+          id: 'recipe-no-steps',
+          data: {
+            meal_id: 'meal-1',
+            ingredients: [{ ingredient_id: 'ing-1', quantity: 200, unit: 'g' }],
+            // steps key intentionally omitted — simulates original seeded recipes
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
+        },
+      ];
+
+      const mockQuery = createMockQuery(createMockQuerySnapshot(recipes));
+      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      const result = await repository.findAll();
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe('recipe-no-steps');
+      expect(result[0]?.steps).toBeNull();
+    });
+
+    it('should parse ingredient with only ingredient_id and no quantity or unit keys', async () => {
+      const repository = new RecipeRepository(mockDb as Firestore);
+      const recipes = [
+        {
+          id: 'recipe-sparse',
+          data: {
+            meal_id: 'meal-sparse',
+            ingredients: [
+              { ingredient_id: 'ing-only' },
+              { ingredient_id: 'ing-full', quantity: 100, unit: 'g' },
+            ],
+            steps: null,
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
+        },
+      ];
+
+      const mockQuery = createMockQuery(createMockQuerySnapshot(recipes));
+      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      const result = await repository.findAll();
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.ingredients).toHaveLength(2);
+      expect(result[0]?.ingredients[0]).toEqual({
+        ingredient_id: 'ing-only',
+        quantity: null,
+        unit: null,
+      });
+      expect(result[0]?.ingredients[1]).toEqual({
+        ingredient_id: 'ing-full',
+        quantity: 100,
+        unit: 'g',
+      });
+    });
+
+    it('should include recipes with sparse ingredient data in findByMealIds', async () => {
+      const repository = new RecipeRepository(mockDb as Firestore);
+      const recipes = [
+        {
+          id: 'recipe-sparse-1',
+          data: {
+            meal_id: 'meal-6',
+            ingredients: [
+              { ingredient_id: 'ing-a' },
+              { ingredient_id: 'ing-b' },
+            ],
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
+        },
+        {
+          id: 'recipe-full-1',
+          data: {
+            meal_id: 'meal-7',
+            ingredients: [{ ingredient_id: 'ing-c', quantity: 2, unit: 'cups' }],
+            steps: [{ step_number: 1, instruction: 'Mix ingredients' }],
+            created_at: '2024-01-02T00:00:00Z',
+            updated_at: '2024-01-02T00:00:00Z',
+          },
+        },
+      ];
+
+      const mockQuery = createMockQuery(createMockQuerySnapshot(recipes));
+      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      const result = await repository.findByMealIds(['meal-6', 'meal-7']);
+
+      expect(result).toHaveLength(2);
+      expect(result[0]?.ingredients[0]?.quantity).toBeNull();
+      expect(result[0]?.ingredients[0]?.unit).toBeNull();
+      expect(result[0]?.steps).toBeNull();
+      expect(result[1]?.ingredients[0]?.quantity).toBe(2);
+      expect(result[1]?.steps).toHaveLength(1);
+    });
+  });
+
   describe('write-guard methods', () => {
     it('should reject create with not implemented error', async () => {
       const repository = new RecipeRepository(mockDb as Firestore);

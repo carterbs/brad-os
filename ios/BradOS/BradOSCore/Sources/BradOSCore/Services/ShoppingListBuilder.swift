@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let log = Logger(subsystem: "com.bradcarter.brad-os", category: "shopping.builder")
 
 /// Builds a sectioned shopping list from meal IDs using cached recipe/ingredient data.
 /// Items are aggregated by ingredient, grouped by store section, and sorted for
@@ -10,17 +13,23 @@ public enum ShoppingListBuilder {
         fromMealIds mealIds: [String],
         using cache: RecipeCacheService
     ) -> [ShoppingListSection] {
+        log.info("[build] starting with \(mealIds.count) meal IDs: \(mealIds, privacy: .public)")
+
         // 1. Get all (ingredient, quantity, unit) tuples
         let tuples = cache.ingredientTuples(forMealIds: mealIds)
+        if tuples.isEmpty && !mealIds.isEmpty {
+            log.error("[build] got 0 tuples from \(mealIds.count) meal IDs — cache may be empty or meals have no recipes")
+        }
 
         // 2. Aggregate by ingredientId
         let aggregated = aggregate(tuples)
+        log.info("[build] aggregated \(tuples.count) tuples → \(aggregated.count) unique items")
 
         // 3. Group by storeSection
         let grouped = Dictionary(grouping: aggregated) { $0.storeSection }
 
         // 4. Build sections, sorted by store order, pantry last
-        return grouped.map { (sectionName, items) in
+        let sections = grouped.map { (sectionName, items) in
             let section = StoreSection(rawValue: sectionName) ?? .pantryStaples
             return ShoppingListSection(
                 id: sectionName,
@@ -31,6 +40,9 @@ public enum ShoppingListBuilder {
             )
         }
         .sorted { $0.sortOrder < $1.sortOrder }
+
+        log.info("[build] result: \(sections.count) sections, \(sections.reduce(0) { $0 + $1.items.count }) total items")
+        return sections
     }
 
     /// Aggregate tuples by ingredient ID, summing quantities where units match

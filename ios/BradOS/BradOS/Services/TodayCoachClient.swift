@@ -44,12 +44,14 @@ class TodayCoachClient: ObservableObject {
         error = nil
         defer { isLoading = false }
 
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        dateFormatter.locale = Locale(identifier: "en_US_POSIX")
+        dateFormatter.timeZone = TimeZone(identifier: "UTC")
 
         let requestBody = CyclingCoachRequestBody(
             recovery: CyclingCoachRequestBody.RecoverySnapshot(
-                date: formatter.string(from: recovery.date),
+                date: dateFormatter.string(from: recovery.date),
                 hrvMs: recovery.hrvMs,
                 hrvVsBaseline: recovery.hrvVsBaseline,
                 rhrBpm: recovery.rhrBpm,

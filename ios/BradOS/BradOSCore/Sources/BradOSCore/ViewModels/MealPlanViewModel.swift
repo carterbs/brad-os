@@ -2,6 +2,7 @@ import Foundation
 import os
 
 private let timingLog = Logger(subsystem: "com.bradcarter.brad-os", category: "timing")
+private let shoppingLog = Logger(subsystem: "com.bradcarter.brad-os", category: "shopping")
 
 /// ViewModel for the Meal Plan feature
 /// Manages plan generation, critique loop, and finalization
@@ -318,9 +319,47 @@ public class MealPlanViewModel: ObservableObject {
     // MARK: - Shopping List
 
     private func updateShoppingList() async {
-        await recipeCache.loadIfNeeded()
+        let totalEntries = currentPlan.count
+        let nilSlots = currentPlan.filter { $0.mealId == nil }
         let mealIds = currentPlan.compactMap { $0.mealId }
+
+        shoppingLog.info("[updateShoppingList] plan has \(totalEntries) entries, \(mealIds.count) with mealId, \(nilSlots.count) nil slots")
+        if !nilSlots.isEmpty {
+            let nilDesc = nilSlots.map { "day\($0.dayIndex)-\($0.mealType.rawValue)(\($0.mealName ?? "nil"))" }.joined(separator: ", ")
+            shoppingLog.info("[updateShoppingList] nil slots: \(nilDesc, privacy: .public)")
+        }
+
+        await recipeCache.loadIfNeeded()
+
+        // Check which meals have recipes and which don't
+        var missingRecipeMeals: [String] = []
+        for entry in currentPlan where entry.mealId != nil {
+            let hasRecipe = recipeCache.recipe(forMealId: entry.mealId!) != nil
+            let symbol = hasRecipe ? "+" : "MISSING"
+            shoppingLog.info("[meal→recipe] \(symbol, privacy: .public) day\(entry.dayIndex)-\(entry.mealType.rawValue, privacy: .public): \(entry.mealName ?? "?", privacy: .public) (id=\(entry.mealId!, privacy: .public))")
+            if !hasRecipe {
+                missingRecipeMeals.append(entry.mealName ?? entry.mealId!)
+            }
+        }
+
+        if !missingRecipeMeals.isEmpty {
+            let names = missingRecipeMeals.joined(separator: ", ")
+            self.error = "Shopping list incomplete — \(missingRecipeMeals.count) meals missing recipes: \(names)"
+            shoppingLog.error("[updateShoppingList] \(missingRecipeMeals.count) meals have no recipe: \(names, privacy: .public)")
+        }
+
         shoppingList = ShoppingListBuilder.build(fromMealIds: mealIds, using: recipeCache)
+
+        shoppingLog.info("[updateShoppingList] final shoppingList: \(self.shoppingList.count) sections, \(self.shoppingList.reduce(0) { $0 + $1.items.count }) items")
+        if shoppingList.isEmpty && !mealIds.isEmpty {
+            shoppingLog.error("[updateShoppingList] EMPTY shopping list despite \(mealIds.count) meal IDs — something is wrong upstream")
+        }
+
+        // Full item dump for debugging
+        for section in shoppingList {
+            let items = section.items.map { $0.displayText }.joined(separator: " | ")
+            shoppingLog.info("[shoppingList] \(section.name, privacy: .public) (\(section.items.count)): \(items, privacy: .public)")
+        }
     }
 
     public func exportToReminders() async {
@@ -328,8 +367,15 @@ public class MealPlanViewModel: ObservableObject {
         remindersError = nil
         remindersExportResult = nil
 
+        let itemCount = shoppingList.reduce(0) { $0 + $1.items.count }
+        shoppingLog.info("[exportToReminders] starting — \(self.shoppingList.count) sections, \(itemCount) items")
+        if shoppingList.isEmpty {
+            shoppingLog.warning("[exportToReminders] shopping list is EMPTY, export will save 0 items")
+        }
+
         do {
             let result = try await remindersService.exportToReminders(shoppingList)
+            shoppingLog.info("[exportToReminders] success — saved \(result.itemCount) items to '\(result.listName, privacy: .public)'")
             remindersExportResult = result
 
             // Auto-clear success after 3 seconds
@@ -338,6 +384,7 @@ public class MealPlanViewModel: ObservableObject {
                 remindersExportResult = nil
             }
         } catch let error as RemindersError {
+            shoppingLog.error("[exportToReminders] RemindersError: \(String(describing: error), privacy: .public)")
             switch error {
             case .accessDenied:
                 remindersError = "Reminders access denied. Check Settings > BradOS > Reminders."
@@ -347,6 +394,7 @@ public class MealPlanViewModel: ObservableObject {
                 remindersError = "Export failed: \(message)"
             }
         } catch {
+            shoppingLog.error("[exportToReminders] unexpected error: \(error)")
             remindersError = "Export failed: \(error.localizedDescription)"
         }
 

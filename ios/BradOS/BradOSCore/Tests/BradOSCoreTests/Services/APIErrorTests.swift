@@ -50,6 +50,22 @@ struct APIErrorTests {
         #expect(error.message.contains("decode"))
     }
 
+    @Test("decoding error preserves DecodingError key path details")
+    func decodingErrorPreservesKeyPath() {
+        struct Dummy: Decodable { let storageSection: String }
+        let json = Data(#"{"name":"Salt"}"#.utf8)
+        do {
+            _ = try JSONDecoder().decode(Dummy.self, from: json)
+            Issue.record("Expected DecodingError but decode succeeded")
+        } catch {
+            let apiError = APIError.decoding(error)
+            // String(describing:) should include the missing key name
+            #expect(apiError.message.contains("storageSection"))
+            #expect(apiError.code == .decodingError)
+            #expect(apiError.statusCode == nil)
+        }
+    }
+
     @Test("unknown error has optional status code")
     func unknownError() {
         let error = APIError.unknown("Something went wrong", statusCode: 418)

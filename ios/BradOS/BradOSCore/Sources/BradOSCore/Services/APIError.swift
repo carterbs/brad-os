@@ -67,7 +67,7 @@ public struct APIError: Error, LocalizedError, Sendable {
     }
 
     public static func decoding(_ error: Error) -> APIError {
-        APIError(code: .decodingError, message: "Failed to decode response: \(error.localizedDescription)", statusCode: nil)
+        APIError(code: .decodingError, message: "Failed to decode response: \(String(describing: error))", statusCode: nil)
     }
 
     public static func unknown(_ message: String, statusCode: Int? = nil) -> APIError {

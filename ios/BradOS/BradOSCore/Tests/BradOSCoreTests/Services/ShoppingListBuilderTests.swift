@@ -242,6 +242,36 @@ struct ShoppingListBuilderTests {
         #expect(allItems.first?.name == "Chicken")
     }
 
+    @Test("Same ingredient with mixed quantities and nil quantities falls back to nil")
+    @MainActor
+    func sameIngredientMixedQuantitiesAndNilFallsBackToNil() async {
+        let garlic = makeIngredient(id: "ing-garlic", name: "Garlic", storeSection: "Produce")
+
+        // Recipe 1 has a measured quantity
+        let recipe1 = makeRecipe(mealId: "meal-1", ingredients: [
+            RecipeIngredient(ingredientId: "ing-garlic", quantity: 3, unit: "cloves"),
+        ])
+        // Recipe 2 is a sparse seeded recipe — no quantity
+        let recipe2 = makeRecipe(mealId: "meal-2", ingredients: [
+            RecipeIngredient(ingredientId: "ing-garlic", quantity: nil, unit: nil),
+        ])
+
+        let cache = makeCache(ingredients: [garlic], recipes: [recipe1, recipe2])
+        await cache.loadIfNeeded()
+
+        let sections = ShoppingListBuilder.build(fromMealIds: ["meal-1", "meal-2"], using: cache)
+
+        let allItems = sections.flatMap { $0.items }
+        let garlicItem = allItems.first { $0.id == "ing-garlic" }
+
+        #expect(garlicItem != nil)
+        // When some entries have qty and some don't, the nil entries are filtered out
+        // and remaining entries should still aggregate if they share a unit
+        #expect(garlicItem?.totalQuantity == 3.0)
+        #expect(garlicItem?.unit == "cloves")
+        #expect(garlicItem?.mealCount == 2)
+    }
+
     @Test("Same dinner every night for 7 days aggregates correctly")
     @MainActor
     func sameDinnerEveryNightAggregatesCorrectly() async {
