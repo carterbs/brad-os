@@ -1,0 +1,115 @@
+mod cli;
+mod client;
+mod commands;
+mod error;
+mod output;
+mod types;
+
+use clap::Parser;
+use std::process;
+
+use cli::{Cli, Commands, MealplanAction, MealsAction, ShoppinglistAction};
+use client::ApiClient;
+use output::print_error;
+
+fn run() -> Result<(), error::CliError> {
+    let cli = Cli::parse();
+    let client = ApiClient::from_env(cli.dev)?;
+
+    match cli.command {
+        Commands::Mealplan(cmd) => match cmd.action {
+            MealplanAction::Generate => commands::mealplan::generate(&client)?,
+            MealplanAction::Latest => commands::mealplan::latest(&client)?,
+            MealplanAction::Get { session_id } => {
+                commands::mealplan::get(&client, &session_id)?;
+            }
+            MealplanAction::Critique {
+                session_id,
+                message,
+            } => {
+                commands::mealplan::critique(&client, &session_id, &message)?;
+            }
+            MealplanAction::Finalize { session_id } => {
+                commands::mealplan::finalize(&client, &session_id)?;
+            }
+        },
+        Commands::Meals(cmd) => match cmd.action {
+            MealsAction::List => commands::meals::list(&client)?,
+            MealsAction::Get { id } => commands::meals::get(&client, &id)?,
+            MealsAction::Create {
+                name,
+                meal_type,
+                effort,
+                has_red_meat,
+                prep_ahead,
+                url,
+            } => {
+                commands::meals::create(
+                    &client,
+                    &name,
+                    &meal_type,
+                    effort,
+                    has_red_meat,
+                    prep_ahead,
+                    &url,
+                )?;
+            }
+            MealsAction::Update {
+                id,
+                name,
+                meal_type,
+                effort,
+                has_red_meat,
+                no_red_meat,
+                prep_ahead,
+                no_prep_ahead,
+                url,
+            } => {
+                // Resolve boolean toggle flags
+                let red_meat_val = if has_red_meat {
+                    Some(true)
+                } else if no_red_meat {
+                    Some(false)
+                } else {
+                    None
+                };
+                let prep_ahead_val = if prep_ahead {
+                    Some(true)
+                } else if no_prep_ahead {
+                    Some(false)
+                } else {
+                    None
+                };
+
+                commands::meals::update(
+                    &client,
+                    &id,
+                    name.as_deref(),
+                    meal_type.as_deref(),
+                    effort,
+                    red_meat_val,
+                    prep_ahead_val,
+                    url.as_deref(),
+                )?;
+            }
+            MealsAction::Delete { id } => commands::meals::delete(&client, &id)?,
+        },
+        Commands::Shoppinglist(cmd) => match cmd.action {
+            ShoppinglistAction::Generate { session_id } => {
+                commands::shoppinglist::generate(&client, session_id.as_deref())?;
+            }
+        },
+    }
+
+    Ok(())
+}
+
+fn main() {
+    match run() {
+        Ok(()) => process::exit(0),
+        Err(err) => {
+            print_error(&err);
+            process::exit(1);
+        }
+    }
+}
