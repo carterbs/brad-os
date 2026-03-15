@@ -168,4 +168,101 @@ struct DashboardViewModelTests {
 
         #expect(vm.workout?.status == .skipped)
     }
+
+    @Test("force meal plan refresh clears saved session id and reloads latest finalized plan")
+    @MainActor
+    func forceMealPlanRefreshClearsSavedSessionIdAndReloadsLatestPlan() async {
+        let staleSession = MealPlanSession(
+            id: "stale-session",
+            plan: [
+                MealPlanEntry(dayIndex: 6, mealType: .breakfast, mealId: "meal-1", mealName: "Old Breakfast")
+            ],
+            mealsSnapshot: [
+                Meal(
+                    id: "meal-1",
+                    name: "Old Breakfast",
+                    mealType: .breakfast,
+                    effort: 1,
+                    hasRedMeat: false,
+                    prepAhead: false,
+                    createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+                    updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+                )
+            ],
+            history: [],
+            isFinalized: true,
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        let latestSession = MealPlanSession(
+            id: "latest-session",
+            plan: [
+                MealPlanEntry(dayIndex: 6, mealType: .dinner, mealId: "meal-2", mealName: "New Dinner")
+            ],
+            mealsSnapshot: [
+                Meal(
+                    id: "meal-2",
+                    name: "New Dinner",
+                    mealType: .dinner,
+                    effort: 1,
+                    hasRedMeat: false,
+                    prepAhead: false,
+                    createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+                    updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+                )
+            ],
+            history: [],
+            isFinalized: true,
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        let mock = MockAPIClient()
+        mock.mockLatestMealPlanSession = latestSession
+
+        let cacheService = RecordingMealPlanCacheService(cachedSession: staleSession)
+        let defaults = MockUserDefaults()
+        defaults.set("stale-session", forKey: "mealPlanSessionId")
+
+        let vm = DashboardViewModel(
+            apiClient: mock,
+            cacheService: cacheService,
+            userDefaults: defaults
+        )
+
+        await vm.refreshMealPlan(forceRefresh: true)
+
+        #expect(cacheService.invalidateCallCount == 1)
+        #expect(cacheService.cachedSession == latestSession)
+        #expect(defaults.string(forKey: "mealPlanSessionId") == nil)
+        #expect(vm.todayMeals.map(\.mealName) == ["New Dinner"])
+    }
+}
+
+private final class RecordingMealPlanCacheService: MealPlanCacheServiceProtocol, @unchecked Sendable {
+    private(set) var cachedSession: MealPlanSession?
+    private(set) var cacheCallCount = 0
+    private(set) var invalidateCallCount = 0
+
+    init(cachedSession: MealPlanSession? = nil) {
+        self.cachedSession = cachedSession
+    }
+
+    func getCachedSession() -> MealPlanSession? {
+        cachedSession
+    }
+
+    func cache(_ session: MealPlanSession) {
+        cacheCallCount += 1
+        cachedSession = session
+    }
+
+    func invalidate() {
+        invalidateCallCount += 1
+        cachedSession = nil
+    }
+
+    func isCached(sessionId: String) -> Bool {
+        cachedSession?.id == sessionId
+    }
 }

@@ -4,6 +4,8 @@ import Foundation
 /// Manages independent loading states for each card and parallel data fetching
 @MainActor
 public class DashboardViewModel: ObservableObject {
+    private static let mealPlanSessionIdKey = "mealPlanSessionId"
+
     // MARK: - Published State
 
     @Published public var workout: Workout?
@@ -34,12 +36,18 @@ public class DashboardViewModel: ObservableObject {
 
     private let apiClient: APIClientProtocol
     private let cacheService: MealPlanCacheServiceProtocol
+    private let userDefaults: UserDefaultsProtocol
 
     // MARK: - Initialization
 
-    public init(apiClient: APIClientProtocol, cacheService: MealPlanCacheServiceProtocol = MealPlanCacheService.shared) {
+    public init(
+        apiClient: APIClientProtocol,
+        cacheService: MealPlanCacheServiceProtocol = MealPlanCacheService.shared,
+        userDefaults: UserDefaultsProtocol = UserDefaults.standard
+    ) {
         self.apiClient = apiClient
         self.cacheService = cacheService
+        self.userDefaults = userDefaults
     }
 
     // MARK: - Data Loading
@@ -87,6 +95,7 @@ public class DashboardViewModel: ObservableObject {
     public func refreshMealPlan(forceRefresh: Bool = false) async {
         if forceRefresh {
             cacheService.invalidate()
+            userDefaults.removeObject(forKey: Self.mealPlanSessionIdKey)
         }
         await loadMealPlan()
     }
