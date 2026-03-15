@@ -255,6 +255,60 @@ struct MealPlanViewModelTests {
         #expect(vm.error == nil)
     }
 
+    @Test("forceRefresh clears saved session id and reloads latest session")
+    @MainActor
+    func forceRefreshClearsSavedSessionIdAndReloadsLatestSession() async {
+        let ingredients = [
+            makeIngredient(id: "ingredient-1", name: "Pasta", storeSection: "Pasta & Grains")
+        ]
+        let recipes = [
+            makeRecipe(
+                mealId: "meal-2",
+                ingredients: [RecipeIngredient(ingredientId: "ingredient-1", quantity: 1, unit: "box")]
+            )
+        ]
+
+        let staleSession = makeSession(
+            id: "stale-session",
+            isFinalized: false,
+            plan: [makePlanEntry(dayIndex: 0, mealType: .dinner, mealId: "meal-1", mealName: "Old Dinner")],
+            mealsSnapshot: [makeMeal(id: "meal-1", name: "Old Dinner", mealType: .dinner)]
+        )
+        let latestSession = makeSession(
+            id: "latest-session",
+            isFinalized: true,
+            plan: [makePlanEntry(dayIndex: 0, mealType: .dinner, mealId: "meal-2", mealName: "New Dinner")],
+            mealsSnapshot: [makeMeal(id: "meal-2", name: "New Dinner", mealType: .dinner)]
+        )
+
+        let mock = MockAPIClient()
+        mock.mockIngredients = ingredients
+        mock.mockRecipes = recipes
+        mock.mockMealPlanSessionsById["stale-session"] = staleSession
+        mock.mockLatestMealPlanSession = latestSession
+
+        let cacheService = RecordingMealPlanCacheService(cachedSession: staleSession)
+        let mockDefaults = MockUserDefaults()
+        mockDefaults.set("stale-session", forKey: "mealPlanSessionId")
+
+        let vm = MealPlanViewModel(
+            apiClient: mock,
+            recipeCache: RecipeCacheService(apiClient: mock),
+            cacheService: cacheService,
+            userDefaults: mockDefaults
+        )
+
+        await vm.forceRefresh()
+
+        #expect(vm.session == latestSession)
+        #expect(vm.currentPlan == latestSession.plan)
+        #expect(shoppingItemNames(vm.shoppingList) == ["Pasta"])
+        #expect(cacheService.invalidateCallCount == 1)
+        #expect(cacheService.cachedSession == latestSession)
+        #expect(mockDefaults.string(forKey: "mealPlanSessionId") == nil)
+        #expect(vm.error == nil)
+    }
+
     @Test("generatePlan success stores session id and refreshes shopping list")
     @MainActor
     func generatePlanSuccessStoresSessionIdAndRefreshesShoppingList() async {

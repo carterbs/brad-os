@@ -314,6 +314,7 @@ public class MealPlanViewModel: ObservableObject {
 
     public func forceRefresh() async {
         cacheService.invalidate()
+        savedSessionId = nil
         await loadExistingSession()
     }
 

@@ -29,6 +29,8 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     public var mockIngredients: [Ingredient] = []
     public var mockRecipes: [Recipe] = []
     public var mockMealPlanSession: MealPlanSession?
+    public var mockMealPlanSessionsById: [String: MealPlanSession] = [:]
+    public var mockLatestMealPlanSession: MealPlanSession?
     public var mockGenerateResponse: GenerateMealPlanResponse?
     public var mockCritiqueResponse: CritiqueMealPlanResponse?
     public var mockHRVHistory: [HRVHistoryEntry] = []
@@ -585,6 +587,9 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     public func getMealPlanSession(id: String) async throws -> MealPlanSession {
         await simulateDelay()
         try checkForError()
+        if let session = mockMealPlanSessionsById[id] {
+            return session
+        }
         guard let session = mockMealPlanSession else {
             throw APIError.notFound("Meal plan session \(id) not found")
         }
@@ -616,7 +621,7 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
     public func getLatestMealPlanSession() async throws -> MealPlanSession? {
         await simulateDelay()
         try checkForError()
-        return mockMealPlanSession
+        return mockLatestMealPlanSession ?? mockMealPlanSession
     }
 
     // MARK: - Guided Meditations

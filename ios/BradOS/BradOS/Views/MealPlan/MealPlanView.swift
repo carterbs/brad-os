@@ -47,6 +47,17 @@ struct MealPlanView: View {
                         })
                     }
                 }
+
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: {
+                        Task { await viewModel.forceRefresh() }
+                    }, label: {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundColor(Theme.interactivePrimary)
+                    })
+                    .disabled(viewModel.isLoading)
+                    .accessibilityLabel("Refresh meal plan")
+                }
             }
             .task {
                 await viewModel.loadExistingSession()
