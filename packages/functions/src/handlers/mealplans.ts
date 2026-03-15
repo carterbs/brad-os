@@ -6,10 +6,13 @@ import { asyncHandler } from '../middleware/async-handler.js';
 import { validate } from '../middleware/validate.js';
 import { MealRepository } from '../repositories/meal.repository.js';
 import { MealPlanSessionRepository } from '../repositories/mealplan-session.repository.js';
+import { RecipeRepository } from '../repositories/recipe.repository.js';
+import { IngredientRepository } from '../repositories/ingredient.repository.js';
 import { getFirestoreDb } from '../firebase.js';
 import { generateMealPlan, InsufficientMealsError } from '../services/mealplan-generation.service.js';
 import { processCritique } from '../services/mealplan-critique.service.js';
 import { applyOperations } from '../services/mealplan-operations.service.js';
+import { buildShoppingList } from '../services/shopping-list.service.js';
 import { critiqueInputSchema } from '../shared.js';
 
 const app = createBaseApp('mealplans');
@@ -21,6 +24,8 @@ app.use((_req, res, next) => {
 // Lazy repository initialization
 let mealRepo: MealRepository | null = null;
 let sessionRepo: MealPlanSessionRepository | null = null;
+let recipeRepo: RecipeRepository | null = null;
+let ingredientRepo: IngredientRepository | null = null;
 
 function getMealRepo(): MealRepository {
   if (mealRepo === null) {
@@ -34,6 +39,20 @@ function getSessionRepo(): MealPlanSessionRepository {
     sessionRepo = new MealPlanSessionRepository(getFirestoreDb());
   }
   return sessionRepo;
+}
+
+function getRecipeRepo(): RecipeRepository {
+  if (recipeRepo === null) {
+    recipeRepo = new RecipeRepository(getFirestoreDb());
+  }
+  return recipeRepo;
+}
+
+function getIngredientRepo(): IngredientRepository {
+  if (ingredientRepo === null) {
+    ingredientRepo = new IngredientRepository(getFirestoreDb());
+  }
+  return ingredientRepo;
 }
 
 // POST /mealplans/generate
@@ -74,6 +93,31 @@ app.get('/latest', asyncHandler(async (_req: Request, res: Response, _next: Next
     return;
   }
   res.json({ success: true, data: latest });
+}));
+
+// GET /mealplans/:sessionId/shopping-list
+app.get('/:sessionId/shopping-list', asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
+  const sessionId = req.params['sessionId'] ?? '';
+  const session = await getSessionRepo().findById(sessionId);
+  if (session === null) {
+    next(new NotFoundError('MealPlanSession', sessionId));
+    return;
+  }
+
+  const [recipes, ingredients] = await Promise.all([
+    getRecipeRepo().findAll(),
+    getIngredientRepo().findAll(),
+  ]);
+
+  const shoppingList = buildShoppingList(session.plan, recipes, ingredients);
+
+  res.json({
+    success: true,
+    data: {
+      session_id: sessionId,
+      ...shoppingList,
+    },
+  });
 }));
 
 // GET /mealplans/:sessionId
