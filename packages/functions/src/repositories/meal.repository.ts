@@ -9,6 +9,7 @@ import {
   isRecord,
   readBoolean,
   readEnum,
+  readNullableString,
   readNumber,
   readString,
 } from './firestore-type-guards.js';
@@ -50,7 +51,7 @@ export class MealRepository extends BaseRepository<
     const effort = readNumber(data, 'effort');
     const hasRedMeat = readBoolean(data, 'has_red_meat');
     const prepAhead = readBoolean(data, 'prep_ahead');
-    const url = readString(data, 'url');
+    const url = readNullableString(data, 'url');
     const rawLastPlanned = data['last_planned'];
     const lastPlanned =
       rawLastPlanned === undefined || rawLastPlanned === null
@@ -65,7 +66,7 @@ export class MealRepository extends BaseRepository<
       effort === null ||
       hasRedMeat === null ||
       prepAhead === null ||
-      url === null ||
+      url === undefined ||
       createdAt === null ||
       updatedAt === null ||
       (rawLastPlanned !== undefined && rawLastPlanned !== null && lastPlanned === null)

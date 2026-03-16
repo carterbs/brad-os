@@ -134,7 +134,7 @@ export class MealPlanSessionRepository extends BaseRepository<
     const effort = readNumber(meal, 'effort');
     const hasRedMeat = readBoolean(meal, 'has_red_meat');
     const prepAhead = readBoolean(meal, 'prep_ahead');
-    const url = readString(meal, 'url');
+    const url = readNullableString(meal, 'url');
     const lastPlanned = readNullableString(meal, 'last_planned');
     const createdAt = readString(meal, 'created_at');
     const updatedAt = readString(meal, 'updated_at');
@@ -146,7 +146,7 @@ export class MealPlanSessionRepository extends BaseRepository<
       effort === null ||
       hasRedMeat === null ||
       prepAhead === null ||
-      url === null ||
+      url === undefined ||
       lastPlanned === undefined ||
       createdAt === null ||
       updatedAt === null

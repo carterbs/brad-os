@@ -17,7 +17,7 @@ pub struct Meal {
     pub effort: u8,
     pub has_red_meat: bool,
     pub prep_ahead: bool,
-    pub url: String,
+    pub url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_planned: Option<String>,
     pub created_at: String,
@@ -154,7 +154,7 @@ mod tests {
                     "effort": 1,
                     "has_red_meat": false,
                     "prep_ahead": true,
-                    "url": "",
+                    "url": null,
                     "created_at": "2026-02-01T00:00:00Z",
                     "updated_at": "2026-02-01T00:00:00Z"
                 }
@@ -165,7 +165,9 @@ mod tests {
         assert_eq!(parsed.data.len(), 2);
         assert_eq!(parsed.data[0].name, "Tacos");
         assert_eq!(parsed.data[0].meal_type, MealType::Dinner);
+        assert_eq!(parsed.data[0].url.as_deref(), Some("https://example.com/tacos"));
         assert_eq!(parsed.data[1].last_planned, None);
+        assert_eq!(parsed.data[1].url, None);
     }
 
     #[test]

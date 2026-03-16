@@ -23,7 +23,7 @@ interface Meal {
   effort: number;
   has_red_meat: boolean;
   prep_ahead: boolean;
-  url: string;
+  url: string | null;
   last_planned: string | null;
   created_at: string;
   updated_at: string;

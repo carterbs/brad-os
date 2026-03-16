@@ -143,6 +143,46 @@ describe('MealRepository', () => {
 
       expect(result).toEqual([]);
     });
+
+    it('should keep legacy meals with null url', async () => {
+      const repository = new MealRepository(mockDb as Firestore);
+      const meals = [
+        {
+          id: 'meal-legacy',
+          data: {
+            name: 'Legacy Oatmeal',
+            meal_type: 'breakfast',
+            effort: 1,
+            has_red_meat: false,
+            prep_ahead: false,
+            url: null,
+            last_planned: null,
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
+        },
+      ];
+
+      const mockQuery = createMockQuery(createMockQuerySnapshot(meals));
+      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      const result = await repository.findAll();
+
+      expect(result).toEqual([
+        {
+          id: 'meal-legacy',
+          name: 'Legacy Oatmeal',
+          meal_type: 'breakfast',
+          effort: 1,
+          has_red_meat: false,
+          prep_ahead: false,
+          url: null,
+          last_planned: null,
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
+        },
+      ]);
+    });
   });
 
   describe('findByType', () => {

@@ -10,7 +10,6 @@ export interface Meal extends BaseEntity {
   effort: number;
   has_red_meat: boolean;
   prep_ahead: boolean;
-  url: string;
+  url: string | null;
   last_planned: string | null;
 }
-
