@@ -6,7 +6,7 @@ export const createMealSchema = z.object({
   effort: z.number().int().min(1).max(10),
   has_red_meat: z.boolean(),
   prep_ahead: z.boolean(),
-  url: z.string().min(0).max(2000),
+  url: z.string().min(0).max(2000).nullable(),
 });
 
 export const updateMealSchema = z.object({
@@ -15,7 +15,7 @@ export const updateMealSchema = z.object({
   effort: z.number().int().min(1).max(10).optional(),
   has_red_meat: z.boolean().optional(),
   prep_ahead: z.boolean().optional(),
-  url: z.string().min(0).max(2000).optional(),
+  url: z.string().min(0).max(2000).nullable().optional(),
 });
 
 export type CreateMealInput = z.infer<typeof createMealSchema>;

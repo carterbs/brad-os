@@ -133,6 +133,40 @@ describe('Meals Handler', () => {
       });
     });
 
+    it('should create meal with null url', async () => {
+      const createdMeal = createMeal({
+        id: 'new-meal',
+        name: 'Grilled Salmon',
+        meal_type: 'dinner',
+        effort: 6,
+        has_red_meat: false,
+        prep_ahead: false,
+        url: null,
+      });
+      mockMealRepo.create.mockResolvedValue(createdMeal);
+
+      const response = await request(mealsApp)
+        .post('/')
+        .send({
+          name: 'Grilled Salmon',
+          meal_type: 'dinner',
+          effort: 6,
+          has_red_meat: false,
+          prep_ahead: false,
+          url: null,
+        });
+
+      expect(response.status).toBe(201);
+      expect(mockMealRepo.create).toHaveBeenCalledWith({
+        name: 'Grilled Salmon',
+        meal_type: 'dinner',
+        effort: 6,
+        has_red_meat: false,
+        prep_ahead: false,
+        url: null,
+      });
+    });
+
     it('should return 400 for invalid meal_type', async () => {
       const response: Response = await request(mealsApp)
         .post('/')
@@ -276,6 +310,23 @@ describe('Meals Handler', () => {
       expect(response.status).toBe(200);
       expect(mockMealRepo.update).toHaveBeenCalledWith('meal-123', {
         name: 'Only Name Updated',
+      });
+    });
+
+    it('should update meal with null url', async () => {
+      const updatedMeal = createMeal({
+        id: 'meal-123',
+        url: null,
+      });
+      mockMealRepo.update.mockResolvedValue(updatedMeal);
+
+      const response = await request(mealsApp)
+        .put('/meal-123')
+        .send({ url: null });
+
+      expect(response.status).toBe(200);
+      expect(mockMealRepo.update).toHaveBeenCalledWith('meal-123', {
+        url: null,
       });
     });
 

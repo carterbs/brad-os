@@ -146,6 +146,50 @@ describe('MealPlanSessionRepository', () => {
 
       expect(result).toEqual([]);
     });
+
+    it('should keep sessions whose meal snapshots contain null urls', async () => {
+      const repository = new MealPlanSessionRepository(mockDb as Firestore);
+      const sessions: Array<{ id: string; data: Record<string, unknown> }> = [
+        {
+          id: 'session-with-null-url',
+          data: {
+            plan: [
+              {
+                day_index: 0,
+                meal_type: 'breakfast',
+                meal_id: 'meal-1',
+                meal_name: 'Oatmeal',
+              },
+            ],
+            meals_snapshot: [
+              {
+                id: 'meal-1',
+                name: 'Oatmeal',
+                meal_type: 'breakfast',
+                effort: 2,
+                has_red_meat: false,
+                prep_ahead: true,
+                url: null,
+                last_planned: null,
+                created_at: '2024-01-02T00:00:00Z',
+                updated_at: '2024-01-02T00:00:00Z',
+              },
+            ],
+            history: [],
+            is_finalized: false,
+            created_at: '2024-01-02T00:00:00Z',
+            updated_at: '2024-01-02T00:00:00Z',
+          },
+        },
+      ];
+      const mockQuery = createMockQuery(createMockQuerySnapshot(sessions));
+      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      const result = await repository.findAll();
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.meals_snapshot[0]?.url).toBeNull();
+    });
   });
 
   describe('appendHistory', () => {

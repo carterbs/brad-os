@@ -174,6 +174,20 @@ describe('meal plan session schemas', () => {
     }
   });
 
+  it('accepts a session payload with a null meal url', () => {
+    const result = mealPlanSessionSchema.safeParse({
+      ...sampleSession,
+      meals_snapshot: [
+        {
+          ...sampleSession.meals_snapshot[0],
+          url: null,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it('rejects malformed meal session operations payload', () => {
     const result = mealPlanSessionSchema.safeParse({
       ...sampleSession,

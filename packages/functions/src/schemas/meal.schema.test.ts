@@ -63,6 +63,18 @@ describe('createMealSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('should accept null url', () => {
+    const result = createMealSchema.safeParse({
+      name: 'Test Meal',
+      meal_type: 'dinner',
+      effort: 3,
+      has_red_meat: false,
+      prep_ahead: false,
+      url: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
   it('should reject missing name', () => {
     const result = createMealSchema.safeParse({
       meal_type: 'dinner',
@@ -220,6 +232,11 @@ describe('updateMealSchema', () => {
 
   it('should accept partial updates - meal_type only', () => {
     const result = updateMealSchema.safeParse({ meal_type: 'breakfast' });
+    expect(result.success).toBe(true);
+  });
+
+  it('should accept null url in update', () => {
+    const result = updateMealSchema.safeParse({ url: null });
     expect(result.success).toBe(true);
   });
 
