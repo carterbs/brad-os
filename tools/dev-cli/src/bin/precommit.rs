@@ -97,6 +97,7 @@ fn run_hook(state: &mut HookState, staged_files: &[String], branch: &str) -> i32
 
     let mode = determine_mode(
         unknown_scope,
+        !state.scoped_test_files.is_empty() && !state.scoped_test_projects.is_empty(),
         state.scoped_test_files.is_empty(),
         state.scoped_test_projects.is_empty(),
     );

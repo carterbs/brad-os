@@ -48,10 +48,11 @@ pub fn classify_file(path: &str) -> FileScope {
 /// Determine the validate mode based on scope analysis results.
 pub fn determine_mode(
     has_unknown_scope: bool,
+    has_mixed_scoped_targets: bool,
     scoped_test_files_empty: bool,
     scoped_test_projects_empty: bool,
 ) -> &'static str {
-    if has_unknown_scope || (scoped_test_files_empty && scoped_test_projects_empty) {
+    if has_unknown_scope || has_mixed_scoped_targets || (scoped_test_files_empty && scoped_test_projects_empty) {
         "full_fallback"
     } else {
         "scoped"
@@ -190,22 +191,27 @@ mod tests {
 
     #[test]
     fn mode_full_fallback_on_unknown_scope() {
-        assert_eq!(determine_mode(true, false, false), "full_fallback");
+        assert_eq!(determine_mode(true, false, false, false), "full_fallback");
+    }
+
+    #[test]
+    fn mode_full_fallback_on_mixed_targets() {
+        assert_eq!(determine_mode(false, true, false, false), "full_fallback");
     }
 
     #[test]
     fn mode_full_fallback_on_no_scoped_items() {
-        assert_eq!(determine_mode(false, true, true), "full_fallback");
+        assert_eq!(determine_mode(false, false, true, true), "full_fallback");
     }
 
     #[test]
     fn mode_scoped_with_test_files() {
-        assert_eq!(determine_mode(false, false, true), "scoped");
+        assert_eq!(determine_mode(false, false, false, true), "scoped");
     }
 
     #[test]
     fn mode_scoped_with_test_projects() {
-        assert_eq!(determine_mode(false, true, false), "scoped");
+        assert_eq!(determine_mode(false, false, true, false), "scoped");
     }
 
     // --- resolve_test_file ---

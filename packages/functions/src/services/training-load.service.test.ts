@@ -15,6 +15,13 @@ import {
 import type { WeeklySession } from '../shared.js';
 
 describe('Training Load Service', () => {
+  const toLocalDateString = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   describe('calculateTSS', () => {
     it('should calculate TSS correctly for a 1-hour ride at FTP', () => {
       // 1 hour at FTP should give TSS of 100
@@ -208,7 +215,7 @@ describe('Training Load Service', () => {
       const today = new Date();
       const startDate = new Date(today);
       startDate.setDate(startDate.getDate() - 14); // 2 weeks ago
-      const week = getWeekInBlock(startDate.toISOString().split('T')[0] ?? '');
+      const week = getWeekInBlock(toLocalDateString(startDate));
       expect(week).toBe(3);
     });
   });
