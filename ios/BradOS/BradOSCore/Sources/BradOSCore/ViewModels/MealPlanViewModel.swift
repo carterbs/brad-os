@@ -218,6 +218,7 @@ public class MealPlanViewModel: ObservableObject {
             let fullSession = try await apiClient.getMealPlanSession(id: sessionId)
             session = fullSession
             currentPlan = fullSession.plan
+            await updateShoppingList()
 
             // Cache the finalized session
             cacheService.cache(fullSession)

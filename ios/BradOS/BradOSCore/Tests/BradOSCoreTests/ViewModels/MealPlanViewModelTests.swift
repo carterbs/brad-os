@@ -486,6 +486,20 @@ struct MealPlanViewModelTests {
     @Test("finalize success refetches session caches it and clears saved session id")
     @MainActor
     func finalizeSuccessRefetchesSessionCachesItAndClearsSavedSessionId() async {
+        let ingredients = [
+            makeIngredient(id: "ingredient-1", name: "Eggs", storeSection: "Dairy & Eggs"),
+            makeIngredient(id: "ingredient-2", name: "Spinach", storeSection: "Produce"),
+        ]
+        let recipes = [
+            makeRecipe(
+                mealId: "meal-1",
+                ingredients: [RecipeIngredient(ingredientId: "ingredient-1", quantity: 6, unit: "eggs")]
+            ),
+            makeRecipe(
+                mealId: "meal-2",
+                ingredients: [RecipeIngredient(ingredientId: "ingredient-2", quantity: 1, unit: "bag")]
+            ),
+        ]
         let activeSession = makeSession(
             id: "finalize-session",
             isFinalized: false,
@@ -496,11 +510,13 @@ struct MealPlanViewModelTests {
         let finalizedSession = makeSession(
             id: "finalize-session",
             isFinalized: true,
-            plan: [makePlanEntry(dayIndex: 0, mealType: .breakfast, mealId: "meal-1", mealName: "Breakfast")],
-            mealsSnapshot: [makeMeal(id: "meal-1", name: "Breakfast", mealType: .breakfast)]
+            plan: [makePlanEntry(dayIndex: 0, mealType: .breakfast, mealId: "meal-2", mealName: "Breakfast")],
+            mealsSnapshot: [makeMeal(id: "meal-2", name: "Breakfast", mealType: .breakfast)]
         )
 
         let mock = MockAPIClient()
+        mock.mockIngredients = ingredients
+        mock.mockRecipes = recipes
         mock.mockMealPlanSession = finalizedSession
 
         let cacheService = RecordingMealPlanCacheService()
@@ -515,12 +531,31 @@ struct MealPlanViewModelTests {
         )
         vm.session = activeSession
         vm.currentPlan = activeSession.plan
+        vm.shoppingList = [
+            ShoppingListSection(
+                id: "Dairy & Eggs",
+                name: "Dairy & Eggs",
+                sortOrder: 2,
+                items: [
+                    ShoppingListItem(
+                        id: "ingredient-1",
+                        name: "Eggs",
+                        storeSection: "Dairy & Eggs",
+                        totalQuantity: 6,
+                        unit: "eggs",
+                        mealCount: 1
+                    )
+                ],
+                isPantryStaples: false
+            )
+        ]
 
         await vm.finalize()
 
         #expect(vm.session == finalizedSession)
         #expect(vm.currentPlan == finalizedSession.plan)
         #expect(vm.session?.isFinalized == true)
+        #expect(shoppingItemNames(vm.shoppingList) == ["Spinach"])
         #expect(vm.error == nil)
         #expect(cacheService.cacheCallCount == 1)
         #expect(cacheService.cachedSession == finalizedSession)

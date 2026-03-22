@@ -82,6 +82,39 @@ struct RemindersServiceTests {
         #endif
     }
 
+    @Test("export replaces existing reminders in target list")
+    func exportReplacesExistingRemindersInTargetList() async throws {
+        let store = FakeReminderStore(existingTitles: ["Last Week Tomatoes", "Last Week Milk"])
+
+        let result = try await RemindersService.exportToReminders(
+            makeSections(),
+            listName: "Groceries-2",
+            using: store
+        )
+
+        #expect(result.itemCount == 3)
+        #expect(result.listName == "Groceries-2")
+        #expect(store.removedTitles == ["Last Week Milk", "Last Week Tomatoes"])
+        #expect(store.savedTitles == ["2 whole Tomato", "1 head Lettuce", "1 gallon Milk"])
+        #expect(store.commitCallCount == 1)
+    }
+
+    @Test("export clears existing reminders when shopping list is empty")
+    func exportClearsExistingRemindersWhenShoppingListIsEmpty() async throws {
+        let store = FakeReminderStore(existingTitles: ["Old Item"])
+
+        let result = try await RemindersService.exportToReminders(
+            [],
+            listName: "Groceries-2",
+            using: store
+        )
+
+        #expect(result.itemCount == 0)
+        #expect(store.removedTitles == ["Old Item"])
+        #expect(store.savedTitles.isEmpty)
+        #expect(store.commitCallCount == 1)
+    }
+
     // MARK: - ViewModel Integration
 
     @Test("ViewModel export success sets result and clears error")
@@ -185,5 +218,43 @@ struct RemindersServiceTests {
         #expect(vm.remindersExportResult == nil)
         #expect(vm.remindersError == nil)
         #expect(vm.isExportingToReminders == false)
+    }
+}
+
+private final class FakeReminderStore: ReminderStoreProtocol, @unchecked Sendable {
+    typealias ReminderList = String
+
+    private let shouldGrantAccess: Bool
+    private(set) var existingTitles: [String]
+    private(set) var removedTitles: [String] = []
+    private(set) var savedTitles: [String] = []
+    private(set) var commitCallCount = 0
+
+    init(shouldGrantAccess: Bool = true, existingTitles: [String] = []) {
+        self.shouldGrantAccess = shouldGrantAccess
+        self.existingTitles = existingTitles
+    }
+
+    func requestFullAccessToReminders() async throws -> Bool {
+        shouldGrantAccess
+    }
+
+    func findOrCreateList(named targetName: String) throws -> String {
+        targetName
+    }
+
+    func removeAllReminders(in list: String) async throws -> Int {
+        let removed = existingTitles.sorted()
+        removedTitles = removed
+        existingTitles = []
+        return removed.count
+    }
+
+    func saveReminder(title: String, in list: String) throws {
+        savedTitles.append(title)
+    }
+
+    func commit() throws {
+        commitCallCount += 1
     }
 }
