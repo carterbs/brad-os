@@ -30,9 +30,10 @@ impl CliError {
     /// Return a JSON representation suitable for structured error output.
     pub fn to_json(&self) -> serde_json::Value {
         let (code, message) = match self {
-            CliError::MissingConfig(var) => {
-                ("MISSING_CONFIG".to_string(), format!("missing required environment variable: {var}"))
-            }
+            CliError::MissingConfig(var) => (
+                "MISSING_CONFIG".to_string(),
+                format!("missing required environment variable: {var}"),
+            ),
             CliError::Http(msg) => ("HTTP_ERROR".to_string(), msg.clone()),
             CliError::Api { code, message } => (code.clone(), message.clone()),
             CliError::Deserialize(msg) => ("DESERIALIZE_ERROR".to_string(), msg.clone()),

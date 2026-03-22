@@ -165,7 +165,10 @@ mod tests {
         assert_eq!(parsed.data.len(), 2);
         assert_eq!(parsed.data[0].name, "Tacos");
         assert_eq!(parsed.data[0].meal_type, MealType::Dinner);
-        assert_eq!(parsed.data[0].url.as_deref(), Some("https://example.com/tacos"));
+        assert_eq!(
+            parsed.data[0].url.as_deref(),
+            Some("https://example.com/tacos")
+        );
         assert_eq!(parsed.data[1].last_planned, None);
         assert_eq!(parsed.data[1].url, None);
     }

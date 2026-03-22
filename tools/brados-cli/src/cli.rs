@@ -1,7 +1,10 @@
 use clap::{Parser, Subcommand};
 
 #[derive(Parser, Debug)]
-#[command(name = "brados", about = "CLI for interacting with the BradOS Firebase API")]
+#[command(
+    name = "brados",
+    about = "CLI for interacting with the BradOS Firebase API"
+)]
 pub struct Cli {
     /// Use dev endpoints instead of prod
     #[arg(long, global = true)]
@@ -17,6 +20,8 @@ pub enum Commands {
     Mealplan(MealplanCmd),
     /// Meals CRUD operations
     Meals(MealsCmd),
+    /// Health sync read operations
+    HealthSync(HealthSyncCmd),
     /// Shopping list operations
     Shoppinglist(ShoppinglistCmd),
 }
@@ -139,6 +144,54 @@ pub enum ShoppinglistAction {
     },
 }
 
+#[derive(Parser, Debug)]
+pub struct HealthSyncCmd {
+    #[command(subcommand)]
+    pub action: HealthSyncAction,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum HealthSyncAction {
+    /// Get latest recovery or recovery for a specific date
+    Recovery {
+        /// Recovery date in YYYY-MM-DD format
+        #[arg(long)]
+        date: Option<String>,
+    },
+    /// Get recovery history for the last N days
+    RecoveryHistory {
+        /// Number of days to fetch
+        #[arg(long)]
+        days: Option<u16>,
+    },
+    /// Get the current recovery baseline
+    Baseline,
+    /// Get latest weight or weight history
+    Weight {
+        /// Number of days to fetch
+        #[arg(long)]
+        days: Option<u16>,
+    },
+    /// Get latest HRV or HRV history
+    Hrv {
+        /// Number of days to fetch
+        #[arg(long)]
+        days: Option<u16>,
+    },
+    /// Get latest resting heart rate or RHR history
+    Rhr {
+        /// Number of days to fetch
+        #[arg(long)]
+        days: Option<u16>,
+    },
+    /// Get latest sleep or sleep history
+    Sleep {
+        /// Number of days to fetch
+        #[arg(long)]
+        days: Option<u16>,
+    },
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -166,12 +219,17 @@ mod tests {
     #[test]
     fn parse_meals_create_with_all_fields() {
         let cli = parse(&[
-            "meals", "create",
-            "--name", "Tacos",
-            "--meal-type", "dinner",
-            "--effort", "3",
+            "meals",
+            "create",
+            "--name",
+            "Tacos",
+            "--meal-type",
+            "dinner",
+            "--effort",
+            "3",
             "--has-red-meat",
-            "--url", "",
+            "--url",
+            "",
         ]);
         match &cli.command {
             Commands::Meals(cmd) => match &cmd.action {
@@ -219,6 +277,34 @@ mod tests {
                 }
             },
             _ => panic!("expected Shoppinglist"),
+        }
+    }
+
+    #[test]
+    fn parse_health_sync_recovery_with_date() {
+        let cli = parse(&["health-sync", "recovery", "--date", "2026-03-22"]);
+        match &cli.command {
+            Commands::HealthSync(cmd) => match &cmd.action {
+                HealthSyncAction::Recovery { date } => {
+                    assert_eq!(date.as_deref(), Some("2026-03-22"));
+                }
+                _ => panic!("expected Recovery"),
+            },
+            _ => panic!("expected HealthSync"),
+        }
+    }
+
+    #[test]
+    fn parse_health_sync_weight_days() {
+        let cli = parse(&["health-sync", "weight", "--days", "30"]);
+        match &cli.command {
+            Commands::HealthSync(cmd) => match &cmd.action {
+                HealthSyncAction::Weight { days } => {
+                    assert_eq!(*days, Some(30));
+                }
+                _ => panic!("expected Weight"),
+            },
+            _ => panic!("expected HealthSync"),
         }
     }
 

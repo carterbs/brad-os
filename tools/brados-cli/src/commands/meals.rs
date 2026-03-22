@@ -128,8 +128,14 @@ mod tests {
 
     #[test]
     fn build_update_payload_all_fields() {
-        let payload =
-            build_update_payload(Some("X"), Some("lunch"), Some(2), Some(true), Some(false), Some("http://x"));
+        let payload = build_update_payload(
+            Some("X"),
+            Some("lunch"),
+            Some(2),
+            Some(true),
+            Some(false),
+            Some("http://x"),
+        );
         let obj = payload.as_object().unwrap();
         assert_eq!(obj.len(), 6);
     }

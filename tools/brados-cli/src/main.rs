@@ -8,7 +8,7 @@ mod types;
 use clap::Parser;
 use std::process;
 
-use cli::{Cli, Commands, MealplanAction, MealsAction, ShoppinglistAction};
+use cli::{Cli, Commands, HealthSyncAction, MealplanAction, MealsAction, ShoppinglistAction};
 use client::ApiClient;
 use output::print_error;
 
@@ -93,6 +93,27 @@ fn run() -> Result<(), error::CliError> {
                 )?;
             }
             MealsAction::Delete { id } => commands::meals::delete(&client, &id)?,
+        },
+        Commands::HealthSync(cmd) => match cmd.action {
+            HealthSyncAction::Recovery { date } => {
+                commands::health_sync::recovery(&client, date.as_deref())?;
+            }
+            HealthSyncAction::RecoveryHistory { days } => {
+                commands::health_sync::recovery_history(&client, days)?;
+            }
+            HealthSyncAction::Baseline => commands::health_sync::baseline(&client)?,
+            HealthSyncAction::Weight { days } => {
+                commands::health_sync::weight(&client, days)?;
+            }
+            HealthSyncAction::Hrv { days } => {
+                commands::health_sync::hrv(&client, days)?;
+            }
+            HealthSyncAction::Rhr { days } => {
+                commands::health_sync::rhr(&client, days)?;
+            }
+            HealthSyncAction::Sleep { days } => {
+                commands::health_sync::sleep(&client, days)?;
+            }
         },
         Commands::Shoppinglist(cmd) => match cmd.action {
             ShoppinglistAction::Generate { session_id } => {
