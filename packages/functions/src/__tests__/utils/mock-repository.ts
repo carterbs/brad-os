@@ -243,6 +243,7 @@ export function createMockMealRepository(): MockMealRepository {
 
 export interface MockRecipeRepository extends MockBaseRepository {
   findByMealIds: MockFn;
+  findByMealId: MockFn;
 }
 
 export function createMockRecipeRepository(): MockRecipeRepository {
@@ -253,6 +254,7 @@ export function createMockRecipeRepository(): MockRecipeRepository {
     update: vi.fn(),
     delete: vi.fn(),
     findByMealIds: vi.fn(),
+    findByMealId: vi.fn(),
   };
 }
 

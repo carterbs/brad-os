@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { createIngredientSchema, updateIngredientSchema, ingredientResponseSchema } from './ingredient.schema.js';
+import { createIngredientSchema, updateIngredientSchema, ingredientResponseSchema, VALID_STORE_SECTIONS } from './ingredient.schema.js';
 
 describe('ingredientResponseSchema', () => {
   const validPayload = {
     id: 'ingredient-1',
     name: 'Chicken Breast',
-    store_section: 'Meat',
+    store_section: 'Meat & Seafood',
     created_at: '2026-02-25T00:00:00.000Z',
     updated_at: '2026-02-25T00:05:00.000Z',
   };
@@ -20,16 +20,26 @@ describe('ingredientResponseSchema', () => {
     }
   });
 
-  it('accepts empty strings for string fields', () => {
+  it('rejects invalid store_section values', () => {
     const result = ingredientResponseSchema.safeParse({
-      id: '',
-      name: '',
-      store_section: '',
-      created_at: '',
-      updated_at: '',
+      id: 'ingredient-1',
+      name: 'Chicken',
+      store_section: 'InvalidSection',
+      created_at: '2026-02-25T00:00:00.000Z',
+      updated_at: '2026-02-25T00:05:00.000Z',
     });
 
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts all valid store sections', () => {
+    for (const section of VALID_STORE_SECTIONS) {
+      const result = ingredientResponseSchema.safeParse({
+        ...validPayload,
+        store_section: section,
+      });
+      expect(result.success).toBe(true);
+    }
   });
 
   it('rejects missing required fields', () => {
@@ -63,15 +73,23 @@ describe('createIngredientSchema', () => {
   it('accepts valid payload', () => {
     const result = createIngredientSchema.safeParse({
       name: 'Chicken Breast',
-      store_section: 'Meat',
+      store_section: 'Meat & Seafood',
     });
     expect(result.success).toBe(true);
+  });
+
+  it('rejects invalid store_section', () => {
+    const result = createIngredientSchema.safeParse({
+      name: 'Chicken Breast',
+      store_section: 'InvalidSection',
+    });
+    expect(result.success).toBe(false);
   });
 
   it('rejects empty names', () => {
     const result = createIngredientSchema.safeParse({
       name: '',
-      store_section: 'Meat',
+      store_section: 'Produce',
     });
     expect(result.success).toBe(false);
   });
@@ -100,5 +118,19 @@ describe('updateIngredientSchema', () => {
       store_section: 123,
     });
     expect(result.success).toBe(false);
+  });
+
+  it('rejects invalid store_section string', () => {
+    const result = updateIngredientSchema.safeParse({
+      store_section: 'InvalidSection',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts valid store_section in partial update', () => {
+    const result = updateIngredientSchema.safeParse({
+      store_section: 'Frozen',
+    });
+    expect(result.success).toBe(true);
   });
 });

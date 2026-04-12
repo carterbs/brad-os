@@ -12,6 +12,9 @@ import {
   readNullableString,
   readString,
 } from './firestore-type-guards.js';
+import { AppError } from '../types/errors.js';
+import { MealRepository } from './meal.repository.js';
+import { IngredientRepository } from './ingredient.repository.js';
 
 export class RecipeRepository extends BaseRepository<
   Recipe,
@@ -35,9 +38,62 @@ export class RecipeRepository extends BaseRepository<
       .filter((recipe): recipe is Recipe => recipe !== null);
   }
 
-  // Intentional read-only guardrail: Recipe data is managed externally and not writable via this repository.
-  create(_data: CreateRecipeDTO): Promise<Recipe> {
-    return Promise.reject(new Error('RecipeRepository.create is not implemented'));
+  async create(data: CreateRecipeDTO): Promise<Recipe> {
+    const existing = await this.findByMealId(data.meal_id);
+    if (existing) {
+      throw new AppError(409, 'CONFLICT', 'Recipe already exists for this meal');
+    }
+
+    const mealRepo = new MealRepository(this.db);
+    const meal = await mealRepo.findById(data.meal_id);
+    if (!meal) {
+      throw new AppError(404, 'NOT_FOUND', `Meal with id ${data.meal_id} not found`);
+    }
+
+    const ingredientRepo = new IngredientRepository(this.db);
+    const missingIds: string[] = [];
+    for (const ing of data.ingredients) {
+      const found = await ingredientRepo.findById(ing.ingredient_id);
+      if (!found) {
+        missingIds.push(ing.ingredient_id);
+      }
+    }
+    if (missingIds.length > 0) {
+      throw new AppError(400, 'VALIDATION_ERROR', `Missing ingredient IDs: ${missingIds.join(', ')}`);
+    }
+
+    const timestamps = this.createTimestamps();
+    const recipeData = {
+      meal_id: data.meal_id,
+      ingredients: data.ingredients,
+      steps: data.steps ?? null,
+      ...timestamps,
+    };
+
+    const docRef = await this.collection.add(recipeData);
+    return { id: docRef.id, ...recipeData };
+  }
+
+  async findByMealId(mealId: string): Promise<Recipe | null> {
+    const snapshot = await this.collection.where('meal_id', '==', mealId).limit(1).get();
+    if (snapshot.empty) {
+      return null;
+    }
+    const doc = snapshot.docs[0];
+    if (!doc) {
+      return null;
+    }
+    const data = doc.data();
+    if (!isRecord(data)) {
+      return null;
+    }
+    return this.parseEntity(doc.id, data);
+  }
+
+  override async update(id: string, data: UpdateRecipeDTO): Promise<Recipe | null> {
+    // meal_id is immutable — strip it from the update payload
+    const { meal_id: _mealId, ...rest } = data;
+    return super.update(id, rest as UpdateRecipeDTO);
   }
 
   async findByMealIds(mealIds: string[]): Promise<Recipe[]> {
@@ -153,13 +209,4 @@ export class RecipeRepository extends BaseRepository<
     };
   }
 
-  // Intentional read-only guardrail: Recipe data is managed externally and not writable via this repository.
-  override async update(_id: string, _data: UpdateRecipeDTO): Promise<Recipe | null> {
-    return Promise.reject(new Error('RecipeRepository.update is not implemented'));
-  }
-
-  // Intentional read-only guardrail: Recipe data is managed externally and not writable via this repository.
-  override async delete(_id: string): Promise<boolean> {
-    return Promise.reject(new Error('RecipeRepository.delete is not implemented'));
-  }
 }

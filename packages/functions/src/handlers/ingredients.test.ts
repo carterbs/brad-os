@@ -25,6 +25,14 @@ vi.mock('../repositories/ingredient.repository.js', () => ({
   IngredientRepository: vi.fn().mockImplementation(() => mockIngredientRepo),
 }));
 
+// Mock recipe repository for beforeDelete hook
+const mockRecipeRepo = {
+  findAll: vi.fn(),
+};
+vi.mock('../repositories/recipe.repository.js', () => ({
+  RecipeRepository: vi.fn().mockImplementation(() => mockRecipeRepo),
+}));
+
 // Import after mocks
 import { ingredientsApp } from './ingredients.js';
 
@@ -102,7 +110,7 @@ describe('Ingredients Handler', () => {
 
       const response = await request(ingredientsApp)
         .post('/')
-        .send({ name: 'Olive Oil', store_section: 'Oils' });
+        .send({ name: 'Olive Oil', store_section: 'Condiments & Spreads' });
 
       expect(response.status).toBe(201);
       expect(response.body).toEqual({
@@ -111,14 +119,14 @@ describe('Ingredients Handler', () => {
       });
       expect(mockIngredientRepo.create).toHaveBeenCalledWith({
         name: 'Olive Oil',
-        store_section: 'Oils',
+        store_section: 'Condiments & Spreads',
       });
     });
 
     it('should return 400 for empty name', async () => {
       const response: Response = await request(ingredientsApp)
         .post('/')
-        .send({ name: '', store_section: 'Oils' });
+        .send({ name: '', store_section: 'Condiments & Spreads' });
       const body = response.body as ApiResponse;
 
       expect(response.status).toBe(400);
@@ -188,6 +196,7 @@ describe('Ingredients Handler', () => {
 
   describe('DELETE /ingredients/:id', () => {
     it('should delete an ingredient', async () => {
+      mockRecipeRepo.findAll.mockResolvedValue([]);
       mockIngredientRepo.delete.mockResolvedValue(true);
 
       const response = await request(ingredientsApp).delete('/ing-1');
@@ -202,6 +211,7 @@ describe('Ingredients Handler', () => {
 
     it('should return 404 when ingredient not found', async () => {
       mockIngredientRepo.delete.mockResolvedValue(false);
+      mockRecipeRepo.findAll.mockResolvedValue([]);
 
       const response = await request(ingredientsApp).delete('/missing');
 
@@ -211,6 +221,30 @@ describe('Ingredients Handler', () => {
         error: {
           code: 'NOT_FOUND',
           message: 'Ingredient with id missing not found',
+        },
+      });
+    });
+
+    it('should return 409 when ingredient is referenced by a recipe', async () => {
+      mockRecipeRepo.findAll.mockResolvedValue([
+        {
+          id: 'recipe-1',
+          meal_id: 'meal-1',
+          ingredients: [{ ingredient_id: 'ing-1', quantity: 200, unit: 'g' }],
+          steps: null,
+          created_at: '2024-01-01T00:00:00Z',
+          updated_at: '2024-01-01T00:00:00Z',
+        },
+      ]);
+
+      const response = await request(ingredientsApp).delete('/ing-1');
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({
+        success: false,
+        error: {
+          code: 'CONFLICT',
+          message: 'Cannot delete ingredient: referenced by 1 recipe(s)',
         },
       });
     });

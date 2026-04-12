@@ -1,5 +1,6 @@
 import type { Firestore } from 'firebase-admin/firestore';
 import type { CreateIngredientDTO, Ingredient, UpdateIngredientDTO } from '../shared.js';
+import { VALID_STORE_SECTIONS } from '../schemas/ingredient.schema.js';
 import { BaseRepository } from './base.repository.js';
 import { isRecord, readString } from './firestore-type-guards.js';
 
@@ -20,10 +21,13 @@ export class IngredientRepository extends BaseRepository<
     if (name === null || storeSection === null || createdAt === null || updatedAt === null) {
       return null;
     }
+    if (!VALID_STORE_SECTIONS.includes(storeSection as typeof VALID_STORE_SECTIONS[number])) {
+      return null;
+    }
     return {
       id,
       name,
-      store_section: storeSection,
+      store_section: storeSection as typeof VALID_STORE_SECTIONS[number],
       created_at: createdAt,
       updated_at: updatedAt,
     };
@@ -42,18 +46,15 @@ export class IngredientRepository extends BaseRepository<
       .filter((ingredient): ingredient is Ingredient => ingredient !== null);
   }
 
-  // Intentional read-only guardrail: Ingredient data is managed externally and not writable via this repository.
-  create(_data: CreateIngredientDTO): Promise<Ingredient> {
-    return Promise.reject(new Error('IngredientRepository.create is not implemented'));
-  }
+  async create(data: CreateIngredientDTO): Promise<Ingredient> {
+    const timestamps = this.createTimestamps();
+    const ingredientData = {
+      name: data.name,
+      store_section: data.store_section,
+      ...timestamps,
+    };
 
-  // Intentional read-only guardrail: Ingredient data is managed externally and not writable via this repository.
-  override async update(_id: string, _data: UpdateIngredientDTO): Promise<Ingredient | null> {
-    return Promise.reject(new Error('IngredientRepository.update is not implemented'));
-  }
-
-  // Intentional read-only guardrail: Ingredient data is managed externally and not writable via this repository.
-  override async delete(_id: string): Promise<boolean> {
-    return Promise.reject(new Error('IngredientRepository.delete is not implemented'));
+    const docRef = await this.collection.add(ingredientData);
+    return { id: docRef.id, ...ingredientData };
   }
 }

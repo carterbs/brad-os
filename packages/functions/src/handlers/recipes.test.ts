@@ -95,6 +95,37 @@ describe('Recipes Handler', () => {
     });
   });
 
+  describe('GET /recipes/by-meal/:mealId', () => {
+    it('should return recipe when found by meal id', async () => {
+      const recipe = createRecipe({ id: 'recipe-1', meal_id: 'meal-1' });
+      mockRecipeRepo.findByMealId.mockResolvedValue(recipe);
+
+      const response = await request(recipesApp).get('/by-meal/meal-1');
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        success: true,
+        data: recipe,
+      });
+      expect(mockRecipeRepo.findByMealId).toHaveBeenCalledWith('meal-1');
+    });
+
+    it('should return 404 when no recipe for meal', async () => {
+      mockRecipeRepo.findByMealId.mockResolvedValue(null);
+
+      const response = await request(recipesApp).get('/by-meal/meal-999');
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({
+        success: false,
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Recipe with id meal:meal-999 not found',
+        },
+      });
+    });
+  });
+
   describe('POST /recipes', () => {
     it('should create a recipe with valid data', async () => {
       const createdRecipe = createRecipe({ id: 'new-recipe', meal_id: 'meal-1' });
