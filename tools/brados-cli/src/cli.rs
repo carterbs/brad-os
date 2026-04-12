@@ -24,6 +24,10 @@ pub enum Commands {
     HealthSync(HealthSyncCmd),
     /// Shopping list operations
     Shoppinglist(ShoppinglistCmd),
+    /// Recipe operations
+    Recipes(RecipesCmd),
+    /// Ingredient operations
+    Ingredients(IngredientsCmd),
 }
 
 #[derive(Parser, Debug)]
@@ -192,6 +196,100 @@ pub enum HealthSyncAction {
     },
 }
 
+#[derive(Parser, Debug)]
+pub struct RecipesCmd {
+    #[command(subcommand)]
+    pub action: RecipesAction,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum RecipesAction {
+    /// List all recipes
+    List,
+    /// Get a recipe by ID or by meal ID
+    Get {
+        /// Recipe ID
+        #[arg(long, conflicts_with = "meal_id")]
+        id: Option<String>,
+        /// Meal ID to look up recipe for
+        #[arg(long, conflicts_with = "id")]
+        meal_id: Option<String>,
+    },
+    /// Create a new recipe for a meal
+    Create {
+        /// Meal ID to attach recipe to
+        #[arg(long)]
+        meal_id: String,
+        /// Ingredients as JSON array: [{"ingredient_id":"...","quantity":4,"unit":"count"}]
+        #[arg(long)]
+        ingredients_json: String,
+        /// Steps as JSON array: [{"step_number":1,"instruction":"..."}]
+        #[arg(long)]
+        steps_json: Option<String>,
+    },
+    /// Update an existing recipe
+    Update {
+        /// Recipe ID
+        id: String,
+        /// Ingredients as JSON array (replaces all ingredients)
+        #[arg(long)]
+        ingredients_json: Option<String>,
+        /// Steps as JSON array (replaces all steps)
+        #[arg(long)]
+        steps_json: Option<String>,
+        /// Clear all steps (set to null)
+        #[arg(long, conflicts_with = "steps_json")]
+        clear_steps: bool,
+    },
+    /// Delete a recipe
+    Delete {
+        /// Recipe ID
+        id: String,
+    },
+}
+
+#[derive(Parser, Debug)]
+pub struct IngredientsCmd {
+    #[command(subcommand)]
+    pub action: IngredientsAction,
+}
+
+#[derive(Subcommand, Debug)]
+pub enum IngredientsAction {
+    /// List all ingredients
+    List,
+    /// Get an ingredient by ID
+    Get {
+        /// Ingredient ID
+        id: String,
+    },
+    /// Create a new ingredient
+    Create {
+        /// Ingredient name
+        #[arg(long)]
+        name: String,
+        /// Store section (valid: Produce, Dairy & Eggs, Meat & Seafood, Deli, Bakery & Bread, Frozen, Canned & Jarred, Pasta & Grains, Snacks & Cereal, Condiments & Spreads, Pantry Staples)
+        #[arg(long)]
+        store_section: String,
+    },
+    /// Update an existing ingredient
+    Update {
+        /// Ingredient ID
+        id: String,
+        /// Ingredient name
+        #[arg(long)]
+        name: Option<String>,
+        /// Store section
+        #[arg(long)]
+        store_section: Option<String>,
+    },
+    /// Delete an ingredient
+    Delete {
+        /// Ingredient ID
+        id: String,
+    },
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -323,6 +421,184 @@ mod tests {
                 _ => panic!("expected Critique"),
             },
             _ => panic!("expected Mealplan"),
+        }
+    }
+
+    #[test]
+    fn parse_recipes_list() {
+        let cli = parse(&["recipes", "list"]);
+        assert!(matches!(cli.command, Commands::Recipes(ref cmd)
+            if matches!(cmd.action, RecipesAction::List)));
+    }
+
+    #[test]
+    fn parse_recipes_get_by_id() {
+        let cli = parse(&["recipes", "get", "--id", "recipe_1"]);
+        match &cli.command {
+            Commands::Recipes(cmd) => match &cmd.action {
+                RecipesAction::Get { id, meal_id } => {
+                    assert_eq!(id.as_deref(), Some("recipe_1"));
+                    assert!(meal_id.is_none());
+                }
+                _ => panic!("expected Get"),
+            },
+            _ => panic!("expected Recipes"),
+        }
+    }
+
+    #[test]
+    fn parse_recipes_get_by_meal_id() {
+        let cli = parse(&["recipes", "get", "--meal-id", "meal_1"]);
+        match &cli.command {
+            Commands::Recipes(cmd) => match &cmd.action {
+                RecipesAction::Get { id, meal_id } => {
+                    assert!(id.is_none());
+                    assert_eq!(meal_id.as_deref(), Some("meal_1"));
+                }
+                _ => panic!("expected Get"),
+            },
+            _ => panic!("expected Recipes"),
+        }
+    }
+
+    #[test]
+    fn parse_recipes_create() {
+        let cli = parse(&[
+            "recipes",
+            "create",
+            "--meal-id",
+            "meal_1",
+            "--ingredients-json",
+            r#"[{"ingredient_id":"ing_1"}]"#,
+            "--steps-json",
+            r#"[{"step_number":1,"instruction":"Do it"}]"#,
+        ]);
+        match &cli.command {
+            Commands::Recipes(cmd) => match &cmd.action {
+                RecipesAction::Create {
+                    meal_id,
+                    ingredients_json,
+                    steps_json,
+                } => {
+                    assert_eq!(meal_id, "meal_1");
+                    assert!(ingredients_json.contains("ing_1"));
+                    assert!(steps_json.is_some());
+                }
+                _ => panic!("expected Create"),
+            },
+            _ => panic!("expected Recipes"),
+        }
+    }
+
+    #[test]
+    fn parse_recipes_update_with_clear_steps() {
+        let cli = parse(&["recipes", "update", "recipe_1", "--clear-steps"]);
+        match &cli.command {
+            Commands::Recipes(cmd) => match &cmd.action {
+                RecipesAction::Update {
+                    id, clear_steps, steps_json, ..
+                } => {
+                    assert_eq!(id, "recipe_1");
+                    assert!(*clear_steps);
+                    assert!(steps_json.is_none());
+                }
+                _ => panic!("expected Update"),
+            },
+            _ => panic!("expected Recipes"),
+        }
+    }
+
+    #[test]
+    fn parse_recipes_delete() {
+        let cli = parse(&["recipes", "delete", "recipe_1"]);
+        match &cli.command {
+            Commands::Recipes(cmd) => match &cmd.action {
+                RecipesAction::Delete { id } => {
+                    assert_eq!(id, "recipe_1");
+                }
+                _ => panic!("expected Delete"),
+            },
+            _ => panic!("expected Recipes"),
+        }
+    }
+
+    #[test]
+    fn parse_ingredients_list() {
+        let cli = parse(&["ingredients", "list"]);
+        assert!(matches!(cli.command, Commands::Ingredients(ref cmd)
+            if matches!(cmd.action, IngredientsAction::List)));
+    }
+
+    #[test]
+    fn parse_ingredients_get() {
+        let cli = parse(&["ingredients", "get", "ing_1"]);
+        match &cli.command {
+            Commands::Ingredients(cmd) => match &cmd.action {
+                IngredientsAction::Get { id } => {
+                    assert_eq!(id, "ing_1");
+                }
+                _ => panic!("expected Get"),
+            },
+            _ => panic!("expected Ingredients"),
+        }
+    }
+
+    #[test]
+    fn parse_ingredients_create() {
+        let cli = parse(&[
+            "ingredients",
+            "create",
+            "--name",
+            "Tomatoes",
+            "--store-section",
+            "Produce",
+        ]);
+        match &cli.command {
+            Commands::Ingredients(cmd) => match &cmd.action {
+                IngredientsAction::Create {
+                    name,
+                    store_section,
+                } => {
+                    assert_eq!(name, "Tomatoes");
+                    assert_eq!(store_section, "Produce");
+                }
+                _ => panic!("expected Create"),
+            },
+            _ => panic!("expected Ingredients"),
+        }
+    }
+
+    #[test]
+    fn parse_ingredients_update() {
+        let cli = parse(&["ingredients", "update", "ing_1", "--name", "Roma Tomatoes"]);
+        match &cli.command {
+            Commands::Ingredients(cmd) => match &cmd.action {
+                IngredientsAction::Update {
+                    id,
+                    name,
+                    store_section,
+                } => {
+                    assert_eq!(id, "ing_1");
+                    assert_eq!(name.as_deref(), Some("Roma Tomatoes"));
+                    assert!(store_section.is_none());
+                }
+                _ => panic!("expected Update"),
+            },
+            _ => panic!("expected Ingredients"),
+        }
+    }
+
+    #[test]
+    fn parse_ingredients_delete() {
+        let cli = parse(&["ingredients", "delete", "ing_1"]);
+        match &cli.command {
+            Commands::Ingredients(cmd) => match &cmd.action {
+                IngredientsAction::Delete { id } => {
+                    assert_eq!(id, "ing_1");
+                }
+                _ => panic!("expected Delete"),
+            },
+            _ => panic!("expected Ingredients"),
         }
     }
 

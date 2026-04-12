@@ -8,7 +8,10 @@ mod types;
 use clap::Parser;
 use std::process;
 
-use cli::{Cli, Commands, HealthSyncAction, MealplanAction, MealsAction, ShoppinglistAction};
+use cli::{
+    Cli, Commands, HealthSyncAction, IngredientsAction, MealplanAction, MealsAction,
+    RecipesAction, ShoppinglistAction,
+};
 use client::ApiClient;
 use output::print_error;
 
@@ -119,6 +122,62 @@ fn run() -> Result<(), error::CliError> {
             ShoppinglistAction::Generate { session_id } => {
                 commands::shoppinglist::generate(&client, session_id.as_deref())?;
             }
+        },
+        Commands::Recipes(cmd) => match cmd.action {
+            RecipesAction::List => commands::recipes::list(&client)?,
+            RecipesAction::Get { id, meal_id } => {
+                commands::recipes::get(&client, id.as_deref(), meal_id.as_deref())?;
+            }
+            RecipesAction::Create {
+                meal_id,
+                ingredients_json,
+                steps_json,
+            } => {
+                commands::recipes::create(
+                    &client,
+                    &meal_id,
+                    &ingredients_json,
+                    steps_json.as_deref(),
+                )?;
+            }
+            RecipesAction::Update {
+                id,
+                ingredients_json,
+                steps_json,
+                clear_steps,
+            } => {
+                commands::recipes::update(
+                    &client,
+                    &id,
+                    ingredients_json.as_deref(),
+                    steps_json.as_deref(),
+                    clear_steps,
+                )?;
+            }
+            RecipesAction::Delete { id } => commands::recipes::delete(&client, &id)?,
+        },
+        Commands::Ingredients(cmd) => match cmd.action {
+            IngredientsAction::List => commands::ingredients::list(&client)?,
+            IngredientsAction::Get { id } => commands::ingredients::get(&client, &id)?,
+            IngredientsAction::Create {
+                name,
+                store_section,
+            } => {
+                commands::ingredients::create(&client, &name, &store_section)?;
+            }
+            IngredientsAction::Update {
+                id,
+                name,
+                store_section,
+            } => {
+                commands::ingredients::update(
+                    &client,
+                    &id,
+                    name.as_deref(),
+                    store_section.as_deref(),
+                )?;
+            }
+            IngredientsAction::Delete { id } => commands::ingredients::delete(&client, &id)?,
         },
     }
 

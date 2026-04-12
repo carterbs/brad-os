@@ -106,6 +106,54 @@ pub struct ShoppingListItem {
     pub display_text: String,
 }
 
+// Recipe types
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Recipe {
+    pub id: String,
+    pub meal_id: String,
+    pub ingredients: Vec<RecipeIngredient>,
+    pub steps: Option<Vec<RecipeStep>>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecipeIngredient {
+    pub ingredient_id: String,
+    pub quantity: Option<f64>,
+    pub unit: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecipeStep {
+    pub step_number: u32,
+    pub instruction: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Ingredient {
+    pub id: String,
+    pub name: String,
+    pub store_section: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+pub const VALID_STORE_SECTIONS: &[&str] = &[
+    "Produce",
+    "Dairy & Eggs",
+    "Meat & Seafood",
+    "Deli",
+    "Bakery & Bread",
+    "Frozen",
+    "Canned & Jarred",
+    "Pasta & Grains",
+    "Snacks & Cereal",
+    "Condiments & Spreads",
+    "Pantry Staples",
+];
+
 // API envelope types
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -262,6 +310,62 @@ mod tests {
         assert!(!err.success);
         assert_eq!(err.error.code, "NOT_FOUND");
         assert_eq!(err.error.message, "Session not found");
+    }
+
+    #[test]
+    fn deserialize_recipe_with_steps() {
+        let json = r#"{
+            "id": "recipe_1",
+            "meal_id": "meal_1",
+            "ingredients": [
+                {"ingredient_id": "ing_1", "quantity": 2.0, "unit": "cups"},
+                {"ingredient_id": "ing_2"}
+            ],
+            "steps": [
+                {"step_number": 1, "instruction": "Chop onions"},
+                {"step_number": 2, "instruction": "Saute"}
+            ],
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z"
+        }"#;
+        let recipe: Recipe = serde_json::from_str(json).unwrap();
+        assert_eq!(recipe.id, "recipe_1");
+        assert_eq!(recipe.meal_id, "meal_1");
+        assert_eq!(recipe.ingredients.len(), 2);
+        assert_eq!(recipe.ingredients[0].quantity, Some(2.0));
+        assert_eq!(recipe.ingredients[1].quantity, None);
+        let steps = recipe.steps.unwrap();
+        assert_eq!(steps.len(), 2);
+        assert_eq!(steps[0].step_number, 1);
+    }
+
+    #[test]
+    fn deserialize_recipe_with_null_steps() {
+        let json = r#"{
+            "id": "recipe_2",
+            "meal_id": "meal_2",
+            "ingredients": [],
+            "steps": null,
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z"
+        }"#;
+        let recipe: Recipe = serde_json::from_str(json).unwrap();
+        assert!(recipe.steps.is_none());
+    }
+
+    #[test]
+    fn deserialize_ingredient() {
+        let json = r#"{
+            "id": "ing_1",
+            "name": "Tomatoes",
+            "store_section": "Produce",
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z"
+        }"#;
+        let ingredient: Ingredient = serde_json::from_str(json).unwrap();
+        assert_eq!(ingredient.id, "ing_1");
+        assert_eq!(ingredient.name, "Tomatoes");
+        assert_eq!(ingredient.store_section, "Produce");
     }
 
     #[test]

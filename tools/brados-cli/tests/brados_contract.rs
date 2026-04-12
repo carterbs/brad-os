@@ -37,6 +37,29 @@ fn missing_appcheck_token_exits_one_with_json_error() {
 }
 
 #[test]
+fn recipes_help_exits_zero() {
+    let output = brados_bin().args(["recipes", "--help"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "expected exit 0 for recipes --help, got {:?}",
+        output.status
+    );
+}
+
+#[test]
+fn ingredients_help_exits_zero() {
+    let output = brados_bin()
+        .args(["ingredients", "--help"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "expected exit 0 for ingredients --help, got {:?}",
+        output.status
+    );
+}
+
+#[test]
 fn unknown_subcommand_exits_two() {
     let output = brados_bin().arg("nonexistent").output().unwrap();
     // clap exits with code 2 for usage errors
