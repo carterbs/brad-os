@@ -128,6 +128,50 @@ struct MealPlanViewModelTests {
         // error may be set for missing recipes (shouldFail=true prevents recipe cache loading)
     }
 
+    @Test("cached session displays before shopping list hydration finishes")
+    @MainActor
+    func cachedSessionDisplaysBeforeShoppingListHydrationFinishes() async {
+        let cachedSession = makeSession(
+            id: "cached-session",
+            isFinalized: true,
+            plan: [makePlanEntry(dayIndex: 0, mealType: .breakfast, mealId: "meal-1", mealName: "Breakfast")],
+            mealsSnapshot: [makeMeal(id: "meal-1", name: "Breakfast", mealType: .breakfast)]
+        )
+
+        let mock = MockAPIClient()
+        mock.delay = 0.25
+        mock.mockIngredients = [makeIngredient(id: "ingredient-1", name: "Oats", storeSection: "Pantry")]
+        mock.mockRecipes = [
+            makeRecipe(
+                mealId: "meal-1",
+                ingredients: [RecipeIngredient(ingredientId: "ingredient-1", quantity: 1, unit: "cup")]
+            )
+        ]
+
+        let vm = MealPlanViewModel(
+            apiClient: mock,
+            recipeCache: RecipeCacheService(apiClient: mock),
+            cacheService: RecordingMealPlanCacheService(cachedSession: cachedSession),
+            userDefaults: MockUserDefaults()
+        )
+
+        let loadTask = Task {
+            await vm.loadExistingSession()
+        }
+
+        await Task.yield()
+
+        #expect(vm.session == cachedSession)
+        #expect(vm.currentPlan == cachedSession.plan)
+        #expect(vm.isLoading == false)
+        #expect(vm.shoppingList.isEmpty)
+
+        await loadTask.value
+
+        #expect(shoppingItemNames(vm.shoppingList) == ["Oats"])
+        #expect(vm.error == nil)
+    }
+
     @Test("loadExistingSession uses saved session id when present")
     @MainActor
     func loadExistingSessionUsesSavedSessionIdWhenPresent() async {

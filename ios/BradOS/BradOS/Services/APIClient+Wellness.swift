@@ -127,13 +127,13 @@ extension APIClient {
     // MARK: - Ingredients
 
     func getIngredients() async throws -> [Ingredient] {
-        try await get("/ingredients")
+        try await get("/ingredients", cacheTTL: CacheTTL.long)
     }
 
     // MARK: - Recipes
 
     func getRecipes() async throws -> [Recipe] {
-        try await get("/recipes")
+        try await get("/recipes", cacheTTL: CacheTTL.long)
     }
 
     // MARK: - Meal Plans

@@ -100,8 +100,8 @@ public class MealPlanViewModel: ObservableObject {
         if let cached = cacheService.getCachedSession(), cached.isFinalized {
             session = cached
             currentPlan = cached.plan
-            await updateShoppingList()
             isLoading = false
+            await updateShoppingList()
             return
         }
 
@@ -111,11 +111,11 @@ public class MealPlanViewModel: ObservableObject {
                 let fullSession = try await apiClient.getMealPlanSession(id: sessionId)
                 session = fullSession
                 currentPlan = fullSession.plan
+                isLoading = false
                 await updateShoppingList()
                 if fullSession.isFinalized {
                     cacheService.cache(fullSession)
                 }
-                isLoading = false
                 return
             } catch {
                 // Session not found or expired, clear the saved ID
@@ -131,6 +131,7 @@ public class MealPlanViewModel: ObservableObject {
             if let latestSession = try await apiClient.getLatestMealPlanSession() {
                 session = latestSession
                 currentPlan = latestSession.plan
+                isLoading = false
                 await updateShoppingList()
                 if latestSession.isFinalized {
                     cacheService.cache(latestSession)

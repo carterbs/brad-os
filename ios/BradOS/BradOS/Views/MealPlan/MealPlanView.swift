@@ -122,7 +122,7 @@ struct MealPlanView: View {
                 .tint(Theme.mealPlan)
                 .scaleEffect(1.5)
 
-            Text("Generating meal plan...")
+            Text("Loading meal plan...")
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
         }
