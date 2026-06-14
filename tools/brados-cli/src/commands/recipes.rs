@@ -3,6 +3,32 @@ use crate::error::CliError;
 use crate::output::print_success;
 use crate::types::Recipe;
 
+pub(crate) fn parse_json_arg(
+    arg_name: &str,
+    raw_json: &str,
+) -> Result<serde_json::Value, CliError> {
+    serde_json::from_str(raw_json)
+        .map_err(|e| CliError::Deserialize(format!("invalid {arg_name} JSON: {e}")))
+}
+
+pub(crate) fn build_create_payload(
+    meal_id: &str,
+    ingredients_json: &str,
+    steps_json: Option<&str>,
+) -> Result<serde_json::Value, CliError> {
+    let parsed_ingredients = parse_json_arg("ingredients", ingredients_json)?;
+    let parsed_steps = match steps_json {
+        Some(s) => parse_json_arg("steps", s)?,
+        None => serde_json::Value::Null,
+    };
+
+    Ok(serde_json::json!({
+        "meal_id": meal_id,
+        "ingredients": parsed_ingredients,
+        "steps": parsed_steps,
+    }))
+}
+
 /// List all recipes.
 pub fn list(client: &ApiClient) -> Result<(), CliError> {
     let body = client.get("/recipes")?;
@@ -34,21 +60,7 @@ pub fn create(
     ingredients_json: &str,
     steps_json: Option<&str>,
 ) -> Result<(), CliError> {
-    let parsed_ingredients: serde_json::Value = serde_json::from_str(ingredients_json)
-        .map_err(|e| CliError::Deserialize(format!("invalid ingredients JSON: {e}")))?;
-
-    let parsed_steps = match steps_json {
-        Some(s) => serde_json::from_str::<serde_json::Value>(s)
-            .map_err(|e| CliError::Deserialize(format!("invalid steps JSON: {e}")))?,
-        None => serde_json::Value::Null,
-    };
-
-    let payload = serde_json::json!({
-        "meal_id": meal_id,
-        "ingredients": parsed_ingredients,
-        "steps": parsed_steps,
-    });
-
+    let payload = build_create_payload(meal_id, ingredients_json, steps_json)?;
     let body = client.post_json("/recipes", &payload)?;
     let data: Recipe = extract_data(body)?;
     print_success(&data);
@@ -66,16 +78,14 @@ pub fn update(
     let mut obj = serde_json::Map::new();
 
     if let Some(s) = ingredients_json {
-        let parsed: serde_json::Value = serde_json::from_str(s)
-            .map_err(|e| CliError::Deserialize(format!("invalid ingredients JSON: {e}")))?;
+        let parsed = parse_json_arg("ingredients", s)?;
         obj.insert("ingredients".to_string(), parsed);
     }
 
     if clear_steps {
         obj.insert("steps".to_string(), serde_json::Value::Null);
     } else if let Some(s) = steps_json {
-        let parsed: serde_json::Value = serde_json::from_str(s)
-            .map_err(|e| CliError::Deserialize(format!("invalid steps JSON: {e}")))?;
+        let parsed = parse_json_arg("steps", s)?;
         obj.insert("steps".to_string(), parsed);
     }
 
@@ -95,13 +105,12 @@ pub fn delete(client: &ApiClient, id: &str) -> Result<(), CliError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::error::CliError;
+    use super::*;
 
     #[test]
     fn malformed_ingredients_json_produces_clear_error() {
         let bad_json = "not valid json";
-        let result: Result<serde_json::Value, CliError> = serde_json::from_str(bad_json)
-            .map_err(|e| CliError::Deserialize(format!("invalid ingredients JSON: {e}")));
+        let result = parse_json_arg("ingredients", bad_json);
         match result {
             Err(CliError::Deserialize(msg)) => {
                 assert!(msg.contains("invalid ingredients JSON"));
@@ -113,13 +122,35 @@ mod tests {
     #[test]
     fn malformed_steps_json_produces_clear_error() {
         let bad_json = "{not json}";
-        let result: Result<serde_json::Value, CliError> = serde_json::from_str(bad_json)
-            .map_err(|e| CliError::Deserialize(format!("invalid steps JSON: {e}")));
+        let result = parse_json_arg("steps", bad_json);
         match result {
             Err(CliError::Deserialize(msg)) => {
                 assert!(msg.contains("invalid steps JSON"));
             }
             _ => panic!("expected Deserialize error"),
         }
+    }
+
+    #[test]
+    fn build_create_payload_includes_parsed_ingredients_and_steps() {
+        let payload = build_create_payload(
+            "meal_123",
+            r#"[{"ingredient_id":"chicken","quantity":1,"unit":"lb"}]"#,
+            Some(r#"[{"step_number":1,"instruction":"Cook chicken"}]"#),
+        )
+        .unwrap();
+
+        assert_eq!(payload["meal_id"], "meal_123");
+        assert_eq!(payload["ingredients"][0]["ingredient_id"], "chicken");
+        assert_eq!(payload["steps"][0]["instruction"], "Cook chicken");
+    }
+
+    #[test]
+    fn build_create_payload_uses_null_steps_when_omitted() {
+        let payload =
+            build_create_payload("meal_123", r#"[{"ingredient_id":"bread"}]"#, None).unwrap();
+
+        assert_eq!(payload["meal_id"], "meal_123");
+        assert!(payload["steps"].is_null());
     }
 }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Meal } from './meal.js';
 
 export type MealPlanEntry = z.infer<
   typeof import('../schemas/mealplan.schema.js').mealPlanEntrySchema
@@ -24,3 +25,22 @@ export type CritiqueResponse = z.infer<
 export type ApplyOperationsResult = z.infer<
   typeof import('../schemas/mealplan.schema.js').applyOperationsResultSchema
 >;
+
+export interface MealPlanRecencyMealRepository {
+  updateLastPlanned(id: string, timestamp: string | null): Promise<Meal | null>;
+}
+
+export interface MealPlanRecencySessionRepository {
+  findAll(): Promise<MealPlanSession[]>;
+}
+
+export interface MealPlanRecencyReconciliationParams {
+  previousPlan: ReadonlyArray<MealPlanEntry>;
+  nextPlan: ReadonlyArray<MealPlanEntry>;
+  sessionRepository: MealPlanRecencySessionRepository;
+  mealRepository: MealPlanRecencyMealRepository;
+}
+
+export interface MealPlanRecencyReconciliationResult {
+  affectedMealIds: string[];
+}

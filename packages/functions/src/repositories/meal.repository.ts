@@ -1,9 +1,5 @@
 import type { Firestore } from 'firebase-admin/firestore';
-import type {
-  Meal,
-  CreateMealDTO,
-  UpdateMealDTO,
-} from '../shared.js';
+import type { Meal, CreateMealDTO, UpdateMealDTO } from '../shared.js';
 import { BaseRepository } from './base.repository.js';
 import {
   isRecord,
@@ -45,9 +41,16 @@ export class MealRepository extends BaseRepository<
     return meal;
   }
 
-  protected parseEntity(id: string, data: Record<string, unknown>): Meal | null {
+  protected parseEntity(
+    id: string,
+    data: Record<string, unknown>
+  ): Meal | null {
     const name = readString(data, 'name');
-    const mealType = readEnum(data, 'meal_type', ['breakfast', 'lunch', 'dinner'] as const);
+    const mealType = readEnum(data, 'meal_type', [
+      'breakfast',
+      'lunch',
+      'dinner',
+    ] as const);
     const effort = readNumber(data, 'effort');
     const hasRedMeat = readBoolean(data, 'has_red_meat');
     const prepAhead = readBoolean(data, 'prep_ahead');
@@ -69,7 +72,9 @@ export class MealRepository extends BaseRepository<
       url === undefined ||
       createdAt === null ||
       updatedAt === null ||
-      (rawLastPlanned !== undefined && rawLastPlanned !== null && lastPlanned === null)
+      (rawLastPlanned !== undefined &&
+        rawLastPlanned !== null &&
+        lastPlanned === null)
     ) {
       return null;
     }
@@ -117,7 +122,10 @@ export class MealRepository extends BaseRepository<
       .filter((meal): meal is Meal => meal !== null);
   }
 
-  async updateLastPlanned(id: string, timestamp: string): Promise<Meal | null> {
+  async updateLastPlanned(
+    id: string,
+    timestamp: string | null
+  ): Promise<Meal | null> {
     const existing = await this.findById(id);
     if (!existing) {
       return null;

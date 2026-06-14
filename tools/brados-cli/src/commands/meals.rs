@@ -1,7 +1,27 @@
 use crate::client::{extract_data, ApiClient};
+use crate::commands::recipes;
 use crate::error::CliError;
 use crate::output::print_success;
-use crate::types::Meal;
+use crate::types::{Meal, Recipe};
+use serde::Serialize;
+
+#[derive(Debug, Serialize)]
+struct MealCreateWithRecipeResult {
+    meal: Meal,
+    recipe_created: bool,
+    recipe: Recipe,
+}
+
+pub struct CreateMealRequest<'a> {
+    pub name: &'a str,
+    pub meal_type: &'a str,
+    pub effort: u8,
+    pub has_red_meat: bool,
+    pub prep_ahead: bool,
+    pub url: &'a str,
+    pub ingredients_json: Option<&'a str>,
+    pub steps_json: Option<&'a str>,
+}
 
 /// List all meals.
 pub fn list(client: &ApiClient) -> Result<(), CliError> {
@@ -20,26 +40,54 @@ pub fn get(client: &ApiClient, id: &str) -> Result<(), CliError> {
 }
 
 /// Create a new meal.
-pub fn create(
-    client: &ApiClient,
-    name: &str,
-    meal_type: &str,
-    effort: u8,
-    has_red_meat: bool,
-    prep_ahead: bool,
-    url: &str,
-) -> Result<(), CliError> {
+pub fn create(client: &ApiClient, request: CreateMealRequest<'_>) -> Result<(), CliError> {
+    let recipe_payload = match request.ingredients_json {
+        Some(ingredients) => Some(recipes::build_create_payload(
+            "",
+            ingredients,
+            request.steps_json,
+        )?),
+        None if request.steps_json.is_some() => {
+            return Err(CliError::Deserialize(
+                "--steps-json requires --ingredients-json so shopping-list ingredients can be attached to a recipe".to_string(),
+            ));
+        }
+        None => None,
+    };
+
     let payload = serde_json::json!({
-        "name": name,
-        "meal_type": meal_type,
-        "effort": effort,
-        "has_red_meat": has_red_meat,
-        "prep_ahead": prep_ahead,
-        "url": url,
+        "name": request.name,
+        "meal_type": request.meal_type,
+        "effort": request.effort,
+        "has_red_meat": request.has_red_meat,
+        "prep_ahead": request.prep_ahead,
+        "url": request.url,
     });
     let body = client.post_json("/meals", &payload)?;
-    let data: Meal = extract_data(body)?;
-    print_success(&data);
+    let meal: Meal = extract_data(body)?;
+
+    let Some(mut recipe_payload) = recipe_payload else {
+        print_success(&meal);
+        return Ok(());
+    };
+
+    recipe_payload["meal_id"] = serde_json::Value::String(meal.id.clone());
+    let recipe_body = client.post_json("/recipes", &recipe_payload).map_err(|err| {
+        CliError::Api {
+            code: "RECIPE_CREATE_FAILED_AFTER_MEAL_CREATE".to_string(),
+            message: format!(
+                "Meal was created with id '{}', but recipe creation failed: {}. Recovery: run `brados recipes create --meal-id '{}' --ingredients-json '<ingredients-json>'` and include `--steps-json '<steps-json>'` if needed so shopping lists include this meal.",
+                meal.id, err, meal.id
+            ),
+        }
+    })?;
+    let recipe: Recipe = extract_data(recipe_body)?;
+    let result = MealCreateWithRecipeResult {
+        meal,
+        recipe_created: true,
+        recipe,
+    };
+    print_success(&result);
     Ok(())
 }
 
@@ -138,5 +186,30 @@ mod tests {
         );
         let obj = payload.as_object().unwrap();
         assert_eq!(obj.len(), 6);
+    }
+
+    #[test]
+    fn meal_create_recipe_payload_rejects_malformed_ingredients_before_posting() {
+        let result = recipes::build_create_payload("", "not json", None);
+
+        match result {
+            Err(CliError::Deserialize(msg)) => {
+                assert!(msg.contains("invalid ingredients JSON"));
+            }
+            _ => panic!("expected Deserialize error"),
+        }
+    }
+
+    #[test]
+    fn meal_create_recipe_payload_allows_steps_with_ingredients() {
+        let result = recipes::build_create_payload(
+            "",
+            r#"[{"ingredient_id":"chicken","quantity":1,"unit":"lb"}]"#,
+            Some(r#"[{"step_number":1,"instruction":"Cook"}]"#),
+        )
+        .unwrap();
+
+        assert_eq!(result["ingredients"][0]["ingredient_id"], "chicken");
+        assert_eq!(result["steps"][0]["step_number"], 1);
     }
 }

@@ -92,7 +92,8 @@ export class RecipeRepository extends BaseRepository<
 
   override async update(id: string, data: UpdateRecipeDTO): Promise<Recipe | null> {
     // meal_id is immutable — strip it from the update payload
-    const { meal_id: _mealId, ...rest } = data;
+    const rest = { ...data };
+    delete rest.meal_id;
     return super.update(id, rest as UpdateRecipeDTO);
   }
 
