@@ -12,6 +12,17 @@ struct MealCreateWithRecipeResult {
     recipe: Recipe,
 }
 
+pub struct CreateMealRequest<'a> {
+    pub name: &'a str,
+    pub meal_type: &'a str,
+    pub effort: u8,
+    pub has_red_meat: bool,
+    pub prep_ahead: bool,
+    pub url: &'a str,
+    pub ingredients_json: Option<&'a str>,
+    pub steps_json: Option<&'a str>,
+}
+
 /// List all meals.
 pub fn list(client: &ApiClient) -> Result<(), CliError> {
     let body = client.get("/meals")?;
@@ -29,20 +40,14 @@ pub fn get(client: &ApiClient, id: &str) -> Result<(), CliError> {
 }
 
 /// Create a new meal.
-pub fn create(
-    client: &ApiClient,
-    name: &str,
-    meal_type: &str,
-    effort: u8,
-    has_red_meat: bool,
-    prep_ahead: bool,
-    url: &str,
-    ingredients_json: Option<&str>,
-    steps_json: Option<&str>,
-) -> Result<(), CliError> {
-    let recipe_payload = match ingredients_json {
-        Some(ingredients) => Some(recipes::build_create_payload("", ingredients, steps_json)?),
-        None if steps_json.is_some() => {
+pub fn create(client: &ApiClient, request: CreateMealRequest<'_>) -> Result<(), CliError> {
+    let recipe_payload = match request.ingredients_json {
+        Some(ingredients) => Some(recipes::build_create_payload(
+            "",
+            ingredients,
+            request.steps_json,
+        )?),
+        None if request.steps_json.is_some() => {
             return Err(CliError::Deserialize(
                 "--steps-json requires --ingredients-json so shopping-list ingredients can be attached to a recipe".to_string(),
             ));
@@ -51,12 +56,12 @@ pub fn create(
     };
 
     let payload = serde_json::json!({
-        "name": name,
-        "meal_type": meal_type,
-        "effort": effort,
-        "has_red_meat": has_red_meat,
-        "prep_ahead": prep_ahead,
-        "url": url,
+        "name": request.name,
+        "meal_type": request.meal_type,
+        "effort": request.effort,
+        "has_red_meat": request.has_red_meat,
+        "prep_ahead": request.prep_ahead,
+        "url": request.url,
     });
     let body = client.post_json("/meals", &payload)?;
     let meal: Meal = extract_data(body)?;

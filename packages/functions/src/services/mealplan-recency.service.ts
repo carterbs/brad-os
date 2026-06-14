@@ -1,17 +1,11 @@
-import type { MealPlanEntry, MealPlanSession } from '../shared.js';
-import type { MealRepository } from '../repositories/meal.repository.js';
-import type { MealPlanSessionRepository } from '../repositories/mealplan-session.repository.js';
-
-export interface MealPlanRecencyReconciliationParams {
-  previousPlan: ReadonlyArray<MealPlanEntry>;
-  nextPlan: ReadonlyArray<MealPlanEntry>;
-  sessionRepository: MealPlanSessionRepository;
-  mealRepository: MealRepository;
-}
-
-export interface MealPlanRecencyReconciliationResult {
-  affectedMealIds: string[];
-}
+import type {
+  MealPlanEntry,
+  MealPlanRecencyMealRepository,
+  MealPlanRecencyReconciliationParams,
+  MealPlanRecencyReconciliationResult,
+  MealPlanRecencySessionRepository,
+  MealPlanSession,
+} from '../shared.js';
 
 export function getUniquePlannedMealIds(
   plan: ReadonlyArray<MealPlanEntry>
@@ -37,7 +31,7 @@ export function getAffectedMealIds(
 }
 
 export async function markPlanMealsLastPlanned(
-  mealRepository: MealRepository,
+  mealRepository: MealPlanRecencyMealRepository,
   plan: ReadonlyArray<MealPlanEntry>,
   timestamp: string
 ): Promise<void> {
@@ -48,8 +42,8 @@ export async function markPlanMealsLastPlanned(
 }
 
 export async function reconcileMealLastPlanned(
-  mealRepository: MealRepository,
-  sessionRepository: MealPlanSessionRepository,
+  mealRepository: MealPlanRecencyMealRepository,
+  sessionRepository: MealPlanRecencySessionRepository,
   mealIds: ReadonlyArray<string>
 ): Promise<void> {
   const uniqueMealIds = [...new Set(mealIds)];

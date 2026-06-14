@@ -60,14 +60,16 @@ fn run() -> Result<(), error::CliError> {
             } => {
                 commands::meals::create(
                     &client,
-                    &name,
-                    &meal_type,
-                    effort,
-                    has_red_meat,
-                    prep_ahead,
-                    &url,
-                    ingredients_json.as_deref(),
-                    steps_json.as_deref(),
+                    commands::meals::CreateMealRequest {
+                        name: &name,
+                        meal_type: &meal_type,
+                        effort,
+                        has_red_meat,
+                        prep_ahead,
+                        url: &url,
+                        ingredients_json: ingredients_json.as_deref(),
+                        steps_json: steps_json.as_deref(),
+                    },
                 )?;
             }
             MealsAction::Update {
