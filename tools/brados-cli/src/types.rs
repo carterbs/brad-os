@@ -70,6 +70,15 @@ pub struct CritiqueResult {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ReviseResult {
+    pub plan: Vec<MealPlanEntry>,
+    pub explanation: String,
+    pub operations: Vec<CritiqueOperation>,
+    pub errors: Vec<String>,
+    pub recency_reconciled: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GenerateResult {
     pub session_id: String,
     pub plan: Vec<MealPlanEntry>,
@@ -78,6 +87,13 @@ pub struct GenerateResult {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FinalizeResult {
     pub finalized: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeleteMealPlanResult {
+    pub deleted: bool,
+    pub was_finalized: bool,
+    pub recency_reconciled: bool,
 }
 
 // Shopping list types
@@ -310,6 +326,19 @@ mod tests {
         assert!(!err.success);
         assert_eq!(err.error.code, "NOT_FOUND");
         assert_eq!(err.error.message, "Session not found");
+    }
+
+    #[test]
+    fn deserialize_delete_meal_plan_result() {
+        let json = r#"{
+            "deleted": true,
+            "was_finalized": true,
+            "recency_reconciled": true
+        }"#;
+        let result: DeleteMealPlanResult = serde_json::from_str(json).unwrap();
+        assert!(result.deleted);
+        assert!(result.was_finalized);
+        assert!(result.recency_reconciled);
     }
 
     #[test]

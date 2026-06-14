@@ -54,8 +54,20 @@ pub enum MealplanAction {
         /// Critique message
         message: String,
     },
+    /// Revise a finalized meal plan
+    Revise {
+        /// Session ID
+        session_id: String,
+        /// Revision message
+        message: String,
+    },
     /// Finalize a meal plan
     Finalize {
+        /// Session ID
+        session_id: String,
+    },
+    /// Delete a meal plan session
+    Delete {
         /// Session ID
         session_id: String,
     },
@@ -96,6 +108,12 @@ pub enum MealsAction {
         /// URL for the recipe
         #[arg(long)]
         url: String,
+        /// Ingredients as JSON array: [{"ingredient_id":"...","quantity":4,"unit":"count"}]
+        #[arg(long)]
+        ingredients_json: Option<String>,
+        /// Steps as JSON array: [{"step_number":1,"instruction":"..."}]
+        #[arg(long, requires = "ingredients_json")]
+        steps_json: Option<String>,
     },
     /// Update an existing meal
     Update {
@@ -338,6 +356,8 @@ mod tests {
                     has_red_meat,
                     prep_ahead,
                     url,
+                    ingredients_json,
+                    steps_json,
                 } => {
                     assert_eq!(name, "Tacos");
                     assert_eq!(meal_type, "dinner");
@@ -345,6 +365,8 @@ mod tests {
                     assert!(*has_red_meat);
                     assert!(!*prep_ahead);
                     assert_eq!(url, "");
+                    assert!(ingredients_json.is_none());
+                    assert!(steps_json.is_none());
                 }
                 _ => panic!("expected Create"),
             },
@@ -425,6 +447,38 @@ mod tests {
     }
 
     #[test]
+    fn parse_mealplan_revise() {
+        let cli = parse(&["mealplan", "revise", "sess_1", "swap Monday dinner"]);
+        match &cli.command {
+            Commands::Mealplan(cmd) => match &cmd.action {
+                MealplanAction::Revise {
+                    session_id,
+                    message,
+                } => {
+                    assert_eq!(session_id, "sess_1");
+                    assert_eq!(message, "swap Monday dinner");
+                }
+                _ => panic!("expected Revise"),
+            },
+            _ => panic!("expected Mealplan"),
+        }
+    }
+
+    #[test]
+    fn parse_mealplan_delete() {
+        let cli = parse(&["mealplan", "delete", "sess_1"]);
+        match &cli.command {
+            Commands::Mealplan(cmd) => match &cmd.action {
+                MealplanAction::Delete { session_id } => {
+                    assert_eq!(session_id, "sess_1");
+                }
+                _ => panic!("expected Delete"),
+            },
+            _ => panic!("expected Mealplan"),
+        }
+    }
+
+    #[test]
     fn parse_recipes_list() {
         let cli = parse(&["recipes", "list"]);
         assert!(matches!(cli.command, Commands::Recipes(ref cmd)
@@ -496,7 +550,10 @@ mod tests {
         match &cli.command {
             Commands::Recipes(cmd) => match &cmd.action {
                 RecipesAction::Update {
-                    id, clear_steps, steps_json, ..
+                    id,
+                    clear_steps,
+                    steps_json,
+                    ..
                 } => {
                     assert_eq!(id, "recipe_1");
                     assert!(*clear_steps);

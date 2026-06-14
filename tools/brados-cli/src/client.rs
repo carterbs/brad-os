@@ -37,6 +37,14 @@ impl ApiClient {
         format!("{}{}", self.base_url, path)
     }
 
+    #[cfg(test)]
+    pub(crate) fn new_for_tests(base_url: &str, appcheck_token: &str) -> Self {
+        Self {
+            base_url: base_url.to_string(),
+            appcheck_token: appcheck_token.to_string(),
+        }
+    }
+
     /// Perform a GET request.
     pub fn get(&self, path: &str) -> Result<serde_json::Value, CliError> {
         let url = self.url_for(path);

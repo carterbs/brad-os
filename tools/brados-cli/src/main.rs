@@ -9,8 +9,8 @@ use clap::Parser;
 use std::process;
 
 use cli::{
-    Cli, Commands, HealthSyncAction, IngredientsAction, MealplanAction, MealsAction,
-    RecipesAction, ShoppinglistAction,
+    Cli, Commands, HealthSyncAction, IngredientsAction, MealplanAction, MealsAction, RecipesAction,
+    ShoppinglistAction,
 };
 use client::ApiClient;
 use output::print_error;
@@ -32,8 +32,17 @@ fn run() -> Result<(), error::CliError> {
             } => {
                 commands::mealplan::critique(&client, &session_id, &message)?;
             }
+            MealplanAction::Revise {
+                session_id,
+                message,
+            } => {
+                commands::mealplan::revise(&client, &session_id, &message)?;
+            }
             MealplanAction::Finalize { session_id } => {
                 commands::mealplan::finalize(&client, &session_id)?;
+            }
+            MealplanAction::Delete { session_id } => {
+                commands::mealplan::delete(&client, &session_id)?;
             }
         },
         Commands::Meals(cmd) => match cmd.action {
@@ -46,6 +55,8 @@ fn run() -> Result<(), error::CliError> {
                 has_red_meat,
                 prep_ahead,
                 url,
+                ingredients_json,
+                steps_json,
             } => {
                 commands::meals::create(
                     &client,
@@ -55,6 +66,8 @@ fn run() -> Result<(), error::CliError> {
                     has_red_meat,
                     prep_ahead,
                     &url,
+                    ingredients_json.as_deref(),
+                    steps_json.as_deref(),
                 )?;
             }
             MealsAction::Update {
