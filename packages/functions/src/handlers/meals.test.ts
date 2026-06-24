@@ -126,6 +126,7 @@ describe('Meals Handler', () => {
       expect(mockMealRepo.create).toHaveBeenCalledWith({
         name: 'Grilled Salmon',
         meal_type: 'dinner',
+        audience: 'family',
         effort: 6,
         has_red_meat: false,
         prep_ahead: false,
@@ -160,9 +161,47 @@ describe('Meals Handler', () => {
       expect(mockMealRepo.create).toHaveBeenCalledWith({
         name: 'Grilled Salmon',
         meal_type: 'dinner',
+        audience: 'family',
         effort: 6,
         has_red_meat: false,
         prep_ahead: false,
+        url: null,
+      });
+    });
+
+    it('should create adult breakfast meal', async () => {
+      const createdMeal = createMeal({
+        id: 'adult-breakfast',
+        name: 'Protein Oats',
+        meal_type: 'breakfast',
+        audience: 'adult',
+        effort: 1,
+        has_red_meat: false,
+        prep_ahead: true,
+        url: null,
+      });
+      mockMealRepo.create.mockResolvedValue(createdMeal);
+
+      const response = await request(mealsApp)
+        .post('/')
+        .send({
+          name: 'Protein Oats',
+          meal_type: 'breakfast',
+          audience: 'adult',
+          effort: 1,
+          has_red_meat: false,
+          prep_ahead: true,
+          url: null,
+        });
+
+      expect(response.status).toBe(201);
+      expect(mockMealRepo.create).toHaveBeenCalledWith({
+        name: 'Protein Oats',
+        meal_type: 'breakfast',
+        audience: 'adult',
+        effort: 1,
+        has_red_meat: false,
+        prep_ahead: true,
         url: null,
       });
     });

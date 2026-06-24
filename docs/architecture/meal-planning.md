@@ -53,11 +53,20 @@ MealPlanView -> MealPlanViewModel -> APIClient -> mealplans/meals handlers -> Ge
   - `packages/functions/src/types/ingredient.ts`
 
 ## Firestore Collections
-- `meals` — meal definitions (name, type, effort, prep_ahead, has_red_meat, url)
+- `meals` — meal definitions (name, type, audience, effort, prep_ahead, has_red_meat, url)
 - `mealplan_sessions` — generated plans with critique history (plan, meals_snapshot, history, is_finalized)
 - `recipes` — recipe data
 - `ingredients` — ingredient data
 - `barcodes` — barcode-to-ingredient mappings
+
+## Meal Slots
+- Meals have an `audience`: `family` or `adult`. Existing records without `audience` decode as `family`.
+- Plan entries have a `meal_track`: `family` or `adult`. Existing entries without `meal_track` decode as `family`.
+- Slot identity is `day_index + meal_track + meal_type`; this lets a family breakfast and Brad breakfast coexist on the same day.
+- Generated weekly plans contain 28 entries: 7 family breakfasts, 7 adult breakfasts, 7 family lunches, and 7 family dinners.
+- Generation uses strict eligibility: family slots only select `audience=family` meals, adult breakfast slots only select `audience=adult` breakfast meals.
+- If there are fewer than 7 adult breakfast meals, generation may repeat adult breakfast meals across the week. If there are zero adult breakfast meals, generation fails clearly instead of falling back to family breakfasts.
+- Stable display order is family breakfast, adult breakfast, family lunch, then family dinner.
 
 ## Key Endpoints
 - `POST /mealplans/generate` — generate a new weekly meal plan from available meals
@@ -65,17 +74,33 @@ MealPlanView -> MealPlanViewModel -> APIClient -> mealplans/meals handlers -> Ge
 - `GET /mealplans/:sessionId` — get specific session
 - `POST /mealplans/:sessionId/critique` — AI-powered plan critique (OpenAI)
 - `POST /mealplans/:sessionId/finalize` — finalize plan, update lastPlanned dates
-- `GET/POST/PUT/DELETE /meals` — standard CRUD for meal definitions
+- `GET/POST/PUT/DELETE /meals` — standard CRUD for meal definitions; create/update supports `audience`
 - `GET/POST/PUT/DELETE /recipes` — standard CRUD for recipes
 - `GET/POST/PUT/DELETE /ingredients` — standard CRUD for ingredients
 - `GET/POST/PUT/DELETE /barcodes` — barcode CRUD
 
+## CLI
+- `brados meals create --audience family|adult` creates a meal for a specific audience. The default is `family` for backward compatibility.
+- `brados meals update --audience family|adult` changes a meal's audience without changing its `meal_type`.
+- `meal_type` remains the meal category (`breakfast`, `lunch`, `dinner`); use `audience=adult` for Brad-only breakfasts instead of introducing a new meal type.
+- Recipe creation during `brados meals create` requires `--ingredients-json` when recipe data is supplied. `--steps-json` is optional, but when present it requires `--ingredients-json`.
+- `--ingredients-json` must be a JSON array like `[{"ingredient_id":"ingredient-1","quantity":4,"unit":"count"}]`; `--steps-json` must be a JSON array like `[{"step_number":1,"instruction":"Mix and cook."}]`.
+
 ## Notes
-- Plan generation uses constraint-based logic (effort limits, red meat limits, prep-ahead rules, meal type distribution)
+- Plan generation uses constraint-based logic (audience eligibility, effort limits, red meat limits, prep-ahead rules, meal type distribution)
 - Critique flow: user text -> OpenAI -> CritiqueOperation[] -> applyOperations -> updated plan
+- Critique operations include `meal_track`; missing legacy values default to `family`. Replacement validation enforces both `meal_type` and `audience`.
+- Shopping list generation includes every planned entry, including adult breakfast entries.
 - MealPlanCacheService stores finalized plan in App Group shared container for widget access
 - Widget reads from cache (no API calls); refreshes at midnight + on-demand via WidgetCenter
 - Sessions track full conversation history for multi-turn critique
+- The debug UI at `packages/functions/src/handlers/mealplan-debug.ts` shows family breakfast and Brad breakfast as separate columns.
+
+## Rollout Checklist
+- Seed at least one `audience=adult`, `meal_type=breakfast` meal before enabling generation in an environment.
+- Prefer at least 7 adult breakfast meals to avoid repeats, but repeats are allowed until the catalog is complete.
+- Verify `POST /mealplans/generate` returns 28 entries and includes both breakfast tracks for each `day_index`.
+- Verify `POST /mealplans/:sessionId/finalize` produces a shopping list that includes adult breakfast ingredients.
 
 ## See Also
 - [Today](today.md) — meal plan data shown on dashboard

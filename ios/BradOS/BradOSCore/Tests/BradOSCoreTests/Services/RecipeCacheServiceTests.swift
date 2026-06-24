@@ -155,7 +155,11 @@ struct RecipeCacheServiceTests {
     @Test("error set when API call fails")
     @MainActor
     func errorSetWhenAPICallFails() async {
-        let mock = MockAPIClient.failing()
+        let mock = SpyAPIClient(
+            ingredients: [],
+            recipes: [],
+            recipesError: APIError.internalError("Mock recipe error")
+        )
 
         let cache = RecipeCacheService(apiClient: mock)
         await cache.loadIfNeeded()
@@ -175,10 +179,12 @@ private final class SpyAPIClient: APIClientProtocol, @unchecked Sendable {
 
     private let ingredients: [Ingredient]
     private let recipes: [Recipe]
+    private let recipesError: Error?
 
-    init(ingredients: [Ingredient], recipes: [Recipe]) {
+    init(ingredients: [Ingredient], recipes: [Recipe], recipesError: Error? = nil) {
         self.ingredients = ingredients
         self.recipes = recipes
+        self.recipesError = recipesError
     }
 
     func getIngredients() async throws -> [Ingredient] {
@@ -188,6 +194,9 @@ private final class SpyAPIClient: APIClientProtocol, @unchecked Sendable {
 
     func getRecipes() async throws -> [Recipe] {
         getRecipesCallCount += 1
+        if let recipesError {
+            throw recipesError
+        }
         return recipes
     }
 

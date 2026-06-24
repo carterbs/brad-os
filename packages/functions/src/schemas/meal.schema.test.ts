@@ -16,6 +16,7 @@ describe('createMealSchema', () => {
     if (result.success) {
       expect(result.data.name).toBe('Chicken Stir Fry');
       expect(result.data.meal_type).toBe('dinner');
+      expect(result.data.audience).toBe('family');
       expect(result.data.effort).toBe(5);
       expect(result.data.has_red_meat).toBe(false);
       expect(result.data.url).toBe('https://example.com/recipe');
@@ -34,6 +35,23 @@ describe('createMealSchema', () => {
         url: '',
       });
       expect(result.success).toBe(true);
+    }
+  });
+
+  it('should accept adult audience', () => {
+    const result = createMealSchema.safeParse({
+      name: 'Protein Oats',
+      meal_type: 'breakfast',
+      audience: 'adult',
+      effort: 1,
+      has_red_meat: false,
+      prep_ahead: false,
+      url: '',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.audience).toBe('adult');
     }
   });
 
@@ -115,6 +133,19 @@ describe('createMealSchema', () => {
       name: 'Test Meal',
       meal_type: 'snack',
       effort: 5,
+      has_red_meat: false,
+      prep_ahead: false,
+      url: '',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('should reject invalid audience', () => {
+    const result = createMealSchema.safeParse({
+      name: 'Test Meal',
+      meal_type: 'breakfast',
+      audience: 'kids',
+      effort: 1,
       has_red_meat: false,
       prep_ahead: false,
       url: '',
@@ -232,6 +263,11 @@ describe('updateMealSchema', () => {
 
   it('should accept partial updates - meal_type only', () => {
     const result = updateMealSchema.safeParse({ meal_type: 'breakfast' });
+    expect(result.success).toBe(true);
+  });
+
+  it('should accept partial updates - audience only', () => {
+    const result = updateMealSchema.safeParse({ audience: 'adult' });
     expect(result.success).toBe(true);
   });
 

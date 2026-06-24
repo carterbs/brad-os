@@ -51,6 +51,7 @@ fn run() -> Result<(), error::CliError> {
             MealsAction::Create {
                 name,
                 meal_type,
+                audience,
                 effort,
                 has_red_meat,
                 prep_ahead,
@@ -63,6 +64,7 @@ fn run() -> Result<(), error::CliError> {
                     commands::meals::CreateMealRequest {
                         name: &name,
                         meal_type: &meal_type,
+                        audience: &audience,
                         effort,
                         has_red_meat,
                         prep_ahead,
@@ -76,6 +78,7 @@ fn run() -> Result<(), error::CliError> {
                 id,
                 name,
                 meal_type,
+                audience,
                 effort,
                 has_red_meat,
                 no_red_meat,
@@ -104,6 +107,7 @@ fn run() -> Result<(), error::CliError> {
                     &id,
                     name.as_deref(),
                     meal_type.as_deref(),
+                    audience.as_deref(),
                     effort,
                     red_meat_val,
                     prep_ahead_val,

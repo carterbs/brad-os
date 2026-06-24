@@ -85,6 +85,28 @@ describe('MealPlan Recency Service', () => {
     );
   });
 
+  it('marks adult breakfast meal IDs when finalizing a plan', async () => {
+    const mealRepository = createMockMealRepository();
+    mealRepository.updateLastPlanned.mockResolvedValue(null);
+
+    await markPlanMealsLastPlanned(
+      mealRepository,
+      [
+        planEntry('family-breakfast', { meal_type: 'breakfast' }),
+        planEntry('adult-breakfast', { meal_track: 'adult', meal_type: 'breakfast' }),
+        planEntry('family-lunch', { meal_type: 'lunch' }),
+        planEntry(null, { meal_type: 'dinner' }),
+      ],
+      '2026-06-14T12:00:00.000Z'
+    );
+
+    expect(mealRepository.updateLastPlanned).toHaveBeenCalledTimes(3);
+    expect(mealRepository.updateLastPlanned).toHaveBeenCalledWith(
+      'adult-breakfast',
+      '2026-06-14T12:00:00.000Z'
+    );
+  });
+
   it('sets affected meals to the newest remaining finalized session timestamp', async () => {
     const mealRepository = createMockMealRepository();
     const sessionRepository = createMockMealPlanSessionRepository();

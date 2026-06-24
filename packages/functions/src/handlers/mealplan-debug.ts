@@ -52,7 +52,7 @@ const HTML_PAGE = `<!DOCTYPE html>
 
 <table id="planTable" style="display:none">
   <thead>
-    <tr><th>Day</th><th>Breakfast</th><th>Lunch</th><th>Dinner</th></tr>
+    <tr><th>Day</th><th>Family Breakfast</th><th>Brad Breakfast</th><th>Lunch</th><th>Dinner</th></tr>
   </thead>
   <tbody id="planBody"></tbody>
 </table>
@@ -79,6 +79,12 @@ const BASE_URL = window.location.port === '5001'
   ? 'http://localhost:5002/api/dev/mealplans'
   : window.location.origin + '/api/dev/mealplans';
 const DAY_NAMES = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const SLOT_DEFS = [
+  { mealType: 'breakfast', mealTrack: 'family' },
+  { mealType: 'breakfast', mealTrack: 'adult' },
+  { mealType: 'lunch', mealTrack: 'family' },
+  { mealType: 'dinner', mealTrack: 'family' },
+];
 let sessionId = null;
 
 function showStatus(msg, type) {
@@ -98,10 +104,16 @@ function renderPlan(plan) {
   for (let d = 0; d < 7; d++) {
     const row = document.createElement('tr');
     row.innerHTML = '<td><strong>' + DAY_NAMES[d] + '</strong></td>';
-    ['breakfast', 'lunch', 'dinner'].forEach(function(mt) {
-      const entry = plan.find(function(e) { return e.day_index === d && e.meal_type === mt; });
+    SLOT_DEFS.forEach(function(slot) {
+      const entry = plan.find(function(e) {
+        const track = e.meal_track || 'family';
+        return e.day_index === d && e.meal_type === slot.mealType && track === slot.mealTrack;
+      });
       const cell = document.createElement('td');
       cell.textContent = entry ? (entry.meal_name || '(empty)') : '(missing)';
+      if (entry && entry.meal) {
+        cell.title = 'meal_track=' + (entry.meal_track || 'family') + ', audience=' + (entry.meal.audience || 'family');
+      }
       row.appendChild(cell);
     });
     tbody.appendChild(row);

@@ -1,7 +1,8 @@
 import type { MealPlanEntry, CritiqueOperation, ApplyOperationsResult } from '../shared.js';
-import type { Meal, MealType } from '../shared.js';
+import type { Meal, MealTrack, MealType } from '../shared.js';
 
 const VALID_MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner'];
+const VALID_MEAL_TRACKS: MealTrack[] = ['family', 'adult'];
 const MAX_PREP_AHEAD_MEALS = 3;
 
 /**
@@ -21,6 +22,8 @@ export function applyOperations(
   }
 
   for (const op of operations) {
+    const mealTrack = op.meal_track ?? 'family';
+
     // Validate dayIndex
     if (op.day_index < 0 || op.day_index > 6) {
       errors.push(`Invalid day_index ${op.day_index}: must be 0-6`);
@@ -33,10 +36,28 @@ export function applyOperations(
       continue;
     }
 
+    if (!VALID_MEAL_TRACKS.includes(mealTrack)) {
+      errors.push(`Invalid meal_track "${mealTrack}": must be family or adult`);
+      continue;
+    }
+
     // Validate newMealId exists in snapshot (if not null)
     if (op.new_meal_id !== null && !mealMap.has(op.new_meal_id)) {
       errors.push(`Meal ID "${op.new_meal_id}" not found in meals snapshot`);
       continue;
+    }
+
+    const replacementMeal =
+      op.new_meal_id === null ? null : mealMap.get(op.new_meal_id);
+    if (replacementMeal !== null && replacementMeal !== undefined) {
+      if (replacementMeal.meal_type !== op.meal_type) {
+        errors.push(`Meal ID "${op.new_meal_id}" is ${replacementMeal.meal_type}, not ${op.meal_type}`);
+        continue;
+      }
+      if (replacementMeal.audience !== mealTrack) {
+        errors.push(`Meal ID "${op.new_meal_id}" is for ${replacementMeal.audience}, not ${mealTrack}`);
+        continue;
+      }
     }
 
     // Check for duplicates if adding a meal
@@ -44,7 +65,11 @@ export function applyOperations(
       const alreadyUsed = updatedPlan.some(
         (entry) =>
           entry.meal_id === op.new_meal_id &&
-          !(entry.day_index === op.day_index && entry.meal_type === op.meal_type)
+          !(
+            entry.day_index === op.day_index &&
+            (entry.meal_track ?? 'family') === mealTrack &&
+            entry.meal_type === op.meal_type
+          )
       );
       if (alreadyUsed) {
         errors.push(`Meal ID "${op.new_meal_id}" already exists elsewhere in the plan`);
@@ -52,13 +77,16 @@ export function applyOperations(
       }
     }
 
-    // Find the plan entry matching dayIndex + mealType
+    // Find the plan entry matching dayIndex + mealTrack + mealType
     const entryIndex = updatedPlan.findIndex(
-      (entry) => entry.day_index === op.day_index && entry.meal_type === op.meal_type
+      (entry) =>
+        entry.day_index === op.day_index &&
+        (entry.meal_track ?? 'family') === mealTrack &&
+        entry.meal_type === op.meal_type
     );
 
     if (entryIndex === -1) {
-      errors.push(`No plan entry found for day_index ${op.day_index}, meal_type "${op.meal_type}"`);
+      errors.push(`No plan entry found for day_index ${op.day_index}, meal_track "${mealTrack}", meal_type "${op.meal_type}"`);
       continue;
     }
 
@@ -74,7 +102,11 @@ export function applyOperations(
         // Count current prep-ahead meals, excluding the slot being replaced
         const currentPrepAhead = updatedPlan.filter((e) => {
           if (e.meal_id === null) return false;
-          if (e.day_index === op.day_index && e.meal_type === op.meal_type) return false;
+          if (
+            e.day_index === op.day_index &&
+            (e.meal_track ?? 'family') === mealTrack &&
+            e.meal_type === op.meal_type
+          ) return false;
           const m = mealMap.get(e.meal_id);
           return m?.prep_ahead === true;
         }).length;

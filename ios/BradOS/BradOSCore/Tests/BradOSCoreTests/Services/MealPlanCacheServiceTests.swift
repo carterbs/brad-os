@@ -18,6 +18,7 @@ struct MealPlanCacheServiceTests {
             id: id,
             plan: [
                 MealPlanEntry(dayIndex: 0, mealType: .breakfast, mealId: "m1", mealName: "Eggs"),
+                MealPlanEntry(dayIndex: 0, mealTrack: .adult, mealType: .breakfast, mealId: "m4", mealName: "Protein Oats"),
                 MealPlanEntry(dayIndex: 0, mealType: .lunch, mealId: "m2", mealName: "Salad"),
                 MealPlanEntry(dayIndex: 0, mealType: .dinner, mealId: "m3", mealName: "Salmon"),
             ],
@@ -43,10 +44,12 @@ struct MealPlanCacheServiceTests {
         #expect(loaded != nil)
         #expect(loaded?.id == session.id)
         #expect(loaded?.isFinalized == true)
-        #expect(loaded?.plan.count == 3)
+        #expect(loaded?.plan.count == 4)
         #expect(loaded?.plan[0].mealName == "Eggs")
-        #expect(loaded?.plan[1].mealName == "Salad")
-        #expect(loaded?.plan[2].mealName == "Salmon")
+        #expect(loaded?.plan[1].mealTrack == .adult)
+        #expect(loaded?.plan[1].mealName == "Protein Oats")
+        #expect(loaded?.plan[2].mealName == "Salad")
+        #expect(loaded?.plan[3].mealName == "Salmon")
     }
 
     @Test("reading when no file exists returns nil")
@@ -125,5 +128,32 @@ struct MealPlanCacheServiceTests {
         service.cache(second)
         #expect(service.getCachedSession()?.id == "second-session")
         #expect(service.isCached(sessionId: "first-session") == false)
+    }
+
+    @Test("old cache without meal_track still decodes as family")
+    func oldCacheWithoutMealTrackStillDecodesAsFamily() {
+        let dir = makeTempDir()
+        _ = MealPlanCacheService(containerURL: dir)
+        let cacheDir = dir.appendingPathComponent("meal-plan-cache", isDirectory: true)
+        let cacheFile = cacheDir.appendingPathComponent("latest-session.json")
+        let json = """
+        {
+            "id": "legacy-session",
+            "plan": [
+                {"day_index": 0, "meal_type": "breakfast", "meal_id": "m1", "meal_name": "Eggs"}
+            ],
+            "meals_snapshot": [],
+            "history": [],
+            "is_finalized": true,
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z"
+        }
+        """
+        try? Data(json.utf8).write(to: cacheFile)
+
+        let service = MealPlanCacheService(containerURL: dir)
+        let loaded = service.getCachedSession()
+
+        #expect(loaded?.plan.first?.mealTrack == .family)
     }
 }

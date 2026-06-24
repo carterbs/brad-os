@@ -9,11 +9,37 @@ pub enum MealType {
     Dinner,
 }
 
+/// Meal audience enum matching the API's lowercase convention.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum MealAudience {
+    Family,
+    Adult,
+}
+
+fn default_meal_audience() -> MealAudience {
+    MealAudience::Family
+}
+
+/// Meal plan track enum matching the API's lowercase convention.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum MealTrack {
+    Family,
+    Adult,
+}
+
+fn default_meal_track() -> MealTrack {
+    MealTrack::Family
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Meal {
     pub id: String,
     pub name: String,
     pub meal_type: MealType,
+    #[serde(default = "default_meal_audience")]
+    pub audience: MealAudience,
     pub effort: u8,
     pub has_red_meat: bool,
     pub prep_ahead: bool,
@@ -27,6 +53,8 @@ pub struct Meal {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MealPlanEntry {
     pub day_index: u8,
+    #[serde(default = "default_meal_track")]
+    pub meal_track: MealTrack,
     pub meal_type: MealType,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub meal_id: Option<String>,
@@ -56,6 +84,8 @@ pub struct ConversationMessage {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CritiqueOperation {
     pub day_index: u8,
+    #[serde(default = "default_meal_track")]
+    pub meal_track: MealTrack,
     pub meal_type: MealType,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub new_meal_id: Option<String>,
@@ -229,12 +259,32 @@ mod tests {
         assert_eq!(parsed.data.len(), 2);
         assert_eq!(parsed.data[0].name, "Tacos");
         assert_eq!(parsed.data[0].meal_type, MealType::Dinner);
+        assert_eq!(parsed.data[0].audience, MealAudience::Family);
         assert_eq!(
             parsed.data[0].url.as_deref(),
             Some("https://example.com/tacos")
         );
         assert_eq!(parsed.data[1].last_planned, None);
         assert_eq!(parsed.data[1].url, None);
+        assert_eq!(parsed.data[1].audience, MealAudience::Family);
+    }
+
+    #[test]
+    fn deserialize_adult_meal_audience() {
+        let json = r#"{
+            "id": "meal_1",
+            "name": "Protein Oats",
+            "meal_type": "breakfast",
+            "audience": "adult",
+            "effort": 1,
+            "has_red_meat": false,
+            "prep_ahead": true,
+            "url": null,
+            "created_at": "2026-02-01T00:00:00Z",
+            "updated_at": "2026-02-01T00:00:00Z"
+        }"#;
+        let meal: Meal = serde_json::from_str(json).unwrap();
+        assert_eq!(meal.audience, MealAudience::Adult);
     }
 
     #[test]
@@ -244,6 +294,7 @@ mod tests {
             "plan": [
                 {
                     "day_index": 0,
+                    "meal_track": "adult",
                     "meal_type": "breakfast",
                     "meal_id": "meal_1",
                     "meal_name": "Oatmeal"
@@ -257,6 +308,7 @@ mod tests {
                     "operations": [
                         {
                             "day_index": 0,
+                            "meal_track": "adult",
                             "meal_type": "breakfast",
                             "new_meal_id": "meal_1"
                         }
@@ -271,8 +323,31 @@ mod tests {
         assert_eq!(session.id, "session_abc");
         assert!(!session.is_finalized);
         assert_eq!(session.plan.len(), 1);
+        assert_eq!(session.plan[0].meal_track, MealTrack::Adult);
         assert_eq!(session.history.len(), 1);
         assert!(session.history[0].operations.is_some());
+        let operations = session.history[0].operations.as_ref().unwrap();
+        assert_eq!(operations[0].meal_track, MealTrack::Adult);
+    }
+
+    #[test]
+    fn deserialize_legacy_meal_plan_defaults_track_to_family() {
+        let json = r#"{
+            "day_index": 0,
+            "meal_type": "breakfast",
+            "meal_id": "meal_1",
+            "meal_name": "Oatmeal"
+        }"#;
+        let entry: MealPlanEntry = serde_json::from_str(json).unwrap();
+        assert_eq!(entry.meal_track, MealTrack::Family);
+
+        let json = r#"{
+            "day_index": 0,
+            "meal_type": "breakfast",
+            "new_meal_id": "meal_2"
+        }"#;
+        let operation: CritiqueOperation = serde_json::from_str(json).unwrap();
+        assert_eq!(operation.meal_track, MealTrack::Family);
     }
 
     #[test]
@@ -405,5 +480,13 @@ mod tests {
         assert_eq!(val, r#""lunch""#);
         let val = serde_json::to_string(&MealType::Dinner).unwrap();
         assert_eq!(val, r#""dinner""#);
+    }
+
+    #[test]
+    fn meal_audience_and_track_serialize_as_lowercase() {
+        let val = serde_json::to_string(&MealAudience::Adult).unwrap();
+        assert_eq!(val, r#""adult""#);
+        let val = serde_json::to_string(&MealTrack::Family).unwrap();
+        assert_eq!(val, r#""family""#);
     }
 }

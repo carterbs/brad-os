@@ -3,7 +3,7 @@ import Testing
 @testable import Brad_OS
 import BradOSCore
 
-@Suite
+@Suite(.serialized)
 struct APIClientCalendarTests {
     /// Helper to create a URLSession with MockURLProtocol for testing
     private func makeTestAPIClient(
@@ -12,10 +12,10 @@ struct APIClientCalendarTests {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [MockURLProtocol.self]
 
-        MockURLProtocol.requestHandler = handler
+        MockURLProtocol.setHandler(forPathPrefix: "/calendar", handler: handler)
 
         let session = URLSession(configuration: config)
-        return APIClient(configuration: .init(baseURL: "http://test.local"), session: session)
+        return APIClient(configuration: .init(baseURL: URL(string: "http://test.local")!), session: session)
     }
 
     /// Helper to create a calendar day data response
@@ -45,7 +45,11 @@ struct APIClientCalendarTests {
 
     /// Helper to encode response as JSON data
     private func encodeResponse(_ response: [String: Any]) -> Data {
-        guard let data = try? JSONSerialization.data(withJSONObject: response) else {
+        let envelope: [String: Any] = [
+            "success": true,
+            "data": response
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: envelope) else {
             fatalError("Failed to encode test response")
         }
         return data

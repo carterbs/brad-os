@@ -20,30 +20,32 @@ struct MealPlanWidgetEntryView: View {
                 .fontWeight(.bold)
                 .foregroundColor(mealPlanColor)
 
-            ForEach(MealType.allCases, id: \.self) { mealType in
-                mealRow(mealType: mealType)
+            ForEach(sortedMeals) { meal in
+                mealRow(meal)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .widgetURL(URL(string: "brados://mealplan"))
     }
 
-    private func mealRow(mealType: MealType) -> some View {
-        let entry = entry.meals.first { $0.mealType == mealType }
+    private var sortedMeals: [MealPlanEntry] {
+        entry.meals.sorted { $0.slotSortOrder < $1.slotSortOrder }
+    }
 
-        return HStack(spacing: 8) {
-            Image(systemName: mealTypeIcon(mealType))
+    private func mealRow(_ meal: MealPlanEntry) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: mealTypeIcon(meal.mealType))
                 .font(.body)
                 .foregroundColor(mealPlanColor)
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 1) {
-                Text(mealTypeLabel(mealType))
+                Text(meal.displayLabel)
                     .font(.caption2)
                     .foregroundColor(.secondary)
-                Text(entry?.mealName ?? "\u{2014}")
+                Text(meal.mealName ?? "\u{2014}")
                     .font(.subheadline)
-                    .foregroundColor(entry?.mealName != nil ? .primary : .secondary)
+                    .foregroundColor(meal.mealName != nil ? .primary : .secondary)
                     .lineLimit(1)
             }
 
@@ -78,14 +80,6 @@ struct MealPlanWidgetEntryView: View {
         case .breakfast: return "sunrise"
         case .lunch: return "sun.max"
         case .dinner: return "moon.stars"
-        }
-    }
-
-    private func mealTypeLabel(_ type: MealType) -> String {
-        switch type {
-        case .breakfast: return "Breakfast"
-        case .lunch: return "Lunch"
-        case .dinner: return "Dinner"
         }
     }
 }

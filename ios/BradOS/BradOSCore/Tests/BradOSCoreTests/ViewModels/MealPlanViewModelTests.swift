@@ -10,6 +10,7 @@ struct MealPlanViewModelTests {
         id: String,
         name: String,
         mealType: MealType,
+        audience: MealAudience = .family,
         effort: Int = 1,
         hasRedMeat: Bool = false,
         prepAhead: Bool = false
@@ -18,6 +19,7 @@ struct MealPlanViewModelTests {
             id: id,
             name: name,
             mealType: mealType,
+            audience: audience,
             effort: effort,
             hasRedMeat: hasRedMeat,
             prepAhead: prepAhead,
@@ -52,11 +54,12 @@ struct MealPlanViewModelTests {
 
     private func makePlanEntry(
         dayIndex: Int,
+        mealTrack: MealTrack = .family,
         mealType: MealType,
         mealId: String,
         mealName: String
     ) -> MealPlanEntry {
-        MealPlanEntry(dayIndex: dayIndex, mealType: mealType, mealId: mealId, mealName: mealName)
+        MealPlanEntry(dayIndex: dayIndex, mealTrack: mealTrack, mealType: mealType, mealId: mealId, mealName: mealName)
     }
 
     private func makeSession(
@@ -170,6 +173,72 @@ struct MealPlanViewModelTests {
 
         #expect(shoppingItemNames(vm.shoppingList) == ["Oats"])
         #expect(vm.error == nil)
+    }
+
+    @Test("entriesForMealType preserves family and adult breakfast slots")
+    func entriesForMealTypePreservesFamilyAndAdultBreakfastSlots() {
+        let vm = MealPlanViewModel(
+            apiClient: MockAPIClient(),
+            recipeCache: RecipeCacheService(apiClient: MockAPIClient()),
+            cacheService: RecordingMealPlanCacheService(),
+            userDefaults: MockUserDefaults()
+        )
+        vm.currentPlan = [
+            makePlanEntry(dayIndex: 0, mealTrack: .adult, mealType: .breakfast, mealId: "adult", mealName: "Protein Oats"),
+            makePlanEntry(dayIndex: 0, mealType: .breakfast, mealId: "family", mealName: "Pancakes"),
+            makePlanEntry(dayIndex: 0, mealType: .lunch, mealId: "lunch", mealName: "Lunch"),
+        ]
+
+        let breakfasts = vm.entriesForMealType(.breakfast)
+
+        #expect(breakfasts.map(\.mealTrack) == [.family, .adult])
+        #expect(breakfasts.map(\.mealName) == ["Pancakes", "Protein Oats"])
+    }
+
+    @Test("shopping list includes adult breakfast meal ids")
+    @MainActor
+    func shoppingListIncludesAdultBreakfastMealIds() async {
+        let mock = MockAPIClient()
+        mock.mockIngredients = [
+            makeIngredient(id: "ingredient-1", name: "Oats", storeSection: "Snacks & Cereal"),
+        ]
+        mock.mockRecipes = [
+            makeRecipe(
+                mealId: "meal-adult",
+                ingredients: [RecipeIngredient(ingredientId: "ingredient-1", quantity: 1, unit: "cup")]
+            ),
+        ]
+        let session = makeSession(
+            id: "adult-breakfast-session",
+            isFinalized: true,
+            plan: [
+                makePlanEntry(
+                    dayIndex: 0,
+                    mealTrack: .adult,
+                    mealType: .breakfast,
+                    mealId: "meal-adult",
+                    mealName: "Protein Oats"
+                ),
+            ],
+            mealsSnapshot: [
+                makeMeal(
+                    id: "meal-adult",
+                    name: "Protein Oats",
+                    mealType: .breakfast,
+                    audience: .adult
+                ),
+            ]
+        )
+        let vm = MealPlanViewModel(
+            apiClient: mock,
+            recipeCache: RecipeCacheService(apiClient: mock),
+            cacheService: RecordingMealPlanCacheService(cachedSession: session),
+            userDefaults: MockUserDefaults()
+        )
+
+        await vm.loadExistingSession()
+
+        #expect(shoppingItemNames(vm.shoppingList) == ["Oats"])
     }
 
     @Test("loadExistingSession uses saved session id when present")
@@ -518,7 +587,7 @@ struct MealPlanViewModelTests {
         #expect(vm.queuedActions.isEmpty)
         #expect(vm.currentPlan == critiqueSession.plan)
         #expect(vm.lastExplanation == "Applied requested changes.")
-        #expect(vm.changedSlots == ["0-\(MealType.breakfast.rawValue)", "0-\(MealType.lunch.rawValue)"])
+        #expect(vm.changedSlots == ["0-family-\(MealType.breakfast.rawValue)", "0-family-\(MealType.lunch.rawValue)"])
         #expect(vm.critiqueText.isEmpty)
         #expect(vm.isSending == false)
         #expect(vm.error == nil)

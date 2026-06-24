@@ -500,15 +500,15 @@ func makeTodayCoachRecommendation(
 
 func makeRecoveryData(
     date: Date = Date(),
-    hrvMs: Int = 45,
+    hrvMs: Double = 45,
     hrvVsBaseline: Double = 1.2,
-    rhrBpm: Int = 55,
+    rhrBpm: Double = 55,
     rhrVsBaseline: Double = 0.95,
     sleepHours: Double = 8.0,
     sleepEfficiency: Double = 0.85,
     deepSleepPercent: Double = 0.25,
     score: Int = 85,
-    state: RecoveryState = .good
+    state: RecoveryState = .ready
 ) -> RecoveryData {
     RecoveryData(
         date: date,

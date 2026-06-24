@@ -24,7 +24,8 @@ describe('Meal Plan Debug Handler', () => {
       const response = await request(mealplanDebugApp).get('/');
 
       expect(response.text).toContain('<th>Day</th>');
-      expect(response.text).toContain('<th>Breakfast</th>');
+      expect(response.text).toContain('<th>Family Breakfast</th>');
+      expect(response.text).toContain('<th>Brad Breakfast</th>');
       expect(response.text).toContain('<th>Lunch</th>');
       expect(response.text).toContain('<th>Dinner</th>');
     });

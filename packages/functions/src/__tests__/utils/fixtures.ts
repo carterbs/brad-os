@@ -227,6 +227,7 @@ export function createMeal(overrides?: Partial<Meal>): Meal {
     id: generateId('meal'),
     name: 'Chicken Stir Fry',
     meal_type: 'dinner',
+    audience: 'family',
     effort: 5,
     has_red_meat: false,
     prep_ahead: false,
@@ -280,6 +281,7 @@ export function createBarcode(overrides?: Partial<Barcode>): Barcode {
 export function createMealPlanEntry(overrides?: Partial<MealPlanEntry>): MealPlanEntry {
   return {
     day_index: 0,
+    meal_track: 'family',
     meal_type: 'dinner',
     meal_id: generateId('meal'),
     meal_name: 'Chicken Stir Fry',

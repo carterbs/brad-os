@@ -22,16 +22,7 @@ struct MealPlanGridView: View {
 
     private func entriesForDay(_ dayIndex: Int) -> [MealPlanEntry] {
         let dayEntries = plan.filter { $0.dayIndex == dayIndex }
-        // Sort by meal type order: breakfast, lunch, dinner
-        return dayEntries.sorted { mealTypeOrder($0.mealType) < mealTypeOrder($1.mealType) }
-    }
-
-    private func mealTypeOrder(_ type: MealType) -> Int {
-        switch type {
-        case .breakfast: return 0
-        case .lunch: return 1
-        case .dinner: return 2
-        }
+        return dayEntries.sorted { $0.slotSortOrder < $1.slotSortOrder }
     }
 }
 
@@ -83,10 +74,10 @@ private struct MealRow: View {
                 .frame(width: 20)
 
             // Meal type label
-            Text(mealTypeLabel)
+            Text(entry.displayLabel)
                 .font(.caption)
                 .foregroundColor(Theme.textSecondary)
-                .frame(width: 56, alignment: .leading)
+                .frame(minWidth: 48, alignment: .leading)
 
             // Meal name
             if let mealName = entry.mealName {
@@ -119,21 +110,13 @@ private struct MealRow: View {
         case .dinner: return "moon.stars"
         }
     }
-
-    private var mealTypeLabel: String {
-        switch entry.mealType {
-        case .breakfast: return "Breakfast"
-        case .lunch: return "Lunch"
-        case .dinner: return "Dinner"
-        }
-    }
 }
 
 #Preview("Meal Plan Grid") {
     ScrollView {
         MealPlanGridView(
             plan: MealPlanSession.mockSession.plan,
-            changedSlots: ["0-dinner", "2-lunch"]
+            changedSlots: ["0-family-dinner", "2-family-lunch"]
         )
         .padding()
     }

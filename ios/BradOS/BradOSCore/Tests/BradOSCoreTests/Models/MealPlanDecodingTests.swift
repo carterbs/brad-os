@@ -26,10 +26,34 @@ struct MealTests {
         #expect(meal.id == "meal_1")
         #expect(meal.name == "Scrambled Eggs")
         #expect(meal.mealType == .breakfast)
+        #expect(meal.audience == .family)
         #expect(meal.effort == 2)
         #expect(meal.hasRedMeat == false)
         #expect(meal.url == "https://example.com/recipe")
         #expect(meal.lastPlanned != nil)
+    }
+
+    @Test("decodes adult audience")
+    func decodesAdultAudience() throws {
+        let json = """
+        {
+            "id": "meal_adult",
+            "name": "Protein Oats",
+            "meal_type": "breakfast",
+            "audience": "adult",
+            "effort": 1,
+            "has_red_meat": false,
+            "prep_ahead": true,
+            "url": null,
+            "last_planned": null,
+            "created_at": "2026-01-15T10:00:00Z",
+            "updated_at": "2026-01-15T10:00:00Z"
+        }
+        """.data(using: .utf8)!
+
+        let meal = try makeDecoder().decode(Meal.self, from: json)
+
+        #expect(meal.audience == .adult)
     }
 
     @Test("decodes meal with prep_ahead field")
@@ -170,6 +194,7 @@ struct MealPlanEntryTests {
         let entry = try makeDecoder().decode(MealPlanEntry.self, from: json)
 
         #expect(entry.dayIndex == 0)
+        #expect(entry.mealTrack == .family)
         #expect(entry.mealType == .breakfast)
         #expect(entry.mealId == "meal_1")
         #expect(entry.mealName == "Oatmeal")
@@ -194,10 +219,21 @@ struct MealPlanEntryTests {
         #expect(entry.mealName == nil)
     }
 
-    @Test("computed id combines dayIndex and mealType")
+    @Test("computed id combines dayIndex, mealTrack, and mealType")
     func computedId() throws {
         let entry = MealPlanEntry(dayIndex: 2, mealType: .lunch, mealId: "meal_5", mealName: "Salad")
-        #expect(entry.id == "2-lunch")
+        #expect(entry.id == "2-family-lunch")
+    }
+
+    @Test("same-day breakfast entries with different tracks have distinct ids")
+    func sameDayBreakfastTracksHaveDistinctIds() {
+        let family = MealPlanEntry(dayIndex: 0, mealTrack: .family, mealType: .breakfast, mealId: "family", mealName: "Pancakes")
+        let adult = MealPlanEntry(dayIndex: 0, mealTrack: .adult, mealType: .breakfast, mealId: "adult", mealName: "Protein Oats")
+
+        #expect(family.id == "0-family-breakfast")
+        #expect(adult.id == "0-adult-breakfast")
+        #expect(family.id != adult.id)
+        #expect(adult.displayLabel == "Brad")
     }
 }
 
@@ -217,8 +253,25 @@ struct CritiqueOperationTests {
         let op = try makeDecoder().decode(CritiqueOperation.self, from: json)
 
         #expect(op.dayIndex == 0)
+        #expect(op.mealTrack == .family)
         #expect(op.mealType == .dinner)
         #expect(op.newMealId == "meal_45")
+    }
+
+    @Test("decodes adult meal_track")
+    func decodesAdultTrack() throws {
+        let json = """
+        {
+            "day_index": 0,
+            "meal_track": "adult",
+            "meal_type": "breakfast",
+            "new_meal_id": "meal_45"
+        }
+        """.data(using: .utf8)!
+
+        let op = try makeDecoder().decode(CritiqueOperation.self, from: json)
+
+        #expect(op.mealTrack == .adult)
     }
 
     @Test("decodes with nil new_meal_id")
@@ -369,7 +422,7 @@ struct MealPlanSessionTests {
     @Test("mockSession contains expected data")
     func mockSessionHasData() {
         let session = MealPlanSession.mockSession
-        #expect(session.plan.count == 21) // 7 days x 3 meals
+        #expect(session.plan.count == 28) // 7 days x 4 tracked slots
         #expect(!session.mealsSnapshot.isEmpty)
         #expect(!session.history.isEmpty)
         #expect(session.isFinalized == false)

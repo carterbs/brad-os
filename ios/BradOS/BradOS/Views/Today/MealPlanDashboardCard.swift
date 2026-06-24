@@ -16,37 +16,44 @@ struct MealDayContent: View {
                 .fontWeight(.bold)
                 .foregroundColor(Theme.mealPlan)
 
-            ForEach(MealType.allCases, id: \.self) { mealType in
-                mealRow(mealType: mealType)
+            ForEach(sortedMeals) { entry in
+                mealRow(entry: entry)
             }
         }
     }
 
+    private var sortedMeals: [MealPlanEntry] {
+        meals.sorted {
+            if $0.dayIndex != $1.dayIndex {
+                return $0.dayIndex < $1.dayIndex
+            }
+            return $0.slotSortOrder < $1.slotSortOrder
+        }
+    }
+
     @ViewBuilder
-    private func mealRow(mealType: MealType) -> some View {
-        let entry = meals.first { $0.mealType == mealType }
-        let entryId = entry?.id ?? ""
-        let isChanged = changedSlots.contains(entryId)
+    private func mealRow(entry: MealPlanEntry) -> some View {
+        let isChanged = changedSlots.contains(entry.id)
 
         HStack(spacing: Theme.Spacing.space3) {
-            Image(systemName: mealTypeIcon(mealType))
+            Image(systemName: mealTypeIcon(entry.mealType))
                 .font(.body)
                 .foregroundColor(Theme.mealPlan)
                 .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(mealTypeLabel(mealType))
+                Text(entry.displayLabel)
                     .font(.caption)
                     .foregroundColor(Theme.textSecondary)
-                Text(entry?.mealName ?? "\u{2014}")
+                Text(entry.mealName ?? "\u{2014}")
                     .font(.body)
-                    .foregroundColor(entry?.mealName != nil ? Theme.textPrimary : Theme.textSecondary)
+                    .foregroundColor(entry.mealName != nil ? Theme.textPrimary : Theme.textSecondary)
                     .lineLimit(2)
             }
 
             Spacer()
 
-            if let mealId = entry?.mealId, prepAheadMealIds.contains(mealId) {
+            if let mealId = entry.mealId, prepAheadMealIds.contains(mealId) {
                 Text("prep")
                     .font(.caption2)
                     .foregroundColor(Theme.warning)
@@ -66,14 +73,6 @@ struct MealDayContent: View {
         case .breakfast: return "sunrise"
         case .lunch: return "sun.max"
         case .dinner: return "moon.stars"
-        }
-    }
-
-    private func mealTypeLabel(_ type: MealType) -> String {
-        switch type {
-        case .breakfast: return "Breakfast"
-        case .lunch: return "Lunch"
-        case .dinner: return "Dinner"
         }
     }
 }
@@ -204,6 +203,7 @@ struct MealPlanDashboardCard: View {
     MealPlanDashboardCard(
         todayMeals: [
             MealPlanEntry(dayIndex: 0, mealType: .breakfast, mealId: "m1", mealName: "Scrambled Eggs"),
+            MealPlanEntry(dayIndex: 0, mealTrack: .adult, mealType: .breakfast, mealId: "m4", mealName: "Protein Oats"),
             MealPlanEntry(dayIndex: 0, mealType: .lunch, mealId: "m2", mealName: "Chicken Caesar Salad"),
             MealPlanEntry(dayIndex: 0, mealType: .dinner, mealId: "m3", mealName: "Salmon with Rice"),
         ],

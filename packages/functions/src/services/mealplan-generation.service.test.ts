@@ -10,6 +10,7 @@ function createMeal(overrides: Partial<Meal> = {}): Meal {
     id: `meal-${mealCounter}`,
     name: `Test Meal ${mealCounter}`,
     meal_type: 'dinner',
+    audience: 'family',
     effort: 5,
     has_red_meat: false,
     prep_ahead: false,
@@ -29,10 +30,24 @@ function getMealOrFail(mealMap: Map<string, Meal>, id: string): Meal {
   return meal as Meal;
 }
 
+function addAdultBreakfasts(meals: Meal[], count = 10): void {
+  for (let i = 0; i < count; i++) {
+    meals.push(createMeal({
+      name: `Adult Breakfast ${i + 1}`,
+      meal_type: 'breakfast',
+      audience: 'adult',
+      effort: 1,
+      has_red_meat: false,
+      prep_ahead: false,
+    }));
+  }
+}
+
 /**
  * Creates a realistic set of meals sufficient to generate a plan.
  * We need:
- * - 7 unique breakfasts (effort <= 2)
+ * - 7 unique family breakfasts (effort <= 2)
+ * - 7 unique adult breakfasts (effort <= 2)
  * - 7 unique lunches (effort <= 2)
  * - 6 unique dinners covering various effort ranges (Friday is eating out)
  * Plus extras for randomness / red meat constraints.
@@ -41,7 +56,7 @@ function createRealisticMealSet(): Meal[] {
   mealCounter = 0;
   const meals: Meal[] = [];
 
-  // 10 breakfasts (effort 1-2), first 2 are prep-ahead
+  // 10 family breakfasts (effort 1-2), first 2 are prep-ahead
   for (let i = 0; i < 10; i++) {
     meals.push(createMeal({
       name: `Breakfast ${i + 1}`,
@@ -49,6 +64,18 @@ function createRealisticMealSet(): Meal[] {
       effort: (i % 2) + 1,
       has_red_meat: false,
       prep_ahead: i < 2,
+    }));
+  }
+
+  // 10 adult breakfasts (effort 1-2)
+  for (let i = 0; i < 10; i++) {
+    meals.push(createMeal({
+      name: `Adult Breakfast ${i + 1}`,
+      meal_type: 'breakfast',
+      audience: 'adult',
+      effort: (i % 2) + 1,
+      has_red_meat: false,
+      prep_ahead: false,
     }));
   }
 
@@ -108,31 +135,41 @@ function createRealisticMealSet(): Meal[] {
 
 describe('MealPlan Generation Service', () => {
   describe('generateMealPlan', () => {
-    it('should generate a plan with 21 slots', () => {
+    it('should generate a plan with 28 slots', () => {
       const meals = createRealisticMealSet();
       const plan = generateMealPlan(meals);
 
-      expect(plan).toHaveLength(21);
+      expect(plan).toHaveLength(28);
     });
 
-    it('should have 3 meal types per day', () => {
+    it('should have 4 tracked meal slots per day', () => {
       const meals = createRealisticMealSet();
       const plan = generateMealPlan(meals);
 
       for (let day = 0; day < 7; day++) {
         const dayEntries = plan.filter((e) => e.day_index === day);
-        expect(dayEntries).toHaveLength(3);
+        expect(dayEntries).toHaveLength(4);
 
-        const types = dayEntries.map((e) => e.meal_type).sort();
-        expect(types).toEqual(['breakfast', 'dinner', 'lunch']);
+        const slots = dayEntries.map((e) => `${e.meal_track}:${e.meal_type}`).sort();
+        expect(slots).toEqual([
+          'adult:breakfast',
+          'family:breakfast',
+          'family:dinner',
+          'family:lunch',
+        ]);
       }
     });
 
-    it('should sort entries by day_index then meal_type order', () => {
+    it('should sort entries by day_index then tracked slot order', () => {
       const meals = createRealisticMealSet();
       const plan = generateMealPlan(meals);
 
-      const mealTypeOrder: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2 };
+      const slotOrder: Record<string, number> = {
+        'family:breakfast': 0,
+        'adult:breakfast': 1,
+        'family:lunch': 2,
+        'family:dinner': 3,
+      };
 
       for (let i = 1; i < plan.length; i++) {
         const prev = plan[i - 1];
@@ -142,10 +179,46 @@ describe('MealPlan Generation Service', () => {
 
         if (prev !== undefined && curr !== undefined) {
           if (prev.day_index === curr.day_index) {
-            expect((mealTypeOrder[prev.meal_type] ?? 0)).toBeLessThanOrEqual(mealTypeOrder[curr.meal_type] ?? 0);
+            expect((slotOrder[`${prev.meal_track}:${prev.meal_type}`] ?? 0)).toBeLessThanOrEqual(slotOrder[`${curr.meal_track}:${curr.meal_type}`] ?? 0);
           } else {
             expect(prev.day_index).toBeLessThan(curr.day_index);
           }
+        }
+      }
+    });
+
+    it('should use only adult meals for adult breakfast slots', () => {
+      const meals = createRealisticMealSet();
+      const mealMap = new Map(meals.map((m) => [m.id, m]));
+      const plan = generateMealPlan(meals);
+
+      const adultBreakfasts = plan.filter(
+        (entry) => entry.meal_track === 'adult' && entry.meal_type === 'breakfast'
+      );
+
+      expect(adultBreakfasts).toHaveLength(7);
+      for (const entry of adultBreakfasts) {
+        expect(entry.meal_id).not.toBeNull();
+        if (entry.meal_id !== null) {
+          expect(getMealOrFail(mealMap, entry.meal_id).audience).toBe('adult');
+        }
+      }
+    });
+
+    it('should not use adult meals for family breakfast slots', () => {
+      const meals = createRealisticMealSet();
+      const mealMap = new Map(meals.map((m) => [m.id, m]));
+      const plan = generateMealPlan(meals);
+
+      const familyBreakfasts = plan.filter(
+        (entry) => entry.meal_track === 'family' && entry.meal_type === 'breakfast'
+      );
+
+      expect(familyBreakfasts).toHaveLength(7);
+      for (const entry of familyBreakfasts) {
+        expect(entry.meal_id).not.toBeNull();
+        if (entry.meal_id !== null) {
+          expect(getMealOrFail(mealMap, entry.meal_id).audience).toBe('family');
         }
       }
     });
@@ -350,8 +423,8 @@ describe('MealPlan Generation Service', () => {
       const plan = generateMealPlan(meals, now);
 
       // The old-planned meal should be eligible (may or may not be selected due to randomness)
-      // Verify the plan is valid and has 21 slots
-      expect(plan).toHaveLength(21);
+      // Verify the plan is valid and has 28 slots
+      expect(plan).toHaveLength(28);
     });
   });
 
@@ -421,6 +494,7 @@ describe('MealPlan Generation Service', () => {
     it('should reuse breakfasts when not enough unique ones', () => {
       mealCounter = 0;
       const meals: Meal[] = [];
+      addAdultBreakfasts(meals);
 
       // Only 3 breakfasts (need 7) - should reuse
       for (let i = 0; i < 3; i++) {
@@ -439,13 +513,14 @@ describe('MealPlan Generation Service', () => {
       }
 
       const plan = generateMealPlan(meals);
-      const breakfasts = plan.filter((e) => e.meal_type === 'breakfast');
+      const breakfasts = plan.filter((e) => e.meal_track === 'family' && e.meal_type === 'breakfast');
       expect(breakfasts).toHaveLength(7);
     });
 
     it('should reuse lunches when not enough unique ones', () => {
       mealCounter = 0;
       const meals: Meal[] = [];
+      addAdultBreakfasts(meals);
 
       // Add breakfasts
       for (let i = 0; i < 10; i++) {
@@ -470,6 +545,7 @@ describe('MealPlan Generation Service', () => {
     it('should reuse dinners when not enough unique ones', () => {
       mealCounter = 0;
       const meals: Meal[] = [];
+      addAdultBreakfasts(meals);
 
       // Add breakfasts and lunches
       for (let i = 0; i < 10; i++) {
@@ -486,6 +562,56 @@ describe('MealPlan Generation Service', () => {
       const dinners = plan.filter((e) => e.meal_type === 'dinner');
       // 6 real dinners + 1 "Eating out" Friday = 7 dinner slots
       expect(dinners).toHaveLength(7);
+    });
+
+    it('should repeat adult breakfasts when fewer than seven adult meals exist', () => {
+      mealCounter = 0;
+      const meals: Meal[] = [];
+
+      // Add family meals for the household slots.
+      for (let i = 0; i < 10; i++) {
+        meals.push(createMeal({ meal_type: 'breakfast', effort: 1 }));
+        meals.push(createMeal({ meal_type: 'lunch', effort: 1 }));
+      }
+      for (let i = 0; i < 20; i++) {
+        meals.push(createMeal({ meal_type: 'dinner', effort: 5 }));
+      }
+
+      // Only two adult breakfasts; generation should repeat these, not fall back
+      // to family breakfast meals.
+      addAdultBreakfasts(meals, 2);
+
+      const mealMap = new Map(meals.map((m) => [m.id, m]));
+      const plan = generateMealPlan(meals);
+      const adultBreakfasts = plan.filter(
+        (entry) => entry.meal_track === 'adult' && entry.meal_type === 'breakfast'
+      );
+      const adultBreakfastMealIds = adultBreakfasts.map((entry) => entry.meal_id);
+
+      expect(plan).toHaveLength(28);
+      expect(adultBreakfasts).toHaveLength(7);
+      expect(new Set(adultBreakfastMealIds).size).toBeLessThanOrEqual(2);
+      for (const mealId of adultBreakfastMealIds) {
+        expect(mealId).not.toBeNull();
+        if (mealId !== null) {
+          expect(getMealOrFail(mealMap, mealId).audience).toBe('adult');
+        }
+      }
+    });
+
+    it('should fail clearly when no adult breakfasts exist', () => {
+      mealCounter = 0;
+      const meals: Meal[] = [];
+
+      for (let i = 0; i < 10; i++) {
+        meals.push(createMeal({ meal_type: 'breakfast', effort: 1 }));
+        meals.push(createMeal({ meal_type: 'lunch', effort: 1 }));
+      }
+      for (let i = 0; i < 20; i++) {
+        meals.push(createMeal({ meal_type: 'dinner', effort: 5 }));
+      }
+
+      expect(() => generateMealPlan(meals)).toThrow(/Insufficient adult breakfast meals/);
     });
   });
 
@@ -505,7 +631,7 @@ describe('MealPlan Generation Service', () => {
       const shortPlan = plan.slice(0, 20);
       const errors = validatePlan(shortPlan, meals);
 
-      expect(errors.some((e) => e.includes('Expected 21 slots'))).toBe(true);
+      expect(errors.some((e) => e.includes('Expected 28 slots'))).toBe(true);
     });
 
     it('should detect duplicate meal IDs', () => {
@@ -544,6 +670,7 @@ describe('MealPlan Generation Service', () => {
     it('should allow prep-ahead meals when under limit', () => {
       mealCounter = 0;
       const meals: Meal[] = [];
+      addAdultBreakfasts(meals);
 
       // 3 prep-ahead breakfasts + 7 normal breakfasts
       for (let i = 0; i < 3; i++) {
@@ -575,6 +702,7 @@ describe('MealPlan Generation Service', () => {
     it('should limit prep-ahead across all meal types when many are available', () => {
       mealCounter = 0;
       const meals: Meal[] = [];
+      addAdultBreakfasts(meals);
 
       // 5 prep-ahead breakfasts + 8 normal breakfasts (enough non-prep for all 7 slots)
       for (let i = 0; i < 5; i++) {
@@ -615,6 +743,7 @@ describe('MealPlan Generation Service', () => {
       // leaving only 3-4 eligible non-prep lunches in Pool 1
       mealCounter = 0;
       const meals: Meal[] = [];
+      addAdultBreakfasts(meals);
       const now = new Date('2026-02-22T12:00:00Z');
       const recentDate = '2026-02-15T13:00:00Z'; // 1 week ago
 
@@ -679,6 +808,7 @@ describe('MealPlan Generation Service', () => {
       // recently-planned non-prep lunches rather than adding more prep-ahead
       mealCounter = 0;
       const meals: Meal[] = [];
+      addAdultBreakfasts(meals);
       const now = new Date('2026-02-22T12:00:00Z');
       const recentDate = '2026-02-15T13:00:00Z';
 
@@ -727,6 +857,7 @@ describe('MealPlan Generation Service', () => {
       // 6 non-prep recently planned. This is the scenario that broke in production.
       mealCounter = 0;
       const meals: Meal[] = [];
+      addAdultBreakfasts(meals);
       const now = new Date('2026-02-22T12:00:00Z');
       const recentDate = '2026-02-15T13:00:00Z';
 
@@ -785,17 +916,18 @@ describe('MealPlan Generation Service', () => {
       for (let iteration = 0; iteration < 100; iteration++) {
         const plan = generateMealPlan(meals);
 
-        // 1. 21 slots
-        expect(plan).toHaveLength(21);
+        // 1. 28 slots
+        expect(plan).toHaveLength(28);
 
-        // 2. Each day has 3 meal types
+        // 2. Each day has 4 tracked meal slots
         for (let day = 0; day < 7; day++) {
           const dayEntries = plan.filter((e) => e.day_index === day);
-          expect(dayEntries).toHaveLength(3);
-          const types = new Set(dayEntries.map((e) => e.meal_type));
-          expect(types.has('breakfast')).toBe(true);
-          expect(types.has('lunch')).toBe(true);
-          expect(types.has('dinner')).toBe(true);
+          expect(dayEntries).toHaveLength(4);
+          const slots = new Set(dayEntries.map((e) => `${e.meal_track}:${e.meal_type}`));
+          expect(slots.has('family:breakfast')).toBe(true);
+          expect(slots.has('adult:breakfast')).toBe(true);
+          expect(slots.has('family:lunch')).toBe(true);
+          expect(slots.has('family:dinner')).toBe(true);
         }
 
         // 3. Breakfast/lunch effort <= 2

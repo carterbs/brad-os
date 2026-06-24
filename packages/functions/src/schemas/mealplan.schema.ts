@@ -1,8 +1,10 @@
 import { z } from 'zod';
 const mealTypeSchema = z.enum(['breakfast', 'lunch', 'dinner']);
+export const mealTrackSchema = z.enum(['family', 'adult']);
 
 export const mealPlanEntrySchema = z.object({
   day_index: z.number().int().min(0).max(6),
+  meal_track: mealTrackSchema.default('family'),
   meal_type: mealTypeSchema,
   meal_id: z.string().nullable(),
   meal_name: z.string().nullable(),
@@ -10,6 +12,7 @@ export const mealPlanEntrySchema = z.object({
 
 export const critiqueOperationSchema = z.object({
   day_index: z.number().int().min(0).max(6),
+  meal_track: mealTrackSchema.default('family'),
   meal_type: mealTypeSchema,
   new_meal_id: z.string().nullable(),
 }).strict();
@@ -24,6 +27,7 @@ const mealSchema = z.object({
   id: z.string(),
   name: z.string(),
   meal_type: mealTypeSchema,
+  audience: z.enum(['family', 'adult']).default('family'),
   effort: z.number().int().min(1).max(10),
   has_red_meat: z.boolean(),
   prep_ahead: z.boolean(),

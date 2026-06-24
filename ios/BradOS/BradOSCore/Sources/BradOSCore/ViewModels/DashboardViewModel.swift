@@ -179,7 +179,9 @@ public class DashboardViewModel: ObservableObject {
     private func populateMealPlan(from session: MealPlanSession) {
         let todayDayIndex = Self.calendarWeekdayToDayIndex()
         let ids = Self.extractPrepAheadIds(from: session)
-        todayMeals = session.plan.filter { $0.dayIndex == todayDayIndex }
+        todayMeals = session.plan
+            .filter { $0.dayIndex == todayDayIndex }
+            .sorted { $0.slotSortOrder < $1.slotSortOrder }
         prepAheadMealIds = ids
         prepAheadMeals = session.plan
             .filter { $0.dayIndex != todayDayIndex }
@@ -187,7 +189,12 @@ public class DashboardViewModel: ObservableObject {
                 guard let mealId = entry.mealId else { return false }
                 return ids.contains(mealId)
             }
-            .sorted { $0.dayIndex < $1.dayIndex }
+            .sorted {
+                if $0.dayIndex != $1.dayIndex {
+                    return $0.dayIndex < $1.dayIndex
+                }
+                return $0.slotSortOrder < $1.slotSortOrder
+            }
     }
 
     /// Extract meal IDs that are prep-ahead from a session's meals snapshot
@@ -292,6 +299,7 @@ public extension DashboardViewModel {
         viewModel.latestMeditationSession = MeditationSession.mockRecentSession
         viewModel.todayMeals = [
             MealPlanEntry(dayIndex: 0, mealType: .breakfast, mealId: "m1", mealName: "Scrambled Eggs"),
+            MealPlanEntry(dayIndex: 0, mealTrack: .adult, mealType: .breakfast, mealId: "m4", mealName: "Protein Oats"),
             MealPlanEntry(dayIndex: 0, mealType: .lunch, mealId: "m2", mealName: "Chicken Caesar Salad"),
             MealPlanEntry(dayIndex: 0, mealType: .dinner, mealId: "m3", mealName: "Salmon with Rice"),
         ]
