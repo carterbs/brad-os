@@ -19,6 +19,7 @@ import { processCritique, buildSystemMessage, buildMessages } from './mealplan-c
 function createTestPlan(): MealPlanEntry[] {
   return [
     createMealPlanEntry({ day_index: 0, meal_type: 'breakfast', meal_id: 'meal-b1', meal_name: 'Oatmeal' }),
+    createMealPlanEntry({ day_index: 0, meal_track: 'adult', meal_type: 'breakfast', meal_id: 'meal-ab1', meal_name: 'Protein Oats' }),
     createMealPlanEntry({ day_index: 0, meal_type: 'lunch', meal_id: 'meal-l1', meal_name: 'Sandwich' }),
     createMealPlanEntry({ day_index: 0, meal_type: 'dinner', meal_id: 'meal-d1', meal_name: 'Pasta' }),
   ];
@@ -30,6 +31,7 @@ function createTestSession(overrides: Partial<MealPlanSession> = {}): MealPlanSe
     plan: createTestPlan(),
     meals_snapshot: [
       createMeal({ id: 'meal-b1', name: 'Oatmeal', meal_type: 'breakfast', effort: 1 }),
+      createMeal({ id: 'meal-ab1', name: 'Protein Oats', meal_type: 'breakfast', audience: 'adult', effort: 1 }),
       createMeal({ id: 'meal-l1', name: 'Sandwich', meal_type: 'lunch', effort: 1 }),
       createMeal({ id: 'meal-d1', name: 'Pasta', meal_type: 'dinner', effort: 4 }),
       createMeal({ id: 'meal-d2', name: 'Steak', meal_type: 'dinner', effort: 5, has_red_meat: true, prep_ahead: false }),
@@ -67,6 +69,7 @@ describe('MealPlan Critique Service', () => {
       expect(result.explanation).toBe('I swapped Monday dinner to Steak.');
       expect(result.operations).toHaveLength(1);
       expect(result.operations[0]?.day_index).toBe(0);
+      expect(result.operations[0]?.meal_track).toBe('family');
       expect(result.operations[0]?.meal_type).toBe('dinner');
       expect(result.operations[0]?.new_meal_id).toBe('meal-d2');
     });
@@ -163,6 +166,8 @@ describe('MealPlan Critique Service', () => {
 
       expect(systemMessage).toContain('meal-b1');
       expect(systemMessage).toContain('Oatmeal');
+      expect(systemMessage).toContain('meal-ab1');
+      expect(systemMessage).toContain('Protein Oats');
       expect(systemMessage).toContain('meal-d1');
       expect(systemMessage).toContain('Pasta');
       expect(systemMessage).toContain('meal-d2');
@@ -175,8 +180,20 @@ describe('MealPlan Critique Service', () => {
 
       expect(systemMessage).toContain('Monday');
       expect(systemMessage).toContain('Oatmeal');
+      expect(systemMessage).toContain('Protein Oats');
       expect(systemMessage).toContain('Sandwich');
       expect(systemMessage).toContain('Pasta');
+    });
+
+    it('should describe both breakfast tracks and meal_track operations', () => {
+      const session = createTestSession();
+      const systemMessage = buildSystemMessage(session);
+
+      expect(systemMessage).toContain('Family Breakfast');
+      expect(systemMessage).toContain('Brad Breakfast');
+      expect(systemMessage).toContain('Audience');
+      expect(systemMessage).toContain('"meal_track": "family" or "adult"');
+      expect(systemMessage).toContain('audience=adult');
     });
 
     it('should contain red meat indicator in meal table', () => {

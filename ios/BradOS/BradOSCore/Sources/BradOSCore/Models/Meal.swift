@@ -7,11 +7,18 @@ public enum MealType: String, Codable, Sendable, CaseIterable {
     case dinner
 }
 
+/// Audience a meal is intended for
+public enum MealAudience: String, Codable, Sendable, CaseIterable {
+    case family
+    case adult
+}
+
 /// A meal that can be included in a meal plan
 public struct Meal: Identifiable, Codable, Hashable, Sendable {
     public let id: String
     public let name: String
     public let mealType: MealType
+    public let audience: MealAudience
     public let effort: Int
     public let hasRedMeat: Bool
     public let prepAhead: Bool
@@ -23,6 +30,7 @@ public struct Meal: Identifiable, Codable, Hashable, Sendable {
     public enum CodingKeys: String, CodingKey {
         case id, name, effort, url
         case mealType = "meal_type"
+        case audience
         case hasRedMeat = "has_red_meat"
         case prepAhead = "prep_ahead"
         case lastPlanned = "last_planned"
@@ -34,6 +42,7 @@ public struct Meal: Identifiable, Codable, Hashable, Sendable {
         id: String,
         name: String,
         mealType: MealType,
+        audience: MealAudience = .family,
         effort: Int,
         hasRedMeat: Bool,
         prepAhead: Bool = false,
@@ -45,6 +54,7 @@ public struct Meal: Identifiable, Codable, Hashable, Sendable {
         self.id = id
         self.name = name
         self.mealType = mealType
+        self.audience = audience
         self.effort = effort
         self.hasRedMeat = hasRedMeat
         self.prepAhead = prepAhead
@@ -59,6 +69,7 @@ public struct Meal: Identifiable, Codable, Hashable, Sendable {
         id = try container.decode(String.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         mealType = try container.decode(MealType.self, forKey: .mealType)
+        audience = try container.decodeIfPresent(MealAudience.self, forKey: .audience) ?? .family
         effort = try container.decode(Int.self, forKey: .effort)
         hasRedMeat = try container.decode(Bool.self, forKey: .hasRedMeat)
         prepAhead = try container.decodeIfPresent(Bool.self, forKey: .prepAhead) ?? false
@@ -112,6 +123,19 @@ public extension Meal {
             mealType: .dinner,
             effort: 5,
             hasRedMeat: true,
+            url: nil,
+            lastPlanned: nil,
+            createdAt: Date(),
+            updatedAt: Date()
+        ),
+        Meal(
+            id: "mock-meal-5",
+            name: "Protein Oats",
+            mealType: .breakfast,
+            audience: .adult,
+            effort: 1,
+            hasRedMeat: false,
+            prepAhead: true,
             url: nil,
             lastPlanned: nil,
             createdAt: Date(),

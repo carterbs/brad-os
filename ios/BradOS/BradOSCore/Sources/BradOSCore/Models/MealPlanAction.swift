@@ -1,18 +1,21 @@
 import Foundation
 
-/// Identifies a specific slot in the meal plan (day + meal type)
+/// Identifies a specific slot in the meal plan (day + track + meal type)
 public struct MealSlot: Hashable, Sendable {
     public let dayIndex: Int
+    public let mealTrack: MealTrack
     public let mealType: MealType
 
-    public init(dayIndex: Int, mealType: MealType) {
+    public init(dayIndex: Int, mealTrack: MealTrack = .family, mealType: MealType) {
         self.dayIndex = dayIndex
+        self.mealTrack = mealTrack
         self.mealType = mealType
     }
 
     /// Create a MealSlot from a MealPlanEntry
     public init(entry: MealPlanEntry) {
         self.dayIndex = entry.dayIndex
+        self.mealTrack = entry.mealTrack
         self.mealType = entry.mealType
     }
 }
@@ -81,11 +84,23 @@ public struct QueuedCritiqueActions: Sendable {
 
     private static let dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
-    private static func mealTypeOrder(_ type: MealType) -> Int {
-        switch type {
-        case .breakfast: return 0
-        case .lunch: return 1
-        case .dinner: return 2
+    private static func slotOrder(_ slot: MealSlot) -> Int {
+        switch (slot.mealTrack, slot.mealType) {
+        case (.family, .breakfast): return 0
+        case (.adult, .breakfast): return 1
+        case (.family, .lunch): return 2
+        case (.family, .dinner): return 3
+        case (.adult, .lunch): return 4
+        case (.adult, .dinner): return 5
+        }
+    }
+
+    private static func slotLabel(_ slot: MealSlot) -> String {
+        switch (slot.mealTrack, slot.mealType) {
+        case (.adult, .breakfast): return "Brad breakfast"
+        case (.family, .breakfast): return "breakfast"
+        case (_, .lunch): return "lunch"
+        case (_, .dinner): return "dinner"
         }
     }
 
@@ -99,12 +114,12 @@ public struct QueuedCritiqueActions: Sendable {
             uniquingKeysWith: { first, _ in first }
         )
 
-        // Sort actions by day index, then meal type for consistent output
+        // Sort actions by day index, then tracked slot for consistent output
         let sorted = actions.sorted { lhs, rhs in
             if lhs.key.dayIndex != rhs.key.dayIndex {
                 return lhs.key.dayIndex < rhs.key.dayIndex
             }
-            return Self.mealTypeOrder(lhs.key.mealType) < Self.mealTypeOrder(rhs.key.mealType)
+            return Self.slotOrder(lhs.key) < Self.slotOrder(rhs.key)
         }
 
         let swaps = sorted.filter { $0.value == .swap }
@@ -116,7 +131,7 @@ public struct QueuedCritiqueActions: Sendable {
             let swapDescriptions = swaps.map { slot, _ in
                 let dayName = Self.dayNames[slot.dayIndex]
                 let mealName = entryLookup[slot]?.mealName ?? "Unknown"
-                return "\(dayName) \(slot.mealType.rawValue) (\(mealName))"
+                return "\(dayName) \(Self.slotLabel(slot)) (\(mealName))"
             }
             parts.append("Swap \(swapDescriptions.joined(separator: " and ")) for something different.")
         }
@@ -125,7 +140,7 @@ public struct QueuedCritiqueActions: Sendable {
             let removeDescriptions = removes.map { slot, _ in
                 let dayName = Self.dayNames[slot.dayIndex]
                 let mealName = entryLookup[slot]?.mealName ?? "Unknown"
-                return "\(dayName) \(slot.mealType.rawValue) (\(mealName))"
+                return "\(dayName) \(Self.slotLabel(slot)) (\(mealName))"
             }
             parts.append("Remove \(removeDescriptions.joined(separator: " and ")) from the plan.")
         }

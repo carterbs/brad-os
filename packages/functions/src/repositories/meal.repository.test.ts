@@ -42,6 +42,7 @@ describe('MealRepository', () => {
       const result = await repository.create({
         name: 'Chicken Stir Fry',
         meal_type: 'dinner',
+        audience: 'family',
         effort: 5,
         has_red_meat: false,
         prep_ahead: false,
@@ -52,6 +53,7 @@ describe('MealRepository', () => {
         expect.objectContaining({
           name: 'Chicken Stir Fry',
           meal_type: 'dinner',
+          audience: 'family',
           effort: 5,
           has_red_meat: false,
           prep_ahead: false,
@@ -93,6 +95,7 @@ describe('MealRepository', () => {
       const mealData = {
         name: 'Chicken Stir Fry',
         meal_type: 'dinner',
+        audience: 'family',
         effort: 5,
         has_red_meat: false,
         prep_ahead: false,
@@ -135,6 +138,7 @@ describe('MealRepository', () => {
           data: {
             name: 'Chicken Stir Fry',
             meal_type: 'dinner',
+            audience: 'family',
             effort: 5,
             has_red_meat: false,
             prep_ahead: false,
@@ -149,6 +153,7 @@ describe('MealRepository', () => {
           data: {
             name: 'Oatmeal',
             meal_type: 'breakfast',
+            audience: 'family',
             effort: 1,
             has_red_meat: false,
             prep_ahead: false,
@@ -217,6 +222,7 @@ describe('MealRepository', () => {
           id: 'meal-legacy',
           name: 'Legacy Oatmeal',
           meal_type: 'breakfast',
+          audience: 'family',
           effort: 1,
           has_red_meat: false,
           prep_ahead: false,
@@ -285,6 +291,7 @@ describe('MealRepository', () => {
       const existingData = {
         name: 'Chicken Stir Fry',
         meal_type: 'dinner',
+        audience: 'family',
         effort: 5,
         has_red_meat: false,
         prep_ahead: false,
@@ -337,6 +344,7 @@ describe('MealRepository', () => {
       const existingData = {
         name: 'Chicken Stir Fry',
         meal_type: 'dinner',
+        audience: 'family',
         effort: 5,
         has_red_meat: false,
         prep_ahead: false,

@@ -237,6 +237,36 @@ struct DashboardViewModelTests {
         #expect(defaults.string(forKey: "mealPlanSessionId") == nil)
         #expect(vm.todayMeals.map(\.mealName) == ["New Dinner"])
     }
+
+    @Test("today meals preserves both breakfast tracks")
+    @MainActor
+    func todayMealsPreservesBothBreakfastTracks() async {
+        let latestSession = MealPlanSession(
+            id: "latest-session",
+            plan: [
+                MealPlanEntry(dayIndex: 6, mealTrack: .adult, mealType: .breakfast, mealId: "meal-2", mealName: "Protein Oats"),
+                MealPlanEntry(dayIndex: 6, mealType: .breakfast, mealId: "meal-1", mealName: "Pancakes"),
+                MealPlanEntry(dayIndex: 6, mealType: .lunch, mealId: "meal-3", mealName: "Wrap"),
+            ],
+            mealsSnapshot: [],
+            history: [],
+            isFinalized: true,
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        let mock = MockAPIClient()
+        mock.mockLatestMealPlanSession = latestSession
+        let vm = DashboardViewModel(
+            apiClient: mock,
+            cacheService: RecordingMealPlanCacheService(),
+            userDefaults: MockUserDefaults()
+        )
+
+        await vm.refreshMealPlan(forceRefresh: true)
+
+        #expect(vm.todayMeals.map(\.mealTrack) == [.family, .adult, .family])
+        #expect(vm.todayMeals.map(\.mealName) == ["Pancakes", "Protein Oats", "Wrap"])
+    }
 }
 
 private final class RecordingMealPlanCacheService: MealPlanCacheServiceProtocol, @unchecked Sendable {

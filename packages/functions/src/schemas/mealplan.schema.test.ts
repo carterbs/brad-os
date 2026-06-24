@@ -3,6 +3,7 @@ import {
   applyOperationsResultSchema,
   conversationMessageSchema,
   critiqueInputSchema,
+  critiqueOperationSchema,
   critiqueResponseSchema,
   createMealPlanSessionSchema,
   mealPlanEntrySchema,
@@ -15,7 +16,7 @@ describe('critiqueResponseSchema', () => {
     const payload = {
       explanation: 'Adjusted Monday dinner.',
       operations: [
-        { day_index: 0, meal_type: 'dinner', new_meal_id: 'meal-d2' },
+        { day_index: 0, meal_track: 'family', meal_type: 'dinner', new_meal_id: 'meal-d2' },
       ],
     };
 
@@ -26,7 +27,7 @@ describe('critiqueResponseSchema', () => {
     const payload = {
       explanation: 'Removed a meal.',
       operations: [
-        { day_index: 2, meal_type: 'lunch', new_meal_id: null },
+        { day_index: 2, meal_track: 'family', meal_type: 'lunch', new_meal_id: null },
       ],
     };
 
@@ -37,7 +38,7 @@ describe('critiqueResponseSchema', () => {
     const payload = {
       explanation: 'Invalid meal type.',
       operations: [
-        { day_index: 1, meal_type: 'snack', new_meal_id: 'meal-1' },
+        { day_index: 1, meal_track: 'family', meal_type: 'snack', new_meal_id: 'meal-1' },
       ],
     };
 
@@ -104,6 +105,7 @@ describe('critiqueInputSchema', () => {
 describe('meal plan session schemas', () => {
   const samplePlanEntry = {
     day_index: 0,
+    meal_track: 'family',
     meal_type: 'breakfast',
     meal_id: 'meal-breakfast',
     meal_name: 'Overnight oats',
@@ -115,6 +117,7 @@ describe('meal plan session schemas', () => {
     operations: [
       {
         day_index: 2,
+        meal_track: 'family',
         meal_type: 'breakfast',
         new_meal_id: 'meal-alt',
       },
@@ -129,6 +132,7 @@ describe('meal plan session schemas', () => {
         id: 'meal-breakfast',
         name: 'Overnight oats',
         meal_type: 'breakfast',
+        audience: 'family',
         effort: 5,
         has_red_meat: false,
         prep_ahead: true,
@@ -150,6 +154,7 @@ describe('meal plan session schemas', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.meal_type).toBe('breakfast');
+      expect(result.data.meal_track).toBe('family');
       expect(result.data.meal_name).toBe('Overnight oats');
     }
   });
@@ -160,7 +165,43 @@ describe('meal plan session schemas', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.role).toBe('user');
+      expect(result.data.operations?.[0]?.meal_track).toBe('family');
       expect(result.data.operations?.[0]?.new_meal_id).toBe('meal-alt');
+    }
+  });
+
+  it('defaults legacy plan entries and operations to family track', () => {
+    const entryResult = mealPlanEntrySchema.safeParse({
+      day_index: 0,
+      meal_type: 'breakfast',
+      meal_id: 'meal-breakfast',
+      meal_name: 'Overnight oats',
+    });
+    const operationResult = critiqueOperationSchema.safeParse({
+      day_index: 0,
+      meal_type: 'breakfast',
+      new_meal_id: 'meal-alt',
+    });
+
+    expect(entryResult.success).toBe(true);
+    expect(operationResult.success).toBe(true);
+    if (entryResult.success && operationResult.success) {
+      expect(entryResult.data.meal_track).toBe('family');
+      expect(operationResult.data.meal_track).toBe('family');
+    }
+  });
+
+  it('defaults legacy meal snapshots to family audience', () => {
+    const legacyMeal = { ...sampleSession.meals_snapshot[0] };
+    delete (legacyMeal as { audience?: string }).audience;
+    const result = mealPlanSessionSchema.safeParse({
+      ...sampleSession,
+      meals_snapshot: [legacyMeal],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.meals_snapshot[0]?.audience).toBe('family');
     }
   });
 

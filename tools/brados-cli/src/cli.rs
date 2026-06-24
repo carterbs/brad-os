@@ -96,6 +96,9 @@ pub enum MealsAction {
         /// Meal type (breakfast, lunch, dinner)
         #[arg(long)]
         meal_type: String,
+        /// Meal audience (family, adult)
+        #[arg(long, default_value = "family")]
+        audience: String,
         /// Effort level (1-5)
         #[arg(long)]
         effort: u8,
@@ -125,6 +128,9 @@ pub enum MealsAction {
         /// Meal type (breakfast, lunch, dinner)
         #[arg(long)]
         meal_type: Option<String>,
+        /// Meal audience (family, adult)
+        #[arg(long)]
+        audience: Option<String>,
         /// Effort level (1-5)
         #[arg(long)]
         effort: Option<u8>,
@@ -352,6 +358,7 @@ mod tests {
                 MealsAction::Create {
                     name,
                     meal_type,
+                    audience,
                     effort,
                     has_red_meat,
                     prep_ahead,
@@ -361,12 +368,41 @@ mod tests {
                 } => {
                     assert_eq!(name, "Tacos");
                     assert_eq!(meal_type, "dinner");
+                    assert_eq!(audience, "family");
                     assert_eq!(*effort, 3);
                     assert!(*has_red_meat);
                     assert!(!*prep_ahead);
                     assert_eq!(url, "");
                     assert!(ingredients_json.is_none());
                     assert!(steps_json.is_none());
+                }
+                _ => panic!("expected Create"),
+            },
+            _ => panic!("expected Meals"),
+        }
+    }
+
+    #[test]
+    fn parse_meals_create_with_adult_audience() {
+        let cli = parse(&[
+            "meals",
+            "create",
+            "--name",
+            "Protein Oats",
+            "--meal-type",
+            "breakfast",
+            "--audience",
+            "adult",
+            "--effort",
+            "1",
+            "--url",
+            "",
+        ]);
+
+        match &cli.command {
+            Commands::Meals(cmd) => match &cmd.action {
+                MealsAction::Create { audience, .. } => {
+                    assert_eq!(audience, "adult");
                 }
                 _ => panic!("expected Create"),
             },

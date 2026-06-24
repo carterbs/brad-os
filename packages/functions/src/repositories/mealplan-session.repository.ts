@@ -52,12 +52,18 @@ export class MealPlanSessionRepository extends BaseRepository<
     }
 
     const dayIndex = readNumber(entry, 'day_index');
+    const rawMealTrack = entry['meal_track'];
+    const mealTrack =
+      rawMealTrack === undefined
+        ? 'family'
+        : readEnum(entry, 'meal_track', ['family', 'adult'] as const);
     const mealType = readEnum(entry, 'meal_type', ['breakfast', 'lunch', 'dinner'] as const);
     const mealId = readNullableString(entry, 'meal_id');
     const mealName = readNullableString(entry, 'meal_name');
 
     if (
       dayIndex === null ||
+      mealTrack === null ||
       mealType === null ||
       mealId === undefined ||
       mealName === undefined
@@ -67,6 +73,7 @@ export class MealPlanSessionRepository extends BaseRepository<
 
     return {
       day_index: dayIndex,
+      meal_track: mealTrack,
       meal_type: mealType,
       meal_id: mealId,
       meal_name: mealName,
@@ -98,10 +105,16 @@ export class MealPlanSessionRepository extends BaseRepository<
         }
 
         const dayIndex = readNumber(operation, 'day_index');
+        const rawMealTrack = operation['meal_track'];
+        const mealTrack =
+          rawMealTrack === undefined
+            ? 'family'
+            : readEnum(operation, 'meal_track', ['family', 'adult'] as const);
         const mealType = readEnum(operation, 'meal_type', ['breakfast', 'lunch', 'dinner'] as const);
         const newMealId = readNullableString(operation, 'new_meal_id');
         if (
           dayIndex === null ||
+          mealTrack === null ||
           mealType === null ||
           newMealId === undefined
         ) {
@@ -110,6 +123,7 @@ export class MealPlanSessionRepository extends BaseRepository<
 
         operations.push({
           day_index: dayIndex,
+          meal_track: mealTrack,
           meal_type: mealType,
           new_meal_id: newMealId,
         });
@@ -131,6 +145,11 @@ export class MealPlanSessionRepository extends BaseRepository<
     const mealId = readString(meal, 'id');
     const name = readString(meal, 'name');
     const mealType = readEnum(meal, 'meal_type', ['breakfast', 'lunch', 'dinner'] as const);
+    const rawAudience = meal['audience'];
+    const audience =
+      rawAudience === undefined
+        ? 'family'
+        : readEnum(meal, 'audience', ['family', 'adult'] as const);
     const effort = readNumber(meal, 'effort');
     const hasRedMeat = readBoolean(meal, 'has_red_meat');
     const prepAhead = readBoolean(meal, 'prep_ahead');
@@ -143,6 +162,7 @@ export class MealPlanSessionRepository extends BaseRepository<
       mealId === null ||
       name === null ||
       mealType === null ||
+      audience === null ||
       effort === null ||
       hasRedMeat === null ||
       prepAhead === null ||
@@ -158,6 +178,7 @@ export class MealPlanSessionRepository extends BaseRepository<
       id: mealId,
       name,
       meal_type: mealType,
+      audience,
       effort,
       has_red_meat: hasRedMeat,
       prep_ahead: prepAhead,

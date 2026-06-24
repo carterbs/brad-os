@@ -1,8 +1,11 @@
 import { z } from 'zod';
 
+export const mealAudienceSchema = z.enum(['family', 'adult']);
+
 export const createMealSchema = z.object({
   name: z.string().min(1).max(200),
   meal_type: z.enum(['breakfast', 'lunch', 'dinner']),
+  audience: mealAudienceSchema.default('family'),
   effort: z.number().int().min(1).max(10),
   has_red_meat: z.boolean(),
   prep_ahead: z.boolean(),
@@ -12,6 +15,7 @@ export const createMealSchema = z.object({
 export const updateMealSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   meal_type: z.enum(['breakfast', 'lunch', 'dinner']).optional(),
+  audience: mealAudienceSchema.optional(),
   effort: z.number().int().min(1).max(10).optional(),
   has_red_meat: z.boolean().optional(),
   prep_ahead: z.boolean().optional(),

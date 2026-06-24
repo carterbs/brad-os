@@ -165,7 +165,7 @@ public class MealPlanViewModel: ObservableObject {
             // Track changed slots from operations
             var changed = Set<String>()
             for operation in response.operations {
-                changed.insert("\(operation.dayIndex)-\(operation.mealType.rawValue)")
+                changed.insert("\(operation.dayIndex)-\(operation.mealTrack.rawValue)-\(operation.mealType.rawValue)")
             }
             changedSlots = changed
 
@@ -242,7 +242,12 @@ public class MealPlanViewModel: ObservableObject {
     public func entriesForMealType(_ mealType: MealType) -> [MealPlanEntry] {
         currentPlan
             .filter { $0.mealType == mealType }
-            .sorted { $0.dayIndex < $1.dayIndex }
+            .sorted {
+                if $0.dayIndex != $1.dayIndex {
+                    return $0.dayIndex < $1.dayIndex
+                }
+                return $0.slotSortOrder < $1.slotSortOrder
+            }
     }
 
     /// Look up the effort level for an entry from the session's meals snapshot
@@ -328,7 +333,7 @@ public class MealPlanViewModel: ObservableObject {
 
         shoppingLog.info("[updateShoppingList] plan has \(totalEntries) entries, \(mealIds.count) with mealId, \(nilSlots.count) nil slots")
         if !nilSlots.isEmpty {
-            let nilDesc = nilSlots.map { "day\($0.dayIndex)-\($0.mealType.rawValue)(\($0.mealName ?? "nil"))" }.joined(separator: ", ")
+            let nilDesc = nilSlots.map { "\($0.slotKey)(\($0.mealName ?? "nil"))" }.joined(separator: ", ")
             shoppingLog.info("[updateShoppingList] nil slots: \(nilDesc, privacy: .public)")
         }
 
@@ -339,7 +344,7 @@ public class MealPlanViewModel: ObservableObject {
         for entry in currentPlan where entry.mealId != nil {
             let hasRecipe = recipeCache.recipe(forMealId: entry.mealId!) != nil
             let symbol = hasRecipe ? "+" : "MISSING"
-            shoppingLog.info("[meal→recipe] \(symbol, privacy: .public) day\(entry.dayIndex)-\(entry.mealType.rawValue, privacy: .public): \(entry.mealName ?? "?", privacy: .public) (id=\(entry.mealId!, privacy: .public))")
+            shoppingLog.info("[meal→recipe] \(symbol, privacy: .public) \(entry.slotKey, privacy: .public): \(entry.mealName ?? "?", privacy: .public) (id=\(entry.mealId!, privacy: .public))")
             if !hasRecipe {
                 missingRecipeMeals.append(entry.mealName ?? entry.mealId!)
             }

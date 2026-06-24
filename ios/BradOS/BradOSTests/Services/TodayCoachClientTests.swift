@@ -3,7 +3,7 @@ import Testing
 @testable import Brad_OS
 import BradOSCore
 
-@Suite
+@Suite(.serialized)
 struct TodayCoachClientTests {
     /// Helper to create a URLSession with MockURLProtocol for testing
     private func makeTestAPIClient(
@@ -12,10 +12,10 @@ struct TodayCoachClientTests {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [MockURLProtocol.self]
 
-        MockURLProtocol.requestHandler = handler
+        MockURLProtocol.setHandler(forPathPrefix: "/today-coach/recommend", handler: handler)
 
         let session = URLSession(configuration: config)
-        return APIClient(configuration: .init(baseURL: "http://test.local"), session: session)
+        return APIClient(configuration: .init(baseURL: URL(string: "http://test.local")!), session: session)
     }
 
     /// Helper to create a valid fallback response JSON
@@ -64,7 +64,11 @@ struct TodayCoachClientTests {
 
     /// Helper to encode response as JSON data
     private func encodeResponse(_ response: [String: Any]) -> Data {
-        guard let data = try? JSONSerialization.data(withJSONObject: response) else {
+        let envelope: [String: Any] = [
+            "success": true,
+            "data": response
+        ]
+        guard let data = try? JSONSerialization.data(withJSONObject: envelope) else {
             fatalError("Failed to encode test response")
         }
         return data
@@ -104,7 +108,7 @@ struct TodayCoachClientTests {
     @MainActor
     func failureWithAPIErrorSetsUserFacingError() async {
         let mockAPI = MockTodayCoachAPIClient()
-        let expectedError = APIError.unauthorized("Invalid token")
+        let expectedError = APIError.forbidden("Invalid token")
         mockAPI.getTodayCoachRecommendationResult = .failure(expectedError)
 
         let client = TodayCoachClient(apiClient: mockAPI)
@@ -112,7 +116,7 @@ struct TodayCoachClientTests {
 
         await client.getRecommendation(recovery: recovery)
 
-        #expect(client.error \!= nil)
+        #expect(client.error != nil)
         #expect(client.recommendation == nil)
         #expect(mockAPI.getTodayCoachRecommendationCallCount == 1)
     }
@@ -129,7 +133,7 @@ struct TodayCoachClientTests {
 
         await client.getRecommendation(recovery: recovery)
 
-        #expect(client.error \!= nil)
+        #expect(client.error != nil)
         #expect(client.error == "Network error")
         #expect(client.recommendation == nil)
     }
@@ -160,7 +164,7 @@ struct TodayCoachClientTests {
         #expect(client.isLoading == true)
 
         // Release the gate
-        gate.releaseAll()
+        await gate.releaseAll()
 
         // Wait for the task to complete
         await task.value
@@ -192,8 +196,8 @@ struct TodayCoachClientTests {
         #expect(client.recommendation?.sections.cycling == nil)
         #expect(client.recommendation?.sections.weight == nil)
         // Ensure required sections are still present
-        #expect(client.recommendation?.sections.recovery \!= nil)
-        #expect(client.recommendation?.dailyBriefing \!= nil)
+        #expect(client.recommendation?.sections.recovery != nil)
+        #expect(client.recommendation?.dailyBriefing != nil)
         #expect(client.error == nil)
     }
 
@@ -243,7 +247,7 @@ struct TodayCoachClientTests {
     func fallbackPayloadLoadsRecommendation() async {
         let fallbackResponse = makeFallbackResponseJSON()
         let apiClient = makeTestAPIClient { _ in
-            let response = HTTPURLResponse(url: URL(string: "http://test.local/today-coach/recommend")\!, statusCode: 200, httpVersion: nil, headerFields: nil)\!
+            let response = HTTPURLResponse(url: URL(string: "http://test.local/today-coach/recommend")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, self.encodeResponse(fallbackResponse))
         }
 
@@ -252,7 +256,7 @@ struct TodayCoachClientTests {
 
         await client.getRecommendation(recovery: recovery)
 
-        #expect(client.recommendation \!= nil)
+        #expect(client.recommendation != nil)
         #expect(client.error == nil)
         #expect(client.recommendation?.sections.recovery.status == "good")
     }
@@ -262,7 +266,7 @@ struct TodayCoachClientTests {
     func timeoutFallbackVariantPreservesWarning() async {
         let timeoutFallback = makeFallbackResponseJSONWithWarning(type: "timeout")
         let apiClient = makeTestAPIClient { _ in
-            let response = HTTPURLResponse(url: URL(string: "http://test.local/today-coach/recommend")\!, statusCode: 200, httpVersion: nil, headerFields: nil)\!
+            let response = HTTPURLResponse(url: URL(string: "http://test.local/today-coach/recommend")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, self.encodeResponse(timeoutFallback))
         }
 
@@ -271,7 +275,7 @@ struct TodayCoachClientTests {
 
         await client.getRecommendation(recovery: recovery)
 
-        #expect(client.recommendation \!= nil)
+        #expect(client.recommendation != nil)
         #expect(client.error == nil)
         #expect(client.recommendation?.warnings.first?.type == "timeout")
     }
@@ -281,7 +285,7 @@ struct TodayCoachClientTests {
     func partialFallbackVariantPreservesWarning() async {
         let partialFallback = makeFallbackResponseJSONWithWarning(type: "partial")
         let apiClient = makeTestAPIClient { _ in
-            let response = HTTPURLResponse(url: URL(string: "http://test.local/today-coach/recommend")\!, statusCode: 200, httpVersion: nil, headerFields: nil)\!
+            let response = HTTPURLResponse(url: URL(string: "http://test.local/today-coach/recommend")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, self.encodeResponse(partialFallback))
         }
 
@@ -290,7 +294,7 @@ struct TodayCoachClientTests {
 
         await client.getRecommendation(recovery: recovery)
 
-        #expect(client.recommendation \!= nil)
+        #expect(client.recommendation != nil)
         #expect(client.error == nil)
         #expect(client.recommendation?.warnings.first?.type == "partial")
     }
@@ -300,7 +304,7 @@ struct TodayCoachClientTests {
     func invalidFallbackVariantPreservesWarning() async {
         let invalidFallback = makeFallbackResponseJSONWithWarning(type: "invalid")
         let apiClient = makeTestAPIClient { _ in
-            let response = HTTPURLResponse(url: URL(string: "http://test.local/today-coach/recommend")\!, statusCode: 200, httpVersion: nil, headerFields: nil)\!
+            let response = HTTPURLResponse(url: URL(string: "http://test.local/today-coach/recommend")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, self.encodeResponse(invalidFallback))
         }
 
@@ -309,7 +313,7 @@ struct TodayCoachClientTests {
 
         await client.getRecommendation(recovery: recovery)
 
-        #expect(client.recommendation \!= nil)
+        #expect(client.recommendation != nil)
         #expect(client.error == nil)
         #expect(client.recommendation?.warnings.first?.type == "invalid")
     }
@@ -318,7 +322,7 @@ struct TodayCoachClientTests {
     @MainActor
     func malformedEnvelopeTriggersError() async {
         let apiClient = makeTestAPIClient { _ in
-            let response = HTTPURLResponse(url: URL(string: "http://test.local/today-coach/recommend")\!, statusCode: 200, httpVersion: nil, headerFields: nil)\!
+            let response = HTTPURLResponse(url: URL(string: "http://test.local/today-coach/recommend")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             // Return an object that's missing critical required fields
             let malformed: [String: Any] = [
                 "dailyBriefing": "Test",
@@ -340,7 +344,7 @@ struct TodayCoachClientTests {
         await client.getRecommendation(recovery: recovery)
 
         #expect(client.recommendation == nil)
-        #expect(client.error \!= nil)
+        #expect(client.error != nil)
     }
 
     @Test("network error surfaces error state and leaves recommendation unset")
@@ -356,7 +360,7 @@ struct TodayCoachClientTests {
         await client.getRecommendation(recovery: recovery)
 
         #expect(client.recommendation == nil)
-        #expect(client.error \!= nil)
+        #expect(client.error != nil)
     }
 
     @Test("cached recommendation is returned without new API call")
@@ -366,7 +370,7 @@ struct TodayCoachClientTests {
         let fallbackResponse = makeFallbackResponseJSON()
         let apiClient = makeTestAPIClient { _ in
             callCount += 1
-            let response = HTTPURLResponse(url: URL(string: "http://test.local/today-coach/recommend")\!, statusCode: 200, httpVersion: nil, headerFields: nil)\!
+            let response = HTTPURLResponse(url: URL(string: "http://test.local/today-coach/recommend")!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, self.encodeResponse(fallbackResponse))
         }
 
@@ -376,7 +380,7 @@ struct TodayCoachClientTests {
         // First call
         await client.getRecommendation(recovery: recovery)
         #expect(callCount == 1)
-        #expect(client.recommendation \!= nil)
+        #expect(client.recommendation != nil)
 
         // Second call should return cached
         await client.getRecommendation(recovery: recovery)

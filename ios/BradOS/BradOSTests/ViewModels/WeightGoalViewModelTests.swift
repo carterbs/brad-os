@@ -595,8 +595,8 @@ struct WeightGoalViewModelTests {
         // Should compute safely with available points
         #expect(trends[0].windowDays == 7)
         #expect(trends[1].windowDays == 30)
-        // With only 3 points, averages should still work
-        #expect(trends[0].state == .losing)
+        // With only 3 points, averages should still work and respect the 0.5 lb threshold
+        #expect(trends[0].state == .stable)
     }
 
     @Test("recentTrendStates returns empty array for no history")

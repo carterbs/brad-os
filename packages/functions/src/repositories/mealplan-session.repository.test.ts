@@ -52,6 +52,7 @@ describe('MealPlanSessionRepository', () => {
           id: 'meal-1',
           name: 'Oatmeal',
           meal_type: 'breakfast',
+          audience: 'family',
           effort: 2,
           has_red_meat: false,
           prep_ahead: false,
@@ -62,6 +63,7 @@ describe('MealPlanSessionRepository', () => {
       const plan: MealPlanEntry[] = [
         {
           day_index: 0,
+          meal_track: 'family',
           meal_type: 'breakfast',
           meal_id: 'meal-1',
           meal_name: 'Oatmeal',
@@ -156,6 +158,7 @@ describe('MealPlanSessionRepository', () => {
             plan: [
               {
                 day_index: 0,
+                meal_track: 'family',
                 meal_type: 'breakfast',
                 meal_id: 'meal-1',
                 meal_name: 'Oatmeal',
@@ -166,6 +169,7 @@ describe('MealPlanSessionRepository', () => {
                 id: 'meal-1',
                 name: 'Oatmeal',
                 meal_type: 'breakfast',
+                audience: 'family',
                 effort: 2,
                 has_red_meat: false,
                 prep_ahead: true,
@@ -222,7 +226,7 @@ describe('MealPlanSessionRepository', () => {
       const message: ConversationMessage = {
         role: 'user',
         content: 'append this',
-        operations: [{ day_index: 0, meal_type: 'lunch', new_meal_id: null }],
+        operations: [{ day_index: 0, meal_track: 'family', meal_type: 'lunch', new_meal_id: null }],
       };
       const refreshed: MealPlanSession = {
         ...existing,
@@ -263,6 +267,7 @@ describe('MealPlanSessionRepository', () => {
       const result = await repository.updatePlan('missing', [
         {
           day_index: 0,
+          meal_track: 'family',
           meal_type: 'breakfast',
           meal_id: 'meal-1',
           meal_name: 'Oatmeal',
@@ -279,6 +284,7 @@ describe('MealPlanSessionRepository', () => {
         plan: [
           {
             day_index: 0,
+            meal_track: 'family',
             meal_type: 'breakfast',
             meal_id: 'meal-1',
             meal_name: 'Oatmeal',
@@ -293,6 +299,7 @@ describe('MealPlanSessionRepository', () => {
       const updatedPlan: MealPlanEntry[] = [
         {
           day_index: 0,
+          meal_track: 'family',
           meal_type: 'dinner',
           meal_id: 'meal-3',
           meal_name: 'Stir-fry',
@@ -338,6 +345,7 @@ describe('MealPlanSessionRepository', () => {
       const updatedPlan: MealPlanEntry[] = [
         {
           day_index: 1,
+          meal_track: 'family',
           meal_type: 'lunch',
           meal_id: 'meal-2',
           meal_name: 'Salad',

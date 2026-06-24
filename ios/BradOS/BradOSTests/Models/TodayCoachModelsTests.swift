@@ -31,8 +31,10 @@ struct TodayCoachModelsTests {
               "insight": "Threshold ride",
               "session": {
                 "type": "interval",
-                "durationMin": 45,
-                "tss": 72,
+                "durationMinutes": 45,
+                "targetTSS": {"min": 65, "max": 75},
+                "targetZones": "Power Zone 4",
+                "pelotonClassTypes": ["Power Zone"],
                 "pelotonTip": "Do a PZ class"
               }
             },

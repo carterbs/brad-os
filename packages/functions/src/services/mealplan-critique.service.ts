@@ -17,25 +17,27 @@ const BASE_DELAY_MS = 1000;
 export function buildSystemMessage(session: MealPlanSession): string {
   // Build meal table
   const mealTableRows = session.meals_snapshot.map(
-    (m) => `${m.id} | ${m.name} | ${m.meal_type} | ${m.effort} | ${m.has_red_meat ? 'Yes' : 'No'} | ${m.prep_ahead ? 'Yes' : 'No'}`
+    (m) => `${m.id} | ${m.name} | ${m.meal_type} | ${m.audience} | ${m.effort} | ${m.has_red_meat ? 'Yes' : 'No'} | ${m.prep_ahead ? 'Yes' : 'No'}`
   );
-  const mealTable = `ID | Name | Type | Effort | Red Meat | Prep Ahead\n${mealTableRows.join('\n')}`;
+  const mealTable = `ID | Name | Type | Audience | Effort | Red Meat | Prep Ahead\n${mealTableRows.join('\n')}`;
 
   // Build plan grid
   const planGridRows: string[] = [];
   for (let day = 0; day < 7; day++) {
     const dayName = DAY_NAMES[day] ?? `Day ${day}`;
-    const breakfast = session.plan.find((e) => e.day_index === day && e.meal_type === 'breakfast');
-    const lunch = session.plan.find((e) => e.day_index === day && e.meal_type === 'lunch');
-    const dinner = session.plan.find((e) => e.day_index === day && e.meal_type === 'dinner');
+    const familyBreakfast = session.plan.find((e) => e.day_index === day && e.meal_track === 'family' && e.meal_type === 'breakfast');
+    const adultBreakfast = session.plan.find((e) => e.day_index === day && e.meal_track === 'adult' && e.meal_type === 'breakfast');
+    const lunch = session.plan.find((e) => e.day_index === day && e.meal_track === 'family' && e.meal_type === 'lunch');
+    const dinner = session.plan.find((e) => e.day_index === day && e.meal_track === 'family' && e.meal_type === 'dinner');
 
-    const bStr = breakfast?.meal_id != null ? `[${breakfast.meal_id}] ${breakfast.meal_name}` : 'Empty';
+    const fbStr = familyBreakfast?.meal_id != null ? `[${familyBreakfast.meal_id}] ${familyBreakfast.meal_name}` : 'Empty';
+    const abStr = adultBreakfast?.meal_id != null ? `[${adultBreakfast.meal_id}] ${adultBreakfast.meal_name}` : 'Empty';
     const lStr = lunch?.meal_id != null ? `[${lunch.meal_id}] ${lunch.meal_name}` : 'Empty';
     const dStr = dinner?.meal_id != null ? `[${dinner.meal_id}] ${dinner.meal_name}` : dinner?.meal_name ?? 'Empty';
 
-    planGridRows.push(`${dayName} | ${bStr} | ${lStr} | ${dStr}`);
+    planGridRows.push(`${dayName} | ${fbStr} | ${abStr} | ${lStr} | ${dStr}`);
   }
-  const planGrid = `Day | Breakfast | Lunch | Dinner\n${planGridRows.join('\n')}`;
+  const planGrid = `Day | Family Breakfast | Brad Breakfast | Lunch | Dinner\n${planGridRows.join('\n')}`;
 
   return `You are a meal planning assistant. The user has a weekly meal plan and wants to make changes.
 
@@ -51,11 +53,16 @@ Constraints:
 - No meal repeated (no meal ID appears twice in entire plan)
 - Breakfast and lunch effort must be <= 2
 - Dinner effort varies by day: Mon 3-5, Tue-Thu 3-6, Fri is eating out (null), Sat 4-8, Sun 4-10
+- Family slots may only use audience=family meals.
+- Brad Breakfast slots may only use audience=adult meals.
+- If the user says "my breakfast" or "Brad breakfast", use meal_track "adult".
+- If the user says "family breakfast" or refers to the kids' breakfast, use meal_track "family".
 
 When the user asks for changes, respond with a JSON object containing:
 - "explanation": A brief explanation of what changes you made and why
 - "operations": An array of operations to apply. Each operation has:
   - "day_index": 0-6 (Monday=0, Sunday=6)
+  - "meal_track": "family" or "adult"
   - "meal_type": "breakfast", "lunch", or "dinner"
   - "new_meal_id": ONLY the raw meal ID string (e.g. "meal_30"), or null to remove a slot. The ID must exactly match an ID from the Available meals table above.
 
@@ -187,6 +194,7 @@ export async function processCritique(
         explanation: parsedResponse.data.explanation,
         operations: parsedResponse.data.operations.map((op: CritiqueOperation) => ({
           day_index: op.day_index,
+          meal_track: op.meal_track,
           meal_type: op.meal_type,
           new_meal_id: op.new_meal_id,
         })),

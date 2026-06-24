@@ -1,15 +1,31 @@
 import Foundation
 
+/// Track within a meal plan slot
+public enum MealTrack: String, Codable, Sendable, CaseIterable {
+    case family
+    case adult
+
+    public var compactLabel: String {
+        switch self {
+        case .family: return "Breakfast"
+        case .adult: return "Brad"
+        }
+    }
+}
+
 /// A single entry in a meal plan (one meal slot for one day)
 public struct MealPlanEntry: Identifiable, Codable, Hashable, Sendable {
-    public var id: String { "\(dayIndex)-\(mealType.rawValue)" }
+    public var id: String { slotKey }
+    public var slotKey: String { "\(dayIndex)-\(mealTrack.rawValue)-\(mealType.rawValue)" }
     public let dayIndex: Int
+    public let mealTrack: MealTrack
     public let mealType: MealType
     public let mealId: String?
     public let mealName: String?
 
     public enum CodingKeys: String, CodingKey {
         case dayIndex = "day_index"
+        case mealTrack = "meal_track"
         case mealType = "meal_type"
         case mealId = "meal_id"
         case mealName = "meal_name"
@@ -17,37 +33,80 @@ public struct MealPlanEntry: Identifiable, Codable, Hashable, Sendable {
 
     public init(
         dayIndex: Int,
+        mealTrack: MealTrack = .family,
         mealType: MealType,
         mealId: String?,
         mealName: String?
     ) {
         self.dayIndex = dayIndex
+        self.mealTrack = mealTrack
         self.mealType = mealType
         self.mealId = mealId
         self.mealName = mealName
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        dayIndex = try container.decode(Int.self, forKey: .dayIndex)
+        mealTrack = try container.decodeIfPresent(MealTrack.self, forKey: .mealTrack) ?? .family
+        mealType = try container.decode(MealType.self, forKey: .mealType)
+        mealId = try container.decodeIfPresent(String.self, forKey: .mealId)
+        mealName = try container.decodeIfPresent(String.self, forKey: .mealName)
+    }
+
+    public var slotSortOrder: Int {
+        switch (mealTrack, mealType) {
+        case (.family, .breakfast): return 0
+        case (.adult, .breakfast): return 1
+        case (.family, .lunch): return 2
+        case (.family, .dinner): return 3
+        case (.adult, .lunch): return 4
+        case (.adult, .dinner): return 5
+        }
+    }
+
+    public var displayLabel: String {
+        switch (mealTrack, mealType) {
+        case (.family, .breakfast): return "Breakfast"
+        case (.adult, .breakfast): return "Brad"
+        case (_, .lunch): return "Lunch"
+        case (_, .dinner): return "Dinner"
+        }
     }
 }
 
 /// An operation to swap a meal in the plan during critique
 public struct CritiqueOperation: Codable, Hashable, Sendable {
     public let dayIndex: Int
+    public let mealTrack: MealTrack
     public let mealType: MealType
     public let newMealId: String?
 
     public enum CodingKeys: String, CodingKey {
         case dayIndex = "day_index"
+        case mealTrack = "meal_track"
         case mealType = "meal_type"
         case newMealId = "new_meal_id"
     }
 
     public init(
         dayIndex: Int,
+        mealTrack: MealTrack = .family,
         mealType: MealType,
         newMealId: String?
     ) {
         self.dayIndex = dayIndex
+        self.mealTrack = mealTrack
         self.mealType = mealType
         self.newMealId = newMealId
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        dayIndex = try container.decode(Int.self, forKey: .dayIndex)
+        mealTrack = try container.decodeIfPresent(MealTrack.self, forKey: .mealTrack) ?? .family
+        mealType = try container.decode(MealType.self, forKey: .mealType)
+        newMealId = try container.decodeIfPresent(String.self, forKey: .newMealId)
     }
 }
 
@@ -171,6 +230,7 @@ public extension MealPlanSession {
 
         for dayIndex in 0..<7 {
             plan.append(MealPlanEntry(dayIndex: dayIndex, mealType: .breakfast, mealId: "mock-meal-1", mealName: "Scrambled Eggs"))
+            plan.append(MealPlanEntry(dayIndex: dayIndex, mealTrack: .adult, mealType: .breakfast, mealId: "mock-meal-5", mealName: "Protein Oats"))
             plan.append(MealPlanEntry(dayIndex: dayIndex, mealType: .lunch, mealId: "mock-meal-2", mealName: "Chicken Caesar Salad"))
             plan.append(MealPlanEntry(dayIndex: dayIndex, mealType: .dinner, mealId: "mock-meal-3", mealName: "Salmon with Rice"))
         }

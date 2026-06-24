@@ -15,12 +15,25 @@ struct MealCreateWithRecipeResult {
 pub struct CreateMealRequest<'a> {
     pub name: &'a str,
     pub meal_type: &'a str,
+    pub audience: &'a str,
     pub effort: u8,
     pub has_red_meat: bool,
     pub prep_ahead: bool,
     pub url: &'a str,
     pub ingredients_json: Option<&'a str>,
     pub steps_json: Option<&'a str>,
+}
+
+pub fn build_create_payload(request: &CreateMealRequest<'_>) -> serde_json::Value {
+    serde_json::json!({
+        "name": request.name,
+        "meal_type": request.meal_type,
+        "audience": request.audience,
+        "effort": request.effort,
+        "has_red_meat": request.has_red_meat,
+        "prep_ahead": request.prep_ahead,
+        "url": request.url,
+    })
 }
 
 /// List all meals.
@@ -55,14 +68,7 @@ pub fn create(client: &ApiClient, request: CreateMealRequest<'_>) -> Result<(), 
         None => None,
     };
 
-    let payload = serde_json::json!({
-        "name": request.name,
-        "meal_type": request.meal_type,
-        "effort": request.effort,
-        "has_red_meat": request.has_red_meat,
-        "prep_ahead": request.prep_ahead,
-        "url": request.url,
-    });
+    let payload = build_create_payload(&request);
     let body = client.post_json("/meals", &payload)?;
     let meal: Meal = extract_data(body)?;
 
@@ -95,6 +101,7 @@ pub fn create(client: &ApiClient, request: CreateMealRequest<'_>) -> Result<(), 
 pub fn build_update_payload(
     name: Option<&str>,
     meal_type: Option<&str>,
+    audience: Option<&str>,
     effort: Option<u8>,
     has_red_meat: Option<bool>,
     prep_ahead: Option<bool>,
@@ -107,6 +114,12 @@ pub fn build_update_payload(
     if let Some(v) = meal_type {
         obj.insert(
             "meal_type".to_string(),
+            serde_json::Value::String(v.to_string()),
+        );
+    }
+    if let Some(v) = audience {
+        obj.insert(
+            "audience".to_string(),
             serde_json::Value::String(v.to_string()),
         );
     }
@@ -132,12 +145,21 @@ pub fn update(
     id: &str,
     name: Option<&str>,
     meal_type: Option<&str>,
+    audience: Option<&str>,
     effort: Option<u8>,
     has_red_meat: Option<bool>,
     prep_ahead: Option<bool>,
     url: Option<&str>,
 ) -> Result<(), CliError> {
-    let payload = build_update_payload(name, meal_type, effort, has_red_meat, prep_ahead, url);
+    let payload = build_update_payload(
+        name,
+        meal_type,
+        audience,
+        effort,
+        has_red_meat,
+        prep_ahead,
+        url,
+    );
     let body = client.put_json(&format!("/meals/{id}"), &payload)?;
     let data: Meal = extract_data(body)?;
     print_success(&data);
@@ -158,7 +180,8 @@ mod tests {
 
     #[test]
     fn build_update_payload_only_includes_provided_fields() {
-        let payload = build_update_payload(Some("New Name"), None, Some(4), None, None, None);
+        let payload =
+            build_update_payload(Some("New Name"), None, None, Some(4), None, None, None);
         let obj = payload.as_object().unwrap();
         assert_eq!(obj.len(), 2);
         assert_eq!(obj["name"], "New Name");
@@ -168,8 +191,29 @@ mod tests {
     }
 
     #[test]
+    fn build_create_payload_posts_adult_audience() {
+        let request = CreateMealRequest {
+            name: "Protein Oats",
+            meal_type: "breakfast",
+            audience: "adult",
+            effort: 1,
+            has_red_meat: false,
+            prep_ahead: true,
+            url: "",
+            ingredients_json: None,
+            steps_json: None,
+        };
+
+        let payload = build_create_payload(&request);
+
+        assert_eq!(payload["name"], "Protein Oats");
+        assert_eq!(payload["meal_type"], "breakfast");
+        assert_eq!(payload["audience"], "adult");
+    }
+
+    #[test]
     fn build_update_payload_empty_when_no_fields() {
-        let payload = build_update_payload(None, None, None, None, None, None);
+        let payload = build_update_payload(None, None, None, None, None, None, None);
         let obj = payload.as_object().unwrap();
         assert!(obj.is_empty());
     }
@@ -179,13 +223,23 @@ mod tests {
         let payload = build_update_payload(
             Some("X"),
             Some("lunch"),
+            Some("adult"),
             Some(2),
             Some(true),
             Some(false),
             Some("http://x"),
         );
         let obj = payload.as_object().unwrap();
-        assert_eq!(obj.len(), 6);
+        assert_eq!(obj.len(), 7);
+        assert_eq!(obj["audience"], "adult");
+    }
+
+    #[test]
+    fn build_update_payload_can_send_only_audience() {
+        let payload = build_update_payload(None, None, Some("adult"), None, None, None, None);
+        let obj = payload.as_object().unwrap();
+        assert_eq!(obj.len(), 1);
+        assert_eq!(obj["audience"], "adult");
     }
 
     #[test]

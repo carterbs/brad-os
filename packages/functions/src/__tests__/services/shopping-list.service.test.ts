@@ -7,6 +7,7 @@ import type { MealPlanEntry, Recipe, Ingredient } from '../../shared.js';
 function entry(mealId: string | null): MealPlanEntry {
   return {
     day_index: 0,
+    meal_track: 'family',
     meal_type: 'dinner',
     meal_id: mealId,
     meal_name: mealId === null ? 'Eating out' : `Meal ${mealId}`,
@@ -83,6 +84,33 @@ describe('buildShoppingList', () => {
     expect(item!.unit).toBe('cups');
     expect(item!.meal_count).toBe(2);
     expect(item!.display_text).toBe('3 cups Broccoli');
+  });
+
+  it('includes adult breakfast ingredients in the shared shopping list', () => {
+    const plan: MealPlanEntry[] = [
+      {
+        day_index: 0,
+        meal_track: 'adult',
+        meal_type: 'breakfast',
+        meal_id: 'meal-adult-breakfast',
+        meal_name: 'Protein Oats',
+      },
+    ];
+
+    const recipes = [
+      recipe('meal-adult-breakfast', [
+        { ingredient_id: 'ing-oats', quantity: 1, unit: 'cup' },
+      ]),
+    ];
+    const ingredients = [
+      ingredient('ing-oats', 'Oats', 'snacks_and_cereal'),
+    ];
+
+    const result = buildShoppingList(plan, recipes, ingredients);
+
+    expect(result.sections).toHaveLength(1);
+    expect(result.sections[0]?.items[0]?.ingredient_id).toBe('ing-oats');
+    expect(result.sections[0]?.items[0]?.display_text).toBe('1 cup Oats');
   });
 
   it('nulls out quantity and unit when units differ for same ingredient', () => {

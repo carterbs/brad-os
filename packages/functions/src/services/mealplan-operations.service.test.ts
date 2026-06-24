@@ -185,6 +185,112 @@ describe('MealPlan Operations Service', () => {
       expect(updatedPlan).toEqual(plan);
     });
 
+    it('should swap adult breakfast without changing family breakfast', () => {
+      const plan: MealPlanEntry[] = [
+        createMealPlanEntry({
+          day_index: 2,
+          meal_track: 'family',
+          meal_type: 'breakfast',
+          meal_id: 'meal-family-breakfast',
+          meal_name: 'Pancakes',
+        }),
+        createMealPlanEntry({
+          day_index: 2,
+          meal_track: 'adult',
+          meal_type: 'breakfast',
+          meal_id: 'meal-adult-breakfast',
+          meal_name: 'Protein Oats',
+        }),
+      ];
+      const meals: Meal[] = [
+        createMeal({
+          id: 'meal-family-breakfast',
+          name: 'Pancakes',
+          meal_type: 'breakfast',
+          audience: 'family',
+          effort: 1,
+        }),
+        createMeal({
+          id: 'meal-adult-breakfast',
+          name: 'Protein Oats',
+          meal_type: 'breakfast',
+          audience: 'adult',
+          effort: 1,
+        }),
+        createMeal({
+          id: 'meal-adult-new',
+          name: 'Greek Yogurt Bowl',
+          meal_type: 'breakfast',
+          audience: 'adult',
+          effort: 1,
+        }),
+      ];
+      const operations: CritiqueOperation[] = [
+        {
+          day_index: 2,
+          meal_track: 'adult',
+          meal_type: 'breakfast',
+          new_meal_id: 'meal-adult-new',
+        },
+      ];
+
+      const { updatedPlan, errors } = applyOperations(plan, operations, meals);
+
+      expect(errors).toEqual([]);
+      const familyBreakfast = updatedPlan.find(
+        (entry) => entry.day_index === 2 && entry.meal_track === 'family' && entry.meal_type === 'breakfast'
+      );
+      const adultBreakfast = updatedPlan.find(
+        (entry) => entry.day_index === 2 && entry.meal_track === 'adult' && entry.meal_type === 'breakfast'
+      );
+      expect(familyBreakfast?.meal_id).toBe('meal-family-breakfast');
+      expect(adultBreakfast?.meal_id).toBe('meal-adult-new');
+      expect(adultBreakfast?.meal_name).toBe('Greek Yogurt Bowl');
+    });
+
+    it('should reject a family meal for an adult breakfast slot', () => {
+      const plan: MealPlanEntry[] = [
+        createMealPlanEntry({
+          day_index: 2,
+          meal_track: 'adult',
+          meal_type: 'breakfast',
+          meal_id: 'meal-adult-breakfast',
+          meal_name: 'Protein Oats',
+        }),
+      ];
+      const meals: Meal[] = [
+        createMeal({
+          id: 'meal-adult-breakfast',
+          name: 'Protein Oats',
+          meal_type: 'breakfast',
+          audience: 'adult',
+          effort: 1,
+        }),
+        createMeal({
+          id: 'meal-family-breakfast',
+          name: 'Pancakes',
+          meal_type: 'breakfast',
+          audience: 'family',
+          effort: 1,
+        }),
+      ];
+      const operations: CritiqueOperation[] = [
+        {
+          day_index: 2,
+          meal_track: 'adult',
+          meal_type: 'breakfast',
+          new_meal_id: 'meal-family-breakfast',
+        },
+      ];
+
+      const { updatedPlan, errors } = applyOperations(plan, operations, meals);
+
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toContain('family');
+      expect(errors[0]).toContain('adult');
+      expect(updatedPlan[0]?.meal_id).toBe('meal-adult-breakfast');
+    });
+
     it('should reject swap that would exceed max prep-ahead meals', () => {
       // Plan already has 3 prep-ahead meals
       const plan: MealPlanEntry[] = [

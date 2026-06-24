@@ -209,6 +209,7 @@ fn meals_create_without_recipe_args_posts_only_meal() {
     assert_eq!(requests[0].method, "POST");
     assert_eq!(requests[0].path, "/meals");
     assert_eq!(requests[0].body["name"], "Chicken Salad Sandwiches");
+    assert_eq!(requests[0].body["audience"], "family");
     assert_eq!(requests[0].body["prep_ahead"], true);
 }
 
@@ -226,6 +227,8 @@ fn meals_create_with_recipe_args_posts_meal_then_recipe_with_returned_meal_id() 
             "Chicken Salad Sandwiches",
             "--meal-type",
             "lunch",
+            "--audience",
+            "adult",
             "--effort",
             "2",
             "--prep-ahead",
@@ -254,6 +257,7 @@ fn meals_create_with_recipe_args_posts_meal_then_recipe_with_returned_meal_id() 
     let requests = server.join().unwrap();
     assert_eq!(requests.len(), 2);
     assert_eq!(requests[0].path, "/meals");
+    assert_eq!(requests[0].body["audience"], "adult");
     assert_eq!(requests[1].method, "POST");
     assert_eq!(requests[1].path, "/recipes");
     assert_eq!(requests[1].body["meal_id"], "meal_with_recipe");

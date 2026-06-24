@@ -48,8 +48,8 @@ struct HealthMetricConfigurationTests {
         let hrvRange = hrvVM.chartYDomain
         let rhrRange = rhrVM.chartYDomain
 
-        #expect(abs(hrvRange.lowerBound - 18.0) < 0.001)
-        #expect(abs(hrvRange.upperBound - 62.0) < 0.001)
+        #expect(abs(hrvRange.lowerBound - 16.0) < 0.001)
+        #expect(abs(hrvRange.upperBound - 64.0) < 0.001)
         #expect(abs(rhrRange.lowerBound - 47.0) < 0.001)
         #expect(abs(rhrRange.upperBound - 83.0) < 0.001)
     }

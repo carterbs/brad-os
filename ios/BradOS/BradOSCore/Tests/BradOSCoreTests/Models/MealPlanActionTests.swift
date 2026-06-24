@@ -9,6 +9,7 @@ struct MealSlotTests {
     func createsFromComponents() {
         let slot = MealSlot(dayIndex: 0, mealType: .breakfast)
         #expect(slot.dayIndex == 0)
+        #expect(slot.mealTrack == .family)
         #expect(slot.mealType == .breakfast)
     }
 
@@ -17,6 +18,7 @@ struct MealSlotTests {
         let entry = MealPlanEntry(dayIndex: 2, mealType: .dinner, mealId: "m1", mealName: "Steak")
         let slot = MealSlot(entry: entry)
         #expect(slot.dayIndex == 2)
+        #expect(slot.mealTrack == .family)
         #expect(slot.mealType == .dinner)
     }
 
@@ -34,6 +36,13 @@ struct MealSlotTests {
         let c = MealSlot(dayIndex: 1, mealType: .breakfast)
         #expect(a != b)
         #expect(a != c)
+    }
+
+    @Test("tracks distinguish same-day breakfast slots")
+    func tracksDistinguishSameDayBreakfastSlots() {
+        let family = MealSlot(dayIndex: 0, mealTrack: .family, mealType: .breakfast)
+        let adult = MealSlot(dayIndex: 0, mealTrack: .adult, mealType: .breakfast)
+        #expect(family != adult)
     }
 }
 
@@ -129,6 +138,21 @@ struct QueuedCritiqueActionsTests {
         #expect(!actions.isEmpty)
     }
 
+    @Test("can queue family and adult breakfast swaps simultaneously")
+    func canQueueFamilyAndAdultBreakfastSwaps() {
+        var actions = QueuedCritiqueActions()
+        let family = MealSlot(dayIndex: 0, mealTrack: .family, mealType: .breakfast)
+        let adult = MealSlot(dayIndex: 0, mealTrack: .adult, mealType: .breakfast)
+
+        actions.toggleSwap(slot: family)
+        actions.toggleSwap(slot: adult)
+
+        #expect(actions.action(for: family) == .swap)
+        #expect(actions.action(for: adult) == .swap)
+        #expect(actions.swapCount == 2)
+        #expect(actions.count == 2)
+    }
+
     @Test("clear removes all actions")
     func clearRemovesAll() {
         var actions = QueuedCritiqueActions()
@@ -154,6 +178,14 @@ struct QueuedCritiqueActionsTests {
         actions.toggleSwap(slot: MealSlot(dayIndex: 0, mealType: .breakfast))
         let text = actions.generateCritiqueText(plan: makePlan())
         #expect(text == "Swap Monday breakfast (Scrambled Eggs) for something different.")
+    }
+
+    @Test("generates adult breakfast text")
+    func generatesAdultBreakfastText() {
+        var actions = QueuedCritiqueActions()
+        actions.toggleSwap(slot: MealSlot(dayIndex: 0, mealTrack: .adult, mealType: .breakfast))
+        let text = actions.generateCritiqueText(plan: makePlan())
+        #expect(text == "Swap Monday Brad breakfast (Protein Oats) for something different.")
     }
 
     @Test("generates remove-only text")
@@ -211,7 +243,7 @@ struct QueuedCritiqueActionsTests {
 
     // MARK: - Helpers
 
-    /// Create a standard 21-entry mock plan
+    /// Create a standard 28-entry mock plan
     private func makePlan() -> [MealPlanEntry] {
         var plan: [MealPlanEntry] = []
         let meals: [(MealType, String, String)] = [
@@ -220,6 +252,13 @@ struct QueuedCritiqueActionsTests {
             (.dinner, "mock-3", "Salmon with Rice"),
         ]
         for dayIndex in 0..<7 {
+            plan.append(MealPlanEntry(
+                dayIndex: dayIndex,
+                mealTrack: .adult,
+                mealType: .breakfast,
+                mealId: "mock-adult",
+                mealName: "Protein Oats"
+            ))
             for (mealType, mealId, mealName) in meals {
                 plan.append(MealPlanEntry(
                     dayIndex: dayIndex,

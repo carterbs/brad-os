@@ -24,6 +24,7 @@ export class MealRepository extends BaseRepository<
     const mealData = {
       name: data.name,
       meal_type: data.meal_type,
+      audience: data.audience,
       effort: data.effort,
       has_red_meat: data.has_red_meat,
       prep_ahead: data.prep_ahead,
@@ -51,6 +52,11 @@ export class MealRepository extends BaseRepository<
       'lunch',
       'dinner',
     ] as const);
+    const rawAudience = data['audience'];
+    const audience =
+      rawAudience === undefined
+        ? 'family'
+        : readEnum(data, 'audience', ['family', 'adult'] as const);
     const effort = readNumber(data, 'effort');
     const hasRedMeat = readBoolean(data, 'has_red_meat');
     const prepAhead = readBoolean(data, 'prep_ahead');
@@ -66,6 +72,7 @@ export class MealRepository extends BaseRepository<
     if (
       name === null ||
       mealType === null ||
+      audience === null ||
       effort === null ||
       hasRedMeat === null ||
       prepAhead === null ||
@@ -83,6 +90,7 @@ export class MealRepository extends BaseRepository<
       id,
       name,
       meal_type: mealType,
+      audience,
       effort,
       has_red_meat: hasRedMeat,
       prep_ahead: prepAhead,
