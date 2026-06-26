@@ -1,15 +1,23 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import {
+  createMockMeditationSessionRepository,
+  createMockPlanDayRepository,
+  createMockStretchSessionRepository,
+  createMockWorkoutRepository,
+  createMockWorkoutSetRepository,
+} from '../__tests__/utils/index.js';
+
+let mockWorkoutRepo: ReturnType<typeof createMockWorkoutRepository>;
+let mockPlanDayRepo: ReturnType<typeof createMockPlanDayRepository>;
+let mockWorkoutSetRepo: ReturnType<typeof createMockWorkoutSetRepository>;
+let mockStretchSessionRepo: ReturnType<typeof createMockStretchSessionRepository>;
+let mockMeditationSessionRepo: ReturnType<typeof createMockMeditationSessionRepository>;
 
 const {
   mockCyclingService,
   mockRecoveryService,
   mockTrainingLoadService,
   mockLiftingContextService,
-  mockWorkoutRepo,
-  mockPlanDayRepo,
-  mockWorkoutSetRepo,
-  mockStretchSessionRepo,
-  mockMeditationSessionRepo,
 } = vi.hoisted(() => ({
   mockCyclingService: {
     getCurrentFTP: vi.fn(),
@@ -36,56 +44,6 @@ const {
     buildLiftingContext: vi.fn(),
     buildLiftingSchedule: vi.fn(),
     buildMesocycleContext: vi.fn(),
-  },
-  mockWorkoutRepo: {
-    create: vi.fn(),
-    findById: vi.fn(),
-    findAll: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    findByMesocycleId: vi.fn(),
-    findByStatus: vi.fn(),
-    findByDate: vi.fn(),
-    findPreviousWeekWorkout: vi.fn(),
-    findNextPending: vi.fn(),
-    findCompletedInDateRange: vi.fn(),
-    findByCompletedAtRange: vi.fn(),
-  },
-  mockPlanDayRepo: {
-    create: vi.fn(),
-    findById: vi.fn(),
-    findAll: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    findByPlanId: vi.fn(),
-  },
-  mockWorkoutSetRepo: {
-    create: vi.fn(),
-    findById: vi.fn(),
-    findAll: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    findByWorkoutId: vi.fn(),
-    findByWorkoutAndExercise: vi.fn(),
-    findByStatus: vi.fn(),
-    findCompletedByExerciseId: vi.fn(),
-  },
-  mockStretchSessionRepo: {
-    create: vi.fn(),
-    findById: vi.fn(),
-    findLatest: vi.fn(),
-    findAll: vi.fn(),
-    delete: vi.fn(),
-    findInDateRange: vi.fn(),
-  },
-  mockMeditationSessionRepo: {
-    create: vi.fn(),
-    findById: vi.fn(),
-    findLatest: vi.fn(),
-    findAll: vi.fn(),
-    findInDateRange: vi.fn(),
-    getStats: vi.fn(),
-    delete: vi.fn(),
   },
 }));
 
@@ -122,6 +80,11 @@ describe('Today Coach Data Service', () => {
     vi.clearAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-02-10T12:00:00.000Z'));
+    mockWorkoutRepo = createMockWorkoutRepository();
+    mockPlanDayRepo = createMockPlanDayRepository();
+    mockWorkoutSetRepo = createMockWorkoutSetRepository();
+    mockStretchSessionRepo = createMockStretchSessionRepository();
+    mockMeditationSessionRepo = createMockMeditationSessionRepository();
 
     // Set up default mock return values for parallel fetches
     mockRecoveryService.getRecoveryHistory.mockResolvedValue([]);
