@@ -199,8 +199,7 @@ pub fn execute<R: CommandRunner, W: Write>(
         },
         "Unable to resolve the built image digest",
     )?;
-    let digest = digest_result.stdout.trim();
-    validate_digest(digest)?;
+    let digest = extract_digest(&digest_result.stdout)?;
     let image =
         format!("{REGION}-docker.pkg.dev/{PROJECT}/{ARTIFACT_REPOSITORY}/{SERVICE}@{digest}");
 
@@ -349,8 +348,7 @@ fn read_service_url<R: CommandRunner>(runner: &R) -> Result<String, String> {
         describe_command(),
         "Unable to discover the new Cloud Run service URL",
     )?;
-    let payload: Value = serde_json::from_str(&result.stdout)
-        .map_err(|error| format!("Invalid Cloud Run service description: {error}"))?;
+    let payload = parse_json_value(&result.stdout)?;
     json_string(&payload, "/status/url")
         .map(str::to_string)
         .ok_or_else(|| "Cloud Run service description has no status.url.".to_string())
@@ -362,8 +360,7 @@ pub fn validate_service_description(
     image: &str,
     service_url: &str,
 ) -> Result<(), String> {
-    let payload: Value = serde_json::from_str(raw)
-        .map_err(|error| format!("Invalid Cloud Run service description: {error}"))?;
+    let payload = parse_json_value(raw)?;
     let mut violations = Vec::new();
 
     expect_json_string(&payload, "/metadata/name", SERVICE, &mut violations);
@@ -550,8 +547,7 @@ fn secret_ref<'a>(entries: &'a [Value], name: &str) -> Option<(&'a str, &'a str)
 }
 
 fn candidate_url_from_description(raw: &str, tag: &str) -> Result<String, String> {
-    let payload: Value = serde_json::from_str(raw)
-        .map_err(|error| format!("Invalid Cloud Run service description: {error}"))?;
+    let payload = parse_json_value(raw)?;
     payload
         .pointer("/status/traffic")
         .and_then(Value::as_array)
@@ -590,6 +586,21 @@ fn expect_json_number(payload: &Value, pointer: &str, expected: u64, violations:
 
 fn json_string<'a>(payload: &'a Value, pointer: &str) -> Option<&'a str> {
     payload.pointer(pointer).and_then(Value::as_str)
+}
+
+fn parse_json_value(raw: &str) -> Result<Value, String> {
+    serde_json::Deserializer::from_str(raw)
+        .into_iter::<Value>()
+        .next()
+        .ok_or_else(|| "Cloud Run service description was empty.".to_string())?
+        .map_err(|error| format!("Invalid Cloud Run service description: {error}"))
+}
+
+fn extract_digest(raw: &str) -> Result<&str, String> {
+    raw.lines()
+        .map(str::trim)
+        .find(|candidate| validate_digest(candidate).is_ok())
+        .ok_or_else(|| format!("Artifact Registry returned no valid image digest: '{raw}'."))
 }
 
 fn run_checked<R: CommandRunner>(

@@ -146,11 +146,12 @@ fn service_description(service_url: &str) -> String {
 #[test]
 fn explicit_service_url_deploys_one_no_traffic_candidate_and_smokes_it() {
     let service_url = "https://brad-os-api.example.run.app";
+    let warning = "\npython: FutureWarning: support window changing\n";
     let runner = FakeRunner::with_results(vec![
         ok("build complete"),
-        ok(format!("sha256:{}", "f".repeat(64))),
+        ok(format!("sha256:{}{warning}", "f".repeat(64))),
         ok("deployed"),
-        ok(service_description(service_url)),
+        ok(format!("{}{warning}", service_description(service_url))),
         ok("healthy"),
     ]);
     let mut output = Vec::new();
@@ -247,7 +248,7 @@ fn invalid_digest_stops_before_deploy() {
         &config(Some("https://brad-os-api.example.run.app"), false),
     )
     .unwrap_err();
-    assert!(error.contains("invalid image digest"));
+    assert!(error.contains("no valid image digest"));
     assert_eq!(runner.calls().len(), 2);
 }
 
