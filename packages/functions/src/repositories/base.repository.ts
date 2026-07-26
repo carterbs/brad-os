@@ -5,27 +5,32 @@ import {
   type DocumentSnapshot,
 } from 'firebase-admin/firestore';
 import { getFirestoreDb, getCollectionName } from '../firebase.js';
-import {
-  isRecord,
-} from './firestore-type-guards.js';
+import { isRecord } from './firestore-type-guards.js';
 
-export abstract class BaseRepository<T extends { id: string }, CreateDTO, UpdateDTO extends Record<string, unknown>> {
+export abstract class BaseRepository<
+  T extends { id: string },
+  CreateDTO,
+  UpdateDTO extends Record<string, unknown>,
+> {
   protected db: Firestore;
-  protected collectionName: string;
+  protected baseCollectionName: string;
   protected includeTimestampOnUpdate = true;
 
   constructor(collectionName: string, db?: Firestore) {
     this.db = db ?? getFirestoreDb();
-    this.collectionName = getCollectionName(collectionName);
+    this.baseCollectionName = collectionName;
   }
 
   protected get collection(): CollectionReference<DocumentData> {
-    return this.db.collection(this.collectionName);
+    return this.db.collection(getCollectionName(this.baseCollectionName));
   }
 
   abstract create(data: CreateDTO): Promise<T>;
   abstract findAll(): Promise<T[]>;
-  protected abstract parseEntity(id: string, data: Record<string, unknown>): T | null;
+  protected abstract parseEntity(
+    id: string,
+    data: Record<string, unknown>
+  ): T | null;
 
   async findById(id: string): Promise<T | null> {
     const doc = await this.collection.doc(id).get();

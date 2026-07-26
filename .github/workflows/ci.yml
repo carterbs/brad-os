@@ -42,3 +42,33 @@ jobs:
           name: validate-logs
           path: .validate/*.log
           retention-days: 7
+
+  cloud-run-tooling:
+    name: Cloud Run tooling contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Test deployment, container, and route guardrails
+        run: cargo test -p dev-cli -p arch-lint
+
+  cloud-run-container:
+    name: Production Cloud Run container
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build and smoke-test the production image
+        run: bash scripts/container-tests.sh

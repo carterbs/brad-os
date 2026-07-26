@@ -1,11 +1,42 @@
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
-import { info, error as logError } from 'firebase-functions/logger';
 import { getAppCheck } from 'firebase-admin/app-check';
 import type { ApiError } from '../shared.js';
+import { logger } from '../runtime/logger.js';
 
 // Log once at startup if running in emulator mode
 if (process.env['FUNCTIONS_EMULATOR'] === 'true') {
-  info('Running in emulator - App Check verification disabled');
+  logger.info(
+    'Running in Functions emulator - App Check verification disabled'
+  );
+}
+
+export function assertAppCheckConfiguration(): void {
+  const explicitBypass = process.env['APP_CHECK_BYPASS'] === 'true';
+  const functionsEmulator = process.env['FUNCTIONS_EMULATOR'] === 'true';
+  if (!explicitBypass && !functionsEmulator) {
+    return;
+  }
+  if (process.env['NODE_ENV'] === 'production') {
+    const source = explicitBypass ? 'APP_CHECK_BYPASS' : 'FUNCTIONS_EMULATOR';
+    throw new Error(`${source} cannot be enabled in production`);
+  }
+  if (
+    process.env['FIRESTORE_EMULATOR_HOST'] === undefined ||
+    process.env['FIRESTORE_EMULATOR_HOST'] === ''
+  ) {
+    throw new Error('App Check bypass requires FIRESTORE_EMULATOR_HOST');
+  }
+}
+
+function shouldBypassAppCheck(): boolean {
+  if (
+    process.env['FUNCTIONS_EMULATOR'] !== 'true' &&
+    process.env['APP_CHECK_BYPASS'] !== 'true'
+  ) {
+    return false;
+  }
+  assertAppCheckConfiguration();
+  return true;
 }
 
 /**
@@ -18,8 +49,7 @@ export const requireAppCheck: RequestHandler = (
   res: Response,
   next: NextFunction
 ): void => {
-  // Bypass App Check in emulator
-  if (process.env['FUNCTIONS_EMULATOR'] === 'true') {
+  if (shouldBypassAppCheck()) {
     next();
     return;
   }
@@ -44,7 +74,12 @@ export const requireAppCheck: RequestHandler = (
       next();
     })
     .catch((error: unknown) => {
-      logError('App Check verification failed:', error);
+      logger.error('App Check verification failed', {
+        error:
+          error instanceof Error
+            ? { message: error.message, name: error.name }
+            : String(error),
+      });
       const response: ApiError = {
         success: false,
         error: {

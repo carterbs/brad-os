@@ -6,20 +6,21 @@ use std::fs;
 use std::path::Path;
 use std::sync::LazyLock;
 
-static CONSOLE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\bconsole\.(log|warn|error|info)\s*\(").unwrap()
-});
+static CONSOLE_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\bconsole\.(log|warn|error|info)\s*\(").unwrap());
 
-static COMMENT_LINE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^\s*//").unwrap()
-});
+static COMMENT_LINE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*//").unwrap());
 
 pub fn check(config: &LinterConfig) -> CheckResult {
-    let name = "No console.log in Cloud Functions".to_string();
+    let name = "No raw console outside structured logger".to_string();
     let src_dir = &config.functions_src;
 
     if !src_dir.exists() {
-        return CheckResult { name, passed: true, violations: vec![] };
+        return CheckResult {
+            name,
+            passed: true,
+            violations: vec![],
+        };
     }
 
     let skip_dirs = config::skip_dirs(&["__tests__", "test-utils", "scripts"]);
@@ -33,6 +34,9 @@ pub fn check(config: &LinterConfig) -> CheckResult {
         };
 
         let rel_path = file.strip_prefix(&config.root_dir).unwrap_or(file);
+        if is_structured_logger(rel_path) {
+            continue;
+        }
 
         for (i, line) in content.lines().enumerate() {
             if COMMENT_LINE.is_match(line) {
@@ -40,9 +44,9 @@ pub fn check(config: &LinterConfig) -> CheckResult {
             }
             if CONSOLE_PATTERN.is_match(line) {
                 violations.push(format!(
-                    "{}:{} uses console.* instead of Firebase logger.\n\
-                     \x20   Rule: Cloud Functions must use the structured Firebase logger, not console.*.\n\
-                     \x20   Fix: import {{ logger }} from 'firebase-functions/logger';\n\
+                    "{}:{} uses console.* outside the shared structured logger.\n\
+                     \x20   Rule: application code must use a structured logger, not console.* directly.\n\
+                     \x20   Fix: import {{ logger }} from '../runtime/logger.js';\n\
                      \x20        Replace console.log(...) with logger.info(...), console.warn(...) with logger.warn(...), etc.\n\
                      \x20   See: docs/golden-principles.md",
                     rel_path.display(),
@@ -59,10 +63,35 @@ pub fn check(config: &LinterConfig) -> CheckResult {
     }
 }
 
+fn is_structured_logger(relative_path: &Path) -> bool {
+    relative_path
+        .to_string_lossy()
+        .replace('\\', "/")
+        .ends_with("packages/functions/src/runtime/logger.ts")
+}
+
 fn collect_ts_source_files(dir: &Path, skip_dirs: &HashSet<&str>) -> Vec<std::path::PathBuf> {
     let mut results = Vec::new();
     collect_inner(dir, skip_dirs, &mut results);
     results
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_central_runtime_logger_may_write_to_console() {
+        assert!(is_structured_logger(Path::new(
+            "packages/functions/src/runtime/logger.ts"
+        )));
+        assert!(!is_structured_logger(Path::new(
+            "packages/functions/src/handlers/health.ts"
+        )));
+        assert!(!is_structured_logger(Path::new(
+            "packages/functions/src/runtime/request-logger.ts"
+        )));
+    }
 }
 
 fn collect_inner(dir: &Path, skip_dirs: &HashSet<&str>, results: &mut Vec<std::path::PathBuf>) {

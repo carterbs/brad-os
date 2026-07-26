@@ -51,7 +51,7 @@ brad-os/
 │   ├── BradOSWatch/     # watchOS companion
 │   ├── BradOSWidget/    # Home screen widgets
 │   └── project.yml      # XcodeGen spec
-├── packages/functions/  # Firebase Cloud Functions (Express + Firestore)
+├── packages/functions/  # Unified Express API for Cloud Run + legacy Function adapters
 │   └── src/
 │       ├── routes/      # Express route handlers
 │       ├── schemas/     # Zod validation schemas
@@ -62,7 +62,8 @@ brad-os/
 ```
 
 - **iOS App** — SwiftUI app with shared APIClient, App Check auth, and HealthKit integration
-- **Cloud Functions** — Express APIs deployed as Firebase Cloud Functions, backed by Firestore
+- **Cloud Run API** — One scale-to-zero Express service serves `/api/dev` and `/api/prod`, backed by Firestore
+- **Legacy Functions** — Existing Firebase Functions remain deployed as a rollback path
 - **Emulators** — Local dev uses Firebase emulator suite (Functions on :5001, Firestore on :8080)
 
 ## Development
@@ -73,7 +74,8 @@ See **[Local Dev Quickstart](docs/guides/local-dev-quickstart.md)** for the full
 npm install              # Install dependencies (also sets up git hooks)
 npm run validate         # Full check: typecheck + lint + test + architecture
 npm run emulators        # Start Firebase emulators (port 5001)
-npm run build            # Build Cloud Functions
+npm run build            # Build the unified API and legacy Function adapters
+npm run test:integration:container # Build and smoke-test the Cloud Run image
 npm run typecheck        # TypeScript compilation
 npm run lint             # Oxlint checks
 npm run lint:cleanup:ts-eslint:list # Scoped TypeScript eslint cleanup profiles

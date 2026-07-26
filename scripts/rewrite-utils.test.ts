@@ -1,8 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ENDPOINT_MANIFEST, type EndpointEntry } from '../packages/functions/src/endpoint-manifest.js';
 import {
+  ENDPOINT_MANIFEST,
+  type EndpointEntry,
+} from '../packages/functions/src/endpoint-manifest.js';
+import {
+  CLOUD_RUN_API_REWRITE,
+  LEGACY_DEBUG_REWRITES,
   compareRewrites,
   generateRewrites,
   getAppExportName,
@@ -13,181 +18,124 @@ import {
   type FirebaseRewrite,
 } from './rewrite-utils.js';
 
-describe('toPascalCase', () => {
-  it('capitalizes single word', () => {
-    expect(toPascalCase('health')).toBe('Health');
-  });
-
-  it('converts kebab-case', () => {
+describe('name helpers retained for legacy Cloud Functions', () => {
+  it('converts route and handler names', () => {
     expect(toPascalCase('workout-sets')).toBe('WorkoutSets');
-  });
-
-  it('handles camelCase input', () => {
     expect(toPascalCase('guidedMeditations')).toBe('GuidedMeditations');
-  });
-
-  it('handles all-lowercase acronym', () => {
-    expect(toPascalCase('tts')).toBe('Tts');
-  });
-});
-
-describe('toCamelCase', () => {
-  it('returns single word unchanged', () => {
-    expect(toCamelCase('health')).toBe('health');
-  });
-
-  it('converts kebab-case', () => {
     expect(toCamelCase('strava-webhook')).toBe('stravaWebhook');
-  });
-
-  it('handles camelCase input', () => {
     expect(toCamelCase('stretchSessions')).toBe('stretchSessions');
   });
-});
 
-describe('getAppExportName', () => {
-  it('builds app export from handler file', () => {
-    expect(getAppExportName({ routePath: 'exercises', handlerFile: 'health' })).toBe('healthApp');
-    expect(getAppExportName({ routePath: 'exercises', handlerFile: 'strava-webhook' })).toBe('stravaWebhookApp');
-  });
-});
-
-describe('function name helpers', () => {
-  it('builds dev and prod function names from manifest entry', () => {
-    const entry = { routePath: 'mealplans', handlerFile: 'mealplans' };
+  it('builds legacy app and function export names', () => {
+    const entry = { routePath: 'mealplans', handlerFile: 'strava-webhook' };
+    expect(getAppExportName(entry)).toBe('stravaWebhookApp');
     expect(getDevFunctionName(entry)).toBe('devMealplans');
     expect(getProdFunctionName(entry)).toBe('prodMealplans');
+  });
+
+  it('honors the legacy function stem override', () => {
+    const entry = {
+      routePath: 'guidedMeditations',
+      handlerFile: 'guidedMeditations',
+      functionStem: 'GuidedMeditationPortal',
+    };
+    expect(getDevFunctionName(entry)).toBe('devGuidedMeditationPortal');
+    expect(getProdFunctionName(entry)).toBe('prodGuidedMeditationPortal');
   });
 });
 
 describe('generateRewrites', () => {
-  it('generates 4 rewrites per standard entry', () => {
-    const manifest: EndpointEntry[] = [{ routePath: 'exercises', handlerFile: 'exercises' }];
-    const rewrites = generateRewrites(manifest);
-
-    expect(rewrites).toHaveLength(4);
-    expect(rewrites).toEqual([
-      { source: '/api/dev/exercises', function: 'devExercises' },
-      { source: '/api/dev/exercises/**', function: 'devExercises' },
-      { source: '/api/prod/exercises', function: 'prodExercises' },
-      { source: '/api/prod/exercises/**', function: 'prodExercises' },
-    ]);
-  });
-
-  it('generates 2 rewrites for devOnly entry', () => {
-    const manifest: EndpointEntry[] = [{ routePath: '', handlerFile: 'mealplan-debug', devOnly: true, customSource: '/debug', functionStem: 'MealplanDebug' }];
-    const rewrites = generateRewrites(manifest);
-
-    expect(rewrites).toHaveLength(2);
-    expect(rewrites).toEqual([
-      { source: '/debug', function: 'devMealplanDebug' },
-      { source: '/debug/**', function: 'devMealplanDebug' },
-    ]);
-  });
-
-  it('uses custom source when provided', () => {
-    const manifest: EndpointEntry[] = [{ routePath: 'exercises', handlerFile: 'exercises', customSource: '/coach' }];
-    const rewrites = generateRewrites(manifest);
-    expect(rewrites[0]).toEqual({ source: '/coach', function: 'devExercises' });
-    expect(rewrites[1]).toEqual({ source: '/coach/**', function: 'devExercises' });
-    expect(rewrites[2]).toEqual({ source: '/coach', function: 'prodExercises' });
-    expect(rewrites[3]).toEqual({ source: '/coach/**', function: 'prodExercises' });
-  });
-
-  it('uses functionStem override when provided', () => {
-    const manifest: EndpointEntry[] = [{ routePath: 'guidedMeditations', handlerFile: 'guidedMeditations', functionStem: 'GuidedMeditationPortal' }];
-    const rewrites = generateRewrites(manifest);
-    expect(rewrites).toEqual([
-      { source: '/api/dev/guidedMeditations', function: 'devGuidedMeditationPortal' },
-      { source: '/api/dev/guidedMeditations/**', function: 'devGuidedMeditationPortal' },
-      { source: '/api/prod/guidedMeditations', function: 'prodGuidedMeditationPortal' },
-      { source: '/api/prod/guidedMeditations/**', function: 'prodGuidedMeditationPortal' },
-    ]);
-  });
-
-  it('emits all dev rewrites before prod rewrites', () => {
+  it('routes the complete API namespace to one pinned Cloud Run service', () => {
     const manifest: EndpointEntry[] = [
       { routePath: 'exercises', handlerFile: 'exercises' },
-      { routePath: 'calendar', handlerFile: 'calendar' },
     ];
-    const rewrites = generateRewrites(manifest);
-    expect(rewrites).toHaveLength(8);
-    expect(rewrites).toEqual([
-      { source: '/api/dev/exercises', function: 'devExercises' },
-      { source: '/api/dev/exercises/**', function: 'devExercises' },
-      { source: '/api/dev/calendar', function: 'devCalendar' },
-      { source: '/api/dev/calendar/**', function: 'devCalendar' },
-      { source: '/api/prod/exercises', function: 'prodExercises' },
-      { source: '/api/prod/exercises/**', function: 'prodExercises' },
-      { source: '/api/prod/calendar', function: 'prodCalendar' },
-      { source: '/api/prod/calendar/**', function: 'prodCalendar' },
+    expect(generateRewrites(manifest)).toEqual([
+      CLOUD_RUN_API_REWRITE,
+      ...LEGACY_DEBUG_REWRITES,
     ]);
   });
 
-  it('generates output matching current firebase.json for the production manifest', () => {
-    const firebaseConfig = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'firebase.json'), 'utf-8')) as {
+  it('preserves the two existing debug Function rewrites', () => {
+    const rewrites = generateRewrites(ENDPOINT_MANIFEST);
+    expect(rewrites).toHaveLength(3);
+    expect(rewrites[0]?.source).toBe('/api/**');
+    expect(rewrites.slice(1)).toEqual(LEGACY_DEBUG_REWRITES);
+  });
+
+  it('refuses to generate a front door for a manifest with no API routes', () => {
+    const manifest: EndpointEntry[] = [
+      {
+        routePath: '',
+        handlerFile: 'mealplan-debug',
+        devOnly: true,
+        customSource: '/debug',
+        functionStem: 'MealplanDebug',
+      },
+    ];
+    expect(() => generateRewrites(manifest)).toThrow(
+      'Endpoint manifest must contain at least one public API route.'
+    );
+  });
+
+  it('matches the checked-in Firebase Hosting configuration', () => {
+    const firebaseConfig = JSON.parse(
+      fs.readFileSync(path.join(process.cwd(), 'firebase.json'), 'utf-8')
+    ) as {
       hosting?: {
         rewrites?: FirebaseRewrite[];
       };
     };
-    const existingRewrites = (firebaseConfig.hosting?.rewrites ?? []).filter(
-      (rewrite): rewrite is FirebaseRewrite =>
-        typeof rewrite.source === 'string' && typeof rewrite.function === 'string'
-    );
 
-    expect(generateRewrites(ENDPOINT_MANIFEST)).toEqual(existingRewrites);
+    expect(firebaseConfig.hosting?.rewrites).toEqual(
+      generateRewrites(ENDPOINT_MANIFEST)
+    );
   });
 });
 
 describe('compareRewrites', () => {
-  it('returns no violations when rewrites match', () => {
-    const expected = [
-      { source: '/api/dev/exercises', function: 'devExercises' },
-      { source: '/api/dev/exercises/**', function: 'devExercises' },
-      { source: '/api/prod/exercises', function: 'prodExercises' },
-      { source: '/api/prod/exercises/**', function: 'prodExercises' },
-    ];
-    const actual = [
-      { source: '/api/dev/exercises', function: 'devExercises' },
-      { source: '/api/dev/exercises/**', function: 'devExercises' },
-      { source: '/api/prod/exercises', function: 'prodExercises' },
-      { source: '/api/prod/exercises/**', function: 'prodExercises' },
-    ];
-    expect(compareRewrites(expected, actual)).toEqual([]);
+  const expected: FirebaseRewrite[] = [
+    CLOUD_RUN_API_REWRITE,
+    ...LEGACY_DEBUG_REWRITES,
+  ];
+
+  it('returns no violations when every Cloud Run field matches', () => {
+    expect(
+      compareRewrites(expected, [
+        CLOUD_RUN_API_REWRITE,
+        ...LEGACY_DEBUG_REWRITES,
+      ])
+    ).toEqual([]);
   });
 
-  it('reports missing rewrites', () => {
-    const expected = [
-      { source: '/api/dev/exercises', function: 'devExercises' },
-      { source: '/api/dev/exercises/**', function: 'devExercises' },
-      { source: '/api/prod/exercises', function: 'prodExercises' },
-    ];
-    const actual = [
-      { source: '/api/dev/exercises', function: 'devExercises' },
-      { source: '/api/dev/exercises/**', function: 'devExercises' },
-    ];
-    expect(compareRewrites(expected, actual).some((v) => v.includes('Missing rewrite'))).toBe(true);
-    expect(compareRewrites(expected, actual)[0]).toContain('Missing rewrite');
-  });
+  it('reports missing, extra, and changed targets', () => {
+    expect(compareRewrites(expected, [])).toEqual([
+      'Missing rewrite: /api/**|brad-os-api|us-central1|pinTag=true',
+      'Missing rewrite: /debug|function=devMealplanDebug',
+      'Missing rewrite: /debug/**|function=devMealplanDebug',
+    ]);
 
-  it('reports extra rewrites', () => {
-    const expected = [{ source: '/api/dev/exercises', function: 'devExercises' }];
-    const actual = [
-      { source: '/api/dev/exercises', function: 'devExercises' },
-      { source: '/api/dev/exercises/**', function: 'devExercises' },
-    ];
-    expect(compareRewrites(expected, actual).some((v) => v.includes('Extra rewrite'))).toBe(true);
-  });
-
-  it('reports order differences', () => {
-    const expected = [
-      { source: '/api/dev/exercises', function: 'devExercises' },
-      { source: '/api/prod/exercises', function: 'prodExercises' },
-    ];
-    const actual = [
-      { source: '/api/prod/exercises', function: 'prodExercises' },
-      { source: '/api/dev/exercises', function: 'devExercises' },
-    ];
-    expect(compareRewrites(expected, actual).some((v) => v.includes('Rewrite order mismatch'))).toBe(true);
+    const wrongTarget: FirebaseRewrite = {
+      source: '/api/**',
+      run: {
+        serviceId: 'wrong-service',
+        region: 'us-central1',
+        pinTag: true,
+      },
+    };
+    const violations = compareRewrites(expected, [
+      wrongTarget,
+      ...LEGACY_DEBUG_REWRITES,
+    ]);
+    expect(
+      violations.some((violation) => violation.startsWith('Missing rewrite:'))
+    ).toBe(true);
+    expect(
+      violations.some((violation) => violation.startsWith('Extra rewrite:'))
+    ).toBe(true);
+    expect(
+      violations.some((violation) =>
+        violation.startsWith('Rewrite order mismatch at index 0')
+      )
+    ).toBe(true);
   });
 });

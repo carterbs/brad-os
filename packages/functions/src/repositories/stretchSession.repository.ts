@@ -43,21 +43,21 @@ function localDateToUtcBoundary(
 
 export class StretchSessionRepository {
   private db: Firestore;
-  private collectionName: string;
 
   constructor(db?: Firestore) {
     this.db = db ?? getFirestoreDb();
-    this.collectionName = getCollectionName('stretch_sessions');
   }
 
   private get collection(): FirebaseFirestore.CollectionReference<FirebaseFirestore.DocumentData> {
-    return this.db.collection(this.collectionName);
+    return this.db.collection(getCollectionName('stretch_sessions'));
   }
 
   /**
    * Create a new stretch session record.
    */
-  async create(data: CreateStretchSessionRequest): Promise<StretchSessionRecord> {
+  async create(
+    data: CreateStretchSessionRequest
+  ): Promise<StretchSessionRecord> {
     const id = randomUUID();
 
     const sessionData = {
@@ -154,7 +154,11 @@ export class StretchSessionRepository {
     endDate: string,
     timezoneOffset: number = 0
   ): Promise<StretchSessionRecord[]> {
-    const startTimestamp = localDateToUtcBoundary(startDate, false, timezoneOffset);
+    const startTimestamp = localDateToUtcBoundary(
+      startDate,
+      false,
+      timezoneOffset
+    );
     const endTimestamp = localDateToUtcBoundary(endDate, true, timezoneOffset);
 
     const snapshot = await this.collection
@@ -213,7 +217,10 @@ export class StretchSessionRepository {
     };
   }
 
-  protected parseEntity(id: string, data: Record<string, unknown>): StretchSessionRecord | null {
+  protected parseEntity(
+    id: string,
+    data: Record<string, unknown>
+  ): StretchSessionRecord | null {
     const completedAt = readString(data, 'completedAt');
     const totalDurationSeconds = readNumber(data, 'totalDurationSeconds');
     const regionsCompleted = readNumber(data, 'regionsCompleted');

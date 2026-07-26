@@ -15,7 +15,8 @@ export * from './cycling.schema.js';
 export * from './today-coach.schema.js';
 export * from './plan-modification.schema.js';
 export * from './recovery.schema.js';
-export { 
+export * from './strava-task.schema.js';
+export {
   guidedMeditationSegmentSchema,
   guidedMeditationInterjectionSchema,
   guidedMeditationScriptSchema,

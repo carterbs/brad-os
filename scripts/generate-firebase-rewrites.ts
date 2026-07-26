@@ -17,7 +17,9 @@ interface FirebaseConfig {
   [key: string]: unknown;
 }
 
-function parseFirebaseRewrites(firebaseConfig: FirebaseConfig): FirebaseRewrite[] {
+function parseFirebaseRewrites(
+  firebaseConfig: FirebaseConfig
+): FirebaseRewrite[] {
   const hosting = firebaseConfig.hosting;
   if (!hosting || !Array.isArray(hosting.rewrites)) {
     return [];
@@ -26,12 +28,21 @@ function parseFirebaseRewrites(firebaseConfig: FirebaseConfig): FirebaseRewrite[
   return hosting.rewrites.filter(
     (rewrite): rewrite is FirebaseRewrite =>
       typeof (rewrite as Record<string, unknown>).source === 'string' &&
-      typeof (rewrite as Record<string, unknown>).function === 'string'
+      (typeof (rewrite as Record<string, unknown>).function === 'string' ||
+        (typeof (rewrite as Record<string, unknown>).run === 'object' &&
+          (rewrite as Record<string, unknown>).run !== null))
   );
 }
 
-function writeFirebaseConfig(firebasePath: string, payload: FirebaseConfig): void {
-  fs.writeFileSync(firebasePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf-8');
+function writeFirebaseConfig(
+  firebasePath: string,
+  payload: FirebaseConfig
+): void {
+  fs.writeFileSync(
+    firebasePath,
+    `${JSON.stringify(payload, null, 2)}\n`,
+    'utf-8'
+  );
 }
 
 function main(): number {
@@ -40,7 +51,9 @@ function main(): number {
   const isCheck = process.argv.includes('--check');
   const expected = generateRewrites(ENDPOINT_MANIFEST);
 
-  const current = JSON.parse(fs.readFileSync(firebasePath, 'utf-8')) as FirebaseConfig;
+  const current = JSON.parse(
+    fs.readFileSync(firebasePath, 'utf-8')
+  ) as FirebaseConfig;
   const currentRewrites = parseFirebaseRewrites(current);
   const violations = compareRewrites(expected, currentRewrites);
 

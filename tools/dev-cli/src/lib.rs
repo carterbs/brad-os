@@ -7,3 +7,5 @@ pub mod reporter;
 pub mod qa_stop;
 pub mod setup_ios_testing;
 pub mod integration_tests_runner;
+pub mod cloud_run_deploy;
+pub mod container_tests;
