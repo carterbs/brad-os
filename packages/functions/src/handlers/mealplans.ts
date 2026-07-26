@@ -104,8 +104,13 @@ app.post(
 app.get(
   '/latest',
   asyncHandler(async (_req: Request, res: Response, _next: NextFunction) => {
-    const sessions = await getSessionRepo().findAll(); // already ordered by created_at desc
-    const latest = sessions[0] ?? null;
+    const readStart = Date.now();
+    const latest = await getSessionRepo().findLatest();
+    info('mealplans:latest_read', {
+      elapsed_ms: Date.now() - readStart,
+      found: latest !== null,
+      sessionId: latest?.id,
+    });
     if (latest === null) {
       res.json({ success: true, data: null });
       return;

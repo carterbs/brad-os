@@ -114,6 +114,34 @@ struct MealPlanCacheServiceTests {
         #expect(service.getCachedSession() == nil)
     }
 
+    @Test("screen cache roundtrips a draft session without affecting finalized cache")
+    func screenCacheRoundtripsDraftSession() {
+        let dir = makeTempDir()
+        let service = MealPlanCacheService(containerURL: dir)
+        let draft = makeSession(id: "draft-session", isFinalized: false)
+
+        service.cacheForScreen(draft)
+
+        #expect(service.getCachedScreenSession()?.id == "draft-session")
+        #expect(service.getCachedScreenSession()?.isFinalized == false)
+        #expect(service.getCachedSession() == nil)
+    }
+
+    @Test("screen cache invalidation does not delete finalized widget cache")
+    func screenCacheInvalidationPreservesFinalizedCache() {
+        let dir = makeTempDir()
+        let service = MealPlanCacheService(containerURL: dir)
+        let finalized = makeSession(id: "finalized-session")
+        let draft = makeSession(id: "draft-session", isFinalized: false)
+        service.cache(finalized)
+        service.cacheForScreen(draft)
+
+        service.invalidateScreenCache()
+
+        #expect(service.getCachedScreenSession() == nil)
+        #expect(service.getCachedSession()?.id == "finalized-session")
+    }
+
     @Test("caching overwrites previous session")
     func cachingOverwritesPreviousSession() {
         let dir = makeTempDir()

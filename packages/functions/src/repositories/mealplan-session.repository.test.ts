@@ -196,6 +196,43 @@ describe('MealPlanSessionRepository', () => {
     });
   });
 
+  describe('findLatest', () => {
+    it('should order descending and limit the query to one session', async () => {
+      const repository = new MealPlanSessionRepository(mockDb as Firestore);
+      const sessions = [
+        {
+          id: 'latest-session',
+          data: {
+            plan: [],
+            meals_snapshot: [],
+            history: [],
+            is_finalized: true,
+            created_at: '2026-07-26T00:00:00Z',
+            updated_at: '2026-07-26T00:00:00Z',
+          },
+        },
+      ];
+      const mockQuery = createMockQuery(createMockQuerySnapshot(sessions));
+      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      const result = await repository.findLatest();
+
+      expect(mockCollection.orderBy).toHaveBeenCalledWith('created_at', 'desc');
+      expect(mockQuery.limit).toHaveBeenCalledWith(1);
+      expect(result?.id).toBe('latest-session');
+    });
+
+    it('should return null when no session exists', async () => {
+      const repository = new MealPlanSessionRepository(mockDb as Firestore);
+      const mockQuery = createMockQuery(createMockQuerySnapshot([]));
+      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+
+      const result = await repository.findLatest();
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe('appendHistory', () => {
     it('should return null and avoid update when session missing', async () => {
       const repository = new MealPlanSessionRepository(mockDb as Firestore);

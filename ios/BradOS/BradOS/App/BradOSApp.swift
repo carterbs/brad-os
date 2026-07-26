@@ -156,7 +156,7 @@ struct BradOSApp: App {
 
 /// Global app state for navigation and shared data
 class AppState: ObservableObject {
-    @Published var selectedTab: MainTab = .today
+    @Published var selectedTab: MainTab
     @Published var isShowingLiftingContext: Bool = false
     @Published var isShowingStretch: Bool = false
     @Published var isShowingMeditation: Bool = false
@@ -165,6 +165,16 @@ class AppState: ObservableObject {
 
     /// Selected workout ID for navigation to workout detail
     @Published var selectedWorkoutId: String?
+
+    init() {
+        #if DEBUG
+        selectedTab = ProcessInfo.processInfo.environment["BRAD_OS_INITIAL_TAB"] == "meals"
+            ? .meals
+            : .today
+        #else
+        selectedTab = .today
+        #endif
+    }
 
     /// Navigate to a specific workout
     func navigateToWorkout(_ workoutId: String) {

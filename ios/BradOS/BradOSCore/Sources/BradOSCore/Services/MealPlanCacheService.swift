@@ -6,6 +6,15 @@ public protocol MealPlanCacheServiceProtocol: Sendable {
     func cache(_ session: MealPlanSession)
     func invalidate()
     func isCached(sessionId: String) -> Bool
+    func getCachedScreenSession() -> MealPlanSession?
+    func cacheForScreen(_ session: MealPlanSession)
+    func invalidateScreenCache()
+}
+
+public extension MealPlanCacheServiceProtocol {
+    func getCachedScreenSession() -> MealPlanSession? { nil }
+    func cacheForScreen(_: MealPlanSession) {}
+    func invalidateScreenCache() {}
 }
 
 /// Disk-based cache for finalized meal plan sessions.
@@ -18,6 +27,7 @@ public final class MealPlanCacheService: MealPlanCacheServiceProtocol, @unchecke
 
     private let cacheDirectory: URL
     private let fileName = "latest-session.json"
+    private let screenFileName = "latest-screen-session.json"
 
     private let encoder: JSONEncoder = {
         let encoder = JSONEncoder()
@@ -49,12 +59,24 @@ public final class MealPlanCacheService: MealPlanCacheServiceProtocol, @unchecke
         cacheDirectory.appendingPathComponent(fileName)
     }
 
+    private var screenCacheFileURL: URL {
+        cacheDirectory.appendingPathComponent(screenFileName)
+    }
+
     public func getCachedSession() -> MealPlanSession? {
-        guard FileManager.default.fileExists(atPath: cacheFileURL.path) else {
+        readSession(from: cacheFileURL)
+    }
+
+    public func getCachedScreenSession() -> MealPlanSession? {
+        readSession(from: screenCacheFileURL)
+    }
+
+    private func readSession(from url: URL) -> MealPlanSession? {
+        guard FileManager.default.fileExists(atPath: url.path) else {
             return nil
         }
         do {
-            let data = try Data(contentsOf: cacheFileURL)
+            let data = try Data(contentsOf: url)
             return try decoder.decode(MealPlanSession.self, from: data)
         } catch {
             #if DEBUG
@@ -71,9 +93,17 @@ public final class MealPlanCacheService: MealPlanCacheServiceProtocol, @unchecke
             #endif
             return
         }
+        write(session, to: cacheFileURL)
+    }
+
+    public func cacheForScreen(_ session: MealPlanSession) {
+        write(session, to: screenCacheFileURL)
+    }
+
+    private func write(_ session: MealPlanSession, to url: URL) {
         do {
             let data = try encoder.encode(session)
-            try data.write(to: cacheFileURL, options: .atomic)
+            try data.write(to: url, options: .atomic)
             NotificationCenter.default.post(name: Self.cacheDidChangeNotification, object: nil)
         } catch {
             #if DEBUG
@@ -85,6 +115,10 @@ public final class MealPlanCacheService: MealPlanCacheServiceProtocol, @unchecke
     public func invalidate() {
         try? FileManager.default.removeItem(at: cacheFileURL)
         NotificationCenter.default.post(name: Self.cacheDidChangeNotification, object: nil)
+    }
+
+    public func invalidateScreenCache() {
+        try? FileManager.default.removeItem(at: screenCacheFileURL)
     }
 
     public func isCached(sessionId: String) -> Bool {

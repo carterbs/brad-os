@@ -171,8 +171,39 @@ struct MealPlanViewModelTests {
 
         await loadTask.value
 
+        #expect(vm.shoppingList.isEmpty)
+
+        await vm.prepareShoppingList()
+
         #expect(shoppingItemNames(vm.shoppingList) == ["Oats"])
         #expect(vm.error == nil)
+    }
+
+    @Test("draft screen cache restores without waiting for the API")
+    @MainActor
+    func draftScreenCacheRestoresWithoutAPI() async {
+        let draft = makeSession(
+            id: "cached-draft",
+            isFinalized: false,
+            plan: [makePlanEntry(dayIndex: 0, mealType: .dinner, mealId: "meal-1", mealName: "Cached Dinner")],
+            mealsSnapshot: [makeMeal(id: "meal-1", name: "Cached Dinner", mealType: .dinner)]
+        )
+        let mock = MockAPIClient()
+        mock.shouldFail = true
+        let cacheService = RecordingMealPlanCacheService(screenSession: draft)
+        let vm = MealPlanViewModel(
+            apiClient: mock,
+            recipeCache: RecipeCacheService(apiClient: mock),
+            cacheService: cacheService,
+            userDefaults: MockUserDefaults()
+        )
+
+        await vm.loadExistingSession()
+
+        #expect(vm.session == draft)
+        #expect(vm.currentPlan == draft.plan)
+        #expect(vm.isLoading == false)
+        #expect(cacheService.screenCacheReadCount == 1)
     }
 
     @Test("entriesForMealType preserves family and adult breakfast slots")
@@ -237,6 +268,7 @@ struct MealPlanViewModelTests {
         )
 
         await vm.loadExistingSession()
+        await vm.prepareShoppingList()
 
         #expect(shoppingItemNames(vm.shoppingList) == ["Oats"])
     }
@@ -291,6 +323,7 @@ struct MealPlanViewModelTests {
         )
 
         await vm.loadExistingSession()
+        await vm.prepareShoppingList()
 
         #expect(vm.session == savedSession)
         #expect(vm.currentPlan == savedSession.plan)
@@ -336,6 +369,7 @@ struct MealPlanViewModelTests {
         )
 
         await vm.loadExistingSession()
+        await vm.prepareShoppingList()
 
         #expect(vm.session == latestSession)
         #expect(vm.currentPlan == latestSession.plan)
@@ -368,9 +402,9 @@ struct MealPlanViewModelTests {
         #expect(vm.error == nil)
     }
 
-    @Test("forceRefresh clears saved session id and reloads latest session")
+    @Test("forceRefresh keeps existing content visible and reloads latest session")
     @MainActor
-    func forceRefreshClearsSavedSessionIdAndReloadsLatestSession() async {
+    func forceRefreshKeepsContentVisibleAndReloadsLatestSession() async {
         let ingredients = [
             makeIngredient(id: "ingredient-1", name: "Pasta", storeSection: "Pasta & Grains")
         ]
@@ -395,12 +429,13 @@ struct MealPlanViewModelTests {
         )
 
         let mock = MockAPIClient()
+        mock.delay = 0.15
         mock.mockIngredients = ingredients
         mock.mockRecipes = recipes
         mock.mockMealPlanSessionsById["stale-session"] = staleSession
         mock.mockLatestMealPlanSession = latestSession
 
-        let cacheService = RecordingMealPlanCacheService(cachedSession: staleSession)
+        let cacheService = RecordingMealPlanCacheService(screenSession: staleSession)
         let mockDefaults = MockUserDefaults()
         mockDefaults.set("stale-session", forKey: "mealPlanSessionId")
 
@@ -410,16 +445,64 @@ struct MealPlanViewModelTests {
             cacheService: cacheService,
             userDefaults: mockDefaults
         )
+        vm.session = staleSession
+        vm.currentPlan = staleSession.plan
 
-        await vm.forceRefresh()
+        let refreshTask = Task {
+            await vm.forceRefresh()
+        }
+        await Task.yield()
+
+        #expect(vm.session == staleSession)
+        #expect(vm.currentPlan == staleSession.plan)
+        #expect(vm.isLoading == false)
+        #expect(vm.isRefreshing == true)
+        #expect(cacheService.invalidateCallCount == 0)
+        #expect(cacheService.screenInvalidateCallCount == 0)
+
+        await refreshTask.value
+        await vm.prepareShoppingList()
 
         #expect(vm.session == latestSession)
         #expect(vm.currentPlan == latestSession.plan)
         #expect(shoppingItemNames(vm.shoppingList) == ["Pasta"])
-        #expect(cacheService.invalidateCallCount == 1)
+        #expect(cacheService.invalidateCallCount == 0)
         #expect(cacheService.cachedSession == latestSession)
+        #expect(cacheService.screenSession == latestSession)
         #expect(mockDefaults.string(forKey: "mealPlanSessionId") == nil)
+        #expect(vm.isRefreshing == false)
         #expect(vm.error == nil)
+    }
+
+    @Test("failed force refresh preserves visible and cached content")
+    @MainActor
+    func failedForceRefreshPreservesVisibleAndCachedContent() async {
+        let existing = makeSession(
+            id: "existing-session",
+            isFinalized: false,
+            plan: [makePlanEntry(dayIndex: 0, mealType: .dinner, mealId: "meal-1", mealName: "Existing Dinner")],
+            mealsSnapshot: [makeMeal(id: "meal-1", name: "Existing Dinner", mealType: .dinner)]
+        )
+        let mock = MockAPIClient()
+        mock.shouldFail = true
+        let cacheService = RecordingMealPlanCacheService(screenSession: existing)
+        let vm = MealPlanViewModel(
+            apiClient: mock,
+            recipeCache: RecipeCacheService(apiClient: mock),
+            cacheService: cacheService,
+            userDefaults: MockUserDefaults()
+        )
+        vm.session = existing
+        vm.currentPlan = existing.plan
+
+        await vm.forceRefresh()
+
+        #expect(vm.session == existing)
+        #expect(vm.currentPlan == existing.plan)
+        #expect(cacheService.screenSession == existing)
+        #expect(cacheService.screenInvalidateCallCount == 0)
+        #expect(vm.isRefreshing == false)
+        #expect(vm.error == "Failed to refresh meal plan")
     }
 
     @Test("generatePlan success stores session id and refreshes shopping list")
@@ -840,6 +923,7 @@ struct MealPlanViewModelTests {
         )
 
         await vm.loadExistingSession()
+        await vm.prepareShoppingList()
 
         #expect(vm.error?.contains("Mystery Lunch") == true)
         #expect(vm.error?.contains("missing recipes") == true)
@@ -850,11 +934,16 @@ struct MealPlanViewModelTests {
 
 private final class RecordingMealPlanCacheService: MealPlanCacheServiceProtocol, @unchecked Sendable {
     private(set) var cachedSession: MealPlanSession?
+    private(set) var screenSession: MealPlanSession?
     private(set) var cacheCallCount = 0
     private(set) var invalidateCallCount = 0
+    private(set) var screenCacheReadCount = 0
+    private(set) var screenCacheCallCount = 0
+    private(set) var screenInvalidateCallCount = 0
 
-    init(cachedSession: MealPlanSession? = nil) {
+    init(cachedSession: MealPlanSession? = nil, screenSession: MealPlanSession? = nil) {
         self.cachedSession = cachedSession
+        self.screenSession = screenSession
     }
 
     func getCachedSession() -> MealPlanSession? {
@@ -864,6 +953,21 @@ private final class RecordingMealPlanCacheService: MealPlanCacheServiceProtocol,
     func cache(_ session: MealPlanSession) {
         cacheCallCount += 1
         cachedSession = session
+    }
+
+    func getCachedScreenSession() -> MealPlanSession? {
+        screenCacheReadCount += 1
+        return screenSession
+    }
+
+    func cacheForScreen(_ session: MealPlanSession) {
+        screenCacheCallCount += 1
+        screenSession = session
+    }
+
+    func invalidateScreenCache() {
+        screenInvalidateCallCount += 1
+        screenSession = nil
     }
 
     func invalidate() {

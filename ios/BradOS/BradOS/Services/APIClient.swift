@@ -230,6 +230,15 @@ final class APIClient: APIClientProtocol {
 
     func performDataTask(for request: URLRequest) async throws -> (Data, URLResponse) {
         var request = request
+        let requestStart = CFAbsoluteTimeGetCurrent()
+        let method = request.httpMethod ?? "?"
+        let urlString = request.url?.absoluteString ?? "?"
+        let path = request.url?.path ?? "?"
+        let span = DebugTracing.startSpan("\(method) \(path)", kind: .client, attributes: [
+            "http.method": method,
+            "http.url": urlString
+        ])
+        let appCheckStart = CFAbsoluteTimeGetCurrent()
 
         // Skip App Check for emulator (localhost) - server bypasses verification in emulator mode
         if configuration.isEmulator {
@@ -254,17 +263,14 @@ final class APIClient: APIClientProtocol {
                 }
             }
         }
+        let appCheckMs = Int((CFAbsoluteTimeGetCurrent() - appCheckStart) * 1000)
+        span.setAttribute(key: "app_check.elapsed_ms", value: "\(appCheckMs)")
 
-        let method = request.httpMethod ?? "?"
-        let urlString = request.url?.absoluteString ?? "?"
-        let path = request.url?.path ?? "?"
-        let span = DebugTracing.startSpan("\(method) \(path)", kind: .client, attributes: [
-            "http.method": method,
-            "http.url": urlString
-        ])
         DebugLogger.info("\(method) \(urlString)", attributes: ["source": "APIClient"])
         do {
             let (data, response) = try await session.data(for: request)
+            let totalMs = Int((CFAbsoluteTimeGetCurrent() - requestStart) * 1000)
+            span.setAttribute(key: "client.elapsed_ms", value: "\(totalMs)")
             if let httpResponse = response as? HTTPURLResponse {
                 span.setAttribute(key: "http.status_code", value: "\(httpResponse.statusCode)")
                 span.setAttribute(key: "http.response_bytes", value: "\(data.count)")

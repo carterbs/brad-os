@@ -18,6 +18,8 @@ enum DefaultAPIClient {
 /// Views use this factory to avoid directly referencing Service types.
 @MainActor
 enum ViewModelFactory {
+    private static let mealPlanRecipeCache = RecipeCacheService(apiClient: APIClient.shared)
+
     static func makeCalendarViewModel() -> CalendarViewModel {
         CalendarViewModel(apiClient: APIClient.shared)
     }
@@ -28,8 +30,7 @@ enum ViewModelFactory {
 
     static func makeMealPlanViewModel() -> MealPlanViewModel {
         let apiClient = APIClient.shared
-        let recipeCache = RecipeCacheService(apiClient: apiClient)
-        return MealPlanViewModel(apiClient: apiClient, recipeCache: recipeCache)
+        return MealPlanViewModel(apiClient: apiClient, recipeCache: mealPlanRecipeCache)
     }
 
     static func makeBarcodeWalletViewModel() -> BarcodeWalletViewModel {

@@ -32,26 +32,27 @@ public class RecipeCacheService: ObservableObject {
         }
         log.info("[cache] loading ingredients + recipes from API…")
 
-        var loadedIngredients: [Ingredient] = []
-        var loadedRecipes: [Recipe] = []
+        async let ingredientsResult = fetchIngredients()
+        async let recipesResult = fetchRecipes()
+        let (ingredientOutcome, recipeOutcome) = await (ingredientsResult, recipesResult)
 
-        do {
-            loadedIngredients = try await apiClient.getIngredients()
-            log.info("[cache] fetched \(loadedIngredients.count) ingredients")
-        } catch {
+        guard case .success(let loadedIngredients) = ingredientOutcome else {
             self.error = "Failed to load ingredient data"
-            log.error("[cache] FAILED to load ingredients: \(String(describing: error), privacy: .public)")
+            if case .failure(let error) = ingredientOutcome {
+                log.error("[cache] FAILED to load ingredients: \(String(describing: error), privacy: .public)")
+            }
             return
         }
+        log.info("[cache] fetched \(loadedIngredients.count) ingredients")
 
-        do {
-            loadedRecipes = try await apiClient.getRecipes()
-            log.info("[cache] fetched \(loadedRecipes.count) recipes")
-        } catch {
+        guard case .success(let loadedRecipes) = recipeOutcome else {
             self.error = "Failed to load recipe data"
-            log.error("[cache] FAILED to load recipes: \(String(describing: error), privacy: .public)")
+            if case .failure(let error) = recipeOutcome {
+                log.error("[cache] FAILED to load recipes: \(String(describing: error), privacy: .public)")
+            }
             return
         }
+        log.info("[cache] fetched \(loadedRecipes.count) recipes")
 
         ingredientsById = Dictionary(uniqueKeysWithValues: loadedIngredients.map { ($0.id, $0) })
         recipesByMealId = Dictionary(uniqueKeysWithValues: loadedRecipes.map { ($0.mealId, $0) })
@@ -63,6 +64,22 @@ public class RecipeCacheService: ObservableObject {
         } else {
             let cachedMealIds = loadedRecipes.map { $0.mealId }.sorted()
             log.info("[cache] recipe mealIds in cache: \(cachedMealIds, privacy: .public)")
+        }
+    }
+
+    private func fetchIngredients() async -> Result<[Ingredient], Error> {
+        do {
+            return .success(try await apiClient.getIngredients())
+        } catch {
+            return .failure(error)
+        }
+    }
+
+    private func fetchRecipes() async -> Result<[Recipe], Error> {
+        do {
+            return .success(try await apiClient.getRecipes())
+        } catch {
+            return .failure(error)
         }
     }
 

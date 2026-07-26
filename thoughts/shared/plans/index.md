@@ -23,6 +23,7 @@
 
 | Plan | Summary | Completed |
 |------|---------|-----------|
+| [meal-plan-load-performance](completed/2026-07-26-meal-plan-load-performance.md) | Restore draft and finalized meal plans from a dedicated screen cache and bound the live latest-session query | 2026-07-26 |
 | [rust-migrate-qa-stop](completed/2026-02-26-rust-migrate-qa-stop.md) | Migrate `scripts/qa-stop.sh` teardown/lock lifecycle logic to Rust with parity and >=90% coverage | 2026-02-26 |
 | [oxlint-migration](completed/2026-02-26-oxlint-migration.md) | Speed-first legacy-lint to Oxlint migration with strict no-`any` enforcement and staged type-aware unsafe checks | 2026-02-26 |
 | [today-coach](completed/2026-02-09-today-coach.md) | Holistic daily AI briefing aggregating all activity domains | ~2026-02-09 |

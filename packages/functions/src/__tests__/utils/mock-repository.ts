@@ -308,6 +308,7 @@ export function createMockBarcodeRepository(): MockBarcodeRepository {
 // ============ MealPlan Session Repository Mock ============
 
 export interface MockMealPlanSessionRepository extends MockBaseRepository {
+  findLatest: MockFn;
   appendHistory: MockFn;
   updatePlan: MockFn;
   applyCritiqueUpdates: MockFn;
@@ -318,6 +319,7 @@ export function createMockMealPlanSessionRepository(): MockMealPlanSessionReposi
     create: vi.fn(),
     findById: vi.fn(),
     findAll: vi.fn(),
+    findLatest: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
     appendHistory: vi.fn(),

@@ -52,15 +52,25 @@ struct MealPlanView: View {
                     Button(action: {
                         Task { await viewModel.forceRefresh() }
                     }, label: {
-                        Image(systemName: "arrow.clockwise")
-                            .foregroundColor(Theme.interactivePrimary)
+                        if viewModel.isRefreshing {
+                            ProgressView()
+                                .tint(Theme.interactivePrimary)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                                .foregroundColor(Theme.interactivePrimary)
+                        }
                     })
-                    .disabled(viewModel.isLoading)
+                    .disabled(viewModel.isLoading || viewModel.isRefreshing)
                     .accessibilityLabel("Refresh meal plan")
                 }
             }
             .task {
                 await viewModel.loadExistingSession()
+                #if DEBUG
+                if ProcessInfo.processInfo.environment["BRAD_OS_FORCE_MEAL_PLAN_REFRESH"] == "1" {
+                    await viewModel.forceRefresh()
+                }
+                #endif
             }
         }
     }

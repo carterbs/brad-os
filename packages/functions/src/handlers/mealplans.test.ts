@@ -226,25 +226,24 @@ describe('Mealplans Handler', () => {
         id: 'session-new',
         created_at: '2026-06-14T00:00:00.000Z',
       });
-      const older = createTestSession({
-        id: 'session-old',
-        created_at: '2026-06-07T00:00:00.000Z',
-      });
-      mockSessionRepo.findAll.mockResolvedValue([latest, older]);
+      mockSessionRepo.findLatest.mockResolvedValue(latest);
 
       const response = await request(mealplansApp).get('/latest');
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ success: true, data: latest });
+      expect(mockSessionRepo.findLatest).toHaveBeenCalledTimes(1);
+      expect(mockSessionRepo.findAll).not.toHaveBeenCalled();
     });
 
     it('should return null when there are no sessions', async () => {
-      mockSessionRepo.findAll.mockResolvedValue([]);
+      mockSessionRepo.findLatest.mockResolvedValue(null);
 
       const response = await request(mealplansApp).get('/latest');
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ success: true, data: null });
+      expect(mockSessionRepo.findLatest).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -662,7 +661,7 @@ describe('Mealplans Handler', () => {
       });
       mockSessionRepo.findById.mockResolvedValue(newest);
       mockSessionRepo.delete.mockResolvedValue(true);
-      mockSessionRepo.findAll.mockResolvedValue([older]);
+      mockSessionRepo.findLatest.mockResolvedValue(older);
 
       const deleteResponse = await request(mealplansApp)
         .delete('/session-new')
@@ -681,7 +680,7 @@ describe('Mealplans Handler', () => {
       });
       mockSessionRepo.findById.mockResolvedValue(session);
       mockSessionRepo.delete.mockResolvedValue(true);
-      mockSessionRepo.findAll.mockResolvedValue([]);
+      mockSessionRepo.findLatest.mockResolvedValue(null);
 
       const deleteResponse = await request(mealplansApp)
         .delete('/session-only')

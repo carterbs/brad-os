@@ -252,6 +252,22 @@ export class MealPlanSessionRepository extends BaseRepository<
       .filter((session): session is MealPlanSession => session !== null);
   }
 
+  async findLatest(): Promise<MealPlanSession | null> {
+    const snapshot = await this.collection
+      .orderBy('created_at', 'desc')
+      .limit(1)
+      .get();
+    const latest = snapshot.docs[0];
+    if (latest === undefined) {
+      return null;
+    }
+    const data = latest.data();
+    if (!isRecord(data)) {
+      return null;
+    }
+    return this.parseEntity(latest.id, data);
+  }
+
   async appendHistory(sessionId: string, message: ConversationMessage): Promise<MealPlanSession | null> {
     const existing = await this.findById(sessionId);
     if (!existing) {

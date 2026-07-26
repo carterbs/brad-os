@@ -13,6 +13,7 @@ public class MealPlanViewModel: ObservableObject {
     @Published public var session: MealPlanSession?
     @Published public var currentPlan: [MealPlanEntry] = []
     @Published public var isLoading = false
+    @Published public var isRefreshing = false
     @Published public var isSending = false
     @Published public var error: String?
     @Published public var critiqueText = ""
@@ -36,6 +37,7 @@ public class MealPlanViewModel: ObservableObject {
     private let remindersService: RemindersServiceProtocol
     private let cacheService: MealPlanCacheServiceProtocol
     private let userDefaults: UserDefaultsProtocol
+    private var shoppingListTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
@@ -79,6 +81,7 @@ public class MealPlanViewModel: ObservableObject {
             let fullSession = try await apiClient.getMealPlanSession(id: response.sessionId)
             session = fullSession
             currentPlan = fullSession.plan
+            cacheService.cacheForScreen(fullSession)
             await updateShoppingList()
         } catch {
             self.error = "Failed to generate meal plan"
@@ -93,15 +96,21 @@ public class MealPlanViewModel: ObservableObject {
     // MARK: - Load Existing Session
 
     public func loadExistingSession() async {
+        let loadStart = CFAbsoluteTimeGetCurrent()
         isLoading = true
         error = nil
 
-        // Check disk cache first (instant load for finalized sessions)
+        // Screen cache restores both draft and finalized sessions.
+        if let cached = cacheService.getCachedScreenSession() {
+            publishSession(cached)
+            finishInitialLoad(source: "screen-cache", startedAt: loadStart)
+            return
+        }
+
+        // Migrate the existing finalized/widget cache into the screen cache.
         if let cached = cacheService.getCachedSession(), cached.isFinalized {
-            session = cached
-            currentPlan = cached.plan
-            isLoading = false
-            await updateShoppingList()
+            publishSession(cached)
+            finishInitialLoad(source: "finalized-cache", startedAt: loadStart)
             return
         }
 
@@ -109,13 +118,8 @@ public class MealPlanViewModel: ObservableObject {
         if let sessionId = savedSessionId {
             do {
                 let fullSession = try await apiClient.getMealPlanSession(id: sessionId)
-                session = fullSession
-                currentPlan = fullSession.plan
-                isLoading = false
-                await updateShoppingList()
-                if fullSession.isFinalized {
-                    cacheService.cache(fullSession)
-                }
+                publishSession(fullSession)
+                finishInitialLoad(source: "saved-session", startedAt: loadStart)
                 return
             } catch {
                 // Session not found or expired, clear the saved ID
@@ -129,13 +133,9 @@ public class MealPlanViewModel: ObservableObject {
         // No saved session - try loading the latest from backend
         do {
             if let latestSession = try await apiClient.getLatestMealPlanSession() {
-                session = latestSession
-                currentPlan = latestSession.plan
-                isLoading = false
-                await updateShoppingList()
-                if latestSession.isFinalized {
-                    cacheService.cache(latestSession)
-                }
+                publishSession(latestSession)
+                finishInitialLoad(source: "latest-session", startedAt: loadStart)
+                return
             }
         } catch {
             #if DEBUG
@@ -144,6 +144,30 @@ public class MealPlanViewModel: ObservableObject {
         }
 
         isLoading = false
+        logLoadTiming(source: "empty", startedAt: loadStart)
+    }
+
+    private func publishSession(_ loadedSession: MealPlanSession) {
+        session = loadedSession
+        currentPlan = loadedSession.plan
+        cacheService.cacheForScreen(loadedSession)
+        if loadedSession.isFinalized {
+            cacheService.cache(loadedSession)
+            savedSessionId = nil
+        } else {
+            savedSessionId = loadedSession.id
+        }
+    }
+
+    private func finishInitialLoad(source: String, startedAt: CFAbsoluteTime) {
+        isLoading = false
+        scheduleShoppingListUpdate()
+        logLoadTiming(source: source, startedAt: startedAt)
+    }
+
+    private func logLoadTiming(source: String, startedAt: CFAbsoluteTime) {
+        let elapsedMs = Int((CFAbsoluteTimeGetCurrent() - startedAt) * 1000)
+        timingLog.notice("[TIMING] mealPlan visible source=\(source, privacy: .public) elapsed=\(elapsedMs)ms")
     }
 
     // MARK: - Send Critique
@@ -187,6 +211,7 @@ public class MealPlanViewModel: ObservableObject {
             timingLog.notice("[TIMING] getMealPlanSession: \(refetchMs)ms")
 
             session = fullSession
+            cacheService.cacheForScreen(fullSession)
 
             isSending = false
             let totalMs = Int((CFAbsoluteTimeGetCurrent() - totalStart) * 1000)
@@ -223,6 +248,7 @@ public class MealPlanViewModel: ObservableObject {
 
             // Cache the finalized session
             cacheService.cache(fullSession)
+            cacheService.cacheForScreen(fullSession)
 
             // Clear saved session ID since it's finalized
             savedSessionId = nil
@@ -300,6 +326,8 @@ public class MealPlanViewModel: ObservableObject {
     // MARK: - Start New Plan
 
     public func startNewPlan() {
+        shoppingListTask?.cancel()
+        shoppingListTask = nil
         session = nil
         currentPlan = []
         lastExplanation = nil
@@ -313,18 +341,54 @@ public class MealPlanViewModel: ObservableObject {
         isCritiqueExpanded = false
         error = nil
         cacheService.invalidate()
+        cacheService.invalidateScreenCache()
         savedSessionId = nil
     }
 
     // MARK: - Force Refresh
 
     public func forceRefresh() async {
-        cacheService.invalidate()
-        savedSessionId = nil
-        await loadExistingSession()
+        guard !isRefreshing else { return }
+        let refreshStart = CFAbsoluteTimeGetCurrent()
+        isRefreshing = true
+        error = nil
+        defer {
+            isRefreshing = false
+            let elapsedMs = Int((CFAbsoluteTimeGetCurrent() - refreshStart) * 1000)
+            timingLog.notice("[TIMING] mealPlan refresh elapsed=\(elapsedMs)ms")
+        }
+
+        do {
+            guard let latestSession = try await apiClient.getLatestMealPlanSession() else {
+                error = "No meal plan found"
+                return
+            }
+            publishSession(latestSession)
+            scheduleShoppingListUpdate()
+        } catch {
+            self.error = "Failed to refresh meal plan"
+            #if DEBUG
+            print("[MealPlanViewModel] Refresh error: \(error)")
+            #endif
+        }
     }
 
     // MARK: - Shopping List
+
+    private func scheduleShoppingListUpdate() {
+        shoppingListTask?.cancel()
+        shoppingListTask = Task { [weak self] in
+            guard let self else { return }
+            await self.updateShoppingList()
+        }
+    }
+
+    public func prepareShoppingList() async {
+        if shoppingListTask == nil {
+            scheduleShoppingListUpdate()
+        }
+        await shoppingListTask?.value
+    }
 
     private func updateShoppingList() async {
         let totalEntries = currentPlan.count
@@ -338,6 +402,7 @@ public class MealPlanViewModel: ObservableObject {
         }
 
         await recipeCache.loadIfNeeded()
+        guard !Task.isCancelled else { return }
 
         // Check which meals have recipes and which don't
         var missingRecipeMeals: [String] = []
@@ -374,6 +439,7 @@ public class MealPlanViewModel: ObservableObject {
         isExportingToReminders = true
         remindersError = nil
         remindersExportResult = nil
+        await prepareShoppingList()
 
         let itemCount = shoppingList.reduce(0) { $0 + $1.items.count }
         shoppingLog.info("[exportToReminders] starting — \(self.shoppingList.count) sections, \(itemCount) items")
