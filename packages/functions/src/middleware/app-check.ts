@@ -3,36 +3,34 @@ import { getAppCheck } from 'firebase-admin/app-check';
 import type { ApiError } from '../shared.js';
 import { logger } from '../runtime/logger.js';
 
-// Log once at startup if running in emulator mode
-if (process.env['FUNCTIONS_EMULATOR'] === 'true') {
-  logger.info(
-    'Running in Functions emulator - App Check verification disabled'
-  );
-}
-
 export function assertAppCheckConfiguration(): void {
   const explicitBypass = process.env['APP_CHECK_BYPASS'] === 'true';
-  const functionsEmulator = process.env['FUNCTIONS_EMULATOR'] === 'true';
-  if (!explicitBypass && !functionsEmulator) {
+  if (!explicitBypass) {
     return;
   }
   if (process.env['NODE_ENV'] === 'production') {
-    const source = explicitBypass ? 'APP_CHECK_BYPASS' : 'FUNCTIONS_EMULATOR';
-    throw new Error(`${source} cannot be enabled in production`);
+    throw new Error('APP_CHECK_BYPASS cannot be enabled in production');
+  }
+  if (process.env['BRAD_LOCAL_DEV_ONLY'] !== 'true') {
+    throw new Error('APP_CHECK_BYPASS requires BRAD_LOCAL_DEV_ONLY=true');
+  }
+  const firestoreEmulatorHost = process.env['FIRESTORE_EMULATOR_HOST'];
+  if (firestoreEmulatorHost === undefined || firestoreEmulatorHost === '') {
+    throw new Error('App Check bypass requires FIRESTORE_EMULATOR_HOST');
   }
   if (
-    process.env['FIRESTORE_EMULATOR_HOST'] === undefined ||
-    process.env['FIRESTORE_EMULATOR_HOST'] === ''
+    !firestoreEmulatorHost.startsWith('127.0.0.1:') &&
+    !firestoreEmulatorHost.startsWith('localhost:') &&
+    !firestoreEmulatorHost.startsWith('[::1]:')
   ) {
-    throw new Error('App Check bypass requires FIRESTORE_EMULATOR_HOST');
+    throw new Error(
+      'App Check bypass requires a loopback FIRESTORE_EMULATOR_HOST'
+    );
   }
 }
 
 function shouldBypassAppCheck(): boolean {
-  if (
-    process.env['FUNCTIONS_EMULATOR'] !== 'true' &&
-    process.env['APP_CHECK_BYPASS'] !== 'true'
-  ) {
+  if (process.env['APP_CHECK_BYPASS'] !== 'true') {
     return false;
   }
   assertAppCheckConfiguration();
@@ -42,7 +40,7 @@ function shouldBypassAppCheck(): boolean {
 /**
  * Middleware to verify Firebase App Check token.
  * Rejects requests without a valid token.
- * Bypasses verification in emulator mode.
+ * Bypasses verification only for loopback, development-only integration tests.
  */
 export const requireAppCheck: RequestHandler = (
   req: Request,

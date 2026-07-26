@@ -40,11 +40,23 @@ fn make_repo() -> tempfile::TempDir {
     dir
 }
 
-fn run_doctor(binary_path: &Path, cwd: &Path, path: &Path, fast_mode: bool) -> (String, String, i32) {
+fn run_doctor(
+    binary_path: &Path,
+    cwd: &Path,
+    path: &Path,
+    fast_mode: bool,
+) -> (String, String, i32) {
     let output = Command::new(binary_path)
         .current_dir(cwd)
         .env("BRAD_DOCTOR_FAST", if fast_mode { "1" } else { "0" })
-        .env("PATH", format!("{}:{}", path.display(), std::env::var("PATH").unwrap_or_default()))
+        .env(
+            "PATH",
+            format!(
+                "{}:{}",
+                path.display(),
+                std::env::var("PATH").unwrap_or_default()
+            ),
+        )
         .output()
         .expect("failed to run brad-doctor");
 
@@ -62,6 +74,7 @@ fn doctor_binary_runs_and_prints_pass_in_healthy_context() {
     fake_command(bin_dir.path(), "node", "v22.12.0");
     fake_command(bin_dir.path(), "npm", "10.0.0");
     fake_command(bin_dir.path(), "firebase", "13.0.0");
+    fake_command(bin_dir.path(), "gcloud", "542.0.0");
     fake_command(bin_dir.path(), "cargo", "1.75.0");
     fake_command(bin_dir.path(), "rustup", "1.25.0");
     fake_command(bin_dir.path(), "cargo-llvm-cov", "0.5.17");
@@ -69,8 +82,12 @@ fn doctor_binary_runs_and_prints_pass_in_healthy_context() {
     fake_command(bin_dir.path(), "gitleaks", "8.18.0");
     fake_command(bin_dir.path(), "xcodegen", "2.40.0");
 
-    let (stdout, _stderr, code) =
-        run_doctor(Path::new(brad_doctor_binary()), repo.path(), bin_dir.path(), false);
+    let (stdout, _stderr, code) = run_doctor(
+        Path::new(brad_doctor_binary()),
+        repo.path(),
+        bin_dir.path(),
+        false,
+    );
 
     assert_eq!(code, 0);
     assert!(stdout.contains("PASS"));
@@ -84,6 +101,7 @@ fn doctor_binary_fails_fast_and_prints_missing_remediation() {
     fake_command(bin_dir.path(), "node", "21.12.0");
     fake_command(bin_dir.path(), "npm", "10.0.0");
     fake_command(bin_dir.path(), "firebase", "13.0.0");
+    fake_command(bin_dir.path(), "gcloud", "542.0.0");
     fake_command(bin_dir.path(), "cargo", "1.75.0");
     fake_command(bin_dir.path(), "rustup", "1.25.0");
     fake_command(bin_dir.path(), "cargo-llvm-cov", "0.5.17");
@@ -91,8 +109,12 @@ fn doctor_binary_fails_fast_and_prints_missing_remediation() {
     fake_command(bin_dir.path(), "gitleaks", "8.18.0");
     fake_command(bin_dir.path(), "xcodegen", "2.40.0");
 
-    let (stdout, _stderr, code) =
-        run_doctor(Path::new(brad_doctor_binary()), repo.path(), bin_dir.path(), false);
+    let (stdout, _stderr, code) = run_doctor(
+        Path::new(brad_doctor_binary()),
+        repo.path(),
+        bin_dir.path(),
+        false,
+    );
 
     assert_ne!(code, 0);
     assert!(stdout.contains("FAIL"));
@@ -107,6 +129,7 @@ fn doctor_binary_checks_rust_toolchain_components() {
     fake_command(bin_dir.path(), "node", "v22.12.0");
     fake_command(bin_dir.path(), "npm", "10.0.0");
     fake_command(bin_dir.path(), "firebase", "13.0.0");
+    fake_command(bin_dir.path(), "gcloud", "542.0.0");
     fake_command(bin_dir.path(), "cargo", "1.75.0");
     fake_command(bin_dir.path(), "rustup", "1.25.0");
     fake_command(bin_dir.path(), "cargo-llvm-cov", "0.5.17");
@@ -114,8 +137,12 @@ fn doctor_binary_checks_rust_toolchain_components() {
     fake_command(bin_dir.path(), "gitleaks", "8.18.0");
     fake_command(bin_dir.path(), "xcodegen", "2.40.0");
 
-    let (stdout, _stderr, code) =
-        run_doctor(Path::new(brad_doctor_binary()), repo.path(), bin_dir.path(), true);
+    let (stdout, _stderr, code) = run_doctor(
+        Path::new(brad_doctor_binary()),
+        repo.path(),
+        bin_dir.path(),
+        true,
+    );
 
     assert_eq!(code, 0);
     assert!(stdout.contains("✓ rustup"));

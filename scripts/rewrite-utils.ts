@@ -28,47 +28,11 @@ export const CLOUD_RUN_API_REWRITE: FirebaseRewrite = {
     pinTag: true,
   },
 };
-export function toPascalCase(str: string): string {
-  const segments = str.split('-').filter((segment) => segment.length > 0);
-  return segments
-    .map((segment) => segment[0]?.toUpperCase() + segment.slice(1))
-    .join('');
-}
-
-export function toCamelCase(str: string): string {
-  const segments = str.split('-').filter((segment) => segment.length > 0);
-  const [first, ...rest] = segments;
-  const firstSegment = first ?? '';
-  const restSegments = rest.map(
-    (segment) => segment[0]?.toUpperCase() + segment.slice(1)
-  );
-  return `${firstSegment}${restSegments.join('')}`;
-}
-
-export function getFunctionStem(entry: EndpointEntry): string {
-  return entry.functionStem ?? toPascalCase(entry.routePath);
-}
-
-export function getAppExportName(entry: EndpointEntry): string {
-  return `${toCamelCase(entry.handlerFile)}App`;
-}
-
-export function getDevFunctionName(entry: EndpointEntry): string {
-  return `dev${getFunctionStem(entry)}`;
-}
-
-export function getProdFunctionName(entry: EndpointEntry): string {
-  return `prod${getFunctionStem(entry)}`;
-}
 
 export function generateRewrites(
   manifest: readonly EndpointEntry[]
 ): FirebaseRewrite[] {
-  if (
-    !manifest.some(
-      (entry) => entry.devOnly !== true && entry.routePath.length > 0
-    )
-  ) {
+  if (!manifest.some((entry) => entry.routePath.length > 0)) {
     throw new Error(
       'Endpoint manifest must contain at least one public API route.'
     );

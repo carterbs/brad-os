@@ -1,18 +1,15 @@
 /**
  * Integration Tests for Meditation Sessions API
  *
- * These tests run against the Firebase emulator.
- * Prerequisites:
- * - Emulator running: npm run emulators:fresh
- * - Run tests: npm run test:integration
+ * These tests run against the standalone API backed by the Firestore emulator.
+ * Run with: npm run test:integration:emulator
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { type ApiResponse } from '../utils/index.js';
+import { HEALTH_URL, integrationApiUrl } from './api-config.js';
 
-const FUNCTIONS_URL = 'http://127.0.0.1:5001/brad-os/us-central1';
-const HEALTH_URL = `${FUNCTIONS_URL}/devHealth`;
-const MEDITATION_SESSIONS_URL = `${FUNCTIONS_URL}/devMeditationSessions`;
+const MEDITATION_SESSIONS_URL = integrationApiUrl('meditation-sessions');
 
 interface MeditationSession {
   id: string;
@@ -32,7 +29,7 @@ interface ApiError {
   };
 }
 
-async function checkEmulatorRunning(): Promise<boolean> {
+async function checkApiRunning(): Promise<boolean> {
   try {
     const response = await fetch(HEALTH_URL);
     return response.ok;
@@ -53,12 +50,11 @@ function createValidMeditationSession(): object {
 
 describe('Meditation Sessions API (Integration)', () => {
   beforeAll(async () => {
-    const isRunning = await checkEmulatorRunning();
+    const isRunning = await checkApiRunning();
     if (!isRunning) {
       throw new Error(
-        'Firebase emulator is not running.\n' +
-          'Start it with: npm run emulators:fresh\n' +
-          'Then run tests with: npm run test:integration'
+        'Standalone integration API is not running.\n' +
+          'Run the suite with: npm run test:integration:emulator'
       );
     }
   });
@@ -125,7 +121,8 @@ describe('Meditation Sessions API (Integration)', () => {
     const response = await fetch(`${MEDITATION_SESSIONS_URL}/latest`);
     expect(response.status).toBe(200);
 
-    const result = (await response.json()) as ApiResponse<MeditationSession | null>;
+    const result =
+      (await response.json()) as ApiResponse<MeditationSession | null>;
     expect(result.success).toBe(true);
     // May or may not have a session depending on timing
     if (result.data !== null) {
@@ -141,7 +138,8 @@ describe('Meditation Sessions API (Integration)', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(createValidMeditationSession()),
     });
-    const createResult = (await createResponse.json()) as ApiResponse<MeditationSession>;
+    const createResult =
+      (await createResponse.json()) as ApiResponse<MeditationSession>;
     const sessionId = createResult.data.id;
 
     // Get by ID

@@ -11,7 +11,10 @@ pub struct SimulatorCandidate {
 
 fn ios_section_re() -> io::Result<Regex> {
     Regex::new(r"^\s*(.+?)\s+\(([A-Fa-f0-9-]+)\)").map_err(|error| {
-        io::Error::new(io::ErrorKind::InvalidInput, format!("invalid simulator regex: {error}"))
+        io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("invalid simulator regex: {error}"),
+        )
     })
 }
 
@@ -50,10 +53,12 @@ pub fn parse_available_simulators(raw: &str) -> Vec<SimulatorCandidate> {
         }
 
         if let Some(captures) = re.captures(line) {
-            let name: Option<String> = captures.get(1).map(|m: regex::Match<'_>| {
-                m.as_str().trim().to_string()
-            });
-            let udid: Option<String> = captures.get(2).map(|m: regex::Match<'_>| m.as_str().to_string());
+            let name: Option<String> = captures
+                .get(1)
+                .map(|m: regex::Match<'_>| m.as_str().trim().to_string());
+            let udid: Option<String> = captures
+                .get(2)
+                .map(|m: regex::Match<'_>| m.as_str().to_string());
             if let (Some(name), Some(udid)) = (name, udid) {
                 if !name.is_empty() && !udid.is_empty() {
                     candidates.push(SimulatorCandidate { name, udid });
@@ -98,7 +103,8 @@ pub fn choose_simulator(
     let mut candidates = parse_available_simulators(candidate_output);
 
     if let Some(request) = device_request {
-        candidates.retain(|candidate| candidate.udid == request || candidate.name.contains(request));
+        candidates
+            .retain(|candidate| candidate.udid == request || candidate.name.contains(request));
     }
 
     if candidates.is_empty() {
@@ -111,12 +117,13 @@ pub fn choose_simulator(
         ));
     }
 
-    let (iphones, ipads): (Vec<_>, Vec<_>) = candidates.into_iter().partition(|entry| {
-        entry.name.starts_with("iPhone")
-    });
+    let (iphones, ipads): (Vec<_>, Vec<_>) = candidates
+        .into_iter()
+        .partition(|entry| entry.name.starts_with("iPhone"));
 
     for candidate in iphones.into_iter().chain(ipads.into_iter()) {
-        if let Some(lock_path) = claim_or_reuse_lock(device_locks_dir, &candidate.udid, sanitized_session)?
+        if let Some(lock_path) =
+            claim_or_reuse_lock(device_locks_dir, &candidate.udid, sanitized_session)?
         {
             return Ok((candidate.name, candidate.udid, lock_path));
         }
@@ -179,10 +186,7 @@ pub fn unlock_lock(lock_dir: &Path) -> io::Result<()> {
     Ok(())
 }
 
-pub fn unlock_lock_by_session(
-    device_locks_dir: &Path,
-    session: &str,
-) -> io::Result<Vec<PathBuf>> {
+pub fn unlock_lock_by_session(device_locks_dir: &Path, session: &str) -> io::Result<Vec<PathBuf>> {
     let mut released = Vec::new();
     if !device_locks_dir.exists() {
         return Ok(released);
@@ -232,8 +236,7 @@ mod tests {
     #[test]
     fn choose_prefers_iphone() {
         let dir = tempdir().expect("tmp");
-        let result = choose_simulator(Some("iPad"), SAMPLE, dir.path(), "alpha")
-            .expect("choose");
+        let result = choose_simulator(Some("iPad"), SAMPLE, dir.path(), "alpha").expect("choose");
         assert_eq!(result.0, "iPad Pro");
         assert_eq!(result.1, "00000000-BBBB-BBBB-BBBB-BBBBBBBBBBBB");
     }
@@ -249,22 +252,26 @@ mod tests {
         fs::write(second.join("session"), "other\n").expect("owner2");
 
         let err = choose_simulator(None, SAMPLE, dir.path(), "beta").expect_err("locked");
-        assert!(err.to_string().contains("No unlocked simulator is available"));
+        assert!(err
+            .to_string()
+            .contains("No unlocked simulator is available"));
     }
 
     #[test]
     fn claim_or_reuse_lock_reuses_owner() {
         let dir = tempdir().expect("tmp");
-        let candidate = dir
-            .path()
-            .join("00000000-AAAA-AAAA-AAAA-AAAAAAAAAAAA.lock");
+        let candidate = dir.path().join("00000000-AAAA-AAAA-AAAA-AAAAAAAAAAAA.lock");
         let _ = fs::create_dir_all(&candidate);
         fs::write(candidate.join("session"), "owner\n").expect("owner");
-        assert!(claim_or_reuse_lock(dir.path(), "00000000-AAAA-AAAA-AAAA-AAAAAAAAAAAA", "owner")
-            .expect("lock")
-            .is_some());
-        assert!(claim_or_reuse_lock(dir.path(), "00000000-AAAA-AAAA-AAAA-AAAAAAAAAAAA", "other")
-            .expect("lock")
-            .is_none());
+        assert!(
+            claim_or_reuse_lock(dir.path(), "00000000-AAAA-AAAA-AAAA-AAAAAAAAAAAA", "owner")
+                .expect("lock")
+                .is_some()
+        );
+        assert!(
+            claim_or_reuse_lock(dir.path(), "00000000-AAAA-AAAA-AAAA-AAAAAAAAAAAA", "other")
+                .expect("lock")
+                .is_none()
+        );
     }
 }

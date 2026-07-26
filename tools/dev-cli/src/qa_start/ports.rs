@@ -4,13 +4,8 @@ use std::path::Path;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Ports {
-    pub functions: u16,
-    pub hosting: u16,
-    pub firestore: u16,
-    pub ui: u16,
+    pub api: u16,
     pub otel: u16,
-    pub hub: u16,
-    pub logging: u16,
 }
 
 pub fn sanitize_id(raw: &str) -> String {
@@ -42,13 +37,8 @@ impl Ports {
     pub fn derive(seed: &str) -> io::Result<Self> {
         let base = pick_ports_from_hash(seed)?;
         Ok(Self {
-            functions: base,
-            hosting: base + 1,
-            firestore: base + 2,
-            ui: base + 3,
-            otel: base + 4,
-            hub: base + 5,
-            logging: base + 6,
+            api: base,
+            otel: base + 1,
         })
     }
 }
@@ -76,12 +66,7 @@ mod tests {
     #[test]
     fn ports_are_offset_from_base() {
         let ports = Ports::derive("demo").expect("derive ports");
-        assert_eq!(ports.hosting, ports.functions + 1);
-        assert_eq!(ports.firestore, ports.functions + 2);
-        assert_eq!(ports.ui, ports.functions + 3);
-        assert_eq!(ports.otel, ports.functions + 4);
-        assert_eq!(ports.hub, ports.functions + 5);
-        assert_eq!(ports.logging, ports.functions + 6);
+        assert_eq!(ports.otel, ports.api + 1);
     }
 
     #[test]

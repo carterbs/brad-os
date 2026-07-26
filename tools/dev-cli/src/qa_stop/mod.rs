@@ -8,14 +8,15 @@ mod process_kill;
 mod simulator;
 mod state;
 
-use locks::{release_matching_locks, release_lock_dir};
-use ports::cleanup_listener_ports;
+use locks::{release_lock_dir, release_matching_locks};
+use ports::cleanup_listener_port;
 
+use crate::qa_process::{QaProcessIdentity, API_COMMAND_MARKER, OTEL_COMMAND_MARKER};
+pub use crate::runner::{CommandCall, CommandResult, CommandRunner, RealCommandRunner};
 pub use cli::CliUsage;
-pub use cli::{ParsedArgs, ParsedArgsError, parse_args};
+pub use cli::{parse_args, ParsedArgs, ParsedArgsError};
 pub use locks::is_owner_of_lock;
 pub use process_kill::stop_pid_file;
-pub use crate::runner::{CommandCall, CommandResult, CommandRunner, RealCommandRunner};
 pub use simulator::cleanup_simulator;
 pub use state::{create_env_file, default_session_id, sanitize_id, StopContext};
 
@@ -50,8 +51,8 @@ fn run_internal<R: CommandRunner>(
             let session_id = match session_id.filter(|value| !value.is_empty()) {
                 Some(raw_id) => sanitize_id(&raw_id),
                 None => {
-                    let generated = default_session_id(repo_root)
-                        .map_err(|error| error.to_string())?;
+                    let generated =
+                        default_session_id(repo_root).map_err(|error| error.to_string())?;
                     messages.push(format!(
                         "No --id provided. Using worktree session id: {generated}"
                     ));
@@ -59,32 +60,51 @@ fn run_internal<R: CommandRunner>(
                 }
             };
 
-            let context = StopContext::load(&session_id, qa_state_root).map_err(|error| error.to_string())?;
+            let context = StopContext::load(&session_id, qa_state_root, repo_root)
+                .map_err(|error| error.to_string())?;
+            let api_identity = QaProcessIdentity::new(&context.worktree_root, API_COMMAND_MARKER);
+            let otel_identity = QaProcessIdentity::new(&context.worktree_root, OTEL_COMMAND_MARKER);
 
             let otel_pid_file = stop_pid_file(
                 &context.otel_pid_file,
                 "OTel collector",
+                &otel_identity,
                 command_runner,
                 sleep,
             )
             .map_err(|error| error.to_string())?;
             messages.push(otel_pid_file);
 
-            let firebase_pid_file = stop_pid_file(
-                &context.firebase_pid_file,
-                "Firebase emulator",
+            let api_pid_file = stop_pid_file(
+                &context.api_pid_file,
+                "Standalone API",
+                &api_identity,
                 command_runner,
                 sleep,
             )
             .map_err(|error| error.to_string())?;
-            messages.push(firebase_pid_file);
+            messages.push(api_pid_file);
 
-            for port in context.ports.iter().filter_map(|value| value.as_deref()) {
-                cleanup_listener_ports(command_runner, port);
+            if let Some(port) = context.ports[0].as_deref() {
+                messages.extend(
+                    cleanup_listener_port(command_runner, port, &api_identity, sleep)
+                        .map_err(|error| error.to_string())?,
+                );
+            }
+            if let Some(port) = context.ports[1].as_deref() {
+                messages.extend(
+                    cleanup_listener_port(command_runner, port, &otel_identity, sleep)
+                        .map_err(|error| error.to_string())?,
+                );
             }
 
             if let Some(simulator_udid) = context.simulator_udid.as_deref() {
-                cleanup_simulator(command_runner, simulator_udid, shutdown_simulator, &mut messages);
+                cleanup_simulator(
+                    command_runner,
+                    simulator_udid,
+                    shutdown_simulator,
+                    &mut messages,
+                );
             }
 
             if let Some(lock_dir) = context.simulator_lock_dir.as_deref() {
@@ -115,13 +135,9 @@ pub fn run_with_runner<R: CommandRunner>(
     qa_state_root: &str,
     command_runner: &R,
 ) -> Result<QaStopReport, String> {
-    run_internal(
-        args,
-        repo_root,
-        qa_state_root,
-        command_runner,
-        &|_| std::thread::sleep(Duration::from_secs(1)),
-    )
+    run_internal(args, repo_root, qa_state_root, command_runner, &|_| {
+        std::thread::sleep(Duration::from_secs(1))
+    })
 }
 
 pub fn run_with_runner_and_sleep<R: CommandRunner>(

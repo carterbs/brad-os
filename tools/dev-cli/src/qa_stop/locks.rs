@@ -2,10 +2,13 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
-pub fn release_lock_dir(lock_dir: &str, _owner_session: &str) -> bool {
+pub fn release_lock_dir(lock_dir: &str, owner_session: &str) -> bool {
     let lock_path = Path::new(lock_dir);
 
     if !lock_path.is_dir() {
+        return false;
+    }
+    if !is_owner_of_lock(&lock_path.join("session"), owner_session).unwrap_or(false) {
         return false;
     }
 
@@ -60,8 +63,31 @@ pub fn is_owner_of_lock(session_file: &Path, expected_owner: &str) -> io::Result
     Ok(owner == expected_owner)
 }
 
-
 fn read_owner(session_file: &Path) -> io::Result<String> {
     let contents = fs::read_to_string(session_file)?;
     Ok(contents.trim().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn explicit_lock_release_requires_matching_owner() {
+        let root = tempfile::tempdir().expect("root");
+        let lock_dir = root.path().join("device.lock");
+        fs::create_dir_all(&lock_dir).expect("lock");
+        fs::write(lock_dir.join("session"), "other\n").expect("owner");
+
+        assert!(!release_lock_dir(
+            lock_dir.to_str().expect("lock path"),
+            "demo"
+        ));
+        assert!(lock_dir.exists());
+        assert!(release_lock_dir(
+            lock_dir.to_str().expect("lock path"),
+            "other"
+        ));
+        assert!(!lock_dir.exists());
+    }
 }

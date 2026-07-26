@@ -19,9 +19,9 @@ The service uses request-based billing, minimum instances `0`, service-level max
 instances `1`, revision-level maximum instances `1`, concurrency `20`, 1 vCPU, 512 MiB,
 and a 180-second request timeout.
 
-Production is Cloud Run-only: no Firebase Functions are deployed. Firebase Functions
-emulator adapters remain available for local development, but they are not a production
-deployment target.
+Production and local development use the same standalone Express service. No Firebase
+Functions are deployed or retained as a local adapter. Firebase Hosting remains the
+production front door; automated integration tests retain only the Firestore emulator.
 
 ## Scaling and startup guardrails
 

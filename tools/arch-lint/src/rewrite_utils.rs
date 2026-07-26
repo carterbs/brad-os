@@ -18,22 +18,6 @@ pub const CLOUD_RUN_SERVICE_ID: &str = "brad-os-api";
 pub const CLOUD_RUN_REGION: &str = "us-central1";
 pub const CLOUD_RUN_API_SOURCE: &str = "/api/**";
 
-pub fn to_pascal_case(s: &str) -> String {
-    s.split('-')
-        .filter(|seg| !seg.is_empty())
-        .map(|seg| {
-            let mut chars = seg.chars();
-            match chars.next() {
-                Some(c) => {
-                    let upper: String = c.to_uppercase().collect();
-                    format!("{}{}", upper, chars.as_str())
-                }
-                None => String::new(),
-            }
-        })
-        .collect()
-}
-
 pub fn to_camel_case(s: &str) -> String {
     let segments: Vec<&str> = s.split('-').filter(|seg| !seg.is_empty()).collect();
     if segments.is_empty() {
@@ -58,30 +42,12 @@ pub fn to_camel_case(s: &str) -> String {
     format!("{}{}", first, rest)
 }
 
-pub fn get_function_stem(entry: &EndpointEntry) -> String {
-    entry
-        .function_stem
-        .clone()
-        .unwrap_or_else(|| to_pascal_case(&entry.route_path))
-}
-
 pub fn get_app_export_name(entry: &EndpointEntry) -> String {
     format!("{}App", to_camel_case(&entry.handler_file))
 }
 
-pub fn get_dev_function_name(entry: &EndpointEntry) -> String {
-    format!("dev{}", get_function_stem(entry))
-}
-
-pub fn get_prod_function_name(entry: &EndpointEntry) -> String {
-    format!("prod{}", get_function_stem(entry))
-}
-
 pub fn generate_rewrites(manifest: &[EndpointEntry]) -> Vec<FirebaseRewrite> {
-    if !manifest
-        .iter()
-        .any(|entry| entry.dev_only != Some(true) && !entry.route_path.is_empty())
-    {
+    if !manifest.iter().any(|entry| !entry.route_path.is_empty()) {
         return Vec::new();
     }
 
@@ -153,10 +119,6 @@ mod tests {
         EndpointEntry {
             route_path: "health".to_string(),
             handler_file: "health".to_string(),
-            options: None,
-            dev_only: None,
-            function_stem: None,
-            custom_source: None,
         }
     }
 
@@ -177,10 +139,9 @@ mod tests {
     }
 
     #[test]
-    fn does_not_publish_debug_only_manifest() {
+    fn rejects_an_empty_route_manifest() {
         let mut entry = api_entry();
         entry.route_path = String::new();
-        entry.dev_only = Some(true);
         assert!(generate_rewrites(&[entry]).is_empty());
     }
 

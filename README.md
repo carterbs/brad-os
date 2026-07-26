@@ -51,20 +51,20 @@ brad-os/
 │   ├── BradOSWatch/     # watchOS companion
 │   ├── BradOSWidget/    # Home screen widgets
 │   └── project.yml      # XcodeGen spec
-├── packages/functions/  # Unified Express API: Cloud Run production + local emulator adapters
+├── packages/functions/  # Unified Express API: Cloud Run + standalone local runtime
 │   └── src/
-│       ├── routes/      # Express route handlers
+│       ├── handlers/    # Express route handlers
 │       ├── schemas/     # Zod validation schemas
 │       ├── types/       # Shared TypeScript types
 │       └── services/    # Business logic
 ├── docs/                # Conventions, architecture maps, guides
-└── scripts/             # Dev tooling (validate, seed, lint)
+└── scripts/             # Dev tooling (validate, QA, deploy, lint)
 ```
 
 - **iOS App** — SwiftUI app with shared APIClient, App Check auth, and HealthKit integration
 - **Cloud Run API** — One scale-to-zero Express service serves `/api/dev` and `/api/prod`, backed by Firestore
 - **Production Routing** — Firebase Hosting sends `/api/**` to Cloud Run; no Firebase Functions are deployed
-- **Emulators** — Local dev retains Firebase Functions (:5001), Firestore (:8080), and Hosting (:5002) emulators
+- **Local QA** — The same Express service runs on loopback and uses the real `dev_*` Firestore namespace; automated integration tests use only the Firestore emulator
 
 ## Development
 
@@ -73,8 +73,9 @@ See **[Local Dev Quickstart](docs/guides/local-dev-quickstart.md)** for the full
 ```bash
 npm install              # Install dependencies (also sets up git hooks)
 npm run validate         # Full check: typecheck + lint + test + architecture
-npm run emulators        # Start Firebase emulators (port 5001)
-npm run build            # Build the unified API and local emulator adapters
+npm run qa:start         # Launch simulator + standalone API + OTel
+npm run build            # Build the unified API
+npm run test:integration:emulator # Standalone API + disposable Firestore emulator
 npm run test:integration:container # Build and smoke-test the Cloud Run image
 npm run typecheck        # TypeScript compilation
 npm run lint             # Oxlint checks

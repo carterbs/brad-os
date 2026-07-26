@@ -1,22 +1,19 @@
 /**
  * Integration Tests for Workout Sets API
  *
- * These tests run against the Firebase emulator.
- * Prerequisites:
- * - Emulator running: npm run emulators:fresh
- * - Run tests: npm run test:integration
+ * These tests run against the standalone API backed by the Firestore emulator.
+ * Run with: npm run test:integration:emulator
  */
 
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { type ApiResponse } from '../utils/index.js';
+import { HEALTH_URL, integrationApiUrl } from './api-config.js';
 
-const FUNCTIONS_URL = 'http://127.0.0.1:5001/brad-os/us-central1';
-const HEALTH_URL = `${FUNCTIONS_URL}/devHealth`;
-const WORKOUT_SETS_URL = `${FUNCTIONS_URL}/devWorkoutSets`;
-const WORKOUTS_URL = `${FUNCTIONS_URL}/devWorkouts`;
-const MESOCYCLES_URL = `${FUNCTIONS_URL}/devMesocycles`;
-const PLANS_URL = `${FUNCTIONS_URL}/devPlans`;
-const EXERCISES_URL = `${FUNCTIONS_URL}/devExercises`;
+const WORKOUT_SETS_URL = integrationApiUrl('workout-sets');
+const WORKOUTS_URL = integrationApiUrl('workouts');
+const MESOCYCLES_URL = integrationApiUrl('mesocycles');
+const PLANS_URL = integrationApiUrl('plans');
+const EXERCISES_URL = integrationApiUrl('exercises');
 
 interface WorkoutSet {
   id: string;
@@ -33,6 +30,7 @@ interface WorkoutSet {
 
 interface Workout {
   id: string;
+  mesocycle_id: string;
   status: string;
 }
 
@@ -64,7 +62,7 @@ const createdPlans: string[] = [];
 const createdExercises: string[] = [];
 const createdMesocycles: string[] = [];
 
-async function checkEmulatorRunning(): Promise<boolean> {
+async function checkApiRunning(): Promise<boolean> {
   try {
     const response = await fetch(HEALTH_URL);
     return response.ok;
@@ -95,7 +93,10 @@ async function createTestExercise(): Promise<string> {
   return result.data.id;
 }
 
-async function createTestPlanWithDays(): Promise<{ planId: string; dayId: string }> {
+async function createTestPlanWithDays(): Promise<{
+  planId: string;
+  dayId: string;
+}> {
   const exerciseId = await createTestExercise();
 
   const planResponse = await fetch(PLANS_URL, {
@@ -139,7 +140,10 @@ async function createTestPlanWithDays(): Promise<{ planId: string; dayId: string
   return { planId, dayId };
 }
 
-async function createTestMesocycleWithWorkout(): Promise<{ workoutId: string; setId: string }> {
+async function createTestMesocycleWithWorkout(): Promise<{
+  workoutId: string;
+  setId: string;
+}> {
   const { planId } = await createTestPlanWithDays();
   const startDate = getTodayDate();
 
@@ -151,14 +155,27 @@ async function createTestMesocycleWithWorkout(): Promise<{ workoutId: string; se
       start_date: startDate,
     }),
   });
-  const mesocycleResult = (await mesocycleResponse.json()) as ApiResponse<Mesocycle>;
-  createdMesocycles.push(mesocycleResult.data.id);
+  const mesocycleResult =
+    (await mesocycleResponse.json()) as ApiResponse<Mesocycle>;
+  const mesocycleId = mesocycleResult.data.id;
+  createdMesocycles.push(mesocycleId);
+
+  const startResponse = await fetch(`${MESOCYCLES_URL}/${mesocycleId}/start`, {
+    method: 'PUT',
+  });
+  if (!startResponse.ok) {
+    throw new Error(`Failed to start mesocycle: ${startResponse.status}`);
+  }
 
   // List workouts to get one
   const workoutsResponse = await fetch(WORKOUTS_URL);
-  const workoutsResult = (await workoutsResponse.json()) as ApiResponse<Workout[]>;
+  const workoutsResult = (await workoutsResponse.json()) as ApiResponse<
+    Workout[]
+  >;
 
-  const firstWorkout = workoutsResult.data[0];
+  const firstWorkout = workoutsResult.data.find(
+    (workout) => workout.mesocycle_id === mesocycleId
+  );
   if (!firstWorkout) {
     throw new Error('No workouts created from mesocycle');
   }
@@ -208,12 +225,11 @@ async function cleanup(): Promise<void> {
 
 describe('Workout Sets API (Integration)', () => {
   beforeAll(async () => {
-    const isRunning = await checkEmulatorRunning();
+    const isRunning = await checkApiRunning();
     if (!isRunning) {
       throw new Error(
-        'Firebase emulator is not running.\n' +
-          'Start it with: npm run emulators:fresh\n' +
-          'Then run tests with: npm run test:integration'
+        'Standalone integration API is not running.\n' +
+          'Run the suite with: npm run test:integration:emulator'
       );
     }
   });

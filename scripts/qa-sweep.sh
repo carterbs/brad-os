@@ -17,9 +17,9 @@ Options:
   --id <id>            Optional QA session identifier.
   --agent <id>         Backward-compatible alias for --id.
   --device <name|udid> Preferred simulator to lease.
-  --fresh              Clear QA session data before start.
+  --fresh              Clear local logs/telemetry; shared dev Firestore data persists.
   --timeout <seconds>  Startup wait timeout for qa:start.
-  --project-id <id>    Firebase project ID override.
+  --project-id <id>    GCP/Firebase project ID override.
   -h, --help           Show this help.
 USAGE
 }
@@ -83,6 +83,6 @@ echo "[4/4] Basic health checks..."
 STATE_FILE="$QA_STATE_ROOT/sessions/$SANITIZED_SESSION/state.env"
 # shellcheck disable=SC1090
 source "$STATE_FILE"
-curl -sSf "http://127.0.0.1:${FUNCTIONS_PORT}/${PROJECT_ID}/us-central1/devHealth" >/dev/null
+curl -sSf "http://127.0.0.1:${API_PORT}/api/dev/health" >/dev/null
 
 echo "QA sweep complete for session: $SANITIZED_SESSION"

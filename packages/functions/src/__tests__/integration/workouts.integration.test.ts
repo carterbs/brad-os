@@ -1,21 +1,18 @@
 /**
  * Integration Tests for Workouts API
  *
- * These tests run against the Firebase emulator.
- * Prerequisites:
- * - Emulator running: npm run emulators:fresh
- * - Run tests: npm run test:integration
+ * These tests run against the standalone API backed by the Firestore emulator.
+ * Run with: npm run test:integration:emulator
  */
 
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { type ApiResponse } from '../utils/index.js';
+import { HEALTH_URL, integrationApiUrl } from './api-config.js';
 
-const FUNCTIONS_URL = 'http://127.0.0.1:5001/brad-os/us-central1';
-const HEALTH_URL = `${FUNCTIONS_URL}/devHealth`;
-const WORKOUTS_URL = `${FUNCTIONS_URL}/devWorkouts`;
-const MESOCYCLES_URL = `${FUNCTIONS_URL}/devMesocycles`;
-const PLANS_URL = `${FUNCTIONS_URL}/devPlans`;
-const EXERCISES_URL = `${FUNCTIONS_URL}/devExercises`;
+const WORKOUTS_URL = integrationApiUrl('workouts');
+const MESOCYCLES_URL = integrationApiUrl('mesocycles');
+const PLANS_URL = integrationApiUrl('plans');
+const EXERCISES_URL = integrationApiUrl('exercises');
 
 interface Workout {
   id: string;
@@ -80,7 +77,7 @@ const createdPlans: string[] = [];
 const createdExercises: string[] = [];
 const createdMesocycles: string[] = [];
 
-async function checkEmulatorRunning(): Promise<boolean> {
+async function checkApiRunning(): Promise<boolean> {
   try {
     const response = await fetch(HEALTH_URL);
     return response.ok;
@@ -111,7 +108,11 @@ async function createTestExercise(): Promise<string> {
   return result.data.id;
 }
 
-async function createTestPlanWithDays(): Promise<{ planId: string; dayId: string; exerciseId: string }> {
+async function createTestPlanWithDays(): Promise<{
+  planId: string;
+  dayId: string;
+  exerciseId: string;
+}> {
   // Create exercise first
   const exerciseId = await createTestExercise();
 
@@ -159,7 +160,10 @@ async function createTestPlanWithDays(): Promise<{ planId: string; dayId: string
   return { planId, dayId, exerciseId };
 }
 
-async function createTestMesocycle(): Promise<{ mesocycleId: string; exerciseId: string }> {
+async function createTestMesocycle(): Promise<{
+  mesocycleId: string;
+  exerciseId: string;
+}> {
   const { planId, exerciseId } = await createTestPlanWithDays();
   const startDate = getTodayDate();
 
@@ -210,12 +214,11 @@ async function cleanup(): Promise<void> {
 
 describe('Workouts API (Integration)', () => {
   beforeAll(async () => {
-    const isRunning = await checkEmulatorRunning();
+    const isRunning = await checkApiRunning();
     if (!isRunning) {
       throw new Error(
-        'Firebase emulator is not running.\n' +
-          'Start it with: npm run emulators:fresh\n' +
-          'Then run tests with: npm run test:integration'
+        'Standalone integration API is not running.\n' +
+          'Run the suite with: npm run test:integration:emulator'
       );
     }
   });
@@ -233,14 +236,15 @@ describe('Workouts API (Integration)', () => {
     expect(Array.isArray(result.data)).toBe(true);
   });
 
-  it('should get today\'s workout', async () => {
+  it("should get today's workout", async () => {
     // Create a mesocycle with today's workout
     await createTestMesocycle();
 
     const response = await fetch(`${WORKOUTS_URL}/today`);
     expect(response.status).toBe(200);
 
-    const result = (await response.json()) as ApiResponse<WorkoutWithExercises | null>;
+    const result =
+      (await response.json()) as ApiResponse<WorkoutWithExercises | null>;
     expect(result.success).toBe(true);
     // May or may not have a workout for today depending on timing
   });
@@ -259,7 +263,8 @@ describe('Workouts API (Integration)', () => {
       const response = await fetch(`${WORKOUTS_URL}/${workoutId}`);
       expect(response.status).toBe(200);
 
-      const result = (await response.json()) as ApiResponse<WorkoutWithExercises>;
+      const result =
+        (await response.json()) as ApiResponse<WorkoutWithExercises>;
       expect(result.success).toBe(true);
       expect(result.data.id).toBe(workoutId);
       expect(result.data.exercises).toBeDefined();
@@ -273,12 +278,15 @@ describe('Workouts API (Integration)', () => {
     // List workouts to find a pending one
     const listResponse = await fetch(WORKOUTS_URL);
     const listResult = (await listResponse.json()) as ApiResponse<Workout[]>;
-    const pendingWorkout = listResult.data.find(w => w.status === 'pending');
+    const pendingWorkout = listResult.data.find((w) => w.status === 'pending');
 
     if (pendingWorkout) {
-      const response = await fetch(`${WORKOUTS_URL}/${pendingWorkout.id}/start`, {
-        method: 'PUT',
-      });
+      const response = await fetch(
+        `${WORKOUTS_URL}/${pendingWorkout.id}/start`,
+        {
+          method: 'PUT',
+        }
+      );
       expect(response.status).toBe(200);
 
       const result = (await response.json()) as ApiResponse<Workout>;
@@ -294,16 +302,21 @@ describe('Workouts API (Integration)', () => {
     // List workouts and start one
     const listResponse = await fetch(WORKOUTS_URL);
     const listResult = (await listResponse.json()) as ApiResponse<Workout[]>;
-    const pendingWorkout = listResult.data.find(w => w.status === 'pending');
+    const pendingWorkout = listResult.data.find((w) => w.status === 'pending');
 
     if (pendingWorkout) {
       // Start first
-      await fetch(`${WORKOUTS_URL}/${pendingWorkout.id}/start`, { method: 'PUT' });
-
-      // Complete
-      const response = await fetch(`${WORKOUTS_URL}/${pendingWorkout.id}/complete`, {
+      await fetch(`${WORKOUTS_URL}/${pendingWorkout.id}/start`, {
         method: 'PUT',
       });
+
+      // Complete
+      const response = await fetch(
+        `${WORKOUTS_URL}/${pendingWorkout.id}/complete`,
+        {
+          method: 'PUT',
+        }
+      );
       expect(response.status).toBe(200);
 
       const result = (await response.json()) as ApiResponse<Workout>;
@@ -319,12 +332,15 @@ describe('Workouts API (Integration)', () => {
     // List workouts to find a pending one
     const listResponse = await fetch(WORKOUTS_URL);
     const listResult = (await listResponse.json()) as ApiResponse<Workout[]>;
-    const pendingWorkout = listResult.data.find(w => w.status === 'pending');
+    const pendingWorkout = listResult.data.find((w) => w.status === 'pending');
 
     if (pendingWorkout) {
-      const response = await fetch(`${WORKOUTS_URL}/${pendingWorkout.id}/skip`, {
-        method: 'PUT',
-      });
+      const response = await fetch(
+        `${WORKOUTS_URL}/${pendingWorkout.id}/skip`,
+        {
+          method: 'PUT',
+        }
+      );
       expect(response.status).toBe(200);
 
       const result = (await response.json()) as ApiResponse<Workout>;
@@ -374,7 +390,10 @@ describe('Workouts API (Integration)', () => {
 
       // Could be 201 (success) or 404 if no sets exist for that exercise
       if (response.status === 201) {
-        const result = (await response.json()) as ApiResponse<{ set: WorkoutSet; total_sets: number }>;
+        const result = (await response.json()) as ApiResponse<{
+          set: WorkoutSet;
+          total_sets: number;
+        }>;
         expect(result.success).toBe(true);
         expect(result.data.set).toBeDefined();
         expect(result.data.total_sets).toBeGreaterThan(0);
@@ -409,7 +428,10 @@ describe('Workouts API (Integration)', () => {
 
       // Could be 200 (success) or 400 if no pending sets to remove
       if (response.status === 200) {
-        const result = (await response.json()) as ApiResponse<{ removed_set_id: string; remaining_sets: number }>;
+        const result = (await response.json()) as ApiResponse<{
+          removed_set_id: string;
+          remaining_sets: number;
+        }>;
         expect(result.success).toBe(true);
         expect(result.data.removed_set_id).toBeDefined();
       }
@@ -440,17 +462,24 @@ describe('Workouts API (Integration)', () => {
     // List workouts and complete one
     const listResponse = await fetch(WORKOUTS_URL);
     const listResult = (await listResponse.json()) as ApiResponse<Workout[]>;
-    const pendingWorkout = listResult.data.find(w => w.status === 'pending');
+    const pendingWorkout = listResult.data.find((w) => w.status === 'pending');
 
     if (pendingWorkout) {
       // Start and complete
-      await fetch(`${WORKOUTS_URL}/${pendingWorkout.id}/start`, { method: 'PUT' });
-      await fetch(`${WORKOUTS_URL}/${pendingWorkout.id}/complete`, { method: 'PUT' });
-
-      // Try to start again
-      const response = await fetch(`${WORKOUTS_URL}/${pendingWorkout.id}/start`, {
+      await fetch(`${WORKOUTS_URL}/${pendingWorkout.id}/start`, {
         method: 'PUT',
       });
+      await fetch(`${WORKOUTS_URL}/${pendingWorkout.id}/complete`, {
+        method: 'PUT',
+      });
+
+      // Try to start again
+      const response = await fetch(
+        `${WORKOUTS_URL}/${pendingWorkout.id}/start`,
+        {
+          method: 'PUT',
+        }
+      );
       expect(response.status).toBe(400);
 
       const result = (await response.json()) as ApiError;

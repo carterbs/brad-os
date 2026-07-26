@@ -1,11 +1,21 @@
 # Isolated QA Loop
 
-Run a fully isolated local loop for a specific QA session so multiple agents do not share:
-- Firebase emulator ports/data
-- iOS simulator instance
-- OTel collector/files
+Run a port- and device-isolated local loop for a specific QA session so multiple agents
+do not share:
+
+- standalone API ports/processes
+- iOS simulator instances
+- OTel collector ports/files
+
+The application database is deliberately shared: every interactive session uses the
+real `brad-os` `dev_*` Firestore collections. Use the automated integration command when
+tests require disposable data.
+
+`--fresh` only clears the selected session's local logs and telemetry. It never clears,
+resets, or isolates the shared development Firestore data.
 
 The simulator coordination is done via a lease pool:
+
 - `qa:start` (default one-command flow) leases one available iOS simulator from the host's existing device list.
 - Leases are tracked in `/tmp/brad-os-qa/device-locks/<udid>.lock` (shared across worktrees).
 - Another session cannot claim the same simulator until `qa:stop` releases the lock.
@@ -24,24 +34,32 @@ npm run qa:start -- --id alice --device \"iPhone 17\"
 ```
 
 Default `qa:start` command:
-- Starts isolated environment (Firebase + OTel + simulator lease)
+
+- Starts the loopback standalone API, OTel, and a simulator lease
 - Builds iOS app
 - Installs + launches app
 - Runs basic health check
 
 The environment startup step (`advanced:qa:env:start`) does:
-- Builds the unified API and local Functions emulator adapters
-- Starts Firebase emulators on session-specific ports with session-specific import/export data
+
+- Builds the unified API and starts it at a session-specific loopback port
+- Mounts only `/api/dev` and connects to real `brad-os` `dev_*` Firestore collections
+- Keeps App Check enabled; the simulator must use a registered debug token
+- Loads optional OpenAI/Strava secrets from the environment or Secret Manager
 - Starts OTel collector on a session-specific port and writes under `/tmp/brad-os-qa/sessions/<id>/otel/`
 - Leases/boots an existing host simulator
 - Injects simulator env vars:
-  - `BRAD_OS_API_URL=http://127.0.0.1:<hosting-port>/api/dev`
+  - `BRAD_OS_API_URL=http://127.0.0.1:<api-port>/api/dev`
   - `BRAD_OS_OTEL_BASE_URL=http://127.0.0.1:<otel-port>`
 
 State/logs are saved to:
+
 - `/tmp/brad-os-qa/sessions/<id>/state.env`
-- `/tmp/brad-os-qa/sessions/<id>/logs/firebase.log`
+- `/tmp/brad-os-qa/sessions/<id>/logs/api.log`
 - `/tmp/brad-os-qa/sessions/<id>/logs/otel.log`
+
+The state file records `API_PORT`, `API_LOG`, `API_PID_FILE`, `OTEL_PORT`,
+`OTEL_LOG`, and `OTEL_PID_FILE` alongside simulator/session metadata.
 
 Override the shared root if needed:
 
@@ -85,11 +103,23 @@ npm run qa:stop -- --id alice --shutdown-simulator
 ## Useful Options
 
 ```bash
-# Clear previous data + telemetry for this session first
+# Clear previous logs + telemetry for this session (not Firestore data)
 npm run qa:start -- --id alice --fresh
 
 # Skip one subsystem if you already manage it separately
-npm run advanced:qa:env:start -- --id alice --no-firebase
+npm run advanced:qa:env:start -- --id alice --no-api
 npm run advanced:qa:env:start -- --id alice --no-otel
 npm run advanced:qa:env:start -- --id alice --no-simulator
 ```
+
+## Disposable Integration Data
+
+```bash
+npm run test:integration:emulator
+```
+
+This separate workflow starts the same standalone API against a fresh Firestore emulator,
+enables the tightly guarded test-only App Check bypass, runs the suite, and tears both
+processes down. It does not start Functions or Hosting emulators and cannot write to the
+real development database. Firebase CLI may start its local UI and coordination
+companions alongside Firestore; they are also torn down by the runner.

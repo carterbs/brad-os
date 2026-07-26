@@ -18,7 +18,7 @@ describe('run-integration-tests.sh', () => {
     expect(() => accessSync(SCRIPT_PATH, constants.X_OK)).not.toThrow();
   });
 
-  it('should set up a cleanup trap on EXIT', () => {
+  it('should delegate lifecycle cleanup to the Rust runner', () => {
     const content = readFileSync(SCRIPT_PATH, 'utf-8');
     expect(content).toContain('brad-run-integration-tests');
   });
@@ -28,22 +28,27 @@ describe('run-integration-tests.sh', () => {
     expect(content).not.toContain('wait-for-emulator.sh');
   });
 
-  it('should delegate emulator startup to Rust binary', () => {
+  it('should delegate service startup to the Rust binary', () => {
     const content = readFileSync(SCRIPT_PATH, 'utf-8');
-    expect(content).toContain('exec "$binary"');
-    expect(content).toContain('run_rust_emulator_tests');
+    expect(content).toContain('exec "$binary" "$@"');
+    expect(content).toContain('run_rust_integration_tests');
     expect(content).not.toContain('firebase emulators:start');
     expect(content).not.toContain('--import');
     expect(content).not.toContain('--export-on-exit');
   });
 
-  it('should build the Rust binary via cargo before running', () => {
+  it('should always let Cargo verify that the exact binary is current', () => {
     const content = readFileSync(SCRIPT_PATH, 'utf-8');
-    expect(content).toContain('cargo build -p dev-cli --release');
+    expect(content).toContain('cargo build');
+    expect(content).toContain('-p dev-cli');
+    expect(content).toContain('--release');
+    expect(content).toContain('--bin brad-run-integration-tests');
+    expect(content).not.toContain('find ');
+    expect(content).not.toContain('-newer');
   });
 
   it('should preserve the test exit code', () => {
     const content = readFileSync(SCRIPT_PATH, 'utf-8');
-    expect(content).toContain('exec "$binary"');
+    expect(content).toContain('exec "$binary" "$@"');
   });
 });

@@ -10,11 +10,10 @@ RUN npm ci --ignore-scripts
 
 COPY tsconfig.json ./
 COPY packages/functions/tsconfig.json packages/functions/tsconfig.json
+COPY packages/functions/scripts packages/functions/scripts
 COPY packages/functions/src packages/functions/src
 
 RUN npm run build -w @brad-os/functions \
-    && mkdir -p packages/functions/lib/prompts \
-    && cp packages/functions/src/prompts/*.md packages/functions/lib/prompts/ \
     && test -f packages/functions/lib/server.js \
     && test -f packages/functions/lib/prompts/schedule-generation-system.md \
     && find packages/functions/lib -type f \( -name '*.map' -o -name '*.d.ts' \) -delete

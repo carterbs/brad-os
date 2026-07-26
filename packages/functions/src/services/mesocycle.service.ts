@@ -1,6 +1,10 @@
 import type { Firestore, WriteBatch } from 'firebase-admin/firestore';
 import { getCollectionName } from '../firebase.js';
-import { NotFoundError, ValidationError, ConflictError } from '../types/errors.js';
+import {
+  NotFoundError,
+  ValidationError,
+  ConflictError,
+} from '../types/errors.js';
 import type {
   Mesocycle,
   CreateMesocycleRequest,
@@ -266,7 +270,9 @@ export class MesocycleService {
       throw new ValidationError('Mesocycle is not active');
     }
 
-    const updated = await this.mesocycleRepo.update(id, { status: 'completed' });
+    const updated = await this.mesocycleRepo.update(id, {
+      status: 'completed',
+    });
     if (!updated) {
       throw new Error(`Failed to update mesocycle with id ${id}`);
     }
@@ -286,7 +292,9 @@ export class MesocycleService {
       throw new ValidationError('Mesocycle is not active');
     }
 
-    const updated = await this.mesocycleRepo.update(id, { status: 'cancelled' });
+    const updated = await this.mesocycleRepo.update(id, {
+      status: 'cancelled',
+    });
     if (!updated) {
       throw new Error(`Failed to update mesocycle with id ${id}`);
     }
@@ -295,7 +303,7 @@ export class MesocycleService {
 
   /**
    * Generate all workouts and sets for a mesocycle using batched writes
-   * This is more efficient than individual writes, especially for Cloud Functions
+   * to reduce Firestore round trips in both local and Cloud Run requests.
    */
   private async generateWorkoutsBatched(
     mesocycleId: string,
@@ -305,7 +313,10 @@ export class MesocycleService {
     const startDateObj = new Date(startDate + 'T00:00:00');
 
     // First pass: collect all workout and set data
-    const workoutsToCreate: Array<{ data: WorkoutData; sets: WorkoutSetData[] }> = [];
+    const workoutsToCreate: Array<{
+      data: WorkoutData;
+      sets: WorkoutSetData[];
+    }> = [];
 
     for (let weekNum = 1; weekNum <= 7; weekNum++) {
       const isDeload = weekNum === 7;
@@ -366,7 +377,9 @@ export class MesocycleService {
     // Now batch create all sets
     let batch: WriteBatch = this.db.batch();
     let writeCount = 0;
-    const workoutSetsCollection = this.db.collection(getCollectionName('workout_sets'));
+    const workoutSetsCollection = this.db.collection(
+      getCollectionName('workout_sets')
+    );
 
     for (let i = 0; i < workoutsToCreate.length; i++) {
       const workoutId = workoutIds[i];

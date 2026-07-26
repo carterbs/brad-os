@@ -1,18 +1,37 @@
-use crate::runner::{CommandCall, CommandRunner};
+use crate::qa_process::{
+    listener_pids, terminate_owned_process, QaProcessIdentity, TerminationOutcome,
+};
+use crate::runner::CommandRunner;
+use std::io;
+use std::time::Duration;
 
-pub fn cleanup_listener_ports<R: CommandRunner>(runner: &R, port: &str) {
-    let lsof_arg = format!("-tiTCP:{port}");
-    let lsof_result = runner.run(CommandCall {
-        program: "lsof".to_string(),
-        args: vec![lsof_arg, "-sTCP:LISTEN".to_string()],
-        current_dir: None,
-    });
+pub fn cleanup_listener_port<R: CommandRunner>(
+    runner: &R,
+    port: &str,
+    identity: &QaProcessIdentity,
+    sleep: &dyn Fn(Duration),
+) -> io::Result<Vec<String>> {
+    let port_number = port.parse::<u16>().map_err(|_| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("Invalid QA listener port: {port}"),
+        )
+    })?;
+    let mut messages = Vec::new();
 
-    for pid in lsof_result.stdout.split_whitespace() {
-        let _ = runner.run(CommandCall {
-            program: "kill".to_string(),
-            args: vec![pid.to_string()],
-            current_dir: None,
-        });
+    for pid in listener_pids(runner, port_number)? {
+        match terminate_owned_process(runner, pid, identity, sleep) {
+            TerminationOutcome::Stopped => {
+                messages.push(format!("Stopped owned listener pid {pid} on port {port}"));
+            }
+            TerminationOutcome::AlreadyStopped => {}
+            TerminationOutcome::RefusedUnowned => {
+                messages.push(format!(
+                    "Left unowned listener pid {pid} running on port {port}"
+                ));
+            }
+        }
     }
+
+    Ok(messages)
 }

@@ -3,12 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "main": "lib/index.js",
+  "main": "lib/server.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-runtime-assets.mjs",
     "build:watch": "tsc --watch",
     "start": "node lib/server.js",
-    "serve": "npm run build && firebase emulators:start --only functions",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src --config ../.oxlintrc.json"
   },
@@ -29,7 +28,6 @@
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
-    "firebase-functions-test": "^3.4.0",
     "typescript": "^5.4.5"
   }
 }

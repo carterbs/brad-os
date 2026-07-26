@@ -10,16 +10,22 @@ import { readRuntimeConfig } from './runtime/runtime-config.js';
 
 const SHUTDOWN_GRACE_PERIOD_MS = 10_000;
 
-export function startServer(
-  app: express.Application = createCloudRunApp({
-    internalTaskApp: internalTasksApp,
-  })
-): Server {
+export function startServer(app?: express.Application): Server {
   const config = readRuntimeConfig();
   initializeFirebase();
+  const serverApp =
+    app ??
+    createCloudRunApp({
+      developmentOnly: config.localDevelopmentOnly,
+      internalTaskApp: config.localDevelopmentOnly
+        ? undefined
+        : internalTasksApp,
+    });
 
-  const server = app.listen(config.port, '0.0.0.0', () => {
+  const server = serverApp.listen(config.port, config.bindAddress, () => {
     logger.info('Cloud Run API listening', {
+      bindAddress: config.bindAddress,
+      localDevelopmentOnly: config.localDevelopmentOnly,
       port: config.port,
       service: config.serviceName,
       revision: config.revisionName,

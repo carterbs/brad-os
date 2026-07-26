@@ -19,12 +19,10 @@ describe('unified Cloud Run app', () => {
     vi.unstubAllEnvs();
   });
 
-  it('mounts every non-debug manifest route exactly once', () => {
-    const expectedRoutes = ENDPOINT_MANIFEST.filter(
-      (entry) => entry.devOnly !== true
-    )
-      .map((entry) => `${entry.routePath}:${entry.handlerFile}`)
-      .sort();
+  it('mounts every manifest route exactly once', () => {
+    const expectedRoutes = ENDPOINT_MANIFEST.map(
+      (entry) => `${entry.routePath}:${entry.handlerFile}`
+    ).sort();
     const actualRoutes = API_ROUTE_MOUNTS.map(
       (entry) => `${entry.routePath}:${entry.handlerFile}`
     ).sort();
@@ -76,6 +74,28 @@ describe('unified Cloud Run app', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ environment: 'dev' });
+  });
+
+  it('exposes only development routes in local-development-only mode', async () => {
+    const internalTaskApp = express();
+    internalTaskApp.post('/:environment/ping', (req, res) => {
+      res.json({ environment: req.params['environment'] });
+    });
+    const app = createCloudRunApp({
+      developmentOnly: true,
+      internalTaskApp,
+    });
+
+    const [devResponse, prodResponse, internalResponse] = await Promise.all([
+      request(app).get('/api/dev/health'),
+      request(app).get('/api/prod/health'),
+      request(app).post('/internal/tasks/dev/ping'),
+    ]);
+
+    expect(devResponse.status).toBe(200);
+    expect(devResponse.body.data.environment).toBe('dev');
+    expect(prodResponse.status).toBe(404);
+    expect(internalResponse.status).toBe(404);
   });
 
   it.each([

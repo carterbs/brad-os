@@ -11,6 +11,8 @@ const DEFAULT_TOOLS = {
   node: 'v22.12.0',
   npm: '10.0.0',
   firebase: '13.29.1',
+  gcloud: '542.0.0',
+  cargo: '1.75.0',
   rustup: '1.25.2',
   'cargo-llvm-cov': '0.5.17',
   'llvm-tools-preview': '18.1.0',
@@ -150,6 +152,7 @@ describe('scripts/doctor.sh', () => {
     expect(stdout).toContain('xcodegen');
     expect(stdout).toContain('git hooks');
     expect(stdout).toContain('node_modules');
+    expect(stdout).toContain('GCP ADC');
   });
 
   it('exits 1 when a tool is missing', () => {

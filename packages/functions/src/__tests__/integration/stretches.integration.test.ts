@@ -1,18 +1,15 @@
 /**
  * Integration Tests for Stretches API
  *
- * These tests run against the Firebase emulator.
- * Prerequisites:
- * - Emulator running: npm run emulators:fresh
- * - Run tests: npm run test:integration
+ * These tests run against the standalone API backed by the Firestore emulator.
+ * Run with: npm run test:integration:emulator
  */
 
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { type ApiResponse } from '../utils/index.js';
+import { HEALTH_URL, integrationApiUrl } from './api-config.js';
 
-const FUNCTIONS_URL = 'http://127.0.0.1:5001/brad-os/us-central1';
-const HEALTH_URL = `${FUNCTIONS_URL}/devHealth`;
-const STRETCHES_URL = `${FUNCTIONS_URL}/devStretches`;
+const STRETCHES_URL = integrationApiUrl('stretches');
 
 interface StretchDefinition {
   id: string;
@@ -40,7 +37,7 @@ interface ApiError {
   };
 }
 
-async function checkEmulatorRunning(): Promise<boolean> {
+async function checkApiRunning(): Promise<boolean> {
   try {
     const response = await fetch(HEALTH_URL);
     return response.ok;
@@ -49,7 +46,9 @@ async function checkEmulatorRunning(): Promise<boolean> {
   }
 }
 
-function createValidStretchRegion(overrides: Partial<StretchRegion> = {}): Record<string, unknown> {
+function createValidStretchRegion(
+  overrides: Partial<StretchRegion> = {}
+): Record<string, unknown> {
   return {
     region: 'back',
     displayName: 'Back',
@@ -70,12 +69,11 @@ describe('Stretches API (Integration)', () => {
   let createdStretchId: string | null = null;
 
   beforeAll(async () => {
-    const isRunning = await checkEmulatorRunning();
+    const isRunning = await checkApiRunning();
     if (!isRunning) {
       throw new Error(
-        'Firebase emulator is not running.\n' +
-          'Start it with: npm run emulators:fresh\n' +
-          'Then run tests with: npm run test:integration'
+        'Standalone integration API is not running.\n' +
+          'Run the suite with: npm run test:integration:emulator'
       );
     }
   });
@@ -83,7 +81,9 @@ describe('Stretches API (Integration)', () => {
   afterEach(async () => {
     if (createdStretchId) {
       try {
-        await fetch(`${STRETCHES_URL}/${createdStretchId}`, { method: 'DELETE' });
+        await fetch(`${STRETCHES_URL}/${createdStretchId}`, {
+          method: 'DELETE',
+        });
       } catch {
         // ignore cleanup errors
       }
@@ -99,7 +99,8 @@ describe('Stretches API (Integration)', () => {
     });
 
     expect(createResponse.status).toBe(201);
-    const createResult = (await createResponse.json()) as ApiResponse<StretchRegion>;
+    const createResult =
+      (await createResponse.json()) as ApiResponse<StretchRegion>;
     expect(createResult.success).toBe(true);
     expect(createResult.data.region).toBe('back');
     expect(createResult.data.stretches).toHaveLength(1);
@@ -116,9 +117,12 @@ describe('Stretches API (Integration)', () => {
     const createResponse = await fetch(STRETCHES_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(createValidStretchRegion({ region: 'quads', displayName: 'Quads' })),
+      body: JSON.stringify(
+        createValidStretchRegion({ region: 'quads', displayName: 'Quads' })
+      ),
     });
-    const createResult = (await createResponse.json()) as ApiResponse<StretchRegion>;
+    const createResult =
+      (await createResponse.json()) as ApiResponse<StretchRegion>;
     createdStretchId = createResult.data.id;
 
     const response = await fetch(STRETCHES_URL);
@@ -134,9 +138,15 @@ describe('Stretches API (Integration)', () => {
     const createResponse = await fetch(STRETCHES_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(createValidStretchRegion({ region: 'hamstrings', displayName: 'Hamstrings' })),
+      body: JSON.stringify(
+        createValidStretchRegion({
+          region: 'hamstrings',
+          displayName: 'Hamstrings',
+        })
+      ),
     });
-    const createResult = (await createResponse.json()) as ApiResponse<StretchRegion>;
+    const createResult =
+      (await createResponse.json()) as ApiResponse<StretchRegion>;
     const regionId = createResult.data.id;
     createdStretchId = regionId;
 
@@ -147,7 +157,8 @@ describe('Stretches API (Integration)', () => {
     });
 
     expect(updateResponse.status).toBe(200);
-    const updateResult = (await updateResponse.json()) as ApiResponse<StretchRegion>;
+    const updateResult =
+      (await updateResponse.json()) as ApiResponse<StretchRegion>;
     expect(updateResult.success).toBe(true);
     expect(updateResult.data.displayName).toBe('Rear Chain');
     expect(updateResult.data.region).toBe('hamstrings');
@@ -157,9 +168,15 @@ describe('Stretches API (Integration)', () => {
     const createResponse = await fetch(STRETCHES_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(createValidStretchRegion({ region: 'shoulders', displayName: 'Shoulders' })),
+      body: JSON.stringify(
+        createValidStretchRegion({
+          region: 'shoulders',
+          displayName: 'Shoulders',
+        })
+      ),
     });
-    const createResult = (await createResponse.json()) as ApiResponse<StretchRegion>;
+    const createResult =
+      (await createResponse.json()) as ApiResponse<StretchRegion>;
     const regionId = createResult.data.id;
 
     const response = await fetch(`${STRETCHES_URL}/${regionId}`, {

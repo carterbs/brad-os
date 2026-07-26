@@ -6,12 +6,7 @@ pub fn cleanup_simulator<R: CommandRunner>(
     shutdown_simulator: bool,
     messages: &mut Vec<String>,
 ) {
-    for variable in [
-        "BRAD_OS_API_URL",
-        "BRAD_OS_OTEL_BASE_URL",
-        "BRAD_OS_QA_ID",
-        "USE_EMULATOR",
-    ] {
+    for variable in ["BRAD_OS_API_URL", "BRAD_OS_OTEL_BASE_URL", "BRAD_OS_QA_ID"] {
         let _ = runner.run(CommandCall {
             program: "xcrun".to_string(),
             args: vec![
