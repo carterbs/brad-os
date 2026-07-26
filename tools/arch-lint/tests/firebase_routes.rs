@@ -16,10 +16,6 @@ fn endpoint() -> EndpointEntry {
     EndpointEntry {
         route_path: "health".to_string(),
         handler_file: "health".to_string(),
-        options: None,
-        dev_only: None,
-        function_stem: None,
-        custom_source: None,
     }
 }
 
@@ -42,12 +38,6 @@ fn valid_fixture() -> (tempfile::TempDir, LinterConfig) {
     write_file(
         &root.join("packages/functions/src/handlers/health.ts"),
         "export const healthApp = createBaseApp('health');",
-    );
-    write_file(
-        &root.join("packages/functions/src/index.ts"),
-        "import { healthApp } from './handlers/health.js';\n\
-         export const devHealth = healthApp;\n\
-         export const prodHealth = healthApp;\n",
     );
     write_file(
         &root.join("packages/functions/src/api-router.ts"),
@@ -88,6 +78,44 @@ fn rejects_function_backed_hosting_rewrite() {
 }
 
 #[test]
+fn rejects_legacy_functions_and_non_firestore_emulator_configuration() {
+    let (temp, config) = valid_fixture();
+    write_file(
+        &temp.path().join("firebase.json"),
+        r#"{
+          "functions": {"source": "packages/functions"},
+          "emulators": {
+            "functions": {"port": 5001},
+            "firestore": {"port": 8080},
+            "hosting": {"port": 5002}
+          },
+          "hosting": {
+            "rewrites": [
+              {
+                "source": "/api/**",
+                "run": {"serviceId": "brad-os-api", "region": "us-central1", "pinTag": true}
+              }
+            ]
+          }
+        }"#,
+    );
+    let result = firebase_routes::check_with_manifest(&config, Some(vec![endpoint()]));
+    assert!(!result.passed);
+    assert!(result
+        .violations
+        .iter()
+        .any(|value| value.contains("top-level 'functions'")));
+    assert!(result
+        .violations
+        .iter()
+        .any(|value| value.contains("emulators.functions")));
+    assert!(result
+        .violations
+        .iter()
+        .any(|value| value.contains("emulators.hosting")));
+}
+
+#[test]
 fn rejects_wrong_service_or_unpinned_revision() {
     let (temp, config) = valid_fixture();
     write_file(
@@ -125,45 +153,4 @@ fn rejects_missing_unified_router_metadata_or_environment_mount() {
         .violations
         .iter()
         .any(|value| value.contains("/api/prod")));
-}
-
-#[test]
-fn rejects_dev_only_handler_in_unified_router() {
-    let (temp, config) = valid_fixture();
-    write_file(
-        &temp.path().join("packages/functions/src/api-router.ts"),
-        "import { healthApp } from './handlers/health.js';\n\
-         const handlerFile = 'mealplan-debug';\n\
-         export const API_ROUTE_MOUNTS = [\n\
-           { routePath: 'health', handlerFile: 'health', app: healthApp },\n\
-         ];\n",
-    );
-    let debug = EndpointEntry {
-        route_path: String::new(),
-        handler_file: "mealplan-debug".to_string(),
-        options: None,
-        dev_only: Some(true),
-        function_stem: Some("MealplanDebug".to_string()),
-        custom_source: Some("/debug".to_string()),
-    };
-    write_file(
-        &temp
-            .path()
-            .join("packages/functions/src/handlers/mealplan-debug.ts"),
-        "export const mealplanDebugApp = {};",
-    );
-    write_file(
-        &temp.path().join("packages/functions/src/index.ts"),
-        "import { healthApp } from './handlers/health.js';\n\
-         import { mealplanDebugApp } from './handlers/mealplan-debug.js';\n\
-         export const devHealth = healthApp;\n\
-         export const prodHealth = healthApp;\n\
-         export const devMealplanDebug = mealplanDebugApp;\n",
-    );
-    let result = firebase_routes::check_with_manifest(&config, Some(vec![endpoint(), debug]));
-    assert!(!result.passed);
-    assert!(result
-        .violations
-        .iter()
-        .any(|value| value.contains("must not be mounted")));
 }

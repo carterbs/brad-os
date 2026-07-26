@@ -6,10 +6,6 @@ use std::path::Path;
 pub struct EndpointEntry {
     pub route_path: String,
     pub handler_file: String,
-    pub options: Option<String>,
-    pub dev_only: Option<bool>,
-    pub function_stem: Option<String>,
-    pub custom_source: Option<String>,
 }
 
 pub struct ParsedManifestResult {
@@ -20,15 +16,8 @@ pub struct ParsedManifestResult {
 fn parse_entry_string(field: &str, block: &str) -> Option<String> {
     let pattern = format!(r"{}\s*:\s*'([^']*)'", regex::escape(field));
     let re = regex::Regex::new(&pattern).ok()?;
-    re.captures(block).and_then(|c| c.get(1).map(|m| m.as_str().to_string()))
-}
-
-fn parse_entry_boolean(field: &str, block: &str) -> Option<bool> {
-    let pattern = format!(r"{}\s*:\s*(true|false)", regex::escape(field));
-    let re = regex::Regex::new(&pattern).ok()?;
-    re.captures(block).and_then(|c| {
-        c.get(1).map(|m| m.as_str() == "true")
-    })
+    re.captures(block)
+        .and_then(|c| c.get(1).map(|m| m.as_str().to_string()))
 }
 
 pub fn extract_manifest_array_text(manifest_text: &str) -> String {
@@ -104,12 +93,24 @@ pub fn extract_manifest_array_text(manifest_text: &str) -> String {
             continue;
         }
 
-        if ch == '/' && i + 1 < bytes.len() && bytes[i + 1] == b'/' && !in_single_quote && !in_double_quote && !in_template {
+        if ch == '/'
+            && i + 1 < bytes.len()
+            && bytes[i + 1] == b'/'
+            && !in_single_quote
+            && !in_double_quote
+            && !in_template
+        {
             in_line_comment = true;
             i += 1;
             continue;
         }
-        if ch == '/' && i + 1 < bytes.len() && bytes[i + 1] == b'*' && !in_single_quote && !in_double_quote && !in_template {
+        if ch == '/'
+            && i + 1 < bytes.len()
+            && bytes[i + 1] == b'*'
+            && !in_single_quote
+            && !in_double_quote
+            && !in_template
+        {
             in_block_comment = true;
             i += 1;
             continue;
@@ -138,7 +139,9 @@ pub fn parse_manifest_array(manifest_text: &str) -> ParsedManifestResult {
     if array_text.is_empty() {
         return ParsedManifestResult {
             manifest: vec![],
-            violations: vec!["Unable to parse ENDPOINT_MANIFEST array from endpoint-manifest.ts".to_string()],
+            violations: vec![
+                "Unable to parse ENDPOINT_MANIFEST array from endpoint-manifest.ts".to_string(),
+            ],
         };
     }
 
@@ -152,7 +155,9 @@ pub fn parse_manifest_array(manifest_text: &str) -> ParsedManifestResult {
             None => {
                 return ParsedManifestResult {
                     manifest: vec![],
-                    violations: vec!["Malformed manifest entry: missing routePath or handlerFile".to_string()],
+                    violations: vec![
+                        "Malformed manifest entry: missing routePath or handlerFile".to_string()
+                    ],
                 };
             }
         };
@@ -161,23 +166,16 @@ pub fn parse_manifest_array(manifest_text: &str) -> ParsedManifestResult {
             None => {
                 return ParsedManifestResult {
                     manifest: vec![],
-                    violations: vec!["Malformed manifest entry: missing routePath or handlerFile".to_string()],
+                    violations: vec![
+                        "Malformed manifest entry: missing routePath or handlerFile".to_string()
+                    ],
                 };
             }
         };
 
-        let options = parse_entry_string("options", block);
-        let function_stem = parse_entry_string("functionStem", block);
-        let custom_source = parse_entry_string("customSource", block);
-        let dev_only = parse_entry_boolean("devOnly", block);
-
         entries.push(EndpointEntry {
             route_path,
             handler_file,
-            options,
-            dev_only,
-            function_stem,
-            custom_source,
         });
     }
 
@@ -222,14 +220,17 @@ pub fn read_manifest_from_disk(config: &LinterConfig) -> ParsedManifestResult {
 pub fn get_handler_route_value(handler_path: &Path) -> Option<String> {
     let content = fs::read_to_string(handler_path).ok()?;
 
-    let create_base_app_re = regex::Regex::new(r#"createBaseApp\(\s*['"]([^'"]+)['"]\s*\)"#).unwrap();
+    let create_base_app_re =
+        regex::Regex::new(r#"createBaseApp\(\s*['"]([^'"]+)['"]\s*\)"#).unwrap();
     if let Some(caps) = create_base_app_re.captures(&content) {
         if let Some(m) = caps.get(1) {
             return Some(m.as_str().to_string());
         }
     }
 
-    let create_resource_router_re = regex::Regex::new(r#"createResourceRouter\(\s*\{[\s\S]*?resourceName:\s*['"]([^'"]+)['"]"#).unwrap();
+    let create_resource_router_re =
+        regex::Regex::new(r#"createResourceRouter\(\s*\{[\s\S]*?resourceName:\s*['"]([^'"]+)['"]"#)
+            .unwrap();
     if let Some(caps) = create_resource_router_re.captures(&content) {
         if let Some(m) = caps.get(1) {
             return Some(m.as_str().to_string());

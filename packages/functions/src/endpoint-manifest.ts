@@ -1,18 +1,8 @@
-export type OptionsPreset = 'default' | 'withOpenAi' | 'withTts';
-
 export interface EndpointEntry {
   /** Route path segment in URL (e.g., 'exercises', 'workout-sets', 'guidedMeditations') */
   routePath: string;
   /** Handler file basename without .ts (e.g., 'exercises', 'workoutSets', 'strava-webhook') */
   handlerFile: string;
-  /** Options preset for Cloud Function registration. Default: 'default' */
-  options?: OptionsPreset;
-  /** If true, only register a dev function (no prod export). Default: false */
-  devOnly?: boolean;
-  /** Override the PascalCase function stem derived from routePath. */
-  functionStem?: string;
-  /** Override the URL source pattern. Default: /api/{env}/{routePath} */
-  customSource?: string;
 }
 
 export const ENDPOINT_MANIFEST: readonly EndpointEntry[] = [
@@ -27,16 +17,15 @@ export const ENDPOINT_MANIFEST: readonly EndpointEntry[] = [
   { routePath: 'mesocycles', handlerFile: 'mesocycles' },
   { routePath: 'barcodes', handlerFile: 'barcodes' },
   { routePath: 'meals', handlerFile: 'meals' },
-  { routePath: 'mealplans', handlerFile: 'mealplans', options: 'withOpenAi' },
+  { routePath: 'mealplans', handlerFile: 'mealplans' },
   { routePath: 'ingredients', handlerFile: 'ingredients' },
   { routePath: 'recipes', handlerFile: 'recipes' },
-  { routePath: 'tts', handlerFile: 'tts', options: 'withTts' },
+  { routePath: 'tts', handlerFile: 'tts' },
   { routePath: 'stretches', handlerFile: 'stretches' },
   { routePath: 'guidedMeditations', handlerFile: 'guidedMeditations' },
   { routePath: 'cycling', handlerFile: 'cycling' },
   { routePath: 'strava', handlerFile: 'strava-webhook' },
-  { routePath: 'cycling-coach', handlerFile: 'cycling-coach', options: 'withOpenAi' },
-  { routePath: 'today-coach', handlerFile: 'today-coach', options: 'withOpenAi' },
+  { routePath: 'cycling-coach', handlerFile: 'cycling-coach' },
+  { routePath: 'today-coach', handlerFile: 'today-coach' },
   { routePath: 'health-sync', handlerFile: 'health-sync' },
-  { routePath: '', handlerFile: 'mealplan-debug', devOnly: true, functionStem: 'MealplanDebug', customSource: '/debug' },
 ];

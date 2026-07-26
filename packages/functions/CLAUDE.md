@@ -11,15 +11,16 @@ Use one of the package's structured loggers:
 import { logger } from '../runtime/logger.js';
 logger.info('[Tag] Something happened', { key: 'value' });
 
-// Shared API handlers that also run in the local Functions emulator:
+// Existing handlers that still use the Firebase logger:
 import { info, warn, error as logError } from 'firebase-functions/logger';
 info('[Tag] Something happened', { key: 'value' });
 warn('[Tag] Something concerning', { detail: 'value' });
 logError('[Tag] Something broke', { err: error });
 ```
 
-Prefer `runtime/logger.ts` for new Cloud Run-only code. The Firebase logger remains
-supported in shared handlers while the local Functions emulator adapter is retained.
+Prefer `runtime/logger.ts` for new code. Existing handlers may continue using the
+Firebase logger because it emits structured output in the standalone runtime, but
+there is no Functions adapter or Functions emulator.
 
 Both forms produce searchable structured fields in Cloud Logging. Never log App Check
 tokens, OAuth tokens, health payloads, prompts, or secret values.

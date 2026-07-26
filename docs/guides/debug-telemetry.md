@@ -159,7 +159,7 @@ One JSON object per line. Each log may reference a trace/span for correlation.
 | `npm run advanced:otel:start` | Start collector on port 4318 |
 | `npm run advanced:otel:stop` | Kill collector process |
 | `npm run advanced:otel:clean` | Delete `.otel/` directory |
-| `npm run qa:start` | Start isolated simulator + Firebase + OTel + build + launch |
+| `npm run qa:start` | Start simulator + standalone API + OTel + build + launch |
 | `npm run qa:stop` | Stop isolated loop and unset simulator env |
 
 ## Troubleshooting

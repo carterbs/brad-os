@@ -99,7 +99,9 @@ export class StretchRepository extends BaseRepository<
     await batch.commit();
   }
 
-  protected parseStretchDefinition(data: unknown): StretchDefinitionRecord | null {
+  protected parseStretchDefinition(
+    data: unknown
+  ): StretchDefinitionRecord | null {
     if (!isRecord(data)) {
       return null;
     }
@@ -116,7 +118,7 @@ export class StretchRepository extends BaseRepository<
       name === null ||
       description === null ||
       bilateral === null ||
-      imageValue === undefined
+      (Object.hasOwn(data, 'image') && imageValue === undefined)
     ) {
       return null;
     }
@@ -130,7 +132,10 @@ export class StretchRepository extends BaseRepository<
     };
   }
 
-  protected parseEntity(id: string, data: Record<string, unknown>): StretchRegion | null {
+  protected parseEntity(
+    id: string,
+    data: Record<string, unknown>
+  ): StretchRegion | null {
     const region = readEnum(data, 'region', VALID_BODY_REGIONS);
     const displayName = readString(data, 'displayName');
     const iconName = readString(data, 'iconName');

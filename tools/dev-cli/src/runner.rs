@@ -2,10 +2,13 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, BufRead, BufReader, Write};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
 use std::sync::{atomic::AtomicBool, Arc};
 use std::thread;
 use std::time::{Duration, Instant};
+
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 
 #[derive(Debug, Clone)]
 pub struct CheckResult {
@@ -29,6 +32,14 @@ pub struct LiveRunOpts<'a> {
     pub program: &'a str,
     pub args: &'a [&'a str],
     pub env: Option<&'a HashMap<String, String>>,
+    pub clear_env: bool,
+    pub termination_grace: Duration,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ProcessGroup {
+    leader_pid: u32,
+    isolated: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -110,7 +121,11 @@ pub fn run_passthrough(program: &str, args: &[&str]) -> (i32, u64) {
 }
 
 /// Run a command with environment variables and inherited stdio.
-pub fn run_passthrough_with_env(program: &str, args: &[&str], env: &HashMap<String, String>) -> (i32, u64) {
+pub fn run_passthrough_with_env(
+    program: &str,
+    args: &[&str],
+    env: &HashMap<String, String>,
+) -> (i32, u64) {
     let start = Instant::now();
     let mut cmd = Command::new(program);
     cmd.args(args);
@@ -157,7 +172,9 @@ pub fn run_output(
         cmd.env(key, value);
     }
 
-    let output = cmd.output().map_err(|error| io::Error::new(io::ErrorKind::Other, error.to_string()))?;
+    let output = cmd
+        .output()
+        .map_err(|error| io::Error::new(io::ErrorKind::Other, error.to_string()))?;
     Ok(CommandResult {
         status: output.status.code().unwrap_or(1),
         stdout: String::from_utf8_lossy(&output.stdout).to_string()
@@ -170,6 +187,7 @@ pub fn run_to_file_detach(
     args: &[&str],
     current_dir: Option<&Path>,
     env: &[(&str, &str)],
+    removed_env: &[&str],
     log_file: &Path,
 ) -> io::Result<u32> {
     let mut cmd = Command::new(program);
@@ -179,6 +197,9 @@ pub fn run_to_file_detach(
     }
     for (key, value) in env {
         cmd.env(key, value);
+    }
+    for key in removed_env {
+        cmd.env_remove(key);
     }
 
     let log = File::create(log_file)?;
@@ -204,27 +225,132 @@ pub fn read_lines_tail(path: &Path, max_lines: usize) -> io::Result<Vec<String>>
     Ok(lines)
 }
 
+pub fn spawn_in_process_group(command: &mut Command) -> io::Result<(Child, ProcessGroup)> {
+    #[cfg(unix)]
+    command.process_group(0);
+
+    let child = command.spawn()?;
+    let leader_pid = child.id();
+    Ok((
+        child,
+        ProcessGroup {
+            leader_pid,
+            isolated: cfg!(unix),
+        },
+    ))
+}
+
+pub fn terminate_process_group(
+    child: &mut Child,
+    process_group: ProcessGroup,
+    grace_period: Duration,
+) {
+    let parent_running = child_is_running(child);
+    let group_running = process_group_is_running(process_group);
+    if !parent_running && !group_running {
+        return;
+    }
+
+    if !signal_process_group(process_group, "-TERM") && parent_running {
+        let _ = child.kill();
+    }
+
+    let started_waiting = Instant::now();
+    loop {
+        let parent_running = child_is_running(child);
+        let group_running = process_group_is_running(process_group);
+        if !parent_running && !group_running {
+            return;
+        }
+        if started_waiting.elapsed() >= grace_period {
+            break;
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+
+    if !signal_process_group(process_group, "-KILL") {
+        let _ = child.kill();
+    }
+
+    let forced_wait_started = Instant::now();
+    while process_group_is_running(process_group)
+        && forced_wait_started.elapsed() < Duration::from_secs(2)
+    {
+        let _ = child.try_wait();
+        thread::sleep(Duration::from_millis(25));
+    }
+
+    if child_is_running(child) {
+        let _ = child.kill();
+    }
+    let _ = child.wait();
+}
+
+fn child_is_running(child: &mut Child) -> bool {
+    child.try_wait().ok().flatten().is_none()
+}
+
+fn process_group_is_running(process_group: ProcessGroup) -> bool {
+    if !process_group.isolated {
+        return false;
+    }
+
+    Command::new("kill")
+        .args([
+            "-0",
+            "--",
+            format!("-{}", process_group.leader_pid).as_str(),
+        ])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
+fn signal_process_group(process_group: ProcessGroup, signal: &str) -> bool {
+    if !process_group.isolated {
+        return false;
+    }
+
+    Command::new("kill")
+        .args([
+            signal,
+            "--",
+            format!("-{}", process_group.leader_pid).as_str(),
+        ])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
 pub fn run_live_interrupted(opts: &LiveRunOpts, interrupt: &Arc<AtomicBool>) -> i32 {
     let mut command = Command::new(opts.program);
     command.args(opts.args);
+    if opts.clear_env {
+        command.env_clear();
+    }
     for (k, v) in opts.env.unwrap_or(&HashMap::new()) {
         command.env(k, v);
     }
 
-    let mut child = match command.spawn() {
+    let (mut child, process_group) = match spawn_in_process_group(&mut command) {
         Ok(child) => child,
         Err(_) => return 1,
     };
 
     loop {
         if interrupt.load(std::sync::atomic::Ordering::SeqCst) {
-            let _ = child.kill();
-            let _ = child.wait();
+            terminate_process_group(&mut child, process_group, opts.termination_grace);
             return 130;
         }
 
         match child.try_wait() {
-            Ok(Some(status)) => return status.code().unwrap_or(1),
+            Ok(Some(status)) => {
+                let exit_code = status.code().unwrap_or(1);
+                terminate_process_group(&mut child, process_group, opts.termination_grace);
+                return exit_code;
+            }
             Ok(None) => {
                 thread::sleep(Duration::from_millis(100));
                 if opts.name.is_empty() {
@@ -232,8 +358,7 @@ pub fn run_live_interrupted(opts: &LiveRunOpts, interrupt: &Arc<AtomicBool>) -> 
                 }
             }
             Err(_) => {
-                let _ = child.kill();
-                let _ = child.wait();
+                terminate_process_group(&mut child, process_group, opts.termination_grace);
                 return 1;
             }
         }
@@ -254,8 +379,7 @@ pub fn kill_listener_pids(port: u16) -> usize {
 }
 
 pub fn is_process_running(pid: u32) -> bool {
-    run_status("kill", &["-0", &pid.to_string()], None, &[])
-        .is_ok_and(|code| code == 0)
+    run_status("kill", &["-0", &pid.to_string()], None, &[]).is_ok_and(|code| code == 0)
 }
 
 impl CommandRunner for RealCommandRunner {

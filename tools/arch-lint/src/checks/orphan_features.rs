@@ -5,9 +5,8 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::sync::LazyLock;
 
-static ROUTE_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"app\.(get|post|put|patch|delete)\s*\(").unwrap()
-});
+static ROUTE_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"app\.(get|post|put|patch|delete)\s*\(").unwrap());
 
 pub fn check(config: &LinterConfig) -> CheckResult {
     let name = "Orphan features".to_string();
@@ -15,7 +14,11 @@ pub fn check(config: &LinterConfig) -> CheckResult {
     let arch_dir = config.root_dir.join("docs/architecture");
 
     if !handlers_dir.exists() {
-        return CheckResult { name, passed: true, violations: vec![] };
+        return CheckResult {
+            name,
+            passed: true,
+            violations: vec![],
+        };
     }
 
     // Collect existing architecture doc names (without .md)
@@ -57,14 +60,19 @@ pub fn check(config: &LinterConfig) -> CheckResult {
         ("recipes", "meal-planning"),
         ("ingredients", "meal-planning"),
         ("barcodes", "meal-planning"),
-        ("mealplan-debug", "meal-planning"),
     ]);
 
     let mut violations = Vec::new();
 
     let entries = match fs::read_dir(&handlers_dir) {
         Ok(e) => e,
-        Err(_) => return CheckResult { name, passed: true, violations: vec![] },
+        Err(_) => {
+            return CheckResult {
+                name,
+                passed: true,
+                violations: vec![],
+            }
+        }
     };
 
     for entry in entries.flatten() {
@@ -119,7 +127,11 @@ pub fn check(config: &LinterConfig) -> CheckResult {
                     let cap_feature = {
                         let mut chars = feature_name.chars();
                         match chars.next() {
-                            Some(c) => format!("{}{}", c.to_uppercase().collect::<String>(), chars.as_str()),
+                            Some(c) => format!(
+                                "{}{}",
+                                c.to_uppercase().collect::<String>(),
+                                chars.as_str()
+                            ),
                             None => feature_name.to_string(),
                         }
                     };

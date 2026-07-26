@@ -10,8 +10,6 @@ if ! command -v cargo >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ ! -f "$SCRIPT_BINARY" ] || [ "$REPO_ROOT/tools/dev-cli/src" -nt "$SCRIPT_BINARY" ]; then
-  cargo build -p dev-cli --manifest-path "$REPO_ROOT/Cargo.toml" --bin brad-qa-stop -q
-fi
+cargo build -p dev-cli --manifest-path "$REPO_ROOT/Cargo.toml" --bin brad-qa-stop -q
 
-BRAD_OS_REPO_ROOT="$REPO_ROOT" "$SCRIPT_BINARY" "$@"
+exec env BRAD_OS_REPO_ROOT="$REPO_ROOT" "$SCRIPT_BINARY" "$@"

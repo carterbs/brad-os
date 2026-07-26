@@ -10,7 +10,7 @@ let db: Firestore | null = null;
 
 /**
  * Initialize Firebase at cold start.
- * In Cloud Functions, credentials are automatic - no config needed.
+ * Cloud Run and local development both use Application Default Credentials.
  */
 export function initializeFirebase(): App {
   if (app) return app;
@@ -21,7 +21,7 @@ export function initializeFirebase(): App {
     return app;
   }
 
-  // In Cloud Functions, default credentials are automatic
+  // Firebase Admin resolves the active Application Default Credentials.
   app = initializeApp();
   return app;
 }
@@ -37,9 +37,7 @@ export function getFirestoreDb(): Firestore {
 }
 
 /**
- * Detect environment based on Cloud Function name.
- * Functions prefixed with 'dev' use dev collections.
- * Functions prefixed with 'prod' use production collections.
+ * Read the environment selected by the mounted request router.
  */
 export function getEnvironment(): ApiEnvironment {
   return getRequestEnvironment();
@@ -47,8 +45,8 @@ export function getEnvironment(): ApiEnvironment {
 
 /**
  * Get the prefixed collection name based on environment.
- * Dev functions use 'dev_' prefix (e.g., dev_exercises).
- * Prod functions use no prefix (e.g., exercises).
+ * Dev requests use a 'dev_' prefix (e.g., dev_exercises).
+ * Production requests use no prefix (e.g., exercises).
  */
 export function getCollectionName(baseName: string): string {
   const env = getEnvironment();

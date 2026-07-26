@@ -7,10 +7,6 @@ use std::fs;
 static IMPORT_PATTERN_TMPL: &str =
     r#"import\s+\{\s*EXPORT\s*\}\s+from\s+['"]\.\/handlers\/HANDLER\.js['"]"#;
 
-static DIRECT_EXPORT: &str = r#"export\s+(?:const|let|function)\s+NAME\b"#;
-
-static GROUPED_EXPORT: &str = r#"export\s*\{[^}]*\bNAME\b[^}]*\}"#;
-
 pub fn check(config: &LinterConfig) -> CheckResult {
     check_with_manifest(config, None)
 }
@@ -21,7 +17,6 @@ pub fn check_with_manifest(
 ) -> CheckResult {
     let name = "Firebase route consistency".to_string();
     let firebase_json = config.root_dir.join("firebase.json");
-    let index_ts = config.functions_src.join("index.ts");
     let api_router_ts = config.functions_src.join("api-router.ts");
     let cloud_run_app_ts = config.functions_src.join("cloud-run-app.ts");
     let handlers_dir = config.functions_src.join("handlers");
@@ -59,13 +54,6 @@ pub fn check_with_manifest(
                 "firebase.json not found at {}",
                 firebase_json.display()
             )],
-        };
-    }
-    if !index_ts.exists() {
-        return CheckResult {
-            name,
-            passed: false,
-            violations: vec![format!("index.ts not found at {}", index_ts.display())],
         };
     }
     if !api_router_ts.exists() {
@@ -122,7 +110,11 @@ pub fn check_with_manifest(
         }
     }
 
-    // Sub-check C: Firebase Hosting must have one pinned Cloud Run API rewrite.
+    // Sub-check C: Firebase configuration must not retain Cloud Functions or
+    // Functions/Hosting emulator infrastructure.
+    violations.extend(validate_no_legacy_firebase_config(&firebase_json));
+
+    // Sub-check D: Firebase Hosting must have one pinned Cloud Run API rewrite.
     let expected_rewrites = rewrite_utils::generate_rewrites(&manifest_entries);
     let actual_rewrites = parse_firebase_rewrites(&firebase_json);
     let rewrite_violations = rewrite_utils::compare_rewrites(&expected_rewrites, &actual_rewrites);
@@ -130,51 +122,9 @@ pub fn check_with_manifest(
         violations.push(format!("firebase.json rewrite parity failed: {}", v));
     }
 
-    // Sub-check D: retain index.ts coverage for local Functions emulator adapters.
-    let index_content = match fs::read_to_string(&index_ts) {
-        Ok(c) => c,
-        Err(_) => String::new(),
-    };
-
-    for entry in &manifest_entries {
-        let app_export = rewrite_utils::get_app_export_name(entry);
-        if !has_handler_import(&index_content, &app_export, &entry.handler_file) {
-            violations.push(format!(
-                "Missing local emulator adapter import for {} from './handlers/{}.js' in index.ts.",
-                app_export, entry.handler_file
-            ));
-        }
-
-        let dev_fn = rewrite_utils::get_dev_function_name(entry);
-        let prod_fn = rewrite_utils::get_prod_function_name(entry);
-
-        if !has_handler_export(&index_content, &dev_fn) {
-            violations.push(format!(
-                "Missing local emulator adapter export '{}' in index.ts for route '{}'.",
-                dev_fn, entry.route_path
-            ));
-        }
-        if entry.dev_only != Some(true) && !has_handler_export(&index_content, &prod_fn) {
-            violations.push(format!(
-                "Missing local emulator adapter export '{}' in index.ts for route '{}'.",
-                prod_fn, entry.route_path
-            ));
-        }
-    }
-
-    // Sub-check E: every public manifest app is represented in the unified router.
+    // Sub-check E: every manifest app is represented in the unified router.
     let api_router_content = fs::read_to_string(&api_router_ts).unwrap_or_default();
     for entry in &manifest_entries {
-        if entry.dev_only == Some(true) {
-            if api_router_content.contains(&entry.handler_file) {
-                violations.push(format!(
-                    "Dev-only handler '{}' must not be mounted by api-router.ts.",
-                    entry.handler_file
-                ));
-            }
-            continue;
-        }
-
         let app_export = rewrite_utils::get_app_export_name(entry);
         if !has_handler_import(&api_router_content, &app_export, &entry.handler_file) {
             violations.push(format!(
@@ -208,6 +158,35 @@ pub fn check_with_manifest(
         name,
         violations,
     }
+}
+
+fn validate_no_legacy_firebase_config(firebase_path: &std::path::Path) -> Vec<String> {
+    let content = match fs::read_to_string(firebase_path) {
+        Ok(content) => content,
+        Err(_) => return Vec::new(),
+    };
+    let config: serde_json::Value = match serde_json::from_str(&content) {
+        Ok(config) => config,
+        Err(_) => return Vec::new(),
+    };
+    let mut violations = Vec::new();
+
+    if config.get("functions").is_some() {
+        violations.push(
+            "firebase.json must not contain a top-level 'functions' deployment configuration."
+                .to_string(),
+        );
+    }
+
+    if let Some(emulators) = config.get("emulators").and_then(|value| value.as_object()) {
+        for key in emulators.keys().filter(|key| key.as_str() != "firestore") {
+            violations.push(format!(
+                "firebase.json emulators.{key} is obsolete; automated tests use only the Firestore emulator."
+            ));
+        }
+    }
+
+    violations
 }
 
 fn parse_firebase_rewrites(firebase_path: &std::path::Path) -> Vec<FirebaseRewrite> {
@@ -267,14 +246,4 @@ fn has_handler_import(index_content: &str, app_export: &str, handler_file: &str)
         Err(_) => return false,
     };
     re.is_match(index_content)
-}
-
-fn has_handler_export(index_content: &str, function_name: &str) -> bool {
-    let direct_pattern = DIRECT_EXPORT.replace("NAME", &regex::escape(function_name));
-    let grouped_pattern = GROUPED_EXPORT.replace("NAME", &regex::escape(function_name));
-
-    let direct_re = Regex::new(&direct_pattern).unwrap_or_else(|_| Regex::new("$^").unwrap());
-    let grouped_re = Regex::new(&grouped_pattern).unwrap_or_else(|_| Regex::new("$^").unwrap());
-
-    direct_re.is_match(index_content) || grouped_re.is_match(index_content)
 }

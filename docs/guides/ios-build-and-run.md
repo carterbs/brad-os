@@ -15,7 +15,8 @@ npm run setup:ios-testing
 npm run setup:ios-testing -- --skip-build # optional
 ```
 
-This is the default local iOS path. It handles simulator + Firebase + OTel + build + launch in one flow.
+This is the default local iOS path. It handles the simulator, standalone loopback API,
+real `dev_*` Firestore data, OTel, build, and launch in one flow.
 
 Optional stable session ID:
 

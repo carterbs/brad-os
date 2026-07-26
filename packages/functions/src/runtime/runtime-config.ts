@@ -8,11 +8,13 @@ const portSchema = z.coerce.number().int().min(1).max(65_535);
 
 export interface RuntimeConfig {
   port: number;
+  bindAddress: '0.0.0.0' | '127.0.0.1';
   projectId: string | undefined;
   nodeEnvironment: string;
   serviceName: string;
   revisionName: string | undefined;
   appCheckBypass: boolean;
+  localDevelopmentOnly: boolean;
 }
 
 /**
@@ -28,14 +30,19 @@ export function readRuntimeConfig(
   const appCheckBypass = booleanStringSchema.parse(
     environment['APP_CHECK_BYPASS'] ?? 'false'
   );
+  const localDevelopmentOnly = booleanStringSchema.parse(
+    environment['BRAD_LOCAL_DEV_ONLY'] ?? 'false'
+  );
 
   return {
     port,
+    bindAddress: localDevelopmentOnly ? '127.0.0.1' : '0.0.0.0',
     projectId:
       environment['GOOGLE_CLOUD_PROJECT'] ?? environment['GCLOUD_PROJECT'],
     nodeEnvironment: environment['NODE_ENV'] ?? 'development',
     serviceName: environment['K_SERVICE'] ?? 'brad-os-api-local',
     revisionName: environment['K_REVISION'],
     appCheckBypass,
+    localDevelopmentOnly,
   };
 }

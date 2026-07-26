@@ -1,43 +1,39 @@
 /**
  * Integration Tests for Calendar API
  *
- * These tests run against the Firebase emulator.
- * Prerequisites:
- * - Emulator running: npm run emulators:fresh
- * - Run tests: npm run test:integration
+ * These tests run against the standalone API backed by the Firestore emulator.
+ * Run with: npm run test:integration:emulator
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { type ApiResponse } from '../utils/index.js';
+import { HEALTH_URL, integrationApiUrl } from './api-config.js';
 
-const FUNCTIONS_URL = 'http://127.0.0.1:5001/brad-os/us-central1';
-const HEALTH_URL = `${FUNCTIONS_URL}/devHealth`;
-const CALENDAR_URL = `${FUNCTIONS_URL}/devCalendar`;
+const CALENDAR_URL = integrationApiUrl('calendar');
 
 interface CalendarDay {
   date: string;
-  workouts: Array<{
+  activities: Array<{
     id: string;
-    status: string;
-    day_name: string;
+    type: 'workout' | 'stretch' | 'meditation' | 'cycling';
+    date: string;
+    completedAt: string | null;
+    summary: Record<string, unknown>;
   }>;
-  stretching: Array<{
-    id: string;
-    totalDurationSeconds: number;
-    regionsCompleted: number;
-  }>;
-  meditation: Array<{
-    id: string;
-    sessionType: string;
-    actualDurationSeconds: number;
-    completedFully: boolean;
-  }>;
+  summary: {
+    totalActivities: number;
+    completedActivities: number;
+    hasWorkout: boolean;
+    hasStretch: boolean;
+    hasMeditation: boolean;
+    hasCycling: boolean;
+  };
 }
 
 interface CalendarDataResponse {
-  year: number;
-  month: number;
-  days: CalendarDay[];
+  startDate: string;
+  endDate: string;
+  days: Record<string, CalendarDay>;
 }
 
 interface ApiError {
@@ -48,7 +44,7 @@ interface ApiError {
   };
 }
 
-async function checkEmulatorRunning(): Promise<boolean> {
+async function checkApiRunning(): Promise<boolean> {
   try {
     const response = await fetch(HEALTH_URL);
     return response.ok;
@@ -57,14 +53,17 @@ async function checkEmulatorRunning(): Promise<boolean> {
   }
 }
 
+function monthPrefix(year: number, month: number): string {
+  return `${year}-${String(month).padStart(2, '0')}`;
+}
+
 describe('Calendar API (Integration)', () => {
   beforeAll(async () => {
-    const isRunning = await checkEmulatorRunning();
+    const isRunning = await checkApiRunning();
     if (!isRunning) {
       throw new Error(
-        'Firebase emulator is not running.\n' +
-          'Start it with: npm run emulators:fresh\n' +
-          'Then run tests with: npm run test:integration'
+        'Standalone integration API is not running.\n' +
+          'Run the suite with: npm run test:integration:emulator'
       );
     }
   });
@@ -79,10 +78,10 @@ describe('Calendar API (Integration)', () => {
 
     const result = (await response.json()) as ApiResponse<CalendarDataResponse>;
     expect(result.success).toBe(true);
-    expect(result.data.year).toBe(year);
-    expect(result.data.month).toBe(month);
+    expect(result.data.startDate).toBe(`${monthPrefix(year, month)}-01`);
+    expect(result.data.endDate.startsWith(monthPrefix(year, month))).toBe(true);
     expect(result.data.days).toBeDefined();
-    expect(Array.isArray(result.data.days)).toBe(true);
+    expect(Array.isArray(result.data.days)).toBe(false);
   });
 
   it('should get calendar data with timezone offset', async () => {
@@ -91,13 +90,15 @@ describe('Calendar API (Integration)', () => {
     const month = now.getMonth() + 1;
     const tzOffset = now.getTimezoneOffset();
 
-    const response = await fetch(`${CALENDAR_URL}/${year}/${month}?tz=${tzOffset}`);
+    const response = await fetch(
+      `${CALENDAR_URL}/${year}/${month}?tz=${tzOffset}`
+    );
     expect(response.status).toBe(200);
 
     const result = (await response.json()) as ApiResponse<CalendarDataResponse>;
     expect(result.success).toBe(true);
-    expect(result.data.year).toBe(year);
-    expect(result.data.month).toBe(month);
+    expect(result.data.startDate).toBe(`${monthPrefix(year, month)}-01`);
+    expect(result.data.endDate.startsWith(monthPrefix(year, month))).toBe(true);
   });
 
   it('should include all activity types in calendar data', async () => {
@@ -112,14 +113,17 @@ describe('Calendar API (Integration)', () => {
     expect(result.success).toBe(true);
 
     // Check that days have the expected structure
-    for (const day of result.data.days) {
+    for (const day of Object.values(result.data.days)) {
       expect(day.date).toBeDefined();
-      expect(day.workouts).toBeDefined();
-      expect(Array.isArray(day.workouts)).toBe(true);
-      expect(day.stretching).toBeDefined();
-      expect(Array.isArray(day.stretching)).toBe(true);
-      expect(day.meditation).toBeDefined();
-      expect(Array.isArray(day.meditation)).toBe(true);
+      expect(Array.isArray(day.activities)).toBe(true);
+      expect(day.summary.totalActivities).toBe(day.activities.length);
+      for (const activity of day.activities) {
+        expect(activity.id).toBeDefined();
+        expect(activity.date).toBe(day.date);
+        expect(['workout', 'stretch', 'meditation', 'cycling']).toContain(
+          activity.type
+        );
+      }
     }
   });
 
@@ -133,14 +137,14 @@ describe('Calendar API (Integration)', () => {
 
     const result = (await response.json()) as ApiResponse<CalendarDataResponse>;
     expect(result.success).toBe(true);
-    expect(result.data.year).toBe(futureYear);
-    expect(result.data.month).toBe(month);
+    expect(result.data.startDate).toBe(`${monthPrefix(futureYear, month)}-01`);
+    expect(result.data.endDate.startsWith(monthPrefix(futureYear, month))).toBe(
+      true
+    );
 
     // Future months should have no activities
-    for (const day of result.data.days) {
-      expect(day.workouts).toHaveLength(0);
-      expect(day.stretching).toHaveLength(0);
-      expect(day.meditation).toHaveLength(0);
+    for (const day of Object.values(result.data.days)) {
+      expect(day.activities).toHaveLength(0);
     }
   });
 
@@ -152,7 +156,7 @@ describe('Calendar API (Integration)', () => {
 
     const result = (await response.json()) as ApiResponse<CalendarDataResponse>;
     expect(result.success).toBe(true);
-    expect(result.data.month).toBe(1);
+    expect(result.data.startDate).toBe(`${year}-01-01`);
   });
 
   it('should get calendar data for December', async () => {
@@ -163,7 +167,7 @@ describe('Calendar API (Integration)', () => {
 
     const result = (await response.json()) as ApiResponse<CalendarDataResponse>;
     expect(result.success).toBe(true);
-    expect(result.data.month).toBe(12);
+    expect(result.data.startDate).toBe(`${year}-12-01`);
   });
 
   it('should validate year parameter - invalid year', async () => {
@@ -249,10 +253,13 @@ describe('Calendar API (Integration)', () => {
     ];
 
     for (const offset of offsets) {
-      const response = await fetch(`${CALENDAR_URL}/${year}/${month}?tz=${offset}`);
+      const response = await fetch(
+        `${CALENDAR_URL}/${year}/${month}?tz=${offset}`
+      );
       expect(response.status).toBe(200);
 
-      const result = (await response.json()) as ApiResponse<CalendarDataResponse>;
+      const result =
+        (await response.json()) as ApiResponse<CalendarDataResponse>;
       expect(result.success).toBe(true);
     }
   });

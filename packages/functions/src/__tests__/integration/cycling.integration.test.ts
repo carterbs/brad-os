@@ -1,23 +1,21 @@
 /**
  * Integration Tests for Cycling API
  *
- * These tests run against the Firebase emulator and verify core cycling read/write flows:
+ * These tests run against the standalone API backed by the Firestore emulator
+ * and verify core cycling read/write flows:
  * - Activities CRUD (POST, GET, GET/:id, DELETE)
  * - FTP read/write (POST, GET, GET /history)
  * - Cycling profile read/write (PUT, GET)
  * - Schema validation (FTP negative value failure path)
  *
- * Prerequisites:
- * - Emulator running: npm run emulators:fresh
- * - Run tests: npm run test:integration
+ * Run with: npm run test:integration:emulator
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { type ApiResponse } from '../utils/index.js';
+import { HEALTH_URL, integrationApiUrl } from './api-config.js';
 
-const FUNCTIONS_URL = 'http://127.0.0.1:5001/brad-os/us-central1';
-const HEALTH_URL = `${FUNCTIONS_URL}/devHealth`;
-const CYCLING_URL = `${FUNCTIONS_URL}/devCycling`;
+const CYCLING_URL = integrationApiUrl('cycling');
 
 // Local interfaces for assertions
 interface CyclingActivity {
@@ -64,9 +62,9 @@ interface ApiError {
 // Helper functions
 
 /**
- * Check if the emulator is running by hitting the health endpoint.
+ * Check if the standalone integration API is running.
  */
-async function checkEmulatorRunning(): Promise<boolean> {
+async function checkApiRunning(): Promise<boolean> {
   try {
     const response = await fetch(HEALTH_URL);
     return response.ok;
@@ -123,12 +121,11 @@ function createValidActivity(
 
 describe('Cycling API (Integration)', () => {
   beforeAll(async () => {
-    const isRunning = await checkEmulatorRunning();
+    const isRunning = await checkApiRunning();
     if (!isRunning) {
       throw new Error(
-        'Firebase emulator is not running.\n' +
-          'Start it with: npm run emulators:fresh\n' +
-          'Then run tests with: npm run test:integration'
+        'Standalone integration API is not running.\n' +
+          'Run the suite with: npm run test:integration:emulator'
       );
     }
   });
@@ -145,7 +142,8 @@ describe('Cycling API (Integration)', () => {
         body: JSON.stringify(createValidActivity()),
       });
       expect(createResponse.status).toBe(201);
-      const createResult = (await createResponse.json()) as ApiResponse<CyclingActivity>;
+      const createResult =
+        (await createResponse.json()) as ApiResponse<CyclingActivity>;
       expect(createResult.success).toBe(true);
       expect(createResult.data.id).toBeDefined();
       const activityId = createResult.data.id;
@@ -159,7 +157,9 @@ describe('Cycling API (Integration)', () => {
         headers,
       });
       expect(listResponse.status).toBe(200);
-      const listResult = (await listResponse.json()) as ApiResponse<CyclingActivity[]>;
+      const listResult = (await listResponse.json()) as ApiResponse<
+        CyclingActivity[]
+      >;
       expect(listResult.success).toBe(true);
       expect(Array.isArray(listResult.data)).toBe(true);
       const activityInList = listResult.data.find((a) => a.id === activityId);
@@ -167,11 +167,15 @@ describe('Cycling API (Integration)', () => {
       expect(activityInList?.stravaId).toBe(987654321);
 
       // Get activity by ID
-      const getResponse = await fetch(`${CYCLING_URL}/activities/${activityId}`, {
-        headers,
-      });
+      const getResponse = await fetch(
+        `${CYCLING_URL}/activities/${activityId}`,
+        {
+          headers,
+        }
+      );
       expect(getResponse.status).toBe(200);
-      const getResult = (await getResponse.json()) as ApiResponse<CyclingActivity>;
+      const getResult =
+        (await getResponse.json()) as ApiResponse<CyclingActivity>;
       expect(getResult.success).toBe(true);
       expect(getResult.data.id).toBe(activityId);
       expect(getResult.data.stravaId).toBe(987654321);
@@ -180,12 +184,17 @@ describe('Cycling API (Integration)', () => {
       expect(getResult.data.userId).toBe(userId);
 
       // Delete activity
-      const deleteResponse = await fetch(`${CYCLING_URL}/activities/${activityId}`, {
-        method: 'DELETE',
-        headers,
-      });
+      const deleteResponse = await fetch(
+        `${CYCLING_URL}/activities/${activityId}`,
+        {
+          method: 'DELETE',
+          headers,
+        }
+      );
       expect(deleteResponse.status).toBe(200);
-      const deleteResult = (await deleteResponse.json()) as ApiResponse<{ deleted: boolean }>;
+      const deleteResult = (await deleteResponse.json()) as ApiResponse<{
+        deleted: boolean;
+      }>;
       expect(deleteResult.success).toBe(true);
       expect(deleteResult.data.deleted).toBe(true);
 
@@ -211,7 +220,8 @@ describe('Cycling API (Integration)', () => {
         headers,
       });
       expect(initialGetResponse.status).toBe(200);
-      const initialGetResult = (await initialGetResponse.json()) as ApiResponse<FTPEntry | null>;
+      const initialGetResult =
+        (await initialGetResponse.json()) as ApiResponse<FTPEntry | null>;
       expect(initialGetResult.success).toBe(true);
       expect(initialGetResult.data).toBe(null);
 
@@ -226,7 +236,8 @@ describe('Cycling API (Integration)', () => {
         }),
       });
       expect(createResponse.status).toBe(201);
-      const createResult = (await createResponse.json()) as ApiResponse<FTPEntry>;
+      const createResult =
+        (await createResponse.json()) as ApiResponse<FTPEntry>;
       expect(createResult.success).toBe(true);
       expect(createResult.data.id).toBeDefined();
       const ftpId = createResult.data.id;
@@ -238,7 +249,8 @@ describe('Cycling API (Integration)', () => {
         headers,
       });
       expect(getCurrentResponse.status).toBe(200);
-      const getCurrentResult = (await getCurrentResponse.json()) as ApiResponse<FTPEntry>;
+      const getCurrentResult =
+        (await getCurrentResponse.json()) as ApiResponse<FTPEntry>;
       expect(getCurrentResult.success).toBe(true);
       expect(getCurrentResult.data.id).toBe(ftpId);
       expect(getCurrentResult.data.value).toBe(265);
@@ -249,7 +261,9 @@ describe('Cycling API (Integration)', () => {
         headers,
       });
       expect(historyResponse.status).toBe(200);
-      const historyResult = (await historyResponse.json()) as ApiResponse<FTPEntry[]>;
+      const historyResult = (await historyResponse.json()) as ApiResponse<
+        FTPEntry[]
+      >;
       expect(historyResult.success).toBe(true);
       expect(Array.isArray(historyResult.data)).toBe(true);
       const createdInHistory = historyResult.data.find((f) => f.id === ftpId);
@@ -268,7 +282,8 @@ describe('Cycling API (Integration)', () => {
         headers,
       });
       expect(initialGetResponse.status).toBe(200);
-      const initialGetResult = (await initialGetResponse.json()) as ApiResponse<CyclingProfile | null>;
+      const initialGetResult =
+        (await initialGetResponse.json()) as ApiResponse<CyclingProfile | null>;
       expect(initialGetResult.success).toBe(true);
       expect(initialGetResult.data).toBe(null);
 
@@ -283,7 +298,8 @@ describe('Cycling API (Integration)', () => {
         }),
       });
       expect(putResponse.status).toBe(200);
-      const putResult = (await putResponse.json()) as ApiResponse<CyclingProfile>;
+      const putResult =
+        (await putResponse.json()) as ApiResponse<CyclingProfile>;
       expect(putResult.success).toBe(true);
       expect(putResult.data.weightKg).toBe(74.5);
       expect(putResult.data.maxHR).toBe(190);
@@ -295,7 +311,8 @@ describe('Cycling API (Integration)', () => {
         headers,
       });
       expect(getResponse.status).toBe(200);
-      const getResult = (await getResponse.json()) as ApiResponse<CyclingProfile>;
+      const getResult =
+        (await getResponse.json()) as ApiResponse<CyclingProfile>;
       expect(getResult.success).toBe(true);
       expect(getResult.data.weightKg).toBe(74.5);
       expect(getResult.data.maxHR).toBe(190);

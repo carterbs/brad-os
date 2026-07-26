@@ -1,18 +1,15 @@
 /**
  * Integration Tests for Today Coach API
  *
- * These tests run against the Firebase emulator.
- * Prerequisites:
- * - Emulator running: npm run emulators:fresh
- * - Run tests: npm run test:integration
+ * These tests run against the standalone API backed by the Firestore emulator.
+ * Run with: npm run test:integration:emulator
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { type ApiResponse } from '../utils/index.js';
+import { HEALTH_URL, integrationApiUrl } from './api-config.js';
 
-const FUNCTIONS_URL = 'http://127.0.0.1:5001/brad-os/us-central1';
-const HEALTH_URL = `${FUNCTIONS_URL}/devHealth`;
-const TODAY_COACH_URL = `${FUNCTIONS_URL}/devTodayCoach`;
+const TODAY_COACH_URL = integrationApiUrl('today-coach');
 
 // Valid recovery snapshot matching coachRecommendRequestSchema
 // (recoverySnapshotSchema without 'source' field)
@@ -43,7 +40,7 @@ interface ApiError {
   };
 }
 
-async function checkEmulatorRunning(): Promise<boolean> {
+async function checkApiRunning(): Promise<boolean> {
   try {
     const response = await fetch(HEALTH_URL);
     return response.ok;
@@ -54,12 +51,11 @@ async function checkEmulatorRunning(): Promise<boolean> {
 
 describe('Today Coach API (Integration)', () => {
   beforeAll(async () => {
-    const isRunning = await checkEmulatorRunning();
+    const isRunning = await checkApiRunning();
     if (!isRunning) {
       throw new Error(
-        'Firebase emulator is not running.\n' +
-          'Start it with: npm run emulators:fresh\n' +
-          'Then run tests with: npm run test:integration'
+        'Standalone integration API is not running.\n' +
+          'Run the suite with: npm run test:integration:emulator'
       );
     }
   });
@@ -84,10 +80,11 @@ describe('Today Coach API (Integration)', () => {
       body: JSON.stringify({ recovery: VALID_RECOVERY }),
     });
 
-    // In emulator without OpenAI key: 500 CONFIG_ERROR
+    // Without an OpenAI key: 500 CONFIG_ERROR
     // With key: 200 with recommendation
     if (response.status === 200) {
-      const result = (await response.json()) as ApiResponse<TodayCoachRecommendation>;
+      const result =
+        (await response.json()) as ApiResponse<TodayCoachRecommendation>;
       expect(result.success).toBe(true);
       expect(typeof result.data.dailyBriefing).toBe('string');
     } else {
@@ -156,7 +153,8 @@ describe('Today Coach API (Integration)', () => {
     expect([200, 500]).toContain(response.status);
 
     if (response.status === 200) {
-      const result = (await response.json()) as ApiResponse<TodayCoachRecommendation>;
+      const result =
+        (await response.json()) as ApiResponse<TodayCoachRecommendation>;
       expect(result.success).toBe(true);
     } else {
       const result = (await response.json()) as ApiError;

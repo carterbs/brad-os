@@ -7,7 +7,7 @@ A personal wellness tracking system: iOS app (SwiftUI) + Express API backend on 
 ```bash
 npm install        # Install deps + set up git hooks
 npm run validate   # Typecheck + lint + test + architecture (MUST pass before committing)
-npm run qa:start   # Default app QA loop (simulator + Firebase + OTel + build + launch)
+npm run qa:start   # Simulator + local API + real dev Firestore + OTel
 ```
 
 Full bootstrap: [Local Dev Quickstart](docs/guides/local-dev-quickstart.md)
@@ -83,7 +83,7 @@ Current examples of preferred Rust-first delegation:
 |-------|------|
 | Local Dev Quickstart | [docs/guides/local-dev-quickstart.md](docs/guides/local-dev-quickstart.md) |
 | iOS Build and Run | [docs/guides/ios-build-and-run.md](docs/guides/ios-build-and-run.md) |
-| Debugging the Cloud Run API | [docs/guides/debugging-cloud-functions.md](docs/guides/debugging-cloud-functions.md) |
+| Debugging the Cloud Run API | [docs/guides/debugging-cloud-run.md](docs/guides/debugging-cloud-run.md) |
 | Deploying Cloud Run | [docs/guides/deploying-cloud-run.md](docs/guides/deploying-cloud-run.md) |
 | Progressive Overload | [docs/guides/progressive-overload.md](docs/guides/progressive-overload.md) |
 | Debug Telemetry | [docs/guides/debug-telemetry.md](docs/guides/debug-telemetry.md) |
@@ -98,7 +98,7 @@ Feature-level architecture docs live in `docs/architecture/`. Each describes the
 
 | Path | Contents |
 |------|----------|
-| `packages/functions/src/` | Unified Cloud Run API plus local emulator adapters: handlers, services, repositories, types, schemas |
+| `packages/functions/src/` | Unified Cloud Run and standalone local API: handlers, services, repositories, types, schemas |
 | `ios/BradOS/` | Native SwiftUI iOS app |
 | `docs/` | All documentation (conventions, guides, architecture maps) |
 | `thoughts/shared/plans/` | Implementation plans (active and completed) |

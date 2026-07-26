@@ -1,20 +1,15 @@
 /**
  * Integration Tests for Exercises API
  *
- * These tests run against the Firebase emulator.
- * Prerequisites:
- * - Emulator running: npm run emulators:fresh
- * - Run tests: npm run test:integration
+ * These tests run against the standalone API backed by the Firestore emulator.
+ * Run with: npm run test:integration:emulator
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { type ApiResponse } from '../utils/index.js';
+import { HEALTH_URL, integrationApiUrl } from './api-config.js';
 
-// Functions emulator runs at port 5001
-// URLs follow pattern: http://127.0.0.1:5001/{project-id}/us-central1/{functionName}
-const FUNCTIONS_URL = 'http://127.0.0.1:5001/brad-os/us-central1';
-const HEALTH_URL = `${FUNCTIONS_URL}/devHealth`;
-const EXERCISES_URL = `${FUNCTIONS_URL}/devExercises`;
+const EXERCISES_URL = integrationApiUrl('exercises');
 
 interface Exercise {
   id: string;
@@ -33,7 +28,7 @@ interface ApiError {
   };
 }
 
-async function checkEmulatorRunning(): Promise<boolean> {
+async function checkApiRunning(): Promise<boolean> {
   try {
     const response = await fetch(HEALTH_URL);
     return response.ok;
@@ -44,12 +39,11 @@ async function checkEmulatorRunning(): Promise<boolean> {
 
 describe('Exercises API (Integration)', () => {
   beforeAll(async () => {
-    const isRunning = await checkEmulatorRunning();
+    const isRunning = await checkApiRunning();
     if (!isRunning) {
       throw new Error(
-        'Firebase emulator is not running.\n' +
-          'Start it with: npm run emulators:fresh\n' +
-          'Then run tests with: npm run test:integration'
+        'Standalone integration API is not running.\n' +
+          'Run the suite with: npm run test:integration:emulator'
       );
     }
   });

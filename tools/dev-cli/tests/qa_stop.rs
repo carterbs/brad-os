@@ -4,9 +4,10 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 
+use dev_cli::qa_process::{QaProcessIdentity, API_COMMAND_MARKER};
 use dev_cli::qa_stop::{
-    parse_args, ParsedArgs, run_with_runner_and_sleep, CliUsage, CommandCall, CommandResult, CommandRunner,
-    StopContext, is_owner_of_lock, stop_pid_file,
+    is_owner_of_lock, parse_args, run_with_runner_and_sleep, stop_pid_file, CliUsage, CommandCall,
+    CommandResult, CommandRunner, ParsedArgs, StopContext,
 };
 use tempfile::tempdir;
 
@@ -81,8 +82,14 @@ fn usage_includes_all_flags() {
 
 #[test]
 fn sanitize_id_matches_script_semantics() {
-    assert_eq!(dev_cli::qa_stop::sanitize_id("Alpha Worktree"), "alpha-worktree");
-    assert_eq!(dev_cli::qa_stop::sanitize_id("Worktree_123"), "worktree-123");
+    assert_eq!(
+        dev_cli::qa_stop::sanitize_id("Alpha Worktree"),
+        "alpha-worktree"
+    );
+    assert_eq!(
+        dev_cli::qa_stop::sanitize_id("Worktree_123"),
+        "worktree-123"
+    );
     assert_eq!(dev_cli::qa_stop::sanitize_id("UPPER"), "upper");
 }
 
@@ -91,17 +98,19 @@ fn pid_file_running_state_follows_fallback_chain() {
     let workspace = tempdir().expect("temp");
     let pid_file = workspace.path().join("running.pid");
     fs::write(&pid_file, "321\n").expect("write");
+    let identity = QaProcessIdentity::new(workspace.path(), API_COMMAND_MARKER);
 
     let runner = FakeRunner::new(vec![
         FakeRunner::response(0, ""),
-        FakeRunner::response(0, ""),
+        FakeRunner::response(0, "node packages/functions/lib/server.js"),
+        FakeRunner::response(0, &format!("p321\nfcwd\nn{}\n", workspace.path().display())),
         FakeRunner::response(0, ""),
         FakeRunner::response(1, ""),
     ]);
 
-    let report = stop_pid_file(&pid_file, "Firebase", &runner, &|_| {})
-        .expect("stopped");
-    assert_eq!(report, "Firebase: stopped pid 321");
+    let report =
+        stop_pid_file(&pid_file, "Standalone API", &identity, &runner, &|_| {}).expect("stopped");
+    assert_eq!(report, "Standalone API: stopped pid 321");
     assert!(!pid_file.exists());
 }
 
@@ -110,11 +119,12 @@ fn pid_file_stale_state_removes_file_without_kill() {
     let workspace = tempdir().expect("temp");
     let pid_file = workspace.path().join("stale.pid");
     fs::write(&pid_file, "321\n").expect("write");
+    let identity = QaProcessIdentity::new(workspace.path(), API_COMMAND_MARKER);
 
     let runner = FakeRunner::new(vec![FakeRunner::response(1, "")]);
 
-    let report = stop_pid_file(&pid_file, "OTel collector", &runner, &|_| {})
-        .expect("stopped");
+    let report =
+        stop_pid_file(&pid_file, "OTel collector", &identity, &runner, &|_| {}).expect("stopped");
     assert_eq!(report, "OTel collector: process 321 was already stopped");
     assert!(!pid_file.exists());
 }
@@ -124,10 +134,11 @@ fn pid_file_empty_state_removes_file() {
     let workspace = tempdir().expect("temp");
     let pid_file = workspace.path().join("empty.pid");
     fs::write(&pid_file, "\n").expect("write");
+    let identity = QaProcessIdentity::new(workspace.path(), API_COMMAND_MARKER);
 
     let runner = FakeRunner::new(vec![]);
-    let report = stop_pid_file(&pid_file, "OTel collector", &runner, &|_| {})
-        .expect("stopped");
+    let report =
+        stop_pid_file(&pid_file, "OTel collector", &identity, &runner, &|_| {}).expect("stopped");
     assert_eq!(report, "OTel collector: pid file was empty, removed.");
     assert!(!pid_file.exists());
 }
@@ -136,10 +147,36 @@ fn pid_file_empty_state_removes_file() {
 fn pid_file_missing_state_reports_no_pid_file() {
     let workspace = tempdir().expect("temp");
     let pid_file = workspace.path().join("missing.pid");
+    let identity = QaProcessIdentity::new(workspace.path(), API_COMMAND_MARKER);
     let runner = FakeRunner::new(vec![]);
-    let report = stop_pid_file(&pid_file, "OTel collector", &runner, &|_| {})
-        .expect("stopped");
-    assert_eq!(report, format!("OTel collector: no pid file at {}", pid_file.display()));
+    let report =
+        stop_pid_file(&pid_file, "OTel collector", &identity, &runner, &|_| {}).expect("stopped");
+    assert_eq!(
+        report,
+        format!("OTel collector: no pid file at {}", pid_file.display())
+    );
+}
+
+#[test]
+fn pid_file_reused_by_unowned_process_is_never_killed() {
+    let workspace = tempdir().expect("temp");
+    let pid_file = workspace.path().join("reused.pid");
+    fs::write(&pid_file, "321\n").expect("write");
+    let identity = QaProcessIdentity::new(workspace.path(), API_COMMAND_MARKER);
+    let runner = FakeRunner::new(vec![
+        FakeRunner::response(0, ""),
+        FakeRunner::response(0, "python unrelated.py"),
+    ]);
+
+    let report =
+        stop_pid_file(&pid_file, "Standalone API", &identity, &runner, &|_| {}).expect("report");
+
+    assert_eq!(
+        report,
+        "Standalone API: refused to stop unowned pid 321; stale pid file removed"
+    );
+    assert!(!pid_file.exists());
+    assert_eq!(runner.calls.borrow().len(), 2);
 }
 
 #[test]
@@ -157,7 +194,12 @@ fn lock_matching_owner_uses_session_file() {
 #[test]
 fn state_matrix_present_and_missing_path() {
     let qa_state_root = tempdir().expect("temp");
-    let context = StopContext::load("missing", qa_state_root.path().to_str().expect("str")).expect("context");
+    let context = StopContext::load(
+        "missing",
+        qa_state_root.path().to_str().expect("str"),
+        Path::new("/tmp/fallback-root"),
+    )
+    .expect("context");
     assert_eq!(
         context.otel_pid_file,
         qa_state_root
@@ -173,15 +215,21 @@ fn state_matrix_present_and_missing_path() {
     fs::create_dir_all(&session_dir).expect("session dir");
     fs::write(
         &state_file,
-        "OTEL_PID_FILE=\"/tmp/otel.pid\"\nFIREBASE_PID_FILE=\"/tmp/firebase.pid\"\nFUNCTIONS_PORT=\"1234\"\nHOSTING_PORT=\"5678\"\nSIMULATOR_UDID=\"SIM-1\"\nSIMULATOR_LOCK_DIR=\"/tmp/lock\"\n",
+        "OTEL_PID_FILE=\"/tmp/otel.pid\"\nAPI_PID_FILE=\"/tmp/api.pid\"\nAPI_PORT=\"1234\"\nOTEL_PORT=\"5678\"\nSIMULATOR_UDID=\"SIM-1\"\nSIMULATOR_LOCK_DIR=\"/tmp/lock\"\n",
     )
     .expect("state file");
 
-    let context = StopContext::load("present", qa_state_root.path().to_str().expect("str")).expect("context");
+    let context = StopContext::load(
+        "present",
+        qa_state_root.path().to_str().expect("str"),
+        Path::new("/tmp/fallback-root"),
+    )
+    .expect("context");
     assert_eq!(context.otel_pid_file, PathBuf::from("/tmp/otel.pid"));
-    assert_eq!(context.firebase_pid_file, PathBuf::from("/tmp/firebase.pid"));
+    assert_eq!(context.api_pid_file, PathBuf::from("/tmp/api.pid"));
     assert_eq!(context.ports[0].as_deref(), Some("1234"));
-    assert_eq!(context.ports[2].as_deref(), Some("5678"));
+    assert_eq!(context.ports[1].as_deref(), Some("5678"));
+    assert_eq!(context.worktree_root, PathBuf::from("/tmp/fallback-root"));
     assert_eq!(context.simulator_udid, Some("SIM-1".to_string()));
     assert_eq!(context.simulator_lock_dir, Some("/tmp/lock".to_string()));
 }
@@ -197,19 +245,26 @@ fn run_with_shutdown_flag_and_matching_simulator_lock() {
     fs::create_dir_all(&qa_state_root.join("device-locks")).expect("locks");
     fs::create_dir_all(&qa_state_root.join("device-locks").join("owned.lock")).expect("owned");
     fs::write(
-        qa_state_root.join("device-locks").join("owned.lock").join("session"),
+        qa_state_root
+            .join("device-locks")
+            .join("owned.lock")
+            .join("session"),
         "demo",
     )
     .expect("session owner");
     fs::create_dir_all(&qa_state_root.join("device-locks").join("other.lock")).expect("other");
     fs::write(
-        qa_state_root.join("device-locks").join("other.lock").join("session"),
+        qa_state_root
+            .join("device-locks")
+            .join("other.lock")
+            .join("session"),
         "other",
     )
     .expect("other owner");
 
     let lock_dir = session_dir.join("lock");
     fs::create_dir_all(&lock_dir).expect("lock dir");
+    fs::write(lock_dir.join("session"), "demo").expect("lock owner");
     let mut contents = String::new();
     contents.push_str("SIMULATOR_UDID=\"SIM-1\"\n");
     contents.push_str("SIMULATOR_LOCK_DIR=\"");
@@ -235,7 +290,10 @@ fn run_with_shutdown_flag_and_matching_simulator_lock() {
     )
     .expect("run");
 
-    assert!(report.messages.iter().any(|message| message.starts_with("Simulator: shut down SIM-1")));
+    assert!(report
+        .messages
+        .iter()
+        .any(|message| message.starts_with("Simulator: shut down SIM-1")));
     assert!(report
         .messages
         .iter()
@@ -270,7 +328,10 @@ fn run_with_no_simulator_shutdown_flag() {
     )
     .expect("run");
 
-    assert!(!report.messages.iter().any(|message| message.starts_with("Simulator: shut down")));
+    assert!(!report
+        .messages
+        .iter()
+        .any(|message| message.starts_with("Simulator: shut down")));
     assert!(report
         .messages
         .iter()

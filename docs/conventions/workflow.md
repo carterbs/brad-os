@@ -99,8 +99,13 @@ If a wrapper violates the policy, either migrate to Rust or add a temporary allo
 ### CI
 
 GitHub Actions runs on every push to `main` and every PR:
+
 1. **validate** — `npm run validate`
-2. **integration** — Firebase emulators + `npm run test:integration`
+2. **cloud-run-tooling** — Rust deployment, container, and route guardrail tests
+3. **cloud-run-container** — build and smoke-test the production image
+
+Run the standalone API + disposable Firestore integration suite locally with
+`npm run test:integration:emulator`.
 
 On failure, `.validate/*.log` artifacts are uploaded. See `.github/workflows/ci.yml`.
 
@@ -132,7 +137,7 @@ On failure, `.validate/*.log` artifacts are uploaded. See `.github/workflows/ci.
 ## QA (MANDATORY)
 
 After implementation, exercise what you built — don't just run tests and declare victory:
-- **iOS:** `npm run qa:start` (simulator + Firebase + OTel + build + launch)
+- **iOS:** `npm run qa:start` (simulator + loopback API + real dev Firestore + OTel + build + launch)
 - **Script/CLI tool**: Run it, verify correct output
 - **API endpoint**: Hit it, verify the response
 - **UI change**: Build and run on simulator, verify visually

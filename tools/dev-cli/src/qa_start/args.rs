@@ -7,7 +7,7 @@ pub struct ParsedArgs {
     pub device_request: Option<String>,
     pub timeout_seconds: u64,
     pub fresh: bool,
-    pub start_firebase: bool,
+    pub start_api: bool,
     pub start_otel: bool,
     pub setup_simulator: bool,
 }
@@ -42,7 +42,7 @@ pub fn parse_args(args: &[String]) -> Result<(ParsedArgs, bool), ParseError> {
         device_request: None,
         timeout_seconds: 120,
         fresh: false,
-        start_firebase: true,
+        start_api: true,
         start_otel: true,
         setup_simulator: true,
     };
@@ -77,17 +77,16 @@ pub fn parse_args(args: &[String]) -> Result<(ParsedArgs, bool), ParseError> {
                 let raw = args
                     .get(i + 1)
                     .ok_or_else(|| ParseError::MissingValue(args[i].clone()))?;
-                parsed.timeout_seconds = raw
-                    .parse::<u64>()
-                    .map_err(|_| ParseError::TimeoutInvalid)?;
+                parsed.timeout_seconds =
+                    raw.parse::<u64>().map_err(|_| ParseError::TimeoutInvalid)?;
                 i += 2;
             }
             "--fresh" => {
                 parsed.fresh = true;
                 i += 1;
             }
-            "--no-firebase" => {
-                parsed.start_firebase = false;
+            "--no-api" => {
+                parsed.start_api = false;
                 i += 1;
             }
             "--no-otel" => {
@@ -115,11 +114,11 @@ pub const USAGE: &str = r"Usage:
 Options:
   --id <id>            Optional QA session identifier.
   --agent <id>         Backward-compatible alias for --id.
-  --project-id <id>    Optional Firebase project ID override.
+  --project-id <id>    Optional GCP/Firebase project ID override.
   --device <name|udid> Optional simulator name fragment or exact UDID.
   --timeout <seconds>  Startup wait timeout (default: 120).
-  --fresh              Clear this QA session's telemetry/data directories before start.
-  --no-firebase        Skip Firebase emulator startup.
+  --fresh              Clear this session's local logs/telemetry; shared dev data persists.
+  --no-api             Skip standalone API startup.
   --no-otel            Skip OTel collector startup.
   --no-simulator       Skip simulator leasing + env injection.
   -h, --help           Show this help.";
@@ -144,7 +143,7 @@ mod tests {
             "--timeout",
             "90",
             "--fresh",
-            "--no-firebase",
+            "--no-api",
             "--no-otel",
             "--no-simulator",
         ]))
@@ -156,7 +155,7 @@ mod tests {
         assert_eq!(parsed.device_request.as_deref(), Some("iPhone 15"));
         assert_eq!(parsed.timeout_seconds, 90);
         assert!(parsed.fresh);
-        assert!(!parsed.start_firebase);
+        assert!(!parsed.start_api);
         assert!(!parsed.start_otel);
         assert!(!parsed.setup_simulator);
     }
@@ -175,8 +174,15 @@ mod tests {
 
     #[test]
     fn parse_timeout_error() {
-        let error = parse_args(&arg_list(&["--timeout", "abc"]))
-            .expect_err("timeout must be integer");
+        let error =
+            parse_args(&arg_list(&["--timeout", "abc"])).expect_err("timeout must be integer");
         assert_eq!(error, ParseError::TimeoutInvalid);
+    }
+
+    #[test]
+    fn fresh_help_preserves_shared_development_data() {
+        assert!(USAGE.contains("local logs/telemetry"));
+        assert!(USAGE.contains("shared dev data persists"));
+        assert!(!USAGE.contains("telemetry/data directories"));
     }
 }

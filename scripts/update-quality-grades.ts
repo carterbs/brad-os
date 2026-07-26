@@ -14,40 +14,45 @@ import { execSync } from 'node:child_process';
 
 const ROOT_DIR = path.resolve(import.meta.dirname ?? __dirname, '..');
 const FUNCTIONS_SRC = path.join(ROOT_DIR, 'packages/functions/src');
-const IOS_CORE_TESTS_DIR = path.join(ROOT_DIR, 'ios/BradOS/BradOSCore/Tests/BradOSCoreTests');
+const IOS_CORE_TESTS_DIR = path.join(
+  ROOT_DIR,
+  'ios/BradOS/BradOSCore/Tests/BradOSCoreTests'
+);
 const IOS_APP_TESTS_DIR = path.join(ROOT_DIR, 'ios/BradOS/BradOSTests');
 // Legacy alias — scanning logic uses both directories
 const IOS_TESTS_DIR = IOS_CORE_TESTS_DIR;
 const QUALITY_GRADES_PATH = path.join(ROOT_DIR, 'docs/quality-grades.md');
-const COVERAGE_SUMMARY_PATH = path.join(ROOT_DIR, 'packages/functions/coverage/coverage-summary.json');
+const COVERAGE_SUMMARY_PATH = path.join(
+  ROOT_DIR,
+  'packages/functions/coverage/coverage-summary.json'
+);
 const SKIP_COVERAGE_REFRESH_FLAG = '--skip-coverage-refresh';
 
 // ── Handler-to-feature map (mirrors lint-architecture.ts checkOrphanFeatures) ─
 
 const HANDLER_FEATURE_MAP: Record<string, string> = {
-  'exercises': 'lifting',
-  'plans': 'lifting',
-  'mesocycles': 'lifting',
-  'workouts': 'lifting',
-  'workoutSets': 'lifting',
-  'stretches': 'stretching',
-  'stretchSessions': 'stretching',
-  'meditationSessions': 'meditation',
-  'guidedMeditations': 'meditation',
-  'tts': 'meditation',
+  exercises: 'lifting',
+  plans: 'lifting',
+  mesocycles: 'lifting',
+  workouts: 'lifting',
+  workoutSets: 'lifting',
+  stretches: 'stretching',
+  stretchSessions: 'stretching',
+  meditationSessions: 'meditation',
+  guidedMeditations: 'meditation',
+  tts: 'meditation',
   'health-sync': 'health',
-  'health': 'health',
-  'calendar': 'calendar',
+  health: 'health',
+  calendar: 'calendar',
   'today-coach': 'today',
-  'cycling': 'cycling',
+  cycling: 'cycling',
   'cycling-coach': 'cycling',
   'strava-webhook': 'cycling',
-  'mealplans': 'meal-planning',
-  'meals': 'meal-planning',
-  'recipes': 'meal-planning',
-  'ingredients': 'meal-planning',
-  'barcodes': 'meal-planning',
-  'mealplan-debug': 'meal-planning',
+  mealplans: 'meal-planning',
+  meals: 'meal-planning',
+  recipes: 'meal-planning',
+  ingredients: 'meal-planning',
+  barcodes: 'meal-planning',
 };
 
 // Map service files to domains based on naming conventions
@@ -98,37 +103,43 @@ const REPO_DOMAIN_MAP: Record<string, string> = {
 
 // Map iOS test files to domains
 const IOS_TEST_DOMAIN_MAP: Record<string, string> = {
-  'ExerciseTests': 'lifting',
-  'MesocycleTests': 'lifting',
-  'PlanTests': 'lifting',
-  'WorkoutTests': 'lifting',
-  'ExercisesViewModelTests': 'lifting',
-  'WorkoutStateManagerTests': 'lifting',
-  'MealPlanActionTests': 'meal-planning',
-  'MealPlanDecodingTests': 'meal-planning',
-  'ShoppingListFormatterTests': 'meal-planning',
-  'ShoppingListBuilderTests': 'meal-planning',
-  'MealPlanCacheServiceTests': 'meal-planning',
-  'RecipeCacheServiceTests': 'meal-planning',
-  'RemindersServiceTests': 'meal-planning',
-  'StretchSessionTests': 'stretching',
-  'StretchUrgencyTests': 'stretching',
-  'MeditationSessionTests': 'meditation',
-  'CalendarViewModelTests': 'calendar',
-  'DashboardViewModelTests': 'today',
-  'TodayCoachClientTests': 'today',
-  'TodayCoachCardStateTests': 'today',
-  'ProfileViewModelTests': 'profile',
-  'CyclingViewModelTests': 'cycling',
-  'APIErrorTests': 'shared',
-  'DateHelpersTests': 'shared',
-  'LoadStateTests': 'shared',
-  'TestHelpers': 'shared',
+  ExerciseTests: 'lifting',
+  MesocycleTests: 'lifting',
+  PlanTests: 'lifting',
+  WorkoutTests: 'lifting',
+  ExercisesViewModelTests: 'lifting',
+  WorkoutStateManagerTests: 'lifting',
+  MealPlanActionTests: 'meal-planning',
+  MealPlanDecodingTests: 'meal-planning',
+  ShoppingListFormatterTests: 'meal-planning',
+  ShoppingListBuilderTests: 'meal-planning',
+  MealPlanCacheServiceTests: 'meal-planning',
+  RecipeCacheServiceTests: 'meal-planning',
+  RemindersServiceTests: 'meal-planning',
+  StretchSessionTests: 'stretching',
+  StretchUrgencyTests: 'stretching',
+  MeditationSessionTests: 'meditation',
+  CalendarViewModelTests: 'calendar',
+  DashboardViewModelTests: 'today',
+  TodayCoachClientTests: 'today',
+  TodayCoachCardStateTests: 'today',
+  ProfileViewModelTests: 'profile',
+  CyclingViewModelTests: 'cycling',
+  APIErrorTests: 'shared',
+  DateHelpersTests: 'shared',
+  LoadStateTests: 'shared',
+  TestHelpers: 'shared',
 };
 
 // Risk assessment for untested files
 const HIGH_RISK_PATTERNS = ['today-coach', 'openai', 'ai', 'coach'];
-const MEDIUM_RISK_PATTERNS = ['firestore', 'crud', 'recovery', 'sync', 'guided'];
+const MEDIUM_RISK_PATTERNS = [
+  'firestore',
+  'crud',
+  'recovery',
+  'sync',
+  'guided',
+];
 const LOW_RISK_PATTERNS = ['debug', 'barcode', 'tts'];
 
 // ── Collect functions ─────────────────────────────────────────────────────────
@@ -253,7 +264,10 @@ function countBackendTests(): Map<string, DomainTestCounts> {
       // Heuristic: check if the schema name maps to a known domain's handler
       let domain: string | undefined;
       for (const [handler, feat] of Object.entries(HANDLER_FEATURE_MAP)) {
-        if (handler.includes(schemaName) || schemaName.includes(handler.replace(/s$/, ''))) {
+        if (
+          handler.includes(schemaName) ||
+          schemaName.includes(handler.replace(/s$/, ''))
+        ) {
           domain = feat;
           break;
         }
@@ -286,8 +300,12 @@ function countIosTests(): Map<string, string[]> {
 
   // Collect from both BradOSCore package tests and main app test target
   const testFiles = [
-    ...(fs.existsSync(IOS_CORE_TESTS_DIR) ? collectFiles(IOS_CORE_TESTS_DIR, '.swift') : []),
-    ...(fs.existsSync(IOS_APP_TESTS_DIR) ? collectFiles(IOS_APP_TESTS_DIR, '.swift') : []),
+    ...(fs.existsSync(IOS_CORE_TESTS_DIR)
+      ? collectFiles(IOS_CORE_TESTS_DIR, '.swift')
+      : []),
+    ...(fs.existsSync(IOS_APP_TESTS_DIR)
+      ? collectFiles(IOS_APP_TESTS_DIR, '.swift')
+      : []),
   ];
 
   for (const testFile of testFiles) {
@@ -316,14 +334,30 @@ function countIosTests(): Map<string, string[]> {
 
 function mapIosTestByName(name: string): string | null {
   const lowerName = name.toLowerCase();
-  if (lowerName.includes('exercise') || lowerName.includes('workout') || lowerName.includes('mesocycle') || lowerName.includes('plan') || lowerName.includes('lifting')) return 'lifting';
-  if (lowerName.includes('meal') || lowerName.includes('recipe') || lowerName.includes('shopping') || lowerName.includes('ingredient')) return 'meal-planning';
+  if (
+    lowerName.includes('exercise') ||
+    lowerName.includes('workout') ||
+    lowerName.includes('mesocycle') ||
+    lowerName.includes('plan') ||
+    lowerName.includes('lifting')
+  )
+    return 'lifting';
+  if (
+    lowerName.includes('meal') ||
+    lowerName.includes('recipe') ||
+    lowerName.includes('shopping') ||
+    lowerName.includes('ingredient')
+  )
+    return 'meal-planning';
   if (lowerName.includes('stretch')) return 'stretching';
   if (lowerName.includes('meditation')) return 'meditation';
-  if (lowerName.includes('cycling') || lowerName.includes('strava')) return 'cycling';
+  if (lowerName.includes('cycling') || lowerName.includes('strava'))
+    return 'cycling';
   if (lowerName.includes('calendar')) return 'calendar';
-  if (lowerName.includes('today') || lowerName.includes('dashboard')) return 'today';
-  if (lowerName.includes('profile') || lowerName.includes('settings')) return 'profile';
+  if (lowerName.includes('today') || lowerName.includes('dashboard'))
+    return 'today';
+  if (lowerName.includes('profile') || lowerName.includes('settings'))
+    return 'profile';
   if (lowerName.includes('health')) return 'health';
   return null;
 }
@@ -344,14 +378,23 @@ function detectUntestedFiles(): UntestedFile[] {
 
   // Check handlers
   if (fs.existsSync(handlersDir)) {
-    const handlerFiles = fs.readdirSync(handlersDir).filter(
-      (f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && !f.endsWith('.spec.ts')
-    );
+    const handlerFiles = fs
+      .readdirSync(handlersDir)
+      .filter(
+        (f) =>
+          f.endsWith('.ts') &&
+          !f.endsWith('.test.ts') &&
+          !f.endsWith('.spec.ts')
+      );
 
     for (const file of handlerFiles) {
       const name = file.replace('.ts', '');
       const testFile = path.join(handlersDir, `${name}.test.ts`);
-      const integrationTestFile = path.join(FUNCTIONS_SRC, '__tests__/integration', `${name}.integration.test.ts`);
+      const integrationTestFile = path.join(
+        FUNCTIONS_SRC,
+        '__tests__/integration',
+        `${name}.integration.test.ts`
+      );
 
       if (!fs.existsSync(testFile) && !fs.existsSync(integrationTestFile)) {
         const domain = HANDLER_FEATURE_MAP[name] ?? 'unknown';
@@ -367,9 +410,15 @@ function detectUntestedFiles(): UntestedFile[] {
 
   // Check services
   if (fs.existsSync(servicesDir)) {
-    const serviceFiles = fs.readdirSync(servicesDir).filter(
-      (f) => f.endsWith('.ts') && !f.endsWith('.test.ts') && !f.endsWith('.spec.ts') && f !== 'index.ts'
-    );
+    const serviceFiles = fs
+      .readdirSync(servicesDir)
+      .filter(
+        (f) =>
+          f.endsWith('.ts') &&
+          !f.endsWith('.test.ts') &&
+          !f.endsWith('.spec.ts') &&
+          f !== 'index.ts'
+      );
 
     for (const file of serviceFiles) {
       const name = file.replace('.ts', '');
@@ -390,7 +439,10 @@ function detectUntestedFiles(): UntestedFile[] {
   return untested;
 }
 
-function assessRisk(name: string, _type: 'handler' | 'service'): 'High' | 'Medium' | 'Low' {
+function assessRisk(
+  name: string,
+  _type: 'handler' | 'service'
+): 'High' | 'Medium' | 'Low' {
   const lowerName = name.toLowerCase();
   if (HIGH_RISK_PATTERNS.some((p) => lowerName.includes(p))) return 'High';
   if (LOW_RISK_PATTERNS.some((p) => lowerName.includes(p))) return 'Low';
@@ -400,11 +452,10 @@ function assessRisk(name: string, _type: 'handler' | 'service'): 'High' | 'Mediu
 
 function getHandlerDescription(name: string): string {
   const descriptions: Record<string, string> = {
-    'guidedMeditations': 'browse/fetch guided scripts',
+    guidedMeditations: 'browse/fetch guided scripts',
     'today-coach': 'AI-powered daily briefing',
-    'tts': 'thin wrapper around TTS API',
-    'mealplan-debug': 'debug UI only',
-    'barcodes': 'uses createResourceRouter (generated CRUD)',
+    tts: 'thin wrapper around TTS API',
+    barcodes: 'uses createResourceRouter (generated CRUD)',
     'cycling-coach': 'AI-powered cycling coaching',
   };
   return descriptions[name] ?? 'handler with routes';
@@ -416,7 +467,8 @@ function getServiceDescription(name: string): string {
     'firestore-cycling.service': 'all cycling data CRUD',
     'today-coach.service': 'OpenAI integration',
     'today-coach-data.service': 'aggregates all domain data',
-    'lifting-context.service': 'feeds cycling coach + today briefing with lifting data',
+    'lifting-context.service':
+      'feeds cycling coach + today briefing with lifting data',
   };
   return descriptions[name] ?? 'service logic';
 }
@@ -478,12 +530,10 @@ function calculateGrade(
   apiComplete: string,
   coveragePct: number | null,
   testCaseCount: number,
-  assertionCount: number,
+  assertionCount: number
 ): Grade {
   let baseGrade: Grade;
-  const density = testCaseCount > 0
-    ? assertionCount / testCaseCount
-    : 0;
+  const density = testCaseCount > 0 ? assertionCount / testCaseCount : 0;
 
   if (isSharedDomain) {
     baseGrade = 'B-';
@@ -494,11 +544,11 @@ function calculateGrade(
 
     // Coverage-first baseline.
     if (coverage >= 95) {
-      baseGrade = (iosLevel === 'High' || iosLevel === 'Medium') ? 'A' : 'B+';
+      baseGrade = iosLevel === 'High' || iosLevel === 'Medium' ? 'A' : 'B+';
     } else if (coverage >= 90) {
-      baseGrade = (iosLevel === 'High' || iosLevel === 'Medium') ? 'B+' : 'B';
+      baseGrade = iosLevel === 'High' || iosLevel === 'Medium' ? 'B+' : 'B';
     } else if (coverage >= 80) {
-      baseGrade = (iosLevel === 'High' || iosLevel === 'Medium') ? 'B' : 'B-';
+      baseGrade = iosLevel === 'High' || iosLevel === 'Medium' ? 'B' : 'B-';
     } else if (coverage >= 70) {
       baseGrade = 'C+';
     } else if (coverage >= 60) {
@@ -541,34 +591,51 @@ interface DomainMeta {
 }
 
 const DOMAIN_META: Record<string, DomainMeta> = {
-  'lifting': { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
+  lifting: { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
   'meal-planning': { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
-  'cycling': { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
-  'stretching': { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
-  'calendar': { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
-  'meditation': { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
-  'health': { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false, customNotes: 'Health Sync' },
-  'today': { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
-  'history': { apiComplete: 'Yes', iosComplete: 'Yes', isShared: true, customNotes: 'Reuses Calendar backend/ViewModel. No additional tests needed, but filter logic is untested.' },
-  'profile': { apiComplete: 'Yes', iosComplete: 'Yes', isShared: true, customNotes: 'Settings hub, no own backend. Relies on health-sync and cycling backends.' },
+  cycling: { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
+  stretching: { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
+  calendar: { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
+  meditation: { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
+  health: {
+    apiComplete: 'Yes',
+    iosComplete: 'Yes',
+    isShared: false,
+    customNotes: 'Health Sync',
+  },
+  today: { apiComplete: 'Yes', iosComplete: 'Yes', isShared: false },
+  history: {
+    apiComplete: 'Yes',
+    iosComplete: 'Yes',
+    isShared: true,
+    customNotes:
+      'Reuses Calendar backend/ViewModel. No additional tests needed, but filter logic is untested.',
+  },
+  profile: {
+    apiComplete: 'Yes',
+    iosComplete: 'Yes',
+    isShared: true,
+    customNotes:
+      'Settings hub, no own backend. Relies on health-sync and cycling backends.',
+  },
 };
 
 // ── Formatting helpers ──────────────────────────────────────────────────────
 
 function formatDomainName(domain: string): string {
   const names: Record<string, string> = {
-    'lifting': 'Lifting',
+    lifting: 'Lifting',
     'meal-planning': 'Meal Planning',
-    'cycling': 'Cycling',
-    'stretching': 'Stretching',
-    'calendar': 'Calendar',
-    'meditation': 'Meditation',
-    'health': 'Health Sync',
-    'today': 'Today',
-    'history': 'History',
-    'profile': 'Profile',
-    'other': 'Other',
-    'unknown': 'Unknown',
+    cycling: 'Cycling',
+    stretching: 'Stretching',
+    calendar: 'Calendar',
+    meditation: 'Meditation',
+    health: 'Health Sync',
+    today: 'Today',
+    history: 'History',
+    profile: 'Profile',
+    other: 'Other',
+    unknown: 'Unknown',
   };
   return names[domain] ?? domain;
 }
@@ -593,7 +660,9 @@ function parseCoverageData(): Map<string, CoverageSummaryFile> | null {
   if (!fs.existsSync(COVERAGE_SUMMARY_PATH)) return null;
 
   try {
-    const raw = JSON.parse(fs.readFileSync(COVERAGE_SUMMARY_PATH, 'utf-8')) as Record<string, CoverageSummaryFile>;
+    const raw = JSON.parse(
+      fs.readFileSync(COVERAGE_SUMMARY_PATH, 'utf-8')
+    ) as Record<string, CoverageSummaryFile>;
     const fileMap = new Map<string, CoverageSummaryFile>();
     for (const [filePath, data] of Object.entries(raw)) {
       if (filePath === 'total') continue;
@@ -617,7 +686,9 @@ function refreshCoverageSummary(): void {
   });
 }
 
-function aggregateDomainCoverage(coverageData: Map<string, CoverageSummaryFile> | null): Map<string, number> {
+function aggregateDomainCoverage(
+  coverageData: Map<string, CoverageSummaryFile> | null
+): Map<string, number> {
   const domainCoverage = new Map<string, number>();
   if (!coverageData) return domainCoverage;
 
@@ -664,7 +735,7 @@ function aggregateDomainCoverage(coverageData: Map<string, CoverageSummaryFile> 
 function buildMechanicalNotes(
   domain: string,
   counts: DomainTestCounts | undefined,
-  untestedInDomain: UntestedFile[],
+  untestedInDomain: UntestedFile[]
 ): string {
   const meta = DOMAIN_META[domain];
   if (meta?.customNotes && meta.isShared) {
@@ -675,11 +746,16 @@ function buildMechanicalNotes(
 
   if (counts) {
     const breakdown: string[] = [];
-    if (counts.handlers.length > 0) breakdown.push(`${counts.handlers.length} handler`);
-    if (counts.services.length > 0) breakdown.push(`${counts.services.length} service`);
-    if (counts.repositories.length > 0) breakdown.push(`${counts.repositories.length} repo`);
-    if (counts.integration.length > 0) breakdown.push(`${counts.integration.length} integration`);
-    if (counts.schemas.length > 0) breakdown.push(`${counts.schemas.length} schema`);
+    if (counts.handlers.length > 0)
+      breakdown.push(`${counts.handlers.length} handler`);
+    if (counts.services.length > 0)
+      breakdown.push(`${counts.services.length} service`);
+    if (counts.repositories.length > 0)
+      breakdown.push(`${counts.repositories.length} repo`);
+    if (counts.integration.length > 0)
+      breakdown.push(`${counts.integration.length} integration`);
+    if (counts.schemas.length > 0)
+      breakdown.push(`${counts.schemas.length} schema`);
     if (breakdown.length > 0) {
       parts.push(`${breakdown.join(', ')} tests.`);
     }
@@ -688,7 +764,9 @@ function buildMechanicalNotes(
   if (untestedInDomain.length > 0) {
     const highRisk = untestedInDomain.filter((u) => u.risk === 'High');
     if (highRisk.length > 0) {
-      parts.push(`${highRisk.map((u) => `\`${u.file.split('/').pop()?.replace('.ts', '')}\``).join(', ')} untested (high risk).`);
+      parts.push(
+        `${highRisk.map((u) => `\`${u.file.split('/').pop()?.replace('.ts', '')}\``).join(', ')} untested (high risk).`
+      );
     } else {
       parts.push(`${untestedInDomain.length} untested file(s).`);
     }
@@ -729,16 +807,32 @@ function generateAIAnnotations(
   untested: UntestedFile[],
   backendTests: Map<string, DomainTestCounts>,
   existingTechDebt: string,
-  existingRecentlyCompleted: string,
+  existingRecentlyCompleted: string
 ): AIAnnotations {
   // Build a flat list of all tested files so claude can cross-reference against tech debt claims
   const testedFiles: { file: string; domain: string }[] = [];
   for (const [domain, counts] of backendTests) {
     if (domain === 'other') continue;
-    for (const h of counts.handlers) testedFiles.push({ file: `handlers/${h}.test.ts`, domain: formatDomainName(domain) });
-    for (const s of counts.services) testedFiles.push({ file: `services/${s}.service.test.ts`, domain: formatDomainName(domain) });
-    for (const r of counts.repositories) testedFiles.push({ file: `repositories/${r}.repository.test.ts`, domain: formatDomainName(domain) });
-    for (const i of counts.integration) testedFiles.push({ file: `__tests__/integration/${i}.integration.test.ts`, domain: formatDomainName(domain) });
+    for (const h of counts.handlers)
+      testedFiles.push({
+        file: `handlers/${h}.test.ts`,
+        domain: formatDomainName(domain),
+      });
+    for (const s of counts.services)
+      testedFiles.push({
+        file: `services/${s}.service.test.ts`,
+        domain: formatDomainName(domain),
+      });
+    for (const r of counts.repositories)
+      testedFiles.push({
+        file: `repositories/${r}.repository.test.ts`,
+        domain: formatDomainName(domain),
+      });
+    for (const i of counts.integration)
+      testedFiles.push({
+        file: `__tests__/integration/${i}.integration.test.ts`,
+        domain: formatDomainName(domain),
+      });
   }
 
   const metricsForClaude = grades
@@ -776,7 +870,11 @@ IMPORTANT: Keep ALL existing "- [x]" items exactly as-is. Only ADD newly resolve
 ${JSON.stringify(metricsForClaude, null, 2)}
 
 ## Untested files (no test file exists):
-${JSON.stringify(untested.map((u) => ({ file: u.file, domain: u.domain, risk: u.risk })), null, 2)}
+${JSON.stringify(
+  untested.map((u) => ({ file: u.file, domain: u.domain, risk: u.risk })),
+  null,
+  2
+)}
 
 ## Files that DO have tests (use this to resolve stale tech debt items):
 ${JSON.stringify(testedFiles, null, 2)}
@@ -800,26 +898,48 @@ Return ONLY a JSON object with exactly these three keys, no markdown fences:
 
   if (!result) {
     console.warn('  Skipping AI annotations');
-    return { domainNotes: {}, techDebt: existingTechDebt, recentlyCompleted: existingRecentlyCompleted };
+    return {
+      domainNotes: {},
+      techDebt: existingTechDebt,
+      recentlyCompleted: existingRecentlyCompleted,
+    };
   }
 
   try {
     const jsonMatch = result.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.warn('  Warning: could not parse claude response, keeping existing sections');
-      return { domainNotes: {}, techDebt: existingTechDebt, recentlyCompleted: existingRecentlyCompleted };
+      console.warn(
+        '  Warning: could not parse claude response, keeping existing sections'
+      );
+      return {
+        domainNotes: {},
+        techDebt: existingTechDebt,
+        recentlyCompleted: existingRecentlyCompleted,
+      };
     }
     const parsed = JSON.parse(jsonMatch[0]) as AIAnnotations;
 
     // Validate structure
-    if (!parsed.domainNotes || typeof parsed.domainNotes !== 'object') parsed.domainNotes = {};
-    if (!parsed.techDebt || typeof parsed.techDebt !== 'string') parsed.techDebt = existingTechDebt;
-    if (!parsed.recentlyCompleted || typeof parsed.recentlyCompleted !== 'string') parsed.recentlyCompleted = existingRecentlyCompleted;
+    if (!parsed.domainNotes || typeof parsed.domainNotes !== 'object')
+      parsed.domainNotes = {};
+    if (!parsed.techDebt || typeof parsed.techDebt !== 'string')
+      parsed.techDebt = existingTechDebt;
+    if (
+      !parsed.recentlyCompleted ||
+      typeof parsed.recentlyCompleted !== 'string'
+    )
+      parsed.recentlyCompleted = existingRecentlyCompleted;
 
     return parsed;
   } catch {
-    console.warn('  Warning: failed to parse AI response JSON, keeping existing sections');
-    return { domainNotes: {}, techDebt: existingTechDebt, recentlyCompleted: existingRecentlyCompleted };
+    console.warn(
+      '  Warning: failed to parse AI response JSON, keeping existing sections'
+    );
+    return {
+      domainNotes: {},
+      techDebt: existingTechDebt,
+      recentlyCompleted: existingRecentlyCompleted,
+    };
   }
 }
 
@@ -827,7 +947,7 @@ Return ONLY a JSON object with exactly these three keys, no markdown fences:
 
 function buildTestInventorySection(
   backendTests: Map<string, DomainTestCounts>,
-  iosTests: Map<string, string[]>,
+  iosTests: Map<string, string[]>
 ): string {
   const lines: string[] = [];
 
@@ -859,7 +979,9 @@ function buildTestInventorySection(
       lines.push(`- Integration: ${counts.integration.join(', ')}`);
     }
     if (counts.schemas.length > 0) {
-      lines.push(`- Schemas: ${counts.schemas.map((s) => `${s}.schema`).join(', ')}`);
+      lines.push(
+        `- Schemas: ${counts.schemas.map((s) => `${s}.schema`).join(', ')}`
+      );
     }
 
     lines.push('');
@@ -877,7 +999,9 @@ function buildTestInventorySection(
   // Other tests
   const otherCounts = backendTests.get('other');
   if (otherCounts && otherCounts.total > 0) {
-    lines.push(`**Other:** ${otherCounts.handlers.join(', ')} (${otherCounts.total})`);
+    lines.push(
+      `**Other:** ${otherCounts.handlers.join(', ')} (${otherCounts.total})`
+    );
     lines.push('');
   }
 
@@ -885,12 +1009,24 @@ function buildTestInventorySection(
   lines.push('### iOS (BradOSCore/Tests/)');
   lines.push('');
 
-  const domainOrder = ['lifting', 'meal-planning', 'stretching', 'meditation', 'calendar', 'today', 'profile', 'health', 'cycling'];
+  const domainOrder = [
+    'lifting',
+    'meal-planning',
+    'stretching',
+    'meditation',
+    'calendar',
+    'today',
+    'profile',
+    'health',
+    'cycling',
+  ];
 
   for (const domain of domainOrder) {
     const tests = iosTests.get(domain);
     if (tests && tests.length > 0) {
-      lines.push(`- ${formatDomainName(domain)}: ${tests.join(', ')} (${tests.length})`);
+      lines.push(
+        `- ${formatDomainName(domain)}: ${tests.join(', ')} (${tests.length})`
+      );
     }
   }
 
@@ -919,7 +1055,9 @@ function buildUntestedSection(untested: UntestedFile[]): string {
   lines.push('|------|--------|------|');
 
   for (const file of untested) {
-    lines.push(`| \`${file.file}\` | ${file.domain} | ${file.risk} - ${file.description} |`);
+    lines.push(
+      `| \`${file.file}\` | ${file.domain} | ${file.risk} - ${file.description} |`
+    );
   }
 
   return lines.join('\n');
@@ -939,7 +1077,9 @@ function countTodoComments(): number {
 
   for (const dir of dirsToCheck) {
     if (!fs.existsSync(dir)) continue;
-    const files = collectFiles(dir, '.ts').filter((f) => !f.endsWith('.test.ts'));
+    const files = collectFiles(dir, '.ts').filter(
+      (f) => !f.endsWith('.test.ts')
+    );
     for (const file of files) {
       const content = fs.readFileSync(file, 'utf-8');
       const matches = content.match(/\b(TODO|FIXME)\b/g);
@@ -952,8 +1092,13 @@ function countTodoComments(): number {
 
 // ── Extract manually curated sections ───────────────────────────────────────
 
-function extractCuratedSections(content: string): { techDebt: string; recentlyCompleted: string } {
-  const techDebtMatch = content.match(/## Active Tech Debt\n([\s\S]*?)(?=\n---\n|\n## Recently Completed)/);
+function extractCuratedSections(content: string): {
+  techDebt: string;
+  recentlyCompleted: string;
+} {
+  const techDebtMatch = content.match(
+    /## Active Tech Debt\n([\s\S]*?)(?=\n---\n|\n## Recently Completed)/
+  );
   const recentlyMatch = content.match(/## Recently Completed\n([\s\S]*?)$/);
 
   return {
@@ -991,7 +1136,18 @@ function main(): void {
 
   // Calculate grades for each domain
   const grades: DomainGrade[] = [];
-  const domainOrder = ['lifting', 'meal-planning', 'cycling', 'stretching', 'calendar', 'meditation', 'health', 'history', 'today', 'profile'];
+  const domainOrder = [
+    'lifting',
+    'meal-planning',
+    'cycling',
+    'stretching',
+    'calendar',
+    'meditation',
+    'health',
+    'history',
+    'today',
+    'profile',
+  ];
 
   for (const domain of domainOrder) {
     const meta = DOMAIN_META[domain];
@@ -1002,34 +1158,55 @@ function main(): void {
     const iosDomainTests = iosTests.get(domain) ?? [];
     const iosCount = iosDomainTests.length;
     const untestedInDomain = untested.filter((u) => {
-      const domainName = Object.entries(HANDLER_FEATURE_MAP)
-        .find(([, v]) => formatDomainName(v) === u.domain)?.[1]
-        ?? Object.entries(SERVICE_DOMAIN_MAP)
-          .find(([, v]) => formatDomainName(v) === u.domain)?.[1]
-        ?? '';
+      const domainName =
+        Object.entries(HANDLER_FEATURE_MAP).find(
+          ([, v]) => formatDomainName(v) === u.domain
+        )?.[1] ??
+        Object.entries(SERVICE_DOMAIN_MAP).find(
+          ([, v]) => formatDomainName(v) === u.domain
+        )?.[1] ??
+        '';
       return domainName === domain;
     });
-    const hasUntestedHandlers = untestedInDomain.some((u) => u.file.startsWith('handlers/'));
-    const hasUntestedServices = untestedInDomain.some((u) => u.file.startsWith('services/'));
+    const hasUntestedHandlers = untestedInDomain.some((u) =>
+      u.file.startsWith('handlers/')
+    );
+    const hasUntestedServices = untestedInDomain.some((u) =>
+      u.file.startsWith('services/')
+    );
     const hasUntestedHighRisk = untestedInDomain.some((u) => u.risk === 'High');
     const hasUntested = hasUntestedHandlers || hasUntestedServices;
 
     const coveragePct = domainCoverage.get(domain) ?? null;
     const domainTestCaseCount = backendCounts?.testCaseCount ?? 0;
     const domainAssertionCount = backendCounts?.assertionCount ?? 0;
-    const grade = calculateGrade(iosCount, hasUntested, hasUntestedHighRisk, meta.isShared, meta.apiComplete, coveragePct, domainTestCaseCount, domainAssertionCount);
+    const grade = calculateGrade(
+      iosCount,
+      hasUntested,
+      hasUntestedHighRisk,
+      meta.isShared,
+      meta.apiComplete,
+      coveragePct,
+      domainTestCaseCount,
+      domainAssertionCount
+    );
 
-    const densityStr = domainTestCaseCount > 0
-      ? (domainAssertionCount / domainTestCaseCount).toFixed(1) + 'x'
-      : '—';
+    const densityStr =
+      domainTestCaseCount > 0
+        ? (domainAssertionCount / domainTestCaseCount).toFixed(1) + 'x'
+        : '—';
 
     grades.push({
       domain,
       grade,
       backendTestCount: domainTestCaseCount,
       iosTestCount: iosCount,
-      testLevel: meta.isShared ? '(shared)' : `${testQuantityLevel(domainTestCaseCount)} (${domainTestCaseCount})`,
-      iosLevel: meta.isShared ? '(shared)' : `${fileCountLevel(iosCount)} (${iosCount})`,
+      testLevel: meta.isShared
+        ? '(shared)'
+        : `${testQuantityLevel(domainTestCaseCount)} (${domainTestCaseCount})`,
+      iosLevel: meta.isShared
+        ? '(shared)'
+        : `${fileCountLevel(iosCount)} (${iosCount})`,
       apiComplete: meta.apiComplete,
       iosComplete: meta.iosComplete,
       coveragePct,
@@ -1040,7 +1217,13 @@ function main(): void {
   }
 
   // Generate AI-powered annotations (domain notes + tech debt + recently completed)
-  const ai = generateAIAnnotations(grades, untested, backendTests, curatedSections.techDebt, curatedSections.recentlyCompleted);
+  const ai = generateAIAnnotations(
+    grades,
+    untested,
+    backendTests,
+    curatedSections.techDebt,
+    curatedSections.recentlyCompleted
+  );
   for (const g of grades) {
     const aiNote = ai.domainNotes[g.domain];
     if (aiNote) {
@@ -1053,21 +1236,26 @@ function main(): void {
   // Print summary
   for (const g of grades) {
     const covStr = g.coveragePct !== null ? `${g.coveragePct}%` : '--';
-    console.log(`  ${formatDomainName(g.domain).padEnd(16)} ${g.grade.padEnd(4)} Backend: ${g.testLevel.padEnd(10)} iOS: ${g.iosLevel.padEnd(10)} Cov: ${covStr}`);
+    console.log(
+      `  ${formatDomainName(g.domain).padEnd(16)} ${g.grade.padEnd(4)} Backend: ${g.testLevel.padEnd(10)} iOS: ${g.iosLevel.padEnd(10)} Cov: ${covStr}`
+    );
   }
   console.log('');
 
   // Build the markdown
   const today = new Date().toISOString().split('T')[0];
 
-  const todoNote = todoCount === 0
-    ? 'Zero TODO/FIXME comments were found in the codebase (a positive signal for architecture health across all domains).'
-    : `${todoCount} TODO/FIXME comment(s) were found in the codebase.`;
+  const todoNote =
+    todoCount === 0
+      ? 'Zero TODO/FIXME comments were found in the codebase (a positive signal for architecture health across all domains).'
+      : `${todoCount} TODO/FIXME comment(s) were found in the codebase.`;
 
-  const gradesTable = grades.map((g) => {
-    const covStr = g.coveragePct !== null ? `${g.coveragePct}%` : '--';
-    return `| ${formatDomainName(g.domain)} | **${g.grade}** | ${g.testLevel} | ${g.iosLevel} | ${g.assertionCount} | ${g.density} | ${covStr} | ${g.apiComplete} | ${g.iosComplete} | ${g.notes} |`;
-  }).join('\n');
+  const gradesTable = grades
+    .map((g) => {
+      const covStr = g.coveragePct !== null ? `${g.coveragePct}%` : '--';
+      return `| ${formatDomainName(g.domain)} | **${g.grade}** | ${g.testLevel} | ${g.iosLevel} | ${g.assertionCount} | ${g.density} | ${covStr} | ${g.apiComplete} | ${g.iosComplete} | ${g.notes} |`;
+    })
+    .join('\n');
 
   const md = `# Domain Quality Grades
 

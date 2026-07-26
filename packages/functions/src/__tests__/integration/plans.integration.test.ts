@@ -1,19 +1,16 @@
 /**
  * Integration Tests for Plans API
  *
- * These tests run against the Firebase emulator.
- * Prerequisites:
- * - Emulator running: npm run emulators:fresh
- * - Run tests: npm run test:integration
+ * These tests run against the standalone API backed by the Firestore emulator.
+ * Run with: npm run test:integration:emulator
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { type ApiResponse } from '../utils/index.js';
+import { HEALTH_URL, integrationApiUrl } from './api-config.js';
 
-const FUNCTIONS_URL = 'http://127.0.0.1:5001/brad-os/us-central1';
-const HEALTH_URL = `${FUNCTIONS_URL}/devHealth`;
-const PLANS_URL = `${FUNCTIONS_URL}/devPlans`;
-const EXERCISES_URL = `${FUNCTIONS_URL}/devExercises`;
+const PLANS_URL = integrationApiUrl('plans');
+const EXERCISES_URL = integrationApiUrl('exercises');
 
 interface Plan {
   id: string;
@@ -53,7 +50,7 @@ interface ApiError {
   };
 }
 
-async function checkEmulatorRunning(): Promise<boolean> {
+async function checkApiRunning(): Promise<boolean> {
   try {
     const response = await fetch(HEALTH_URL);
     return response.ok;
@@ -81,12 +78,11 @@ async function deleteTestExercise(id: string): Promise<void> {
 
 describe('Plans API (Integration)', () => {
   beforeAll(async () => {
-    const isRunning = await checkEmulatorRunning();
+    const isRunning = await checkApiRunning();
     if (!isRunning) {
       throw new Error(
-        'Firebase emulator is not running.\n' +
-          'Start it with: npm run emulators:fresh\n' +
-          'Then run tests with: npm run test:integration'
+        'Standalone integration API is not running.\n' +
+          'Run the suite with: npm run test:integration:emulator'
       );
     }
   });
@@ -212,7 +208,8 @@ describe('Plans API (Integration)', () => {
       });
 
       expect(createResponse.status).toBe(201);
-      const createResult = (await createResponse.json()) as ApiResponse<PlanDay>;
+      const createResult =
+        (await createResponse.json()) as ApiResponse<PlanDay>;
       expect(createResult.success).toBe(true);
       expect(createResult.data.name).toBe('Monday Workout');
       expect(createResult.data.day_of_week).toBe(1);
@@ -234,7 +231,10 @@ describe('Plans API (Integration)', () => {
       const planResponse = await fetch(PLANS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Plan for Day Update', duration_weeks: 6 }),
+        body: JSON.stringify({
+          name: 'Plan for Day Update',
+          duration_weeks: 6,
+        }),
       });
       const planResult = (await planResponse.json()) as ApiResponse<Plan>;
       const planId = planResult.data.id;
@@ -249,17 +249,22 @@ describe('Plans API (Integration)', () => {
           sort_order: 0,
         }),
       });
-      const createResult = (await createResponse.json()) as ApiResponse<PlanDay>;
+      const createResult =
+        (await createResponse.json()) as ApiResponse<PlanDay>;
       const dayId = createResult.data.id;
 
       // Update
-      const updateResponse = await fetch(`${PLANS_URL}/${planId}/days/${dayId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Updated Tuesday', day_of_week: 3 }),
-      });
+      const updateResponse = await fetch(
+        `${PLANS_URL}/${planId}/days/${dayId}`,
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'Updated Tuesday', day_of_week: 3 }),
+        }
+      );
       expect(updateResponse.status).toBe(200);
-      const updateResult = (await updateResponse.json()) as ApiResponse<PlanDay>;
+      const updateResult =
+        (await updateResponse.json()) as ApiResponse<PlanDay>;
       expect(updateResult.data.name).toBe('Updated Tuesday');
       expect(updateResult.data.day_of_week).toBe(3);
 
@@ -272,7 +277,10 @@ describe('Plans API (Integration)', () => {
       const planResponse = await fetch(PLANS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Plan for Day Delete', duration_weeks: 6 }),
+        body: JSON.stringify({
+          name: 'Plan for Day Delete',
+          duration_weeks: 6,
+        }),
       });
       const planResult = (await planResponse.json()) as ApiResponse<Plan>;
       const planId = planResult.data.id;
@@ -287,13 +295,17 @@ describe('Plans API (Integration)', () => {
           sort_order: 0,
         }),
       });
-      const createResult = (await createResponse.json()) as ApiResponse<PlanDay>;
+      const createResult =
+        (await createResponse.json()) as ApiResponse<PlanDay>;
       const dayId = createResult.data.id;
 
       // Delete
-      const deleteResponse = await fetch(`${PLANS_URL}/${planId}/days/${dayId}`, {
-        method: 'DELETE',
-      });
+      const deleteResponse = await fetch(
+        `${PLANS_URL}/${planId}/days/${dayId}`,
+        {
+          method: 'DELETE',
+        }
+      );
       expect(deleteResponse.status).toBe(204);
 
       // Clean up
@@ -321,7 +333,10 @@ describe('Plans API (Integration)', () => {
       const planResponse = await fetch(PLANS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Plan for Exercise Test', duration_weeks: 6 }),
+        body: JSON.stringify({
+          name: 'Plan for Exercise Test',
+          duration_weeks: 6,
+        }),
       });
       const planResult = (await planResponse.json()) as ApiResponse<Plan>;
       const planId = planResult.data.id;
@@ -357,7 +372,8 @@ describe('Plans API (Integration)', () => {
       );
 
       expect(createResponse.status).toBe(201);
-      const createResult = (await createResponse.json()) as ApiResponse<PlanDayExercise>;
+      const createResult =
+        (await createResponse.json()) as ApiResponse<PlanDayExercise>;
       expect(createResult.success).toBe(true);
       expect(createResult.data.sets).toBe(3);
       expect(createResult.data.reps).toBe(10);
@@ -368,7 +384,9 @@ describe('Plans API (Integration)', () => {
         `${PLANS_URL}/${planId}/days/${dayId}/exercises`
       );
       expect(listResponse.status).toBe(200);
-      const listResult = (await listResponse.json()) as ApiResponse<PlanDayExercise[]>;
+      const listResult = (await listResponse.json()) as ApiResponse<
+        PlanDayExercise[]
+      >;
       expect(listResult.success).toBe(true);
       expect(listResult.data.length).toBeGreaterThanOrEqual(1);
 
@@ -385,7 +403,10 @@ describe('Plans API (Integration)', () => {
       const planResponse = await fetch(PLANS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Plan for Exercise Update', duration_weeks: 6 }),
+        body: JSON.stringify({
+          name: 'Plan for Exercise Update',
+          duration_weeks: 6,
+        }),
       });
       const planResult = (await planResponse.json()) as ApiResponse<Plan>;
       const planId = planResult.data.id;
@@ -419,7 +440,8 @@ describe('Plans API (Integration)', () => {
           }),
         }
       );
-      const createResult = (await createResponse.json()) as ApiResponse<PlanDayExercise>;
+      const createResult =
+        (await createResponse.json()) as ApiResponse<PlanDayExercise>;
       const exerciseConfigId = createResult.data.id;
 
       // Update
@@ -432,7 +454,8 @@ describe('Plans API (Integration)', () => {
         }
       );
       expect(updateResponse.status).toBe(200);
-      const updateResult = (await updateResponse.json()) as ApiResponse<PlanDayExercise>;
+      const updateResult =
+        (await updateResponse.json()) as ApiResponse<PlanDayExercise>;
       expect(updateResult.data.sets).toBe(4);
       expect(updateResult.data.reps).toBe(12);
       expect(updateResult.data.weight).toBe(60);
@@ -450,7 +473,10 @@ describe('Plans API (Integration)', () => {
       const planResponse = await fetch(PLANS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: 'Plan for Exercise Delete', duration_weeks: 6 }),
+        body: JSON.stringify({
+          name: 'Plan for Exercise Delete',
+          duration_weeks: 6,
+        }),
       });
       const planResult = (await planResponse.json()) as ApiResponse<Plan>;
       const planId = planResult.data.id;
@@ -484,7 +510,8 @@ describe('Plans API (Integration)', () => {
           }),
         }
       );
-      const createResult = (await createResponse.json()) as ApiResponse<PlanDayExercise>;
+      const createResult =
+        (await createResponse.json()) as ApiResponse<PlanDayExercise>;
       const exerciseConfigId = createResult.data.id;
 
       // Delete

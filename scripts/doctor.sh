@@ -61,9 +61,18 @@ run_shell_doctor() {
   report_tool "node" "node" "Install Node.js 22.x: https://nodejs.org/" "22"
   report_tool "npm" "npm" "Install npm: bundled with Node.js"
   report_tool "firebase" "firebase" "npm install -g firebase-tools"
+  report_tool "gcloud" "gcloud" "brew install --cask google-cloud-sdk"
   report_tool "cargo" "cargo" "Install Rust: https://rustup.rs/"
   report_tool "gitleaks" "gitleaks" "brew install gitleaks"
   report_tool "xcodegen" "xcodegen" "brew install xcodegen"
+
+  if gcloud auth application-default print-access-token >/dev/null 2>&1; then
+    printf "✓ GCP ADC available\n"
+  else
+    printf "✗ GCP ADC missing\n"
+    printf "gcloud auth application-default login\n"
+    failed=1
+  fi
 
   local hooks_path
   hooks_path="$(git config core.hooksPath 2>/dev/null || true)"

@@ -1,20 +1,17 @@
 /**
  * Integration Tests for Meal Planning API
  *
- * These tests run against the Firebase emulator.
- * Prerequisites:
- * - Emulator running: npm run emulators:fresh
- * - Run tests: npm run test:integration
+ * These tests run against the standalone API backed by the Firestore emulator.
+ * Run with: npm run test:integration:emulator
  */
 
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { type ApiResponse } from '../utils/index.js';
+import { HEALTH_URL, integrationApiUrl } from './api-config.js';
 
-const FUNCTIONS_URL = 'http://127.0.0.1:5001/brad-os/us-central1';
-const HEALTH_URL = `${FUNCTIONS_URL}/devHealth`;
-const MEALS_URL = `${FUNCTIONS_URL}/devMeals`;
-const INGREDIENTS_URL = `${FUNCTIONS_URL}/devIngredients`;
-const RECIPES_URL = `${FUNCTIONS_URL}/devRecipes`;
+const MEALS_URL = integrationApiUrl('meals');
+const INGREDIENTS_URL = integrationApiUrl('ingredients');
+const RECIPES_URL = integrationApiUrl('recipes');
 
 interface Meal {
   id: string;
@@ -54,7 +51,7 @@ interface ApiError {
   };
 }
 
-async function checkEmulatorRunning(): Promise<boolean> {
+async function checkApiRunning(): Promise<boolean> {
   try {
     const response = await fetch(HEALTH_URL);
     return response.ok;
@@ -63,7 +60,9 @@ async function checkEmulatorRunning(): Promise<boolean> {
   }
 }
 
-function createValidMeal(overrides?: Partial<Record<string, unknown>>): Record<string, unknown> {
+function createValidMeal(
+  overrides?: Partial<Record<string, unknown>>
+): Record<string, unknown> {
   return {
     name: 'Test Chicken Stir Fry',
     meal_type: 'dinner',
@@ -82,12 +81,15 @@ function createValidIngredient(): Record<string, unknown> {
   };
 }
 
-function createValidRecipe(mealId: string): Record<string, unknown> {
+function createValidRecipe(
+  mealId: string,
+  ingredientId: string
+): Record<string, unknown> {
   return {
     meal_id: mealId,
     ingredients: [
       {
-        ingredient_id: 'integration-ingredient-id',
+        ingredient_id: ingredientId,
         quantity: 150,
         unit: 'g',
       },
@@ -105,12 +107,11 @@ describe('Meals API (Integration)', () => {
   const createdMealIds: string[] = [];
 
   beforeAll(async () => {
-    const isRunning = await checkEmulatorRunning();
+    const isRunning = await checkApiRunning();
     if (!isRunning) {
       throw new Error(
-        'Firebase emulator is not running.\n' +
-          'Start it with: npm run emulators:fresh\n' +
-          'Then run tests with: npm run test:integration'
+        'Standalone integration API is not running.\n' +
+          'Run the suite with: npm run test:integration:emulator'
       );
     }
   });
@@ -150,7 +151,13 @@ describe('Meals API (Integration)', () => {
     const response = await fetch(MEALS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(createValidMeal({ name: 'Oatmeal Bowl', meal_type: 'breakfast', effort: 2 })),
+      body: JSON.stringify(
+        createValidMeal({
+          name: 'Oatmeal Bowl',
+          meal_type: 'breakfast',
+          effort: 2,
+        })
+      ),
     });
 
     expect(response.status).toBe(201);
@@ -298,12 +305,11 @@ describe('Ingredients API (Integration)', () => {
   const createdIngredientIds: string[] = [];
 
   beforeAll(async () => {
-    const isRunning = await checkEmulatorRunning();
+    const isRunning = await checkApiRunning();
     if (!isRunning) {
       throw new Error(
-        'Firebase emulator is not running.\n' +
-          'Start it with: npm run emulators:fresh\n' +
-          'Then run tests with: npm run test:integration'
+        'Standalone integration API is not running.\n' +
+          'Run the suite with: npm run test:integration:emulator'
       );
     }
   });
@@ -325,14 +331,17 @@ describe('Ingredients API (Integration)', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(createValidIngredient()),
     });
-    const createResult = (await createResponse.json()) as ApiResponse<Ingredient>;
+    const createResult =
+      (await createResponse.json()) as ApiResponse<Ingredient>;
 
     expect(createResponse.status).toBe(201);
     expect(createResult.success).toBe(true);
     expect(createResult.data.name).toBe('Integration Carrot');
     createdIngredientIds.push(createResult.data.id);
 
-    const getResponse = await fetch(`${INGREDIENTS_URL}/${createResult.data.id}`);
+    const getResponse = await fetch(
+      `${INGREDIENTS_URL}/${createResult.data.id}`
+    );
     expect(getResponse.status).toBe(200);
     const getResult = (await getResponse.json()) as ApiResponse<Ingredient>;
 
@@ -367,7 +376,8 @@ describe('Ingredients API (Integration)', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(createValidIngredient()),
     });
-    const createResult = (await createResponse.json()) as ApiResponse<Ingredient>;
+    const createResult =
+      (await createResponse.json()) as ApiResponse<Ingredient>;
     const ingredientId = createResult.data.id;
     createdIngredientIds.push(ingredientId);
 
@@ -378,7 +388,8 @@ describe('Ingredients API (Integration)', () => {
     });
     expect(updateResponse.status).toBe(200);
 
-    const updateResult = (await updateResponse.json()) as ApiResponse<Ingredient>;
+    const updateResult =
+      (await updateResponse.json()) as ApiResponse<Ingredient>;
     expect(updateResult.success).toBe(true);
     expect(updateResult.data.name).toBe('Integration Carrot Updated');
   });
@@ -389,7 +400,8 @@ describe('Ingredients API (Integration)', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(createValidIngredient()),
     });
-    const createResult = (await createResponse.json()) as ApiResponse<Ingredient>;
+    const createResult =
+      (await createResponse.json()) as ApiResponse<Ingredient>;
 
     const response = await fetch(`${INGREDIENTS_URL}/${createResult.data.id}`, {
       method: 'DELETE',
@@ -414,14 +426,14 @@ describe('Ingredients API (Integration)', () => {
 describe('Recipes API (Integration)', () => {
   const createdRecipeIds: string[] = [];
   const createdMealIds: string[] = [];
+  const createdIngredientIds: string[] = [];
 
   beforeAll(async () => {
-    const isRunning = await checkEmulatorRunning();
+    const isRunning = await checkApiRunning();
     if (!isRunning) {
       throw new Error(
-        'Firebase emulator is not running.\n' +
-          'Start it with: npm run emulators:fresh\n' +
-          'Then run tests with: npm run test:integration'
+        'Standalone integration API is not running.\n' +
+          'Run the suite with: npm run test:integration:emulator'
       );
     }
   });
@@ -435,6 +447,15 @@ describe('Recipes API (Integration)', () => {
       }
     }
     createdRecipeIds.length = 0;
+
+    for (const id of createdIngredientIds) {
+      try {
+        await fetch(`${INGREDIENTS_URL}/${id}`, { method: 'DELETE' });
+      } catch {
+        // ignore cleanup errors
+      }
+    }
+    createdIngredientIds.length = 0;
 
     for (const id of createdMealIds) {
       try {
@@ -457,13 +478,25 @@ describe('Recipes API (Integration)', () => {
     return result.data.id;
   }
 
+  async function createDependencyIngredient(): Promise<string> {
+    const response = await fetch(INGREDIENTS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(createValidIngredient()),
+    });
+    const result = (await response.json()) as ApiResponse<Ingredient>;
+    createdIngredientIds.push(result.data.id);
+    return result.data.id;
+  }
+
   it('should create and retrieve a recipe', async () => {
     const mealId = await createDependencyMeal();
+    const ingredientId = await createDependencyIngredient();
 
     const createResponse = await fetch(RECIPES_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(createValidRecipe(mealId)),
+      body: JSON.stringify(createValidRecipe(mealId, ingredientId)),
     });
     const createResult = (await createResponse.json()) as ApiResponse<Recipe>;
 
@@ -483,10 +516,11 @@ describe('Recipes API (Integration)', () => {
 
   it('should list recipes', async () => {
     const mealId = await createDependencyMeal();
+    const ingredientId = await createDependencyIngredient();
     const createResponse = await fetch(RECIPES_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(createValidRecipe(mealId)),
+      body: JSON.stringify(createValidRecipe(mealId, ingredientId)),
     });
     const createResult = (await createResponse.json()) as ApiResponse<Recipe>;
     createdRecipeIds.push(createResult.data.id);
@@ -502,10 +536,11 @@ describe('Recipes API (Integration)', () => {
 
   it('should update a recipe', async () => {
     const mealId = await createDependencyMeal();
+    const ingredientId = await createDependencyIngredient();
     const createResponse = await fetch(RECIPES_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(createValidRecipe(mealId)),
+      body: JSON.stringify(createValidRecipe(mealId, ingredientId)),
     });
     const createResult = (await createResponse.json()) as ApiResponse<Recipe>;
     const recipeId = createResult.data.id;
@@ -527,10 +562,11 @@ describe('Recipes API (Integration)', () => {
 
   it('should delete a recipe', async () => {
     const mealId = await createDependencyMeal();
+    const ingredientId = await createDependencyIngredient();
     const createResponse = await fetch(RECIPES_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(createValidRecipe(mealId)),
+      body: JSON.stringify(createValidRecipe(mealId, ingredientId)),
     });
     const createResult = (await createResponse.json()) as ApiResponse<Recipe>;
 

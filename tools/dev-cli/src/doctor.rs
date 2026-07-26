@@ -11,10 +11,11 @@ const DIM: &str = "\x1b[2m";
 const RESET: &str = "\x1b[0m";
 const LABEL_WIDTH: usize = 18;
 
-const INSTALL_CMDS: [&str; 9] = [
+const INSTALL_CMDS: [&str; 10] = [
     "brew install node@22  # or: nvm install 22",
     "# npm comes with Node — reinstall Node to update npm",
     "npm install -g firebase-tools",
+    "brew install --cask google-cloud-sdk",
     "Install Rust: https://rustup.rs/",
     "brew install gitleaks",
     "brew install xcodegen",
@@ -33,6 +34,7 @@ pub enum ProbeResult {
 pub struct RuntimeContext {
     pub git_hooks_path: String,
     pub has_node_modules: bool,
+    pub has_application_default_credentials: bool,
 }
 
 impl RuntimeContext {
@@ -40,6 +42,7 @@ impl RuntimeContext {
         Self {
             git_hooks_path: git_hooks_path(),
             has_node_modules: Path::new("node_modules").is_dir(),
+            has_application_default_credentials: has_application_default_credentials(),
         }
     }
 }
@@ -91,7 +94,7 @@ where
     )?;
     check_tool(
         writer,
-        "cargo",
+        "gcloud",
         INSTALL_CMDS[3],
         None,
         fast_mode,
@@ -101,37 +104,7 @@ where
     )?;
     check_tool(
         writer,
-        "rustup",
-        INSTALL_CMDS[6],
-        None,
-        fast_mode,
-        &probe_tool,
-        &mut issues,
-        &mut install_cmds,
-    )?;
-    check_tool(
-        writer,
-        "cargo-llvm-cov",
-        INSTALL_CMDS[7],
-        None,
-        fast_mode,
-        &probe_tool,
-        &mut issues,
-        &mut install_cmds,
-    )?;
-    check_tool(
-        writer,
-        "llvm-tools-preview",
-        INSTALL_CMDS[8],
-        None,
-        fast_mode,
-        &probe_tool,
-        &mut issues,
-        &mut install_cmds,
-    )?;
-    check_tool(
-        writer,
-        "gitleaks",
+        "cargo",
         INSTALL_CMDS[4],
         None,
         fast_mode,
@@ -141,8 +114,48 @@ where
     )?;
     check_tool(
         writer,
-        "xcodegen",
+        "rustup",
+        INSTALL_CMDS[7],
+        None,
+        fast_mode,
+        &probe_tool,
+        &mut issues,
+        &mut install_cmds,
+    )?;
+    check_tool(
+        writer,
+        "cargo-llvm-cov",
+        INSTALL_CMDS[8],
+        None,
+        fast_mode,
+        &probe_tool,
+        &mut issues,
+        &mut install_cmds,
+    )?;
+    check_tool(
+        writer,
+        "llvm-tools-preview",
+        INSTALL_CMDS[9],
+        None,
+        fast_mode,
+        &probe_tool,
+        &mut issues,
+        &mut install_cmds,
+    )?;
+    check_tool(
+        writer,
+        "gitleaks",
         INSTALL_CMDS[5],
+        None,
+        fast_mode,
+        &probe_tool,
+        &mut issues,
+        &mut install_cmds,
+    )?;
+    check_tool(
+        writer,
+        "xcodegen",
+        INSTALL_CMDS[6],
         None,
         fast_mode,
         &probe_tool,
@@ -183,6 +196,20 @@ where
             "missing".to_string()
         },
         "npm install",
+        &mut issues,
+        &mut install_cmds,
+    )?;
+
+    check_setup(
+        writer,
+        "GCP ADC",
+        context.has_application_default_credentials,
+        if context.has_application_default_credentials {
+            "available".to_string()
+        } else {
+            "missing".to_string()
+        },
+        "gcloud auth application-default login",
         &mut issues,
         &mut install_cmds,
     )?;
@@ -260,14 +287,15 @@ where
         }
         ProbeResult::Version(version) => {
             let (is_ok, detail) = match min_major {
-                Some(min) => major_from_version(&version)
-                    .map_or((true, format!("v{version}")), |major| {
+                Some(min) => {
+                    major_from_version(&version).map_or((true, format!("v{version}")), |major| {
                         if major < min {
                             (false, format!("v{version} (need ≥ {min})"))
                         } else {
                             (true, format!("v{version} (≥ {min})"))
                         }
-                    }),
+                    })
+                }
                 None => (true, format!("v{version}")),
             };
 
@@ -310,7 +338,10 @@ fn report_item<W: Write>(writer: &mut W, is_ok: bool, label: &str, detail: &str)
     let icon = if is_ok { "✓" } else { "✗" };
     let color = if is_ok { GREEN } else { RED };
     let padded = format!("{label: <width$}", width = LABEL_WIDTH);
-    writeln!(writer, "  {color}{icon} {padded}{RESET} {DIM}{detail}{RESET}")
+    writeln!(
+        writer,
+        "  {color}{icon} {padded}{RESET} {DIM}{detail}{RESET}"
+    )
 }
 
 fn command_exists(command: &str) -> bool {
@@ -331,6 +362,15 @@ fn git_hooks_path() -> String {
         .unwrap_or_default()
 }
 
+fn has_application_default_credentials() -> bool {
+    Command::new("gcloud")
+        .args(["auth", "application-default", "print-access-token"])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -341,13 +381,7 @@ mod tests {
         context: RuntimeContext,
     ) -> String {
         let mut output = Vec::new();
-        run(
-            &mut output,
-            fast_mode,
-            probe,
-            &context,
-        )
-        .expect("doctor run should succeed");
+        run(&mut output, fast_mode, probe, &context).expect("doctor run should succeed");
         String::from_utf8(output).expect("utf8 output")
     }
 
@@ -376,6 +410,7 @@ mod tests {
             RuntimeContext {
                 git_hooks_path: "hooks".to_string(),
                 has_node_modules: true,
+                has_application_default_credentials: true,
             },
         );
         assert!(output.contains("✓ node"));
@@ -394,6 +429,7 @@ mod tests {
             RuntimeContext {
                 git_hooks_path: "hooks".to_string(),
                 has_node_modules: true,
+                has_application_default_credentials: true,
             },
         );
         assert!(output.contains("✗ node"));
@@ -415,6 +451,7 @@ mod tests {
             RuntimeContext {
                 git_hooks_path: "hooks".to_string(),
                 has_node_modules: true,
+                has_application_default_credentials: true,
             },
         );
         assert!(output.contains("✗ firebase"));
@@ -436,6 +473,7 @@ mod tests {
             RuntimeContext {
                 git_hooks_path: "hooks".to_string(),
                 has_node_modules: true,
+                has_application_default_credentials: true,
             },
         );
         assert!(output.contains("✗ cargo"));
@@ -451,6 +489,7 @@ mod tests {
             RuntimeContext {
                 git_hooks_path: String::new(),
                 has_node_modules: false,
+                has_application_default_credentials: false,
             },
         );
         assert!(output.contains("✗ git hooks"));
@@ -458,5 +497,7 @@ mod tests {
         assert!(output.contains("✗ node_modules"));
         assert!(output.contains("missing"));
         assert!(output.contains("npm install"));
+        assert!(output.contains("✗ GCP ADC"));
+        assert!(output.contains("gcloud auth application-default login"));
     }
 }

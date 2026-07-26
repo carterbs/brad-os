@@ -63,6 +63,7 @@
 		3DDBCD02EA561BEB27A25EDF /* FTPEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 187340315FF519C4F8D914AB /* FTPEntryView.swift */; };
 		3F8B2D0D489CF878DEB33BB7 /* BarcodeFormView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AE87A13F207E1549739EDF4 /* BarcodeFormView.swift */; };
 		3FDD22ADF7C61F6AB33353DB /* APIClient+Cycling.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2BC11E887B1E041A3E0E28F /* APIClient+Cycling.swift */; };
+		40A11C0F1C0A1C0F1C0A1C0F /* APIConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11C0F1C0A1C0F1C0A1C0F1C /* APIConfigurationTests.swift */; };
 		40BF5CFDA965A67F71B85DDE /* MeditationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97BC3FD39CD95DA799E37E3C /* MeditationState.swift */; };
 		42335B3A7132BA3BB2224097 /* TrainingBlockSetupView+Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31359277B8C8FE5BDCA59D2C /* TrainingBlockSetupView+Helpers.swift */; };
 		42EE5173C656ADF9C1C695BE /* MealDayCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB12AF8EB986F19AD034CB01 /* MealDayCard.swift */; };
@@ -370,6 +371,7 @@
 		9FB88344A783C75DD135E054 /* StretchConfigStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchConfigStorage.swift; sourceTree = "<group>"; };
 		9FC92309C729E7A7C24BF90A /* StretchAudioPreparer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchAudioPreparer.swift; sourceTree = "<group>"; };
 		A0A5A2096504176F249FB0B8 /* MealPlanDashboardCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MealPlanDashboardCard.swift; sourceTree = "<group>"; };
+		A11C0F1C0A1C0F1C0A1C0F1C /* APIConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIConfigurationTests.swift; sourceTree = "<group>"; };
 		A375E7313BF426DC8D3506CC /* MeditationDashboardCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationDashboardCard.swift; sourceTree = "<group>"; };
 		A64B7BD5B76D30A1DF886966 /* PlansView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlansView.swift; sourceTree = "<group>"; };
 		A6AD230687CA2537122F156C /* QueuedActionsButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueuedActionsButton.swift; sourceTree = "<group>"; };
@@ -974,6 +976,7 @@
 		E9760DAFE40A129317551F8F /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				A11C0F1C0A1C0F1C0A1C0F1C /* APIConfigurationTests.swift */,
 				1B788B33D18C8C81BD5540F8 /* APIClientCalendarTests.swift */,
 				32EE6A33EF1CBA532CA4766E /* TodayCoachClientTests.swift */,
 			);
@@ -1320,6 +1323,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				40A11C0F1C0A1C0F1C0A1C0F /* APIConfigurationTests.swift in Sources */,
 				90C3C7E4A0CB4580EFDC3E5F /* APIClientCalendarTests.swift in Sources */,
 				BCD64D738324F3AF716B33BA /* AppTestDoubles.swift in Sources */,
 				4BF4AC8189DD2E6AAA0816B1 /* ExerciseHistoryViewModelTests.swift in Sources */,

@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Firestore, CollectionReference, DocumentReference } from 'firebase-admin/firestore';
+import type {
+  Firestore,
+  CollectionReference,
+  DocumentReference,
+} from 'firebase-admin/firestore';
 import {
   createMockDoc,
   createMockQuerySnapshot,
@@ -45,7 +49,15 @@ describe('StretchRepository', () => {
             region: 'back',
             displayName: 'Back',
             iconName: 'figure.flexibility',
-            stretches: [{ id: 'back-childs-pose', name: "Child's Pose", description: 'Kneel...', bilateral: false, image: null }],
+            stretches: [
+              {
+                id: 'back-childs-pose',
+                name: "Child's Pose",
+                description: 'Kneel...',
+                bilateral: false,
+                image: null,
+              },
+            ],
             created_at: '2024-01-01T00:00:00Z',
             updated_at: '2024-01-01T00:00:00Z',
           },
@@ -56,14 +68,24 @@ describe('StretchRepository', () => {
             region: 'neck',
             displayName: 'Neck',
             iconName: 'figure.head',
-            stretches: [{ id: 'neck-rotation', name: 'Neck Rotation', description: 'Slowly...', bilateral: true, image: null }],
+            stretches: [
+              {
+                id: 'neck-rotation',
+                name: 'Neck Rotation',
+                description: 'Slowly...',
+                bilateral: true,
+                image: null,
+              },
+            ],
             created_at: '2024-01-01T00:00:00Z',
             updated_at: '2024-01-01T00:00:00Z',
           },
         },
       ]);
 
-      (mockCollection.get as ReturnType<typeof vi.fn>).mockResolvedValue(mockDocs);
+      (mockCollection.get as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockDocs
+      );
 
       const repo = new StretchRepository(mockDb as Firestore);
       const result = await repo.findAll();
@@ -76,12 +98,52 @@ describe('StretchRepository', () => {
 
     it('should return empty array when no regions exist', async () => {
       const mockDocs = createMockQuerySnapshot([]);
-      (mockCollection.get as ReturnType<typeof vi.fn>).mockResolvedValue(mockDocs);
+      (mockCollection.get as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockDocs
+      );
 
       const repo = new StretchRepository(mockDb as Firestore);
       const result = await repo.findAll();
 
       expect(result).toHaveLength(0);
+    });
+
+    it('should parse a valid stretch when the optional image is omitted', async () => {
+      const mockDocs = createMockQuerySnapshot([
+        {
+          id: 'back',
+          data: {
+            region: 'back',
+            displayName: 'Back',
+            iconName: 'figure.flexibility',
+            stretches: [
+              {
+                id: 'back-childs-pose',
+                name: "Child's Pose",
+                description: 'Kneel...',
+                bilateral: false,
+              },
+            ],
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
+        },
+      ]);
+      (mockCollection.get as ReturnType<typeof vi.fn>).mockResolvedValue(
+        mockDocs
+      );
+
+      const repo = new StretchRepository(mockDb as Firestore);
+      const result = await repo.findAll();
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.stretches[0]).toEqual({
+        id: 'back-childs-pose',
+        name: "Child's Pose",
+        description: 'Kneel...',
+        bilateral: false,
+        image: undefined,
+      });
     });
   });
 
@@ -104,7 +166,9 @@ describe('StretchRepository', () => {
         updated_at: '2024-01-01T00:00:00Z',
       };
 
-      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(createMockDoc('back', regionData));
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createMockDoc('back', regionData)
+      );
 
       const repo = new StretchRepository(mockDb as Firestore);
       const result = await repo.findByRegion('back');
@@ -116,7 +180,9 @@ describe('StretchRepository', () => {
     });
 
     it('should return null when region does not exist', async () => {
-      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(createMockDoc('invalid', null));
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createMockDoc('invalid', null)
+      );
 
       const repo = new StretchRepository(mockDb as Firestore);
       const result = await repo.findByRegion('invalid');
@@ -230,7 +296,9 @@ describe('StretchRepository', () => {
         updated_at: '2024-01-01T00:00:00Z',
       };
 
-      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(createMockDoc('back', existing));
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createMockDoc('back', existing)
+      );
 
       const repo = new StretchRepository(mockDb as Firestore);
       const result = await repo.delete('back');
@@ -240,7 +308,9 @@ describe('StretchRepository', () => {
     });
 
     it('should return false when deleting a missing region', async () => {
-      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(createMockDoc('missing', null));
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createMockDoc('missing', null)
+      );
 
       const repo = new StretchRepository(mockDb as Firestore);
       const result = await repo.delete('missing');
@@ -263,7 +333,14 @@ describe('StretchRepository', () => {
           region: 'back' as const,
           displayName: 'Back',
           iconName: 'figure.flexibility',
-          stretches: [{ id: 'back-childs-pose', name: "Child's Pose", description: 'Kneel...', bilateral: false }],
+          stretches: [
+            {
+              id: 'back-childs-pose',
+              name: "Child's Pose",
+              description: 'Kneel...',
+              bilateral: false,
+            },
+          ],
         },
       ];
 
@@ -274,7 +351,10 @@ describe('StretchRepository', () => {
       expect(mockBatch.commit).toHaveBeenCalledTimes(1);
 
       // Verify the set call includes timestamps
-      const setCall = mockBatch.set.mock.calls[0] as [unknown, Record<string, unknown>];
+      const setCall = mockBatch.set.mock.calls[0] as [
+        unknown,
+        Record<string, unknown>,
+      ];
       expect(setCall[1]).toHaveProperty('created_at');
       expect(setCall[1]).toHaveProperty('updated_at');
       expect(setCall[1].region).toBe('back');

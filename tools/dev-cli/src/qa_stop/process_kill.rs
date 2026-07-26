@@ -2,11 +2,13 @@ use std::fs;
 use std::path::Path;
 use std::time::Duration;
 
-use crate::runner::{CommandCall, CommandRunner};
+use crate::qa_process::{terminate_owned_process, QaProcessIdentity, TerminationOutcome};
+use crate::runner::CommandRunner;
 
 pub fn stop_pid_file<R: CommandRunner>(
     pid_file: &Path,
     name: &str,
+    identity: &QaProcessIdentity,
     runner: &R,
     sleep: &dyn Fn(Duration),
 ) -> std::io::Result<String> {
@@ -22,46 +24,28 @@ pub fn stop_pid_file<R: CommandRunner>(
         return Ok(format!("{name}: pid file was empty, removed."));
     }
 
-    if !runner
-        .run(CommandCall {
-            program: "kill".to_string(),
-            args: vec!["-0".to_string(), pid.clone()],
-            current_dir: None,
-        })
-        .success()
-    {
-        let _ = fs::remove_file(pid_file);
-        return Ok(format!("{name}: process {pid} was already stopped"));
+    let parsed_pid = match pid.parse::<u32>() {
+        Ok(parsed_pid) => parsed_pid,
+        Err(_) => {
+            let _ = fs::remove_file(pid_file);
+            return Ok(format!("{name}: invalid pid file removed."));
+        }
+    };
+
+    match terminate_owned_process(runner, parsed_pid, identity, sleep) {
+        TerminationOutcome::AlreadyStopped => {
+            let _ = fs::remove_file(pid_file);
+            Ok(format!("{name}: process {pid} was already stopped"))
+        }
+        TerminationOutcome::RefusedUnowned => {
+            let _ = fs::remove_file(pid_file);
+            Ok(format!(
+                "{name}: refused to stop unowned pid {pid}; stale pid file removed"
+            ))
+        }
+        TerminationOutcome::Stopped => {
+            let _ = fs::remove_file(pid_file);
+            Ok(format!("{name}: stopped pid {pid}"))
+        }
     }
-
-    let _ = runner.run(CommandCall {
-        program: "kill".to_string(),
-        args: vec!["--".to_string(), format!("-{pid}")],
-        current_dir: None,
-    });
-    let _ = runner.run(CommandCall {
-        program: "kill".to_string(),
-        args: vec![pid.clone()],
-        current_dir: None,
-    });
-
-    sleep(Duration::from_secs(1));
-
-    if runner
-        .run(CommandCall {
-            program: "kill".to_string(),
-            args: vec!["-0".to_string(), pid.clone()],
-            current_dir: None,
-        })
-        .success()
-    {
-        let _ = runner.run(CommandCall {
-            program: "kill".to_string(),
-            args: vec!["-9".to_string(), pid.clone()],
-            current_dir: None,
-        });
-    }
-
-    let _ = fs::remove_file(pid_file);
-    Ok(format!("{name}: stopped pid {pid}"))
 }

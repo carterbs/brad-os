@@ -9,39 +9,8 @@ import {
   CLOUD_RUN_API_REWRITE,
   compareRewrites,
   generateRewrites,
-  getAppExportName,
-  getDevFunctionName,
-  getProdFunctionName,
-  toCamelCase,
-  toPascalCase,
   type FirebaseRewrite,
 } from './rewrite-utils.js';
-
-describe('name helpers retained for local Functions emulator adapters', () => {
-  it('converts route and handler names', () => {
-    expect(toPascalCase('workout-sets')).toBe('WorkoutSets');
-    expect(toPascalCase('guidedMeditations')).toBe('GuidedMeditations');
-    expect(toCamelCase('strava-webhook')).toBe('stravaWebhook');
-    expect(toCamelCase('stretchSessions')).toBe('stretchSessions');
-  });
-
-  it('builds local emulator app and function export names', () => {
-    const entry = { routePath: 'mealplans', handlerFile: 'strava-webhook' };
-    expect(getAppExportName(entry)).toBe('stravaWebhookApp');
-    expect(getDevFunctionName(entry)).toBe('devMealplans');
-    expect(getProdFunctionName(entry)).toBe('prodMealplans');
-  });
-
-  it('honors the local emulator function stem override', () => {
-    const entry = {
-      routePath: 'guidedMeditations',
-      handlerFile: 'guidedMeditations',
-      functionStem: 'GuidedMeditationPortal',
-    };
-    expect(getDevFunctionName(entry)).toBe('devGuidedMeditationPortal');
-    expect(getProdFunctionName(entry)).toBe('prodGuidedMeditationPortal');
-  });
-});
 
 describe('generateRewrites', () => {
   it('routes the complete API namespace to one pinned Cloud Run service', () => {
@@ -51,7 +20,7 @@ describe('generateRewrites', () => {
     expect(generateRewrites(manifest)).toEqual([CLOUD_RUN_API_REWRITE]);
   });
 
-  it('does not publish the local debug Function', () => {
+  it('publishes all manifest routes through one Cloud Run rewrite', () => {
     const rewrites = generateRewrites(ENDPOINT_MANIFEST);
     expect(rewrites).toEqual([CLOUD_RUN_API_REWRITE]);
   });
@@ -60,10 +29,7 @@ describe('generateRewrites', () => {
     const manifest: EndpointEntry[] = [
       {
         routePath: '',
-        handlerFile: 'mealplan-debug',
-        devOnly: true,
-        customSource: '/debug',
-        functionStem: 'MealplanDebug',
+        handlerFile: 'invalid',
       },
     ];
     expect(() => generateRewrites(manifest)).toThrow(
@@ -75,11 +41,15 @@ describe('generateRewrites', () => {
     const firebaseConfig = JSON.parse(
       fs.readFileSync(path.join(process.cwd(), 'firebase.json'), 'utf-8')
     ) as {
+      functions?: unknown;
+      emulators?: Record<string, unknown>;
       hosting?: {
         rewrites?: FirebaseRewrite[];
       };
     };
 
+    expect(firebaseConfig.functions).toBeUndefined();
+    expect(Object.keys(firebaseConfig.emulators ?? {})).toEqual(['firestore']);
     expect(firebaseConfig.hosting?.rewrites).toEqual(
       generateRewrites(ENDPOINT_MANIFEST)
     );
@@ -90,9 +60,7 @@ describe('compareRewrites', () => {
   const expected: FirebaseRewrite[] = [CLOUD_RUN_API_REWRITE];
 
   it('returns no violations when every Cloud Run field matches', () => {
-    expect(
-      compareRewrites(expected, [CLOUD_RUN_API_REWRITE])
-    ).toEqual([]);
+    expect(compareRewrites(expected, [CLOUD_RUN_API_REWRITE])).toEqual([]);
   });
 
   it('reports missing, extra, and changed targets', () => {
@@ -125,11 +93,11 @@ describe('compareRewrites', () => {
   it('rejects any Function-backed Hosting rewrite', () => {
     const violations = compareRewrites(expected, [
       CLOUD_RUN_API_REWRITE,
-      { source: '/debug', function: 'devMealplanDebug' },
+      { source: '/legacy', function: 'legacyFunction' },
     ]);
 
     expect(violations).toContain(
-      'Extra rewrite: /debug|function=devMealplanDebug'
+      'Extra rewrite: /legacy|function=legacyFunction'
     );
   });
 });

@@ -5,7 +5,13 @@ import type { ApiError } from '../shared.js';
 import { AppError } from '../types/errors.js';
 
 // Re-export error classes so existing handler imports keep working
-export { AppError, NotFoundError, ValidationError, ConflictError, ForbiddenError } from '../types/errors.js';
+export {
+  AppError,
+  NotFoundError,
+  ValidationError,
+  ConflictError,
+  ForbiddenError,
+} from '../types/errors.js';
 
 export function errorHandler(
   err: Error,
@@ -13,7 +19,7 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  // Log error using Cloud Functions logger
+  // Log through the structured backend logger.
   logError('Error:', err);
 
   // Handle Zod validation errors

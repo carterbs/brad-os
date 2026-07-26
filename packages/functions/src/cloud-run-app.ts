@@ -6,6 +6,7 @@ import { createRequestLogger } from './runtime/request-logger.js';
 
 export interface CloudRunAppOptions {
   internalTaskApp?: RequestHandler;
+  developmentOnly?: boolean;
 }
 
 export function createCloudRunApp(
@@ -32,14 +33,19 @@ export function createCloudRunApp(
     createRequestLogger('dev'),
     createApiRouter()
   );
-  app.use(
-    '/api/prod',
-    withEnvironment('prod'),
-    createRequestLogger('prod'),
-    createApiRouter()
-  );
+  if (options.developmentOnly !== true) {
+    app.use(
+      '/api/prod',
+      withEnvironment('prod'),
+      createRequestLogger('prod'),
+      createApiRouter()
+    );
+  }
 
-  if (options.internalTaskApp !== undefined) {
+  if (
+    options.developmentOnly !== true &&
+    options.internalTaskApp !== undefined
+  ) {
     app.use('/internal/tasks', options.internalTaskApp);
   }
 
@@ -55,5 +61,3 @@ export function createCloudRunApp(
 
   return app;
 }
-
-export const cloudRunApp = createCloudRunApp();

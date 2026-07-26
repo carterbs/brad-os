@@ -49,8 +49,8 @@ Zero TODO/FIXME comments were found in the codebase (a positive signal for archi
 - Repositories: exercise, mesocycle, plan-day-exercise, plan-day, plan, workout-set, workout
 - Integration: exercises, mesocycles, plans, workoutSets, workouts
 
-**Meal Planning (16 test files):**
-- Handlers: barcodes, ingredients, mealplan-debug, mealplans, meals, recipes
+**Meal Planning (15 test files):**
+- Handlers: barcodes, ingredients, mealplans, meals, recipes
 - Services: mealplan-critique, mealplan-generation, mealplan-operations
 - Repositories: barcode, ingredient, meal, mealplan-session, recipe
 - Integration: meals

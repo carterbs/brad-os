@@ -1,13 +1,11 @@
 /**
  * Integration Tests for Health API
  *
- * Basic smoke test to verify the emulator is running correctly.
+ * Basic smoke test to verify the standalone dev API is running correctly.
  */
 
 import { describe, it, expect } from 'vitest';
-
-// Functions emulator runs at port 5001
-const HEALTH_URL = 'http://127.0.0.1:5001/brad-os/us-central1/devHealth';
+import { HEALTH_URL } from './api-config.js';
 
 interface HealthResponse {
   success: boolean;
@@ -26,8 +24,7 @@ describe('Health API (Integration)', () => {
     const result = (await response.json()) as HealthResponse;
     expect(result.success).toBe(true);
     expect(result.data.status).toBe('healthy');
-    // In emulator, environment is 'cloud-functions' not 'dev'
-    expect(result.data.environment).toBe('cloud-functions');
+    expect(result.data.environment).toBe('dev');
     expect(result.data.timestamp).toBeDefined();
   });
 });
