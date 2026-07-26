@@ -25,7 +25,11 @@ import { logger } from '../runtime/logger.js';
 const TAG = '[Strava Task]';
 const GOOGLE_OIDC_ISSUER = 'https://accounts.google.com';
 const IDEMPOTENCY_COLLECTION = 'strava_webhook_events';
-const CLAIM_LEASE_MS = 15 * 60 * 1000;
+// The queue's five attempts begin at approximately 0s, 10s, 30s, 70s,
+// and 150s. A one-minute lease keeps immediate duplicate deliveries out while
+// allowing attempt four to recover a claim left behind by a hard process exit,
+// with attempt five still available if the recovery attempt fails.
+const CLAIM_LEASE_MS = 60 * 1000;
 const ENQUEUE_DEADLINE_MS = 1_500;
 
 export class StravaTaskAuthenticationError extends Error {

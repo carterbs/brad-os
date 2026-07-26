@@ -311,6 +311,51 @@ describe('Strava task service', () => {
     ).resolves.toEqual({ status: 'completed' });
   });
 
+  it('reclaims a hard-crashed lease before five queue attempts are exhausted', async () => {
+    const memory = createInMemoryFirestore();
+    const startedAtMs = 1_700_000_000_000;
+    let nowMs = startedAtMs;
+    const claimTokens = ['crashed-claim', 'recovery-claim'];
+    const store = new FirestoreStravaTaskStore({
+      firestore: memory.firestore,
+      collectionName: () => 'dev_strava_webhook_events',
+      now: () => nowMs,
+      createClaimToken: () => claimTokens.shift() ?? 'unexpected',
+    });
+    const payload: StravaActivityTaskPayload = {
+      eventId: deriveStravaEventId('dev', event),
+      event: {
+        ...event,
+        object_type: 'activity',
+      },
+    };
+
+    const queueAttemptOffsetsMs = [0, 10_000, 30_000, 70_000, 150_000];
+    const outcomes: string[] = [];
+    for (const offsetMs of queueAttemptOffsetsMs) {
+      nowMs = startedAtMs + offsetMs;
+      const outcome = await runWithEnvironment('dev', () =>
+        store.claim(payload)
+      );
+      outcomes.push(outcome.status);
+      if (offsetMs > 0 && outcome.status === 'claimed') {
+        break;
+      }
+    }
+
+    expect(outcomes).toEqual([
+      'claimed',
+      'in_progress',
+      'in_progress',
+      'claimed',
+    ]);
+    expect(memory.readRecord()).toMatchObject({
+      attempts: 2,
+      claimToken: 'recovery-claim',
+      leaseExpiresAtMs: startedAtMs + 130_000,
+    });
+  });
+
   it('records a bounded failure and permits a retry claim', async () => {
     const memory = createInMemoryFirestore();
     const claimTokens = ['claim-1', 'claim-2'];

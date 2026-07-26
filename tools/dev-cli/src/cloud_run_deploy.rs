@@ -11,6 +11,15 @@ pub const RUNTIME_SERVICE_ACCOUNT: &str = "brad-os-api@brad-os.iam.gserviceaccou
 pub const TASK_SERVICE_ACCOUNT: &str = "brad-os-strava-tasks@brad-os.iam.gserviceaccount.com";
 pub const TASK_QUEUE: &str = "brad-os-strava";
 
+const SERVICE_MAX_INSTANCES: &str = "1";
+const REVISION_MAX_INSTANCES: &str = "1";
+const STARTUP_PROBE_PATH: &str = "/healthz";
+const STARTUP_PROBE_PORT: u64 = 8080;
+const STARTUP_PROBE_INITIAL_DELAY_SECONDS: u64 = 0;
+const STARTUP_PROBE_TIMEOUT_SECONDS: u64 = 1;
+const STARTUP_PROBE_PERIOD_SECONDS: u64 = 1;
+const STARTUP_PROBE_FAILURE_THRESHOLD: u64 = 60;
+
 const OPENAI_VERSION_ENV: &str = "BRAD_OPENAI_SECRET_VERSION";
 const STRAVA_CLIENT_ID_VERSION_ENV: &str = "BRAD_STRAVA_CLIENT_ID_SECRET_VERSION";
 const STRAVA_CLIENT_SECRET_VERSION_ENV: &str = "BRAD_STRAVA_CLIENT_SECRET_VERSION";
@@ -126,7 +135,12 @@ pub fn render_plan<W: Write>(writer: &mut W, config: &DeploymentConfig) -> Resul
     writeln!(writer, "  image: {}", config.image_tag()).map_err(|error| error.to_string())?;
     writeln!(
         writer,
-        "  runtime: min=0 max=1 concurrency=20 cpu=1 memory=512Mi timeout=180s"
+        "  runtime: min=0 service-max=1 revision-max=1 concurrency=20 cpu=1 memory=512Mi timeout=180s"
+    )
+    .map_err(|error| error.to_string())?;
+    writeln!(
+        writer,
+        "  startup probe: /healthz every 1s, 1s timeout, 60-failure budget"
     )
     .map_err(|error| error.to_string())?;
     writeln!(
@@ -311,14 +325,20 @@ STRAVA_WEBHOOK_VERIFY_TOKEN=STRAVA_WEBHOOK_VERIFY_TOKEN:{}",
         "--concurrency=20".to_string(),
         "--timeout=180".to_string(),
         "--min=0".to_string(),
-        "--max=1".to_string(),
+        format!("--max={SERVICE_MAX_INSTANCES}"),
+        format!("--max-instances={REVISION_MAX_INSTANCES}"),
         "--cpu-boost".to_string(),
         "--cpu-throttling".to_string(),
         "--deploy-health-check".to_string(),
         "--ingress=all".to_string(),
         "--allow-unauthenticated".to_string(),
         format!("--tag={tag}"),
-        "--startup-probe=httpGet.path=/healthz,initialDelaySeconds=0,timeoutSeconds=5,periodSeconds=5,failureThreshold=12".to_string(),
+        format!(
+            "--startup-probe=httpGet.path={STARTUP_PROBE_PATH},httpGet.port={STARTUP_PROBE_PORT},\
+initialDelaySeconds={STARTUP_PROBE_INITIAL_DELAY_SECONDS},\
+timeoutSeconds={STARTUP_PROBE_TIMEOUT_SECONDS},periodSeconds={STARTUP_PROBE_PERIOD_SECONDS},\
+failureThreshold={STARTUP_PROBE_FAILURE_THRESHOLD}"
+        ),
         format!("--set-secrets={secrets}"),
         format!("--set-env-vars={}", env_vars.join(",")),
         "--quiet".to_string(),
@@ -406,7 +426,13 @@ pub fn validate_service_description(
     expect_json_string(
         &payload,
         "/metadata/annotations/run.googleapis.com~1maxScale",
-        "1",
+        SERVICE_MAX_INSTANCES,
+        &mut violations,
+    );
+    expect_json_string(
+        &payload,
+        "/spec/template/metadata/annotations/autoscaling.knative.dev~1maxScale",
+        REVISION_MAX_INSTANCES,
         &mut violations,
     );
     if let Some(minimum) = json_string(
@@ -452,7 +478,39 @@ pub fn validate_service_description(
     expect_json_string(
         &payload,
         "/spec/template/spec/containers/0/startupProbe/httpGet/path",
-        "/healthz",
+        STARTUP_PROBE_PATH,
+        &mut violations,
+    );
+    expect_json_number(
+        &payload,
+        "/spec/template/spec/containers/0/startupProbe/httpGet/port",
+        STARTUP_PROBE_PORT,
+        &mut violations,
+    );
+    expect_json_number_with_default(
+        &payload,
+        "/spec/template/spec/containers/0/startupProbe/initialDelaySeconds",
+        STARTUP_PROBE_INITIAL_DELAY_SECONDS,
+        0,
+        &mut violations,
+    );
+    expect_json_number_with_default(
+        &payload,
+        "/spec/template/spec/containers/0/startupProbe/timeoutSeconds",
+        STARTUP_PROBE_TIMEOUT_SECONDS,
+        1,
+        &mut violations,
+    );
+    expect_json_number(
+        &payload,
+        "/spec/template/spec/containers/0/startupProbe/periodSeconds",
+        STARTUP_PROBE_PERIOD_SECONDS,
+        &mut violations,
+    );
+    expect_json_number(
+        &payload,
+        "/spec/template/spec/containers/0/startupProbe/failureThreshold",
+        STARTUP_PROBE_FAILURE_THRESHOLD,
         &mut violations,
     );
     expect_json_string(&payload, "/status/url", service_url, &mut violations);
@@ -594,6 +652,22 @@ fn expect_json_string(
 
 fn expect_json_number(payload: &Value, pointer: &str, expected: u64, violations: &mut Vec<String>) {
     let actual = payload.pointer(pointer).and_then(Value::as_u64);
+    if actual != Some(expected) {
+        violations.push(format!("{pointer} expected {expected}, found {:?}", actual));
+    }
+}
+
+fn expect_json_number_with_default(
+    payload: &Value,
+    pointer: &str,
+    expected: u64,
+    default: u64,
+    violations: &mut Vec<String>,
+) {
+    let actual = match payload.pointer(pointer) {
+        Some(value) => value.as_u64(),
+        None => Some(default),
+    };
     if actual != Some(expected) {
         violations.push(format!("{pointer} expected {expected}, found {:?}", actual));
     }

@@ -115,6 +115,7 @@ fn service_description(service_url: &str) -> String {
             "template": {
                 "metadata": {
                     "annotations": {
+                        "autoscaling.knative.dev/maxScale": "1",
                         "run.googleapis.com/cpu-throttling": "true",
                         "run.googleapis.com/startup-cpu-boost": "true"
                     }
@@ -126,7 +127,13 @@ fn service_description(service_url: &str) -> String {
                     "containers": [{
                         "image": digest_image,
                         "resources": {"limits": {"cpu": "1", "memory": "512Mi"}},
-                        "startupProbe": {"httpGet": {"path": "/healthz"}},
+                        "startupProbe": {
+                            "failureThreshold": 60,
+                            "httpGet": {"path": "/healthz", "port": 8080},
+                            "initialDelaySeconds": 0,
+                            "periodSeconds": 1,
+                            "timeoutSeconds": 1
+                        },
                         "env": environment
                     }]
                 }
@@ -167,17 +174,20 @@ fn explicit_service_url_deploys_one_no_traffic_candidate_and_smokes_it() {
     assert!(deploy.args.contains(&"--no-traffic".to_string()));
     assert!(deploy.args.iter().any(|arg| arg == "--min=0"));
     assert!(deploy.args.iter().any(|arg| arg == "--max=1"));
+    assert!(deploy.args.iter().any(|arg| arg == "--max-instances=1"));
+    assert!(deploy.args.iter().any(|arg| {
+        arg == "--startup-probe=httpGet.path=/healthz,httpGet.port=8080,\
+initialDelaySeconds=0,timeoutSeconds=1,periodSeconds=1,failureThreshold=60"
+    }));
     assert!(deploy.args.iter().any(|arg| {
         arg.contains("CLOUD_RUN_SERVICE_URL=https://brad-os-api.example.run.app")
             && arg.contains("STRAVA_TASK_OIDC_AUDIENCE=https://brad-os-api.example.run.app")
     }));
     for (call, environment) in calls[4..].iter().zip(["dev", "prod"]) {
         assert_eq!(call.program, "curl");
-        assert!(call
-            .args
-            .contains(&format!(
-                "https://candidate---brad-os-api.example.run.app/api/{environment}/health"
-            )));
+        assert!(call.args.contains(&format!(
+            "https://candidate---brad-os-api.example.run.app/api/{environment}/health"
+        )));
         assert!(call.args.contains(&"--retry-all-errors".to_string()));
         assert!(call.args.contains(&"--retry-max-time".to_string()));
     }
@@ -235,7 +245,8 @@ fn plan_mode_is_read_only() {
     execute(&runner, &mut output, &config(None, true)).unwrap();
     assert!(runner.calls().is_empty());
     let rendered = String::from_utf8(output).unwrap();
-    assert!(rendered.contains("min=0 max=1"));
+    assert!(rendered.contains("min=0 service-max=1 revision-max=1"));
+    assert!(rendered.contains("startup probe: /healthz every 1s"));
     assert!(rendered.contains("does not modify Firebase Hosting"));
 }
 
@@ -282,6 +293,97 @@ fn readback_drift_blocks_success() {
     assert!(error.contains("configuration read-back failed"));
     assert!(error.contains("maxScale"));
     assert_eq!(runner.calls().len(), 4);
+}
+
+#[test]
+fn readback_rejects_revision_cap_and_every_startup_probe_drift() {
+    let service_url = "https://brad-os-api.example.run.app";
+    let image = format!(
+        "us-central1-docker.pkg.dev/brad-os/brad-os-api/brad-os-api@sha256:{}",
+        "f".repeat(64)
+    );
+    let cases = [
+        (
+            "/spec/template/metadata/annotations/autoscaling.knative.dev~1maxScale",
+            json!("5"),
+            "autoscaling.knative.dev",
+        ),
+        (
+            "/spec/template/spec/containers/0/startupProbe/httpGet/path",
+            json!("/slow-startup"),
+            "httpGet/path",
+        ),
+        (
+            "/spec/template/spec/containers/0/startupProbe/httpGet/port",
+            json!(9090),
+            "httpGet/port",
+        ),
+        (
+            "/spec/template/spec/containers/0/startupProbe/initialDelaySeconds",
+            json!(1),
+            "initialDelaySeconds",
+        ),
+        (
+            "/spec/template/spec/containers/0/startupProbe/timeoutSeconds",
+            json!(2),
+            "timeoutSeconds",
+        ),
+        (
+            "/spec/template/spec/containers/0/startupProbe/periodSeconds",
+            json!(2),
+            "periodSeconds",
+        ),
+        (
+            "/spec/template/spec/containers/0/startupProbe/failureThreshold",
+            json!(59),
+            "failureThreshold",
+        ),
+    ];
+
+    for (pointer, drift, expected_error) in cases {
+        let mut payload: serde_json::Value =
+            serde_json::from_str(&service_description(service_url)).expect("service JSON");
+        *payload
+            .pointer_mut(pointer)
+            .unwrap_or_else(|| panic!("fixture must contain {pointer}")) = drift;
+
+        let error = validate_service_description(
+            &payload.to_string(),
+            &config(Some(service_url), false),
+            &image,
+            service_url,
+        )
+        .expect_err("read-back drift must fail");
+
+        assert!(
+            error.contains(expected_error),
+            "expected '{expected_error}' in '{error}'"
+        );
+    }
+}
+
+#[test]
+fn readback_accepts_cloud_run_omitting_default_probe_values() {
+    let service_url = "https://brad-os-api.example.run.app";
+    let image = format!(
+        "us-central1-docker.pkg.dev/brad-os/brad-os-api/brad-os-api@sha256:{}",
+        "f".repeat(64)
+    );
+    let mut payload: serde_json::Value =
+        serde_json::from_str(&service_description(service_url)).expect("service JSON");
+    let startup_probe = payload["spec"]["template"]["spec"]["containers"][0]["startupProbe"]
+        .as_object_mut()
+        .expect("startup probe object");
+    startup_probe.remove("initialDelaySeconds");
+    startup_probe.remove("timeoutSeconds");
+
+    validate_service_description(
+        &payload.to_string(),
+        &config(Some(service_url), false),
+        &image,
+        service_url,
+    )
+    .expect("Cloud Run omits effective default values from read-back");
 }
 
 #[test]
