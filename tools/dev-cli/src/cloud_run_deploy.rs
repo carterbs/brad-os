@@ -138,7 +138,7 @@ pub fn render_plan<W: Write>(writer: &mut W, config: &DeploymentConfig) -> Resul
     if config.service_url.is_none() {
         writeln!(
             writer,
-            "  bootstrap: create an un-routed revision, read status.url, then create the candidate"
+            "  bootstrap: create the service outside Hosting, read status.url, then create the no-traffic candidate"
         )
         .map_err(|error| error.to_string())?;
     }
@@ -206,7 +206,7 @@ pub fn execute<R: CommandRunner, W: Write>(
     let service_url = match &config.service_url {
         Some(url) => url.clone(),
         None => {
-            run_deploy(runner, config, &image, &config.bootstrap_tag(), None)?;
+            run_deploy(runner, config, &image, &config.bootstrap_tag(), None, false)?;
             read_service_url(runner)?
         }
     };
@@ -218,6 +218,7 @@ pub fn execute<R: CommandRunner, W: Write>(
         &image,
         &config.candidate_tag(),
         Some(&service_url),
+        true,
     )?;
 
     let description = run_checked(
@@ -260,6 +261,7 @@ fn run_deploy<R: CommandRunner>(
     image: &str,
     tag: &str,
     service_url: Option<&str>,
+    no_traffic: bool,
 ) -> Result<(), String> {
     let secrets = format!(
         "OPENAI_API_KEY=OPENAI_API_KEY:{},STRAVA_CLIENT_ID=STRAVA_CLIENT_ID:{},\
@@ -281,7 +283,7 @@ STRAVA_WEBHOOK_VERIFY_TOKEN=STRAVA_WEBHOOK_VERIFY_TOKEN:{}",
         env_vars.push(format!("STRAVA_TASK_OIDC_AUDIENCE={url}"));
     }
 
-    let args = vec![
+    let mut args = vec![
         "run".to_string(),
         "deploy".to_string(),
         SERVICE.to_string(),
@@ -304,13 +306,15 @@ STRAVA_WEBHOOK_VERIFY_TOKEN=STRAVA_WEBHOOK_VERIFY_TOKEN:{}",
         "--deploy-health-check".to_string(),
         "--ingress=all".to_string(),
         "--allow-unauthenticated".to_string(),
-        "--no-traffic".to_string(),
         format!("--tag={tag}"),
         "--startup-probe=httpGet.path=/healthz,initialDelaySeconds=0,timeoutSeconds=5,periodSeconds=5,failureThreshold=12".to_string(),
         format!("--set-secrets={secrets}"),
         format!("--set-env-vars={}", env_vars.join(",")),
         "--quiet".to_string(),
     ];
+    if no_traffic {
+        args.push("--no-traffic".to_string());
+    }
     run_checked(
         runner,
         CommandCall {

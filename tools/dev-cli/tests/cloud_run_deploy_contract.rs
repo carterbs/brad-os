@@ -201,6 +201,8 @@ fn first_creation_bootstraps_then_reads_stable_url_and_redeploys() {
         })
         .collect::<Vec<_>>();
     assert_eq!(deploys.len(), 2);
+    assert!(!deploys[0].args.contains(&"--no-traffic".to_string()));
+    assert!(deploys[1].args.contains(&"--no-traffic".to_string()));
     let bootstrap_env = deploys[0]
         .args
         .iter()

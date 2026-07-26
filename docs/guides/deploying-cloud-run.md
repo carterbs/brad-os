@@ -64,9 +64,11 @@ The Rust deployment command:
 6. checks the candidate revision's `/healthz`;
 7. prints the tagged candidate URL and digest.
 
-For the first service creation, the command performs a two-revision bootstrap. It creates
-an un-routed revision, reads the stable `status.url`, then creates the real candidate with
-both of these variables set to that exact direct URL:
+For the first service creation, the command performs a two-revision bootstrap. Cloud Run
+does not allow `--no-traffic` on a brand-new service, so the bootstrap revision receives
+the direct Run URL while Firebase Hosting remains unchanged. The command reads that stable
+`status.url`, then creates the real no-traffic candidate with both of these variables set
+to that exact direct URL:
 
 ```text
 CLOUD_RUN_SERVICE_URL
