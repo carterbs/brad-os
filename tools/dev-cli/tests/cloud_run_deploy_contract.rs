@@ -387,6 +387,61 @@ fn readback_accepts_cloud_run_omitting_default_probe_values() {
 }
 
 #[test]
+fn readback_rejects_minimum_scale_and_environment_drift() {
+    let service_url = "https://brad-os-api.example.run.app";
+    let image = format!(
+        "us-central1-docker.pkg.dev/brad-os/brad-os-api/brad-os-api@sha256:{}",
+        "f".repeat(64)
+    );
+    let assert_rejected = |payload: serde_json::Value, expected_error: &str| {
+        let error = validate_service_description(
+            &payload.to_string(),
+            &config(Some(service_url), false),
+            &image,
+            service_url,
+        )
+        .expect_err("read-back drift must fail");
+        assert!(
+            error.contains(expected_error),
+            "expected '{expected_error}' in '{error}'"
+        );
+    };
+
+    let mut minimum_drift: serde_json::Value =
+        serde_json::from_str(&service_description(service_url)).expect("service JSON");
+    minimum_drift["metadata"]["annotations"]["run.googleapis.com/minScale"] = json!("1");
+    assert_rejected(minimum_drift, "service minimum instances expected 0");
+
+    let mut missing_environment: serde_json::Value =
+        serde_json::from_str(&service_description(service_url)).expect("service JSON");
+    missing_environment["spec"]["template"]["spec"]["containers"][0]
+        .as_object_mut()
+        .expect("container object")
+        .remove("env");
+    assert_rejected(missing_environment, "container environment is missing");
+
+    let mut environment_drift: serde_json::Value =
+        serde_json::from_str(&service_description(service_url)).expect("service JSON");
+    environment_drift["spec"]["template"]["spec"]["containers"][0]["env"]
+        .as_array_mut()
+        .expect("environment array")
+        .iter_mut()
+        .find(|entry| entry["name"] == "GOOGLE_CLOUD_PROJECT")
+        .expect("project environment")["value"] = json!("wrong-project");
+    assert_rejected(environment_drift, "environment GOOGLE_CLOUD_PROJECT");
+
+    let mut secret_drift: serde_json::Value =
+        serde_json::from_str(&service_description(service_url)).expect("service JSON");
+    secret_drift["spec"]["template"]["spec"]["containers"][0]["env"]
+        .as_array_mut()
+        .expect("environment array")
+        .iter_mut()
+        .find(|entry| entry["name"] == "OPENAI_API_KEY")
+        .expect("OpenAI secret environment")["valueFrom"]["secretKeyRef"]["key"] = json!("99");
+    assert_rejected(secret_drift, "secret OPENAI_API_KEY");
+}
+
+#[test]
 fn readback_rejects_any_production_app_check_bypass() {
     let service_url = "https://brad-os-api.example.run.app";
     let image = format!(
@@ -422,10 +477,20 @@ fn git_discovery_requires_clean_full_commit() {
     let clean = FakeRunner::with_results(vec![ok(""), ok("b".repeat(40))]);
     assert_eq!(discover_git_sha(&clean).unwrap(), "b".repeat(40));
 
+    let status_failure = FakeRunner::with_results(vec![fail("git unavailable")]);
+    assert!(discover_git_sha(&status_failure)
+        .unwrap_err()
+        .contains("Unable to inspect"));
+
     let dirty = FakeRunner::with_results(vec![ok(" M firebase.json\n")]);
     assert!(discover_git_sha(&dirty)
         .unwrap_err()
         .contains("clean, committed worktree"));
+
+    let head_failure = FakeRunner::with_results(vec![ok(""), fail("git unavailable")]);
+    assert!(discover_git_sha(&head_failure)
+        .unwrap_err()
+        .contains("Unable to resolve"));
 
     let invalid = FakeRunner::with_results(vec![ok(""), ok("short")]);
     assert!(discover_git_sha(&invalid).is_err());
