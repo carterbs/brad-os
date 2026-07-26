@@ -9,8 +9,6 @@
     "build:watch": "tsc --watch",
     "start": "node lib/server.js",
     "serve": "npm run build && firebase emulators:start --only functions",
-    "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint src --config ../.oxlintrc.json"
   },

@@ -30,7 +30,7 @@ Default `qa:start` command:
 - Runs basic health check
 
 The environment startup step (`advanced:qa:env:start`) does:
-- Builds functions
+- Builds the unified API and local Functions emulator adapters
 - Starts Firebase emulators on session-specific ports with session-specific import/export data
 - Starts OTel collector on a session-specific port and writes under `/tmp/brad-os-qa/sessions/<id>/otel/`
 - Leases/boots an existing host simulator

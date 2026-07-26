@@ -31,7 +31,7 @@ PUT    /api/workout-sets/:id/skip
 
 ## Router Factory Pattern
 
-Cloud Functions handlers should use shared router construction helpers in `packages/functions/src/middleware/create-resource-router.ts`:
+Unified Express API handlers should use shared router construction helpers in `packages/functions/src/middleware/create-resource-router.ts`:
 
 - `createResourceRouter<T, CreateDTO, UpdateDTO, TRepo extends IBaseRepository<T, CreateDTO, UpdateDTO>>(config)`
 - `createBaseApp(resourceName: string): express.Application`

@@ -1,22 +1,25 @@
-# Cloud Functions Guidelines
+# BradOS API Runtime Guidelines
 
 ## Logging (CRITICAL)
 
-**NEVER use `console.log`, `console.warn`, or `console.error` in Cloud Functions code.**
+**NEVER use `console.log`, `console.warn`, or `console.error` in API runtime code.**
 
-These do NOT appear in Firebase Cloud Functions logs. Always use the Firebase logger:
+Use one of the package's structured loggers:
 
 ```typescript
+// Standalone Cloud Run runtime code:
+import { logger } from '../runtime/logger.js';
+logger.info('[Tag] Something happened', { key: 'value' });
+
+// Shared API handlers that also run in the local Functions emulator:
 import { info, warn, error as logError } from 'firebase-functions/logger';
-
-// Instead of console.log → use info()
 info('[Tag] Something happened', { key: 'value' });
-
-// Instead of console.warn → use warn()
 warn('[Tag] Something concerning', { detail: 'value' });
-
-// Instead of console.error → use logError()
 logError('[Tag] Something broke', { err: error });
 ```
 
-The structured data object (second arg) shows up as searchable fields in Cloud Logging.
+Prefer `runtime/logger.ts` for new Cloud Run-only code. The Firebase logger remains
+supported in shared handlers while the local Functions emulator adapter is retained.
+
+Both forms produce searchable structured fields in Cloud Logging. Never log App Check
+tokens, OAuth tokens, health payloads, prompts, or secret values.

@@ -16,10 +16,10 @@ Invariants for the Brad OS codebase. Every line is verifiable by a linter or cod
 - Layer imports flow one direction: types -> schemas -> repos -> services -> handlers
 - POST/PUT/PATCH handlers must have Zod validation (schema-at-boundary)
 - No duplicate type/interface definitions across files — consolidate in `types/`
-- `firebase.json` rewrite paths must match `stripPathPrefix()` arguments
+- Production `firebase.json` has exactly one pinned `/api/**` rewrite to `brad-os-api` and no Function-backed rewrites
 - iOS Views must not reference Service types — go through ViewModels
 - iOS Components must not reference ViewModel types — receive data via parameters
-- Structured loggers only: standalone runtime code uses `runtime/logger.ts`, existing Function handlers may use `firebase-functions/logger`, and no other application code writes directly to stdout/stderr
+- Structured loggers only: standalone Cloud Run runtime code uses `runtime/logger.ts`, shared API/emulator handlers may use `firebase-functions/logger`, and no other application code writes directly to stdout/stderr
 - All iOS HTTP goes through shared APIClient with App Check — no one-off `URLSession` calls
 - Domain types live in `packages/functions/src/types/`, not in services/handlers/repositories
 - Zod schemas live in `packages/functions/src/schemas/`, not in services/handlers/repositories

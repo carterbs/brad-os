@@ -158,7 +158,7 @@ pub fn render_plan<W: Write>(writer: &mut W, config: &DeploymentConfig) -> Resul
     }
     writeln!(
         writer,
-        "  safety: does not modify Firebase Hosting or delete/update legacy Functions"
+        "  safety: does not modify Firebase Hosting or deploy Cloud Functions"
     )
     .map_err(|error| error.to_string())?;
     Ok(())
@@ -274,7 +274,7 @@ pub fn execute<R: CommandRunner, W: Write>(
     writeln!(writer, "Immutable image: {image}").map_err(|error| error.to_string())?;
     writeln!(
         writer,
-        "Firebase Hosting and all legacy Functions were left unchanged."
+        "Firebase Hosting was left unchanged; no Cloud Functions deployment was attempted."
     )
     .map_err(|error| error.to_string())?;
     Ok(())

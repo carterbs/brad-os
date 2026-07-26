@@ -30,7 +30,7 @@ MealPlanView -> MealPlanViewModel -> APIClient -> mealplans/meals handlers -> Ge
 - `packages/functions/src/handlers/recipes.ts` — recipe CRUD via createResourceRouter
 - `packages/functions/src/handlers/ingredients.ts` — ingredient CRUD via createResourceRouter
   - `packages/functions/src/handlers/barcodes.ts` — barcode CRUD via createResourceRouter
-  - `packages/functions/src/handlers/mealplan-debug.ts` — debug UI (HTML page)
+  - `packages/functions/src/handlers/mealplan-debug.ts` — local-only debug UI (HTML page)
 - **Services:**
   - `packages/functions/src/services/mealplan-generation.service.ts` — constraint-based plan generation
   - `packages/functions/src/services/mealplan-critique.service.ts` — OpenAI-powered plan critique
@@ -94,7 +94,7 @@ MealPlanView -> MealPlanViewModel -> APIClient -> mealplans/meals handlers -> Ge
 - MealPlanCacheService stores finalized plan in App Group shared container for widget access
 - Widget reads from cache (no API calls); refreshes at midnight + on-demand via WidgetCenter
 - Sessions track full conversation history for multi-turn critique
-- The debug UI at `packages/functions/src/handlers/mealplan-debug.ts` shows family breakfast and Brad breakfast as separate columns.
+- The local-only debug UI at `packages/functions/src/handlers/mealplan-debug.ts` shows family breakfast and Brad breakfast as separate columns. Production Hosting and Cloud Run do not expose it.
 
 ## Rollout Checklist
 - Seed at least one `audience=adult`, `meal_type=breakfast` meal before enabling generation in an environment.

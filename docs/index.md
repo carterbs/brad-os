@@ -17,10 +17,16 @@
 |-------|---------|
 | [local-dev-quickstart.md](guides/local-dev-quickstart.md) | 5-minute bootstrap: install, validate, emulators, iOS build |
 | [ios-build-and-run.md](guides/ios-build-and-run.md) | xcodebuild commands, simulator setup, SwiftLint, exploratory testing |
-| [debugging-cloud-functions.md](guides/debugging-cloud-functions.md) | Ordered checklist: rewrite paths, deployment state, App Check |
+| [debugging-cloud-functions.md](guides/debugging-cloud-functions.md) | Cloud Run revision, Hosting routing, App Check, and local-emulator troubleshooting |
 | [deploying-cloud-run.md](guides/deploying-cloud-run.md) | Candidate deployment, image validation, Hosting cutover, and rollback |
 | [progressive-overload.md](guides/progressive-overload.md) | Business logic for workout progression, data architecture |
 | [debug-telemetry.md](guides/debug-telemetry.md) | OpenTelemetry traces and logs for structured iOS debugging |
+
+## Operations
+
+| Runbook | Summary |
+|---------|---------|
+| [cloud-run-rollback.md](ops/cloud-run-rollback.md) | Restore a known-good Cloud Run revision and its pinned Hosting release |
 
 ## Architecture Maps
 

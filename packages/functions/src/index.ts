@@ -1,3 +1,9 @@
+/**
+ * Local Firebase Functions emulator adapter.
+ *
+ * Production API traffic is served by Cloud Run, and firebase.json blocks
+ * deployment of these exports. Keep this entry point only for local QA.
+ */
 import {
   onRequest,
   type HttpsFunction,

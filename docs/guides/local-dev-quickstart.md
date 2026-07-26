@@ -59,7 +59,7 @@ npm run qa:start
 
 This is the default local app workflow for both humans and agents. It:
 - Leases an available iOS simulator for your session
-- Starts isolated Firebase emulators
+- Starts isolated Firebase emulators, including the local Functions adapter
 - Starts isolated OTel collector
 - Builds the iOS app
 - Installs and launches the app in simulator
@@ -86,7 +86,7 @@ Use these when you intentionally need to bypass the default one-command flow:
 | `npm run qa:build -- --id <id>` | Build iOS app using an existing QA session |
 | `npm run qa:launch -- --id <id>` | Install + launch app using an existing QA session |
 | `npm run qa:stop -- --id <id>` | Stop a specific QA session |
-| `npm run advanced:emulators` | Start Firebase emulators only |
+| `npm run advanced:emulators` | Start local Firebase Functions, Firestore, and Hosting emulators only |
 | `npm run advanced:otel:start` | Start OTel collector only |
 | `npm run test:integration:container` | Build and smoke-test the production Cloud Run image |
 | `npm run deploy:cloud-run -- --plan` | Review the candidate deployment without changing GCP |
@@ -98,6 +98,9 @@ npm run test:integration:emulator
 ```
 
 This starts emulators in the background, waits for readiness, runs all integration tests, and tears down automatically. No separate terminal needed.
+
+The Functions emulator remains part of local development and integration testing. It is
+not a production deployment target; production `/api/**` traffic runs only on Cloud Run.
 
 ## You're Done!
 
@@ -112,7 +115,7 @@ At this point you should have:
 - **[Workflow Rules](../conventions/workflow.md)** — Worktrees, validation, subagents, QA
 - **[Isolated QA Loop](isolated-qa-loop.md)** — Session isolation details, device leasing, and advanced options
 - **[iOS Build and Run](ios-build-and-run.md)** — Advanced manual build commands and exploratory testing
-- **[Debugging Cloud Functions](debugging-cloud-functions.md)** — Troubleshooting endpoints
+- **[Debugging the Cloud Run API](debugging-cloud-functions.md)** — Production and local-emulator troubleshooting
 - **[Deploying Cloud Run](deploying-cloud-run.md)** — Production image, candidate deployment, Hosting cutover, and rollback
 - **[Debug Telemetry](debug-telemetry.md)** — Telemetry query patterns and advanced collector controls
 - **[Conventions](../conventions/)** — TypeScript, iOS/Swift, API, and testing conventions

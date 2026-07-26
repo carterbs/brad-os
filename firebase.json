@@ -3,7 +3,10 @@
     "source": "packages/functions",
     "runtime": "nodejs22",
     "codebase": "default",
-    "predeploy": ["npm run build -w @brad-os/functions"]
+    "predeploy": [
+      "node scripts/block-functions-deploy.mjs",
+      "npm run build -w @brad-os/functions"
+    ]
   },
   "emulators": {
     "functions": {
@@ -34,14 +37,6 @@
           "region": "us-central1",
           "pinTag": true
         }
-      },
-      {
-        "source": "/debug",
-        "function": "devMealplanDebug"
-      },
-      {
-        "source": "/debug/**",
-        "function": "devMealplanDebug"
       }
     ]
   },

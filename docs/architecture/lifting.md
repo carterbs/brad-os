@@ -1,7 +1,7 @@
 # Lifting
 
 ## Data Flow
-View -> AppState/WorkoutStateManager -> APIClient -> Cloud Function Handler -> Service -> Firestore
+View -> AppState/WorkoutStateManager -> APIClient -> Firebase Hosting -> Cloud Run Express Handler -> Service -> Firestore
 
 ## iOS Layer
 - **Views:**
