@@ -42,6 +42,8 @@ ios-test-screenshots
 Cargo.toml
 Cargo.lock
 *.md
+!packages/functions/src/prompts/
+!packages/functions/src/prompts/*.md
 firebase.json
 firestore.indexes.json
 hooks
