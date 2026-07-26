@@ -152,14 +152,15 @@ fn explicit_service_url_deploys_one_no_traffic_candidate_and_smokes_it() {
         ok(format!("sha256:{}{warning}", "f".repeat(64))),
         ok("deployed"),
         ok(format!("{}{warning}", service_description(service_url))),
-        ok("healthy"),
+        ok("dev healthy"),
+        ok("prod healthy"),
     ]);
     let mut output = Vec::new();
 
     execute(&runner, &mut output, &config(Some(service_url), false)).unwrap();
 
     let calls = runner.calls();
-    assert_eq!(calls.len(), 5);
+    assert_eq!(calls.len(), 6);
     assert_eq!(calls[0].args[0..2], ["builds", "submit"]);
     let deploy = &calls[2];
     assert_eq!(deploy.args[0..2], ["run", "deploy"]);
@@ -170,7 +171,16 @@ fn explicit_service_url_deploys_one_no_traffic_candidate_and_smokes_it() {
         arg.contains("CLOUD_RUN_SERVICE_URL=https://brad-os-api.example.run.app")
             && arg.contains("STRAVA_TASK_OIDC_AUDIENCE=https://brad-os-api.example.run.app")
     }));
-    assert_eq!(calls[4].program, "curl");
+    for (call, environment) in calls[4..].iter().zip(["dev", "prod"]) {
+        assert_eq!(call.program, "curl");
+        assert!(call
+            .args
+            .contains(&format!(
+                "https://candidate---brad-os-api.example.run.app/api/{environment}/health"
+            )));
+        assert!(call.args.contains(&"--retry-all-errors".to_string()));
+        assert!(call.args.contains(&"--retry-max-time".to_string()));
+    }
     let rendered = String::from_utf8(output).unwrap();
     assert!(rendered.contains("Candidate ready:"));
     assert!(rendered.contains("legacy Functions were left unchanged"));
@@ -186,7 +196,8 @@ fn first_creation_bootstraps_then_reads_stable_url_and_redeploys() {
         ok(json!({"status": {"url": service_url}}).to_string()),
         ok("candidate deployed"),
         ok(service_description(service_url)),
-        ok("healthy"),
+        ok("dev healthy"),
+        ok("prod healthy"),
     ]);
     let mut output = Vec::new();
 

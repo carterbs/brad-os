@@ -14,7 +14,8 @@ continue to target `devMealplanDebug`.
 1. **Check the Hosting target.** `firebase.json` must contain one pinned `/api/**` Cloud Run
    rewrite to `brad-os-api`. A Hosting HTML 404 usually means routing or release state.
 2. **Check the pinned Cloud Run revision.** Confirm the tagged revision is ready and that
-   `/healthz` succeeds at its direct candidate URL.
+   `/api/dev/health` and `/api/prod/health` succeed at its direct candidate
+   URL. (`/healthz` remains the internal container startup probe.)
 3. **Check the request environment.** The simulator uses `/api/dev`; a physical phone uses
    `/api/prod`. Both are handled concurrently by the same process.
 4. **Check Cloud Run logs.** Filter by service `brad-os-api` and revision before changing

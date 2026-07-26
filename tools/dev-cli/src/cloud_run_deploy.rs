@@ -230,20 +230,31 @@ pub fn execute<R: CommandRunner, W: Write>(
     let candidate_url =
         candidate_url_from_description(&description.stdout, &config.candidate_tag())?;
 
-    run_checked(
-        runner,
-        CommandCall {
-            program: "curl".to_string(),
-            args: vec![
-                "--fail".to_string(),
-                "--silent".to_string(),
-                "--show-error".to_string(),
-                format!("{candidate_url}/healthz"),
-            ],
-            current_dir: None,
-        },
-        "Candidate /healthz smoke test failed",
-    )?;
+    for environment in ["dev", "prod"] {
+        run_checked(
+            runner,
+            CommandCall {
+                program: "curl".to_string(),
+                args: vec![
+                    "--fail".to_string(),
+                    "--silent".to_string(),
+                    "--show-error".to_string(),
+                    "--retry".to_string(),
+                    "12".to_string(),
+                    "--retry-delay".to_string(),
+                    "5".to_string(),
+                    "--retry-all-errors".to_string(),
+                    "--retry-max-time".to_string(),
+                    "120".to_string(),
+                    "--max-time".to_string(),
+                    "30".to_string(),
+                    format!("{candidate_url}/api/{environment}/health"),
+                ],
+                current_dir: None,
+            },
+            &format!("Candidate /api/{environment}/health smoke test failed"),
+        )?;
+    }
 
     writeln!(writer, "Candidate ready: {candidate_url}").map_err(|error| error.to_string())?;
     writeln!(writer, "Immutable image: {image}").map_err(|error| error.to_string())?;

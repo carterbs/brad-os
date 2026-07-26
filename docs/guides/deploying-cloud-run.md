@@ -61,7 +61,8 @@ The Rust deployment command:
 3. resolves the immutable Artifact Registry digest;
 4. deploys a public, no-traffic candidate revision with all runtime settings explicit;
 5. reads the service configuration back and rejects drift;
-6. checks the candidate revision's `/healthz`;
+6. checks the candidate revision's public `/api/dev/health` and
+   `/api/prod/health` routes with bounded retries;
 7. prints the tagged candidate URL and digest.
 
 For the first service creation, the command performs a two-revision bootstrap. Cloud Run
