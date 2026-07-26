@@ -263,7 +263,7 @@ Port the iOS `ShoppingListBuilder` logic to a server-side endpoint so both iOS a
 **Success criteria:**
 - `npm run validate` passes
 - Unit tests for `buildShoppingList` cover: normal aggregation, mixed units → null quantity, meals with no recipe, empty plan
-- Deploy to dev: `npm run deploy:functions:dev`
+- Deploy a tagged Cloud Run candidate, validate through a Firebase Hosting preview, and do not deploy Functions
 - Manual test: `curl -H "x-firebase-appcheck: <token>" https://brad-os.web.app/api/dev/mealplans/<session_id>/shopping-list`
 
 **Gate:** Endpoint returns correct shopping list for an existing session.

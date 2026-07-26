@@ -193,7 +193,7 @@ initialDelaySeconds=0,timeoutSeconds=1,periodSeconds=1,failureThreshold=60"
     }
     let rendered = String::from_utf8(output).unwrap();
     assert!(rendered.contains("Candidate ready:"));
-    assert!(rendered.contains("legacy Functions were left unchanged"));
+    assert!(rendered.contains("no Cloud Functions deployment was attempted"));
 }
 
 #[test]
@@ -248,6 +248,7 @@ fn plan_mode_is_read_only() {
     assert!(rendered.contains("min=0 service-max=1 revision-max=1"));
     assert!(rendered.contains("startup probe: /healthz every 1s"));
     assert!(rendered.contains("does not modify Firebase Hosting"));
+    assert!(rendered.contains("does not modify Firebase Hosting or deploy Cloud Functions"));
 }
 
 #[test]

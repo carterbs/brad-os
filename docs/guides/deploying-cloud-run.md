@@ -19,8 +19,9 @@ The service uses request-based billing, minimum instances `0`, service-level max
 instances `1`, revision-level maximum instances `1`, concurrency `20`, 1 vCPU, 512 MiB,
 and a 180-second request timeout.
 
-The legacy Firebase Functions remain deployed. This workflow does not deploy, update, or
-delete them.
+Production is Cloud Run-only: no Firebase Functions are deployed. Firebase Functions
+emulator adapters remain available for local development, but they are not a production
+deployment target.
 
 ## Scaling and startup guardrails
 
@@ -62,11 +63,12 @@ gcloud run services update-traffic brad-os-api \
   --remove-tags=bootstrap-OLD_SHA,candidate-OLD_SHA
 ```
 
-This removes the tagged URLs, not the revisions or Artifact Registry images. The
-revisions remain available for an explicit traffic rollback. Removing obsolete tags is
-important because a tag-only revision is outside the service-level maximum; the
-revision-level maximum protects new candidates, while tag removal closes access to
-older revisions created before that guardrail.
+This removes the tagged URLs, not the revisions or Artifact Registry images. Keep the
+last known-good Hosting release, Cloud Run revision, immutable image digest, and any tag
+needed by that release until a newer rollback target has been validated. Removing truly
+obsolete tags is important because a tag-only revision is outside the service-level
+maximum; the revision-level maximum protects new candidates, while tag removal closes
+access to older revisions created before that guardrail.
 
 ## Cloud Tasks retry contract
 
@@ -193,6 +195,16 @@ until Hosting is changed separately.
 
 ## Validate the Strava verification challenge
 
+The canonical Strava subscription callback is:
+
+```text
+https://brad-os.web.app/api/prod/strava/webhook
+```
+
+Every active Strava subscription must use that exact Firebase Hosting URL. Do not
+register a legacy Function URL, a tagged candidate URL, or the direct `run.app` service
+URL as the callback.
+
 After deploying a new candidate, verify its read-only Strava subscription challenge
 before shifting traffic. Use the secret version bound to that exact revision, keep the
 secret value out of output, and validate only the HTTP status and echoed challenge:
@@ -254,6 +266,12 @@ Do not enable shell tracing, print the token variable, use `curl --verbose`, or 
 the response file. This GET request does not create a subscription, enqueue a task, or
 write application data.
 
+After the live Hosting cutover, repeat the verification challenge against the canonical
+callback URL and read back the active Strava subscription list. The challenge must return
+HTTP 200 with the exact echoed value, and the subscription's `callback_url` must match the
+canonical URL exactly. A normal Cloud Run revision deployment or rollback must not require
+recreating the Strava subscription.
+
 ## Validate the production image
 
 CI builds the exact Dockerfile and starts the image. Locally, with Docker available:
@@ -278,11 +296,11 @@ npm run test:integration:container -- --build-only
 
 ## Move iOS/API traffic
 
-`firebase.json` contains three Hosting rewrites:
+`firebase.json` contains one production Hosting rewrite:
 
-1. `/api/**` to the pinned `brad-os-api` Cloud Run service;
-2. `/debug` to the existing `devMealplanDebug` Function;
-3. `/debug/**` to the existing `devMealplanDebug` Function.
+1. `/api/**` to the pinned `brad-os-api` Cloud Run service.
+
+The local meal-plan debug UI is not exposed through production Hosting.
 
 The iOS URLs do not change. A physical phone continues using `/api/prod/**`; the simulator
 continues using `/api/dev/**`.
@@ -299,9 +317,11 @@ After direct-candidate and preview validation, move the live Hosting front door:
 npm run deploy:hosting
 ```
 
-This Hosting-only command moves `/api/**`. It does not deploy or delete Functions.
+This Hosting-only command pins `/api/**` to the validated Cloud Run revision. No
+Functions deployment participates.
 
 ## Roll back
 
-See [Cloud Run rollback](../ops/cloud-run-rollback.md). Because the old Functions remain
-deployed and Firestore schemas are unchanged, rollback is a Hosting-only change.
+See [Cloud Run rollback](../ops/cloud-run-rollback.md). Rollback restores both the
+last known-good Cloud Run revision and its pinned Hosting release. Firestore schemas are
+unchanged, so data rollback is required only for demonstrated corruption.

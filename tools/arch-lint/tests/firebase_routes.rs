@@ -34,9 +34,7 @@ fn valid_fixture() -> (tempfile::TempDir, LinterConfig) {
       {
         "source": "/api/**",
         "run": {"serviceId": "brad-os-api", "region": "us-central1", "pinTag": true}
-      },
-      {"source": "/debug", "function": "devMealplanDebug"},
-      {"source": "/debug/**", "function": "devMealplanDebug"}
+      }
     ]
   }
 }"#,
@@ -75,7 +73,7 @@ fn accepts_single_cloud_run_rewrite_and_dual_mounts() {
 }
 
 #[test]
-fn rejects_legacy_function_rewrite() {
+fn rejects_function_backed_hosting_rewrite() {
     let (temp, config) = valid_fixture();
     write_file(
         &temp.path().join("firebase.json"),
@@ -86,7 +84,7 @@ fn rejects_legacy_function_rewrite() {
     assert!(result
         .violations
         .iter()
-        .any(|value| value.contains("Missing rewrite")));
+        .any(|value| value.contains("Extra rewrite")));
 }
 
 #[test]
@@ -95,9 +93,7 @@ fn rejects_wrong_service_or_unpinned_revision() {
     write_file(
         &temp.path().join("firebase.json"),
         r#"{"hosting":{"rewrites":[
-          {"source":"/api/**","run":{"serviceId":"wrong","region":"us-central1","pinTag":false}},
-          {"source":"/debug","function":"devMealplanDebug"},
-          {"source":"/debug/**","function":"devMealplanDebug"}
+          {"source":"/api/**","run":{"serviceId":"wrong","region":"us-central1","pinTag":false}}
         ]}}"#,
     );
     let result = firebase_routes::check_with_manifest(&config, Some(vec![endpoint()]));

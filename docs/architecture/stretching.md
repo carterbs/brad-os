@@ -1,7 +1,7 @@
 # Stretching
 
 ## Data Flow
-View -> StretchSessionManager/StretchDataService -> APIClient -> Cloud Function Handler -> Repository -> Firestore
+View -> StretchSessionManager/StretchDataService -> APIClient -> Firebase Hosting -> Cloud Run Express Handler -> Repository -> Firestore
 
 ## iOS Layer
 - **Views:**

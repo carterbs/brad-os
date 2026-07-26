@@ -85,27 +85,15 @@ pub fn generate_rewrites(manifest: &[EndpointEntry]) -> Vec<FirebaseRewrite> {
         return Vec::new();
     }
 
-    vec![
-        FirebaseRewrite {
-            source: CLOUD_RUN_API_SOURCE.to_string(),
-            function: None,
-            run: Some(CloudRunTarget {
-                service_id: CLOUD_RUN_SERVICE_ID.to_string(),
-                region: CLOUD_RUN_REGION.to_string(),
-                pin_tag: true,
-            }),
-        },
-        FirebaseRewrite {
-            source: "/debug".to_string(),
-            function: Some("devMealplanDebug".to_string()),
-            run: None,
-        },
-        FirebaseRewrite {
-            source: "/debug/**".to_string(),
-            function: Some("devMealplanDebug".to_string()),
-            run: None,
-        },
-    ]
+    vec![FirebaseRewrite {
+        source: CLOUD_RUN_API_SOURCE.to_string(),
+        function: None,
+        run: Some(CloudRunTarget {
+            service_id: CLOUD_RUN_SERVICE_ID.to_string(),
+            region: CLOUD_RUN_REGION.to_string(),
+            pin_tag: true,
+        }),
+    }]
 }
 
 pub fn compare_rewrites(expected: &[FirebaseRewrite], actual: &[FirebaseRewrite]) -> Vec<String> {
@@ -176,27 +164,15 @@ mod tests {
     fn generates_single_pinned_cloud_run_rewrite() {
         assert_eq!(
             generate_rewrites(&[api_entry()]),
-            vec![
-                FirebaseRewrite {
-                    source: "/api/**".to_string(),
-                    function: None,
-                    run: Some(CloudRunTarget {
-                        service_id: "brad-os-api".to_string(),
-                        region: "us-central1".to_string(),
-                        pin_tag: true,
-                    }),
-                },
-                FirebaseRewrite {
-                    source: "/debug".to_string(),
-                    function: Some("devMealplanDebug".to_string()),
-                    run: None,
-                },
-                FirebaseRewrite {
-                    source: "/debug/**".to_string(),
-                    function: Some("devMealplanDebug".to_string()),
-                    run: None,
-                },
-            ]
+            vec![FirebaseRewrite {
+                source: "/api/**".to_string(),
+                function: None,
+                run: Some(CloudRunTarget {
+                    service_id: "brad-os-api".to_string(),
+                    region: "us-central1".to_string(),
+                    pin_tag: true,
+                }),
+            }]
         );
     }
 

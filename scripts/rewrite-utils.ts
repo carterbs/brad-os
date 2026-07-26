@@ -28,11 +28,6 @@ export const CLOUD_RUN_API_REWRITE: FirebaseRewrite = {
     pinTag: true,
   },
 };
-export const LEGACY_DEBUG_REWRITES: readonly FirebaseFunctionRewrite[] = [
-  { source: '/debug', function: 'devMealplanDebug' },
-  { source: '/debug/**', function: 'devMealplanDebug' },
-];
-
 export function toPascalCase(str: string): string {
   const segments = str.split('-').filter((segment) => segment.length > 0);
   return segments
@@ -79,7 +74,7 @@ export function generateRewrites(
     );
   }
 
-  return [CLOUD_RUN_API_REWRITE, ...LEGACY_DEBUG_REWRITES];
+  return [CLOUD_RUN_API_REWRITE];
 }
 
 export function compareRewrites(

@@ -1,7 +1,7 @@
 # Meditation
 
 ## Data Flow
-View -> Services (GuidedMeditationService, MeditationAPIService) -> APIClient -> Cloud Function Handler -> Repository -> Firestore
+View -> Services (GuidedMeditationService, MeditationAPIService) -> APIClient -> Firebase Hosting -> Cloud Run Express Handler -> Repository -> Firestore
 
 ## iOS Layer
 - **Views:**

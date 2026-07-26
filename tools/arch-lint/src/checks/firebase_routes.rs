@@ -130,7 +130,7 @@ pub fn check_with_manifest(
         violations.push(format!("firebase.json rewrite parity failed: {}", v));
     }
 
-    // Sub-check D: retain legacy index.ts coverage while Functions coexist.
+    // Sub-check D: retain index.ts coverage for local Functions emulator adapters.
     let index_content = match fs::read_to_string(&index_ts) {
         Ok(c) => c,
         Err(_) => String::new(),
@@ -140,7 +140,7 @@ pub fn check_with_manifest(
         let app_export = rewrite_utils::get_app_export_name(entry);
         if !has_handler_import(&index_content, &app_export, &entry.handler_file) {
             violations.push(format!(
-                "Missing import for {} from './handlers/{}.js' in index.ts.",
+                "Missing local emulator adapter import for {} from './handlers/{}.js' in index.ts.",
                 app_export, entry.handler_file
             ));
         }
@@ -150,13 +150,13 @@ pub fn check_with_manifest(
 
         if !has_handler_export(&index_content, &dev_fn) {
             violations.push(format!(
-                "Missing export '{}' in index.ts for route '{}'.",
+                "Missing local emulator adapter export '{}' in index.ts for route '{}'.",
                 dev_fn, entry.route_path
             ));
         }
         if entry.dev_only != Some(true) && !has_handler_export(&index_content, &prod_fn) {
             violations.push(format!(
-                "Missing export '{}' in index.ts for route '{}'.",
+                "Missing local emulator adapter export '{}' in index.ts for route '{}'.",
                 prod_fn, entry.route_path
             ));
         }

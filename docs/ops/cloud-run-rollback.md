@@ -1,13 +1,22 @@
 # Cloud Run API rollback
 
-The pre-migration source commit is:
+Production has no Firebase Functions rollback target. A rollback restores both:
 
-```text
-0c7db7f20ba84cec6a416087b55b6331d016e888
-```
+1. the last known-good Cloud Run revision for direct service traffic and Cloud Tasks;
+2. the matching Firebase Hosting release, which is pinned to that revision by
+   `pinTag: true`.
 
-All 45 Firebase Functions must remain deployed until a separate, explicitly authorized
-retirement project. They are the rollback target.
+## Required retained artifacts
+
+For every live deployment, record and retain:
+
+- the Firebase Hosting release/version ID;
+- the Cloud Run revision name and immutable image digest;
+- the validated service configuration and secret version references;
+- the Git commit used to build the image.
+
+Do not remove the last known-good Hosting release, revision, required traffic tag, or
+Artifact Registry image until a newer rollback target has passed a rollback drill.
 
 ## Trigger
 
@@ -15,34 +24,55 @@ Roll back when the live Hosting path has persistent API failures, App Check regr
 dev/prod namespace leakage, or unacceptable cold-launch behavior that cannot be corrected
 immediately.
 
-## Restore the previous Hosting configuration
+## Restore the known-good revision and Hosting release
 
 1. Close the iOS app.
-2. Save the current Cloud Run revision and image digest for diagnosis.
-3. Materialize `firebase.json` from the pre-migration commit into a temporary file.
-4. Deploy **Hosting only** with that configuration and project `brad-os`.
-5. Verify physical-phone `/api/prod/health`, simulator `/api/dev/health`, and one protected
-   read in each environment.
+2. Record the current Cloud Run revision, image digest, Hosting release ID, and Cloud
+   Tasks queue state for diagnosis.
+3. Confirm the exact last known-good revision and its matching Hosting release.
+4. Send direct Cloud Run service traffic to that revision:
 
-Example:
+   ```bash
+   gcloud run services update-traffic brad-os-api \
+     --project=brad-os \
+     --region=us-central1 \
+     --to-revisions=KNOWN_GOOD_REVISION=100
+   ```
 
-```bash
-git show 0c7db7f20ba84cec6a416087b55b6331d016e888:firebase.json > /tmp/brad-os-firebase-legacy.json
-firebase deploy --project brad-os --only hosting --config /tmp/brad-os-firebase-legacy.json
-```
+5. In Firebase Console, open **Hosting > Release history** and roll back the live channel
+   to the matching known-good release. Because the rewrite uses `pinTag: true`, the
+   Hosting release restores its pinned Cloud Run revision.
+6. Verify:
+   - the direct Cloud Run `/healthz`;
+   - physical-phone `/api/prod/health`;
+   - simulator `/api/dev/health`;
+   - one protected read in each environment;
+   - the Strava verification challenge at
+     `https://brad-os.web.app/api/prod/strava/webhook`;
+   - the active Strava subscription still reports that exact `callback_url`;
+   - the Cloud Tasks worker path.
+7. Inspect Cloud Run, App Check, Hosting, and Cloud Tasks logs before reopening normal use.
 
-Do not run `firebase deploy --only functions`, delete the Cloud Run service, or remove the
-Cloud Tasks queue during an incident rollback.
+Do not redeploy Firebase Functions, delete the Cloud Run service, remove the Cloud Tasks
+queue, or clean up revisions/images during an incident rollback.
 
 ## Strava tasks
 
-The legacy Strava Function remains the public webhook target after the Hosting rollback.
-Pause the `brad-os-strava` queue only if the Cloud Run worker is producing harmful or
-non-idempotent failures. Otherwise let already-created tasks retry while the candidate is
-diagnosed.
+The canonical Strava callback remains
+`https://brad-os.web.app/api/prod/strava/webhook`, so a revision/Hosting rollback must not
+recreate the subscription. Never point it at a legacy Function, tagged candidate, or
+direct `run.app` URL. Pause the `brad-os-strava` queue only if the worker is producing
+harmful or non-idempotent failures. Otherwise let already-created tasks retry against the
+restored service revision.
 
 ## Data
 
-No database schema or datastore changes are part of this migration. Both runtimes use the
-same Firestore data and the same `dev_` versus production namespace rules, so there is no
-database rollback.
+Cloud Run revisions use the same Firestore schema and the same `dev_` versus production
+namespace rules. No database rollback is normally required. Restore from a managed
+Firestore export only for demonstrated data corruption.
+
+## If the retained revision is unavailable
+
+Rebuild from the recorded Git commit through the normal Cloud Run candidate workflow,
+validate it, then pin a new Hosting release. Do not recover by redeploying legacy
+Functions.
