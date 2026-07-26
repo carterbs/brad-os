@@ -11,16 +11,27 @@ import type { Request, Response, NextFunction } from 'express';
  *
  * This middleware detects and strips the prefix so routes match correctly.
  */
-export function stripPathPrefix(resourceName: string): (req: Request, _res: Response, next: NextFunction) => void {
-  // Match /api/dev/<resource> or /api/prod/<resource>
-  const devPattern = new RegExp(`^/api/dev/${resourceName}`);
-  const prodPattern = new RegExp(`^/api/prod/${resourceName}`);
+export function stripPathPrefix(
+  resourceName: string
+): (req: Request, _res: Response, next: NextFunction) => void {
+  const prefixes = [`/api/dev/${resourceName}`, `/api/prod/${resourceName}`];
 
   return (req: Request, _res: Response, next: NextFunction): void => {
-    if (devPattern.test(req.url)) {
-      req.url = req.url.replace(devPattern, '') || '/';
-    } else if (prodPattern.test(req.url)) {
-      req.url = req.url.replace(prodPattern, '') || '/';
+    for (const prefix of prefixes) {
+      if (
+        req.url === prefix ||
+        req.url.startsWith(`${prefix}/`) ||
+        req.url.startsWith(`${prefix}?`)
+      ) {
+        const remainder = req.url.slice(prefix.length);
+        req.url =
+          remainder === ''
+            ? '/'
+            : remainder.startsWith('?')
+              ? `/${remainder}`
+              : remainder;
+        break;
+      }
     }
     next();
   };

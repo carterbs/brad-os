@@ -88,6 +88,8 @@ Use these when you intentionally need to bypass the default one-command flow:
 | `npm run qa:stop -- --id <id>` | Stop a specific QA session |
 | `npm run advanced:emulators` | Start Firebase emulators only |
 | `npm run advanced:otel:start` | Start OTel collector only |
+| `npm run test:integration:container` | Build and smoke-test the production Cloud Run image |
+| `npm run deploy:cloud-run -- --plan` | Review the candidate deployment without changing GCP |
 
 ### Run integration tests (one command)
 
@@ -111,5 +113,6 @@ At this point you should have:
 - **[Isolated QA Loop](isolated-qa-loop.md)** — Session isolation details, device leasing, and advanced options
 - **[iOS Build and Run](ios-build-and-run.md)** — Advanced manual build commands and exploratory testing
 - **[Debugging Cloud Functions](debugging-cloud-functions.md)** — Troubleshooting endpoints
+- **[Deploying Cloud Run](deploying-cloud-run.md)** — Production image, candidate deployment, Hosting cutover, and rollback
 - **[Debug Telemetry](debug-telemetry.md)** — Telemetry query patterns and advanced collector controls
 - **[Conventions](../conventions/)** — TypeScript, iOS/Swift, API, and testing conventions

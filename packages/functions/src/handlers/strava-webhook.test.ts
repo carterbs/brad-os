@@ -27,6 +27,10 @@ const mockStravaService = vi.hoisted(() => ({
   calculateHRCompleteness: vi.fn(),
 }));
 
+const mockStravaTaskService = vi.hoisted(() => ({
+  enqueueStravaWebhookEvent: vi.fn(),
+}));
+
 // Mock firebase before importing the handler
 vi.mock('../firebase.js', () => ({
   getFirestoreDb: vi.fn(),
@@ -34,17 +38,37 @@ vi.mock('../firebase.js', () => ({
 }));
 
 vi.mock('../middleware/app-check.js', () => ({
-  requireAppCheck: (_req: unknown, _res: unknown, next: () => void): void => { next(); },
+  requireAppCheck: (_req: unknown, _res: unknown, next: () => void): void => {
+    next();
+  },
 }));
 
 vi.mock('../services/firestore-cycling.service.js', () => mockCyclingService);
 vi.mock('../services/strava.service.js', () => mockStravaService);
+vi.mock('../services/strava-task.service.js', () => mockStravaTaskService);
 vi.mock('../services/vo2max.service.js', () => ({
   estimateVO2MaxFromPeakPower: vi.fn(),
 }));
 
 // Import after mocks
-import { stravaWebhookApp, waitForStravaWebhookProcessing } from './strava-webhook.js';
+import {
+  processStravaActivityEvent,
+  stravaWebhookApp,
+} from './strava-webhook.js';
+
+function activityEvent(
+  aspectType: 'create' | 'update' | 'delete' = 'create',
+  ownerId: number = 12345
+) {
+  return {
+    aspect_type: aspectType,
+    event_time: 1705320000,
+    object_id: 999,
+    object_type: 'activity' as const,
+    owner_id: ownerId,
+    subscription_id: 1,
+  };
+}
 
 describe('Strava Webhook Handler', () => {
   const originalEnv = process.env;
@@ -59,6 +83,11 @@ describe('Strava Webhook Handler', () => {
     };
     // Default: athlete 12345 maps to 'default-user'
     mockCyclingService.getUserIdByAthleteId.mockResolvedValue('default-user');
+    mockStravaTaskService.enqueueStravaWebhookEvent.mockResolvedValue({
+      eventId: 'strava-prod-test-event',
+      taskName: 'test-task',
+      duplicate: false,
+    });
   });
 
   afterEach(() => {
@@ -67,13 +96,11 @@ describe('Strava Webhook Handler', () => {
 
   describe('GET /strava/webhook - Verification', () => {
     it('should respond to valid verification challenge', async () => {
-      const response = await request(stravaWebhookApp)
-        .get('/webhook')
-        .query({
-          'hub.mode': 'subscribe',
-          'hub.verify_token': 'test-verify-token',
-          'hub.challenge': 'challenge-12345',
-        });
+      const response = await request(stravaWebhookApp).get('/webhook').query({
+        'hub.mode': 'subscribe',
+        'hub.verify_token': 'test-verify-token',
+        'hub.challenge': 'challenge-12345',
+      });
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -82,25 +109,21 @@ describe('Strava Webhook Handler', () => {
     });
 
     it('should reject invalid verify token', async () => {
-      const response = await request(stravaWebhookApp)
-        .get('/webhook')
-        .query({
-          'hub.mode': 'subscribe',
-          'hub.verify_token': 'wrong-token',
-          'hub.challenge': 'challenge-12345',
-        });
+      const response = await request(stravaWebhookApp).get('/webhook').query({
+        'hub.mode': 'subscribe',
+        'hub.verify_token': 'wrong-token',
+        'hub.challenge': 'challenge-12345',
+      });
 
       expect(response.status).toBe(403);
     });
 
     it('should reject non-subscribe mode', async () => {
-      const response = await request(stravaWebhookApp)
-        .get('/webhook')
-        .query({
-          'hub.mode': 'unsubscribe',
-          'hub.verify_token': 'test-verify-token',
-          'hub.challenge': 'challenge-12345',
-        });
+      const response = await request(stravaWebhookApp).get('/webhook').query({
+        'hub.mode': 'unsubscribe',
+        'hub.verify_token': 'test-verify-token',
+        'hub.challenge': 'challenge-12345',
+      });
 
       expect(response.status).toBe(403);
     });
@@ -143,54 +166,76 @@ describe('Strava Webhook Handler', () => {
       });
       mockCyclingService.createCyclingActivity.mockResolvedValue({});
 
-      const response = await request(stravaWebhookApp)
-        .post('/webhook')
-        .send({
-          aspect_type: 'create',
-          event_time: 1705320000,
-          object_id: 999,
-          object_type: 'activity',
-          owner_id: 12345,
-          subscription_id: 1,
-        });
+      const response = await request(stravaWebhookApp).post('/webhook').send({
+        aspect_type: 'create',
+        event_time: 1705320000,
+        object_id: 999,
+        object_type: 'activity',
+        owner_id: 12345,
+        subscription_id: 1,
+      });
 
       expect(response.status).toBe(200);
       expect(response.text).toBe('EVENT_RECEIVED');
-
-      await waitForStravaWebhookProcessing();
-
-      expect(mockStravaService.fetchStravaActivity).toHaveBeenCalledWith(
-        'token',
-        999
-      );
+      expect(
+        mockStravaTaskService.enqueueStravaWebhookEvent
+      ).toHaveBeenCalledWith({
+        aspect_type: 'create',
+        event_time: 1705320000,
+        object_id: 999,
+        object_type: 'activity',
+        owner_id: 12345,
+        subscription_id: 1,
+      });
+      expect(mockStravaService.fetchStravaActivity).not.toHaveBeenCalled();
     });
 
     it('should acknowledge athlete events', async () => {
-      const response = await request(stravaWebhookApp)
-        .post('/webhook')
-        .send({
-          aspect_type: 'update',
-          event_time: 1705320000,
-          object_id: 12345,
-          object_type: 'athlete',
-          owner_id: 12345,
-          subscription_id: 1,
-        });
+      const response = await request(stravaWebhookApp).post('/webhook').send({
+        aspect_type: 'update',
+        event_time: 1705320000,
+        object_id: 12345,
+        object_type: 'athlete',
+        owner_id: 12345,
+        subscription_id: 1,
+      });
 
       expect(response.status).toBe(200);
       expect(response.text).toBe('EVENT_RECEIVED');
+      expect(
+        mockStravaTaskService.enqueueStravaWebhookEvent
+      ).not.toHaveBeenCalled();
     });
 
     it('should handle invalid payload gracefully', async () => {
-      const response = await request(stravaWebhookApp)
-        .post('/webhook')
-        .send({
-          invalid: 'payload',
-        });
+      const response = await request(stravaWebhookApp).post('/webhook').send({
+        invalid: 'payload',
+      });
 
       // Should still return 200 to acknowledge receipt
       expect(response.status).toBe(200);
       expect(response.text).toBe('EVENT_RECEIVED');
+      expect(
+        mockStravaTaskService.enqueueStravaWebhookEvent
+      ).not.toHaveBeenCalled();
+    });
+
+    it('should return a retryable response when durable enqueue fails', async () => {
+      mockStravaTaskService.enqueueStravaWebhookEvent.mockRejectedValue(
+        new Error('Cloud Tasks unavailable')
+      );
+
+      const response = await request(stravaWebhookApp).post('/webhook').send({
+        aspect_type: 'create',
+        event_time: 1705320000,
+        object_id: 999,
+        object_type: 'activity',
+        owner_id: 12345,
+        subscription_id: 1,
+      });
+
+      expect(response.status).toBe(503);
+      expect(response.text).toBe('ENQUEUE_FAILED');
     });
 
     it('should skip non-cycling activities', async () => {
@@ -210,20 +255,7 @@ describe('Strava Webhook Handler', () => {
         start_date: '2024-01-15T10:00:00Z',
       });
 
-      const response = await request(stravaWebhookApp)
-        .post('/webhook')
-        .send({
-          aspect_type: 'create',
-          event_time: 1705320000,
-          object_id: 999,
-          object_type: 'activity',
-          owner_id: 12345,
-          subscription_id: 1,
-        });
-
-      expect(response.status).toBe(200);
-
-      await waitForStravaWebhookProcessing();
+      await processStravaActivityEvent(activityEvent());
 
       expect(mockCyclingService.createCyclingActivity).not.toHaveBeenCalled();
     });
@@ -234,20 +266,7 @@ describe('Strava Webhook Handler', () => {
         stravaId: 999,
       });
 
-      const response = await request(stravaWebhookApp)
-        .post('/webhook')
-        .send({
-          aspect_type: 'create',
-          event_time: 1705320000,
-          object_id: 999,
-          object_type: 'activity',
-          owner_id: 12345,
-          subscription_id: 1,
-        });
-
-      expect(response.status).toBe(200);
-
-      await waitForStravaWebhookProcessing();
+      await processStravaActivityEvent(activityEvent());
 
       expect(mockStravaService.fetchStravaActivity).not.toHaveBeenCalled();
       expect(mockCyclingService.createCyclingActivity).not.toHaveBeenCalled();
@@ -295,20 +314,7 @@ describe('Strava Webhook Handler', () => {
       });
       mockCyclingService.createCyclingActivity.mockResolvedValue({});
 
-      const response = await request(stravaWebhookApp)
-        .post('/webhook')
-        .send({
-          aspect_type: 'create',
-          event_time: 1705320000,
-          object_id: 999,
-          object_type: 'activity',
-          owner_id: 12345,
-          subscription_id: 1,
-        });
-
-      expect(response.status).toBe(200);
-
-      await waitForStravaWebhookProcessing();
+      await processStravaActivityEvent(activityEvent());
 
       expect(mockStravaService.refreshStravaTokens).toHaveBeenCalled();
       expect(mockCyclingService.setStravaTokens).toHaveBeenCalled();
@@ -352,12 +358,34 @@ describe('Strava Webhook Handler', () => {
         source: 'strava',
         createdAt: '2024-01-15T12:00:00Z',
       });
-      mockCyclingService.createCyclingActivity.mockResolvedValue({ id: 'new-activity-id' });
+      mockCyclingService.createCyclingActivity.mockResolvedValue({
+        id: 'new-activity-id',
+      });
       mockStravaService.fetchActivityStreams.mockResolvedValue({
-        watts: { data: [150, 160, 170], series_type: 'distance', original_size: 3, resolution: 'high' },
-        heartrate: { data: [130, 135, 140], series_type: 'distance', original_size: 3, resolution: 'high' },
-        time: { data: [0, 1, 2], series_type: 'distance', original_size: 3, resolution: 'high' },
-        cadence: { data: [80, 82, 85], series_type: 'distance', original_size: 3, resolution: 'high' },
+        watts: {
+          data: [150, 160, 170],
+          series_type: 'distance',
+          original_size: 3,
+          resolution: 'high',
+        },
+        heartrate: {
+          data: [130, 135, 140],
+          series_type: 'distance',
+          original_size: 3,
+          resolution: 'high',
+        },
+        time: {
+          data: [0, 1, 2],
+          series_type: 'distance',
+          original_size: 3,
+          resolution: 'high',
+        },
+        cadence: {
+          data: [80, 82, 85],
+          series_type: 'distance',
+          original_size: 3,
+          resolution: 'high',
+        },
       });
       mockStravaService.calculatePeakPower.mockReturnValue(0);
       mockStravaService.calculateHRCompleteness.mockReturnValue(100);
@@ -365,20 +393,7 @@ describe('Strava Webhook Handler', () => {
       mockCyclingService.saveActivityStreams.mockResolvedValue(undefined);
       mockCyclingService.getCyclingProfile.mockResolvedValue(null);
 
-      const response = await request(stravaWebhookApp)
-        .post('/webhook')
-        .send({
-          aspect_type: 'create',
-          event_time: 1705320000,
-          object_id: 999,
-          object_type: 'activity',
-          owner_id: 12345,
-          subscription_id: 1,
-        });
-
-      expect(response.status).toBe(200);
-
-      await waitForStravaWebhookProcessing();
+      await processStravaActivityEvent(activityEvent());
 
       expect(mockCyclingService.saveActivityStreams).toHaveBeenCalledWith(
         'default-user',
@@ -398,20 +413,7 @@ describe('Strava Webhook Handler', () => {
     it('should ignore webhook when no athlete mapping exists', async () => {
       mockCyclingService.getUserIdByAthleteId.mockResolvedValue(null);
 
-      const response = await request(stravaWebhookApp)
-        .post('/webhook')
-        .send({
-          aspect_type: 'create',
-          event_time: 1705320000,
-          object_id: 999,
-          object_type: 'activity',
-          owner_id: 99999,
-          subscription_id: 1,
-        });
-
-      expect(response.status).toBe(200);
-
-      await waitForStravaWebhookProcessing();
+      await processStravaActivityEvent(activityEvent('create', 99999));
 
       expect(mockCyclingService.getStravaTokens).not.toHaveBeenCalled();
       expect(mockCyclingService.createCyclingActivity).not.toHaveBeenCalled();
@@ -424,20 +426,7 @@ describe('Strava Webhook Handler', () => {
       });
       mockCyclingService.deleteCyclingActivity.mockResolvedValue(true);
 
-      const response = await request(stravaWebhookApp)
-        .post('/webhook')
-        .send({
-          aspect_type: 'delete',
-          event_time: 1705320000,
-          object_id: 999,
-          object_type: 'activity',
-          owner_id: 12345,
-          subscription_id: 1,
-        });
-
-      expect(response.status).toBe(200);
-
-      await waitForStravaWebhookProcessing();
+      await processStravaActivityEvent(activityEvent('delete'));
 
       expect(mockCyclingService.deleteCyclingActivity).toHaveBeenCalledWith(
         'default-user',
@@ -451,14 +440,12 @@ describe('Strava Webhook Handler', () => {
       mockCyclingService.setStravaTokens.mockResolvedValue(undefined);
       mockCyclingService.setAthleteToUserMapping.mockResolvedValue(undefined);
 
-      const response = await request(stravaWebhookApp)
-        .post('/tokens')
-        .send({
-          accessToken: 'test-access-token',
-          refreshToken: 'test-refresh-token',
-          expiresAt: 1705320000,
-          athleteId: 12345,
-        });
+      const response = await request(stravaWebhookApp).post('/tokens').send({
+        accessToken: 'test-access-token',
+        refreshToken: 'test-refresh-token',
+        expiresAt: 1705320000,
+        athleteId: 12345,
+      });
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -482,13 +469,11 @@ describe('Strava Webhook Handler', () => {
     });
 
     it('should reject invalid token payload', async () => {
-      const response = await request(stravaWebhookApp)
-        .post('/tokens')
-        .send({
-          accessToken: '',
-          refreshToken: 'test',
-          expiresAt: -1,
-        });
+      const response = await request(stravaWebhookApp).post('/tokens').send({
+        accessToken: '',
+        refreshToken: 'test',
+        expiresAt: -1,
+      });
 
       expect(response.status).toBe(400);
     });

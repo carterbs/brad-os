@@ -46,15 +46,13 @@ interface MeditationStats {
 
 export class MeditationSessionRepository {
   private db: Firestore;
-  private collectionName: string;
 
   constructor(db?: Firestore) {
     this.db = db ?? getFirestoreDb();
-    this.collectionName = getCollectionName('meditation_sessions');
   }
 
   private get collection(): FirebaseFirestore.CollectionReference<FirebaseFirestore.DocumentData> {
-    return this.db.collection(this.collectionName);
+    return this.db.collection(getCollectionName('meditation_sessions'));
   }
 
   /**
@@ -136,7 +134,9 @@ export class MeditationSessionRepository {
         }
         return this.parseEntity(doc.id, data);
       })
-      .filter((session): session is MeditationSessionRecord => session !== null);
+      .filter(
+        (session): session is MeditationSessionRecord => session !== null
+      );
   }
 
   /**
@@ -147,7 +147,11 @@ export class MeditationSessionRepository {
     endDate: string,
     timezoneOffset: number = 0
   ): Promise<MeditationSessionRecord[]> {
-    const startTimestamp = localDateToUtcBoundary(startDate, false, timezoneOffset);
+    const startTimestamp = localDateToUtcBoundary(
+      startDate,
+      false,
+      timezoneOffset
+    );
     const endTimestamp = localDateToUtcBoundary(endDate, true, timezoneOffset);
 
     const snapshot = await this.collection
@@ -164,7 +168,9 @@ export class MeditationSessionRepository {
         }
         return this.parseEntity(doc.id, data);
       })
-      .filter((session): session is MeditationSessionRecord => session !== null);
+      .filter(
+        (session): session is MeditationSessionRecord => session !== null
+      );
   }
 
   /**
@@ -208,7 +214,10 @@ export class MeditationSessionRepository {
     return true;
   }
 
-  protected parseEntity(id: string, data: Record<string, unknown>): MeditationSessionRecord | null {
+  protected parseEntity(
+    id: string,
+    data: Record<string, unknown>
+  ): MeditationSessionRecord | null {
     const completedAt = readString(data, 'completedAt');
     const sessionType = readString(data, 'sessionType');
     const plannedDurationSeconds = readNumber(data, 'plannedDurationSeconds');

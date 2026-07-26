@@ -19,7 +19,7 @@ Invariants for the Brad OS codebase. Every line is verifiable by a linter or cod
 - `firebase.json` rewrite paths must match `stripPathPrefix()` arguments
 - iOS Views must not reference Service types — go through ViewModels
 - iOS Components must not reference ViewModel types — receive data via parameters
-- Firebase logger only (`info`/`warn`/`error` from `firebase-functions/logger`), never `console.log` in Cloud Functions
+- Structured loggers only: standalone runtime code uses `runtime/logger.ts`, existing Function handlers may use `firebase-functions/logger`, and no other application code writes directly to stdout/stderr
 - All iOS HTTP goes through shared APIClient with App Check — no one-off `URLSession` calls
 - Domain types live in `packages/functions/src/types/`, not in services/handlers/repositories
 - Zod schemas live in `packages/functions/src/schemas/`, not in services/handlers/repositories

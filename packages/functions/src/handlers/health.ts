@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { stripPathPrefix } from '../middleware/strip-path-prefix.js';
+import { getEnvironment } from '../firebase.js';
 
 // Health check doesn't need express.json() or App Check
 const app = express();
@@ -14,7 +15,8 @@ app.get('/', (_req, res) => {
       status: 'healthy',
       timestamp: new Date().toISOString(),
       version: '1.0.0',
-      environment: 'cloud-functions',
+      environment: getEnvironment(),
+      runtime: 'cloud-run',
     },
   });
 });

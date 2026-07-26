@@ -51,6 +51,7 @@ pub fn check(config: &LinterConfig) -> CheckResult {
         ("cycling", "cycling"),
         ("cycling-coach", "cycling"),
         ("strava-webhook", "cycling"),
+        ("internal-tasks", "cycling"),
         ("mealplans", "meal-planning"),
         ("meals", "meal-planning"),
         ("recipes", "meal-planning"),

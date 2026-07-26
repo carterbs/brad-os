@@ -17,3 +17,4 @@ export * from './cycling.js';
 export * from './recovery.js';
 export * from './today-coach.js';
 export * from './shopping-list.js';
+export * from './strava-task.js';

@@ -1,5 +1,9 @@
 import { initializeApp, getApps, type App } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
+import {
+  getRequestEnvironment,
+  type ApiEnvironment,
+} from './runtime/environment-context.js';
 
 let app: App | null = null;
 let db: Firestore | null = null;
@@ -37,11 +41,8 @@ export function getFirestoreDb(): Firestore {
  * Functions prefixed with 'dev' use dev collections.
  * Functions prefixed with 'prod' use production collections.
  */
-export function getEnvironment(): 'dev' | 'prod' {
-  // K_SERVICE is the function name in Cloud Functions v2
-  // FUNCTION_NAME is for v1 (fallback)
-  const functionName = process.env.K_SERVICE ?? process.env.FUNCTION_NAME ?? '';
-  return functionName.startsWith('dev') ? 'dev' : 'prod';
+export function getEnvironment(): ApiEnvironment {
+  return getRequestEnvironment();
 }
 
 /**

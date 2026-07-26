@@ -9,10 +9,12 @@ interface HealthData {
   timestamp: string;
   version: string;
   environment: string;
+  runtime: string;
 }
 
 // Import the handler - no mocks needed for health endpoint
 import { healthApp } from './health.js';
+import { runWithEnvironment } from '../runtime/environment-context.js';
 
 describe('Health Handler', () => {
   beforeEach(() => {
@@ -24,7 +26,10 @@ describe('Health Handler', () => {
       const mockDate = new Date('2024-01-15T10:30:00.000Z');
       vi.setSystemTime(mockDate);
 
-      const response = await request(healthApp).get('/');
+      const response = await runWithEnvironment(
+        'dev',
+        async () => await request(healthApp).get('/')
+      );
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
@@ -33,13 +38,17 @@ describe('Health Handler', () => {
           status: 'healthy',
           timestamp: '2024-01-15T10:30:00.000Z',
           version: '1.0.0',
-          environment: 'cloud-functions',
+          environment: 'dev',
+          runtime: 'cloud-run',
         },
       });
     });
 
     it('should return success: true', async () => {
-      const response: Response = await request(healthApp).get('/');
+      const response: Response = await runWithEnvironment(
+        'dev',
+        async () => await request(healthApp).get('/')
+      );
       const body = response.body as ApiResponse<HealthData>;
 
       expect(response.status).toBe(200);
@@ -47,7 +56,10 @@ describe('Health Handler', () => {
     });
 
     it('should return status as healthy', async () => {
-      const response: Response = await request(healthApp).get('/');
+      const response: Response = await runWithEnvironment(
+        'dev',
+        async () => await request(healthApp).get('/')
+      );
       const body = response.body as ApiResponse<HealthData>;
 
       expect(response.status).toBe(200);
@@ -55,23 +67,33 @@ describe('Health Handler', () => {
     });
 
     it('should return version as 1.0.0', async () => {
-      const response: Response = await request(healthApp).get('/');
+      const response: Response = await runWithEnvironment(
+        'dev',
+        async () => await request(healthApp).get('/')
+      );
       const body = response.body as ApiResponse<HealthData>;
 
       expect(response.status).toBe(200);
       expect(body.data?.version).toBe('1.0.0');
     });
 
-    it('should return environment as cloud-functions', async () => {
-      const response: Response = await request(healthApp).get('/');
+    it('should return the request environment and Cloud Run runtime', async () => {
+      const response: Response = await runWithEnvironment(
+        'prod',
+        async () => await request(healthApp).get('/')
+      );
       const body = response.body as ApiResponse<HealthData>;
 
       expect(response.status).toBe(200);
-      expect(body.data?.environment).toBe('cloud-functions');
+      expect(body.data?.environment).toBe('prod');
+      expect(body.data?.runtime).toBe('cloud-run');
     });
 
     it('should return valid ISO 8601 timestamp', async () => {
-      const response: Response = await request(healthApp).get('/');
+      const response: Response = await runWithEnvironment(
+        'dev',
+        async () => await request(healthApp).get('/')
+      );
       const body = response.body as ApiResponse<HealthData>;
 
       expect(response.status).toBe(200);
@@ -87,14 +109,20 @@ describe('Health Handler', () => {
       const firstDate = new Date('2024-01-15T10:30:00.000Z');
       vi.setSystemTime(firstDate);
 
-      const response1: Response = await request(healthApp).get('/');
+      const response1: Response = await runWithEnvironment(
+        'dev',
+        async () => await request(healthApp).get('/')
+      );
       const body1 = response1.body as ApiResponse<HealthData>;
       const timestamp1 = body1.data?.timestamp;
 
       // Advance time by 1 second
       vi.setSystemTime(new Date('2024-01-15T10:30:01.000Z'));
 
-      const response2: Response = await request(healthApp).get('/');
+      const response2: Response = await runWithEnvironment(
+        'dev',
+        async () => await request(healthApp).get('/')
+      );
       const body2 = response2.body as ApiResponse<HealthData>;
       const timestamp2 = body2.data?.timestamp;
 

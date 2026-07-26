@@ -1,6 +1,15 @@
-import { onRequest, type HttpsFunction, type HttpsOptions } from 'firebase-functions/v2/https';
+import {
+  onRequest,
+  type HttpsFunction,
+  type HttpsOptions,
+} from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import { initializeFirebase } from './firebase.js';
+import express from 'express';
+import {
+  withEnvironment,
+  type ApiEnvironment,
+} from './runtime/environment-context.js';
 
 // Initialize Firebase at cold start
 initializeFirebase();
@@ -58,16 +67,29 @@ function register(
   options: HttpsOptions = defaultOptions
 ): { dev: HttpsFunction; prod: HttpsFunction } {
   return {
-    dev: onRequest(options, app),
-    prod: onRequest(options, app),
+    dev: onRequest(options, createEnvironmentAdapter('dev', app)),
+    prod: onRequest(options, createEnvironmentAdapter('prod', app)),
   };
+}
+
+function createEnvironmentAdapter(
+  environment: ApiEnvironment,
+  app: express.Application
+): express.Application {
+  const adapter = express();
+  adapter.use(withEnvironment(environment));
+  adapter.use(app);
+  return adapter;
 }
 
 // ============ Function Registration ============
 const { dev: devHealth, prod: prodHealth } = register(healthApp);
 const { dev: devExercises, prod: prodExercises } = register(exercisesApp);
-const { dev: devStretchSessions, prod: prodStretchSessions } = register(stretchSessionsApp);
-const { dev: devMeditationSessions, prod: prodMeditationSessions } = register(meditationSessionsApp);
+const { dev: devStretchSessions, prod: prodStretchSessions } =
+  register(stretchSessionsApp);
+const { dev: devMeditationSessions, prod: prodMeditationSessions } = register(
+  meditationSessionsApp
+);
 const { dev: devPlans, prod: prodPlans } = register(plansApp);
 const { dev: devWorkouts, prod: prodWorkouts } = register(workoutsApp);
 const { dev: devWorkoutSets, prod: prodWorkoutSets } = register(workoutSetsApp);
@@ -75,42 +97,77 @@ const { dev: devCalendar, prod: prodCalendar } = register(calendarApp);
 const { dev: devMesocycles, prod: prodMesocycles } = register(mesocyclesApp);
 const { dev: devBarcodes, prod: prodBarcodes } = register(barcodesApp);
 const { dev: devMeals, prod: prodMeals } = register(mealsApp);
-const { dev: devMealplans, prod: prodMealplans } = register(mealplansApp, withOpenAiOptions);
+const { dev: devMealplans, prod: prodMealplans } = register(
+  mealplansApp,
+  withOpenAiOptions
+);
 const { dev: devIngredients, prod: prodIngredients } = register(ingredientsApp);
 const { dev: devRecipes, prod: prodRecipes } = register(recipesApp);
 const { dev: devTts, prod: prodTts } = register(ttsApp, withTtsOptions);
-const { dev: devGuidedMeditations, prod: prodGuidedMeditations } = register(guidedMeditationsApp);
+const { dev: devGuidedMeditations, prod: prodGuidedMeditations } =
+  register(guidedMeditationsApp);
 const { dev: devStretches, prod: prodStretches } = register(stretchesApp);
 const { dev: devCycling, prod: prodCycling } = register(cyclingApp);
 const { dev: devStrava, prod: prodStrava } = register(stravaWebhookApp);
-const { dev: devCyclingCoach, prod: prodCyclingCoach } = register(cyclingCoachApp, withOpenAiOptions);
-const { dev: devTodayCoach, prod: prodTodayCoach } = register(todayCoachApp, withOpenAiOptions);
+const { dev: devCyclingCoach, prod: prodCyclingCoach } = register(
+  cyclingCoachApp,
+  withOpenAiOptions
+);
+const { dev: devTodayCoach, prod: prodTodayCoach } = register(
+  todayCoachApp,
+  withOpenAiOptions
+);
 const { dev: devHealthSync, prod: prodHealthSync } = register(healthSyncApp);
 
 export {
-  devHealth, prodHealth,
-  devExercises, prodExercises,
-  devStretchSessions, prodStretchSessions,
-  devMeditationSessions, prodMeditationSessions,
-  devPlans, prodPlans,
-  devWorkouts, prodWorkouts,
-  devWorkoutSets, prodWorkoutSets,
-  devCalendar, prodCalendar,
-  devMesocycles, prodMesocycles,
-  devBarcodes, prodBarcodes,
-  devMeals, prodMeals,
-  devMealplans, prodMealplans,
-  devIngredients, prodIngredients,
-  devRecipes, prodRecipes,
-  devTts, prodTts,
-  devGuidedMeditations, prodGuidedMeditations,
-  devStretches, prodStretches,
-  devCycling, prodCycling,
-  devStrava, prodStrava,
-  devCyclingCoach, prodCyclingCoach,
-  devTodayCoach, prodTodayCoach,
-  devHealthSync, prodHealthSync,
+  devHealth,
+  prodHealth,
+  devExercises,
+  prodExercises,
+  devStretchSessions,
+  prodStretchSessions,
+  devMeditationSessions,
+  prodMeditationSessions,
+  devPlans,
+  prodPlans,
+  devWorkouts,
+  prodWorkouts,
+  devWorkoutSets,
+  prodWorkoutSets,
+  devCalendar,
+  prodCalendar,
+  devMesocycles,
+  prodMesocycles,
+  devBarcodes,
+  prodBarcodes,
+  devMeals,
+  prodMeals,
+  devMealplans,
+  prodMealplans,
+  devIngredients,
+  prodIngredients,
+  devRecipes,
+  prodRecipes,
+  devTts,
+  prodTts,
+  devGuidedMeditations,
+  prodGuidedMeditations,
+  devStretches,
+  prodStretches,
+  devCycling,
+  prodCycling,
+  devStrava,
+  prodStrava,
+  devCyclingCoach,
+  prodCyclingCoach,
+  devTodayCoach,
+  prodTodayCoach,
+  devHealthSync,
+  prodHealthSync,
 };
 
 // ============ Debug Functions (emulator only) ============
-export const devMealplanDebug = onRequest(defaultOptions, mealplanDebugApp);
+export const devMealplanDebug = onRequest(
+  defaultOptions,
+  createEnvironmentAdapter('dev', mealplanDebugApp)
+);

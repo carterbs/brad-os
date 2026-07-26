@@ -31,6 +31,14 @@ path = "src/bin/setup_ios_testing.rs"
 name = "brad-qa-stop"
 path = "src/bin/qa-stop.rs"
 
+[[bin]]
+name = "brad-deploy-cloud-run"
+path = "src/bin/deploy-cloud-run.rs"
+
+[[bin]]
+name = "brad-container-tests"
+path = "src/bin/container-tests.rs"
+
 [dependencies]
 owo-colors = { version = "4", features = ["supports-colors"] }
 serde = { version = "1", features = ["derive"] }

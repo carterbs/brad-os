@@ -1,10 +1,22 @@
 use crate::manifest::EndpointEntry;
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct CloudRunTarget {
+    pub service_id: String,
+    pub region: String,
+    pub pin_tag: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct FirebaseRewrite {
     pub source: String,
-    pub function: String,
+    pub function: Option<String>,
+    pub run: Option<CloudRunTarget>,
 }
+
+pub const CLOUD_RUN_SERVICE_ID: &str = "brad-os-api";
+pub const CLOUD_RUN_REGION: &str = "us-central1";
+pub const CLOUD_RUN_API_SOURCE: &str = "/api/**";
 
 pub fn to_pascal_case(s: &str) -> String {
     s.split('-')
@@ -66,59 +78,41 @@ pub fn get_prod_function_name(entry: &EndpointEntry) -> String {
 }
 
 pub fn generate_rewrites(manifest: &[EndpointEntry]) -> Vec<FirebaseRewrite> {
-    let mut dev_rewrites = Vec::new();
-    let mut prod_rewrites = Vec::new();
-
-    for entry in manifest {
-        let dev_function = get_dev_function_name(entry);
-        let dev_source = entry
-            .custom_source
-            .clone()
-            .unwrap_or_else(|| format!("/api/dev/{}", entry.route_path));
-        dev_rewrites.push(FirebaseRewrite {
-            source: dev_source.clone(),
-            function: dev_function.clone(),
-        });
-        dev_rewrites.push(FirebaseRewrite {
-            source: format!("{}/**", dev_source),
-            function: dev_function,
-        });
-
-        if entry.dev_only == Some(true) {
-            continue;
-        }
-
-        let prod_function = get_prod_function_name(entry);
-        let prod_source = entry
-            .custom_source
-            .clone()
-            .unwrap_or_else(|| format!("/api/prod/{}", entry.route_path));
-        prod_rewrites.push(FirebaseRewrite {
-            source: prod_source.clone(),
-            function: prod_function.clone(),
-        });
-        prod_rewrites.push(FirebaseRewrite {
-            source: format!("{}/**", prod_source),
-            function: prod_function,
-        });
+    if !manifest
+        .iter()
+        .any(|entry| entry.dev_only != Some(true) && !entry.route_path.is_empty())
+    {
+        return Vec::new();
     }
 
-    let mut result = dev_rewrites;
-    result.extend(prod_rewrites);
-    result
+    vec![
+        FirebaseRewrite {
+            source: CLOUD_RUN_API_SOURCE.to_string(),
+            function: None,
+            run: Some(CloudRunTarget {
+                service_id: CLOUD_RUN_SERVICE_ID.to_string(),
+                region: CLOUD_RUN_REGION.to_string(),
+                pin_tag: true,
+            }),
+        },
+        FirebaseRewrite {
+            source: "/debug".to_string(),
+            function: Some("devMealplanDebug".to_string()),
+            run: None,
+        },
+        FirebaseRewrite {
+            source: "/debug/**".to_string(),
+            function: Some("devMealplanDebug".to_string()),
+            run: None,
+        },
+    ]
 }
 
 pub fn compare_rewrites(expected: &[FirebaseRewrite], actual: &[FirebaseRewrite]) -> Vec<String> {
     let mut violations = Vec::new();
 
-    let expected_keys: Vec<String> = expected
-        .iter()
-        .map(|r| format!("{}|{}", r.source, r.function))
-        .collect();
-    let actual_keys: Vec<String> = actual
-        .iter()
-        .map(|r| format!("{}|{}", r.source, r.function))
-        .collect();
+    let expected_keys: Vec<String> = expected.iter().map(rewrite_key).collect();
+    let actual_keys: Vec<String> = actual.iter().map(rewrite_key).collect();
 
     let expected_set: std::collections::HashSet<&str> =
         expected_keys.iter().map(|s| s.as_str()).collect();
@@ -148,4 +142,95 @@ pub fn compare_rewrites(expected: &[FirebaseRewrite], actual: &[FirebaseRewrite]
     }
 
     violations
+}
+
+fn rewrite_key(rewrite: &FirebaseRewrite) -> String {
+    if let Some(function) = &rewrite.function {
+        return format!("{}|function={function}", rewrite.source);
+    }
+    match &rewrite.run {
+        Some(run) => format!(
+            "{}|{}|{}|pinTag={}",
+            rewrite.source, run.service_id, run.region, run.pin_tag
+        ),
+        None => format!("{}|invalid-target", rewrite.source),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn api_entry() -> EndpointEntry {
+        EndpointEntry {
+            route_path: "health".to_string(),
+            handler_file: "health".to_string(),
+            options: None,
+            dev_only: None,
+            function_stem: None,
+            custom_source: None,
+        }
+    }
+
+    #[test]
+    fn generates_single_pinned_cloud_run_rewrite() {
+        assert_eq!(
+            generate_rewrites(&[api_entry()]),
+            vec![
+                FirebaseRewrite {
+                    source: "/api/**".to_string(),
+                    function: None,
+                    run: Some(CloudRunTarget {
+                        service_id: "brad-os-api".to_string(),
+                        region: "us-central1".to_string(),
+                        pin_tag: true,
+                    }),
+                },
+                FirebaseRewrite {
+                    source: "/debug".to_string(),
+                    function: Some("devMealplanDebug".to_string()),
+                    run: None,
+                },
+                FirebaseRewrite {
+                    source: "/debug/**".to_string(),
+                    function: Some("devMealplanDebug".to_string()),
+                    run: None,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn does_not_publish_debug_only_manifest() {
+        let mut entry = api_entry();
+        entry.route_path = String::new();
+        entry.dev_only = Some(true);
+        assert!(generate_rewrites(&[entry]).is_empty());
+    }
+
+    #[test]
+    fn compares_every_cloud_run_target_field() {
+        let expected = generate_rewrites(&[api_entry()]);
+        assert!(compare_rewrites(&expected, &expected).is_empty());
+
+        let wrong = vec![FirebaseRewrite {
+            source: "/api/**".to_string(),
+            function: None,
+            run: Some(CloudRunTarget {
+                service_id: "wrong".to_string(),
+                region: "us-central1".to_string(),
+                pin_tag: true,
+            }),
+        }];
+        let violations = compare_rewrites(&expected, &wrong);
+        assert!(violations
+            .iter()
+            .any(|value| value.starts_with("Missing rewrite")));
+        assert!(violations
+            .iter()
+            .any(|value| value.starts_with("Extra rewrite")));
+        assert!(violations
+            .iter()
+            .any(|value| value.starts_with("Rewrite order mismatch")));
+    }
 }

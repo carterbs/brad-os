@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Firestore, CollectionReference, DocumentReference } from 'firebase-admin/firestore';
+import type {
+  Firestore,
+  CollectionReference,
+  DocumentReference,
+} from 'firebase-admin/firestore';
 import { BaseRepository } from './base.repository.js';
 import {
   createMockDoc,
@@ -9,6 +13,7 @@ import {
   setupFirebaseMock,
 } from '../test-utils/index.js';
 import { isRecord, readString } from './firestore-type-guards.js';
+import { runWithEnvironment } from '../runtime/environment-context.js';
 
 interface BaseProbeEntity {
   id: string;
@@ -39,7 +44,10 @@ class BaseProbeRepository extends BaseRepository<
     };
   }
 
-  protected parseEntity(id: string, data: Record<string, unknown>): BaseProbeEntity | null {
+  protected parseEntity(
+    id: string,
+    data: Record<string, unknown>
+  ): BaseProbeEntity | null {
     const name = readString(data, 'name');
     if (name === null) {
       return null;
@@ -91,7 +99,9 @@ describe('ExerciseRepository', () => {
         createMockDoc('invalid', { name: 123 })
       );
 
-      const result = await repository.findById('invalid');
+      const result = await runWithEnvironment('dev', () =>
+        repository.findById('invalid')
+      );
 
       expect(result).toBeNull();
     });
@@ -106,7 +116,9 @@ describe('ExerciseRepository', () => {
         createMockQuerySnapshot(docs)
       );
 
-      const result = await repository.findAll();
+      const result = await runWithEnvironment('dev', () =>
+        repository.findAll()
+      );
 
       expect(result).toEqual([{ id: 'valid', name: 'Bench Press' }]);
     });
@@ -115,7 +127,9 @@ describe('ExerciseRepository', () => {
   describe('create', () => {
     it('should insert exercise with generated id', async () => {
       const repository = new ExerciseRepository(mockDb as Firestore);
-      (mockCollection.add as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'new-exercise-id' });
+      (mockCollection.add as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'new-exercise-id',
+      });
 
       const result = await repository.create({
         name: 'Bench Press',
@@ -138,7 +152,9 @@ describe('ExerciseRepository', () => {
 
     it('should use default weight increment if not provided', async () => {
       const repository = new ExerciseRepository(mockDb as Firestore);
-      (mockCollection.add as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'new-id' });
+      (mockCollection.add as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'new-id',
+      });
 
       const result = await repository.create({
         name: 'Squat',
@@ -155,7 +171,9 @@ describe('ExerciseRepository', () => {
 
     it('should set timestamps on creation', async () => {
       const repository = new ExerciseRepository(mockDb as Firestore);
-      (mockCollection.add as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'new-id' });
+      (mockCollection.add as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'new-id',
+      });
 
       const result = await repository.create({
         name: 'Deadlift',
@@ -169,7 +187,9 @@ describe('ExerciseRepository', () => {
 
     it('should mark exercise as custom when is_custom is true', async () => {
       const repository = new ExerciseRepository(mockDb as Firestore);
-      (mockCollection.add as ReturnType<typeof vi.fn>).mockResolvedValue({ id: 'custom-id' });
+      (mockCollection.add as ReturnType<typeof vi.fn>).mockResolvedValue({
+        id: 'custom-id',
+      });
 
       const result = await repository.create({
         name: 'Custom Exercise',
@@ -196,7 +216,9 @@ describe('ExerciseRepository', () => {
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
       };
-      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(createMockDoc('exercise-1', exerciseData));
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createMockDoc('exercise-1', exerciseData)
+      );
 
       const result = await repository.findById('exercise-1');
 
@@ -209,7 +231,9 @@ describe('ExerciseRepository', () => {
 
     it('should return null when exercise not found', async () => {
       const repository = new ExerciseRepository(mockDb as Firestore);
-      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(createMockDoc('non-existent', null));
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createMockDoc('non-existent', null)
+      );
 
       const result = await repository.findById('non-existent');
 
@@ -231,7 +255,9 @@ describe('ExerciseRepository', () => {
       const mockQuery = createMockQuery(
         createMockQuerySnapshot([{ id: 'squat-id', data: exerciseData }])
       );
-      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(
+        mockQuery
+      );
 
       const result = await repository.findByName('Squat');
 
@@ -246,7 +272,9 @@ describe('ExerciseRepository', () => {
       const repository = new ExerciseRepository(mockDb as Firestore);
 
       const mockQuery = createMockQuery(createMockQuerySnapshot([]));
-      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(
+        mockQuery
+      );
 
       const result = await repository.findByName('Non-existent');
 
@@ -258,12 +286,32 @@ describe('ExerciseRepository', () => {
     it('should return all exercises ordered by name', async () => {
       const repository = new ExerciseRepository(mockDb as Firestore);
       const exercises = [
-        { id: 'ex-1', data: { name: 'Bench Press', weight_increment: 5, is_custom: false, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' } },
-        { id: 'ex-2', data: { name: 'Squat', weight_increment: 10, is_custom: false, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' } },
+        {
+          id: 'ex-1',
+          data: {
+            name: 'Bench Press',
+            weight_increment: 5,
+            is_custom: false,
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
+        },
+        {
+          id: 'ex-2',
+          data: {
+            name: 'Squat',
+            weight_increment: 10,
+            is_custom: false,
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
+        },
       ];
 
       const mockQuery = createMockQuery(createMockQuerySnapshot(exercises));
-      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(
+        mockQuery
+      );
 
       const result = await repository.findAll();
 
@@ -277,7 +325,9 @@ describe('ExerciseRepository', () => {
       const repository = new ExerciseRepository(mockDb as Firestore);
 
       const mockQuery = createMockQuery(createMockQuerySnapshot([]));
-      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(
+        mockQuery
+      );
 
       const result = await repository.findAll();
 
@@ -289,15 +339,30 @@ describe('ExerciseRepository', () => {
     it('should return only non-custom exercises', async () => {
       const repository = new ExerciseRepository(mockDb as Firestore);
       const exercises = [
-        { id: 'ex-1', data: { name: 'Bench Press', weight_increment: 5, is_custom: false, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' } },
+        {
+          id: 'ex-1',
+          data: {
+            name: 'Bench Press',
+            weight_increment: 5,
+            is_custom: false,
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
+        },
       ];
 
       const mockQuery = createMockQuery(createMockQuerySnapshot(exercises));
-      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(
+        mockQuery
+      );
 
       const result = await repository.findDefaultExercises();
 
-      expect(mockCollection.where).toHaveBeenCalledWith('is_custom', '==', false);
+      expect(mockCollection.where).toHaveBeenCalledWith(
+        'is_custom',
+        '==',
+        false
+      );
       expect(result).toHaveLength(1);
       expect(result[0]?.is_custom).toBe(false);
     });
@@ -307,15 +372,30 @@ describe('ExerciseRepository', () => {
     it('should return only custom exercises', async () => {
       const repository = new ExerciseRepository(mockDb as Firestore);
       const exercises = [
-        { id: 'ex-1', data: { name: 'My Exercise', weight_increment: 5, is_custom: true, created_at: '2024-01-01T00:00:00Z', updated_at: '2024-01-01T00:00:00Z' } },
+        {
+          id: 'ex-1',
+          data: {
+            name: 'My Exercise',
+            weight_increment: 5,
+            is_custom: true,
+            created_at: '2024-01-01T00:00:00Z',
+            updated_at: '2024-01-01T00:00:00Z',
+          },
+        },
       ];
 
       const mockQuery = createMockQuery(createMockQuerySnapshot(exercises));
-      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(
+        mockQuery
+      );
 
       const result = await repository.findCustomExercises();
 
-      expect(mockCollection.where).toHaveBeenCalledWith('is_custom', '==', true);
+      expect(mockCollection.where).toHaveBeenCalledWith(
+        'is_custom',
+        '==',
+        true
+      );
       expect(result).toHaveLength(1);
       expect(result[0]?.is_custom).toBe(true);
     });
@@ -336,9 +416,17 @@ describe('ExerciseRepository', () => {
       (mockDocRef.get as ReturnType<typeof vi.fn>)
         .mockResolvedValueOnce(createMockDoc('exercise-1', existingData))
         // Second call to findById (after update)
-        .mockResolvedValueOnce(createMockDoc('exercise-1', { ...existingData, name: 'Updated Bench Press', updated_at: '2024-01-02T00:00:00Z' }));
+        .mockResolvedValueOnce(
+          createMockDoc('exercise-1', {
+            ...existingData,
+            name: 'Updated Bench Press',
+            updated_at: '2024-01-02T00:00:00Z',
+          })
+        );
 
-      const result = await repository.update('exercise-1', { name: 'Updated Bench Press' });
+      const result = await repository.update('exercise-1', {
+        name: 'Updated Bench Press',
+      });
 
       expect(mockDocRef.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -352,9 +440,13 @@ describe('ExerciseRepository', () => {
 
     it('should return null when updating non-existent exercise', async () => {
       const repository = new ExerciseRepository(mockDb as Firestore);
-      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(createMockDoc('non-existent', null));
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createMockDoc('non-existent', null)
+      );
 
-      const result = await repository.update('non-existent', { name: 'Updated' });
+      const result = await repository.update('non-existent', {
+        name: 'Updated',
+      });
 
       expect(mockDocRef.update).not.toHaveBeenCalled();
       expect(result).toBeNull();
@@ -369,7 +461,9 @@ describe('ExerciseRepository', () => {
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
       };
-      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(createMockDoc('exercise-1', existingData));
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createMockDoc('exercise-1', existingData)
+      );
 
       const result = await repository.update('exercise-1', {});
 
@@ -392,9 +486,13 @@ describe('ExerciseRepository', () => {
 
       (mockDocRef.get as ReturnType<typeof vi.fn>)
         .mockResolvedValueOnce(createMockDoc('exercise-1', existingData))
-        .mockResolvedValueOnce(createMockDoc('exercise-1', { ...existingData, weight_increment: 10 }));
+        .mockResolvedValueOnce(
+          createMockDoc('exercise-1', { ...existingData, weight_increment: 10 })
+        );
 
-      const result = await repository.update('exercise-1', { weight_increment: 10 });
+      const result = await repository.update('exercise-1', {
+        weight_increment: 10,
+      });
 
       expect(mockDocRef.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -415,8 +513,12 @@ describe('ExerciseRepository', () => {
         created_at: '2024-01-01T00:00:00Z',
         updated_at: '2024-01-01T00:00:00Z',
       };
-      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(createMockDoc('exercise-1', existingData));
-      (mockDocRef.delete as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createMockDoc('exercise-1', existingData)
+      );
+      (mockDocRef.delete as ReturnType<typeof vi.fn>).mockResolvedValue(
+        undefined
+      );
 
       const result = await repository.delete('exercise-1');
 
@@ -426,7 +528,9 @@ describe('ExerciseRepository', () => {
 
     it('should return false when deleting non-existent exercise', async () => {
       const repository = new ExerciseRepository(mockDb as Firestore);
-      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(createMockDoc('non-existent', null));
+      (mockDocRef.get as ReturnType<typeof vi.fn>).mockResolvedValue(
+        createMockDoc('non-existent', null)
+      );
 
       const result = await repository.delete('non-existent');
 
@@ -444,12 +548,18 @@ describe('ExerciseRepository', () => {
         limit: vi.fn().mockReturnThis(),
         get: vi.fn().mockResolvedValue({ empty: false }),
       };
-      (mockDb.collection as ReturnType<typeof vi.fn>).mockReturnValue(mockPlanDayExercisesCollection);
+      (mockDb.collection as ReturnType<typeof vi.fn>).mockReturnValue(
+        mockPlanDayExercisesCollection
+      );
 
       const result = await repository.isInUse('exercise-1');
 
       expect(mockDb.collection).toHaveBeenCalledWith('test_plan_day_exercises');
-      expect(mockPlanDayExercisesCollection.where).toHaveBeenCalledWith('exercise_id', '==', 'exercise-1');
+      expect(mockPlanDayExercisesCollection.where).toHaveBeenCalledWith(
+        'exercise_id',
+        '==',
+        'exercise-1'
+      );
       expect(result).toBe(true);
     });
 
@@ -461,7 +571,9 @@ describe('ExerciseRepository', () => {
         limit: vi.fn().mockReturnThis(),
         get: vi.fn().mockResolvedValue({ empty: true }),
       };
-      (mockDb.collection as ReturnType<typeof vi.fn>).mockReturnValue(mockPlanDayExercisesCollection);
+      (mockDb.collection as ReturnType<typeof vi.fn>).mockReturnValue(
+        mockPlanDayExercisesCollection
+      );
 
       const result = await repository.isInUse('unused-exercise');
 
