@@ -17,7 +17,7 @@ struct TodayDashboardView: View {
                 daymarkHeader
 
                 ScrollView {
-                    VStack(spacing: Theme.Spacing.space6) {
+                    VStack(spacing: 0) {
                         TodayCoachCard()
 
                         MealPlanDashboardCard(
@@ -42,7 +42,6 @@ struct TodayDashboardView: View {
                             navigateToWorkout()
                         }
                     }
-                    .padding(Theme.Spacing.space5)
                 }
             }
             .background(AuroraBackground().ignoresSafeArea())

@@ -188,7 +188,7 @@ struct TodayCoachCard: View {
             .padding(.vertical, Theme.Spacing.space4)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - Error State
@@ -220,7 +220,7 @@ struct TodayCoachCard: View {
             .padding(.vertical, Theme.Spacing.space3)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - Not Authorized State
@@ -244,7 +244,7 @@ struct TodayCoachCard: View {
                 .foregroundColor(Theme.interactivePrimary)
             }
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - No Data State
@@ -260,7 +260,7 @@ struct TodayCoachCard: View {
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
         }
-        .glassCard()
+        .daymarkSection()
     }
 }
 

@@ -35,20 +35,20 @@ public extension Color {
 /// The app's Theme.swift references these; the widget imports them directly.
 public enum ThemeColors {
     // Daymark foundations — shared with WidgetKit.
-    public static let bgDeep = Color(hex: "E8EFED")
-    public static let bgBase = Color(hex: "F4F6F5")
-    public static let bgSurface = Color(hex: "FFFFFF")
-    public static let ink = Color(hex: "24373A")
-    public static let mutedInk = Color(hex: "66777A")
-    public static let highlight = Color(hex: "5D8782")
-    public static let divider = Color(hex: "D8E0DE")
+    public static let bgDeep = Color(hex: "EFEAE0")
+    public static let bgBase = Color(hex: "F7F3EC")
+    public static let bgSurface = Color(hex: "FFFCF6")
+    public static let ink = Color(hex: "26302D")
+    public static let mutedInk = Color(hex: "6F746D")
+    public static let highlight = Color(hex: "3E5462")
+    public static let divider = Color(hex: "DED6CA")
 
     // Activity
-    public static let lifting = Color(hex: "D97A48")
-    public static let stretch = Color(hex: "4A8E7A")
-    public static let meditation = Color(hex: "8D6FA3")
-    public static let mealPlan = Color(hex: "C96D52")
-    public static let cycling = Color(hex: "E79645")
+    public static let lifting = Color(hex: "8C6A4B")
+    public static let stretch = Color(hex: "55705B")
+    public static let meditation = Color(hex: "8A6C92")
+    public static let mealPlan = Color(hex: "C66B4E")
+    public static let cycling = Color(hex: "C69140")
 
     // Text
     public static let textPrimary = ink

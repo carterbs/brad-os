@@ -121,7 +121,7 @@ struct MealPlanDashboardCard: View {
                 .foregroundColor(Theme.textTertiary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - Meal Content
@@ -162,7 +162,7 @@ struct MealPlanDashboardCard: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - Prep Ahead Section
