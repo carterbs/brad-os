@@ -46,7 +46,7 @@ extension TodayCoachCard {
                 .foregroundColor(recoveryStateColor)
             }
         }
-        .glassCard()
+        .daymarkSection()
         .auroraGlow(recoveryStateColor)
     }
 

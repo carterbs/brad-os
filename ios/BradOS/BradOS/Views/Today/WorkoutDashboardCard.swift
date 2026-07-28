@@ -36,7 +36,7 @@ struct WorkoutDashboardCard: View {
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - No Workout State
@@ -49,7 +49,7 @@ struct WorkoutDashboardCard: View {
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - Workout Content
@@ -95,7 +95,7 @@ struct WorkoutDashboardCard: View {
                 actionLink(for: workout.status)
             }
         }
-        .glassCard()
+        .daymarkSection()
         .auroraGlow(Theme.lifting)
     }
 

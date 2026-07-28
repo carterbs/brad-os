@@ -17,17 +17,17 @@ struct Theme {
     static let textPrimary = ThemeColors.textPrimary
     static let textSecondary = ThemeColors.textSecondary
     static let textTertiary = ThemeColors.textTertiary
-    static let textDisabled = Color(hex: "A7B1B3")
+    static let textDisabled = Color(hex: "AAA69F")
     static let textOnAccent = Color.white
 
     // MARK: - Strokes & Dividers
     static let strokeSubtle = ThemeColors.divider
-    static let strokeMedium = Color(hex: "C5D1CE")
+    static let strokeMedium = Color(hex: "CBC1B4")
     static let divider = ThemeColors.divider
 
     // MARK: - Interactive Colors
     static let interactivePrimary = ThemeColors.highlight
-    static let interactiveSecondary = Color(hex: "84A9A2")
+    static let interactiveSecondary = Color(hex: "E7D5A3")
 
     // MARK: - Activity Colors (from shared ThemeColors)
     static let lifting = ThemeColors.lifting
@@ -178,6 +178,22 @@ struct GlassCardModifier: ViewModifier {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(level.strokeColor, lineWidth: 1)
             )
+    }
+}
+
+/// Daymark's dashboard layout is composed of editorial sections instead of floating cards.
+struct DaymarkSectionModifier: ViewModifier {
+    let padding: CGFloat
+
+    func body(content: Content) -> some View {
+        content
+            .padding(padding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(Theme.divider)
+                    .frame(height: 1)
+            }
     }
 }
 
@@ -351,6 +367,11 @@ extension View {
     /// Apply glass card at a specific level
     func glassCard(_ level: GlassLevel = .card, radius: CGFloat? = nil, padding: CGFloat? = nil) -> some View {
         modifier(GlassCardModifier(level: level, radius: radius, padding: padding))
+    }
+
+    /// Apply the flat, rule-separated Daymark treatment used on dashboard surfaces.
+    func daymarkSection(padding: CGFloat = Theme.Spacing.space5) -> some View {
+        modifier(DaymarkSectionModifier(padding: padding))
     }
 
     /// Add aurora glow behind the view
