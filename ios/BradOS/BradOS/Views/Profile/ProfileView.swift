@@ -50,7 +50,7 @@ struct ProfileView: View {
                 .contentShape(Rectangle())
                 .buttonStyle(.plain)
             }
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
         }
     }
 
@@ -145,7 +145,7 @@ struct ProfileView: View {
                 .contentShape(Rectangle())
                 .buttonStyle(.plain)
             }
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
         }
     }
 
@@ -208,7 +208,7 @@ struct ProfileView: View {
                 .contentShape(Rectangle())
                 .buttonStyle(.plain)
             }
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
 
             NotificationSettingsView()
         }
@@ -233,7 +233,7 @@ struct ProfileView: View {
                         .foregroundColor(Theme.textSecondary)
                 }
             }
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
         }
     }
 }

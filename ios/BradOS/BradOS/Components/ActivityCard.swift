@@ -8,23 +8,48 @@ struct ActivityCard: View {
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: Theme.Spacing.space3) {
+            HStack(spacing: Theme.Spacing.space4) {
                 Image(systemName: activityType.iconName)
-                    .font(.system(size: Theme.Typography.activityGridIcon, weight: .regular))
+                    .font(.system(size: Theme.Typography.cardHeaderIcon, weight: .medium))
                     .foregroundColor(activityType.color)
-                    .frame(width: Theme.Dimensions.iconFrameLG, height: Theme.Dimensions.iconFrameLG)
+                    .frame(width: Theme.Dimensions.iconFrameMD, height: Theme.Dimensions.iconFrameMD)
                     .background(activityType.color.opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
 
-                Text(activityType.displayName)
-                    .font(.headline)
-                    .foregroundColor(Theme.textPrimary)
+                VStack(alignment: .leading, spacing: Theme.Spacing.space1) {
+                    Text(activityType.displayName)
+                        .font(.headline)
+                        .foregroundColor(Theme.textPrimary)
+
+                    Text(activityType.daymarkSubtitle)
+                        .font(.subheadline)
+                        .foregroundColor(Theme.textSecondary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Theme.textTertiary)
             }
-            .frame(maxWidth: .infinity, minHeight: 100)
-            .glassCard(.card, padding: Theme.Spacing.space6)
+            .daymarkSection(padding: Theme.Spacing.space4)
         }
         .buttonStyle(PlainButtonStyle())
-        .scaleEffect(1.0) // Press handled by button style
+    }
+}
+
+private extension ActivityType {
+    var daymarkSubtitle: String {
+        switch self {
+        case .workout:
+            return "Strength and training plans"
+        case .stretch:
+            return "Guided mobility sessions"
+        case .meditation:
+            return "Guided mindfulness"
+        case .cycling:
+            return "Ride history and coaching"
+        }
     }
 }
 
