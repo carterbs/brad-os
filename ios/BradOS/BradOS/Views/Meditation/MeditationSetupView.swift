@@ -123,7 +123,7 @@ struct MeditationSetupView: View {
                 .font(.caption)
                 .foregroundColor(Theme.textSecondary)
         }
-        .glassCard()
+        .daymarkSection(padding: Theme.Spacing.space4)
     }
 
     private func formattedDate(_ date: Date) -> String {
@@ -152,11 +152,12 @@ struct MeditationDurationOption: View {
                     .foregroundColor(Theme.textSecondary)
             }
             .frame(maxWidth: .infinity)
-            .glassCard(.card, radius: Theme.CornerRadius.md)
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
-                    .stroke(isSelected ? Theme.meditation : Color.clear, lineWidth: 2)
-            )
+            .padding(Theme.Spacing.space3)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(isSelected ? Theme.meditation : Theme.divider)
+                    .frame(height: isSelected ? 2 : 1)
+            }
         }
         .buttonStyle(PlainButtonStyle())
         .accessibilityLabel("\(duration.rawValue) minutes")

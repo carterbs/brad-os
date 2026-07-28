@@ -87,8 +87,7 @@ struct RecoveryDetailView: View {
                 .foregroundColor(Theme.textTertiary)
         }
         .frame(maxWidth: .infinity)
-        .glassCard()
-        .auroraGlow(stateColor)
+        .daymarkSection(padding: Theme.Spacing.space4)
     }
 
     // MARK: - Score Breakdown
@@ -121,7 +120,7 @@ struct RecoveryDetailView: View {
                 color: Theme.interactiveSecondary
             )
         }
-        .glassCard()
+        .daymarkSection(padding: Theme.Spacing.space4)
     }
 
     private func scoreComponent(label: String, weight: String, icon: String, color: Color) -> some View {
@@ -222,7 +221,7 @@ struct RecoveryDetailView: View {
             }
             .buttonStyle(.plain)
         }
-        .glassCard()
+        .daymarkListGroup()
     }
 
     struct MetricDetailConfig {

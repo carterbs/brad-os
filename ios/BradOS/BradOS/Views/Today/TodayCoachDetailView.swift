@@ -82,8 +82,7 @@ struct TodayCoachDetailView: View {
                 .foregroundColor(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .glassCard()
-        .auroraGlow(recoveryStateColor)
+        .daymarkSection(padding: Theme.Spacing.space4)
     }
 
     // MARK: - Recovery Section
@@ -132,7 +131,7 @@ struct TodayCoachDetailView: View {
                 }
             }
         }
-        .glassCard()
+        .daymarkSection(padding: Theme.Spacing.space4)
     }
 
     // MARK: - Weight Section
@@ -152,7 +151,7 @@ struct TodayCoachDetailView: View {
                 .foregroundColor(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .glassCard()
+        .daymarkSection(padding: Theme.Spacing.space4)
     }
 
     func metricRow(
