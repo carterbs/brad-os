@@ -29,7 +29,7 @@ extension TodayCoachDetailView {
 
             priorityBadge(lifting.liftingPriority)
         }
-        .glassCard()
+        .daymarkSection(padding: Theme.Spacing.space4)
     }
 
     private func liftingWorkoutDetail(
@@ -156,7 +156,7 @@ extension TodayCoachDetailView {
                 recommendation.sections.stretching.stretchPriority
             )
         }
-        .glassCard()
+        .daymarkSection(padding: Theme.Spacing.space4)
     }
 
     @ViewBuilder
@@ -221,7 +221,7 @@ extension TodayCoachDetailView {
                 recommendation.sections.meditation.meditationPriority
             )
         }
-        .glassCard()
+        .daymarkSection(padding: Theme.Spacing.space4)
     }
 
     // MARK: - Warnings Section
@@ -255,6 +255,6 @@ extension TodayCoachDetailView {
                 )
             }
         }
-        .glassCard()
+        .daymarkSection(padding: Theme.Spacing.space4)
     }
 }

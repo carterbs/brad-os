@@ -28,7 +28,7 @@ struct StretchSetupView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(Theme.Spacing.space3)
-                        .glassCard()
+                        .daymarkSection(padding: Theme.Spacing.space3)
                     } else if hasDataError {
                         HStack(spacing: Theme.Spacing.space2) {
                             Image(systemName: "exclamationmark.triangle.fill")
@@ -45,7 +45,7 @@ struct StretchSetupView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(Theme.Spacing.space3)
-                        .glassCard()
+                        .daymarkSection(padding: Theme.Spacing.space3)
                     }
 
                     // Region Selection with reordering
@@ -209,8 +209,7 @@ struct StretchSetupView: View {
             TextField("Paste Spotify playlist URL", text: $spotifyUrl)
                 .textFieldStyle(.plain)
                 .padding(Theme.Spacing.space4)
-                .background(Color.white.opacity(0.06))
-                .background(.ultraThinMaterial)
+                .background(Theme.Background.surface)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
