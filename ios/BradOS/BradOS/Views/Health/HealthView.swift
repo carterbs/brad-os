@@ -7,11 +7,6 @@ struct HealthView: View {
     @StateObject private var viewModel: CalendarViewModel
     @State private var isShowingHistory = false
 
-    private let columns = [
-        GridItem(.flexible()),
-        GridItem(.flexible())
-    ]
-
     init(apiClient: APIClientProtocol? = nil) {
         let client = apiClient ?? DefaultAPIClient.instance
         _viewModel = StateObject(wrappedValue: CalendarViewModel(apiClient: client))
@@ -21,20 +16,15 @@ struct HealthView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.space6) {
-                    // Activity Cards Grid
-                    LazyVGrid(columns: columns, spacing: Theme.Spacing.space3) {
-                        // Lifting - Full width
+                    VStack(spacing: 0) {
                         ActivityCard(activityType: .workout) {
                             appState.isShowingLiftingContext = true
                         }
-                        .gridCellColumns(2)
 
-                        // Stretch
                         ActivityCard(activityType: .stretch) {
                             appState.isShowingStretch = true
                         }
 
-                        // Meditation
                         ActivityCard(activityType: .meditation) {
                             appState.isShowingMeditation = true
                         }
@@ -83,8 +73,8 @@ struct HealthView: View {
                     Text("No recent activities")
                         .font(.subheadline)
                         .foregroundColor(Theme.textSecondary)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .glassCard()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .daymarkSection(padding: Theme.Spacing.space4)
                 } else {
                     ForEach(activities) { activity in
                         RecentActivityRow(activity: activity)
@@ -151,7 +141,7 @@ struct HealthView: View {
                 .contentShape(Rectangle())
                 .buttonStyle(.plain)
             }
-            .glassCard()
+            .daymarkListGroup()
         }
     }
 }
@@ -180,7 +170,7 @@ struct RecentActivityRowPlaceholder: View {
                 .fill(Color.white.opacity(0.06))
                 .frame(width: 50, height: 12)
         }
-        .glassCard()
+        .daymarkSection(padding: Theme.Spacing.space4)
     }
 }
 
@@ -215,7 +205,7 @@ struct RecentActivityRow: View {
                 .font(.caption)
                 .foregroundColor(Theme.textSecondary)
         }
-        .glassCard()
+        .daymarkSection(padding: Theme.Spacing.space4)
     }
 
     private var activityTitle: String {

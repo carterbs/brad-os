@@ -197,6 +197,24 @@ struct DaymarkSectionModifier: ViewModifier {
     }
 }
 
+/// A compact editorial list bounded by hairlines instead of a raised container.
+struct DaymarkListGroupModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(Theme.divider)
+                    .frame(height: 1)
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Theme.divider)
+                    .frame(height: 1)
+            }
+    }
+}
+
 // MARK: - Compatibility modifier
 struct AuroraGlowModifier: ViewModifier {
     let color: Color
@@ -372,6 +390,10 @@ extension View {
     /// Apply the flat, rule-separated Daymark treatment used on dashboard surfaces.
     func daymarkSection(padding: CGFloat = Theme.Spacing.space5) -> some View {
         modifier(DaymarkSectionModifier(padding: padding))
+    }
+
+    func daymarkListGroup() -> some View {
+        modifier(DaymarkListGroupModifier())
     }
 
     /// Add aurora glow behind the view

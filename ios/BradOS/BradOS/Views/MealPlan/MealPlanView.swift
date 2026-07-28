@@ -17,53 +17,22 @@ struct MealPlanView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                AuroraBackground()
+            VStack(spacing: 0) {
+                daymarkHeader
 
-                if viewModel.isLoading {
-                    loadingState
-                } else if let session = viewModel.session {
-                    sessionContent(session)
-                } else {
-                    emptyState
-                }
-            }
-            .navigationTitle("Meal Plan")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.hidden, for: .navigationBar)
-            .toolbar {
-                // Only show back button when presented as sheet (isShowingMealPlan)
-                // When shown in Meals tab, no back button needed
-                if appState.isShowingMealPlan {
-                    ToolbarItem(placement: .navigationBarLeading) {
-                        Button(action: {
-                            appState.isShowingMealPlan = false
-                        }, label: {
-                            HStack(spacing: 4) {
-                                Image(systemName: "chevron.left")
-                                Text("Back")
-                            }
-                            .foregroundColor(Theme.interactivePrimary)
-                        })
+                ZStack {
+                    AuroraBackground()
+
+                    if viewModel.isLoading {
+                        loadingState
+                    } else if let session = viewModel.session {
+                        sessionContent(session)
+                    } else {
+                        emptyState
                     }
                 }
-
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        Task { await viewModel.forceRefresh() }
-                    }, label: {
-                        if viewModel.isRefreshing {
-                            ProgressView()
-                                .tint(Theme.interactivePrimary)
-                        } else {
-                            Image(systemName: "arrow.clockwise")
-                                .foregroundColor(Theme.interactivePrimary)
-                        }
-                    })
-                    .disabled(viewModel.isLoading || viewModel.isRefreshing)
-                    .accessibilityLabel("Refresh meal plan")
-                }
             }
+            .toolbar(.hidden, for: .navigationBar)
             .task {
                 await viewModel.loadExistingSession()
                 #if DEBUG
@@ -77,28 +46,80 @@ struct MealPlanView: View {
 
     // MARK: - Empty State (No Session)
 
-    @ViewBuilder
-    private var emptyState: some View {
-        VStack(spacing: Theme.Spacing.space4) {
+    private var daymarkHeader: some View {
+        HStack(spacing: Theme.Spacing.space3) {
+            if appState.isShowingMealPlan {
+                Button {
+                    appState.isShowingMealPlan = false
+                } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 17, weight: .semibold))
+                        .frame(width: 44, height: 44)
+                }
+                .foregroundColor(Theme.interactivePrimary)
+                .accessibilityLabel("Back")
+            }
+
+            Text("Meal Plan")
+                .font(.system(size: 34, weight: .bold))
+                .foregroundColor(Theme.textPrimary)
+
             Spacer()
 
-            Image(systemName: "fork.knife")
-                .font(.system(size: Theme.Typography.iconXL))
-                .foregroundColor(Theme.mealPlan)
+            Button {
+                Task { await viewModel.forceRefresh() }
+            } label: {
+                Group {
+                    if viewModel.isRefreshing {
+                        ProgressView()
+                            .tint(Theme.interactivePrimary)
+                    } else {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 17, weight: .semibold))
+                    }
+                }
+                .frame(width: 44, height: 44)
+            }
+            .foregroundColor(Theme.interactivePrimary)
+            .disabled(viewModel.isLoading || viewModel.isRefreshing)
+            .accessibilityLabel("Refresh meal plan")
+        }
+        .padding(.horizontal, Theme.Spacing.space5)
+        .padding(.vertical, Theme.Spacing.space4)
+        .background(Theme.Background.base)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Theme.divider)
+                .frame(height: 1)
+        }
+    }
 
-            Text("Weekly Meal Plan")
-                .font(.headline)
-                .fontWeight(.bold)
+    @ViewBuilder
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
+            Spacer()
+
+            HStack(spacing: Theme.Spacing.space3) {
+                Rectangle()
+                    .fill(Theme.mealPlan)
+                    .frame(width: 28, height: 3)
+
+                Text("FOOD FOR THE WEEK")
+                    .font(.caption.weight(.semibold))
+                    .tracking(1.2)
+                    .foregroundColor(Theme.textSecondary)
+            }
+
+            Text("Plan your meals")
+                .font(.system(size: 28, weight: .bold))
                 .foregroundColor(Theme.textPrimary)
 
             Text(
                 "Generate a 7-day meal plan based on your saved meals. "
                 + "You can refine it with feedback before finalizing."
             )
-                .font(.subheadline)
+                .font(.body)
                 .foregroundColor(Theme.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, Theme.Spacing.space6)
 
             Button(action: {
                 Task { await viewModel.generatePlan() }
@@ -110,7 +131,7 @@ struct MealPlanView: View {
                 .frame(maxWidth: .infinity)
             })
             .buttonStyle(PrimaryButtonStyle())
-            .padding(.horizontal, Theme.Spacing.space7)
+            .padding(.top, Theme.Spacing.space2)
 
             if let error = viewModel.error {
                 Text(error)
@@ -120,7 +141,7 @@ struct MealPlanView: View {
 
             Spacer()
         }
-        .padding(Theme.Spacing.space4)
+        .padding(Theme.Spacing.space5)
     }
 
     // MARK: - Loading State
