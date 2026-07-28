@@ -89,7 +89,7 @@ struct SleepHistoryView: View {
             }
             .padding(Theme.Spacing.space4)
             .frame(minHeight: Theme.Dimensions.listRowMinHeight)
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
         }
     }
 
@@ -234,7 +234,7 @@ struct SleepHistoryView: View {
                     }
                 }
             }
-            .glassCard()
+            .daymarkSection()
         }
     }
 
@@ -300,7 +300,7 @@ struct SleepHistoryView: View {
                     )
                 }
             }
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
         }
     }
 
