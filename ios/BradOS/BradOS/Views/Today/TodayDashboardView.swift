@@ -85,11 +85,22 @@ struct TodayDashboardView: View {
                 .tracking(0.8)
                 .opacity(0.88)
         }
-        .foregroundStyle(Theme.textOnAccent)
+        .foregroundStyle(Theme.textPrimary)
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, Theme.Spacing.space5)
         .padding(.vertical, Theme.Spacing.space4)
-        .background(Theme.Background.highlight)
+        .background(Theme.Background.base)
+        .overlay(alignment: .bottomLeading) {
+            HStack(spacing: 0) {
+                Rectangle()
+                    .fill(Theme.mealPlan)
+                    .frame(width: 40, height: 2)
+                Rectangle()
+                    .fill(Theme.divider)
+                    .frame(height: 1)
+            }
+            .padding(.leading, Theme.Spacing.space5)
+        }
     }
 
     private var isSkippingSystemPrompts: Bool {
