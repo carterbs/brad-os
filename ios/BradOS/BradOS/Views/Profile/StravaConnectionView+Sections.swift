@@ -35,7 +35,7 @@ extension StravaConnectionView {
                 .padding(Theme.Spacing.space4)
                 .frame(minHeight: Theme.Dimensions.listRowMinHeight)
             }
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
         }
     }
 
@@ -98,7 +98,7 @@ extension StravaConnectionView {
                         Spacer()
                     }
                     .foregroundColor(
-                        isSyncing ? Theme.textSecondary : Color.orange
+                        isSyncing ? Theme.textSecondary : Theme.interactivePrimary
                     )
                     .padding(Theme.Spacing.space4)
                     .frame(minHeight: Theme.Dimensions.listRowMinHeight)
@@ -136,7 +136,7 @@ extension StravaConnectionView {
                     .padding(Theme.Spacing.space4)
                 }
             }
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
         }
     }
 
@@ -205,7 +205,7 @@ extension StravaConnectionView {
                 }
             }
             .padding(Theme.Spacing.space6)
-            .glassCard(.card, padding: 0)
+            .daymarkSection()
         }
     }
 
@@ -240,7 +240,7 @@ extension StravaConnectionView {
                     text: "Ride duration and date"
                 )
             }
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
         }
     }
 }

@@ -52,7 +52,7 @@ struct TextToSpeechView: View {
                         .allowsHitTesting(false)
                 }
             }
-            .glassCard(.card)
+            .daymarkSection()
         }
     }
 
@@ -128,7 +128,7 @@ struct TextToSpeechView: View {
                 Spacer()
             }
             .padding(Theme.Spacing.space4)
-            .glassCard(.card)
+            .daymarkSection()
         }
     }
 
@@ -243,7 +243,7 @@ struct TextToSpeechView: View {
                 }
             }
             .padding(Theme.Spacing.space3)
-            .glassCard(.card)
+            .daymarkSection()
         }
     }
     #endif

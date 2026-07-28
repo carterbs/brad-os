@@ -103,7 +103,7 @@ struct StravaConnectionView: View {
                 .foregroundColor(Theme.textSecondary)
                 .padding(Theme.Spacing.space4)
             }
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
 
             if showDebugTokenEntry {
                 VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
@@ -157,7 +157,7 @@ struct StravaConnectionView: View {
                     }
                 }
                 .padding(Theme.Spacing.space4)
-                .glassCard(.card, padding: 0)
+                .daymarkListGroup()
             }
         }
     }

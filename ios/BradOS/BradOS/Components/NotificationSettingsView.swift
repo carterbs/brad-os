@@ -38,7 +38,7 @@ struct NotificationSettingsView: View {
                 confirmationBanner
             }
         }
-        .glassCard(.card, padding: 0)
+        .daymarkListGroup()
         .task {
             await notificationManager.refreshAuthorizationStatus()
         }
