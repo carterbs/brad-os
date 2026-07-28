@@ -28,7 +28,7 @@ struct MainTabView: View {
                 }
             }
             .frame(height: Theme.Dimensions.tabBarHeight)
-            .background(Theme.Background.surface)
+            .background(Theme.Background.base)
             .overlay(alignment: .top) {
                 Rectangle().fill(Theme.divider).frame(height: 1)
             }
