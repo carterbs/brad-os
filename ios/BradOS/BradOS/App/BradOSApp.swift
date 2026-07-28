@@ -175,9 +175,16 @@ class AppState: ObservableObject {
 
     init() {
         #if DEBUG
-        selectedTab = ProcessInfo.processInfo.environment["BRAD_OS_INITIAL_TAB"] == "meals"
-            ? .meals
-            : .today
+        switch ProcessInfo.processInfo.environment["BRAD_OS_INITIAL_TAB"] {
+        case "health":
+            selectedTab = .health
+        case "meals":
+            selectedTab = .meals
+        case "profile":
+            selectedTab = .profile
+        default:
+            selectedTab = .today
+        }
         #else
         selectedTab = .today
         #endif

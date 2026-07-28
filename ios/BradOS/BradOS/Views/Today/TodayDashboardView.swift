@@ -90,16 +90,10 @@ struct TodayDashboardView: View {
         .padding(.horizontal, Theme.Spacing.space5)
         .padding(.vertical, Theme.Spacing.space4)
         .background(Theme.Background.base)
-        .overlay(alignment: .bottomLeading) {
-            HStack(spacing: 0) {
-                Rectangle()
-                    .fill(Theme.mealPlan)
-                    .frame(width: 40, height: 2)
-                Rectangle()
-                    .fill(Theme.divider)
-                    .frame(height: 1)
-            }
-            .padding(.leading, Theme.Spacing.space5)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Theme.divider)
+                .frame(height: 1)
         }
     }
 
