@@ -25,15 +25,31 @@ struct MealPlanEditingView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Segmented picker: Breakfast | Lunch | Dinner | Shopping
-            Picker("Meal Type", selection: $selectedTab) {
+            HStack(spacing: 0) {
                 ForEach(EditingTab.allCases, id: \.self) { tab in
-                    Text(tab.rawValue).tag(tab)
+                    Button {
+                        withAnimation(Theme.Motion.standardSpring) {
+                            selectedTab = tab
+                        }
+                    } label: {
+                        Text(tab.rawValue)
+                            .font(.footnote.weight(.semibold))
+                            .foregroundColor(selectedTab == tab ? Theme.interactivePrimary : Theme.textSecondary)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .overlay(alignment: .bottom) {
+                                Rectangle()
+                                    .fill(selectedTab == tab ? Theme.mealPlan : .clear)
+                                    .frame(height: 2)
+                            }
+                    }
+                    .buttonStyle(.plain)
                 }
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, Theme.Spacing.space4)
-            .padding(.top, Theme.Spacing.space2)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Theme.divider)
+                    .frame(height: 1)
+            }
 
             // Tab content
             switch selectedTab {

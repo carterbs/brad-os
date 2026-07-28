@@ -56,7 +56,7 @@ private struct DayCard: View {
                 }
             }
         }
-        .glassCard(padding: 0)
+        .daymarkListGroup()
     }
 }
 
@@ -94,13 +94,18 @@ private struct MealRow: View {
             Spacer()
         }
         .padding(.horizontal, Theme.Spacing.space4)
-        .padding(.vertical, 10)
+        .padding(.vertical, Theme.Spacing.space3)
         .background(
             isHighlighted
                 ? Theme.success.opacity(0.3)
                 : Color.clear
         )
         .animation(.easeInOut(duration: 0.5), value: isHighlighted)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(Theme.divider)
+                .frame(height: 1)
+        }
     }
 
     private var mealTypeIcon: String {

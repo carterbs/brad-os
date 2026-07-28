@@ -25,7 +25,7 @@ struct CollapsibleCritiqueView: View {
                 }
                 .padding(.horizontal, Theme.Spacing.space4)
                 .padding(.vertical, Theme.Spacing.space2)
-                .glassCard(padding: 0)
+                .daymarkListGroup()
             })
             .buttonStyle(PlainButtonStyle())
 
@@ -119,8 +119,7 @@ struct CollapsibleCritiqueView: View {
                 .textFieldStyle(.plain)
                 .padding(Theme.Spacing.space2)
                 .frame(height: Theme.Dimensions.inputHeight)
-                .background(Color.white.opacity(0.06))
-                .background(.ultraThinMaterial)
+                .background(Theme.Background.surface)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)

@@ -82,14 +82,13 @@ struct MealDayCard: View {
             }
         }
         .padding(.horizontal, Theme.Spacing.space4)
-        .padding(.vertical, 10)
+        .padding(.vertical, Theme.Spacing.space3)
         .background(backgroundColor)
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
-                .stroke(borderColor, lineWidth: 1)
-        )
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(borderColor)
+                .frame(height: 1)
+        }
         .opacity(isInteractive ? 1.0 : 0.5)
         .contentShape(Rectangle())
         .onTapGesture {

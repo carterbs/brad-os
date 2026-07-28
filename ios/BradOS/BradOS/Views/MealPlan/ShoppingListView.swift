@@ -61,7 +61,7 @@ struct ShoppingListView: View {
                     .foregroundColor(Theme.textSecondary)
                     .padding(.horizontal, Theme.Spacing.space2)
                     .padding(.vertical, 2)
-                    .background(Color.white.opacity(0.06))
+                    .background(Theme.mealPlan.opacity(0.12))
                     .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
             }
 
@@ -80,7 +80,7 @@ struct ShoppingListView: View {
                     .padding(.leading, Theme.Spacing.space1)
             }
         }
-        .glassCard()
+        .daymarkSection(padding: Theme.Spacing.space4)
     }
 
     // MARK: - Save to Grocery List Button
