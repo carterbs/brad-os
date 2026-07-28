@@ -156,7 +156,7 @@ struct HistoryView: View {
                 .contentShape(Rectangle())
                 .buttonStyle(.plain)
             }
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
         }
     }
 
@@ -205,7 +205,7 @@ struct HistoryView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard()
+        .daymarkSection()
     }
 }
 

@@ -84,7 +84,7 @@ struct HealthMetricHistoryView: View {
             }
             .padding(Theme.Spacing.space4)
             .frame(minHeight: Theme.Dimensions.listRowMinHeight)
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
         }
     }
 
@@ -235,7 +235,7 @@ struct HealthMetricHistoryView: View {
                     }
                 }
             }
-            .glassCard()
+            .daymarkSection()
         }
     }
 

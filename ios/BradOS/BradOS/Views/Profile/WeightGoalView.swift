@@ -128,7 +128,7 @@ struct WeightGoalView: View {
             }
             .padding(Theme.Spacing.space4)
             .frame(minHeight: Theme.Dimensions.listRowMinHeight)
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
         }
     }
 
@@ -170,7 +170,7 @@ struct WeightGoalView: View {
                 .padding(Theme.Spacing.space4)
                 .frame(minHeight: Theme.Dimensions.listRowMinHeight)
             }
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
 
             // Save Button
             Button {
@@ -321,7 +321,7 @@ struct WeightGoalView: View {
                 .padding(Theme.Spacing.space4)
                 .frame(minHeight: Theme.Dimensions.listRowMinHeight)
             }
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
         }
     }
 
@@ -368,7 +368,7 @@ struct WeightGoalView: View {
                     .padding(Theme.Spacing.space4)
                 }
             }
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
         }
     }
 

@@ -18,16 +18,16 @@ struct FilterChip: View {
                 .frame(height: 32)
                 .background(
                     isSelected
-                        ? Theme.interactivePrimary.opacity(0.20)
-                        : Color.white.opacity(0.06)
+                        ? Theme.interactivePrimary.opacity(0.14)
+                        : Theme.Background.surface
                 )
                 .clipShape(Capsule(style: .continuous))
                 .overlay(
                     Capsule(style: .continuous)
                         .stroke(
                             isSelected
-                                ? Theme.interactivePrimary.opacity(0.50)
-                                : Color.white.opacity(0.10),
+                            ? Theme.interactivePrimary.opacity(0.50)
+                            : Theme.divider,
                             lineWidth: 1
                         )
                 )
@@ -75,7 +75,7 @@ struct MonthCalendarView: View {
             }
             .padding(.horizontal, Theme.Spacing.space2)
             .padding(.vertical, Theme.Spacing.space2)
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
 
             // Days of Week Header
             HStack {
@@ -91,7 +91,7 @@ struct MonthCalendarView: View {
             // Calendar Grid
             calendarGrid
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     @ViewBuilder
