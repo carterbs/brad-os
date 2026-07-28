@@ -38,7 +38,7 @@ private struct DayCard: View {
             Text(dayName)
                 .font(.headline)
                 .fontWeight(.semibold)
-                .foregroundColor(Theme.mealPlan)
+                .foregroundColor(Theme.interactivePrimary)
                 .padding(.horizontal, Theme.Spacing.space4)
                 .padding(.top, Theme.Spacing.space2)
                 .padding(.bottom, Theme.Spacing.space1)

@@ -38,7 +38,7 @@ struct MealPlanEditingView: View {
                             .frame(maxWidth: .infinity, minHeight: 44)
                             .overlay(alignment: .bottom) {
                                 Rectangle()
-                                    .fill(selectedTab == tab ? Theme.mealPlan : .clear)
+                                    .fill(selectedTab == tab ? Theme.interactivePrimary : .clear)
                                     .frame(height: 2)
                             }
                     }
