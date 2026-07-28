@@ -101,7 +101,7 @@ struct MealPlanView: View {
 
             HStack(spacing: Theme.Spacing.space3) {
                 Rectangle()
-                    .fill(Theme.mealPlan)
+                    .fill(Theme.interactivePrimary)
                     .frame(width: 28, height: 3)
 
                 Text("FOOD FOR THE WEEK")

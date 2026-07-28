@@ -130,7 +130,7 @@ struct MealPlanDashboardCard: View {
         VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
             HStack(spacing: Theme.Spacing.space2) {
                 Rectangle()
-                    .fill(Theme.mealPlan)
+                    .fill(Theme.interactivePrimary)
                     .frame(width: 20, height: 2)
                 Text("FOOD, MADE SIMPLE")
                     .font(.caption.weight(.bold))
@@ -158,7 +158,7 @@ struct MealPlanDashboardCard: View {
                     Image(systemName: "chevron.right")
                         .font(.caption)
                 }
-                .foregroundColor(Theme.mealPlan)
+                .foregroundColor(Theme.interactivePrimary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
