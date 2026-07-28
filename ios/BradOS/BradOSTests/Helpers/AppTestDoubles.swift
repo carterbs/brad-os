@@ -3,33 +3,29 @@ import Combine
 @testable import Brad_OS
 import BradOSCore
 
-// MARK: - Cycling API test gates
+// MARK: - Async API test gate
 
-actor CyclingAPICallGate {
-    private let expectedCalls: Set<CyclingAPICall>
-    private var startedCalls: Set<CyclingAPICall> = []
+actor AsyncAPICallGate {
+    private let expectedCallCount: Int
+    private var startedCallCount = 0
     private var isReleased = false
     private var releaseContinuations: [CheckedContinuation<Void, Never>] = []
 
-    init(expectedCalls: [CyclingAPICall]) {
-        self.expectedCalls = Set(expectedCalls)
+    init(expectedCallCount: Int = 1) {
+        self.expectedCallCount = expectedCallCount
     }
 
-    init(expectedCalls: Set<CyclingAPICall> = Set(CyclingAPICall.allCases)) {
-        self.init(expectedCalls: Array(expectedCalls))
-    }
-
-    func markStarted(_ call: CyclingAPICall) {
-        startedCalls.insert(call)
+    func markStarted() {
+        startedCallCount += 1
     }
 
     func waitUntilAllStarted(timeoutNanoseconds: UInt64) async -> Bool {
-        if startedCalls.isSuperset(of: expectedCalls) {
+        if startedCallCount >= expectedCallCount {
             return true
         }
 
         let deadline = DispatchTime.now().uptimeNanoseconds + timeoutNanoseconds
-        while !startedCalls.isSuperset(of: expectedCalls) {
+        while startedCallCount < expectedCallCount {
             if DispatchTime.now().uptimeNanoseconds >= deadline {
                 return false
             }
@@ -57,147 +53,6 @@ actor CyclingAPICallGate {
         let continuations = releaseContinuations
         releaseContinuations.removeAll()
         continuations.forEach { $0.resume() }
-    }
-}
-
-// MARK: - Cycling API mock
-
-enum CyclingAPICall: String, CaseIterable {
-    case getCyclingActivities
-    case getCyclingTrainingLoad
-    case getCurrentFTP
-    case createFTP
-    case getFTPHistory
-    case getCurrentBlock
-    case createBlock
-    case completeBlock
-    case getVO2Max
-    case getEFHistory
-}
-
-final class MockCyclingAPIClient: CyclingAPIClientProtocol {
-    // Results
-    var cyclingActivitiesResult: Result<[CyclingActivityModel], Error> = .success([])
-    var cyclingTrainingLoadResult: Result<CyclingTrainingLoadResponse, Error> = .success(
-        CyclingTrainingLoadResponse(atl: 0, ctl: 0, tsb: 0)
-    )
-    var currentFTPResult: Result<FTPEntryResponse?, Error> = .success(nil)
-    var createFTPResult: Result<FTPEntryResponse, Error> = .success(
-        FTPEntryResponse(id: "ftp-default", value: 0, date: "2026-01-01", source: "manual")
-    )
-    var ftpHistoryResult: Result<[FTPEntryResponse], Error> = .success([])
-    var currentBlockResult: Result<TrainingBlockResponse?, Error> = .success(nil)
-    var createBlockResult: Result<TrainingBlockResponse, Error> = .success(
-        TrainingBlockResponse(
-            id: "block-1",
-            startDate: "2026-01-01",
-            endDate: "2026-02-26",
-            currentWeek: 1,
-            goals: ["regain_fitness"],
-            status: "active",
-            daysPerWeek: nil,
-            weeklySessions: nil,
-            preferredDays: nil,
-            experienceLevel: nil,
-            weeklyHoursAvailable: nil
-        )
-    )
-    var completeBlockResult: Result<Void, Error> = .success(())
-    var vo2MaxResult: Result<VO2MaxResponse, Error> = .success(
-        VO2MaxResponse(latest: nil, history: [])
-    )
-    var efHistoryResult: Result<[EFDataPoint], Error> = .success([])
-
-    private(set) var callCounts: [CyclingAPICall: Int] = [:]
-    private(set) var lastCreateFTPRequest: (value: Int, date: String, source: String)?
-    private(set) var lastCompleteBlockID: String?
-    private(set) var lastActivitiesLimit: Int?
-
-    var onCall: (@Sendable (CyclingAPICall) async -> Void)?
-
-    var completeBlockCalled = false
-    private let stateLock = NSLock()
-
-    private func trackCall(_ call: CyclingAPICall) async {
-        stateLock.lock()
-        callCounts[call, default: 0] += 1
-        stateLock.unlock()
-        await onCall?(call)
-    }
-
-    func getCyclingActivities(limit: Int?) async throws -> [CyclingActivityModel] {
-        await trackCall(.getCyclingActivities)
-        stateLock.lock()
-        lastActivitiesLimit = limit
-        stateLock.unlock()
-        return try cyclingActivitiesResult.get()
-    }
-
-    func getCyclingTrainingLoad() async throws -> CyclingTrainingLoadResponse {
-        await trackCall(.getCyclingTrainingLoad)
-        return try cyclingTrainingLoadResult.get()
-    }
-
-    func getCurrentFTP() async throws -> FTPEntryResponse? {
-        await trackCall(.getCurrentFTP)
-        return try currentFTPResult.get()
-    }
-
-    func createFTP(value: Int, date: String, source: String) async throws -> FTPEntryResponse {
-        await trackCall(.createFTP)
-        stateLock.lock()
-        lastCreateFTPRequest = (value: value, date: date, source: source)
-        stateLock.unlock()
-        return try createFTPResult.get()
-    }
-
-    func getFTPHistory() async throws -> [FTPEntryResponse] {
-        await trackCall(.getFTPHistory)
-        return try ftpHistoryResult.get()
-    }
-
-    func getCurrentBlock() async throws -> TrainingBlockResponse? {
-        await trackCall(.getCurrentBlock)
-        return try currentBlockResult.get()
-    }
-
-    func createBlock(
-        startDate: String,
-        endDate: String,
-        goals: [String],
-        daysPerWeek: Int?,
-        weeklySessions: [WeeklySessionModel]?,
-        preferredDays: [Int]?,
-        experienceLevel: ExperienceLevel?,
-        weeklyHoursAvailable: Double?
-    ) async throws -> TrainingBlockResponse {
-        await trackCall(.createBlock)
-        return try createBlockResult.get()
-    }
-
-    func completeBlock(id: String) async throws {
-        await trackCall(.completeBlock)
-        stateLock.lock()
-        lastCompleteBlockID = id
-        stateLock.unlock()
-        do {
-            try completeBlockResult.get()
-            stateLock.lock()
-            completeBlockCalled = true
-            stateLock.unlock()
-        } catch {
-            throw error
-        }
-    }
-
-    func getVO2Max() async throws -> VO2MaxResponse {
-        await trackCall(.getVO2Max)
-        return try vo2MaxResult.get()
-    }
-
-    func getEFHistory() async throws -> [EFDataPoint] {
-        await trackCall(.getEFHistory)
-        return try efHistoryResult.get()
     }
 }
 
@@ -334,45 +189,6 @@ func dateInCurrentWeek(_ dayOffset: Int, from referenceDate: Date = Date(), cale
     return calendar.date(byAdding: .day, value: dayOffset, to: startOfWeek) ?? referenceDate
 }
 
-func makeCyclingActivity(
-    id: String = "activity-\(UUID().uuidString)",
-    date: Date = Date(),
-    type: CyclingActivityModel.CyclingWorkoutType = .fun,
-    durationMinutes: Int = 60,
-    normalizedPower: Double = 200,
-    avgHeartRate: Double = 150,
-    tss: Double = 100
-) -> CyclingActivityModel {
-    CyclingActivityModel(
-        id: id,
-        date: date,
-        durationMinutes: durationMinutes,
-        normalizedPower: normalizedPower,
-        avgHeartRate: avgHeartRate,
-        tss: tss,
-        type: type,
-        ef: nil,
-        peak5MinPower: nil,
-        hrCompleteness: nil
-    )
-}
-
-func makeWeeklySession(
-    order: Int,
-    sessionType: SessionType,
-    pelotonClassTypes: [String] = [],
-    suggestedDurationMinutes: Int = 60,
-    description: String = ""
-) -> WeeklySessionModel {
-    WeeklySessionModel(
-        order: order,
-        sessionType: sessionType.rawValue,
-        pelotonClassTypes: pelotonClassTypes.isEmpty ? [sessionType.rawValue] : pelotonClassTypes,
-        suggestedDurationMinutes: suggestedDurationMinutes,
-        description: description.isEmpty ? sessionType.displayName : description
-    )
-}
-
 func makeExerciseHistoryEntry(
     workoutId: String,
     date: Date,
@@ -418,17 +234,17 @@ final class MockTodayCoachAPIClient: TodayCoachAPIClientProtocol {
     )
 
     private(set) var getTodayCoachRecommendationCallCount = 0
-    private(set) var lastGetTodayCoachRecommendationRequest: CyclingCoachRequestBody?
+    private(set) var lastGetTodayCoachRecommendationRequest: TodayCoachRequestBody?
 
     /// Optional async gate to hold requests in-flight for loading-state assertions
-    var requestGate: CyclingAPICallGate?
+    var requestGate: AsyncAPICallGate?
 
-    func getTodayCoachRecommendation(_ body: CyclingCoachRequestBody) async throws -> TodayCoachRecommendation {
+    func getTodayCoachRecommendation(_ body: TodayCoachRequestBody) async throws -> TodayCoachRecommendation {
         getTodayCoachRecommendationCallCount += 1
         lastGetTodayCoachRecommendationRequest = body
 
         // Mark as started if a gate is configured
-        await requestGate?.markStarted(.getCyclingActivities)
+        await requestGate?.markStarted()
 
         // Wait for release if a gate is configured
         if let gate = requestGate {
@@ -442,7 +258,7 @@ final class MockTodayCoachAPIClient: TodayCoachAPIClientProtocol {
 // MARK: - Today Coach fixture helpers
 
 /// Create a TodayCoachRecommendation with optional section payloads.
-/// By default, all sections are included. Pass nil for lifting, cycling, or weight
+/// By default, all sections are included. Pass nil for lifting or weight
 /// to test partial-data scenarios.
 func makeTodayCoachRecommendation(
     dailyBriefing: String = "Here's your day ahead.",
@@ -458,10 +274,6 @@ func makeTodayCoachRecommendation(
         ),
         priority: "normal"
     ),
-    cycling: TodayCoachRecommendation.CyclingSection? = TodayCoachRecommendation.CyclingSection(
-        insight: "Great day for an easy spin.",
-        session: nil
-    ),
     stretching: TodayCoachRecommendation.StretchingSection? = nil,
     meditation: TodayCoachRecommendation.MeditationSection? = nil,
     weight: TodayCoachRecommendation.WeightSection? = TodayCoachRecommendation.WeightSection(
@@ -475,7 +287,6 @@ func makeTodayCoachRecommendation(
             status: "great"
         ),
         lifting: lifting,
-        cycling: cycling,
         stretching: stretching ?? TodayCoachRecommendation.StretchingSection(
             insight: "Focus on lower body.",
             suggestedRegions: ["hamstrings", "quads"],

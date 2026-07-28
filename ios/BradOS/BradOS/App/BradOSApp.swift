@@ -11,7 +11,6 @@ struct BradOSApp: App {
     @StateObject private var stravaAuthManager = StravaAuthManager()
     @StateObject private var healthKitManager = HealthKitManager()
     @StateObject private var healthKitSyncService: HealthKitSyncService
-    @StateObject private var cyclingViewModel = CyclingViewModel()
     @StateObject private var watchWorkoutController = WatchWorkoutController()
 
     @Environment(\.scenePhase) private var scenePhase
@@ -59,7 +58,6 @@ struct BradOSApp: App {
                 .environmentObject(stravaAuthManager)
                 .environmentObject(healthKitManager)
                 .environmentObject(healthKitSyncService)
-                .environmentObject(cyclingViewModel)
                 .environmentObject(watchWorkoutController)
                 .environment(\.apiClient, APIClient.shared)
                 .preferredColorScheme(.dark)
@@ -161,7 +159,6 @@ class AppState: ObservableObject {
     @Published var isShowingStretch: Bool = false
     @Published var isShowingMeditation: Bool = false
     @Published var isShowingMealPlan: Bool = false
-    @Published var isShowingCycling: Bool = false
 
     /// Selected workout ID for navigation to workout detail
     @Published var selectedWorkoutId: String?

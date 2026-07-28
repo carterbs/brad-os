@@ -24,18 +24,6 @@ describe('todayCoachResponseSchema', () => {
           },
           priority: 'high',
         },
-        cycling: {
-          insight: 'Keep today light.',
-          session: {
-            type: 'recovery',
-            durationMinutes: 20,
-            pelotonClassTypes: ['Recovery Ride'],
-            pelotonTip: 'Start with a 20-min Recovery Ride.',
-            targetTSS: { min: 20, max: 30 },
-            targetZones: 'Zone 1-2 recovery',
-          },
-          priority: 'skip',
-        },
         stretching: {
           insight: 'Spend extra time on lower body.',
           suggestedRegions: ['hamstrings', 'quads'],
@@ -56,7 +44,7 @@ describe('todayCoachResponseSchema', () => {
     expect(todayCoachResponseSchema.safeParse(payload).success).toBe(true);
   });
 
-  it('accepts nullable sections for lifting and cycling', () => {
+  it('accepts a nullable lifting section', () => {
     const payload = {
       dailyBriefing: 'Nothing required today.',
       sections: {
@@ -65,7 +53,6 @@ describe('todayCoachResponseSchema', () => {
           status: 'great',
         },
         lifting: null,
-        cycling: null,
         stretching: {
           insight: 'Stretching is optional.',
           suggestedRegions: ['back'],
@@ -93,7 +80,6 @@ describe('todayCoachResponseSchema', () => {
           status: 'excellent',
         },
         lifting: null,
-        cycling: null,
         stretching: {
           insight: 'Stretch.',
           suggestedRegions: ['back'],
@@ -124,7 +110,6 @@ describe('todayCoachResponseSchema', () => {
           insight: 'Need workout details.',
           priority: 'normal',
         },
-        cycling: null,
         stretching: {
           insight: 'Stretch.',
           suggestedRegions: ['back'],
@@ -190,25 +175,7 @@ describe('todayCoachRequestSchema', () => {
     cyclingContext: {
       ftp: 255,
       trainingLoad: { atl: 45, ctl: 52, tsb: 7 },
-      weekInBlock: 3,
-      totalWeeks: 8,
-      nextSession: {
-        type: 'tempo',
-        description: 'Tempo intervals',
-      },
       recentActivities: [],
-      vo2max: {
-        current: 51.2,
-        date: '2026-02-20',
-        method: 'ftp_derived',
-        history: [{ date: '2026-02-20', value: 51.2 }],
-      },
-      efTrend: {
-        recent4WeekAvg: 1.15,
-        previous4WeekAvg: 1.1,
-        trend: 'improving',
-      },
-      ftpStaleDays: 14,
       lastRideStreams: {
         avgPower: 192,
         maxPower: 420,

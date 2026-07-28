@@ -53,10 +53,10 @@ HealthView/HealthMetricHistoryView -> HealthMetricHistoryViewModel -> APIClient 
 - Recovery scoring: HRV vs baseline (60-day median), RHR vs baseline, sleep hours/efficiency/deep%
 - Recovery states: ready (score >= 70), moderate (50-69), recover (< 50)
 - Bulk sync endpoints support batch upsert with date-keyed documents (idempotent)
-- Recovery data feeds into the cycling coach for training adjustments
+- Recovery and stored ride data feed the unified Today Coach
 - HealthKitSyncService handles both daily sync and historical backfill
 
 ## See Also
 - [Today](today.md) — recovery/readiness shown in daily briefing
-- [Cycling](cycling.md) — VO2 max and efficiency factor metrics
+- [Cycling Data](cycling.md) — recent ride workload used as recovery context
 - [Profile](profile.md) — health settings and metric history views

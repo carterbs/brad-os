@@ -1,6 +1,23 @@
 import Foundation
 import BradOSCore
 
+struct TodayCoachRequestBody: Encodable {
+    let recovery: RecoverySnapshot
+
+    struct RecoverySnapshot: Encodable {
+        let date: String
+        let hrvMs: Double
+        let hrvVsBaseline: Double
+        let rhrBpm: Double
+        let rhrVsBaseline: Double
+        let sleepHours: Double
+        let sleepEfficiency: Double
+        let deepSleepPercent: Double
+        let score: Int
+        let state: String
+    }
+}
+
 // MARK: - Today Coach Client
 
 /// Client for interacting with the Today Coach AI API
@@ -49,8 +66,8 @@ class TodayCoachClient: ObservableObject {
         dateFormatter.locale = Locale(identifier: "en_US_POSIX")
         dateFormatter.timeZone = TimeZone(identifier: "UTC")
 
-        let requestBody = CyclingCoachRequestBody(
-            recovery: CyclingCoachRequestBody.RecoverySnapshot(
+        let requestBody = TodayCoachRequestBody(
+            recovery: TodayCoachRequestBody.RecoverySnapshot(
                 date: dateFormatter.string(from: recovery.date),
                 hrvMs: recovery.hrvMs,
                 hrvVsBaseline: recovery.hrvVsBaseline,

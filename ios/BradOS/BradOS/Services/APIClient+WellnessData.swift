@@ -1,7 +1,7 @@
 import Foundation
 import BradOSCore
 
-// MARK: - Strava, Cycling, Weight & Health Sync, Calendar
+// MARK: - Strava, Today Coach, Weight & Health Sync, Calendar
 
 extension APIClient {
 
@@ -25,97 +25,9 @@ extension APIClient {
         ))
     }
 
-    // MARK: - Cycling
+    // MARK: - Today Coach
 
-    func getCyclingActivities(limit: Int? = nil) async throws -> [CyclingActivityModel] {
-        var queryItems: [URLQueryItem]?
-        if let limit = limit {
-            queryItems = [URLQueryItem(name: "limit", value: String(limit))]
-        }
-        return try await get("/cycling/activities", queryItems: queryItems, cacheTTL: CacheTTL.medium)
-    }
-
-    func getCyclingTrainingLoad() async throws -> CyclingTrainingLoadResponse {
-        try await get("/cycling/training-load", cacheTTL: CacheTTL.medium)
-    }
-
-    func getCurrentFTP() async throws -> FTPEntryResponse? {
-        try await getOptional("/cycling/ftp", cacheTTL: CacheTTL.long)
-    }
-
-    func getCurrentBlock() async throws -> TrainingBlockResponse? {
-        try await getOptional("/cycling/block", cacheTTL: CacheTTL.long)
-    }
-
-    func getVO2Max() async throws -> VO2MaxResponse {
-        try await get("/cycling/vo2max", cacheTTL: CacheTTL.long)
-    }
-
-    func getEFHistory() async throws -> [EFDataPoint] {
-        try await get("/cycling/ef", cacheTTL: CacheTTL.medium)
-    }
-
-    func createFTP(value: Int, date: String, source: String = "manual") async throws -> FTPEntryResponse {
-        struct CreateFTPBody: Encodable {
-            let value: Int
-            let date: String
-            let source: String
-        }
-        let result: FTPEntryResponse = try await post(
-            "/cycling/ftp",
-            body: CreateFTPBody(value: value, date: date, source: source)
-        )
-        invalidateCache(matching: "/cycling/ftp")
-        return result
-    }
-
-    func getFTPHistory() async throws -> [FTPEntryResponse] {
-        try await get("/cycling/ftp/history", cacheTTL: CacheTTL.long)
-    }
-
-    func createBlock(
-        startDate: String,
-        endDate: String,
-        goals: [String],
-        daysPerWeek: Int? = nil,
-        weeklySessions: [WeeklySessionModel]? = nil,
-        preferredDays: [Int]? = nil,
-        experienceLevel: ExperienceLevel? = nil,
-        weeklyHoursAvailable: Double? = nil
-    ) async throws -> TrainingBlockResponse {
-        struct CreateBlockBody: Encodable {
-            let startDate: String
-            let endDate: String
-            let goals: [String]
-            let daysPerWeek: Int?
-            let weeklySessions: [WeeklySessionModel]?
-            let preferredDays: [Int]?
-            let experienceLevel: String?
-            let weeklyHoursAvailable: Double?
-        }
-        let result: TrainingBlockResponse = try await post("/cycling/block", body: CreateBlockBody(
-            startDate: startDate,
-            endDate: endDate,
-            goals: goals,
-            daysPerWeek: daysPerWeek,
-            weeklySessions: weeklySessions,
-            preferredDays: preferredDays,
-            experienceLevel: experienceLevel?.rawValue,
-            weeklyHoursAvailable: weeklyHoursAvailable
-        ))
-        invalidateCache(matching: "/cycling/block")
-        return result
-    }
-
-    func generateSchedule(_ request: GenerateScheduleRequest) async throws -> GenerateScheduleResponse {
-        try await post("/cycling-coach/generate-schedule", body: request)
-    }
-
-    func getCoachRecommendation(_ body: CyclingCoachRequestBody) async throws -> CyclingCoachRecommendation {
-        try await post("/cycling-coach/recommend", body: body)
-    }
-
-    func getTodayCoachRecommendation(_ body: CyclingCoachRequestBody) async throws -> TodayCoachRecommendation {
+    func getTodayCoachRecommendation(_ body: TodayCoachRequestBody) async throws -> TodayCoachRecommendation {
         // Backend expects JS-style offset: minutes *behind* UTC (positive = west of UTC)
         // iOS secondsFromGMT is seconds *ahead* of UTC (negative = west of UTC), so negate
         let timezoneOffset = -(TimeZone.current.secondsFromGMT() / 60)
@@ -130,12 +42,6 @@ extension APIClient {
         invalidateCache(matching: "/cycling/activities")
         invalidateCache(matching: "/cycling/training-load")
         return result
-    }
-
-    func completeBlock(id: String) async throws {
-        struct CompleteResponse: Decodable { let completed: Bool }
-        let _: CompleteResponse = try await put("/cycling/block/\(id)/complete")
-        invalidateCache(matching: "/cycling/block")
     }
 
     // MARK: - Weight & Health Sync

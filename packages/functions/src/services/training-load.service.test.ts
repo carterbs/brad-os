@@ -5,23 +5,13 @@ import {
   calculateATL,
   calculateCTL,
   calculateTSB,
-  getWeekInBlock,
   buildDailyTSSArray,
   calculateTrainingLoadMetrics,
-  determineNextSession,
   getWeekBoundaries,
   type DailyTSS,
 } from './training-load.service.js';
-import type { WeeklySession } from '../shared.js';
 
 describe('Training Load Service', () => {
-  const toLocalDateString = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
   describe('calculateTSS', () => {
     it('should calculate TSS correctly for a 1-hour ride at FTP', () => {
       // 1 hour at FTP should give TSS of 100
@@ -180,46 +170,6 @@ describe('Training Load Service', () => {
     });
   });
 
-  describe('getWeekInBlock', () => {
-    it('should return 1 on the first day of the block', () => {
-      const week = getWeekInBlock('2024-01-01', '2024-01-01');
-      expect(week).toBe(1);
-    });
-
-    it('should return 1 during the first week', () => {
-      const week = getWeekInBlock('2024-01-01', '2024-01-06');
-      expect(week).toBe(1);
-    });
-
-    it('should return 2 at the start of the second week', () => {
-      const week = getWeekInBlock('2024-01-01', '2024-01-08');
-      expect(week).toBe(2);
-    });
-
-    it('should return 8 for the eighth week', () => {
-      const week = getWeekInBlock('2024-01-01', '2024-02-19');
-      expect(week).toBe(8);
-    });
-
-    it('should cap at 8 weeks for dates beyond block duration', () => {
-      const week = getWeekInBlock('2024-01-01', '2024-03-15');
-      expect(week).toBe(8);
-    });
-
-    it('should return 0 for dates before block start', () => {
-      const week = getWeekInBlock('2024-01-15', '2024-01-01');
-      expect(week).toBe(0);
-    });
-
-    it('should use current date when not specified', () => {
-      const today = new Date();
-      const startDate = new Date(today);
-      startDate.setDate(startDate.getDate() - 14); // 2 weeks ago
-      const week = getWeekInBlock(toLocalDateString(startDate));
-      expect(week).toBe(3);
-    });
-  });
-
   describe('buildDailyTSSArray', () => {
     it('should fill in missing days with 0 TSS', () => {
       const activities: DailyTSS[] = [
@@ -317,100 +267,6 @@ describe('Training Load Service', () => {
       // resulting in a lower CTL. However, due to EMA math, the difference
       // might be subtle. At minimum, longMetrics should not be higher.
       expect(shortMetrics.ctl).toBeGreaterThanOrEqual(longMetrics.ctl);
-    });
-  });
-
-  describe('determineNextSession', () => {
-    const threeSessions: WeeklySession[] = [
-      {
-        order: 1,
-        sessionType: 'vo2max',
-        pelotonClassTypes: ['Power Zone Max', 'HIIT & Hills'],
-        suggestedDurationMinutes: 30,
-        description: 'High-intensity',
-      },
-      {
-        order: 2,
-        sessionType: 'threshold',
-        pelotonClassTypes: ['Power Zone', 'Sweat Steady'],
-        suggestedDurationMinutes: 45,
-        description: 'Sustained effort',
-      },
-      {
-        order: 3,
-        sessionType: 'fun',
-        pelotonClassTypes: ['Music', 'Theme'],
-        suggestedDurationMinutes: 30,
-        description: 'Fun ride',
-      },
-    ];
-
-    it('should return the first session when no activities completed', () => {
-      const result = determineNextSession(threeSessions, []);
-      expect(result).toEqual(expect.objectContaining({ order: 1, sessionType: 'vo2max' }));
-    });
-
-    it('should return the second session after first is completed', () => {
-      const activities = [{ type: 'vo2max' }];
-      const result = determineNextSession(threeSessions, activities);
-      expect(result).toEqual(expect.objectContaining({ order: 2, sessionType: 'threshold' }));
-    });
-
-    it('should return the third session after first two are completed', () => {
-      const activities = [{ type: 'vo2max' }, { type: 'threshold' }];
-      const result = determineNextSession(threeSessions, activities);
-      expect(result).toEqual(expect.objectContaining({ order: 3, sessionType: 'fun' }));
-    });
-
-    it('should return null when all sessions are completed', () => {
-      const activities = [{ type: 'vo2max' }, { type: 'threshold' }, { type: 'fun' }];
-      const result = determineNextSession(threeSessions, activities);
-      expect(result).toBeNull();
-    });
-
-    it('should handle activities in any order', () => {
-      const activities = [{ type: 'threshold' }, { type: 'vo2max' }];
-      const result = determineNextSession(threeSessions, activities);
-      expect(result).toEqual(expect.objectContaining({ order: 3, sessionType: 'fun' }));
-    });
-
-    it('should not double-count a single activity for two sessions', () => {
-      const vo2maxSession = threeSessions[0];
-      const funSession = threeSessions[2];
-      const sessions: WeeklySession[] = [
-        { ...vo2maxSession },
-        { ...vo2maxSession, order: 2 },
-        { ...funSession, order: 3 },
-      ];
-      const activities = [{ type: 'vo2max' }];
-      const result = determineNextSession(sessions, activities);
-      expect(result).toEqual(expect.objectContaining({ order: 2 }));
-    });
-
-    it('should return null for empty session list', () => {
-      const result = determineNextSession([], []);
-      expect(result).toBeNull();
-    });
-
-    it('should ignore unrecognized activity types', () => {
-      const activities = [{ type: 'unknown' }];
-      const result = determineNextSession(threeSessions, activities);
-      expect(result).toEqual(expect.objectContaining({ order: 1 }));
-    });
-
-    it('should handle recovery activity type matching', () => {
-      const sessions: WeeklySession[] = [
-        {
-          order: 1,
-          sessionType: 'recovery',
-          pelotonClassTypes: ['Low Impact', 'Recovery Ride'],
-          suggestedDurationMinutes: 20,
-          description: 'Easy ride',
-        },
-      ];
-      const activities = [{ type: 'recovery' }];
-      const result = determineNextSession(sessions, activities);
-      expect(result).toBeNull();
     });
   });
 

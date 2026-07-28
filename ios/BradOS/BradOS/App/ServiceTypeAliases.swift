@@ -23,9 +23,6 @@ typealias WatchWorkoutService = WatchWorkoutController
 /// Workout rest interval timer
 typealias RestTimerService = RestTimerManager
 
-/// AI cycling coach client
-typealias CyclingCoachService = CyclingCoachClient
-
 /// AI today coach daily briefing client
 typealias TodayCoachService = TodayCoachClient
 

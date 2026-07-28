@@ -10,9 +10,6 @@ import * as cyclingService from './firestore-cycling.service.js';
 import * as recoveryService from './firestore-recovery.service.js';
 import {
   calculateTrainingLoadMetrics,
-  getWeekInBlock,
-  determineNextSession,
-  getWeekBoundaries,
   type DailyTSS,
 } from './training-load.service.js';
 import {
@@ -289,7 +286,7 @@ function computePowerZoneDistribution(watts: number[], ftp: number): Record<stri
 function buildStreamSummary(
   streams: ActivityStreamData,
   activity: CyclingActivity,
-  ftp: number
+  ftp: number | null
 ): RecentRideStreamSummary | null {
   const watts = streams.watts;
   if (!watts || watts.length === 0) return null;
@@ -329,46 +326,30 @@ function buildStreamSummary(
     avgCadence,
     sampleCount: streams.sampleCount,
     durationSeconds: watts.length,
-    powerZoneDistribution: computePowerZoneDistribution(watts, ftp),
+    powerZoneDistribution: ftp === null ? {} : computePowerZoneDistribution(watts, ftp),
   };
 }
 
 /**
  * Build cycling context for the Today Coach.
- * Returns null if cycling is not set up (no FTP).
+ * Reads BradOS's stored copy of recent Strava rides. This is observed context,
+ * not a source of ride prescriptions or a training schedule.
  */
 async function buildCyclingContext(userId: string): Promise<TodayCoachCyclingContext | null> {
-  const [ftp, block, activities] = await Promise.all([
+  const [ftp, activities] = await Promise.all([
     cyclingService.getCurrentFTP(userId),
-    cyclingService.getCurrentTrainingBlock(userId),
     cyclingService.getCyclingActivities(userId, 14),
   ]);
 
-  if (!ftp) {
+  if (activities.length === 0) {
     return null;
   }
 
-  // Training load (14 days is sufficient for ATL/TSB-based daily recommendations)
+  // Training load summarizes the recovery impact of recent rides.
   const dailyTSS: DailyTSS[] = activities.map((a) => ({ date: a.date, tss: a.tss }));
   const metrics = calculateTrainingLoadMetrics(dailyTSS, 14);
 
-  // Week in block
-  const weekInBlock = block ? getWeekInBlock(block.startDate) : null;
-  const totalWeeks = block ? 8 : null;
-
-  // Next session
   const now = new Date();
-  const weeklySessions = block?.weeklySessions ?? [];
-  const weekBoundaries = getWeekBoundaries(now);
-  const thisWeekActivities = activities.filter((a) => {
-    const actDate = a.date.split('T')[0] ?? a.date;
-    return actDate >= weekBoundaries.start && actDate <= weekBoundaries.end;
-  });
-  const nextSessionRaw = determineNextSession(weeklySessions, thisWeekActivities);
-  const nextSession = nextSessionRaw
-    ? { type: nextSessionRaw.sessionType, description: nextSessionRaw.description }
-    : null;
-
   // Recent activities (trimmed for token efficiency)
   const recentActivities: TodayCoachCyclingActivitySummary[] = activities.slice(0, 7).map((a) => ({
     date: a.date,
@@ -376,51 +357,6 @@ async function buildCyclingContext(userId: string): Promise<TodayCoachCyclingCon
     durationMinutes: a.durationMinutes,
     tss: a.tss,
   }));
-
-  // VO2 max
-  const [latestVO2Max, vo2maxHistory] = await Promise.all([
-    cyclingService.getLatestVO2Max(userId),
-    cyclingService.getVO2MaxHistory(userId, 5),
-  ]);
-  const vo2max = latestVO2Max
-    ? {
-        current: latestVO2Max.value,
-        date: latestVO2Max.date,
-        method: latestVO2Max.method,
-        history: vo2maxHistory.map((e) => ({ date: e.date, value: e.value })),
-      }
-    : null;
-
-  // EF trend
-  const withEF = activities.filter((a) => a.ef !== undefined && a.ef > 0);
-  let efTrend = null;
-  if (withEF.length >= 4) {
-    const fourWeeksAgo = new Date();
-    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-    const eightWeeksAgo = new Date();
-    eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
-
-    const fourWeeksAgoStr = formatDate(fourWeeksAgo);
-    const eightWeeksAgoStr = formatDate(eightWeeksAgo);
-
-    const recent = withEF.filter((a) => (a.date.split('T')[0] ?? a.date) >= fourWeeksAgoStr);
-    const previous = withEF.filter((a) => {
-      const d = a.date.split('T')[0] ?? a.date;
-      return d >= eightWeeksAgoStr && d < fourWeeksAgoStr;
-    });
-
-    if (recent.length > 0 && previous.length > 0) {
-      const recentAvg = recent.reduce((sum, a) => sum + (a.ef ?? 0), 0) / recent.length;
-      const previousAvg = previous.reduce((sum, a) => sum + (a.ef ?? 0), 0) / previous.length;
-      const changePercent = ((recentAvg - previousAvg) / previousAvg) * 100;
-      const trend = changePercent > 3 ? 'improving' as const : changePercent < -3 ? 'declining' as const : 'stable' as const;
-      efTrend = {
-        recent4WeekAvg: Math.round(recentAvg * 100) / 100,
-        previous4WeekAvg: Math.round(previousAvg * 100) / 100,
-        trend,
-      };
-    }
-  }
 
   // Stream summary for the most recent ride within 24 hours
   let lastRideStreams: RecentRideStreamSummary | null = null;
@@ -432,22 +368,16 @@ async function buildCyclingContext(userId: string): Promise<TodayCoachCyclingCon
       if (hoursSince <= 24) {
         const streams = await cyclingService.getActivityStreams(userId, mostRecent.id);
         if (streams) {
-          lastRideStreams = buildStreamSummary(streams, mostRecent, ftp.value);
+          lastRideStreams = buildStreamSummary(streams, mostRecent, ftp?.value ?? null);
         }
       }
     }
   }
 
   return {
-    ftp: ftp.value,
+    ftp: ftp?.value ?? null,
     trainingLoad: { atl: metrics.atl, ctl: metrics.ctl, tsb: metrics.tsb },
-    weekInBlock,
-    totalWeeks,
-    nextSession,
     recentActivities,
-    vo2max,
-    efTrend,
-    ftpStaleDays: daysSince(ftp.date),
     lastRideStreams,
   };
 }

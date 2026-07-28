@@ -17,8 +17,6 @@ struct ContentView: View {
                 MeditationView()
             } else if appState.isShowingMealPlan {
                 MealPlanView()
-            } else if appState.isShowingCycling {
-                CyclingTabView()
             } else {
                 MainTabView()
             }

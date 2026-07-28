@@ -62,8 +62,8 @@ extension StravaConnectionView {
 
                 HStack {
                     Text(
-                        "New Peloton rides will automatically sync " +
-                        "to your training log."
+                        "New rides will automatically sync to BradOS " +
+                        "as context for Today Coach."
                     )
                         .font(.caption)
                         .foregroundStyle(Theme.textSecondary)
@@ -170,7 +170,7 @@ extension StravaConnectionView {
                     .font(.system(size: 48))
                     .foregroundColor(Color.orange)
 
-                Text("Connect Strava to sync your Peloton rides")
+                Text("Connect Strava to give Today Coach context from your rides")
                     .multilineTextAlignment(.center)
                     .foregroundStyle(Theme.textSecondary)
 
@@ -217,7 +217,7 @@ extension StravaConnectionView {
             SectionHeader(title: "What Gets Synced")
 
             VStack(spacing: 0) {
-                FeatureRow(icon: "bicycle", text: "Peloton ride data")
+                FeatureRow(icon: "bicycle", text: "Ride activity data")
 
                 Divider()
                     .background(Theme.strokeSubtle)

@@ -27,17 +27,6 @@ struct TodayCoachModelsTests {
                 "status": "pending"
               }
             },
-            "cycling": {
-              "insight": "Threshold ride",
-              "session": {
-                "type": "interval",
-                "durationMinutes": 45,
-                "targetTSS": {"min": 65, "max": 75},
-                "targetZones": "Power Zone 4",
-                "pelotonClassTypes": ["Power Zone"],
-                "pelotonTip": "Do a PZ class"
-              }
-            },
             "stretching": {
               "insight": "Stretch hips",
               "suggestedRegions": ["hips", "lower-back"],
@@ -77,7 +66,6 @@ struct TodayCoachModelsTests {
           "sections": {
             "recovery": {"insight": "Moderate", "status": "good"},
             "lifting": null,
-            "cycling": null,
             "stretching": {
               "insight": "Mobility focus",
               "suggestedRegions": ["ankles"],
@@ -97,7 +85,6 @@ struct TodayCoachModelsTests {
         let result = try decode(json)
 
         #expect(result.sections.lifting == nil)
-        #expect(result.sections.cycling == nil)
         #expect(result.sections.weight == nil)
         #expect(result.sections.recovery.statusColor == .good)
     }

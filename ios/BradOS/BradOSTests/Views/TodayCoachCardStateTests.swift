@@ -150,10 +150,9 @@ struct TodayCoachCardStateTests {
 
     @Test
     func summaryStateWithPartialSectionsNil() {
-        // Create a recommendation with lifting, cycling, and weight sections as nil
+        // Create a recommendation with lifting and weight sections as nil
         let recommendation = makeTodayCoachRecommendation(
             lifting: nil,
-            cycling: nil,
             weight: nil
         )
 
@@ -172,7 +171,6 @@ struct TodayCoachCardStateTests {
         if case .summary(let rec) = state {
             #expect(rec.dailyBriefing != nil)
             #expect(rec.sections.lifting == nil)
-            #expect(rec.sections.cycling == nil)
             #expect(rec.sections.weight == nil)
             // Required sections should still exist
             #expect(rec.sections.recovery != nil)

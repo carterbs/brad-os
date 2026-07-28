@@ -120,7 +120,6 @@ describe('Today Coach Service', () => {
         sections: {
           recovery: { insight: 'Recovery is good.', status: 'good' },
           lifting: null,
-          cycling: null,
           stretching: {
             insight: 'Stretch your back.',
             suggestedRegions: ['back'],
@@ -245,22 +244,14 @@ describe('Today Coach Service', () => {
   });
 
   describe('isValidTodayCoachResponse - nested field validation', () => {
-    it('should reject cycling session with missing required fields', () => {
+    it('should reject a cycling recommendation output', () => {
       const invalidResponse = {
         dailyBriefing: 'Test',
         sections: {
           recovery: { insight: 'Test', status: 'good' },
           lifting: null,
           cycling: {
-            insight: 'Test',
-            session: {
-              type: 'threshold',
-              durationMinutes: 60,
-              pelotonClassTypes: [],
-              pelotonTip: 'Test tip',
-              // Missing targetTSS and targetZones
-            },
-            priority: 'normal',
+            insight: 'Take a ride today.',
           },
           stretching: { insight: 'Test', suggestedRegions: [], priority: 'normal' },
           meditation: { insight: 'Test', suggestedDurationMinutes: 10, priority: 'normal' },
@@ -277,7 +268,6 @@ describe('Today Coach Service', () => {
         sections: {
           recovery: { insight: 'Test', status: 'good' },
           lifting: null,
-          cycling: null,
           stretching: { insight: 'Test', suggestedRegions: [] },
           meditation: { insight: 'Test', suggestedDurationMinutes: 10, priority: 'normal' },
           weight: null,
@@ -293,7 +283,6 @@ describe('Today Coach Service', () => {
         sections: {
           recovery: { insight: 'Test', status: 'good' },
           lifting: null,
-          cycling: null,
           stretching: { insight: 'Test', suggestedRegions: [], priority: 'normal' },
           meditation: { insight: 'Test', suggestedDurationMinutes: 10 },
           weight: null,
@@ -309,7 +298,6 @@ describe('Today Coach Service', () => {
         sections: {
           recovery: { insight: 'Test', status: 'good' },
           lifting: null,
-          cycling: null,
           stretching: { insight: 'Test', suggestedRegions: [], priority: 'normal' },
           meditation: { insight: 'Test', suggestedDurationMinutes: 10, priority: 'normal' },
           weight: null,
@@ -325,7 +313,6 @@ describe('Today Coach Service', () => {
         sections: {
           recovery: { insight: 'Test', status: 'good' },
           lifting: null,
-          cycling: null,
           stretching: { insight: 'Test', suggestedRegions: [], priority: 'normal' },
           meditation: { insight: 'Test', suggestedDurationMinutes: 10, priority: 'normal' },
           weight: {},
@@ -335,24 +322,12 @@ describe('Today Coach Service', () => {
       expect(isValidTodayCoachResponse(invalidResponse)).toBe(false);
     });
 
-    it('should accept valid response with complete cycling session', () => {
+    it('should accept a complete response without a cycling output section', () => {
       const validResponse = {
         dailyBriefing: 'Great day',
         sections: {
           recovery: { insight: 'Recovery is good.', status: 'good' },
           lifting: null,
-          cycling: {
-            insight: 'Cycling looks good.',
-            session: {
-              type: 'threshold',
-              durationMinutes: 60,
-              pelotonClassTypes: ['Power Zone'],
-              pelotonTip: 'Take the latest class',
-              targetTSS: { min: 100, max: 150 },
-              targetZones: 'Zones 3-4',
-            },
-            priority: 'normal',
-          },
           stretching: { insight: 'Stretch well.', suggestedRegions: ['back'], priority: 'normal' },
           meditation: { insight: 'Meditate.', suggestedDurationMinutes: 10, priority: 'normal' },
           weight: { insight: 'Weight is stable.' },
@@ -395,7 +370,6 @@ describe('Today Coach Service', () => {
                 sections: {
                   recovery: { insight: 'Test', status: 'good' },
                   lifting: null,
-                  cycling: null,
                   stretching: { insight: 'Test', suggestedRegions: [], priority: 'normal' },
                   meditation: { insight: 'Test', suggestedDurationMinutes: 10 },
                   weight: null,
@@ -439,7 +413,6 @@ describe('Today Coach Service', () => {
         sections: {
           recovery: { insight: 'Recovery score is 75/100.', status: 'good' },
           lifting: null,
-          cycling: null,
           stretching: { insight: 'Consider stretching.', suggestedRegions: ['back'], priority: 'normal' },
           meditation: { insight: 'Short session recommended.', suggestedDurationMinutes: 10, priority: 'normal' },
           weight: null,
@@ -470,7 +443,6 @@ describe('Today Coach Service', () => {
         sections: {
           recovery: { insight: 'Recovery is good.', status: 'good' },
           lifting: null,
-          cycling: null,
           stretching: { insight: 'Stretch.', suggestedRegions: [], priority: 'normal' },
           meditation: { insight: 'Meditate.', suggestedDurationMinutes: 10, priority: 'normal' },
           weight: null,

@@ -18,7 +18,6 @@ import { guidedMeditationsApp } from './handlers/guidedMeditations.js';
 import { stretchesApp } from './handlers/stretches.js';
 import { cyclingApp } from './handlers/cycling.js';
 import { stravaWebhookApp } from './handlers/strava-webhook.js';
-import { cyclingCoachApp } from './handlers/cycling-coach.js';
 import { todayCoachApp } from './handlers/today-coach.js';
 import { healthSyncApp } from './handlers/health-sync.js';
 
@@ -74,11 +73,6 @@ export const API_ROUTE_MOUNTS = [
     routePath: 'strava',
     handlerFile: 'strava-webhook',
     app: stravaWebhookApp,
-  },
-  {
-    routePath: 'cycling-coach',
-    handlerFile: 'cycling-coach',
-    app: cyclingCoachApp,
   },
   {
     routePath: 'today-coach',

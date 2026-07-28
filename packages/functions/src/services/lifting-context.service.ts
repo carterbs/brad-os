@@ -4,7 +4,7 @@
  * Shared helpers for building lifting workout context.
  * Used by both the cycling coach and today coach.
  *
- * Extracted from cycling-coach.ts to avoid duplication.
+ * Shared by the unified Today Coach.
  */
 
 import {

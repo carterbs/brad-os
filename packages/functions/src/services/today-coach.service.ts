@@ -4,11 +4,8 @@
  * Integrates with OpenAI to generate a personalized daily wellness briefing
  * analyzing recovery, lifting, cycling, stretching, meditation, and weight data.
  *
- * Follows the same pattern as cycling-coach.service.ts:
- * - System prompt with domain-specific instructions
- * - Response validation with type guard
- * - Fallback response when OpenAI is unavailable
- * - Retry with exponential backoff
+ * Cycling is treated as observed workload context from stored Strava rides.
+ * This service does not prescribe cycling sessions or training plans.
  */
 
 import OpenAI from 'openai';
@@ -149,34 +146,22 @@ The request includes completedActivities with boolean flags and timestamps:
 - Connect completed/recent lifting sessions to stretching needs (e.g., "You crushed leg day this morning — prioritize hip and hamstring stretching")
 - If todaysWorkout is null, don't force a lifting section — focus on other domains
 
-## Cycling Recommendations
-- If cycling context is provided (FTP set up), include Peloton class type recommendations
-- Peloton Class Types:
-  - VO2max: Power Zone Max, HIIT & Hills, Tabata
-  - Threshold: Power Zone, Sweat Steady, Climb
-  - Endurance: Power Zone Endurance, Low Impact (45-60 min)
-  - Tempo: Power Zone, Intervals
-  - Fun: Music/Theme rides, Scenic, Live DJ
-  - Recovery: Low Impact (20 min), Recovery Ride
-- Recovery state adjustments:
-  - Ready: Full planned session, longer class duration
-  - Moderate: Shorter class or easier type
-  - Recover: 20-min Low Impact or Recovery Ride, or skip
-- If FTP is stale (60+ days), suggest retesting
-- If cycling not set up (null context), omit cycling section entirely
+## Cycling Context
+- cyclingContext contains recent rides already synced from Strava into BradOS
+- Treat rides as completed workload that can affect recovery, lifting, stretching, sleep, and fueling
+- You may mention a recent ride in the daily briefing or another relevant section
+- Do not recommend a ride, class, session type, duration, target TSS, target zone, FTP test, or training schedule
+- Do not mention Peloton
+- If cyclingContext is null, make no assumptions about cycling
 
 ## Last Ride Stream Analysis (when lastRideStreams is present)
-If the cycling context includes lastRideStreams, the most recent ride happened within the last 24 hours and has detailed power/HR data. Use it to enrich your cycling insight:
-- **Power zone distribution**: Shows % of time in each Coggan zone (Z1-Z7). Use this to assess whether the ride matched its intended type:
-  - Endurance ride should be mostly Z2 (60%+)
-  - Threshold work should have significant Z4 time (30%+)
-  - VO2max intervals should show Z5 time (15%+)
-  - Recovery ride should be nearly all Z1-Z2
-- **Peak powers**: peak5MinPower and peak20MinPower vs FTP indicate effort intensity. peak20Min > 95% FTP suggests threshold-level sustained effort.
+If the cycling context includes lastRideStreams, the most recent ride happened within the last 24 hours and has detailed power/HR data. Use it to enrich recovery or cross-domain insight:
+- **Power zone distribution**: When present, use it to understand the completed ride's intensity
+- **Peak powers**: When FTP is present, compare peak5MinPower and peak20MinPower with it to understand effort intensity
 - **Normalized power vs avg power**: Large gap (NP/AP > 1.1) means variable/interval ride; close values mean steady-state.
 - **HR completeness**: Below 80% means HR data is unreliable — don't draw conclusions from avgHR/maxHR.
 - **Cadence**: avgCadence < 80 may indicate grinding/strength work; > 95 suggests spin-focused session.
-- Connect findings to today's recommendation: e.g. "Yesterday's ride was mostly Zone 2 endurance — great base building. Today a shorter threshold session would complement that."
+- Connect findings only to recovery or other non-cycling wellness guidance
 
 ## Stretching Recommendations
 - Connect stretching to recent lifting — suggest regions based on what was trained
@@ -203,7 +188,7 @@ Look for and flag these patterns:
 - Heavy lifting + no stretching for 3+ days → suggest targeted stretching (high priority)
 - Poor sleep trend (2+ days low sleep) → suggest meditation, reduce training intensity
 - Weight loss trend + high training load → warn about under-fueling
-- Deload week on lifting → opportunity for harder cycling
+- A demanding recent ride + lower-body lifting → account for combined leg fatigue
 - Meditation streak → note the streak, tie to recovery benefits
 - Recovery in "recover" state → all sections should reflect rest-first messaging
 - All activities done today → acknowledge completions, focus on recovery optimization
@@ -214,7 +199,6 @@ Generate warnings for:
 - Sleep degradation: 2+ days below 6.5 hours
 - Stretching neglect: 3+ days after heavy lifting without stretching
 - Under-fueling: weight loss trend + high training load
-- FTP stale: 60+ days since last test
 
 ## Response Format
 Respond with a valid JSON object matching this exact schema:
@@ -236,18 +220,6 @@ Respond with a valid JSON object matching this exact schema:
       } | null,
       "priority": "high" | "normal" | "rest"
     } | null,
-    "cycling": {
-      "insight": "1-2 sentence insight about today's cycling recommendation",
-      "session": {
-        "type": "vo2max" | "threshold" | "endurance" | "tempo" | "fun" | "recovery" | "off",
-        "durationMinutes": 20 | 30 | 45 | 60,
-        "pelotonClassTypes": ["class type 1", "class type 2"],
-        "pelotonTip": "Short instruction for finding the right class",
-        "targetTSS": { "min": number, "max": number },
-        "targetZones": "Zone description"
-      } | null,
-      "priority": "high" | "normal" | "skip"
-    } | null,
     "stretching": {
       "insight": "1-2 sentence insight about stretching",
       "suggestedRegions": ["region1", "region2"],
@@ -262,13 +234,12 @@ Respond with a valid JSON object matching this exact schema:
       "insight": "1 sentence weight insight"
     } | null
   },
-  "warnings": [{ "type": "overtraining" | "sleep_degradation" | "stretching_neglect" | "under_fueling" | "ftp_stale", "message": "description" }]
+  "warnings": [{ "type": "overtraining" | "sleep_degradation" | "stretching_neglect" | "under_fueling", "message": "description" }]
 }
 
 Important:
 - lifting section is null if no workout is scheduled today
 - If lifting section exists, workout object MUST be populated with all fields from todaysWorkout
-- cycling section is null if cycling is not set up (no FTP)
 - weight section is null if no weight data available
 - warnings is an empty array if no warnings
 - Keep insights concise — 1-2 sentences max per section
@@ -398,11 +369,6 @@ export function createFallbackResponse(request: TodayCoachRequest): TodayCoachRe
       },
       priority: state === 'recover' ? 'rest' : 'normal',
     } : null,
-    cycling: request.cyclingContext !== null ? {
-      insight: state === 'recover' ? 'Recovery ride or rest today.' : 'Check the cycling tab for today\'s recommendation.',
-      session: null,
-      priority: state === 'recover' ? 'skip' : 'normal',
-    } : null,
     stretching: {
       insight: request.stretchingContext.daysSinceLastSession !== null && request.stretchingContext.daysSinceLastSession >= 2
         ? `${request.stretchingContext.daysSinceLastSession} days since last stretch — consider a session today.`
@@ -478,7 +444,6 @@ export async function getTodayCoachRecommendation(
         has_lifting: response.sections.lifting !== null,
         has_lifting_workout: response.sections.lifting?.workout !== null && response.sections.lifting?.workout !== undefined,
         lifting_workout_details: response.sections.lifting?.workout,
-        has_cycling: response.sections.cycling !== null,
         has_weight: response.sections.weight !== null,
         warning_count: response.warnings.length,
       });

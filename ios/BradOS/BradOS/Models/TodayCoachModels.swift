@@ -11,7 +11,6 @@ struct TodayCoachRecommendation: Codable, Equatable {
     struct CoachSections: Codable, Equatable {
         let recovery: RecoverySection
         let lifting: LiftingSection?
-        let cycling: CyclingSection?
         let stretching: StretchingSection
         let meditation: MeditationSection
         let weight: WeightSection?
@@ -42,11 +41,6 @@ struct TodayCoachRecommendation: Codable, Equatable {
             let exerciseCount: Int
             let status: String // pending, in_progress, completed, skipped
         }
-    }
-
-    struct CyclingSection: Codable, Equatable {
-        let insight: String
-        let session: CyclingCoachRecommendation.SessionRecommendation?
     }
 
     struct StretchingSection: Codable, Equatable {
@@ -93,5 +87,4 @@ enum CoachPriority: String, Codable {
     case normal
     case low
     case rest
-    case skip
 }

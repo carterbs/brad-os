@@ -5,7 +5,6 @@ import BradOSCore
 struct TodayDashboardView: View {
     @EnvironmentObject var appState: AppState
     @EnvironmentObject var healthKitManager: HealthKitService
-    @EnvironmentObject var cyclingViewModel: CyclingViewModel
     @StateObject private var viewModel = ViewModelFactory.makeDashboardViewModel()
 
     /// Track last dashboard load to avoid redundant reloads on foreground
@@ -42,18 +41,6 @@ struct TodayDashboardView: View {
                     ) {
                         navigateToWorkout()
                     }
-
-                    // Cycling Card
-                    CyclingDashboardCard(
-                        nextSession: cyclingViewModel.nextSession,
-                        weekProgress: cyclingViewModel.nextSession != nil
-                            ? "\(cyclingViewModel.sessionsCompletedThisWeek + 1) of \(cyclingViewModel.weeklySessionsTotal)"
-                            : nil,
-                        isLoading: cyclingViewModel.isLoading,
-                        onTap: {
-                            appState.isShowingCycling = true
-                        }
-                    )
                 }
                 .padding(Theme.Spacing.space4)
             }
@@ -69,7 +56,6 @@ struct TodayDashboardView: View {
             }
             .task {
                 await viewModel.loadDashboard()
-                await cyclingViewModel.loadData()
                 lastLoadTime = Date()
                 // Request HealthKit authorization and load recovery data
                 if healthKitManager.isHealthDataAvailable {
@@ -85,7 +71,6 @@ struct TodayDashboardView: View {
                         return
                     }
                     await viewModel.loadDashboard()
-                    await cyclingViewModel.loadData()
                     lastLoadTime = Date()
                 }
             }
@@ -107,7 +92,6 @@ struct TodayDashboardView: View {
     TodayDashboardView()
         .environmentObject(AppState())
         .environmentObject(HealthKitManager())
-        .environmentObject(CyclingViewModel())
         .preferredColorScheme(.dark)
 }
 
@@ -115,7 +99,6 @@ struct TodayDashboardView: View {
     TodayDashboardView()
         .environmentObject(AppState())
         .environmentObject(HealthKitManager())
-        .environmentObject(CyclingViewModel())
         .preferredColorScheme(.dark)
 }
 
@@ -123,6 +106,5 @@ struct TodayDashboardView: View {
     TodayDashboardView()
         .environmentObject(AppState())
         .environmentObject(HealthKitManager())
-        .environmentObject(CyclingViewModel())
         .preferredColorScheme(.dark)
 }
