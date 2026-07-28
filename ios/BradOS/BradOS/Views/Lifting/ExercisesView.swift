@@ -133,7 +133,7 @@ struct ExercisesView: View {
                     .foregroundColor(Theme.destructive)
             }
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - Empty State
@@ -240,7 +240,7 @@ struct ExerciseRow: View {
                     .font(.caption)
                     .foregroundColor(Theme.textSecondary)
             }
-            .glassCard()
+            .daymarkSection()
         }
         .buttonStyle(PlainButtonStyle())
         .alert("Delete Exercise?", isPresented: $showingDeleteAlert) {

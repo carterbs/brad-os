@@ -97,7 +97,7 @@ struct ExerciseHistoryView: View {
             .font(.caption)
             .foregroundColor(Theme.textSecondary)
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - Chart Section
@@ -146,7 +146,7 @@ struct ExerciseHistoryView: View {
             }
         }
         .frame(height: 200)
-        .glassCard()
+        .daymarkSection()
     }
 
     @ViewBuilder
@@ -172,7 +172,7 @@ struct ExerciseHistoryView: View {
                 .font(.caption)
                 .foregroundColor(Theme.textSecondary)
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - History Table Section
@@ -217,7 +217,7 @@ struct ExerciseHistoryView: View {
                 }
                 .font(.subheadline)
                 .foregroundColor(Theme.textPrimary)
-                .glassCard()
+                .daymarkSection()
             }
         }
     }

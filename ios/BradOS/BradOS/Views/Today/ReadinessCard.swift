@@ -82,7 +82,7 @@ struct ReadinessCard: View {
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - Not Authorized State
@@ -106,7 +106,7 @@ struct ReadinessCard: View {
                 .foregroundColor(Theme.interactivePrimary)
             }
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - No Data State
@@ -119,7 +119,7 @@ struct ReadinessCard: View {
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - Recovery Content
@@ -156,7 +156,7 @@ struct ReadinessCard: View {
                 .foregroundColor(stateColor(recovery.state))
             }
         }
-        .glassCard()
+        .daymarkSection()
         .auroraGlow(stateColor(recovery.state))
     }
 

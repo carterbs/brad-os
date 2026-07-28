@@ -90,7 +90,7 @@ struct StretchSessionDetailView: View {
                 }
             }
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     @ViewBuilder
@@ -105,7 +105,7 @@ struct StretchSessionDetailView: View {
                 stretchRow(stretch)
             }
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     @ViewBuilder

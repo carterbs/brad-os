@@ -130,7 +130,7 @@ struct GuidedMeditationBrowserView: View {
                                         .font(.caption)
                                         .foregroundColor(Theme.textSecondary)
                                 }
-                                .glassCard()
+                                .daymarkSection()
                             })
                             .buttonStyle(PlainButtonStyle())
                         }
