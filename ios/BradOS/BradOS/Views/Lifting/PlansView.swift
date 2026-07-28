@@ -143,7 +143,7 @@ struct PlanCard: View {
                     }
                 }
             }
-            .glassCard()
+            .daymarkSection(padding: Theme.Spacing.space4)
         }
         .buttonStyle(PlainButtonStyle())
     }
@@ -278,7 +278,7 @@ struct PlanDetailView: View {
                 statColumn(value: "\(totalExercises)", label: "exercises")
             }
             .frame(maxWidth: .infinity)
-            .glassCard()
+            .daymarkListGroup()
         }
     }
 
@@ -322,7 +322,7 @@ struct PlanDetailView: View {
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
                 .frame(maxWidth: .infinity)
-                .glassCard()
+                .daymarkSection(padding: Theme.Spacing.space4)
             } else {
                 Button(
                     action: { /* Start mesocycle with this plan */ },

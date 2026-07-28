@@ -303,7 +303,7 @@ struct WorkoutView: View {
                 GenericBadge(text: "Week \(workout.weekNumber)", color: Theme.interactivePrimary)
             }
         }
-        .glassCard()
+        .daymarkSection(padding: Theme.Spacing.space4)
     }
 
     func formattedDate(_ date: Date) -> String {

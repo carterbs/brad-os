@@ -15,16 +15,17 @@ struct WeekCard: View {
                 workoutRow(workout)
             }
         }
-        .glassCard()
-        .overlay(
-            RoundedRectangle(
-                cornerRadius: Theme.CornerRadius.lg, style: .continuous
-            )
-            .stroke(
-                isActiveWeek ? Theme.interactivePrimary : Theme.strokeSubtle,
-                lineWidth: isActiveWeek ? 2 : 1
-            )
-        )
+        .padding(Theme.Spacing.space4)
+        .overlay(alignment: .top) {
+            Rectangle()
+                .fill(isActiveWeek ? Theme.lifting : Theme.divider)
+                .frame(height: isActiveWeek ? 2 : 1)
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Theme.divider)
+                .frame(height: 1)
+        }
     }
 
     @ViewBuilder
@@ -178,7 +179,7 @@ struct CompletedMesocycleCard: View {
                 .monospacedDigit()
             }
         }
-        .glassCard()
+        .daymarkSection(padding: Theme.Spacing.space4)
     }
 
     private var dateRange: String {

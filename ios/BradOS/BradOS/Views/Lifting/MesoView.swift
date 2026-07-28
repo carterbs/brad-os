@@ -130,7 +130,7 @@ struct MesoView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(Theme.Spacing.space6)
-        .glassCard()
+        .daymarkSection(padding: Theme.Spacing.space5)
     }
 
     private var noActiveMesocycleCard: some View {
@@ -160,7 +160,7 @@ struct MesoView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(Theme.Spacing.space6)
-        .glassCard()
+        .daymarkSection(padding: Theme.Spacing.space5)
     }
 
     // MARK: - Completed Mesocycles Section
@@ -300,11 +300,7 @@ struct ActiveMesocycleCard: View {
                 .frame(height: Theme.Dimensions.progressBarHeight)
             }
         }
-        .glassCard(.elevated)
-        .overlay(
-            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
-                .stroke(Theme.lifting.opacity(0.5), lineWidth: 2)
-        )
+        .daymarkSection(padding: Theme.Spacing.space5)
     }
 
     private var formattedStartDate: String {
