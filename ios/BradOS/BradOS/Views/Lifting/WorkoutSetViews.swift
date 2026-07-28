@@ -120,7 +120,7 @@ struct ExerciseCard: View {
                 }
             }
         }
-        .glassCard()
+        .daymarkSection(padding: Theme.Spacing.space4)
     }
 
     private var completedSets: Int {
@@ -254,7 +254,7 @@ struct SetRow: View {
     }
 
     private var inputBackground: Color {
-        workoutSet.status == .pending ? Color.white.opacity(0.06) : Color.clear
+        workoutSet.status == .pending ? Theme.Background.surface : Color.clear
     }
 
     private var canEdit: Bool {
