@@ -140,7 +140,7 @@ struct StretchCompleteView: View {
                 .accessibilityLabel(stretchAccessibilityLabel(for: completed))
             }
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - Sync Status
@@ -242,7 +242,7 @@ struct StatCard: View {
                 .foregroundColor(Theme.textSecondary)
         }
         .frame(maxWidth: .infinity)
-        .glassCard()
+        .daymarkSection()
     }
 }
 

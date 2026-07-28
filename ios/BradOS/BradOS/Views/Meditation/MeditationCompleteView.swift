@@ -43,7 +43,7 @@ struct MeditationCompleteView: View {
                 StatRow(label: "Actual Duration", value: session.formattedActualDuration)
                 StatRow(label: "Completed", value: session.completedFully ? "Yes" : "Ended Early")
             }
-            .glassCard()
+            .daymarkSection()
 
             // Sync Status
             syncStatusView

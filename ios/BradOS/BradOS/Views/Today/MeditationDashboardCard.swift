@@ -33,7 +33,7 @@ struct MeditationDashboardCard: View {
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - Meditation Content
@@ -75,7 +75,7 @@ struct MeditationDashboardCard: View {
                 actionLink
             }
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - Card Header

@@ -33,7 +33,7 @@ extension RecoveryDetailView {
 
             sleepBar
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     func sleepStat(value: String, unit: String, label: String) -> some View {
@@ -121,7 +121,7 @@ extension RecoveryDetailView {
                 .foregroundColor(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - Helpers

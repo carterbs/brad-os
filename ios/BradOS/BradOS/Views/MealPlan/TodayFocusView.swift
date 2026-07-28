@@ -43,7 +43,7 @@ struct TodayFocusView: View {
             prepAheadMealIds: prepAheadMealIds
         )
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard()
+        .daymarkSection()
         .auroraGlow(Theme.mealPlan, intensity: .primary)
         .animation(.easeInOut(duration: 0.25), value: selectedDayIndex)
     }

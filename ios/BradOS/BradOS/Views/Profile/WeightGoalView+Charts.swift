@@ -155,7 +155,7 @@ extension WeightGoalView {
                 // Legend
                 chartLegend
             }
-            .glassCard()
+            .daymarkSection()
         }
     }
 
@@ -216,7 +216,7 @@ extension WeightGoalView {
                 Divider().background(Theme.divider)
                 projectionWeightRow(projected: projected)
             }
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
         }
     }
 
@@ -287,7 +287,7 @@ extension WeightGoalView {
                 // On track / off track banner
                 predictionBanner(prediction)
             }
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
         }
     }
 

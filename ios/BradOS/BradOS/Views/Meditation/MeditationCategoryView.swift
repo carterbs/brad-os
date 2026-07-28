@@ -49,7 +49,7 @@ struct MeditationCategoryView: View {
                             .font(.caption)
                             .foregroundColor(Theme.textSecondary)
                     }
-                    .glassCard()
+                    .daymarkSection()
                 }
                 .buttonStyle(PlainButtonStyle())
 
@@ -76,7 +76,7 @@ struct MeditationCategoryView: View {
                             .font(.caption)
                             .foregroundColor(Theme.textSecondary)
                     }
-                    .glassCard()
+                    .daymarkSection()
                 }
                 .buttonStyle(PlainButtonStyle())
             }

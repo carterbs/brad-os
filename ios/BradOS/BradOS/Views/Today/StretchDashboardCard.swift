@@ -33,7 +33,7 @@ struct StretchDashboardCard: View {
                 .font(.subheadline)
                 .foregroundColor(Theme.textSecondary)
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - Stretch Content
@@ -56,7 +56,7 @@ struct StretchDashboardCard: View {
                 actionLink
             }
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - Card Header

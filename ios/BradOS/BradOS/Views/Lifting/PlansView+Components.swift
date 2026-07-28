@@ -69,7 +69,7 @@ struct PlanDayCard: View {
                 }
             }
         }
-        .glassCard(padding: 0)
+        .daymarkListGroup()
     }
 }
 
