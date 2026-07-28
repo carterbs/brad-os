@@ -128,6 +128,16 @@ struct MealPlanDashboardCard: View {
 
     private var mealContent: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
+            HStack(spacing: Theme.Spacing.space2) {
+                Rectangle()
+                    .fill(Theme.mealPlan)
+                    .frame(width: 20, height: 2)
+                Text("FOOD, MADE SIMPLE")
+                    .font(.caption.weight(.bold))
+                    .tracking(0.8)
+                    .foregroundColor(Theme.textSecondary)
+            }
+
             if todayMeals.isEmpty {
                 Text("No finalized meal plan")
                     .font(.subheadline)
@@ -153,7 +163,6 @@ struct MealPlanDashboardCard: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassCard()
-        .auroraGlow(Theme.mealPlan, intensity: .primary)
     }
 
     // MARK: - Prep Ahead Section

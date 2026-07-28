@@ -34,20 +34,24 @@ public extension Color {
 /// Color constants shared between the app and widget extension.
 /// The app's Theme.swift references these; the widget imports them directly.
 public enum ThemeColors {
-    // Background
-    public static let bgDeep = Color(hex: "121826")
-    public static let bgBase = Color(hex: "1A2332")
-    public static let bgSurface = Color(hex: "151C2B")
+    // Daymark foundations — shared with WidgetKit.
+    public static let bgDeep = Color(hex: "E8EFED")
+    public static let bgBase = Color(hex: "F4F6F5")
+    public static let bgSurface = Color(hex: "FFFFFF")
+    public static let ink = Color(hex: "24373A")
+    public static let mutedInk = Color(hex: "66777A")
+    public static let highlight = Color(hex: "5D8782")
+    public static let divider = Color(hex: "D8E0DE")
 
     // Activity
-    public static let lifting = Color(hex: "4F6AFF")
-    public static let stretch = Color(hex: "21D6C2")
-    public static let meditation = Color(hex: "B26BFF")
-    public static let mealPlan = Color(hex: "FF7AAE")
-    public static let cycling = Color(hex: "FF9500")  // Orange for cycling
+    public static let lifting = Color(hex: "D97A48")
+    public static let stretch = Color(hex: "4A8E7A")
+    public static let meditation = Color(hex: "8D6FA3")
+    public static let mealPlan = Color(hex: "C96D52")
+    public static let cycling = Color(hex: "E79645")
 
     // Text
-    public static let textPrimary = Color.white.opacity(0.92)
-    public static let textSecondary = Color.white.opacity(0.78)
-    public static let textTertiary = Color.white.opacity(0.56)
+    public static let textPrimary = ink
+    public static let textSecondary = mutedInk
+    public static let textTertiary = Color(hex: "8A989A")
 }
