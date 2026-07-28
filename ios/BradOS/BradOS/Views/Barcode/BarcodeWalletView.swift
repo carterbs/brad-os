@@ -162,7 +162,7 @@ struct BarcodeCardRow: View {
             }
             .padding(Theme.Spacing.space4)
         }
-        .glassCard(padding: 0)
+        .daymarkListGroup()
         .contextMenu {
             Button(action: onEdit) {
                 Label("Edit", systemImage: "pencil")

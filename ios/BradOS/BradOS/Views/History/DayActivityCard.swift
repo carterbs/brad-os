@@ -44,7 +44,7 @@ struct DayActivityCard: View {
 
                 activityDetails
             }
-            .glassCard(.overlay)
+            .daymarkSection()
         }
         .buttonStyle(PlainButtonStyle())
     }

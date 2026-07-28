@@ -99,7 +99,7 @@ struct CalendarView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassCard()
+        .daymarkSection()
     }
 }
 
