@@ -111,7 +111,7 @@ struct HealthSyncView: View {
                 }
             }
         }
-        .glassCard()
+        .daymarkSection()
     }
 
     // MARK: - Sync Buttons
@@ -179,7 +179,7 @@ struct HealthSyncView: View {
                     type: .sleep
                 )
             }
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
         }
     }
 
@@ -258,7 +258,7 @@ struct HealthSyncView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .glassCard(.card, padding: 0)
+            .daymarkListGroup()
         }
     }
 
