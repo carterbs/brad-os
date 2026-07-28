@@ -60,10 +60,11 @@ struct BradOSApp: App {
                 .environmentObject(healthKitSyncService)
                 .environmentObject(watchWorkoutController)
                 .environment(\.apiClient, APIClient.shared)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(.light)
                 .onAppear {
-                    // Request notification permission for rest timer
-                    RestTimerManager.requestNotificationPermission()
+                    if !isSkippingSystemPrompts {
+                        RestTimerManager.requestNotificationPermission()
+                    }
                 }
                 .onOpenURL { url in
                     handleDeepLink(url)
@@ -98,6 +99,15 @@ struct BradOSApp: App {
         default:
             break
         }
+    }
+
+    private var isSkippingSystemPrompts: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("-skipSystemPrompts")
+            || ProcessInfo.processInfo.environment["BRAD_OS_SKIP_SYSTEM_PROMPTS"] == "1"
+        #else
+        false
+        #endif
     }
 
     private func handleScenePhaseChange(from newPhase: ScenePhase) {

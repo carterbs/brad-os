@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Floating glass dock tab bar
+/// Daymark tab bar: an anchored navigation rail rather than floating chrome.
 struct MainTabView: View {
     @EnvironmentObject var appState: AppState
 
@@ -20,19 +20,18 @@ struct MainTabView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            // Extra bottom padding so content doesn't hide behind dock
-            .padding(.bottom, Theme.Dimensions.tabBarHeight + Theme.Spacing.space4)
+            .padding(.bottom, Theme.Dimensions.tabBarHeight)
 
-            // Floating glass dock
             HStack(spacing: 0) {
                 ForEach(TabItem.allCases) { tab in
                     tabButton(tab)
                 }
             }
             .frame(height: Theme.Dimensions.tabBarHeight)
-            .glassCard(.chrome, radius: Theme.CornerRadius.xxl, padding: 0)
-            .padding(.horizontal, Theme.Spacing.space5)
-            .padding(.bottom, Theme.Spacing.space4)
+            .background(Theme.Background.surface)
+            .overlay(alignment: .top) {
+                Rectangle().fill(Theme.divider).frame(height: 1)
+            }
         }
     }
 
@@ -45,19 +44,9 @@ struct MainTabView: View {
             }
         } label: {
             VStack(spacing: 3) {
-                ZStack {
-                    // Aurora highlight behind active icon
-                    if isActive {
-                        Circle()
-                            .fill(Theme.interactivePrimary.opacity(0.20))
-                            .frame(width: 32, height: 32)
-                            .blur(radius: 8)
-                    }
-
-                    Image(systemName: isActive ? tab.filledIcon : tab.outlinedIcon)
-                        .font(.system(size: Theme.Typography.tabBarIcon, weight: isActive ? .semibold : .medium))
-                        .foregroundColor(isActive ? Theme.interactivePrimary : Theme.textTertiary)
-                }
+                Image(systemName: isActive ? tab.filledIcon : tab.outlinedIcon)
+                    .font(.system(size: Theme.Typography.tabBarIcon, weight: isActive ? .semibold : .medium))
+                    .foregroundColor(isActive ? Theme.interactivePrimary : Theme.textTertiary)
                 .frame(height: 28)
 
                 Text(tab.label)
@@ -67,12 +56,11 @@ struct MainTabView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, Theme.Spacing.space1)
-            .background(
-                isActive
-                    ? Capsule(style: .continuous)
-                        .fill(Theme.interactivePrimary.opacity(0.10))
-                    : nil
-            )
+            .overlay(alignment: .top) {
+                Rectangle()
+                    .fill(isActive ? Theme.interactivePrimary : .clear)
+                    .frame(height: 2)
+            }
             .contentShape(Rectangle())
         }
         .buttonStyle(PlainButtonStyle())
@@ -130,5 +118,5 @@ enum TabItem: String, CaseIterable, Identifiable {
     MainTabView()
         .environmentObject(AppState())
         .background(AuroraBackground().ignoresSafeArea())
-        .preferredColorScheme(.dark)
+        .preferredColorScheme(.light)
 }

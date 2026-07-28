@@ -1,32 +1,33 @@
 import SwiftUI
 import BradOSCore
 
-// MARK: - Aurora Glass Design System
-// visionOS-inspired glassmorphism: frosted glass panels over deep dark gradients,
-// soft aurora color blobs for warmth and depth.
+// MARK: - Daymark Design System
+// A light, structured system with solid surfaces and semantic color accents.
 
 struct Theme {
     // MARK: - Background Colors (from shared ThemeColors)
     struct Background {
         static let deep = ThemeColors.bgDeep
         static let base = ThemeColors.bgBase
+        static let surface = ThemeColors.bgSurface
+        static let highlight = ThemeColors.highlight
     }
 
     // MARK: - Text Colors (white at fixed opacities)
     static let textPrimary = ThemeColors.textPrimary
     static let textSecondary = ThemeColors.textSecondary
     static let textTertiary = ThemeColors.textTertiary
-    static let textDisabled = Color.white.opacity(0.38)
-    static let textOnAccent = Color(hex: "061018").opacity(0.95)
+    static let textDisabled = Color(hex: "A7B1B3")
+    static let textOnAccent = Color.white
 
     // MARK: - Strokes & Dividers
-    static let strokeSubtle = Color.white.opacity(0.08)
-    static let strokeMedium = Color.white.opacity(0.11)
-    static let divider = Color.white.opacity(0.08)
+    static let strokeSubtle = ThemeColors.divider
+    static let strokeMedium = Color(hex: "C5D1CE")
+    static let divider = ThemeColors.divider
 
     // MARK: - Interactive Colors
-    static let interactivePrimary = Color(hex: "7C5CFF")
-    static let interactiveSecondary = Color(hex: "64D2FF")
+    static let interactivePrimary = ThemeColors.highlight
+    static let interactiveSecondary = Color(hex: "84A9A2")
 
     // MARK: - Activity Colors (from shared ThemeColors)
     static let lifting = ThemeColors.lifting
@@ -40,10 +41,10 @@ struct Theme {
     static let warning = Color(hex: "FBBF24")
     static let destructive = Color(hex: "FB7185")
     static let info = Color(hex: "60A5FA")
-    static let neutral = Color.white.opacity(0.56)
+    static let neutral = ThemeColors.textTertiary
 
     // MARK: - Scrims
-    static let scrimStandard = Color.black.opacity(0.35)
+    static let scrimStandard = Color.black.opacity(0.18)
 
     // MARK: - Typography
     struct Typography {
@@ -124,20 +125,15 @@ enum GlassLevel {
 
     var material: Material {
         switch self {
-        case .card: return .ultraThinMaterial
-        case .elevated: return .ultraThinMaterial
-        case .chrome: return .ultraThinMaterial
-        case .overlay: return .thinMaterial
+        case .card, .elevated, .chrome, .overlay: return .regularMaterial
         }
     }
 
     /// White tint opacity applied on top of material blur
     var fillOpacity: Double {
         switch self {
-        case .card: return 0.02
-        case .elevated: return 0.03
-        case .chrome: return 0.02
-        case .overlay: return 0.05
+        case .card, .elevated, .overlay: return 1
+        case .chrome: return 0.98
         }
     }
 
@@ -158,7 +154,7 @@ enum GlassLevel {
     }
 }
 
-// MARK: - Glass Card View Modifier
+// MARK: - Daymark surface modifier
 struct GlassCardModifier: ViewModifier {
     let level: GlassLevel
     let radius: CGFloat?
@@ -176,8 +172,7 @@ struct GlassCardModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .padding(cardPadding)
-            .background(Color.white.opacity(level.fillOpacity))
-            .background(level.material)
+            .background(Theme.Background.surface.opacity(level.fillOpacity))
             .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -186,7 +181,7 @@ struct GlassCardModifier: ViewModifier {
     }
 }
 
-// MARK: - Aurora Glow Modifier
+// MARK: - Compatibility modifier
 struct AuroraGlowModifier: ViewModifier {
     let color: Color
     let intensity: AuroraIntensity
@@ -222,57 +217,13 @@ struct AuroraGlowModifier: ViewModifier {
         }
     }
 
-    func body(content: Content) -> some View {
-        content.background(
-            Circle()
-                .fill(color)
-                .frame(width: intensity.diameter, height: intensity.diameter)
-                .blur(radius: intensity.blurRadius)
-                .opacity(intensity.opacity)
-                .blendMode(.plusLighter)
-                .offset(x: offset.x, y: offset.y)
-        )
-    }
+    func body(content: Content) -> some View { content }
 }
 
-// MARK: - Aurora Background View
+// MARK: - Daymark background view
 struct AuroraBackground: View {
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [Theme.Background.deep, Theme.Background.base],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-
-            // Ambient aurora blob 1 — top-left, cyan
-            Circle()
-                .fill(Theme.interactiveSecondary)
-                .frame(width: 300, height: 300)
-                .blur(radius: 140)
-                .opacity(0.50)
-                .blendMode(.plusLighter)
-                .offset(x: -100, y: -160)
-
-            // Ambient aurora blob 2 — bottom-right, purple
-            Circle()
-                .fill(Theme.interactivePrimary)
-                .frame(width: 280, height: 280)
-                .blur(radius: 130)
-                .opacity(0.40)
-                .blendMode(.plusLighter)
-                .offset(x: 120, y: 240)
-
-            // Ambient aurora blob 3 — center-left, green
-            Circle()
-                .fill(Color(hex: "34D399"))
-                .frame(width: 260, height: 260)
-                .blur(radius: 130)
-                .opacity(0.38)
-                .blendMode(.plusLighter)
-                .offset(x: -60, y: 80)
-        }
-        .ignoresSafeArea()
+        Theme.Background.base.ignoresSafeArea()
     }
 }
 
@@ -280,38 +231,23 @@ struct AuroraBackground: View {
 
 // MARK: - Button Styles
 
-/// Glass-style primary button: gradient stroke + glow over glass
+/// Daymark primary button with a softened highlight fill.
 struct GlassPrimaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         let shape = RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
         configuration.label
             .font(.headline)
-            .foregroundColor(Theme.textPrimary)
+            .foregroundColor(Theme.textOnAccent)
             .frame(height: Theme.Dimensions.buttonHeight)
             .padding(.horizontal, Theme.Spacing.space4)
-            .background(Color.white.opacity(0.06))
-            .background(.ultraThinMaterial)
+            .background(Theme.interactivePrimary)
             .clipShape(shape)
-            .overlay(
-                shape.stroke(
-                    LinearGradient(
-                        colors: [
-                            Theme.interactivePrimary.opacity(configuration.isPressed ? 0.65 : 0.55),
-                            Theme.interactiveSecondary.opacity(configuration.isPressed ? 0.50 : 0.40)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    ),
-                    lineWidth: 1.5
-                )
-            )
-            .shadow(color: Theme.interactivePrimary.opacity(0.25), radius: 12, y: 2)
             .scaleEffect(configuration.isPressed ? 0.98 : 1.0)
             .animation(.easeInOut(duration: Theme.Motion.micro), value: configuration.isPressed)
     }
 }
 
-/// Glass-style secondary button: H:48pt, R:12pt, subtle white tint over material blur
+/// Daymark secondary button with a quiet rule.
 struct GlassSecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -319,8 +255,7 @@ struct GlassSecondaryButtonStyle: ButtonStyle {
             .foregroundColor(Theme.textPrimary)
             .frame(height: Theme.Dimensions.buttonHeight)
             .padding(.horizontal, Theme.Spacing.space4)
-            .background(Color.white.opacity(0.06))
-            .background(.ultraThinMaterial)
+            .background(Theme.Background.surface)
             .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
@@ -336,7 +271,7 @@ struct DestructiveButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
-            .foregroundColor(Color.white.opacity(0.92))
+            .foregroundColor(Theme.destructive)
             .frame(height: Theme.Dimensions.buttonHeight)
             .padding(.horizontal, Theme.Spacing.space4)
             .background(Theme.destructive.opacity(0.14))
@@ -364,7 +299,7 @@ struct SecondaryButtonStyle: ButtonStyle {
     }
 }
 
-/// Glass circle button for secondary actions (56pt)
+/// Daymark circle button for secondary actions (56pt)
 struct GlassCircleButtonStyle: ButtonStyle {
     let size: CGFloat
 
@@ -375,18 +310,17 @@ struct GlassCircleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .frame(width: size, height: size)
-            .background(Color.white.opacity(0.06), in: Circle())
-            .background(.ultraThinMaterial, in: Circle())
+            .background(Theme.Background.surface, in: Circle())
             .overlay(
                 Circle()
-                    .stroke(Color.white.opacity(configuration.isPressed ? 0.19 : 0.15), lineWidth: 1)
+                    .stroke(Theme.strokeMedium, lineWidth: 1)
             )
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
             .animation(.easeInOut(duration: Theme.Motion.micro), value: configuration.isPressed)
     }
 }
 
-/// Glass circle button with color tint for primary actions (80pt)
+/// Daymark circle button with semantic color tint for primary actions (80pt)
 struct GlassPrimaryCircleButtonStyle: ButtonStyle {
     let size: CGFloat
     let color: Color
@@ -401,12 +335,11 @@ struct GlassPrimaryCircleButtonStyle: ButtonStyle {
             .frame(width: size, height: size)
             .background(
                 Circle()
-                    .fill(configuration.isPressed ? color.opacity(0.30) : color.opacity(0.35))
+                    .fill(configuration.isPressed ? color.opacity(0.20) : color.opacity(0.14))
             )
-            .background(.ultraThinMaterial, in: Circle())
             .overlay(
                 Circle()
-                    .stroke(Color.white.opacity(configuration.isPressed ? 0.24 : 0.20), lineWidth: 1)
+                    .stroke(color.opacity(configuration.isPressed ? 0.45 : 0.35), lineWidth: 1)
             )
             .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
             .animation(.easeInOut(duration: Theme.Motion.micro), value: configuration.isPressed)
