@@ -116,7 +116,7 @@ struct BarcodeFormView: View {
                     .padding(.horizontal, Theme.Spacing.space4)
                     .padding(.bottom, Theme.Spacing.space4)
             }
-            .glassCard(padding: 0)
+            .daymarkSection(padding: 0)
         }
     }
 
@@ -167,7 +167,7 @@ struct BarcodeFormView: View {
                                 .background(
                                     isSelected
                                         ? AnyShapeStyle(Theme.interactivePrimary)
-                                        : AnyShapeStyle(Color.white.opacity(0.06))
+                                        : AnyShapeStyle(Theme.Background.surface)
                                 )
                                 .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
                                 .overlay(
@@ -248,8 +248,7 @@ struct BarcodeTextFieldStyle: TextFieldStyle {
         configuration
             .padding(.horizontal, Theme.Spacing.space4)
             .frame(height: Theme.Dimensions.inputHeight)
-            .background(Color.white.opacity(0.06))
-            .background(.ultraThinMaterial)
+            .background(Theme.Background.surface)
             .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
             .foregroundColor(Theme.textPrimary)
             .overlay(

@@ -89,7 +89,7 @@ struct ActivityQuickCard: View {
                     .font(.system(size: 14, weight: .medium))
                     .foregroundColor(Theme.textTertiary)
             }
-            .glassCard()
+            .daymarkSection(padding: Theme.Spacing.space4)
         }
         .buttonStyle(PlainButtonStyle())
     }
