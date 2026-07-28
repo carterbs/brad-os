@@ -6,10 +6,6 @@ ProfileView -> NavigationLink destinations -> various ViewModels/Services -> API
 ## iOS Layer
 - **Views:**
   - `ios/BradOS/BradOS/Views/Profile/ProfileView.swift` (main settings hub)
-  - `ios/BradOS/BradOS/Views/Profile/FTPEntryView.swift` (cycling FTP)
-  - `ios/BradOS/BradOS/Views/Profile/TrainingBlockSetupView.swift` (cycling training plan)
-  - `ios/BradOS/BradOS/Views/Profile/TrainingBlockSetupView+Steps.swift`
-  - `ios/BradOS/BradOS/Views/Profile/TrainingBlockSetupView+Helpers.swift`
   - `ios/BradOS/BradOS/Views/Profile/StravaConnectionView.swift` (Strava OAuth)
   - `ios/BradOS/BradOS/Views/Profile/StravaConnectionView+Sections.swift`
   - `ios/BradOS/BradOS/Views/Profile/WeightGoalView.swift` (body-weight logging and trends)
@@ -23,7 +19,6 @@ ProfileView -> NavigationLink destinations -> various ViewModels/Services -> API
   - `ios/BradOS/BradOS/ViewModels/WeightGoalViewModel.swift`
   - `ios/BradOS/BradOSCore/Sources/BradOSCore/ViewModels/HealthMetricHistoryViewModel.swift` (HealthMetricHistoryViewModel + SleepHistoryViewModel)
   - `ios/BradOS/BradOS/ViewModels/TextToSpeechViewModel.swift`
-  - `ios/BradOS/BradOS/ViewModels/CyclingViewModel.swift` (injected via EnvironmentObject)
 - **Services:**
   - `ios/BradOS/BradOS/Services/HealthKitSyncService.swift`
   - `ios/BradOS/BradOS/Services/StravaAuthManager.swift`
@@ -57,8 +52,8 @@ ProfileView -> NavigationLink destinations -> various ViewModels/Services -> API
 - `users/{uid}/sleepHistory/{YYYY-MM-DD}` -- Sleep entries
 
 ## Notes
-- Profile is a settings hub, not a single feature -- it links to cycling (FTP, Strava, training blocks), health metrics, and utilities
-- Sections: Cycling, Health, Settings, About
+- Profile is a settings hub, not a single feature -- it links to data connections, health metrics, and utilities
+- Sections: Connections, Health, Settings, About
 - Health metrics support configurable time ranges (1W, 2W, 1M, 6M, 1Y) with SMA trend lines
 - HealthMetricHistoryView is generic -- initialized with `.hrv` or `.rhr` enum case
 - Health sync uses date-as-doc-ID pattern for upsert semantics
@@ -70,4 +65,4 @@ ProfileView -> NavigationLink destinations -> various ViewModels/Services -> API
 
 ## See Also
 - [Health](health.md) — health metric history views
-- [Cycling](cycling.md) — cycling settings and Strava connection
+- [Cycling Data](cycling.md) — Strava connection and passive ride context

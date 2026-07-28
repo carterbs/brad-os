@@ -8,13 +8,11 @@ import { type Request, type Response, type NextFunction } from 'express';
 import { info, warn, error as logError } from 'firebase-functions/logger';
 import {
   createFTPEntrySchema,
-  createTrainingBlockSchema,
   createWeightGoalSchema,
   calculateVO2MaxSchema,
   updateCyclingProfileSchema,
   createCyclingActivitySchema,
   type CyclingActivity,
-  type CreateTrainingBlockInput,
 } from '../shared.js';
 import { validate } from '../middleware/validate.js';
 import { errorHandler, NotFoundError } from '../middleware/error-handler.js';
@@ -24,7 +22,6 @@ import * as cyclingService from '../services/firestore-cycling.service.js';
 import * as stravaService from '../services/strava.service.js';
 import {
   calculateTrainingLoadMetrics,
-  getWeekInBlock,
   type DailyTSS,
 } from '../services/training-load.service.js';
 import {
@@ -331,82 +328,6 @@ app.post(
     const ftp = await cyclingService.createFTPEntry(userId, body);
 
     res.status(201).json({ success: true, data: ftp });
-  })
-);
-
-// ============ Training Blocks ============
-
-// GET /cycling/block
-app.get(
-  '/block',
-  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-    const userId = getUserId(req);
-
-    const block = await cyclingService.getCurrentTrainingBlock(userId);
-
-    // If there's an active block, calculate and update the current week
-    if (block !== null) {
-      const currentWeek = getWeekInBlock(block.startDate);
-      if (currentWeek !== block.currentWeek && currentWeek > 0) {
-        await cyclingService.updateTrainingBlockWeek(
-          userId,
-          block.id,
-          currentWeek
-        );
-        block.currentWeek = currentWeek;
-      }
-    }
-
-    res.json({ success: true, data: block });
-  })
-);
-
-// GET /cycling/blocks
-app.get(
-  '/blocks',
-  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-    const userId = getUserId(req);
-
-    const blocks = await cyclingService.getTrainingBlocks(userId);
-
-    res.json({ success: true, data: blocks });
-  })
-);
-
-// POST /cycling/block
-app.post(
-  '/block',
-  validate(createTrainingBlockSchema),
-  asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-    const userId = getUserId(req);
-    const body = req.body as CreateTrainingBlockInput;
-
-    // Complete any existing active block first
-    const currentBlock = await cyclingService.getCurrentTrainingBlock(userId);
-    if (currentBlock !== null) {
-      await cyclingService.completeTrainingBlock(userId, currentBlock.id);
-    }
-
-    const block = await cyclingService.createTrainingBlock(userId, body);
-
-    res.status(201).json({ success: true, data: block });
-  })
-);
-
-// PUT /cycling/block/:id/complete
-app.put(
-  '/block/:id/complete',
-  asyncHandler(async (req: Request, res: Response, next: NextFunction) => {
-    const userId = getUserId(req);
-    const id = req.params['id'] ?? '';
-
-    const completed = await cyclingService.completeTrainingBlock(userId, id);
-    if (!completed) {
-      next(new NotFoundError('TrainingBlock', id));
-      return;
-    }
-
-    res.json({ success: true, data: { completed: true } });
   })
 );
 

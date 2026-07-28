@@ -99,7 +99,6 @@ describe('Today Coach Handler', () => {
         sections: {
           recovery: { insight: 'Recovery score is 75/100.', status: 'good' },
           lifting: null,
-          cycling: null,
           stretching: { insight: 'Consider stretching.', suggestedRegions: ['back'], priority: 'normal' },
           meditation: { insight: 'Short session recommended.', suggestedDurationMinutes: 10, priority: 'normal' },
           weight: null,

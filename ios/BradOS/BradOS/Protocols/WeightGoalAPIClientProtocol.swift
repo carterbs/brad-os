@@ -1,7 +1,7 @@
 import Foundation
 import BradOSCore
 
-/// Protocol for weight goal-related cycling API operations.
+/// Protocol for weight goal and weight-history API operations.
 protocol WeightGoalAPIClientProtocol {
     func getLatestWeight() async throws -> WeightHistoryEntry?
     func getWeightHistory(days: Int) async throws -> [WeightHistoryEntry]

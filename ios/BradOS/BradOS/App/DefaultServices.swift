@@ -8,7 +8,7 @@ import BradOSCore
 enum DefaultAPIClient {
     static var instance: APIClientProtocol { APIClient.shared }
 
-    /// Access the concrete APIClient for methods not on the protocol (e.g., cycling sync).
+    /// Access the concrete APIClient for methods not on the shared protocol.
     static var concrete: APIClient { APIClient.shared }
 }
 
@@ -48,10 +48,6 @@ enum ViewModelFactory {
 /// Views use these factory methods so that the type names (from Services/) don't appear in View files.
 @MainActor
 enum ServiceFactory {
-    static func makeCyclingCoachClient() -> CyclingCoachClient {
-        CyclingCoachClient()
-    }
-
     static func makeTodayCoachClient() -> TodayCoachClient {
         TodayCoachClient()
     }

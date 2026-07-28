@@ -18,7 +18,6 @@ export const ENDPOINT_MANIFEST = [
   { routePath: 'guidedMeditations', handlerFile: 'guidedMeditations' },
   { routePath: 'cycling', handlerFile: 'cycling' },
   { routePath: 'strava', handlerFile: 'strava-webhook' },
-  { routePath: 'cycling-coach', handlerFile: 'cycling-coach' },
   { routePath: 'today-coach', handlerFile: 'today-coach' },
   { routePath: 'health-sync', handlerFile: 'health-sync' },
 ];

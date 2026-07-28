@@ -76,7 +76,7 @@ struct StravaConnectionView: View {
     func syncStravaActivities() async throws -> (
         imported: Int, skipped: Int, message: String
     ) {
-        // Use concrete client for cycling methods (not in protocol yet)
+        // Use the concrete client for Strava sync (not in the shared protocol).
         let client = DefaultAPIClient.concrete
         let response = try await client.syncCyclingActivities()
         return (response.imported, response.skipped, response.message)

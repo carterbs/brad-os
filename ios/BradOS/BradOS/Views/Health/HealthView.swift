@@ -29,36 +29,6 @@ struct HealthView: View {
                         }
                         .gridCellColumns(2)
 
-                        // Cycling
-                        Button(
-                            action: { appState.isShowingCycling = true },
-                            label: {
-                            VStack(spacing: Theme.Spacing.space3) {
-                                Image(systemName: "figure.outdoor.cycle")
-                                    .font(.system(
-                                        size: Theme.Typography.activityGridIcon,
-                                        weight: .regular
-                                    ))
-                                    .foregroundColor(Theme.cycling)
-                                    .frame(
-                                        width: Theme.Dimensions.iconFrameLG,
-                                        height: Theme.Dimensions.iconFrameLG
-                                    )
-                                    .background(Theme.cycling.opacity(0.12))
-                                    .clipShape(RoundedRectangle(
-                                        cornerRadius: Theme.CornerRadius.sm,
-                                        style: .continuous
-                                    ))
-
-                                Text("Cycling")
-                                    .font(.headline)
-                                    .foregroundColor(Theme.textPrimary)
-                            }
-                            .frame(maxWidth: .infinity, minHeight: 100)
-                            .glassCard(.card, padding: Theme.Spacing.space6)
-                        })
-                        .buttonStyle(PlainButtonStyle())
-
                         // Stretch
                         ActivityCard(activityType: .stretch) {
                             appState.isShowingStretch = true

@@ -13,10 +13,7 @@ const {
 } = vi.hoisted(() => ({
   mockCyclingService: {
     getCurrentFTP: vi.fn(),
-    getCurrentTrainingBlock: vi.fn(),
     getCyclingActivities: vi.fn(),
-    getLatestVO2Max: vi.fn(),
-    getVO2MaxHistory: vi.fn(),
     getActivityStreams: vi.fn(),
     getWeightGoal: vi.fn(),
   },
@@ -28,9 +25,6 @@ const {
   },
   mockTrainingLoadService: {
     calculateTrainingLoadMetrics: vi.fn(),
-    getWeekInBlock: vi.fn(),
-    determineNextSession: vi.fn(),
-    getWeekBoundaries: vi.fn(),
   },
   mockLiftingContextService: {
     buildLiftingContext: vi.fn(),
@@ -130,10 +124,7 @@ describe('Today Coach Data Service', () => {
     mockRecoveryService.getRHRHistory.mockResolvedValue([]);
 
     mockCyclingService.getCurrentFTP.mockResolvedValue(null);
-    mockCyclingService.getCurrentTrainingBlock.mockResolvedValue(null);
     mockCyclingService.getCyclingActivities.mockResolvedValue([]);
-    mockCyclingService.getLatestVO2Max.mockResolvedValue(null);
-    mockCyclingService.getVO2MaxHistory.mockResolvedValue([]);
     mockCyclingService.getWeightGoal.mockResolvedValue(null);
 
     mockWorkoutRepo.findByDate.mockResolvedValue([]);
@@ -152,9 +143,6 @@ describe('Today Coach Data Service', () => {
     mockLiftingContextService.buildMesocycleContext.mockResolvedValue(null);
 
     mockTrainingLoadService.calculateTrainingLoadMetrics.mockReturnValue({ atl: 0, ctl: 0, tsb: 0 });
-    mockTrainingLoadService.getWeekInBlock.mockReturnValue(1);
-    mockTrainingLoadService.determineNextSession.mockReturnValue(null);
-    mockTrainingLoadService.getWeekBoundaries.mockReturnValue({ start: '2024-01-14', end: '2024-01-20' });
   });
 
   afterEach(() => {
@@ -352,13 +340,8 @@ describe('Today Coach Data Service', () => {
       });
     });
 
-    it('should build rich cycling context including stream, EF trend, and VO2 max data', async () => {
+    it('should build stored Strava ride context including workload and stream data', async () => {
       mockCyclingService.getCurrentFTP.mockResolvedValue({ value: 250, date: '2025-12-15' });
-      mockCyclingService.getCurrentTrainingBlock.mockResolvedValue({
-        id: 'block-1',
-        startDate: '2026-01-06',
-        weeklySessions: [{ order: 2, sessionType: 'threshold', description: 'Threshold day' }],
-      });
       mockCyclingService.getCyclingActivities.mockResolvedValue([
         {
           id: 'ride-recent',
@@ -453,22 +436,6 @@ describe('Today Coach Data Service', () => {
         },
       ]);
       mockTrainingLoadService.calculateTrainingLoadMetrics.mockReturnValue({ atl: 52, ctl: 48, tsb: -4 });
-      mockTrainingLoadService.getWeekInBlock.mockReturnValue(6);
-      mockTrainingLoadService.getWeekBoundaries.mockReturnValue({ start: '2026-02-08', end: '2026-02-14' });
-      mockTrainingLoadService.determineNextSession.mockReturnValue({
-        order: 2,
-        sessionType: 'threshold',
-        description: 'Threshold day',
-      });
-      mockCyclingService.getLatestVO2Max.mockResolvedValue({
-        value: 52.4,
-        date: '2026-02-01',
-        method: 'ftp_derived',
-      });
-      mockCyclingService.getVO2MaxHistory.mockResolvedValue([
-        { date: '2026-02-01', value: 52.4 },
-        { date: '2026-01-10', value: 51.8 },
-      ]);
       mockCyclingService.getActivityStreams.mockResolvedValue({
         activityId: 'ride-recent',
         stravaActivityId: 1,
@@ -483,13 +450,9 @@ describe('Today Coach Data Service', () => {
       const result = await buildTodayCoachContext('test-user', testRecovery, 0);
 
       expect(result.cyclingContext).not.toBeNull();
-      expect(result.cyclingContext?.weekInBlock).toBe(6);
-      expect(result.cyclingContext?.nextSession).toEqual({
-        type: 'threshold',
-        description: 'Threshold day',
-      });
-      expect(result.cyclingContext?.vo2max?.current).toBe(52.4);
-      expect(result.cyclingContext?.efTrend?.trend).toBe('improving');
+      expect(result.cyclingContext?.ftp).toBe(250);
+      expect(result.cyclingContext?.trainingLoad).toEqual({ atl: 52, ctl: 48, tsb: -4 });
+      expect(result.cyclingContext?.recentActivities).toHaveLength(5);
       expect(result.cyclingContext?.lastRideStreams).not.toBeNull();
       expect(result.cyclingContext?.lastRideStreams?.peak5MinPower).not.toBeNull();
       expect(result.cyclingContext?.lastRideStreams?.peak20MinPower).not.toBeNull();

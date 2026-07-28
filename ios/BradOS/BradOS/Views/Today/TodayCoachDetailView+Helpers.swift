@@ -86,7 +86,6 @@ extension TodayCoachDetailView {
         case .normal: return Theme.textSecondary
         case .low: return Theme.textTertiary
         case .rest: return Theme.info
-        case .skip: return Theme.textTertiary
         }
     }
 
@@ -96,19 +95,6 @@ extension TodayCoachDetailView {
         case .normal: return "Normal"
         case .low: return "Low Priority"
         case .rest: return "Rest Day"
-        case .skip: return "Skip Today"
-        }
-    }
-
-    func sessionTypeColor(_ type: SessionType) -> Color {
-        switch type {
-        case .vo2max: return Theme.destructive
-        case .threshold: return Theme.warning
-        case .endurance: return Theme.info
-        case .tempo: return Color.orange
-        case .fun: return Theme.success
-        case .recovery: return Theme.info
-        case .off: return Theme.textSecondary
         }
     }
 }

@@ -1,14 +1,11 @@
 /**
  * Cycling Types
  *
- * Types for the AI cycling coach feature including activities, training blocks,
- * FTP tracking, recovery metrics, and coach request/response interfaces.
+ * Types for stored Strava activities and derived wellness metrics.
  */
 
-// Import recovery types used in this file
-import type { RecoverySnapshot, RecoveryState } from './recovery.js';
-// Re-export recovery types used by cycling coach
-export type { RecoveryState, RecoverySnapshot } from './recovery.js';
+import type { RecoveryState } from './recovery.js';
+export type { RecoveryState } from './recovery.js';
 
 // --- Cycling Activity Types ---
 
@@ -84,30 +81,6 @@ export interface ActivityStreamData {
 export interface DailyTSS {
   date: string; // ISO 8601 date (YYYY-MM-DD)
   tss: number;
-}
-
-// --- Training Block Types ---
-
-export type TrainingGoal = 'regain_fitness' | 'maintain_muscle' | 'lose_weight';
-
-export type TrainingBlockStatus = 'active' | 'completed';
-
-/**
- * A training block representing a period of structured training.
- */
-export interface TrainingBlock {
-  id: string;
-  userId: string;
-  startDate: string; // ISO 8601 date
-  endDate: string; // ISO 8601 date
-  currentWeek: number;
-  goals: TrainingGoal[];
-  status: TrainingBlockStatus;
-  daysPerWeek?: number;
-  weeklySessions?: WeeklySession[];
-  preferredDays?: number[];
-  experienceLevel?: ExperienceLevel;
-  weeklyHoursAvailable?: number;
 }
 
 // --- FTP Types ---
@@ -255,65 +228,8 @@ export interface StravaTokens {
   athleteId: number;
 }
 
-// --- Cycling Coach Request/Response Types ---
-
-export type SessionType = 'vo2max' | 'threshold' | 'endurance' | 'tempo' | 'fun' | 'recovery' | 'off';
-
-export type ExperienceLevel = 'beginner' | 'intermediate' | 'advanced';
-
 /**
- * A session in the weekly training queue.
- * Sessions are ordered by priority (hardest first, fun last).
- */
-export interface WeeklySession {
-  order: number;
-  sessionType: string;
-  pelotonClassTypes: string[];
-  suggestedDurationMinutes: number;
-  description: string;
-  preferredDay?: number; // 0-6 (Sun-Sat), hint only
-}
-
-/**
- * Request to generate a weekly schedule via AI.
- */
-export interface GenerateScheduleRequest {
-  sessionsPerWeek: number;
-  preferredDays: number[];
-  goals: TrainingGoal[];
-  experienceLevel: ExperienceLevel;
-  weeklyHoursAvailable: number;
-  ftp?: number;
-}
-
-/**
- * Phase summary within the 8-week block.
- */
-export interface PhaseSummary {
-  name: string;
-  weeks: string;
-  description: string;
-}
-
-/**
- * Weekly plan summary returned by schedule generation.
- */
-export interface WeeklyPlanSummary {
-  totalEstimatedHours: number;
-  phases: PhaseSummary[];
-}
-
-/**
- * Response from the schedule generation endpoint.
- */
-export interface GenerateScheduleResponse {
-  sessions: WeeklySession[];
-  weeklyPlan: WeeklyPlanSummary;
-  rationale: string;
-}
-
-/**
- * Training load metrics for the cycling coach.
+ * Training load metrics derived from stored rides.
  */
 export interface TrainingLoadMetrics {
   recentCyclingWorkouts: CyclingActivity[];
@@ -323,22 +239,7 @@ export interface TrainingLoadMetrics {
 }
 
 /**
- * Athlete profile for the cycling coach.
- */
-export interface AthleteProfile {
-  ftp: number; // Functional Threshold Power in watts
-  ftpLastTestedDate: string; // ISO 8601 date
-  goals: string[];
-  weekInBlock: number;
-  blockStartDate: string; // ISO 8601 date
-  experienceLevel?: ExperienceLevel;
-  maxHR?: number;
-  restingHR?: number;
-  ftpHistory?: Array<{ date: string; value: number; source: FTPSource }>;
-}
-
-/**
- * Weight metrics for the cycling coach.
+ * Weight metrics supplied to Today Coach.
  */
 export interface WeightMetrics {
   currentLbs: number;
@@ -347,29 +248,14 @@ export interface WeightMetrics {
   goal?: WeightGoal;
 }
 
-/**
- * Lifting schedule context for the cycling coach.
- */
+/** Lifting schedule context supplied to Today Coach. */
 export interface LiftingScheduleContext {
   today: { planned: boolean; workoutName?: string; isLowerBody?: boolean };
   tomorrow: { planned: boolean; workoutName?: string; isLowerBody?: boolean };
   yesterday: { completed: boolean; workoutName?: string; isLowerBody?: boolean };
 }
 
-/**
- * Schedule context for the cycling coach.
- */
-export interface ScheduleContext {
-  dayOfWeek: string;
-  sessionType: 'vo2max' | 'threshold' | 'fun';
-  nextSession: WeeklySession | null;
-  sessionsCompletedThisWeek: number;
-  totalSessionsThisWeek: number;
-  weeklySessionQueue: WeeklySession[];
-  liftingSchedule: LiftingScheduleContext;
-}
-
-// --- VO2 Max Context for Coach ---
+// --- VO2 Max Context ---
 
 /**
  * VO2 max context with current value and trend history for the cycling coach.
@@ -381,7 +267,7 @@ export interface VO2MaxContext {
   history: Array<{ date: string; value: number }>;
 }
 
-// --- Recovery History for Coach ---
+// --- Recovery History ---
 
 /**
  * A trimmed recovery entry for multi-day trend analysis.
@@ -408,7 +294,7 @@ export interface EFTrendSummary {
   trend: EFTrend;
 }
 
-// --- Mesocycle Context for Coach ---
+// --- Mesocycle Context ---
 
 /**
  * Context about the current lifting mesocycle for the cycling coach.
@@ -417,70 +303,4 @@ export interface MesocycleContext {
   currentWeek: number; // 1-7
   isDeloadWeek: boolean;
   planName: string;
-}
-
-/**
- * Request payload for the cycling coach AI.
- */
-export interface CyclingCoachRequest {
-  recovery: RecoverySnapshot;
-  trainingLoad: TrainingLoadMetrics;
-  recentLiftingWorkouts: LiftingWorkoutSummary[];
-  athlete: AthleteProfile;
-  weight: WeightMetrics;
-  schedule: ScheduleContext;
-  recoveryHistory?: RecoveryHistoryEntry[];
-  vo2max?: VO2MaxContext;
-  efTrend?: EFTrendSummary;
-  mesocycleContext?: MesocycleContext;
-}
-
-/**
- * Interval workout definition.
- */
-export interface IntervalWorkout {
-  protocol: string;
-  count: number;
-  workSeconds: number;
-  restSeconds: number;
-  targetPowerPercent: { min: number; max: number };
-}
-
-/**
- * Target TSS range for a session.
- */
-export interface TargetTSSRange {
-  min: number;
-  max: number;
-}
-
-/**
- * Session recommendation from the cycling coach.
- */
-export interface SessionRecommendation {
-  type: SessionType;
-  durationMinutes: number;
-  pelotonClassTypes: string[];
-  pelotonTip: string;
-  targetTSS: TargetTSSRange;
-  targetZones: string;
-}
-
-/**
- * Warning from the cycling coach.
- */
-export interface CoachWarning {
-  type: string;
-  message: string;
-}
-
-/**
- * Response payload from the cycling coach AI.
- */
-export interface CyclingCoachResponse {
-  session: SessionRecommendation;
-  reasoning: string;
-  coachingTips?: string[];
-  warnings?: CoachWarning[];
-  suggestFTPTest?: boolean;
 }

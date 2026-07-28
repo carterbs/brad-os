@@ -82,16 +82,6 @@ extension TodayCoachCard {
                 color: Theme.lifting
             )
         }
-
-        if let cycling = rec.sections.cycling {
-            sectionRow(
-                icon: "figure.outdoor.cycle",
-                title: "Cycling",
-                insight: cycling.insight,
-                trailingText: cycling.session?.sessionType.displayName,
-                color: Theme.cycling
-            )
-        }
     }
 
     @ViewBuilder
@@ -283,7 +273,6 @@ extension TodayCoachCard {
         case .normal: return Theme.textSecondary
         case .low: return Theme.textTertiary
         case .rest: return Theme.info
-        case .skip: return Theme.textTertiary
         }
     }
 
@@ -293,7 +282,6 @@ extension TodayCoachCard {
         case .normal: return "Normal"
         case .low: return "Low"
         case .rest: return "Rest"
-        case .skip: return "Skip"
         }
     }
 }

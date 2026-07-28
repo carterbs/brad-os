@@ -56,9 +56,6 @@ export type TodayCoachRecoverySection = z.infer<
 export type TodayCoachLiftingSection = z.infer<
   typeof import('../schemas/today-coach.schema.js').todayCoachResponseSchema
 >['sections']['lifting'];
-export type TodayCoachCyclingSection = z.infer<
-  typeof import('../schemas/today-coach.schema.js').todayCoachResponseSchema
->['sections']['cycling'];
 export type TodayCoachStretchingSection = z.infer<
   typeof import('../schemas/today-coach.schema.js').todayCoachResponseSchema
 >['sections']['stretching'];

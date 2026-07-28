@@ -84,6 +84,6 @@ View -> AppState/WorkoutStateManager -> APIClient -> Firebase Hosting -> Cloud R
 - LiftingTabView has 3 sub-tabs: Meso (active cycle), Plans (templates), Exercises (library)
 
 ## See Also
-- [Cycling](cycling.md) — lifting schedule used for cycling coach context
+- [Cycling Data](cycling.md) — recent ride workload informs cross-domain recovery guidance
 - [Today](today.md) — workout data shown in daily briefing
 - [Stretching](stretching.md) — post-workout stretch prompt

@@ -28,7 +28,6 @@ struct TodayCoachClientTests {
                     "status": "good"
                 ],
                 "lifting": NSNull(),
-                "cycling": NSNull(),
                 "stretching": [
                     "insight": "Stretching is on track.",
                     "suggestedRegions": ["back", "hips", "shoulders"],
@@ -142,7 +141,7 @@ struct TodayCoachClientTests {
     @MainActor
     func loadingTogglesBeforeAndAfterRequest() async {
         let mockAPI = MockTodayCoachAPIClient()
-        let gate = CyclingAPICallGate(expectedCalls: [.getCyclingActivities])
+        let gate = AsyncAPICallGate()
         mockAPI.requestGate = gate
 
         let expectedRecommendation = makeTodayCoachRecommendation()
@@ -178,10 +177,9 @@ struct TodayCoachClientTests {
     func partialRecommendationPayloadIsAccepted() async {
         let mockAPI = MockTodayCoachAPIClient()
 
-        // Create a recommendation with lifting, cycling, and weight sections as nil
+        // Create a recommendation with lifting and weight sections as nil
         let partialRecommendation = makeTodayCoachRecommendation(
             lifting: nil,
-            cycling: nil,
             weight: nil
         )
         mockAPI.getTodayCoachRecommendationResult = .success(partialRecommendation)
@@ -193,7 +191,6 @@ struct TodayCoachClientTests {
 
         #expect(client.recommendation == partialRecommendation)
         #expect(client.recommendation?.sections.lifting == nil)
-        #expect(client.recommendation?.sections.cycling == nil)
         #expect(client.recommendation?.sections.weight == nil)
         // Ensure required sections are still present
         #expect(client.recommendation?.sections.recovery != nil)

@@ -2,14 +2,12 @@ import SwiftUI
 
 /// User profile and settings view
 struct ProfileView: View {
-    @EnvironmentObject var cyclingVM: CyclingViewModel
-
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Theme.Spacing.space6) {
-                    // Cycling Section
-                    cyclingSection
+                    // Connections Section
+                    connectionsSection
 
                     // Health Section
                     healthSection
@@ -29,61 +27,18 @@ struct ProfileView: View {
         }
     }
 
-    // MARK: - Cycling Section
+    // MARK: - Connections Section
 
     @ViewBuilder
-    private var cyclingSection: some View {
+    private var connectionsSection: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.space4) {
-            SectionHeader(title: "Cycling")
+            SectionHeader(title: "Connections")
 
             VStack(spacing: 0) {
-                NavigationLink(destination: FTPEntryView()) {
-                    SettingsRow(
-                        title: "FTP",
-                        subtitle: "Functional Threshold Power",
-                        iconName: "bolt.fill",
-                        iconColor: Theme.cycling
-                    ) {
-                        HStack(spacing: Theme.Spacing.space2) {
-                            if let ftp = cyclingVM.currentFTP {
-                                Text("\(ftp)W")
-                                    .font(.subheadline)
-                                    .foregroundColor(Theme.textSecondary)
-                            }
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 14, weight: .semibold))
-                                .foregroundColor(Theme.textTertiary)
-                        }
-                    }
-                }
-                .contentShape(Rectangle())
-                .buttonStyle(.plain)
-
-                Divider()
-                    .background(Theme.strokeSubtle)
-
-                NavigationLink(destination: TrainingBlockSetupView()) {
-                    SettingsRow(
-                        title: "Training Block",
-                        subtitle: "8-week training plan",
-                        iconName: "calendar",
-                        iconColor: Theme.cycling
-                    ) {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Theme.textTertiary)
-                    }
-                }
-                .contentShape(Rectangle())
-                .buttonStyle(.plain)
-
-                Divider()
-                    .background(Theme.strokeSubtle)
-
                 NavigationLink(destination: StravaConnectionView()) {
                     SettingsRow(
                         title: "Strava",
-                        subtitle: "Connect to sync rides",
+                        subtitle: "Sync rides into Today Coach",
                         iconName: "figure.outdoor.cycle",
                         iconColor: Color.orange
                     ) {
@@ -320,6 +275,5 @@ struct SettingsRow<Accessory: View>: View {
 
 #Preview {
     ProfileView()
-        .environmentObject(CyclingViewModel())
         .preferredColorScheme(.dark)
 }

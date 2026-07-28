@@ -38,11 +38,6 @@ import {
   getCurrentFTP,
   getFTPHistory,
   createFTPEntry,
-  getCurrentTrainingBlock,
-  getTrainingBlocks,
-  createTrainingBlock,
-  completeTrainingBlock,
-  updateTrainingBlockWeek,
   getWeightGoal,
   setWeightGoal,
   getStravaTokens,
@@ -83,12 +78,6 @@ const sampleFTPEntry = {
   value: 280,
   date: '2026-02-01',
   source: 'test' as const,
-};
-
-const sampleTrainingBlock = {
-  startDate: '2026-02-01',
-  endDate: '2026-03-28',
-  goals: ['Build endurance', 'Increase FTP'],
 };
 
 const sampleStravaTokens = {
@@ -314,99 +303,6 @@ describe('Firestore Cycling Service', () => {
     });
   });
 
-  // ============ getCurrentTrainingBlock ============
-
-  describe('getCurrentTrainingBlock', () => {
-    it('returns active block', async () => {
-      const blockData = {
-        userId: 'test-user',
-        startDate: '2026-02-01',
-        endDate: '2026-03-28',
-        currentWeek: 3,
-        goals: ['Build endurance'],
-        status: 'active',
-        daysPerWeek: 3,
-        weeklySessions: [
-          {
-            order: 1,
-            sessionType: 'vo2max',
-            pelotonClassTypes: ['Power Zone Max'],
-            suggestedDurationMinutes: 30,
-            description: 'VO2 max session',
-          },
-        ],
-      };
-
-      mockGet.mockResolvedValueOnce({
-        empty: false,
-        docs: [{ id: 'block-1', data: (): Record<string, unknown> => blockData }],
-      });
-
-      const result = await getCurrentTrainingBlock('test-user');
-
-      expect(mockWhere).toHaveBeenCalledWith('status', '==', 'active');
-      expect(mockLimit).toHaveBeenCalledWith(1);
-      expect(result).not.toBeNull();
-      expect(result?.id).toBe('block-1');
-      expect(result?.status).toBe('active');
-      expect(result?.currentWeek).toBe(3);
-      expect(result?.weeklySessions).toHaveLength(1);
-    });
-
-    it('returns null when no active block', async () => {
-      mockGet.mockResolvedValueOnce({ empty: true, docs: [] });
-
-      const result = await getCurrentTrainingBlock('test-user');
-
-      expect(result).toBeNull();
-    });
-  });
-
-  // ============ createTrainingBlock ============
-
-  describe('createTrainingBlock', () => {
-    it('creates with required and optional fields', async () => {
-      const input = {
-        ...sampleTrainingBlock,
-        daysPerWeek: 3,
-        experienceLevel: 'intermediate' as const,
-        weeklyHoursAvailable: 6,
-        weeklySessions: [
-          {
-            order: 1,
-            sessionType: 'vo2max' as const,
-            pelotonClassTypes: ['Power Zone Max'],
-            suggestedDurationMinutes: 30,
-            description: 'VO2 session',
-          },
-        ],
-        preferredDays: [1, 3, 5],
-      };
-
-      const result = await createTrainingBlock('test-user', input);
-
-      expect(result.id).toBe('test-uuid-1234');
-      expect(result.userId).toBe('test-user');
-      expect(result.status).toBe('active');
-      expect(result.currentWeek).toBe(1);
-      expect(result.daysPerWeek).toBe(3);
-      expect(result.experienceLevel).toBe('intermediate');
-      expect(result.weeklyHoursAvailable).toBe(6);
-      expect(result.preferredDays).toEqual([1, 3, 5]);
-      expect(mockSet).toHaveBeenCalledTimes(1);
-
-      // Verify optional fields were written
-      expect(mockSet).toHaveBeenCalledWith(
-        expect.objectContaining({
-          daysPerWeek: 3,
-          experienceLevel: 'intermediate',
-          weeklyHoursAvailable: 6,
-          preferredDays: [1, 3, 5],
-        }),
-      );
-    });
-  });
-
   // ============ getStravaTokens ============
 
   describe('getStravaTokens', () => {
@@ -590,63 +486,6 @@ describe('Firestore Cycling Service', () => {
         { id: 'ftp-a', userId: 'test-user', value: 280, date: '2026-02-10', source: 'test' },
         { id: 'ftp-b', userId: 'test-user', value: 270, date: '2026-01-20', source: 'manual' },
       ]);
-    });
-
-    it('returns null when active block snapshot has no document entry', async () => {
-      mockGet.mockResolvedValueOnce({ empty: false, docs: [] });
-      const result = await getCurrentTrainingBlock('test-user');
-      expect(result).toBeNull();
-    });
-
-    it('maps training block list response', async () => {
-      mockGet.mockResolvedValueOnce({
-        docs: [
-          {
-            id: 'block-a',
-            data: (): Record<string, unknown> => ({
-              userId: 'test-user',
-              startDate: '2026-01-01',
-              endDate: '2026-02-20',
-              currentWeek: 3,
-              goals: ['regain_fitness'],
-              status: 'active',
-            }),
-          },
-        ],
-      });
-
-      const result = await getTrainingBlocks('test-user');
-      expect(result[0]).toEqual({
-        id: 'block-a',
-        userId: 'test-user',
-        startDate: '2026-01-01',
-        endDate: '2026-02-20',
-        currentWeek: 3,
-        goals: ['regain_fitness'],
-        status: 'active',
-      });
-    });
-
-    it('completes and updates training block week when doc exists', async () => {
-      mockGet.mockResolvedValue({ exists: true });
-
-      const completed = await completeTrainingBlock('test-user', 'block-1');
-      const updated = await updateTrainingBlockWeek('test-user', 'block-1', 4);
-
-      expect(completed).toBe(true);
-      expect(updated).toBe(true);
-      expect(mockUpdate).toHaveBeenCalledWith({ status: 'completed' });
-      expect(mockUpdate).toHaveBeenCalledWith({ currentWeek: 4 });
-    });
-
-    it('returns false for completion/week updates when block doc is missing', async () => {
-      mockGet.mockResolvedValue({ exists: false });
-
-      const completed = await completeTrainingBlock('test-user', 'missing-block');
-      const updated = await updateTrainingBlockWeek('test-user', 'missing-block', 5);
-
-      expect(completed).toBe(false);
-      expect(updated).toBe(false);
     });
 
     it('returns null for weight goal when settings doc has no data', async () => {

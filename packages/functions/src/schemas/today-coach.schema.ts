@@ -3,7 +3,6 @@ import { recoverySnapshotSchema, recoveryStateSchema } from './recovery.schema.j
 
 const recoveryStatusSchema = z.enum(['great', 'good', 'caution', 'warning']);
 const prioritySchema = z.enum(['high', 'normal', 'rest']);
-const cyclingPrioritySchema = z.enum(['high', 'normal', 'skip']);
 const stretchingPrioritySchema = z.enum(['high', 'normal', 'low']);
 const meditationPrioritySchema = z.enum(['high', 'normal', 'low']);
 const timeOfDaySchema = z.enum([
@@ -15,19 +14,6 @@ const timeOfDaySchema = z.enum([
   'night',
 ]);
 const workoutStatusSchema = z.enum(['pending', 'in_progress', 'completed', 'skipped']);
-const targetTssSchema = z.object({
-  min: z.number(),
-  max: z.number(),
-}).strict();
-const sessionTypeSchema = z.enum([
-  'vo2max',
-  'threshold',
-  'endurance',
-  'tempo',
-  'fun',
-  'recovery',
-  'off',
-]);
 const trendSchema = z.enum(['rising', 'stable', 'declining']).nullable();
 
 export const todayCoachRecoverySnapshotSchema = recoverySnapshotSchema.omit({ source: true });
@@ -166,34 +152,14 @@ export const recentRideStreamSummarySchema = z.object({
   powerZoneDistribution: z.record(z.string(), z.number()),
 }).strict();
 
-export const tomorrowSessionSchema = z.object({
-  type: z.string(),
-  description: z.string(),
-}).strict();
-
-export const todayCoachSessionSchema = z.object({
-  type: sessionTypeSchema,
-  durationMinutes: z.number(),
-  pelotonClassTypes: z.array(z.string()),
-  pelotonTip: z.string(),
-  targetTSS: targetTssSchema,
-  targetZones: z.string(),
-}).strict();
-
 export const todayCoachCyclingContextSchema = z.object({
-  ftp: z.number(),
+  ftp: z.number().nullable(),
   trainingLoad: z.object({
     atl: z.number(),
     ctl: z.number(),
     tsb: z.number(),
   }).strict(),
-  weekInBlock: z.number().nullable(),
-  totalWeeks: z.number().nullable(),
-  nextSession: tomorrowSessionSchema.nullable(),
   recentActivities: z.array(todayCoachCyclingActivitySummarySchema),
-  vo2max: vo2maxContextSchema.nullable(),
-  efTrend: efTrendSummarySchema.nullable(),
-  ftpStaleDays: z.number(),
   lastRideStreams: recentRideStreamSummarySchema.nullable(),
 }).strict();
 
@@ -248,11 +214,6 @@ export const todayCoachResponseSchema = z.object({
       }).strict().nullable(),
       priority: prioritySchema,
     }).strict().nullable(),
-    cycling: z.object({
-      insight: z.string(),
-      session: todayCoachSessionSchema.nullable(),
-      priority: cyclingPrioritySchema,
-    }).strict().nullable(),
     stretching: z.object({
       insight: z.string(),
       suggestedRegions: z.array(z.string()),
@@ -296,7 +257,6 @@ export type MeditationContextDTO = z.infer<typeof meditationContextSchema>;
 export type TodayCoachRequestDTO = z.infer<typeof todayCoachRequestSchema>;
 export type TodayCoachRecoverySectionDTO = z.infer<typeof todayCoachResponseSchema>['sections']['recovery'];
 export type TodayCoachLiftingSectionDTO = z.infer<typeof todayCoachResponseSchema>['sections']['lifting'];
-export type TodayCoachCyclingSectionDTO = z.infer<typeof todayCoachResponseSchema>['sections']['cycling'];
 export type TodayCoachStretchingSectionDTO = z.infer<typeof todayCoachResponseSchema>['sections']['stretching'];
 export type TodayCoachMeditationSectionDTO = z.infer<typeof todayCoachResponseSchema>['sections']['meditation'];
 export type TodayCoachWeightSectionDTO = z.infer<typeof todayCoachResponseSchema>['sections']['weight'];

@@ -17,12 +17,12 @@
 | [agents-rust-dev-tooling-guidance](active/2026-02-26-agents-rust-dev-tooling-guidance.md) | Add explicit agent guidance to prefer Rust for non-trivial dev tooling | 2026-02-26 |
 | [google-auth-phase1](active/2026-02-11-google-auth-phase1.md) | Google OAuth via Firebase Auth to gate app access and verify ID tokens | 2026-02-11 |
 | [usage-instrumentation](active/2026-02-11-usage-instrumentation.md) | Self-instrumentation for Cloud Functions to track API usage against free-tier limits | 2026-02-11 |
-| [training-block-enhancement](active/2026-02-09-training-block-enhancement.md) | Configurable cycling schedule + Peloton-aware AI coach recommendations (Draft) | 2026-02-09 |
 
 ## Completed
 
 | Plan | Summary | Completed |
 |------|---------|-----------|
+| [retire-cycling-coach-keep-strava-context](completed/2026-07-27-retire-cycling-coach-keep-strava-context.md) | Retire standalone cycling and Peloton prescriptions while keeping stored Strava rides as Today Coach context | 2026-07-27 |
 | [meal-plan-load-performance](completed/2026-07-26-meal-plan-load-performance.md) | Restore draft and finalized meal plans from a dedicated screen cache and bound the live latest-session query | 2026-07-26 |
 | [rust-migrate-qa-stop](completed/2026-02-26-rust-migrate-qa-stop.md) | Migrate `scripts/qa-stop.sh` teardown/lock lifecycle logic to Rust with parity and >=90% coverage | 2026-02-26 |
 | [oxlint-migration](completed/2026-02-26-oxlint-migration.md) | Speed-first legacy-lint to Oxlint migration with strict no-`any` enforcement and staged type-aware unsafe checks | 2026-02-26 |

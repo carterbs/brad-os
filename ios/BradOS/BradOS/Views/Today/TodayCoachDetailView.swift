@@ -16,9 +16,6 @@ struct TodayCoachDetailView: View {
                     if let lifting = recommendation.sections.lifting {
                         liftingSection(lifting)
                     }
-                    if let cycling = recommendation.sections.cycling {
-                        cyclingSection(cycling)
-                    }
                     stretchingSection
                     meditationSection
                     if let weight = recommendation.sections.weight {

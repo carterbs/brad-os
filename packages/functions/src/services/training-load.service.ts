@@ -5,7 +5,7 @@
  * (ATL, CTL, TSB) for cycling activities.
  */
 
-import type { WeeklySession, SessionType, DailyTSS } from '../shared.js';
+import type { DailyTSS } from '../shared.js';
 // Re-export type so existing imports from this module continue to work
 export type { DailyTSS } from '../shared.js';
 
@@ -144,45 +144,6 @@ export function calculateTSB(ctl: number, atl: number): number {
 }
 
 /**
- * Get the current week number within a training block.
- *
- * Training blocks are typically 8 weeks:
- * - Weeks 1-6: Progressive training
- * - Week 7: Peak/taper
- * - Week 8: Recovery/deload
- *
- * @param blockStartDate - ISO 8601 date string for block start
- * @param currentDate - Optional current date (defaults to today)
- * @returns Week number (1-8), or 0 if before block start
- */
-export function getWeekInBlock(
-  blockStartDate: string,
-  currentDate?: string
-): number {
-  const start = new Date(blockStartDate);
-  const current =
-    currentDate !== undefined && currentDate !== ''
-      ? new Date(currentDate)
-      : new Date();
-
-  // Reset to start of day for consistent comparison
-  start.setHours(0, 0, 0, 0);
-  current.setHours(0, 0, 0, 0);
-
-  const diffMs = current.getTime() - start.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffDays < 0) {
-    return 0; // Before block start
-  }
-
-  const weekNumber = Math.floor(diffDays / 7) + 1;
-
-  // Cap at 8 weeks
-  return Math.min(weekNumber, 8);
-}
-
-/**
  * Build a complete daily TSS array from sparse activity data.
  *
  * This fills in missing days with 0 TSS to ensure accurate EMA calculations.
@@ -311,71 +272,4 @@ export function getWeekBoundaries(date?: Date): { start: string; end: string } {
   };
 
   return { start: formatDate(monday), end: formatDate(sunday) };
-}
-
-/**
- * Map a cycling activity type to a session type for matching.
- * Used when matching Strava activities against the weekly session queue.
- */
-function activityTypeToSessionType(activityType: string): SessionType | null {
-  switch (activityType) {
-    case 'vo2max':
-      return 'vo2max';
-    case 'threshold':
-      return 'threshold';
-    case 'fun':
-      return 'fun';
-    case 'recovery':
-      return 'recovery';
-    default:
-      return null;
-  }
-}
-
-/**
- * Determine which session is next in the weekly queue.
- *
- * Walks the session queue in order and tries to match each session against
- * completed activities by session type. Each activity can only match one
- * session (consumed in order). Returns the first unmatched session, or null
- * if all sessions have been completed this week.
- *
- * @param weeklySessions - The ordered list of sessions for the week
- * @param completedActivities - This week's completed cycling activities
- * @returns The next incomplete session, or null if all done
- */
-export function determineNextSession(
-  weeklySessions: WeeklySession[],
-  completedActivities: { type: string }[]
-): WeeklySession | null {
-  if (weeklySessions.length === 0) {
-    return null;
-  }
-
-  // Build a pool of available activity types (can be consumed)
-  const availableActivities = completedActivities
-    .map((a) => activityTypeToSessionType(a.type))
-    .filter((t): t is SessionType => t !== null);
-
-  // Track which activities have been consumed
-  const consumed = new Array<boolean>(availableActivities.length).fill(false);
-
-  for (const session of weeklySessions) {
-    // Try to find a matching activity for this session
-    let matched = false;
-    for (let i = 0; i < availableActivities.length; i++) {
-      if (consumed[i] !== true && availableActivities[i] === session.sessionType) {
-        consumed[i] = true;
-        matched = true;
-        break;
-      }
-    }
-
-    if (!matched) {
-      return session;
-    }
-  }
-
-  // All sessions matched - week is complete
-  return null;
 }
