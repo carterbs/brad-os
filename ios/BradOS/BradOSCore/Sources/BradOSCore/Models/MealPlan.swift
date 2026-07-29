@@ -7,8 +7,8 @@ public enum MealTrack: String, Codable, Sendable, CaseIterable {
 
     public var compactLabel: String {
         switch self {
-        case .family: return "Breakfast"
-        case .adult: return "Brad"
+        case .family: return "Family"
+        case .adult: return "Adult"
         }
     }
 }
@@ -66,12 +66,7 @@ public struct MealPlanEntry: Identifiable, Codable, Hashable, Sendable {
     }
 
     public var displayLabel: String {
-        switch (mealTrack, mealType) {
-        case (.family, .breakfast): return "Breakfast"
-        case (.adult, .breakfast): return "Brad"
-        case (_, .lunch): return "Lunch"
-        case (_, .dinner): return "Dinner"
-        }
+        "\(mealTrack.compactLabel) \(mealType.rawValue.capitalized)"
     }
 }
 

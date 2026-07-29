@@ -233,7 +233,8 @@ struct MealPlanEntryTests {
         #expect(family.id == "0-family-breakfast")
         #expect(adult.id == "0-adult-breakfast")
         #expect(family.id != adult.id)
-        #expect(adult.displayLabel == "Brad")
+        #expect(family.displayLabel == "Family Breakfast")
+        #expect(adult.displayLabel == "Adult Breakfast")
     }
 }
 
