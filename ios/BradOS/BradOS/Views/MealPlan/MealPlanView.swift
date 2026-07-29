@@ -201,15 +201,19 @@ struct MealPlanView: View {
         HStack(spacing: Theme.Spacing.space2) {
             Image(systemName: "checkmark.seal.fill")
                 .font(.caption)
-                .foregroundColor(Theme.success.opacity(0.8))
+                .foregroundColor(Theme.interactivePrimary)
             Text("Finalized")
                 .font(.caption)
                 .fontWeight(.medium)
-                .foregroundColor(Theme.success.opacity(0.8))
+                .foregroundColor(Theme.textPrimary)
         }
         .padding(.horizontal, Theme.Spacing.space2)
         .padding(.vertical, Theme.Spacing.space1)
-        .background(Theme.success.opacity(0.1))
+        .background(Theme.interactivePrimary.opacity(0.10))
+        .overlay(
+            RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
+                .stroke(Theme.interactivePrimary.opacity(0.25), lineWidth: 1)
+        )
         .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous))
     }
 

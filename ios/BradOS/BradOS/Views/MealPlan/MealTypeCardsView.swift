@@ -10,7 +10,7 @@ struct MealTypeCardsView: View {
         List {
             if mealType == .breakfast {
                 breakfastSection(title: "Family Breakfast", track: .family)
-                breakfastSection(title: "Brad Breakfast", track: .adult)
+                breakfastSection(title: "Adult Breakfast", track: .adult)
             } else {
                 ForEach(viewModel.entriesForMealType(mealType)) { entry in
                     mealRow(entry)
