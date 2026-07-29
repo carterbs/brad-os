@@ -128,15 +128,9 @@ struct MealPlanDashboardCard: View {
 
     private var mealContent: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.space3) {
-            HStack(spacing: Theme.Spacing.space2) {
-                Rectangle()
-                    .fill(Theme.interactivePrimary)
-                    .frame(width: 20, height: 2)
-                Text("FOOD, MADE SIMPLE")
-                    .font(.caption.weight(.bold))
-                    .tracking(0.8)
-                    .foregroundColor(Theme.textSecondary)
-            }
+            Text("Meal Plan")
+                .font(.headline)
+                .foregroundColor(Theme.textPrimary)
 
             if todayMeals.isEmpty {
                 Text("No finalized meal plan")
