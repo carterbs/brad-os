@@ -20,7 +20,7 @@ struct RestTimerOverlay: View {
                 ZStack {
                     // Background circle
                     Circle()
-                        .stroke(Color.white.opacity(0.06), lineWidth: 12)
+                        .stroke(Theme.divider, lineWidth: 12)
                         .frame(width: Theme.Dimensions.timerCircle, height: Theme.Dimensions.timerCircle)
 
                     // Progress arc
@@ -159,7 +159,7 @@ struct RestTimerBar: View {
                 // Progress ring
                 ZStack {
                     Circle()
-                        .stroke(Color.white.opacity(0.06), lineWidth: 3)
+                        .stroke(Theme.divider, lineWidth: 3)
                         .frame(width: Theme.Dimensions.progressRing, height: Theme.Dimensions.progressRing)
 
                     Circle()

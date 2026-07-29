@@ -67,7 +67,7 @@ struct StretchActiveView: View {
             return Theme.stretch
         } else {
             // Pending
-            return Color.white.opacity(0.06)
+            return Theme.Background.surface
         }
     }
 
@@ -167,11 +167,7 @@ struct StretchActiveView: View {
         }
         .padding(.horizontal, Theme.Spacing.space4)
         .padding(.vertical, Theme.Spacing.space2)
-        .background(
-            isActive
-                ? AnyShapeStyle(.ultraThinMaterial)
-                : AnyShapeStyle(Color.white.opacity(0.06))
-        )
+        .background(Theme.Background.surface)
         .background(isActive ? Theme.stretch.opacity(0.2) : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
         .overlay(
@@ -202,7 +198,7 @@ struct StretchActiveView: View {
             GeometryReader { geometry in
                 ZStack(alignment: .leading) {
                     Capsule()
-                        .fill(Color.white.opacity(0.06))
+                        .fill(Theme.divider)
 
                     Capsule()
                         .fill(Theme.stretch)

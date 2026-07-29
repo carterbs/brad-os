@@ -107,7 +107,7 @@ struct TodayFocusView: View {
                 ? AnyShapeStyle(.ultraThinMaterial)
                 : AnyShapeStyle(Color.clear)
         )
-        .background(isSelected ? Theme.mealPlan.opacity(0.15) : Color.white.opacity(0.06))
+        .background(isSelected ? Theme.mealPlan.opacity(0.15) : Theme.Background.surface)
         .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)

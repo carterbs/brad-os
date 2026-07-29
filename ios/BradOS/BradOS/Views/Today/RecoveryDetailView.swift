@@ -43,7 +43,7 @@ struct RecoveryDetailView: View {
             // Score ring
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.06), lineWidth: 8)
+                    .stroke(Theme.divider, lineWidth: 8)
                     .frame(width: 120, height: 120)
 
                 Circle()

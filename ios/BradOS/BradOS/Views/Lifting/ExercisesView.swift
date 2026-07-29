@@ -67,7 +67,7 @@ struct ExercisesView: View {
                 .textFieldStyle(.plain)
                 .padding(Theme.Spacing.space2)
                 .frame(height: Theme.Dimensions.inputHeight)
-                .background(Color.white.opacity(0.06))
+                .background(Theme.Background.surface)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
 
             HStack(spacing: Theme.Spacing.space2) {
@@ -86,7 +86,7 @@ struct ExercisesView: View {
                 }
                 .padding(Theme.Spacing.space2)
                 .frame(height: Theme.Dimensions.inputHeight)
-                .background(Color.white.opacity(0.06))
+                .background(Theme.Background.surface)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
 
                 Spacer()

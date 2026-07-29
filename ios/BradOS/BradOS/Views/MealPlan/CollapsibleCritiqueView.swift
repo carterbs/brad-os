@@ -104,7 +104,7 @@ struct CollapsibleCritiqueView: View {
                 .foregroundColor(Theme.textPrimary)
                 .padding(.horizontal, Theme.Spacing.space4)
                 .padding(.vertical, Theme.Spacing.space2)
-                .background(Color.white.opacity(0.06))
+                .background(Theme.Background.surface)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous))
             Spacer(minLength: 40)
         }

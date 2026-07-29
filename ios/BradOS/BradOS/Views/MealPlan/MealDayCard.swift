@@ -111,7 +111,7 @@ struct MealDayCard: View {
         case .remove:
             return Theme.destructive.opacity(0.15)
         case nil:
-            return Color.white.opacity(0.06)
+            return Theme.Background.surface
         }
     }
 

@@ -299,8 +299,7 @@ struct RegionToggleCard: View {
                     .accessibilityHidden(true)
             }
             .padding(Theme.Spacing.space4)
-            .background(Color.white.opacity(0.06))
-            .background(.ultraThinMaterial)
+            .background(Theme.Background.surface)
             .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
@@ -379,11 +378,7 @@ struct ReorderableRegionRow: View {
             }
         }
         .padding(Theme.Spacing.space2)
-        .background(
-            config.enabled
-                ? AnyShapeStyle(.ultraThinMaterial)
-                : AnyShapeStyle(Color.white.opacity(0.06))
-        )
+        .background(Theme.Background.surface)
         .background(config.enabled ? Theme.stretch.opacity(0.1) : Color.clear)
         .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous))
         .overlay(
@@ -417,16 +412,12 @@ struct DurationOption: View {
             }
             .frame(maxWidth: .infinity)
             .padding(Theme.Spacing.space4)
-            .background(
-                isSelected
-                    ? AnyShapeStyle(.ultraThinMaterial)
-                    : AnyShapeStyle(Color.white.opacity(0.06))
-            )
+            .background(Theme.Background.surface)
             .background(isSelected ? Theme.stretch.opacity(0.18) : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
-                    .stroke(isSelected ? Theme.stretch.opacity(0.50) : Color.white.opacity(0.10), lineWidth: 2)
+                    .stroke(isSelected ? Theme.stretch.opacity(0.50) : Theme.divider, lineWidth: 2)
             )
         }
         .buttonStyle(PlainButtonStyle())
