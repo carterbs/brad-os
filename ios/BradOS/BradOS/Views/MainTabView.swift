@@ -54,7 +54,7 @@ struct MainTabView: View {
                     .fontWeight(.medium)
                     .foregroundColor(isActive ? Theme.interactivePrimary : Theme.textTertiary)
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.vertical, Theme.Spacing.space1)
             .overlay(alignment: .top) {
                 Rectangle()
