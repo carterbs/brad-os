@@ -19,7 +19,7 @@ final class OnDeviceSpeechRenderer: NSObject {
         utterance.voice = preferredVoice
         utterance.rate = AVSpeechUtteranceDefaultSpeechRate
 
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             var outputFile: AVAudioFile?
             var renderingError: Error?
 
