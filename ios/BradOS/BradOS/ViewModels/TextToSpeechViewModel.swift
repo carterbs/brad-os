@@ -15,17 +15,14 @@ final class TextToSpeechViewModel: ObservableObject {
     @Published var state: State = .idle
     @Published var errorMessage: String?
 
-    private let apiClient: APIClientProtocol
     private let audioEngine: any TTSAudioEngineProtocol
     private var cancellables = Set<AnyCancellable>()
 
     var canPlay: Bool { !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && state == .idle }
 
     init(
-        apiClient: APIClientProtocol = APIClient.shared,
         audioEngine: any TTSAudioEngineProtocol = TTSAudioEngine()
     ) {
-        self.apiClient = apiClient
         self.audioEngine = audioEngine
 
         audioEngine.isPlayingPublisher
@@ -39,8 +36,8 @@ final class TextToSpeechViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    /// Send text to TTS API and play the returned audio.
-    /// - Parameter delaySec: Seconds to wait after generating before playing (for lock screen testing).
+    /// Render text locally and play it.
+    /// - Parameter delaySec: Seconds to wait before playing (for lock screen testing).
     func generateAndPlay(delaySec: Int = 0) {
         guard canPlay else { return }
 
@@ -49,12 +46,11 @@ final class TextToSpeechViewModel: ObservableObject {
 
         Task {
             do {
-                let audioData = try await apiClient.synthesizeSpeech(text: text)
                 if delaySec > 0 {
                     state = .playing // Show "Stop" button during countdown
                     try await Task.sleep(nanoseconds: UInt64(delaySec) * 1_000_000_000)
                 }
-                try await audioEngine.play(data: audioData)
+                try await audioEngine.play(text: text)
                 state = .playing
             } catch {
                 state = .idle

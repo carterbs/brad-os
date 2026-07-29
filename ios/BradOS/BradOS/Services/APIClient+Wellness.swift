@@ -166,26 +166,6 @@ extension APIClient {
         try await get("/stretches")
     }
 
-    // MARK: - Text to Speech
-
-    func synthesizeSpeech(text: String) async throws -> Data {
-        struct SynthesizeBody: Encodable {
-            let text: String
-        }
-
-        struct SynthesizeResponse: Decodable {
-            let audio: String
-        }
-
-        let response: SynthesizeResponse = try await post("/tts/synthesize", body: SynthesizeBody(text: text))
-
-        guard let audioData = Data(base64Encoded: response.audio) else {
-            throw APIError.unknown("Failed to decode base64 audio data")
-        }
-
-        return audioData
-    }
-
     // MARK: - Guided Meditations
 
     func getGuidedMeditationCategories() async throws -> [GuidedMeditationCategoryResponse] {

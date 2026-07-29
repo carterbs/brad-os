@@ -141,14 +141,14 @@ final class MockTTSAudioEngine: TTSAudioEngineProtocol {
 
     private(set) var playCallCount = 0
     private(set) var stopCallCount = 0
-    private(set) var lastPlayedData: Data?
+    private(set) var lastPlayedText: String?
 
     var playError: Error?
     var autoStopAfterNanos: UInt64?
 
-    func play(data: Data) async throws {
+    func play(text: String) async throws {
         playCallCount += 1
-        lastPlayedData = data
+        lastPlayedText = text
         isPlayingSubject.send(true)
         try await Task.checkCancellation()
 

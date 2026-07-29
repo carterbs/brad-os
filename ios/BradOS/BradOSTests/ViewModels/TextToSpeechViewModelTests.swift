@@ -9,10 +9,7 @@ struct TextToSpeechViewModelTests {
     @Test("canPlay false for blank text or non-idle state")
     @MainActor
     func canPlayRequiresTextAndIdleState() {
-        let vm = TextToSpeechViewModel(
-            apiClient: MockAPIClient(),
-            audioEngine: MockTTSAudioEngine()
-        )
+        let vm = TextToSpeechViewModel(audioEngine: MockTTSAudioEngine())
 
         #expect(vm.canPlay == false)
 
@@ -27,7 +24,7 @@ struct TextToSpeechViewModelTests {
     @MainActor
     func generateAndPlayNoopsWhenCannotPlay() async {
         let engine = MockTTSAudioEngine()
-        let vm = TextToSpeechViewModel(apiClient: MockAPIClient(), audioEngine: engine)
+        let vm = TextToSpeechViewModel(audioEngine: engine)
         vm.text = ""
 
         vm.generateAndPlay()
@@ -42,7 +39,7 @@ struct TextToSpeechViewModelTests {
     @MainActor
     func generateAndPlaySuccessTransitionsToPlaying() async {
         let engine = MockTTSAudioEngine()
-        let vm = TextToSpeechViewModel(apiClient: MockAPIClient(), audioEngine: engine)
+        let vm = TextToSpeechViewModel(audioEngine: engine)
         vm.text = "  hello   "
         vm.errorMessage = "existing error"
 
@@ -52,30 +49,14 @@ struct TextToSpeechViewModelTests {
         #expect(vm.state == .playing)
         #expect(vm.errorMessage == nil)
         #expect(engine.playCallCount == 1)
-        #expect(engine.lastPlayedData != nil)
-    }
-
-    @Test("synthesize failure sets error and returns to idle")
-    @MainActor
-    func generateAndPlayFailureSetsError() async {
-        let mock = MockAPIClient.failing(with: APIError.network(NSError(domain: "tts", code: -1)))
-        let engine = MockTTSAudioEngine()
-        let vm = TextToSpeechViewModel(apiClient: mock, audioEngine: engine)
-        vm.text = "Hello"
-
-        vm.generateAndPlay()
-        try? await Task.sleep(nanoseconds: 50_000_000)
-
-        #expect(vm.state == .idle)
-        #expect(vm.errorMessage != nil)
-        #expect(engine.playCallCount == 0)
+        #expect(engine.lastPlayedText == "  hello   ")
     }
 
     @Test("audio engine stop resets state to idle")
     @MainActor
     func stopResetsStateToIdle() {
         let engine = MockTTSAudioEngine()
-        let vm = TextToSpeechViewModel(apiClient: MockAPIClient(), audioEngine: engine)
+        let vm = TextToSpeechViewModel(audioEngine: engine)
         vm.state = .playing
 
         vm.stop()

@@ -54,7 +54,7 @@ View -> StretchSessionManager/StretchDataService -> APIClient -> Firebase Hostin
 
 ## Notes
 - No dedicated ViewModel class; StretchView uses @StateObject services (StretchSessionManager, StretchDataService)
-- TTS audio (voice cues for stretch names/transitions) is pre-fetched and cached on disk
+- On-device TTS audio (voice cues for stretch names/transitions) is pre-rendered and cached on disk
 - Session recovery: StretchSessionStorage persists state so sessions survive app crashes
 - StretchUrgency in BradOSCore calculates days-since-last-stretch for dashboard display
 - Lock screen Now Playing integration via MPNowPlayingInfoCenter

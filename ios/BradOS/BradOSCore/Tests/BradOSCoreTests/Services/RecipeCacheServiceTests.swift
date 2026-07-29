@@ -258,7 +258,6 @@ private final class SpyAPIClient: APIClientProtocol, @unchecked Sendable {
     func getGuidedMeditationScripts(category: String) async throws -> [GuidedMeditationScript] { throw notImplemented() }
     func getGuidedMeditationScript(id: String) async throws -> GuidedMeditationScript { throw notImplemented() }
     func getStretches() async throws -> [StretchRegionData] { throw notImplemented() }
-    func synthesizeSpeech(text: String) async throws -> Data { throw notImplemented() }
     func getHRVHistory(days: Int) async throws -> [HRVHistoryEntry] { throw notImplemented() }
     func getRHRHistory(days: Int) async throws -> [RHRHistoryEntry] { throw notImplemented() }
     func getSleepHistory(days: Int) async throws -> [SleepHistoryEntry] { throw notImplemented() }

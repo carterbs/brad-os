@@ -193,11 +193,6 @@ public protocol APIClientProtocol: Sendable {
     /// Get all stretch regions with embedded stretch definitions
     func getStretches() async throws -> [StretchRegionData]
 
-    // MARK: - Text to Speech
-
-    /// Synthesize speech from text, returns MP3 audio data
-    func synthesizeSpeech(text: String) async throws -> Data
-
     // MARK: - Health Sync
 
     /// Get HRV history entries
