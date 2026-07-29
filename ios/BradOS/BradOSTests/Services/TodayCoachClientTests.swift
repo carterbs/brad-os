@@ -220,6 +220,50 @@ struct TodayCoachClientTests {
 
     @Test
     @MainActor
+    func persistedHourlyCacheSkipsNetworkForNewClient() async {
+        let defaults = MockUserDefaults()
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let expectedRecommendation = makeTodayCoachRecommendation()
+        let firstAPI = MockTodayCoachAPIClient()
+        firstAPI.getTodayCoachRecommendationResult = .success(expectedRecommendation)
+
+        let firstClient = TodayCoachClient(apiClient: firstAPI, userDefaults: defaults, now: { now })
+        let recovery = makeRecoveryData()
+        await firstClient.getRecommendation(recovery: recovery)
+        #expect(firstAPI.getTodayCoachRecommendationCallCount == 1)
+
+        let secondAPI = MockTodayCoachAPIClient()
+        let secondClient = TodayCoachClient(apiClient: secondAPI, userDefaults: defaults, now: { now.addingTimeInterval(30 * 60) })
+        await secondClient.getRecommendation(recovery: recovery)
+
+        #expect(secondClient.recommendation == expectedRecommendation)
+        #expect(secondAPI.getTodayCoachRecommendationCallCount == 0)
+    }
+
+    @Test
+    @MainActor
+    func persistedCacheExpiresAfterOneHour() async {
+        let defaults = MockUserDefaults()
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let firstAPI = MockTodayCoachAPIClient()
+        firstAPI.getTodayCoachRecommendationResult = .success(makeTodayCoachRecommendation())
+        let recovery = makeRecoveryData()
+
+        let firstClient = TodayCoachClient(apiClient: firstAPI, userDefaults: defaults, now: { now })
+        await firstClient.getRecommendation(recovery: recovery)
+
+        let refreshedRecommendation = makeTodayCoachRecommendation()
+        let secondAPI = MockTodayCoachAPIClient()
+        secondAPI.getTodayCoachRecommendationResult = .success(refreshedRecommendation)
+        let secondClient = TodayCoachClient(apiClient: secondAPI, userDefaults: defaults, now: { now.addingTimeInterval(60 * 60 + 1) })
+        await secondClient.getRecommendation(recovery: recovery)
+
+        #expect(secondAPI.getTodayCoachRecommendationCallCount == 1)
+        #expect(secondClient.recommendation == refreshedRecommendation)
+    }
+
+    @Test
+    @MainActor
     func cacheExpiredAllowsNewRequest() async {
         let mockAPI = MockTodayCoachAPIClient()
         let expectedRecommendation = makeTodayCoachRecommendation()
