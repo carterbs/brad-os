@@ -19,7 +19,8 @@ View -> Services (GuidedMeditationService, MeditationAPIService) -> APIClient ->
   - `ios/BradOS/BradOS/Services/GuidedMeditationService.swift` — fetches guided meditation scripts
   - `ios/BradOS/BradOS/Services/MeditationAPIService.swift` — session CRUD via API
   - `ios/BradOS/BradOS/Services/MeditationManifestService.swift` — breathing meditation manifest/cues
-  - `ios/BradOS/BradOS/Services/TTSAudioCache.swift` — disk cache for TTS audio files
+  - `ios/BradOS/BradOS/Services/TTSAudioCache.swift` — disk cache for locally rendered TTS audio files
+  - `ios/BradOS/BradOS/Audio/OnDeviceSpeechRenderer.swift` — native on-device speech rendering
 - **Models:**
   - `ios/BradOS/BradOS/Models/MeditationState.swift` — session state types
   - `ios/BradOS/BradOS/Models/GuidedMeditation.swift` — guided meditation script model
@@ -33,7 +34,6 @@ View -> Services (GuidedMeditationService, MeditationAPIService) -> APIClient ->
 - **Handlers:**
   - `packages/functions/src/handlers/meditationSessions.ts` — session logging (create/list/stats/latest)
   - `packages/functions/src/handlers/guidedMeditations.ts` — guided script browsing (categories/scripts)
-  - `packages/functions/src/handlers/tts.ts` — text-to-speech audio generation
 - **Repositories:**
   - `packages/functions/src/repositories/meditationSession.repository.ts` — session records
   - `packages/functions/src/repositories/guided-meditation.repository.ts` — guided meditation scripts
@@ -55,13 +55,12 @@ View -> Services (GuidedMeditationService, MeditationAPIService) -> APIClient ->
 - `GET /api/guidedMeditations/categories` — list guided meditation categories
 - `GET /api/guidedMeditations/category/:category` — scripts in a category
 - `GET /api/guidedMeditations/:id` — full script with segments
-- `POST /api/tts` — generate TTS audio for meditation cues
 
 ## Notes
-- Two meditation modes: breathing (4-2-6-2 cycle = 14s) and guided (pre-recorded scripts with TTS)
+- Two meditation modes: breathing (4-2-6-2 cycle = 14s) and guided (scripts rendered with on-device TTS)
 - MeditationView uses enum-based state machine (MeditationSessionState) with no dedicated ViewModel
 - Guided meditations have segments and interjections; audio is pre-fetched before playback
-- TTS audio cached on disk via TTSAudioCache (FileManager-based)
+- On-device TTS audio cached on disk via TTSAudioCache (FileManager-based)
 - Breathing durations: 5, 10, or 20 minutes
 
 ## See Also

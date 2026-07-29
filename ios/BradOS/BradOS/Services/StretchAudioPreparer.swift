@@ -1,5 +1,4 @@
 import Foundation
-import BradOSCore
 
 /// Shared cue identifiers for stretch sessions
 enum SharedStretchCue: String, CaseIterable {
@@ -32,11 +31,9 @@ final class StretchAudioPreparer: ObservableObject {
     @Published var progress: Double = 0
     @Published var error: APIError?
 
-    private let apiClient: APIClientProtocol
     private let cache: StretchAudioCache
 
-    init(apiClient: APIClientProtocol = APIClient.shared, cache: StretchAudioCache = .shared) {
-        self.apiClient = apiClient
+    init(cache: StretchAudioCache = .shared) {
         self.cache = cache
     }
 
@@ -68,16 +65,16 @@ final class StretchAudioPreparer: ObservableObject {
         var stretchNameAudio: [String: URL] = [:]
 
         for stretch in stretches {
-            if let url = try? await cache.getOrFetch(
+            if let url = try? await cache.getOrRender(
                 text: "\(stretch.definition.name). \(stretch.region.displayName). \(stretch.definition.description)",
-                using: apiClient
+                renderer: .shared
             ) {
                 stretchAudio[stretch.definition.id] = url
             }
             completedItems += 1
             progress = Double(completedItems) / Double(totalItems)
 
-            if let url = try? await cache.getOrFetch(text: stretch.definition.name, using: apiClient) {
+            if let url = try? await cache.getOrRender(text: stretch.definition.name) {
                 stretchNameAudio[stretch.definition.id] = url
             }
             completedItems += 1
@@ -92,7 +89,7 @@ final class StretchAudioPreparer: ObservableObject {
     ) async -> [SharedStretchCue: URL] {
         var sharedURLs: [SharedStretchCue: URL] = [:]
         for cue in SharedStretchCue.allCases {
-            if let url = try? await cache.getOrFetch(text: cue.text, using: apiClient) {
+            if let url = try? await cache.getOrRender(text: cue.text) {
                 sharedURLs[cue] = url
             }
             completedItems += 1

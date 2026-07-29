@@ -14,7 +14,6 @@ final class GuidedMeditationService: ObservableObject {
 
     // MARK: - Dependencies
 
-    private let apiClient = APIClient.shared
     private let cache = TTSAudioCache.shared
 
     // MARK: - Load Scripts
@@ -61,9 +60,7 @@ final class GuidedMeditationService: ObservableObject {
     ) async throws -> [PreparedAudioSegment] {
         var prepared: [PreparedAudioSegment] = []
         for segment in segments {
-            let fileURL = try await cache.getOrFetch(text: segment.text) { text in
-                try await self.apiClient.synthesizeSpeech(text: text)
-            }
+            let fileURL = try await cache.getOrRender(text: segment.text)
             let asset = AVURLAsset(url: fileURL)
             let duration = try await asset.load(.duration)
             prepared.append(PreparedAudioSegment(
@@ -90,9 +87,7 @@ final class GuidedMeditationService: ObservableObject {
                 in: interjection.windowStartSeconds...interjection.windowEndSeconds
             )
             guard let text = interjection.textOptions.randomElement() else { continue }
-            let fileURL = try await cache.getOrFetch(text: text) { text in
-                try await self.apiClient.synthesizeSpeech(text: text)
-            }
+            let fileURL = try await cache.getOrRender(text: text)
             let asset = AVURLAsset(url: fileURL)
             let duration = try await asset.load(.duration)
             resolved.append(ResolvedInterjection(

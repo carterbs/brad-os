@@ -1,19 +1,29 @@
 import AVFoundation
 import Combine
 
-/// Plays MP3 audio data from TTS API responses
+/// Plays speech rendered by Apple's on-device speech synthesizer.
 final class TTSAudioEngine: ObservableObject {
     @Published var isPlaying: Bool = false
     var isPlayingPublisher: AnyPublisher<Bool, Never> { $isPlaying.eraseToAnyPublisher() }
 
     private let audioSession = AudioSessionManager.shared
+    private let renderer: OnDeviceSpeechRenderer
 
-    /// Play MP3 data received from the TTS API (ducking handled by AudioSessionManager)
-    func play(data: Data) async throws {
+    init(renderer: OnDeviceSpeechRenderer = .shared) {
+        self.renderer = renderer
+    }
+
+    /// Render and play local speech with ducking handled by AudioSessionManager.
+    func play(text: String) async throws {
         stop()
         isPlaying = true
         defer { isPlaying = false }
-        try await audioSession.playNarration(data: data)
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("caf")
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+        try await renderer.render(text: text, to: fileURL)
+        try await audioSession.playNarration(url: fileURL)
     }
 
     /// Stop current playback

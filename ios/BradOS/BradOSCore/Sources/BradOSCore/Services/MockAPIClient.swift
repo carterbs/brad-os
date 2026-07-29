@@ -664,15 +664,6 @@ public final class MockAPIClient: APIClientProtocol, @unchecked Sendable {
         return mockStretchRegions
     }
 
-    // MARK: - Text to Speech
-
-    public func synthesizeSpeech(text: String) async throws -> Data {
-        await simulateDelay()
-        try checkForError()
-        // Return minimal valid MP3 data for mock purposes
-        return Data()
-    }
-
     // MARK: - Calendar
 
     /// Captured calendar API requests for testing

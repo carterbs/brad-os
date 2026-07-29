@@ -13,7 +13,6 @@ import { mealsApp } from './handlers/meals.js';
 import { mealplansApp } from './handlers/mealplans.js';
 import { ingredientsApp } from './handlers/ingredients.js';
 import { recipesApp } from './handlers/recipes.js';
-import { ttsApp } from './handlers/tts.js';
 import { guidedMeditationsApp } from './handlers/guidedMeditations.js';
 import { stretchesApp } from './handlers/stretches.js';
 import { cyclingApp } from './handlers/cycling.js';
@@ -61,7 +60,6 @@ export const API_ROUTE_MOUNTS = [
   { routePath: 'mealplans', handlerFile: 'mealplans', app: mealplansApp },
   { routePath: 'ingredients', handlerFile: 'ingredients', app: ingredientsApp },
   { routePath: 'recipes', handlerFile: 'recipes', app: recipesApp },
-  { routePath: 'tts', handlerFile: 'tts', app: ttsApp },
   { routePath: 'stretches', handlerFile: 'stretches', app: stretchesApp },
   {
     routePath: 'guidedMeditations',

@@ -20,7 +20,6 @@ export const ENDPOINT_MANIFEST: readonly EndpointEntry[] = [
   { routePath: 'mealplans', handlerFile: 'mealplans' },
   { routePath: 'ingredients', handlerFile: 'ingredients' },
   { routePath: 'recipes', handlerFile: 'recipes' },
-  { routePath: 'tts', handlerFile: 'tts' },
   { routePath: 'stretches', handlerFile: 'stretches' },
   { routePath: 'guidedMeditations', handlerFile: 'guidedMeditations' },
   { routePath: 'cycling', handlerFile: 'cycling' },

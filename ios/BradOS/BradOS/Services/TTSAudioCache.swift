@@ -24,27 +24,20 @@ final class TTSAudioCache {
     /// Get cached file URL if it exists
     func cachedFileURL(for text: String) -> URL? {
         let key = cacheKey(for: text)
-        let fileURL = cacheDirectory.appendingPathComponent("\(key).mp3")
+        let fileURL = cacheDirectory.appendingPathComponent("\(key).caf")
         return FileManager.default.fileExists(atPath: fileURL.path) ? fileURL : nil
     }
 
-    /// Store audio data and return file URL
-    func store(data: Data, for text: String) throws -> URL {
-        let key = cacheKey(for: text)
-        let fileURL = cacheDirectory.appendingPathComponent("\(key).mp3")
-        try data.write(to: fileURL)
-        return fileURL
-    }
-
-    /// Get from cache or fetch via provided closure
-    func getOrFetch(text: String, fetcher: (String) async throws -> Data) async throws -> URL {
-        // Check cache first
+    /// Render on-device speech and return the cached local audio URL.
+    @MainActor
+    func getOrRender(text: String, renderer: OnDeviceSpeechRenderer = .shared) async throws -> URL {
         if let cachedURL = cachedFileURL(for: text) {
             return cachedURL
         }
 
-        // Fetch and cache
-        let data = try await fetcher(text)
-        return try store(data: data, for: text)
+        let key = cacheKey(for: text)
+        let fileURL = cacheDirectory.appendingPathComponent("\(key).caf")
+        try await renderer.render(text: text, to: fileURL)
+        return fileURL
     }
 }

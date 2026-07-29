@@ -1,6 +1,5 @@
 import Foundation
 import CryptoKit
-import BradOSCore
 
 /// Disk cache for stretch TTS audio files.
 /// Same pattern as TTSAudioCache but in a separate directory.
@@ -26,25 +25,20 @@ final class StretchAudioCache {
     /// Get cached file URL if it exists
     func cachedFileURL(for text: String) -> URL? {
         let key = cacheKey(for: text)
-        let fileURL = cacheDirectory.appendingPathComponent("\(key).mp3")
+        let fileURL = cacheDirectory.appendingPathComponent("\(key).caf")
         return FileManager.default.fileExists(atPath: fileURL.path) ? fileURL : nil
     }
 
-    /// Store audio data and return file URL
-    func store(data: Data, for text: String) throws -> URL {
-        let key = cacheKey(for: text)
-        let fileURL = cacheDirectory.appendingPathComponent("\(key).mp3")
-        try data.write(to: fileURL)
-        return fileURL
-    }
-
-    /// Get from cache or fetch via API client
-    func getOrFetch(text: String, using apiClient: APIClientProtocol) async throws -> URL {
+    /// Render on-device speech and return the cached local audio URL.
+    @MainActor
+    func getOrRender(text: String, renderer: OnDeviceSpeechRenderer = .shared) async throws -> URL {
         if let cachedURL = cachedFileURL(for: text) {
             return cachedURL
         }
 
-        let data = try await apiClient.synthesizeSpeech(text: text)
-        return try store(data: data, for: text)
+        let key = cacheKey(for: text)
+        let fileURL = cacheDirectory.appendingPathComponent("\(key).caf")
+        try await renderer.render(text: text, to: fileURL)
+        return fileURL
     }
 }
