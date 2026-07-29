@@ -25,26 +25,8 @@ struct TodayCoachRequestBody: Encodable {
 class TodayCoachClient: ObservableObject {
     private struct CachedRecommendation: Codable {
         let recommendation: TodayCoachRecommendation
-        let cacheDate: String
+        let requestDate: String
         let cachedAt: Date
-
-        private enum CodingKeys: String, CodingKey {
-            case recommendation, cacheDate, requestDate, cachedAt
-        }
-
-        init(recommendation: TodayCoachRecommendation, cacheDate: String, cachedAt: Date) {
-            self.recommendation = recommendation
-            self.cacheDate = cacheDate
-            self.cachedAt = cachedAt
-        }
-
-        init(from decoder: Decoder) throws {
-            let container = try decoder.container(keyedBy: CodingKeys.self)
-            recommendation = try container.decode(TodayCoachRecommendation.self, forKey: .recommendation)
-            cacheDate = try container.decodeIfPresent(String.self, forKey: .cacheDate)
-                ?? container.decode(String.self, forKey: .requestDate)
-            cachedAt = try container.decode(Date.self, forKey: .cachedAt)
-        }
     }
 
     private enum CacheKey {
@@ -141,19 +123,13 @@ class TodayCoachClient: ObservableObject {
 
         recommendation = cached.recommendation
         cacheTimestamp = cached.cachedAt
-        // Earlier builds keyed this to the recovery record date. A recovery snapshot
-        // can legitimately lag the calendar day, which made a minutes-old briefing
-        // appear stale after relaunch. Its TTL is still authoritative, so migrate it
-        // to today's cache scope while the entry remains fresh.
-        cachedRequestDate = cached.cacheDate == formattedDate(now())
-            ? cached.cacheDate
-            : formattedDate(now())
+        cachedRequestDate = cached.requestDate
     }
 
     private func persistCachedRecommendation(_ recommendation: TodayCoachRecommendation) {
         let cached = CachedRecommendation(
             recommendation: recommendation,
-            cacheDate: formattedDate(now()),
+            requestDate: formattedDate(now()),
             cachedAt: cacheTimestamp ?? now()
         )
         guard let data = try? JSONEncoder().encode(cached) else { return }
