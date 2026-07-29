@@ -86,7 +86,6 @@ struct MealPlanWidgetEntryView: View {
         .frame(maxWidth: .infinity, minHeight: 42, alignment: .topLeading)
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
-        .background(ThemeColors.bgBase.opacity(0.7), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
 
     private var emptyState: some View {
