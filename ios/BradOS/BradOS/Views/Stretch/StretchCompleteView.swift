@@ -165,7 +165,7 @@ struct StretchCompleteView: View {
                     .foregroundColor(Theme.interactivePrimary)
             } else {
                 Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(Theme.success)
+                    .foregroundColor(Theme.stretch)
                 Text("Session saved")
                     .font(.caption)
                     .foregroundColor(Theme.textSecondary)
