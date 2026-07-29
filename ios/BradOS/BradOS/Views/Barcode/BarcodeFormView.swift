@@ -94,7 +94,7 @@ struct BarcodeFormView: View {
                         .padding(.top, Theme.Spacing.space4)
                 } else {
                     RoundedRectangle(cornerRadius: Theme.CornerRadius.md)
-                        .fill(Color.white.opacity(0.1))
+                        .fill(Theme.Background.surface)
                         .frame(height: 100)
                         .overlay(
                             Text("Enter a value to see preview")

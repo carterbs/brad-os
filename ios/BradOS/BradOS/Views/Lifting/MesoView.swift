@@ -287,7 +287,7 @@ struct ActiveMesocycleCard: View {
                 GeometryReader { geometry in
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 2, style: .continuous)
-                            .fill(Color.white.opacity(0.06))
+                            .fill(Theme.divider)
                             .frame(height: Theme.Dimensions.progressBarHeight)
                         RoundedRectangle(cornerRadius: 2, style: .continuous)
                             .fill(Theme.lifting)

@@ -63,7 +63,7 @@ struct CritiqueInputView: View {
                 .foregroundColor(Theme.textPrimary)
                 .padding(.horizontal, Theme.Spacing.space4)
                 .padding(.vertical, Theme.Spacing.space2)
-                .background(Color.white.opacity(0.06))
+                .background(Theme.Background.surface)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous))
             Spacer(minLength: 40)
         }
@@ -78,8 +78,7 @@ struct CritiqueInputView: View {
                 .textFieldStyle(.plain)
                 .padding(Theme.Spacing.space2)
                 .frame(height: Theme.Dimensions.inputHeight)
-                .background(Color.white.opacity(0.06))
-                .background(.ultraThinMaterial)
+                .background(Theme.Background.surface)
                 .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)

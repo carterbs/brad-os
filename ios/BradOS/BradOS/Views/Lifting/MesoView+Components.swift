@@ -129,7 +129,7 @@ struct WeekCard: View {
         case .completed: return Theme.success
         case .skipped: return Theme.neutral
         case .inProgress: return Theme.warning
-        case .pending: return Color.white.opacity(0.06)
+        case .pending: return Theme.Background.surface
         }
     }
 

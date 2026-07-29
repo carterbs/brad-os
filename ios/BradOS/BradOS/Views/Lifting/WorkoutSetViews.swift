@@ -249,7 +249,7 @@ struct SetRow: View {
         switch workoutSet.status {
         case .completed: return Theme.success
         case .skipped: return Theme.neutral
-        case .pending: return Color.white.opacity(0.06)
+        case .pending: return Theme.Background.surface
         }
     }
 
@@ -328,7 +328,7 @@ struct WarmupSetRow: View {
             // "W" badge instead of set number
             ZStack {
                 Circle()
-                    .fill(Color.white.opacity(0.06))
+                    .fill(Theme.Background.surface)
                     .frame(width: 28, height: 28)
 
                 Text("W")

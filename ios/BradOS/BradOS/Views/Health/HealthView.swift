@@ -151,23 +151,23 @@ struct RecentActivityRowPlaceholder: View {
     var body: some View {
         HStack(spacing: Theme.Spacing.space4) {
             RoundedRectangle(cornerRadius: Theme.CornerRadius.sm)
-                .fill(Color.white.opacity(0.06))
+                .fill(Theme.Background.surface)
                 .frame(width: 36, height: 36)
 
             VStack(alignment: .leading, spacing: 4) {
                 RoundedRectangle(cornerRadius: Theme.CornerRadius.sm)
-                    .fill(Color.white.opacity(0.06))
+                    .fill(Theme.Background.surface)
                     .frame(width: 100, height: 14)
 
                 RoundedRectangle(cornerRadius: Theme.CornerRadius.sm)
-                    .fill(Color.white.opacity(0.06))
+                    .fill(Theme.Background.surface)
                     .frame(width: 60, height: 12)
             }
 
             Spacer()
 
             RoundedRectangle(cornerRadius: Theme.CornerRadius.sm)
-                .fill(Color.white.opacity(0.06))
+                .fill(Theme.Background.surface)
                 .frame(width: 50, height: 12)
         }
         .daymarkSection(padding: Theme.Spacing.space4)
