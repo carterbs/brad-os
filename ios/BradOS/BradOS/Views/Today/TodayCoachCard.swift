@@ -63,12 +63,12 @@ extension TodayCoachCard {
 
 /// Dashboard card displaying the AI Today Coach daily briefing.
 ///
-/// Self-loading: syncs HealthKit to Firebase, fetches recovery, then calls the Today Coach API.
-/// Shows loading/error/content states inline on the dashboard.
+/// Self-loading: immediately reads the latest recovery snapshot and requests the Coach briefing.
+/// HealthKit synchronization is shared with the app lifecycle so it never blocks the first dashboard render.
 struct TodayCoachCard: View {
     @EnvironmentObject var healthKit: HealthKitService
+    @EnvironmentObject var healthKitSyncService: HealthSyncBridge
     @StateObject private var coachClient = ServiceFactory.makeTodayCoachClient()
-    @State private var syncService: HealthSyncBridge?
     @State var recovery: RecoveryData?
     @State private var isLoadingRecovery = false
     @State private var isShowingDetail = false
@@ -141,16 +141,8 @@ struct TodayCoachCard: View {
 
         isLoadingRecovery = true
 
-        // Initialize sync service if needed
-        if syncService == nil {
-            syncService = ServiceFactory.makeHealthSyncService(healthKit: healthKit)
-        }
-
-        // Step 1: Sync HealthKit to Firebase only if needed
-        // (respects 1-hour interval)
-        await syncService?.syncIfNeeded()
-
-        // Step 2: Fetch the latest recovery snapshot from Firebase
+        // Fetch the existing recovery snapshot immediately. A potentially slow HealthKit
+        // sync is already owned by BradOSApp and must not hold the Coach card hostage.
         do {
             let snapshot = try await DefaultAPIClient.concrete.getLatestRecovery()
             recovery = snapshot?.toRecoveryData()
@@ -160,8 +152,8 @@ struct TodayCoachCard: View {
 
         isLoadingRecovery = false
 
-        // Step 3: Call AI coach with fresh recovery data
-        // (uses its own 30-min cache)
+        // Request the Coach briefing after the snapshot arrives. The client serves its
+        // persisted one-hour cache first, avoiding another AI call when reopening the app.
         if let recovery = recovery {
             await coachClient.getRecommendation(recovery: recovery)
         }
