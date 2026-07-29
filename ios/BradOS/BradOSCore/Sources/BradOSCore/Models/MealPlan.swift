@@ -180,7 +180,7 @@ public struct MealPlanSession: Identifiable, Codable, Hashable, Sendable {
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
 
         let audienceByMealId = Dictionary(uniqueKeysWithValues: mealsSnapshot.map { ($0.id, $0.audience) })
-        plan = decodedPlan.map { decodedEntry in
+        let normalizedPlan = decodedPlan.map { decodedEntry in
             guard
                 !decodedEntry.hasMealTrack,
                 decodedEntry.entry.mealType == .breakfast,
@@ -196,6 +196,47 @@ public struct MealPlanSession: Identifiable, Codable, Hashable, Sendable {
                 mealType: decodedEntry.entry.mealType,
                 mealId: decodedEntry.entry.mealId,
                 mealName: decodedEntry.entry.mealName
+            )
+        }
+        // A prior iOS release defaulted every missing meal_track to family and then
+        // persisted that corrupted session back into the shared cache. Repair that
+        // recognizable legacy shape as well: two family breakfasts for a day where
+        // exactly one referenced meal is explicitly adult-audience.
+        plan = Self.repairLegacyBreakfastTracks(
+            normalizedPlan,
+            audienceByMealId: audienceByMealId
+        )
+    }
+
+    private static func repairLegacyBreakfastTracks(
+        _ entries: [MealPlanEntry],
+        audienceByMealId: [String: MealAudience]
+    ) -> [MealPlanEntry] {
+        let adultBreakfastDays = Set(entries.compactMap { entry -> Int? in
+            guard entry.mealType == .breakfast,
+                  entry.mealTrack == .family,
+                  let mealId = entry.mealId,
+                  audienceByMealId[mealId] == .adult,
+                  entries.filter({ $0.dayIndex == entry.dayIndex && $0.mealType == .breakfast && $0.mealTrack == .family }).count > 1,
+                  !entries.contains(where: { $0.dayIndex == entry.dayIndex && $0.mealType == .breakfast && $0.mealTrack == .adult })
+            else { return nil }
+            return entry.dayIndex
+        })
+
+        return entries.map { entry in
+            guard adultBreakfastDays.contains(entry.dayIndex),
+                  entry.mealType == .breakfast,
+                  entry.mealTrack == .family,
+                  let mealId = entry.mealId,
+                  audienceByMealId[mealId] == .adult
+            else { return entry }
+
+            return MealPlanEntry(
+                dayIndex: entry.dayIndex,
+                mealTrack: .adult,
+                mealType: entry.mealType,
+                mealId: entry.mealId,
+                mealName: entry.mealName
             )
         }
     }
