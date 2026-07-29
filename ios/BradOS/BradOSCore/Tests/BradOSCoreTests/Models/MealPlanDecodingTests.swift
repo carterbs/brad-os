@@ -238,6 +238,44 @@ struct MealPlanEntryTests {
     }
 }
 
+@Suite("MealPlanSession")
+struct MealPlanSessionTests {
+
+    @Test("migrates a legacy adult breakfast using the meal audience")
+    func migratesLegacyAdultBreakfastTrack() throws {
+        let json = """
+        {
+            "id": "legacy-session",
+            "plan": [
+                { "day_index": 0, "meal_type": "breakfast", "meal_id": "family-breakfast", "meal_name": "Pancakes" },
+                { "day_index": 0, "meal_type": "breakfast", "meal_id": "adult-breakfast", "meal_name": "Protein Oats" }
+            ],
+            "meals_snapshot": [
+                {
+                    "id": "family-breakfast", "name": "Pancakes", "meal_type": "breakfast", "audience": "family",
+                    "effort": 1, "has_red_meat": false, "prep_ahead": false, "url": null, "last_planned": null,
+                    "created_at": "2026-07-28T00:00:00Z", "updated_at": "2026-07-28T00:00:00Z"
+                },
+                {
+                    "id": "adult-breakfast", "name": "Protein Oats", "meal_type": "breakfast", "audience": "adult",
+                    "effort": 1, "has_red_meat": false, "prep_ahead": false, "url": null, "last_planned": null,
+                    "created_at": "2026-07-28T00:00:00Z", "updated_at": "2026-07-28T00:00:00Z"
+                }
+            ],
+            "history": [],
+            "is_finalized": true,
+            "created_at": "2026-07-28T00:00:00Z",
+            "updated_at": "2026-07-28T00:00:00Z"
+        }
+        """.data(using: .utf8)!
+
+        let session = try makeDecoder().decode(MealPlanSession.self, from: json)
+
+        #expect(session.plan.map(\.mealTrack) == [.family, .adult])
+        #expect(session.plan.map(\.slotKey) == ["0-family-breakfast", "0-adult-breakfast"])
+    }
+}
+
 @Suite("CritiqueOperation")
 struct CritiqueOperationTests {
 

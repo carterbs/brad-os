@@ -168,6 +168,51 @@ public struct MealPlanSession: Identifiable, Codable, Hashable, Sendable {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        let decodedPlan = try container.decode([DecodedMealPlanEntry].self, forKey: .plan)
+        mealsSnapshot = try container.decode([Meal].self, forKey: .mealsSnapshot)
+        history = try container.decode([ConversationMessage].self, forKey: .history)
+        isFinalized = try container.decode(Bool.self, forKey: .isFinalized)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+
+        let audienceByMealId = Dictionary(uniqueKeysWithValues: mealsSnapshot.map { ($0.id, $0.audience) })
+        plan = decodedPlan.map { decodedEntry in
+            guard
+                !decodedEntry.hasMealTrack,
+                decodedEntry.entry.mealType == .breakfast,
+                let mealId = decodedEntry.entry.mealId,
+                audienceByMealId[mealId] == .adult
+            else {
+                return decodedEntry.entry
+            }
+
+            return MealPlanEntry(
+                dayIndex: decodedEntry.entry.dayIndex,
+                mealTrack: .adult,
+                mealType: decodedEntry.entry.mealType,
+                mealId: decodedEntry.entry.mealId,
+                mealName: decodedEntry.entry.mealName
+            )
+        }
+    }
+}
+
+/// Preserves whether older cached or server payloads actually included the meal track.
+/// This lets session decoding repair only legacy adult breakfast entries while honoring
+/// explicit track values returned by the current API.
+private struct DecodedMealPlanEntry: Decodable {
+    let entry: MealPlanEntry
+    let hasMealTrack: Bool
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: MealPlanEntry.CodingKeys.self)
+        hasMealTrack = container.contains(.mealTrack)
+        entry = try MealPlanEntry(from: decoder)
+    }
 }
 
 /// Response from POST /mealplans/generate
