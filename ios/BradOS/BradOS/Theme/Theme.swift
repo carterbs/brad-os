@@ -27,7 +27,8 @@ struct Theme {
 
     // MARK: - Interactive Colors
     static let interactivePrimary = ThemeColors.highlight
-    static let interactiveSecondary = Color(hex: "E7D5A3")
+    // Muted gold gives sleep data its own identity while remaining readable on ivory.
+    static let interactiveSecondary = Color(hex: "896829")
 
     // MARK: - Activity Colors (from shared ThemeColors)
     static let lifting = ThemeColors.lifting
@@ -38,7 +39,8 @@ struct Theme {
 
     // MARK: - Status Colors
     static let success = Color(hex: "34D399")
-    static let warning = Color(hex: "FBBF24")
+    // Warning copy appears directly on the light canvas, so this must carry text contrast.
+    static let warning = Color(hex: "935D18")
     static let destructive = Color(hex: "FB7185")
     static let info = Color(hex: "60A5FA")
     static let neutral = ThemeColors.textTertiary
