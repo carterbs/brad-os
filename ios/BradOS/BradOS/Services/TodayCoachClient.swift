@@ -25,8 +25,26 @@ struct TodayCoachRequestBody: Encodable {
 class TodayCoachClient: ObservableObject {
     private struct CachedRecommendation: Codable {
         let recommendation: TodayCoachRecommendation
-        let requestDate: String
+        let cacheDate: String
         let cachedAt: Date
+
+        private enum CodingKeys: String, CodingKey {
+            case recommendation, cacheDate, requestDate, cachedAt
+        }
+
+        init(recommendation: TodayCoachRecommendation, cacheDate: String, cachedAt: Date) {
+            self.recommendation = recommendation
+            self.cacheDate = cacheDate
+            self.cachedAt = cachedAt
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            recommendation = try container.decode(TodayCoachRecommendation.self, forKey: .recommendation)
+            cacheDate = try container.decodeIfPresent(String.self, forKey: .cacheDate)
+                ?? container.decode(String.self, forKey: .requestDate)
+            cachedAt = try container.decode(Date.self, forKey: .cachedAt)
+        }
     }
 
     private enum CacheKey {
@@ -76,7 +94,7 @@ class TodayCoachClient: ObservableObject {
         let requestDate = formattedDate(recovery.date)
 
         // Return cached recommendation if still fresh
-        if hasFreshCache, cachedRequestDate == requestDate {
+        if hasFreshCache {
             DebugLogger.info("Returning cached recommendation (\(Int(now().timeIntervalSince(cacheTimestamp ?? now())))s old)", attributes: ["source": "TodayCoachClient"])
             return
         }
@@ -104,8 +122,8 @@ class TodayCoachClient: ObservableObject {
             let response = try await apiClient.getTodayCoachRecommendation(requestBody)
             recommendation = response
             cacheTimestamp = now()
-            cachedRequestDate = requestDate
-            persistCachedRecommendation(response, requestDate: requestDate)
+            cachedRequestDate = formattedDate(now())
+            persistCachedRecommendation(response)
         } catch let apiError as APIError {
             error = apiError.localizedDescription
         } catch {
@@ -123,13 +141,19 @@ class TodayCoachClient: ObservableObject {
 
         recommendation = cached.recommendation
         cacheTimestamp = cached.cachedAt
-        cachedRequestDate = cached.requestDate
+        // Earlier builds keyed this to the recovery record date. A recovery snapshot
+        // can legitimately lag the calendar day, which made a minutes-old briefing
+        // appear stale after relaunch. Its TTL is still authoritative, so migrate it
+        // to today's cache scope while the entry remains fresh.
+        cachedRequestDate = cached.cacheDate == formattedDate(now())
+            ? cached.cacheDate
+            : formattedDate(now())
     }
 
-    private func persistCachedRecommendation(_ recommendation: TodayCoachRecommendation, requestDate: String) {
+    private func persistCachedRecommendation(_ recommendation: TodayCoachRecommendation) {
         let cached = CachedRecommendation(
             recommendation: recommendation,
-            requestDate: requestDate,
+            cacheDate: formattedDate(now()),
             cachedAt: cacheTimestamp ?? now()
         )
         guard let data = try? JSONEncoder().encode(cached) else { return }
