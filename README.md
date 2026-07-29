@@ -5,10 +5,10 @@ A personal operating system for tracking wellness and fitness. Built as a learni
 ## Screenshots
 
 <p align="center">
-  <img src="docs/meal-plan.png" width="250" alt="Weekly Meal Plan" />
-  <img src="docs/lifting.png" width="250" alt="Workout Session" />
-  <img src="docs/stretching.png" width="250" alt="Stretching Session" />
-  <img src="docs/meal-plan-widget.png" width="250" alt="Meal Plan Widget" />
+  <img src="docs/today.png" width="250" alt="Today dashboard" />
+  <img src="docs/health.png" width="250" alt="Health dashboard" />
+  <img src="docs/meal-plan.png" width="250" alt="Meal Plan" />
+  <img src="docs/profile.png" width="250" alt="Profile" />
 </p>
 
 ## Features
