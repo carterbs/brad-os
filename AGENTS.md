@@ -12,6 +12,10 @@ npm run qa:start   # Simulator + local API + real dev Firestore + OTel
 
 Full bootstrap: [Local Dev Quickstart](docs/guides/local-dev-quickstart.md)
 
+## Build Completion Gate
+
+Never say an implementation is done, complete, finished, or ready to merge while any requested or relevant build has errors. Resolve the errors and rerun the build until it passes. If an external prerequisite prevents a passing build, clearly report the work as blocked, name the exact prerequisite, and do not use completion language.
+
 ## Dev Tooling Language Preference
 
 - Use Rust for non-trivial dev tooling and orchestration (validation, lint runners, repo scanners, CI helpers, migration helpers, and stateful orchestration flows).

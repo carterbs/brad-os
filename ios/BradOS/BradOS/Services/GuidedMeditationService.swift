@@ -15,6 +15,11 @@ final class GuidedMeditationService: ObservableObject {
     // MARK: - Dependencies
 
     private let cache = TTSAudioCache.shared
+    private let apiClient: APIClientProtocol
+
+    init(apiClient: APIClientProtocol = APIClient.shared) {
+        self.apiClient = apiClient
+    }
 
     // MARK: - Load Scripts
 
