@@ -59,8 +59,31 @@ class HealthKitSyncService: ObservableObject {
         await sync()
     }
 
+    /// Performs a throttled, recent-only sync suitable for a short HealthKit background wake.
+    func syncForBackground() async {
+        guard needsSync else {
+            DebugLogger.info(
+                "Skipping background sync because recent health data is already synced",
+                attributes: ["source": "HealthKitSyncService"]
+            )
+            return
+        }
+        await performSync(mode: .background)
+    }
+
     /// Force a sync regardless of timing
     func sync() async {
+        await performSync(mode: .foreground)
+    }
+
+    // MARK: - Sync Modes
+
+    private enum SyncMode {
+        case foreground
+        case background
+    }
+
+    private func performSync(mode: SyncMode) async {
         guard !isSyncing else {
             DebugLogger.warn("Already syncing, skipping", attributes: ["source": "HealthKitSyncService"])
             return
@@ -78,30 +101,63 @@ class HealthKitSyncService: ObservableObject {
                 return
             }
 
-            // Calculate recovery score (this fetches all needed data)
-            let recovery = try await healthKitManager.calculateRecoveryScore()
-
-            // Get baseline if available
-            let baseline = await healthKitManager.getCachedBaseline()
+            let recoveryResult = try await recoveryData(for: mode)
 
             // Sync recovery snapshot to Firebase (no weight — weight syncs separately in bulk)
-            try await sendSyncRequest(recovery: recovery, baseline: baseline)
+            try await sendSyncRequest(
+                recovery: recoveryResult.recovery,
+                baseline: recoveryResult.baseline
+            )
 
-            // Sync all health history in parallel (each is non-fatal)
-            async let weightSync: Void = syncWeightHistory()
-            async let hrvSync: Void = syncHRVHistory()
-            async let rhrSync: Void = syncRHRHistory()
-            async let sleepSync: Void = syncSleepHistory()
-            _ = await (weightSync, hrvSync, rhrSync, sleepSync)
+            await syncHistory(for: mode)
 
             // Update last sync date
             lastSyncDate = Date()
             UserDefaults.standard.set(lastSyncDate, forKey: lastSyncKey)
 
-            DebugLogger.info("Sync completed successfully", attributes: ["source": "HealthKitSyncService"])
+            let label: String
+            switch mode {
+            case .foreground:
+                label = "Sync"
+            case .background:
+                label = "Background sync"
+            }
+            DebugLogger.info("\(label) completed successfully", attributes: ["source": "HealthKitSyncService"])
         } catch {
             DebugLogger.error("Sync failed: \(error)", attributes: ["source": "HealthKitSyncService"])
             lastError = error.localizedDescription
+        }
+    }
+
+    private func recoveryData(for mode: SyncMode) async throws -> (
+        recovery: RecoveryData,
+        baseline: RecoveryBaseline?
+    ) {
+        switch mode {
+        case .foreground:
+            let recovery = try await healthKitManager.calculateRecoveryScore()
+            let baseline = await healthKitManager.getCachedBaseline()
+            return (recovery, baseline)
+        case .background:
+            return try await healthKitManager.calculateRecoveryScoreForBackground()
+        }
+    }
+
+    private func syncHistory(for mode: SyncMode) async {
+        switch mode {
+        case .foreground:
+            async let weightSync: Void = syncWeightHistory()
+            async let hrvSync: Void = syncHRVHistory()
+            async let rhrSync: Void = syncRHRHistory()
+            async let sleepSync: Void = syncSleepHistory()
+            _ = await (weightSync, hrvSync, rhrSync, sleepSync)
+        case .background:
+            let recentDays = 7
+            async let weightSync: Void = syncWeightHistory(days: recentDays, uploadsExistingDates: true)
+            async let hrvSync: Void = syncHRVHistory(days: recentDays)
+            async let rhrSync: Void = syncRHRHistory(days: recentDays)
+            async let sleepSync: Void = syncSleepHistory(days: recentDays)
+            _ = await (weightSync, hrvSync, rhrSync, sleepSync)
         }
     }
 
@@ -170,19 +226,22 @@ class HealthKitSyncService: ObservableObject {
     // MARK: - Private Methods
 
     /// Sync weight history from HealthKit to Firebase in bulk.
-    /// Fetches 90 days from HealthKit, diffs against Firebase, sends only new entries.
-    private func syncWeightHistory() async {
+    /// Foreground sync defaults to 90 new days; background sync upserts its recent window.
+    private func syncWeightHistory(days: Int = 90, uploadsExistingDates: Bool = false) async {
         do {
-            // Fetch weight history from HealthKit (90 days)
-            let hkWeights = try await healthKitManager.fetchWeightHistory(days: 90)
+            let hkWeights = try await healthKitManager.fetchWeightHistory(days: days)
             guard !hkWeights.isEmpty else {
                 DebugLogger.info("No HealthKit weight data to sync", attributes: ["source": "HealthKitSyncService"])
                 return
             }
 
-            // Fetch existing weight data from Firebase (90 days)
-            let existingEntries = try await APIClient.shared.getWeightHistory(days: 90)
-            let existingDates = Set(existingEntries.map(\.date))
+            let existingDates: Set<String>
+            if uploadsExistingDates {
+                existingDates = []
+            } else {
+                let existingEntries = try await APIClient.shared.getWeightHistory(days: days)
+                existingDates = Set(existingEntries.map(\.date))
+            }
 
             // Find HealthKit entries not yet in Firebase
             let dateFormatter = DateFormatter()

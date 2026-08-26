@@ -1,6 +1,6 @@
 import SwiftUI
 import WidgetKit
-import BackgroundTasks
+import UIKit
 import BradOSCore
 import FirebaseCore
 import FirebaseAppCheck
@@ -14,9 +14,6 @@ struct BradOSApp: App {
     @StateObject private var watchWorkoutController = WatchWorkoutController()
 
     @Environment(\.scenePhase) private var scenePhase
-
-    /// Background task identifier for HealthKit sync
-    private static let healthKitSyncTaskId = "com.bradcarter.brad-os.healthkit-sync"
 
     init() {
         let isTestHost = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
@@ -38,16 +35,20 @@ struct BradOSApp: App {
 
         // Initialize sync service with shared HealthKitManager
         let hkManager = HealthKitManager()
+        let syncService = HealthKitSyncService(healthKitManager: hkManager)
         _healthKitManager = StateObject(wrappedValue: hkManager)
-        _healthKitSyncService = StateObject(wrappedValue: HealthKitSyncService(healthKitManager: hkManager))
+        _healthKitSyncService = StateObject(wrappedValue: syncService)
 
-        // Register background task
-        BGTaskScheduler.shared.register(
-            forTaskWithIdentifier: Self.healthKitSyncTaskId,
-            using: nil
-        ) { task in
-            guard let bgTask = task as? BGAppRefreshTask else { return }
-            Self.handleBackgroundSync(bgTask, healthKitManager: hkManager)
+        if !isTestHost {
+            Task { @MainActor in
+                await hkManager.startBackgroundDelivery {
+                    if UIApplication.shared.applicationState == .background {
+                        await syncService.syncForBackground()
+                    } else {
+                        await syncService.syncIfNeeded()
+                    }
+                }
+            }
         }
     }
 
@@ -120,44 +121,10 @@ struct BradOSApp: App {
         case .background:
             // Flush pending telemetry before backgrounding
             DebugTelemetry.shared.flush()
-            // Schedule background refresh when going to background
-            scheduleBackgroundSync()
         case .inactive:
             break
         @unknown default:
             break
-        }
-    }
-
-    private func scheduleBackgroundSync() {
-        let request = BGAppRefreshTaskRequest(identifier: Self.healthKitSyncTaskId)
-        // Request earliest time: 4 hours from now (system may delay further)
-        request.earliestBeginDate = Date(timeIntervalSinceNow: 4 * 60 * 60)
-
-        do {
-            try BGTaskScheduler.shared.submit(request)
-            DebugLogger.info("Scheduled background HealthKit sync", attributes: ["source": "BradOSApp"])
-        } catch {
-            DebugLogger.error("Failed to schedule background sync: \(error)", attributes: ["source": "BradOSApp"])
-        }
-    }
-
-    @MainActor
-    private static func handleBackgroundSync(_ task: BGAppRefreshTask, healthKitManager: HealthKitManager) {
-        // Create a new sync service for background execution
-        let syncService = HealthKitSyncService(healthKitManager: healthKitManager)
-
-        // Set up expiration handler
-        task.expirationHandler = {
-            DebugLogger.error("Background sync expired", attributes: ["source": "BradOSApp"])
-            task.setTaskCompleted(success: false)
-        }
-
-        // Perform sync
-        Task {
-            await syncService.sync()
-            task.setTaskCompleted(success: true)
-            DebugLogger.info("Background sync completed", attributes: ["source": "BradOSApp"])
         }
     }
 }

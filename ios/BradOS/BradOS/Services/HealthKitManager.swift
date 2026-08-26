@@ -32,12 +32,16 @@ class HealthKitManager: ObservableObject {
 
     // MARK: - Published Properties
 
-    @Published var isAuthorized = false
+    @Published var isAuthorized: Bool
     @Published var isLoading = false
 
     // MARK: - Private Properties
 
     let healthStore = HKHealthStore()
+
+    private static let authorizationRequestedKey = "healthkit_authorization_requested"
+    private static let cachedBaselineKey = "healthkit_cached_recovery_baseline"
+    private static let baselineUpdatedKey = "healthkit_cached_recovery_baseline_updated"
 
     private let readTypes: Set<HKObjectType> = [
         HKQuantityType(.heartRateVariabilitySDNN),
@@ -47,9 +51,30 @@ class HealthKitManager: ObservableObject {
         HKCategoryType(.sleepAnalysis)
     ]
 
+    private let backgroundDeliveryTypes: [HKSampleType] = [
+        HKQuantityType(.heartRateVariabilitySDNN),
+        HKCategoryType(.sleepAnalysis),
+        HKQuantityType(.restingHeartRate),
+        HKQuantityType(.bodyMass)
+    ]
+
+    private var backgroundObserverQueries: [HKObserverQuery] = []
+
     // Cache baseline to avoid recalculating every time
     var cachedBaseline: RecoveryBaseline?
     var baselineLastUpdated: Date?
+
+    // MARK: - Initialization
+
+    init() {
+        let defaults = UserDefaults.standard
+        isAuthorized = defaults.bool(forKey: Self.authorizationRequestedKey)
+        baselineLastUpdated = defaults.object(forKey: Self.baselineUpdatedKey) as? Date
+
+        if let data = defaults.data(forKey: Self.cachedBaselineKey) {
+            cachedBaseline = try? JSONDecoder().decode(RecoveryBaseline.self, from: data)
+        }
+    }
 
     // MARK: - Public Accessors
 
@@ -78,9 +103,115 @@ class HealthKitManager: ObservableObject {
 
         do {
             try await healthStore.requestAuthorization(toShare: [], read: readTypes)
-            isAuthorized = true
+            markAuthorizationRequested()
+            await enableBackgroundDelivery()
         } catch {
             throw HealthKitError.queryFailed(error)
+        }
+    }
+
+    /// Starts observers during app initialization so HealthKit can relaunch the app for new samples.
+    func startBackgroundDelivery(onUpdate: @escaping @MainActor () async -> Void) async {
+        guard isHealthDataAvailable else { return }
+
+        await refreshAuthorizationState()
+        registerBackgroundObservers(onUpdate: onUpdate)
+        await enableBackgroundDelivery()
+    }
+
+    /// Stores a calculated baseline for short background wakes.
+    func cacheBaseline(_ baseline: RecoveryBaseline) {
+        cachedBaseline = baseline
+        baselineLastUpdated = Date()
+
+        let defaults = UserDefaults.standard
+        if let data = try? JSONEncoder().encode(baseline) {
+            defaults.set(data, forKey: Self.cachedBaselineKey)
+        }
+        defaults.set(baselineLastUpdated, forKey: Self.baselineUpdatedKey)
+    }
+
+    // MARK: - Background Delivery
+
+    private func refreshAuthorizationState() async {
+        do {
+            let status = try await authorizationRequestStatus()
+            if status == .unnecessary {
+                markAuthorizationRequested()
+            }
+        } catch {
+            DebugLogger.error(
+                "Failed to refresh HealthKit authorization state: \(error)",
+                attributes: ["source": "HealthKitManager"]
+            )
+        }
+    }
+
+    private func authorizationRequestStatus() async throws -> HKAuthorizationRequestStatus {
+        try await withCheckedThrowingContinuation { continuation in
+            healthStore.getRequestStatusForAuthorization(toShare: [], read: readTypes) { status, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: status)
+                }
+            }
+        }
+    }
+
+    private func markAuthorizationRequested() {
+        isAuthorized = true
+        UserDefaults.standard.set(true, forKey: Self.authorizationRequestedKey)
+    }
+
+    private func registerBackgroundObservers(onUpdate: @escaping @MainActor () async -> Void) {
+        guard backgroundObserverQueries.isEmpty else { return }
+
+        backgroundObserverQueries = backgroundDeliveryTypes.map { sampleType in
+            let query = HKObserverQuery(sampleType: sampleType, predicate: nil) { _, completion, error in
+                if let error {
+                    DebugLogger.error(
+                        "HealthKit observer failed: \(error)",
+                        attributes: ["source": "HealthKitManager"]
+                    )
+                    completion()
+                    return
+                }
+
+                Task { @MainActor in
+                    defer { completion() }
+                    await onUpdate()
+                }
+            }
+            healthStore.execute(query)
+            return query
+        }
+    }
+
+    private func enableBackgroundDelivery() async {
+        for sampleType in backgroundDeliveryTypes {
+            do {
+                try await enableBackgroundDelivery(for: sampleType)
+            } catch {
+                DebugLogger.error(
+                    "Failed to enable HealthKit background delivery for \(sampleType.identifier): \(error)",
+                    attributes: ["source": "HealthKitManager"]
+                )
+            }
+        }
+    }
+
+    private func enableBackgroundDelivery(for sampleType: HKSampleType) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            healthStore.enableBackgroundDelivery(for: sampleType, frequency: .hourly) { success, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if success {
+                    continuation.resume()
+                } else {
+                    continuation.resume(throwing: HealthKitError.notAuthorized)
+                }
+            }
         }
     }
 
