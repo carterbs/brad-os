@@ -83,6 +83,8 @@
 		643532BA0D4342125F7F5EB4 /* TodayCoachClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32EE6A33EF1CBA532CA4766E /* TodayCoachClientTests.swift */; };
 		66BF73D8C1F9ECAD0ECB1803 /* BradOSCore in Frameworks */ = {isa = PBXBuildFile; productRef = C03A3C5C8EF08F559DF7034E /* BradOSCore */; };
 		671E658C4FE8612400FE202D /* TodayCoachCardStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48DEE855B7D5B4D96E89480E /* TodayCoachCardStateTests.swift */; };
+		6BDBA3750AB2B3FC197F06D2 /* HealthKitBackgroundLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5B8B98A6D0F4837098FA5BC /* HealthKitBackgroundLogger.swift */; };
+		6C73E357D0AE01E18A8CA627 /* HealthKitBackgroundDeliveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE880DFAA262CB92F5E0C912 /* HealthKitBackgroundDeliveryTests.swift */; };
 		6D2BF99C81D7B1DBE00941A0 /* MeditationActiveView+Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F76F096883ADB7649F7A5C3 /* MeditationActiveView+Session.swift */; };
 		7086760953A967D06F2BAF10 /* GuidedMeditation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAB73F3D9DD5B217641D6828 /* GuidedMeditation.swift */; };
 		71F7E5CAE4CE0D1208A6EA4E /* Audio in Resources */ = {isa = PBXBuildFile; fileRef = 527CD29BA4D349413A9C8DCB /* Audio */; };
@@ -385,6 +387,7 @@
 		D1FD886F6F9131804F710038 /* LoadingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingView.swift; sourceTree = "<group>"; };
 		D4643A92CCBE1B9470038D7D /* GuidedMeditationPreparingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidedMeditationPreparingView.swift; sourceTree = "<group>"; };
 		D50CEE554C8030F6A3CB19DB /* DebugLogExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLogExporter.swift; sourceTree = "<group>"; };
+		D5B8B98A6D0F4837098FA5BC /* HealthKitBackgroundLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitBackgroundLogger.swift; sourceTree = "<group>"; };
 		DA31BBE648C1B13E904E7BB4 /* StretchDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StretchDataService.swift; sourceTree = "<group>"; };
 		DA3BA96C3ECD9B60D9CAE407 /* DebugLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLogger.swift; sourceTree = "<group>"; };
 		DA8E4411DD1899BDF442A5FD /* WorkoutView+State.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WorkoutView+State.swift"; sourceTree = "<group>"; };
@@ -409,6 +412,7 @@
 		FE15CBAC22F7DA10D9FB2521 /* MeditationCompleteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeditationCompleteView.swift; sourceTree = "<group>"; };
 		FE6BEDED51B57B28D925208E /* WidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetBundle.swift; sourceTree = "<group>"; };
 		FE7AEF152B39BD2005BEF700 /* WatchMessages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchMessages.swift; sourceTree = "<group>"; };
+		FE880DFAA262CB92F5E0C912 /* HealthKitBackgroundDeliveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitBackgroundDeliveryTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -522,6 +526,7 @@
 				96E8D3B865B339056854BB2E /* APIConfiguration.swift */,
 				CA5622DD239A1E87AD387720 /* APIResponse.swift */,
 				E96A553EE3FD3DE973EC3975 /* GuidedMeditationService.swift */,
+				D5B8B98A6D0F4837098FA5BC /* HealthKitBackgroundLogger.swift */,
 				C474DBAD9A28EC53239DD31D /* HealthKitManager.swift */,
 				7258704755587E192F5F8FBC /* HealthKitManager+SleepRecovery.swift */,
 				36761A1FC08D5813476E0958 /* HealthKitSyncService.swift */,
@@ -899,12 +904,13 @@
 			children = (
 				1B788B33D18C8C81BD5540F8 /* APIClientCalendarTests.swift */,
 				6E69427FA039B94BAD46C79D /* APIConfigurationTests.swift */,
+				FE880DFAA262CB92F5E0C912 /* HealthKitBackgroundDeliveryTests.swift */,
 				32EE6A33EF1CBA532CA4766E /* TodayCoachClientTests.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
 		};
-		"TEMP_D31F4D7E-36BC-46F5-ACAD-374E29DC7312" /* Resources */ = {
+		"TEMP_7C2527AC-13D0-4A69-9346-8954A4C2B6AF" /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -1112,6 +1118,7 @@
 				CEF1A7E4407C16D76610AA2D /* GuidedMeditationPipeline.swift in Sources */,
 				493F8544615F1805E8F33A78 /* GuidedMeditationPreparingView.swift in Sources */,
 				D23E0FD74C1866E30F778DF5 /* GuidedMeditationService.swift in Sources */,
+				6BDBA3750AB2B3FC197F06D2 /* HealthKitBackgroundLogger.swift in Sources */,
 				F994799790C8CC1E0350AB4D /* HealthKitManager+SleepRecovery.swift in Sources */,
 				AE472A35366FB9B9F1BEC079 /* HealthKitManager.swift in Sources */,
 				C67AACA45A596B9FC3941A95 /* HealthKitSyncService+HistorySync.swift in Sources */,
@@ -1227,6 +1234,7 @@
 				AEB700564657D38CDC082451 /* APIConfigurationTests.swift in Sources */,
 				BCD64D738324F3AF716B33BA /* AppTestDoubles.swift in Sources */,
 				4BF4AC8189DD2E6AAA0816B1 /* ExerciseHistoryViewModelTests.swift in Sources */,
+				6C73E357D0AE01E18A8CA627 /* HealthKitBackgroundDeliveryTests.swift in Sources */,
 				C2C14698C2A43B35B2C178CF /* MockURLProtocol.swift in Sources */,
 				39A24B2F60AA75CFF3708763 /* TextToSpeechViewModelTests.swift in Sources */,
 				671E658C4FE8612400FE202D /* TodayCoachCardStateTests.swift in Sources */,
@@ -1298,7 +1306,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = BradOSWatch/BradOSWatch.entitlements;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BradOSWatch/Info.plist;
 				MARKETING_VERSION = 1.0.0;
@@ -1332,6 +1340,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = BradOSWidget/BradOSWidget.entitlements;
+				CURRENT_PROJECT_VERSION = 2;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BradOSWidget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1339,6 +1348,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.bradcarter.brad-os.widget";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,4";
@@ -1419,6 +1429,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = BradOSWidget/BradOSWidget.entitlements;
+				CURRENT_PROJECT_VERSION = 2;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BradOSWidget/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1426,6 +1437,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.bradcarter.brad-os.widget";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,4";
@@ -1517,7 +1529,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = BradOS/BradOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BradOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1538,7 +1550,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = BradOS/BradOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BradOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -1558,7 +1570,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = BradOSWatch/BradOSWatch.entitlements;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = BradOSWatch/Info.plist;
 				MARKETING_VERSION = 1.0.0;

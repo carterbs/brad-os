@@ -6,21 +6,23 @@ import BradOSCore
 extension HealthKitSyncService {
 
     /// Sync HRV history from HealthKit to Firebase in bulk.
-    func syncHRVHistory() async {
+    @discardableResult
+    func syncHRVHistory(days: Int? = nil) async -> Bool {
         do {
             let backfillDone = UserDefaults.standard.bool(forKey: hrvBackfillCompleteKey)
-            let syncDays = backfillDone ? 7 : 3650
+            let syncDays = days ?? (backfillDone ? 7 : 3650)
+            let shouldMarkBackfill = days == nil
 
             let hkReadings = try await healthKitManager.fetchHRVHistory(days: syncDays)
             guard !hkReadings.isEmpty else {
-                if !backfillDone {
+                if shouldMarkBackfill && !backfillDone {
                     UserDefaults.standard.set(true, forKey: hrvBackfillCompleteKey)
                 }
-                return
+                return true
             }
 
             let dailyReadings = aggregateByDate(hkReadings) { $0.valueMs }
-            let existingDates = try await existingHRVDates(days: syncDays)
+            let existingDates = days == nil ? try await existingHRVDates(days: syncDays) : []
 
             let newEntries = dailyReadings.compactMap { dateStr, values -> HRVSyncEntry? in
                 guard !existingDates.contains(dateStr) else { return nil }
@@ -36,34 +38,53 @@ extension HealthKitSyncService {
             }
 
             guard !newEntries.isEmpty else {
-                markBackfillComplete(forKey: hrvBackfillCompleteKey, done: backfillDone)
-                return
+                markBackfillComplete(
+                    forKey: hrvBackfillCompleteKey,
+                    done: backfillDone,
+                    shouldMark: shouldMarkBackfill
+                )
+                return true
             }
 
             let totalAdded = try await syncInBatches(newEntries) { batch in
                 try await APIClient.shared.syncHRVBulk(entries: batch)
             }
             DebugLogger.info("Synced \(totalAdded) HRV entries", attributes: ["source": "HealthKitSyncService"])
-            markBackfillComplete(forKey: hrvBackfillCompleteKey, done: backfillDone)
+            markBackfillComplete(
+                forKey: hrvBackfillCompleteKey,
+                done: backfillDone,
+                shouldMark: shouldMarkBackfill
+            )
+            return true
         } catch {
             DebugLogger.error("HRV sync failed (non-fatal): \(error)", attributes: ["source": "HealthKitSyncService"])
+            HealthKitBackgroundLogger.error(
+                "HRV delta sync failed: \(error.localizedDescription)"
+            )
+            return false
         }
     }
 
     /// Sync RHR history from HealthKit to Firebase in bulk.
-    func syncRHRHistory() async {
+    @discardableResult
+    func syncRHRHistory(days: Int? = nil) async -> Bool {
         do {
             let backfillDone = UserDefaults.standard.bool(forKey: rhrBackfillCompleteKey)
-            let syncDays = backfillDone ? 7 : 3650
+            let syncDays = days ?? (backfillDone ? 7 : 3650)
+            let shouldMarkBackfill = days == nil
 
             let hkReadings = try await healthKitManager.fetchRHRHistory(days: syncDays)
             guard !hkReadings.isEmpty else {
-                markBackfillComplete(forKey: rhrBackfillCompleteKey, done: backfillDone)
-                return
+                markBackfillComplete(
+                    forKey: rhrBackfillCompleteKey,
+                    done: backfillDone,
+                    shouldMark: shouldMarkBackfill
+                )
+                return true
             }
 
             let dailyReadings = aggregateByDate(hkReadings) { $0.valueBpm }
-            let existingDates = try await existingRHRDates(days: syncDays)
+            let existingDates = days == nil ? try await existingRHRDates(days: syncDays) : []
 
             let newEntries = dailyReadings.compactMap { dateStr, values -> RHRSyncEntry? in
                 guard !existingDates.contains(dateStr) else { return nil }
@@ -77,33 +98,52 @@ extension HealthKitSyncService {
             }
 
             guard !newEntries.isEmpty else {
-                markBackfillComplete(forKey: rhrBackfillCompleteKey, done: backfillDone)
-                return
+                markBackfillComplete(
+                    forKey: rhrBackfillCompleteKey,
+                    done: backfillDone,
+                    shouldMark: shouldMarkBackfill
+                )
+                return true
             }
 
             let totalAdded = try await syncInBatches(newEntries) { batch in
                 try await APIClient.shared.syncRHRBulk(entries: batch)
             }
             DebugLogger.info("Synced \(totalAdded) RHR entries", attributes: ["source": "HealthKitSyncService"])
-            markBackfillComplete(forKey: rhrBackfillCompleteKey, done: backfillDone)
+            markBackfillComplete(
+                forKey: rhrBackfillCompleteKey,
+                done: backfillDone,
+                shouldMark: shouldMarkBackfill
+            )
+            return true
         } catch {
             DebugLogger.error("RHR sync failed (non-fatal): \(error)", attributes: ["source": "HealthKitSyncService"])
+            HealthKitBackgroundLogger.error(
+                "RHR delta sync failed: \(error.localizedDescription)"
+            )
+            return false
         }
     }
 
     /// Sync sleep history from HealthKit to Firebase in bulk.
-    func syncSleepHistory() async {
+    @discardableResult
+    func syncSleepHistory(days: Int? = nil) async -> Bool {
         do {
             let backfillDone = UserDefaults.standard.bool(forKey: sleepBackfillCompleteKey)
-            let syncDays = backfillDone ? 7 : 3650
+            let syncDays = days ?? (backfillDone ? 7 : 3650)
+            let shouldMarkBackfill = days == nil
 
             let hkNights = try await healthKitManager.fetchSleepHistory(days: syncDays)
             guard !hkNights.isEmpty else {
-                markBackfillComplete(forKey: sleepBackfillCompleteKey, done: backfillDone)
-                return
+                markBackfillComplete(
+                    forKey: sleepBackfillCompleteKey,
+                    done: backfillDone,
+                    shouldMark: shouldMarkBackfill
+                )
+                return true
             }
 
-            let existingDates = try await existingSleepDates(days: syncDays)
+            let existingDates = days == nil ? try await existingSleepDates(days: syncDays) : []
 
             let newEntries = hkNights.compactMap { dateStr, metrics -> SleepSyncEntry? in
                 guard !existingDates.contains(dateStr), metrics.totalSleep > 0 else { return nil }
@@ -121,17 +161,30 @@ extension HealthKitSyncService {
             }
 
             guard !newEntries.isEmpty else {
-                markBackfillComplete(forKey: sleepBackfillCompleteKey, done: backfillDone)
-                return
+                markBackfillComplete(
+                    forKey: sleepBackfillCompleteKey,
+                    done: backfillDone,
+                    shouldMark: shouldMarkBackfill
+                )
+                return true
             }
 
             let totalAdded = try await syncInBatches(newEntries) { batch in
                 try await APIClient.shared.syncSleepBulk(entries: batch)
             }
             DebugLogger.info("Synced \(totalAdded) sleep entries", attributes: ["source": "HealthKitSyncService"])
-            markBackfillComplete(forKey: sleepBackfillCompleteKey, done: backfillDone)
+            markBackfillComplete(
+                forKey: sleepBackfillCompleteKey,
+                done: backfillDone,
+                shouldMark: shouldMarkBackfill
+            )
+            return true
         } catch {
             DebugLogger.error("Sleep sync failed (non-fatal): \(error)", attributes: ["source": "HealthKitSyncService"])
+            HealthKitBackgroundLogger.error(
+                "Sleep delta sync failed: \(error.localizedDescription)"
+            )
+            return false
         }
     }
 
@@ -220,8 +273,8 @@ extension HealthKitSyncService {
         return totalAdded
     }
 
-    private func markBackfillComplete(forKey key: String, done: Bool) {
-        if !done {
+    private func markBackfillComplete(forKey key: String, done: Bool, shouldMark: Bool) {
+        if shouldMark && !done {
             UserDefaults.standard.set(true, forKey: key)
         }
     }

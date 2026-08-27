@@ -165,6 +165,39 @@ extension HealthKitManager {
         return recovery
     }
 
+    /// Calculates today's recovery snapshot without rebuilding the 60-day baseline.
+    func calculateRecoveryScoreForBackground() async throws -> (
+        recovery: RecoveryData,
+        baseline: RecoveryBaseline?
+    ) {
+        isLoading = true
+        defer { isLoading = false }
+
+        async let hrvTask = fetchLatestHRV()
+        async let rhrTask = fetchTodayRHR()
+        async let sleepTask = fetchSleepData(for: Date())
+
+        let hrv = try await hrvTask
+        let rhr = try await rhrTask
+        let sleep = try await sleepTask
+
+        guard hrv != nil || rhr != nil else {
+            throw HealthKitError.noData
+        }
+
+        let storedBaseline = cachedBaseline
+        let calculationBaseline = storedBaseline ?? .default
+        let recovery = RecoveryData.calculate(
+            date: Date(),
+            hrvMs: hrv ?? calculationBaseline.hrvMedian,
+            hrvBaseline: calculationBaseline,
+            rhrBpm: rhr ?? calculationBaseline.rhrMedian,
+            sleepMetrics: sleep
+        )
+
+        return (recovery, storedBaseline)
+    }
+
     /// Get cached baseline or calculate new one
     func getOrUpdateBaseline() async throws -> RecoveryBaseline {
         let needsUpdate = baselineLastUpdated.map {
@@ -191,8 +224,7 @@ extension HealthKitManager {
             baseline = .default
         }
 
-        cachedBaseline = baseline
-        baselineLastUpdated = Date()
+        cacheBaseline(baseline)
         return baseline
     }
 
