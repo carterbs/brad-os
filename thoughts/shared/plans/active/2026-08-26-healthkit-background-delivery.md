@@ -13,6 +13,7 @@ Use HealthKit observer queries and hourly background delivery to trigger the exi
 
 ## Desired End State
 - Register observers for HRV SDNN, sleep analysis, resting heart rate, and body mass during app initialization.
+- Execute and retain observer queries synchronously before starting any asynchronous authorization reconciliation.
 - Enable `.hourly` HealthKit background delivery for those types.
 - Complete every observer callback after a throttled light sync finishes, including error paths.
 - Restore authorization-request state on cold launches and silently reconcile legacy authorization state.
@@ -48,7 +49,7 @@ Use HealthKit observer queries and hourly background delivery to trigger the exi
 **Success criteria:** relevant automated gates pass; documentation explicitly states that background delivery requires a device, Background App Refresh, and a non-force-quit app.
 
 ## Testing Strategy
-- Automated: XcodeGen drift check, SwiftLint/build/test through the project scheme, and `npm run validate`.
+- Automated: focused observer-registration tests, XcodeGen drift check, SwiftLint/build/test through the project scheme, and `npm run validate`.
 - Manual/simulator: launch and verify existing app behavior; HealthKit delivery itself remains device-only.
 - Physical device (PR instructions): grant Health access, install without force-quitting, add/update each supported sample, and inspect telemetry/Firebase after the system-delivered wake.
 

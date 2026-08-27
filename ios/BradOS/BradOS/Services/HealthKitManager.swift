@@ -2,6 +2,12 @@ import HealthKit
 import Foundation
 import BradOSCore
 
+protocol HealthKitObserverExecuting: AnyObject {
+    func execute(_ query: HKQuery)
+}
+
+extension HKHealthStore: HealthKitObserverExecuting {}
+
 // MARK: - HealthKit Errors
 
 enum HealthKitError: Error, LocalizedError {
@@ -37,7 +43,8 @@ class HealthKitManager: ObservableObject {
 
     // MARK: - Private Properties
 
-    let healthStore = HKHealthStore()
+    let healthStore: HKHealthStore
+    private let observerExecutor: HealthKitObserverExecuting
 
     private static let authorizationRequestedKey = "healthkit_authorization_requested"
     private static let cachedBaselineKey = "healthkit_cached_recovery_baseline"
@@ -66,7 +73,13 @@ class HealthKitManager: ObservableObject {
 
     // MARK: - Initialization
 
-    init() {
+    init(
+        healthStore: HKHealthStore = HKHealthStore(),
+        observerExecutor: HealthKitObserverExecuting? = nil
+    ) {
+        self.healthStore = healthStore
+        self.observerExecutor = observerExecutor ?? healthStore
+
         let defaults = UserDefaults.standard
         isAuthorized = defaults.bool(forKey: Self.authorizationRequestedKey)
         baselineLastUpdated = defaults.object(forKey: Self.baselineUpdatedKey) as? Date
@@ -110,13 +123,38 @@ class HealthKitManager: ObservableObject {
         }
     }
 
-    /// Starts observers during app initialization so HealthKit can relaunch the app for new samples.
-    func startBackgroundDelivery(onUpdate: @escaping @MainActor () async -> Void) async {
+    /// Starts and retains observer queries synchronously during app initialization.
+    func registerBackgroundObservers(onUpdate: @escaping @MainActor () async -> Void) {
+        guard isHealthDataAvailable else {
+            HealthKitBackgroundLogger.warning("HealthKit unavailable; observers not registered")
+            return
+        }
+        guard backgroundObserverQueries.isEmpty else {
+            HealthKitBackgroundLogger.info("HealthKit observers already registered")
+            return
+        }
+
+        HealthKitBackgroundLogger.info("Registering HealthKit background observers")
+        backgroundObserverQueries = backgroundDeliveryTypes.map { sampleType in
+            let query = makeBackgroundObserver(for: sampleType, onUpdate: onUpdate)
+            observerExecutor.execute(query)
+            return query
+        }
+        HealthKitBackgroundLogger.info(
+            "Registered \(backgroundObserverQueries.count) HealthKit background observers"
+        )
+    }
+
+    /// Reconciles authorization state and enables hourly delivery after observers exist.
+    func prepareBackgroundDelivery() async {
         guard isHealthDataAvailable else { return }
 
         await refreshAuthorizationState()
-        registerBackgroundObservers(onUpdate: onUpdate)
         await enableBackgroundDelivery()
+    }
+
+    var registeredBackgroundObserverCount: Int {
+        backgroundObserverQueries.count
     }
 
     /// Stores a calculated baseline for short background wakes.
@@ -138,11 +176,15 @@ class HealthKitManager: ObservableObject {
             let status = try await authorizationRequestStatus()
             if status == .unnecessary {
                 markAuthorizationRequested()
+                HealthKitBackgroundLogger.info("HealthKit authorization state restored")
+            } else {
+                HealthKitBackgroundLogger.warning(
+                    "HealthKit reports that authorization may still be required"
+                )
             }
         } catch {
-            DebugLogger.error(
-                "Failed to refresh HealthKit authorization state: \(error)",
-                attributes: ["source": "HealthKitManager"]
+            HealthKitBackgroundLogger.error(
+                "Authorization-state refresh failed: \(error.localizedDescription)"
             )
         }
     }
@@ -164,27 +206,29 @@ class HealthKitManager: ObservableObject {
         UserDefaults.standard.set(true, forKey: Self.authorizationRequestedKey)
     }
 
-    private func registerBackgroundObservers(onUpdate: @escaping @MainActor () async -> Void) {
-        guard backgroundObserverQueries.isEmpty else { return }
+    private func makeBackgroundObserver(
+        for sampleType: HKSampleType,
+        onUpdate: @escaping @MainActor () async -> Void
+    ) -> HKObserverQuery {
+        HKObserverQuery(sampleType: sampleType, predicate: nil) { _, completion, error in
+            if let error {
+                HealthKitBackgroundLogger.error(
+                    "Observer error for \(sampleType.identifier): \(error.localizedDescription)"
+                )
+                completion()
+                return
+            }
 
-        backgroundObserverQueries = backgroundDeliveryTypes.map { sampleType in
-            let query = HKObserverQuery(sampleType: sampleType, predicate: nil) { _, completion, error in
-                if let error {
-                    DebugLogger.error(
-                        "HealthKit observer failed: \(error)",
-                        attributes: ["source": "HealthKitManager"]
+            HealthKitBackgroundLogger.info("Observer fired for \(sampleType.identifier)")
+            Task { @MainActor in
+                defer {
+                    HealthKitBackgroundLogger.info(
+                        "Observer completed for \(sampleType.identifier)"
                     )
                     completion()
-                    return
                 }
-
-                Task { @MainActor in
-                    defer { completion() }
-                    await onUpdate()
-                }
+                await onUpdate()
             }
-            healthStore.execute(query)
-            return query
         }
     }
 
@@ -192,10 +236,12 @@ class HealthKitManager: ObservableObject {
         for sampleType in backgroundDeliveryTypes {
             do {
                 try await enableBackgroundDelivery(for: sampleType)
+                HealthKitBackgroundLogger.info(
+                    "Enabled hourly delivery for \(sampleType.identifier)"
+                )
             } catch {
-                DebugLogger.error(
-                    "Failed to enable HealthKit background delivery for \(sampleType.identifier): \(error)",
-                    attributes: ["source": "HealthKitManager"]
+                HealthKitBackgroundLogger.error(
+                    "Failed to enable delivery for \(sampleType.identifier): \(error.localizedDescription)"
                 )
             }
         }

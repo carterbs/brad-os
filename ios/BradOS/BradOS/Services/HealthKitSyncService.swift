@@ -1,6 +1,14 @@
 import Foundation
 import BradOSCore
 
+private enum HealthKitBackgroundSyncError: LocalizedError {
+    case recentDeltaUploadFailed
+
+    var errorDescription: String? {
+        "One or more recent HealthKit delta uploads failed"
+    }
+}
+
 // MARK: - HealthKitSyncService
 
 /// Service for syncing HealthKit data to Firebase.
@@ -59,15 +67,10 @@ class HealthKitSyncService: ObservableObject {
         await sync()
     }
 
-    /// Performs a throttled, recent-only sync suitable for a short HealthKit background wake.
+    /// Performs a recent-only sync suitable for a short HealthKit background wake.
     func syncForBackground() async {
-        guard needsSync else {
-            DebugLogger.info(
-                "Skipping background sync because recent health data is already synced",
-                attributes: ["source": "HealthKitSyncService"]
-            )
-            return
-        }
+        // HealthKit already coalesces observer delivery to the requested hourly cadence.
+        // Do not acknowledge a newly delivered sample solely because foreground sync ran recently.
         await performSync(mode: .background)
     }
 
@@ -86,6 +89,7 @@ class HealthKitSyncService: ObservableObject {
     private func performSync(mode: SyncMode) async {
         guard !isSyncing else {
             DebugLogger.warn("Already syncing, skipping", attributes: ["source": "HealthKitSyncService"])
+            HealthKitBackgroundLogger.info("Observer joined an in-progress health sync")
             return
         }
 
@@ -94,22 +98,28 @@ class HealthKitSyncService: ObservableObject {
         defer { isSyncing = false }
 
         do {
-            // Ensure we have authorization
-            guard healthKitManager.isAuthorized else {
-                DebugLogger.info("HealthKit not authorized", attributes: ["source": "HealthKitSyncService"])
+            if mode == .foreground && !healthKitManager.isAuthorized {
+                DebugLogger.info(
+                    "HealthKit not authorized",
+                    attributes: ["source": "HealthKitSyncService"]
+                )
                 lastError = "HealthKit not authorized"
                 return
             }
 
-            let recoveryResult = try await recoveryData(for: mode)
-
-            // Sync recovery snapshot to Firebase (no weight — weight syncs separately in bulk)
-            try await sendSyncRequest(
-                recovery: recoveryResult.recovery,
-                baseline: recoveryResult.baseline
-            )
-
-            await syncHistory(for: mode)
+            switch mode {
+            case .foreground:
+                try await syncRecovery(for: mode)
+                _ = await syncHistory(for: mode)
+            case .background:
+                if !healthKitManager.isAuthorized {
+                    HealthKitBackgroundLogger.info(
+                        "Continuing background sync without persisted authorization state"
+                    )
+                }
+                HealthKitBackgroundLogger.info("Background health sync started")
+                try await syncBackgroundData()
+            }
 
             // Update last sync date
             lastSyncDate = Date()
@@ -123,9 +133,48 @@ class HealthKitSyncService: ObservableObject {
                 label = "Background sync"
             }
             DebugLogger.info("\(label) completed successfully", attributes: ["source": "HealthKitSyncService"])
+            if mode == .background {
+                HealthKitBackgroundLogger.info("Background health sync completed")
+            }
         } catch {
             DebugLogger.error("Sync failed: \(error)", attributes: ["source": "HealthKitSyncService"])
             lastError = error.localizedDescription
+            if mode == .background {
+                HealthKitBackgroundLogger.error(
+                    "Background health sync failed: \(error.localizedDescription)"
+                )
+            }
+        }
+    }
+
+    private func syncRecovery(for mode: SyncMode) async throws {
+        let recoveryResult = try await recoveryData(for: mode)
+        try await sendSyncRequest(
+            recovery: recoveryResult.recovery,
+            baseline: recoveryResult.baseline
+        )
+    }
+
+    private func syncBackgroundData() async throws {
+        let recoveryError: Error?
+        do {
+            try await syncRecovery(for: .background)
+            recoveryError = nil
+        } catch {
+            recoveryError = error
+            HealthKitBackgroundLogger.error(
+                "Background recovery snapshot failed; continuing recent deltas: "
+                    + error.localizedDescription
+            )
+        }
+
+        let historySucceeded = await syncHistory(for: .background)
+        guard historySucceeded else {
+            throw HealthKitBackgroundSyncError.recentDeltaUploadFailed
+        }
+
+        if let recoveryError {
+            throw recoveryError
         }
     }
 
@@ -143,21 +192,26 @@ class HealthKitSyncService: ObservableObject {
         }
     }
 
-    private func syncHistory(for mode: SyncMode) async {
+    private func syncHistory(for mode: SyncMode) async -> Bool {
         switch mode {
         case .foreground:
-            async let weightSync: Void = syncWeightHistory()
-            async let hrvSync: Void = syncHRVHistory()
-            async let rhrSync: Void = syncRHRHistory()
-            async let sleepSync: Void = syncSleepHistory()
-            _ = await (weightSync, hrvSync, rhrSync, sleepSync)
+            async let weightSync = syncWeightHistory()
+            async let hrvSync = syncHRVHistory()
+            async let rhrSync = syncRHRHistory()
+            async let sleepSync = syncSleepHistory()
+            let results = await (weightSync, hrvSync, rhrSync, sleepSync)
+            return results.0 && results.1 && results.2 && results.3
         case .background:
             let recentDays = 7
-            async let weightSync: Void = syncWeightHistory(days: recentDays, uploadsExistingDates: true)
-            async let hrvSync: Void = syncHRVHistory(days: recentDays)
-            async let rhrSync: Void = syncRHRHistory(days: recentDays)
-            async let sleepSync: Void = syncSleepHistory(days: recentDays)
-            _ = await (weightSync, hrvSync, rhrSync, sleepSync)
+            async let weightSync = syncWeightHistory(
+                days: recentDays,
+                uploadsExistingDates: true
+            )
+            async let hrvSync = syncHRVHistory(days: recentDays)
+            async let rhrSync = syncRHRHistory(days: recentDays)
+            async let sleepSync = syncSleepHistory(days: recentDays)
+            let results = await (weightSync, hrvSync, rhrSync, sleepSync)
+            return results.0 && results.1 && results.2 && results.3
         }
     }
 
@@ -227,12 +281,16 @@ class HealthKitSyncService: ObservableObject {
 
     /// Sync weight history from HealthKit to Firebase in bulk.
     /// Foreground sync defaults to 90 new days; background sync upserts its recent window.
-    private func syncWeightHistory(days: Int = 90, uploadsExistingDates: Bool = false) async {
+    @discardableResult
+    private func syncWeightHistory(
+        days: Int = 90,
+        uploadsExistingDates: Bool = false
+    ) async -> Bool {
         do {
             let hkWeights = try await healthKitManager.fetchWeightHistory(days: days)
             guard !hkWeights.isEmpty else {
                 DebugLogger.info("No HealthKit weight data to sync", attributes: ["source": "HealthKitSyncService"])
-                return
+                return true
             }
 
             let existingDates: Set<String>
@@ -260,14 +318,19 @@ class HealthKitSyncService: ObservableObject {
 
             guard !newEntries.isEmpty else {
                 DebugLogger.info("Weight data already up to date", attributes: ["source": "HealthKitSyncService"])
-                return
+                return true
             }
 
             let added = try await APIClient.shared.syncWeightBulk(weights: newEntries)
             DebugLogger.info("Synced \(added) new weight entries to Firebase", attributes: ["source": "HealthKitSyncService"])
+            return true
         } catch {
             // Don't fail the overall sync if weight sync fails
             DebugLogger.error("Weight sync failed (non-fatal): \(error)", attributes: ["source": "HealthKitSyncService"])
+            HealthKitBackgroundLogger.error(
+                "Weight delta sync failed: \(error.localizedDescription)"
+            )
+            return false
         }
     }
 }

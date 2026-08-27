@@ -40,14 +40,11 @@ struct BradOSApp: App {
         _healthKitSyncService = StateObject(wrappedValue: syncService)
 
         if !isTestHost {
+            hkManager.registerBackgroundObservers {
+                await syncService.syncForBackground()
+            }
             Task { @MainActor in
-                await hkManager.startBackgroundDelivery {
-                    if UIApplication.shared.applicationState == .background {
-                        await syncService.syncForBackground()
-                    } else {
-                        await syncService.syncIfNeeded()
-                    }
-                }
+                await hkManager.prepareBackgroundDelivery()
             }
         }
     }

@@ -55,8 +55,10 @@ HealthView/HealthMetricHistoryView -> HealthMetricHistoryViewModel -> APIClient 
 - Bulk sync endpoints support batch upsert with date-keyed documents (idempotent)
 - Recovery and stored ride data feed the unified Today Coach
 - HealthKitSyncService handles both daily sync and historical backfill
-- At app launch, iOS registers `HKObserverQuery` observers and enables hourly background delivery for HRV SDNN, sleep analysis, resting heart rate, and body mass. Observer callbacks reuse `HealthKitSyncService` and the existing API endpoints.
+- During synchronous app initialization, iOS creates, executes, and retains `HKObserverQuery` observers for HRV SDNN, sleep analysis, resting heart rate, and body mass before any asynchronous authorization reconciliation. It then enables hourly delivery. Observer callbacks always use the light `HealthKitSyncService` path and the existing API endpoints.
 - Background wakes run a light sync only: today's recovery snapshot plus seven days of HRV, RHR, sleep, and weight deltas. The 60-day baseline rebuild, 90-day weight sync, and up-to-10-year history backfills remain foreground/manual work.
+- Recent deltas still upload if the recovery snapshot cannot be calculated, and background observer delivery is not suppressed by the foreground one-hour throttle.
+- Registration, enablement, observer receipt/completion, and background sync outcome are recorded through unified logging under the `HealthKitBackground` category in both Debug and Release builds without logging health values.
 - HealthKit background delivery requires the background-delivery entitlement and Background App Refresh on a physical device. It does not run after the user force-quits the app. Watch samples trigger observers only after iOS transfers them into the iPhone HealthKit store, so morning recovery can lag.
 - HealthKit background delivery cannot be exercised in Simulator; verify observer wakes and Firebase writes on a signed physical-device build.
 

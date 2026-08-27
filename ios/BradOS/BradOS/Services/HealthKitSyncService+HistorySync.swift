@@ -6,7 +6,8 @@ import BradOSCore
 extension HealthKitSyncService {
 
     /// Sync HRV history from HealthKit to Firebase in bulk.
-    func syncHRVHistory(days: Int? = nil) async {
+    @discardableResult
+    func syncHRVHistory(days: Int? = nil) async -> Bool {
         do {
             let backfillDone = UserDefaults.standard.bool(forKey: hrvBackfillCompleteKey)
             let syncDays = days ?? (backfillDone ? 7 : 3650)
@@ -17,7 +18,7 @@ extension HealthKitSyncService {
                 if shouldMarkBackfill && !backfillDone {
                     UserDefaults.standard.set(true, forKey: hrvBackfillCompleteKey)
                 }
-                return
+                return true
             }
 
             let dailyReadings = aggregateByDate(hkReadings) { $0.valueMs }
@@ -42,7 +43,7 @@ extension HealthKitSyncService {
                     done: backfillDone,
                     shouldMark: shouldMarkBackfill
                 )
-                return
+                return true
             }
 
             let totalAdded = try await syncInBatches(newEntries) { batch in
@@ -54,13 +55,19 @@ extension HealthKitSyncService {
                 done: backfillDone,
                 shouldMark: shouldMarkBackfill
             )
+            return true
         } catch {
             DebugLogger.error("HRV sync failed (non-fatal): \(error)", attributes: ["source": "HealthKitSyncService"])
+            HealthKitBackgroundLogger.error(
+                "HRV delta sync failed: \(error.localizedDescription)"
+            )
+            return false
         }
     }
 
     /// Sync RHR history from HealthKit to Firebase in bulk.
-    func syncRHRHistory(days: Int? = nil) async {
+    @discardableResult
+    func syncRHRHistory(days: Int? = nil) async -> Bool {
         do {
             let backfillDone = UserDefaults.standard.bool(forKey: rhrBackfillCompleteKey)
             let syncDays = days ?? (backfillDone ? 7 : 3650)
@@ -73,7 +80,7 @@ extension HealthKitSyncService {
                     done: backfillDone,
                     shouldMark: shouldMarkBackfill
                 )
-                return
+                return true
             }
 
             let dailyReadings = aggregateByDate(hkReadings) { $0.valueBpm }
@@ -96,7 +103,7 @@ extension HealthKitSyncService {
                     done: backfillDone,
                     shouldMark: shouldMarkBackfill
                 )
-                return
+                return true
             }
 
             let totalAdded = try await syncInBatches(newEntries) { batch in
@@ -108,13 +115,19 @@ extension HealthKitSyncService {
                 done: backfillDone,
                 shouldMark: shouldMarkBackfill
             )
+            return true
         } catch {
             DebugLogger.error("RHR sync failed (non-fatal): \(error)", attributes: ["source": "HealthKitSyncService"])
+            HealthKitBackgroundLogger.error(
+                "RHR delta sync failed: \(error.localizedDescription)"
+            )
+            return false
         }
     }
 
     /// Sync sleep history from HealthKit to Firebase in bulk.
-    func syncSleepHistory(days: Int? = nil) async {
+    @discardableResult
+    func syncSleepHistory(days: Int? = nil) async -> Bool {
         do {
             let backfillDone = UserDefaults.standard.bool(forKey: sleepBackfillCompleteKey)
             let syncDays = days ?? (backfillDone ? 7 : 3650)
@@ -127,7 +140,7 @@ extension HealthKitSyncService {
                     done: backfillDone,
                     shouldMark: shouldMarkBackfill
                 )
-                return
+                return true
             }
 
             let existingDates = days == nil ? try await existingSleepDates(days: syncDays) : []
@@ -153,7 +166,7 @@ extension HealthKitSyncService {
                     done: backfillDone,
                     shouldMark: shouldMarkBackfill
                 )
-                return
+                return true
             }
 
             let totalAdded = try await syncInBatches(newEntries) { batch in
@@ -165,8 +178,13 @@ extension HealthKitSyncService {
                 done: backfillDone,
                 shouldMark: shouldMarkBackfill
             )
+            return true
         } catch {
             DebugLogger.error("Sleep sync failed (non-fatal): \(error)", attributes: ["source": "HealthKitSyncService"])
+            HealthKitBackgroundLogger.error(
+                "Sleep delta sync failed: \(error.localizedDescription)"
+            )
+            return false
         }
     }
 
