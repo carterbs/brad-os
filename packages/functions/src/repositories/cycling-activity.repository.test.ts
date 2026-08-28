@@ -38,6 +38,7 @@ describe('CyclingActivityRepository', () => {
     mockCollection.orderBy.mockReturnValue(mockQueryChain);
     mockCollection.limit.mockReturnValue(mockQueryChain);
     mockDocRef.collection.mockImplementation((_path: string) => mockCollection);
+    mockQueryChain.get.mockResolvedValue({ docs: [] });
   });
 
   describe('findAllByUser', () => {
@@ -67,16 +68,7 @@ describe('CyclingActivityRepository', () => {
           data: (): Record<string, unknown> => mockActivityData,
         },
       ];
-
-      const mockQuery = {
-        orderBy: vi.fn(),
-        limit: vi.fn(),
-        get: vi.fn().mockResolvedValue({ docs: mockDocs }),
-      };
-
-      // Setup the chain
-      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
-      (mockQuery.limit as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      mockQueryChain.get.mockResolvedValueOnce({ docs: mockDocs });
 
       const result = await repository.findAllByUser('user-1', 10);
 
@@ -89,12 +81,7 @@ describe('CyclingActivityRepository', () => {
     it('should return empty array when no activities exist', async (): Promise<void> => {
       const repository = new CyclingActivityRepository(mockDb as Firestore);
 
-      const mockQuery = {
-        orderBy: vi.fn(),
-        get: vi.fn().mockResolvedValue({ docs: [] }),
-      };
-
-      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      mockQueryChain.get.mockResolvedValueOnce({ docs: [] });
 
       const result = await repository.findAllByUser('user-1');
 
@@ -223,15 +210,7 @@ describe('CyclingActivityRepository', () => {
           data: (): Record<string, unknown> => mockActivityData,
         },
       ];
-
-      const mockQuery = {
-        where: vi.fn(),
-        limit: vi.fn(),
-        get: vi.fn().mockResolvedValue({ empty: false, docs: mockDocs }),
-      };
-
-      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
-      (mockQuery.limit as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      mockQueryChain.get.mockResolvedValueOnce({ empty: false, docs: mockDocs });
 
       const result = await repository.findByStravaId('user-1', 789);
 
@@ -242,14 +221,7 @@ describe('CyclingActivityRepository', () => {
     it('should return null when no results found', async (): Promise<void> => {
       const repository = new CyclingActivityRepository(mockDb as Firestore);
 
-      const mockQuery = {
-        where: vi.fn(),
-        limit: vi.fn(),
-        get: vi.fn().mockResolvedValue({ empty: true, docs: [] }),
-      };
-
-      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
-      (mockQuery.limit as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      mockQueryChain.get.mockResolvedValueOnce({ empty: true, docs: [] });
 
       const result = await repository.findByStravaId('user-1', 999);
 
@@ -276,14 +248,7 @@ describe('CyclingActivityRepository', () => {
         createdAt: '2026-02-18T12:00:00.000Z',
       };
 
-      const mockQuery = {
-        where: vi.fn(),
-        limit: vi.fn(),
-        get: vi.fn().mockResolvedValue({ empty: false, docs: [{ id: 'activity-bad', data: (): Record<string, unknown> => mockActivityData }] }),
-      };
-
-      (mockCollection.where as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
-      (mockQuery.limit as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
+      mockQueryChain.get.mockResolvedValueOnce({ empty: false, docs: [{ id: 'activity-bad', data: () => mockActivityData }] });
 
       const result = await repository.findByStravaId('user-1', 789);
 
@@ -517,13 +482,6 @@ describe('CyclingActivityRepository', () => {
   describe('user-scoped path resolution', () => {
     it('should use getCollectionName for users collection', async (): Promise<void> => {
       const repository = new CyclingActivityRepository(mockDb as Firestore);
-
-      const mockQuery = {
-        orderBy: vi.fn(),
-        get: vi.fn().mockResolvedValue({ docs: [] }),
-      };
-
-      (mockCollection.orderBy as ReturnType<typeof vi.fn>).mockReturnValue(mockQuery);
 
       await repository.findAllByUser('test-user-123');
 
