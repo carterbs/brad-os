@@ -48,8 +48,6 @@ firebase.json
 firestore.indexes.json
 hooks
 scripts
-!packages/functions/scripts/
-!packages/functions/scripts/copy-runtime-assets.mjs
 tools
 vitest*.ts
 ralph.config.json
