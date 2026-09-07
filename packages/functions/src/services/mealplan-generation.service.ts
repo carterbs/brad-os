@@ -71,6 +71,30 @@ function shuffle<T>(array: T[]): T[] {
 }
 
 /**
+ * Returns the ordering key used when recency has to be relaxed.
+ * Meals never planned before are preferred over every dated meal. Invalid
+ * dates sort last, matching the recency filter's treatment of them as recent.
+ */
+function lastPlannedSortKey(meal: Meal): number {
+  if (meal.last_planned === null) {
+    return Number.NEGATIVE_INFINITY;
+  }
+
+  const timestamp = new Date(meal.last_planned).getTime();
+  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp;
+}
+
+/**
+ * Orders fallback candidates from least recently planned to most recently
+ * planned. Shuffling first keeps candidates with the same recency randomized.
+ */
+function prioritizeByRecency(meals: Meal[]): Meal[] {
+  return shuffle([...meals]).sort(
+    (a, b) => lastPlannedSortKey(a) - lastPlannedSortKey(b)
+  );
+}
+
+/**
  * Filters out meals planned within the recency window.
  */
 function filterByRecency(meals: Meal[], now: Date): Meal[] {
@@ -92,18 +116,21 @@ function filterByRecency(meals: Meal[], now: Date): Meal[] {
  * Returns the first match, or undefined if nothing works.
  */
 function selectFromPools(pools: Meal[][], usedMealIds: Set<string>): Meal | undefined {
-  for (const pool of pools) {
+  for (const [poolIndex, pool] of pools.entries()) {
     // Prefer unused meals
-    const unused = shuffle(pool.filter((m) => !usedMealIds.has(m.id)));
-    if (unused.length > 0 && unused[0] !== undefined) {
-      return unused[0];
+    const unused = pool.filter((m) => !usedMealIds.has(m.id));
+    // The first pool is recency-eligible; later pools relax recency and
+    // therefore prefer the least recently planned unused candidate.
+    const ordered = poolIndex === 0 ? shuffle(unused) : prioritizeByRecency(unused);
+    if (ordered.length > 0 && ordered[0] !== undefined) {
+      return ordered[0];
     }
   }
   // Last resort: allow reuse from the last (most relaxed) pool
   const lastPool = pools[pools.length - 1];
   if (lastPool !== undefined && lastPool.length > 0) {
-    const shuffled = shuffle([...lastPool]);
-    return shuffled[0];
+    const ordered = prioritizeByRecency(lastPool);
+    return ordered[0];
   }
   return undefined;
 }
@@ -131,10 +158,30 @@ export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
   const redMeatDinnerDays: number[] = [];
   let prepAheadCount = 0;
 
+  // Reserve the minimum prep-ahead capacity needed to fill seven unique
+  // adult breakfasts while earlier family breakfasts are assigned. This
+  // keeps recency fallback ordering from forcing a duplicate later when the
+  // adult catalog has at least seven meals.
+  const adultBreakfastMeals = meals.filter(
+    (meal) => meal.meal_type === 'breakfast' && meal.audience === 'adult'
+  );
+  const adultBreakfastNonPrepCount = adultBreakfastMeals.filter(
+    (meal) => !meal.prep_ahead
+  ).length;
+  const requiredAdultBreakfastPrepAhead = Math.max(
+    0,
+    7 - adultBreakfastNonPrepCount
+  );
+  const reservedAdultBreakfastPrepAhead =
+    adultBreakfastMeals.length >= 7 &&
+    requiredAdultBreakfastPrepAhead <= MAX_PREP_AHEAD_MEALS
+      ? requiredAdultBreakfastPrepAhead
+      : 0;
+
   // Helper to filter by prep-ahead constraint
-  const applyPrepAheadFilter = (m: Meal): boolean => {
+  const applyPrepAheadFilter = (m: Meal, reservedPrepAheadCount = 0): boolean => {
     if (!m.prep_ahead) return true;
-    return prepAheadCount < MAX_PREP_AHEAD_MEALS;
+    return prepAheadCount + 1 + reservedPrepAheadCount <= MAX_PREP_AHEAD_MEALS;
   };
 
   // Step 1: Assign family breakfast, adult breakfast, and family lunch.
@@ -147,7 +194,22 @@ export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
       const typeMatch = (m: Meal): boolean =>
         m.meal_type === slot.mealType && m.audience === slot.mealTrack;
       const lowEffort = (m: Meal): boolean => m.effort <= MAX_BREAKFAST_LUNCH_EFFORT;
-      const prepOk = (m: Meal): boolean => applyPrepAheadFilter(m);
+      const isFamilyBreakfast =
+        slot.mealTrack === 'family' && slot.mealType === 'breakfast';
+      const remainingFamilyBreakfastSlots = 7 - dayIndex;
+      const unusedNonPrepFamilyBreakfasts = isFamilyBreakfast
+        ? meals.filter(
+          (m) => typeMatch(m) && !m.prep_ahead && !usedMealIds.has(m.id)
+        ).length
+        : 0;
+      const reservedPrepAheadCount =
+        isFamilyBreakfast &&
+        reservedAdultBreakfastPrepAhead > 0 &&
+        unusedNonPrepFamilyBreakfasts >= remainingFamilyBreakfastSlots
+          ? reservedAdultBreakfastPrepAhead
+          : 0;
+      const prepOk = (m: Meal): boolean =>
+        applyPrepAheadFilter(m, reservedPrepAheadCount);
       const notPrep = (m: Meal): boolean => !m.prep_ahead;
 
       const pools: Meal[][] = [
