@@ -226,8 +226,9 @@ fn create_worktree_link(root_dir: &Path, link_path: &Path) -> io::Result<()> {
     }
 }
 
-const OPTIONAL_FEATURE_SECRETS: [&str; 4] = [
+const OPTIONAL_FEATURE_SECRETS: [&str; 5] = [
     "OPENAI_API_KEY",
+    "TYPESAFE_API_KEY",
     "STRAVA_CLIENT_ID",
     "STRAVA_CLIENT_SECRET",
     "STRAVA_WEBHOOK_VERIFY_TOKEN",
@@ -321,6 +322,7 @@ fn start_api(
         project_id,
         port,
         resolve_optional_feature_secrets(project_id),
+        &env::var("JEV_MODEL").unwrap_or_else(|_| "jev-1.13.0".to_string()),
     );
     let environment_refs = api_environment
         .iter()
@@ -467,6 +469,7 @@ fn build_api_environment(
     project_id: &str,
     port: u16,
     optional_secrets: Vec<(String, String)>,
+    jev_model: &str,
 ) -> Vec<(String, String)> {
     let mut environment = vec![
         ("PORT".to_string(), port.to_string()),
@@ -475,6 +478,7 @@ fn build_api_environment(
         ("BRAD_LOCAL_DEV_ONLY".to_string(), "true".to_string()),
         ("NODE_ENV".to_string(), "development".to_string()),
         ("APP_CHECK_BYPASS".to_string(), "false".to_string()),
+        ("JEV_MODEL".to_string(), jev_model.to_string()),
     ];
     environment.extend(optional_secrets);
     environment
@@ -982,6 +986,7 @@ mod tests {
             "brad-os",
             15_123,
             vec![("OPENAI_API_KEY".to_string(), "redacted".to_string())],
+            "jev-1.13.0",
         )
         .into_iter()
         .collect::<std::collections::HashMap<_, _>>();
@@ -1004,6 +1009,35 @@ mod tests {
             environment.get("OPENAI_API_KEY").map(String::as_str),
             Some("redacted")
         );
+        assert_eq!(
+            environment.get("JEV_MODEL").map(String::as_str),
+            Some("jev-1.13.0")
+        );
+        assert!(!environment.contains_key("TYPESAFE_API_KEY"));
+    }
+
+    #[test]
+    fn local_api_forwards_optional_typesafe_key_and_pinned_model() {
+        let environment = build_api_environment(
+            "brad-os",
+            15_123,
+            vec![(
+                "TYPESAFE_API_KEY".to_string(),
+                "test-only-value".to_string(),
+            )],
+            "jev-1.14.0",
+        )
+        .into_iter()
+        .collect::<std::collections::HashMap<_, _>>();
+        assert_eq!(
+            environment.get("TYPESAFE_API_KEY").map(String::as_str),
+            Some("test-only-value")
+        );
+        assert_eq!(
+            environment.get("JEV_MODEL").map(String::as_str),
+            Some("jev-1.14.0")
+        );
+        assert!(OPTIONAL_FEATURE_SECRETS.contains(&"TYPESAFE_API_KEY"));
     }
 
     #[test]

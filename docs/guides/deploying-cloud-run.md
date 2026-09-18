@@ -118,8 +118,10 @@ gcloud tasks queues describe brad-os-strava \
 ## Prerequisites
 
 Before deploying, confirm the Artifact Registry repository, both service accounts, Cloud
-Tasks queue, IAM grants, and four Secret Manager secrets exist. The deploy command binds
-an exact numeric secret version; it deliberately refuses `latest`.
+Tasks queue, IAM grants, and the four existing OpenAI/Strava Secret Manager secrets exist.
+Meal-plan critique/revision additionally need the `TYPESAFE_API_KEY` secret and runtime
+service-account access to it. The deploy command binds exact numeric secret versions;
+it deliberately refuses `latest`.
 
 Set the active versions:
 
@@ -133,6 +135,32 @@ export BRAD_STRAVA_VERIFY_TOKEN_SECRET_VERSION=1
 Use the actual enabled version numbers from Secret Manager rather than copying these
 examples.
 
+### Meal-plan critique configuration
+
+To bind an existing TypeSafe secret, supply its actual enabled numeric version:
+
+```bash
+export BRAD_TYPESAFE_SECRET_VERSION=1
+export JEV_MODEL=jev-1.13.0
+```
+
+`BRAD_TYPESAFE_SECRET_VERSION` is optional for the deployment tool, so missing TypeSafe
+setup does not prevent unrelated API features or health checks from starting. When set,
+the tool binds `TYPESAFE_API_KEY=TYPESAFE_API_KEY:<version>` alongside the existing
+OpenAI/Strava secrets and checks that exact reference during deployment read-back.
+When omitted, the tool warns and does not bind a TypeSafe key: meal-plan critique and
+revision remain unavailable. Initial meal-plan generation continues working without
+this key, and Today Coach still uses the preserved OpenAI secret.
+
+`JEV_MODEL` defaults to `jev-1.13.0`. The deployment tool accepts explicit Jev versions
+with three numeric components and rejects moving aliases such as `jev-latest`. It
+deploys the selected pin and verifies it during read-back. This configuration does not
+create secrets or grant IAM permissions.
+
+Health checks and mocked tests do not establish TypeSafe model accuracy. Before
+releasing critique/revision, evaluate representative edits with a real key; the initial
+confidence thresholds are conservative starting values and have not been calibrated.
+
 The deploy requires a clean, committed worktree. Its image tag is the full Git commit SHA.
 
 ## Review without changing GCP
@@ -141,8 +169,9 @@ The deploy requires a clean, committed worktree. Its image tag is the full Git c
 npm run deploy:cloud-run -- --plan
 ```
 
-The plan confirms the project, region, immutable image name, scale-to-zero settings, and
-candidate-only traffic posture.
+The plan confirms the project, region, immutable image name, scale-to-zero settings,
+candidate-only traffic posture, pinned meal-plan model, and TypeSafe secret binding or
+missing-configuration warning. It does not read secret values.
 
 ## Build and deploy a candidate
 
@@ -188,6 +217,7 @@ STRAVA_TASK_QUEUE_LOCATION=us-central1
 STRAVA_TASK_OIDC_SERVICE_ACCOUNT=brad-os-strava-tasks@brad-os.iam.gserviceaccount.com
 CLOUD_RUN_SERVICE_URL=<direct stable run.app URL>
 STRAVA_TASK_OIDC_AUDIENCE=<same direct stable run.app URL>
+JEV_MODEL=jev-1.13.0
 ```
 
 The tool never modifies Firebase Hosting. A candidate cannot receive normal iOS traffic
@@ -285,7 +315,6 @@ This checks that the image:
 - runs as the non-root `node` user;
 - listens on the injected port;
 - serves `/healthz`, `/api/dev/health`, and `/api/prod/health`;
-- contains the Markdown prompt needed by cycling coach;
 - exits successfully after Docker sends `SIGTERM`.
 
 Use `--build-only` when only an image build and non-root inspection are possible:

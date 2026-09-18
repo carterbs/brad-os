@@ -21,6 +21,8 @@ const STARTUP_PROBE_PERIOD_SECONDS: u64 = 1;
 const STARTUP_PROBE_FAILURE_THRESHOLD: u64 = 60;
 
 const OPENAI_VERSION_ENV: &str = "BRAD_OPENAI_SECRET_VERSION";
+const TYPESAFE_VERSION_ENV: &str = "BRAD_TYPESAFE_SECRET_VERSION";
+const DEFAULT_JEV_MODEL: &str = "jev-1.13.0";
 const STRAVA_CLIENT_ID_VERSION_ENV: &str = "BRAD_STRAVA_CLIENT_ID_SECRET_VERSION";
 const STRAVA_CLIENT_SECRET_VERSION_ENV: &str = "BRAD_STRAVA_CLIENT_SECRET_VERSION";
 const STRAVA_VERIFY_VERSION_ENV: &str = "BRAD_STRAVA_VERIFY_TOKEN_SECRET_VERSION";
@@ -29,6 +31,7 @@ const SERVICE_URL_ENV: &str = "BRAD_CLOUD_RUN_SERVICE_URL";
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SecretVersions {
     pub openai: String,
+    pub typesafe: Option<String>,
     pub strava_client_id: String,
     pub strava_client_secret: String,
     pub strava_verify_token: String,
@@ -38,6 +41,7 @@ pub struct SecretVersions {
 pub struct DeploymentConfig {
     pub git_sha: String,
     pub secret_versions: SecretVersions,
+    pub jev_model: String,
     pub service_url: Option<String>,
     pub plan_only: bool,
 }
@@ -56,11 +60,16 @@ impl DeploymentConfig {
             git_sha,
             secret_versions: SecretVersions {
                 openai: required_secret_version(OPENAI_VERSION_ENV)?,
+                typesafe: parse_optional_secret_version(
+                    TYPESAFE_VERSION_ENV,
+                    env::var(TYPESAFE_VERSION_ENV).ok(),
+                )?,
                 strava_client_id: required_secret_version(STRAVA_CLIENT_ID_VERSION_ENV)?,
                 strava_client_secret: required_secret_version(STRAVA_CLIENT_SECRET_VERSION_ENV)?,
                 strava_verify_token: required_secret_version(STRAVA_VERIFY_VERSION_ENV)?,
             },
             service_url,
+            jev_model: parse_jev_model(env::var("JEV_MODEL").ok())?,
             plan_only,
         })
     }
@@ -133,6 +142,14 @@ pub fn render_plan<W: Write>(writer: &mut W, config: &DeploymentConfig) -> Resul
     writeln!(writer, "  service: {SERVICE}").map_err(|error| error.to_string())?;
     writeln!(writer, "  repository: {ARTIFACT_REPOSITORY}").map_err(|error| error.to_string())?;
     writeln!(writer, "  image: {}", config.image_tag()).map_err(|error| error.to_string())?;
+    writeln!(writer, "  meal-plan model: {}", config.jev_model)
+        .map_err(|error| error.to_string())?;
+    if let Some(version) = &config.secret_versions.typesafe {
+        writeln!(writer, "  meal-plan secret: TYPESAFE_API_KEY:{version}")
+            .map_err(|error| error.to_string())?;
+    } else {
+        warn_missing_typesafe_secret(writer)?;
+    }
     writeln!(
         writer,
         "  runtime: min=0 service-max=1 revision-max=1 concurrency=20 cpu=1 memory=512Mi timeout=180s"
@@ -171,6 +188,9 @@ pub fn execute<R: CommandRunner, W: Write>(
 ) -> Result<(), String> {
     if config.plan_only {
         return render_plan(writer, config);
+    }
+    if config.secret_versions.typesafe.is_none() {
+        warn_missing_typesafe_secret(writer)?;
     }
 
     writeln!(writer, "Building {}", config.image_tag()).map_err(|error| error.to_string())?;
@@ -288,7 +308,7 @@ fn run_deploy<R: CommandRunner>(
     service_url: Option<&str>,
     no_traffic: bool,
 ) -> Result<(), String> {
-    let secrets = format!(
+    let mut secrets = format!(
         "OPENAI_API_KEY=OPENAI_API_KEY:{},STRAVA_CLIENT_ID=STRAVA_CLIENT_ID:{},\
 STRAVA_CLIENT_SECRET=STRAVA_CLIENT_SECRET:{},\
 STRAVA_WEBHOOK_VERIFY_TOKEN=STRAVA_WEBHOOK_VERIFY_TOKEN:{}",
@@ -297,11 +317,15 @@ STRAVA_WEBHOOK_VERIFY_TOKEN=STRAVA_WEBHOOK_VERIFY_TOKEN:{}",
         config.secret_versions.strava_client_secret,
         config.secret_versions.strava_verify_token
     );
+    if let Some(version) = &config.secret_versions.typesafe {
+        secrets.push_str(&format!(",TYPESAFE_API_KEY=TYPESAFE_API_KEY:{version}"));
+    }
     let mut env_vars = vec![
         format!("GOOGLE_CLOUD_PROJECT={PROJECT}"),
         format!("STRAVA_TASK_QUEUE={TASK_QUEUE}"),
         format!("STRAVA_TASK_QUEUE_LOCATION={REGION}"),
         format!("STRAVA_TASK_OIDC_SERVICE_ACCOUNT={TASK_SERVICE_ACCOUNT}"),
+        format!("JEV_MODEL={}", config.jev_model),
     ];
     if let Some(url) = service_url {
         env_vars.push(format!("CLOUD_RUN_SERVICE_URL={url}"));
@@ -547,6 +571,7 @@ fn validate_environment(
         ("STRAVA_TASK_OIDC_SERVICE_ACCOUNT", TASK_SERVICE_ACCOUNT),
         ("CLOUD_RUN_SERVICE_URL", service_url),
         ("STRAVA_TASK_OIDC_AUDIENCE", service_url),
+        ("JEV_MODEL", config.jev_model.as_str()),
     ] {
         let actual = env_value(entries, name);
         if actual != Some(expected) {
@@ -592,6 +617,15 @@ fn validate_environment(
         if actual != expected {
             violations.push(format!(
                 "secret {name} expected {secret}:{version}, found {:?}",
+                actual
+            ));
+        }
+    }
+    if let Some(version) = &config.secret_versions.typesafe {
+        let actual = secret_ref(entries, "TYPESAFE_API_KEY");
+        if actual != Some(("TYPESAFE_API_KEY", version.as_str())) {
+            violations.push(format!(
+                "secret TYPESAFE_API_KEY expected TYPESAFE_API_KEY:{version}, found {:?}",
                 actual
             ));
         }
@@ -713,6 +747,36 @@ fn required_secret_version(name: &str) -> Result<String, String> {
     Ok(raw)
 }
 
+fn parse_optional_secret_version(
+    name: &str,
+    raw: Option<String>,
+) -> Result<Option<String>, String> {
+    if let Some(version) = &raw {
+        validate_secret_version(name, version)?;
+    }
+    Ok(raw)
+}
+
+fn parse_jev_model(raw: Option<String>) -> Result<String, String> {
+    let model = raw.unwrap_or_else(|| DEFAULT_JEV_MODEL.to_string());
+    let version = model.strip_prefix("jev-").unwrap_or("");
+    let parts = version.split('.').collect::<Vec<_>>();
+    if parts.len() != 3
+        || parts
+            .iter()
+            .any(|part| part.is_empty() || !part.bytes().all(|byte| byte.is_ascii_digit()))
+    {
+        return Err("JEV_MODEL must be a pinned Jev version such as jev-1.13.0.".to_string());
+    }
+    Ok(model)
+}
+
+fn warn_missing_typesafe_secret<W: Write>(writer: &mut W) -> Result<(), String> {
+    writeln!(writer,
+        "  [warn] Meal-plan critique/revise need TYPESAFE_API_KEY; set BRAD_TYPESAFE_SECRET_VERSION to bind its numeric Secret Manager version."
+    ).map_err(|error| error.to_string())
+}
+
 fn validate_secret_version(name: &str, value: &str) -> Result<(), String> {
     if value.is_empty()
         || !value.bytes().all(|byte| byte.is_ascii_digit())
@@ -782,5 +846,39 @@ mod tests {
             false
         );
         assert!(parse_plan_only(&["--delete".to_string()]).is_err());
+    }
+
+    #[test]
+    fn optional_typesafe_version_is_absent_or_positive_numeric() {
+        assert_eq!(parse_optional_secret_version("TEST", None).unwrap(), None);
+        assert_eq!(
+            parse_optional_secret_version("TEST", Some("5".to_string())).unwrap(),
+            Some("5".to_string())
+        );
+        for value in ["", "latest", "0", "-1", " 5", "18446744073709551616"] {
+            assert!(parse_optional_secret_version("TEST", Some(value.to_string())).is_err());
+        }
+    }
+
+    #[test]
+    fn jev_model_defaults_to_a_pin_and_rejects_aliases_or_invalid_names() {
+        assert_eq!(parse_jev_model(None).unwrap(), "jev-1.13.0");
+        assert_eq!(
+            parse_jev_model(Some("jev-1.14.0".to_string())).unwrap(),
+            "jev-1.14.0"
+        );
+        for model in [
+            "",
+            "jev",
+            "jev-latest",
+            "gpt-5.2",
+            "jev-1",
+            "jev-1.13",
+            "jev-.13.0",
+            "jev-1.13.",
+            "jev-1.13.0,OTHER=value",
+        ] {
+            assert!(parse_jev_model(Some(model.to_string())).is_err());
+        }
     }
 }

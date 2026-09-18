@@ -231,22 +231,22 @@ app.post(
     }
 
     const { critique } = critiqueInputSchema.parse(req.body);
-    const apiKey = process.env['OPENAI_API_KEY'] ?? '';
+    const apiKey = process.env['TYPESAFE_API_KEY']?.trim() ?? '';
     if (apiKey === '') {
       throw new AppError(
         500,
         'MISSING_API_KEY',
-        'OpenAI API key is not configured'
+        'TypeSafe API key is not configured'
       );
     }
 
-    // Phase 2: OpenAI (message building + API call + parsing all logged inside processCritique)
-    const openaiStart = Date.now();
+    // Phase 2: Jev evaluates bounded slot and candidate questions.
+    const jevStart = Date.now();
     const critiqueResponse = await processCritique(session, critique, apiKey);
-    const openaiMs = Date.now() - openaiStart;
-    info('critique:openai_total', {
-      phase: 'openai_total',
-      elapsed_ms: openaiMs,
+    const jevMs = Date.now() - jevStart;
+    info('critique:jev_total', {
+      phase: 'jev_total',
+      elapsed_ms: jevMs,
     });
 
     // Phase 3: Apply operations
@@ -262,6 +262,19 @@ app.post(
       elapsed_ms: opsMs,
       operation_count: critiqueResponse.operations.length,
     });
+
+    if (operationErrors.length > 0) {
+      res.json({
+        success: true,
+        data: {
+          plan: session.plan,
+          explanation: 'No changes were applied because the requested changes did not pass validation.',
+          operations: critiqueResponse.operations,
+          errors: operationErrors,
+        },
+      });
+      return;
+    }
 
     // Phase 4: Firestore write
     const firestoreWriteStart = Date.now();
@@ -286,7 +299,7 @@ app.post(
       phase: 'total',
       total_ms: totalMs,
       firestore_read_ms: firestoreReadMs,
-      openai_ms: openaiMs,
+      jev_ms: jevMs,
       apply_ops_ms: opsMs,
       firestore_write_ms: firestoreWriteMs,
       sessionId,
@@ -325,12 +338,12 @@ app.post(
     }
 
     const { critique } = critiqueInputSchema.parse(req.body);
-    const apiKey = process.env['OPENAI_API_KEY'] ?? '';
+    const apiKey = process.env['TYPESAFE_API_KEY']?.trim() ?? '';
     if (apiKey === '') {
       throw new AppError(
         500,
         'MISSING_API_KEY',
-        'OpenAI API key is not configured'
+        'TypeSafe API key is not configured'
       );
     }
 
@@ -346,7 +359,7 @@ app.post(
         success: true,
         data: {
           plan: session.plan,
-          explanation: critiqueResponse.explanation,
+          explanation: 'No changes were applied because the requested changes did not pass validation.',
           operations: critiqueResponse.operations,
           errors: operationErrors,
           recency_reconciled: false,
@@ -366,12 +379,15 @@ app.post(
       updatedPlan
     );
 
-    await reconcileMealLastPlannedForPlanChange({
-      previousPlan: session.plan,
-      nextPlan: updatedPlan,
-      sessionRepository: getSessionRepo(),
-      mealRepository: getMealRepo(),
-    });
+    const planChanged = critiqueResponse.operations.length > 0;
+    if (planChanged) {
+      await reconcileMealLastPlannedForPlanChange({
+        previousPlan: session.plan,
+        nextPlan: updatedPlan,
+        sessionRepository: getSessionRepo(),
+        mealRepository: getMealRepo(),
+      });
+    }
 
     res.json({
       success: true,
@@ -380,7 +396,7 @@ app.post(
         explanation: critiqueResponse.explanation,
         operations: critiqueResponse.operations,
         errors: operationErrors,
-        recency_reconciled: true,
+        recency_reconciled: planChanged,
       },
     });
   })

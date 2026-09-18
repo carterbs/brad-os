@@ -1,248 +1,228 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import type { MealPlanSession, MealPlanEntry, ConversationMessage } from '../shared.js';
+import type { Meal, MealPlanSession, JevAnswer, JevQuestion } from '../shared.js';
 import { createMeal, createMealPlanEntry, createMealPlanSession } from '../__tests__/utils/index.js';
 
-// Mock OpenAI before importing the service
-const mockCreate = vi.fn();
-vi.mock('openai', () => ({
-  default: vi.fn().mockImplementation(() => ({
-    chat: {
-      completions: {
-        create: mockCreate,
-      },
-    },
-  })),
+vi.mock('./mealplan-jev.service.js', () => ({ evaluateJev: vi.fn() }));
+vi.mock('../runtime/logger.js', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
+import { evaluateJev } from './mealplan-jev.service.js';
+import { processCritique } from './mealplan-critique.service.js';
+const mockEvaluate = vi.mocked(evaluateJev);
 
-import { processCritique, buildSystemMessage, buildMessages } from './mealplan-critique.service.js';
-
-function createTestPlan(): MealPlanEntry[] {
-  return [
-    createMealPlanEntry({ day_index: 0, meal_type: 'breakfast', meal_id: 'meal-b1', meal_name: 'Oatmeal' }),
-    createMealPlanEntry({ day_index: 0, meal_track: 'adult', meal_type: 'breakfast', meal_id: 'meal-ab1', meal_name: 'Protein Oats' }),
-    createMealPlanEntry({ day_index: 0, meal_type: 'lunch', meal_id: 'meal-l1', meal_name: 'Sandwich' }),
-    createMealPlanEntry({ day_index: 0, meal_type: 'dinner', meal_id: 'meal-d1', meal_name: 'Pasta' }),
-  ];
-}
-
-function createTestSession(overrides: Partial<MealPlanSession> = {}): MealPlanSession {
+function session(): MealPlanSession {
   return createMealPlanSession({
-    id: 'session-1',
-    plan: createTestPlan(),
-    meals_snapshot: [
-      createMeal({ id: 'meal-b1', name: 'Oatmeal', meal_type: 'breakfast', effort: 1 }),
-      createMeal({ id: 'meal-ab1', name: 'Protein Oats', meal_type: 'breakfast', audience: 'adult', effort: 1 }),
-      createMeal({ id: 'meal-l1', name: 'Sandwich', meal_type: 'lunch', effort: 1 }),
-      createMeal({ id: 'meal-d1', name: 'Pasta', meal_type: 'dinner', effort: 4 }),
-      createMeal({ id: 'meal-d2', name: 'Steak', meal_type: 'dinner', effort: 5, has_red_meat: true, prep_ahead: false }),
+    plan: [
+      createMealPlanEntry({ day_index: 0, meal_id: 'b1', meal_name: 'Oats', meal_type: 'breakfast' }),
+      createMealPlanEntry({ day_index: 0, meal_track: 'adult', meal_id: 'ab1', meal_name: 'Protein Oats', meal_type: 'breakfast' }),
+      createMealPlanEntry({ day_index: 0, meal_id: 'l1', meal_name: 'Sandwich', meal_type: 'lunch' }),
+      createMealPlanEntry({ day_index: 0, meal_id: 'd1', meal_name: 'Pasta', meal_type: 'dinner' }),
+      createMealPlanEntry({ day_index: 1, meal_id: 'd4', meal_name: 'Roast Chicken', meal_type: 'dinner' }),
     ],
-    ...overrides,
+    meals_snapshot: [
+      createMeal({ id: 'b1', name: 'Oats', meal_type: 'breakfast', effort: 1 }),
+      createMeal({ id: 'ab1', name: 'Protein Oats', meal_type: 'breakfast', audience: 'adult', effort: 1 }),
+      createMeal({ id: 'l1', name: 'Sandwich', meal_type: 'lunch', effort: 1 }),
+      createMeal({ id: 'd1', name: 'Pasta', meal_type: 'dinner', effort: 4, prep_ahead: false }),
+      createMeal({ id: 'd2', name: 'Steak', meal_type: 'dinner', effort: 5, has_red_meat: true, prep_ahead: false }),
+      createMeal({ id: 'd3', name: 'Chicken Soup', meal_type: 'dinner', effort: 3, prep_ahead: false }),
+      createMeal({ id: 'd4', name: 'Roast Chicken', meal_type: 'dinner', effort: 5, prep_ahead: false }),
+      createMeal({ id: 'ab2', name: 'Eggs', meal_type: 'breakfast', audience: 'adult', effort: 1 }),
+    ],
+    history: [],
   });
 }
 
-describe('MealPlan Critique Service', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+function choice(question: JevQuestion, selected: string, confidence = 0.99): JevAnswer {
+  if (question.type !== 'choice') throw new Error('Expected Choice');
+  const labels = Object.keys(question.criteria);
+  return {
+    type: 'choice', choice: selected, confidence,
+    probabilities: Object.fromEntries(labels.map((label) => [
+      label, label === selected ? confidence : (1 - confidence) / (labels.length - 1),
+    ])),
+  };
+}
+interface Decisions {
+  request?: string;
+  actions?: Record<string, string>;
+  easier?: string[];
+  scores?: Record<string, number>;
+  uncertainSlots?: string[];
+  confidences?: Record<string, number>;
+  easierScores?: Record<string, number>;
+}
+function decisions(config: Decisions = {}): void {
+  mockEvaluate.mockImplementation(async (state, questions) => {
+    const answers: Record<string, JevAnswer> = {};
+    const evaluations = state['candidate_evaluations'] as
+      Record<string, { slot_id: string; candidate: Meal }> | undefined;
+    for (const [key, question] of Object.entries(questions)) {
+      if (key === 'request') {
+        answers[key] = choice(question, config.request ?? 'change');
+      } else if (key.startsWith('action_')) {
+        const id = key.slice('action_'.length);
+        answers[key] = choice(question, config.actions?.[id] ?? 'keep', config.confidences?.[id] ?? (config.uncertainSlots?.includes(id) ? 0.55 : 0.99));
+      } else if (key.startsWith('easier_')) {
+        const id = key.slice('easier_'.length);
+        answers[key] = { type: 'noul', noul: config.easierScores?.[id] ?? (config.easier?.includes(id) ? 0.99 : 0.01) };
+      } else {
+        const evaluation = evaluations?.[key];
+        if (!evaluation) throw new Error('Missing evaluation ' + key);
+        answers[key] = { type: 'noul', noul: config.scores?.[evaluation.slot_id + ':' + evaluation.candidate.id] ?? 0.01 };
+      }
+    }
+    return answers;
   });
-  afterEach(() => {
-    vi.useRealTimers();
+}
+
+describe('Jev meal-plan critique', () => {
+  beforeEach(() => { vi.clearAllMocks(); vi.unstubAllEnvs(); });
+  afterEach(() => { vi.unstubAllEnvs(); });
+
+  it('assembles known meal IDs and factual explanations from constrained answers', async () => {
+    decisions({ actions: { slot_3: 'replace' }, scores: { 'slot_3:d2': 0.99 } });
+    const result = await processCritique(session(), 'Monday dinner to Steak', 'test-key');
+    expect(result.operations).toEqual([{ day_index: 0, meal_track: 'family', meal_type: 'dinner', new_meal_id: 'd2' }]);
+    expect(result.explanation).toContain('Monday');
+    expect(result.explanation).toContain('Steak');
+    expect(mockEvaluate).toHaveBeenCalledTimes(2);
+    expect(mockEvaluate.mock.calls[0]?.[2]).toBe('test-key');
+    expect(mockEvaluate.mock.calls[0]?.[3]).toBe(mockEvaluate.mock.calls[1]?.[3]);
   });
-
-  describe('processCritique', () => {
-    it('should return parsed CritiqueResponse on successful critique', async () => {
-      const session = createTestSession();
-      const responseJson = {
-        explanation: 'I swapped Monday dinner to Steak.',
-        operations: [
-          { day_index: 0, meal_type: 'dinner', new_meal_id: 'meal-d2' },
-        ],
-      };
-
-      mockCreate.mockResolvedValue({
-        choices: [
-          { message: { content: JSON.stringify(responseJson) } },
-        ],
-      });
-
-      const result = await processCritique(session, 'Change Monday dinner to Steak', 'test-api-key');
-
-      expect(result.explanation).toBe('I swapped Monday dinner to Steak.');
-      expect(result.operations).toHaveLength(1);
-      expect(result.operations[0]?.day_index).toBe(0);
-      expect(result.operations[0]?.meal_track).toBe('family');
-      expect(result.operations[0]?.meal_type).toBe('dinner');
-      expect(result.operations[0]?.new_meal_id).toBe('meal-d2');
-    });
-
-    it('should return fallback response when OpenAI returns malformed JSON', async () => {
-      const session = createTestSession();
-
-      mockCreate.mockResolvedValue({
-        choices: [
-          { message: { content: 'this is not valid json at all' } },
-        ],
-      });
-
-      const result = await processCritique(session, 'Do something', 'test-api-key');
-
-      expect(result.explanation).toContain("couldn't process");
-      expect(result.operations).toEqual([]);
-    });
-
-    it('should return fallback response when OpenAI returns JSON with wrong shape', async () => {
-      const session = createTestSession();
-
-      mockCreate.mockResolvedValue({
-        choices: [
-          { message: { content: JSON.stringify({ foo: 'bar' }) } },
-        ],
-      });
-
-      const result = await processCritique(session, 'Do something', 'test-api-key');
-
-      expect(result.explanation).toContain("couldn't process");
-      expect(result.operations).toEqual([]);
-    });
-
-    it('should throw descriptive error when OpenAI API call fails after retries', async () => {
-      const session = createTestSession();
-
-      mockCreate.mockRejectedValue(new Error('Rate limit exceeded'));
-      vi.useFakeTimers();
-
-      const critiquePromise = processCritique(session, 'Do something', 'test-api-key');
-      const rejection = expect(critiquePromise).rejects.toThrow('OpenAI API call failed after 3 attempts: Rate limit exceeded');
-      await vi.runAllTimersAsync();
-      await rejection;
-
-      // Should have retried 3 times
-      expect(mockCreate).toHaveBeenCalledTimes(3);
-    });
-
-    it('should succeed on retry after transient failure', async () => {
-      const session = createTestSession();
-      const responseJson = {
-        explanation: 'Done.',
-        operations: [],
-      };
-
-      mockCreate
-        .mockRejectedValueOnce(new Error('Connection reset'))
-        .mockResolvedValueOnce({
-          choices: [{ message: { content: JSON.stringify(responseJson) } }],
-          usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
-        });
-      vi.useFakeTimers();
-
-      const critiquePromise = processCritique(session, 'Looks good', 'test-api-key');
-      await vi.runAllTimersAsync();
-      const result = await critiquePromise;
-
-      expect(result.explanation).toBe('Done.');
-      expect(result.operations).toEqual([]);
-      expect(mockCreate).toHaveBeenCalledTimes(2);
-    });
-
-    it('should return fallback when response content is empty', async () => {
-      const session = createTestSession();
-
-      mockCreate.mockResolvedValue({
-        choices: [
-          { message: { content: '' } },
-        ],
-      });
-
-      const result = await processCritique(session, 'Do something', 'test-api-key');
-
-      expect(result.explanation).toContain("couldn't process");
-      expect(result.operations).toEqual([]);
-    });
+  it('supports compound replace and explicit removal requests', async () => {
+    decisions({ actions: { slot_2: 'remove', slot_3: 'replace' }, scores: { 'slot_3:d3': 0.99 } });
+    const result = await processCritique(session(), 'Remove Monday lunch and make Monday dinner chicken', 'test-key');
+    expect(result.operations).toEqual([
+      { day_index: 0, meal_track: 'family', meal_type: 'lunch', new_meal_id: null },
+      { day_index: 0, meal_track: 'family', meal_type: 'dinner', new_meal_id: 'd3' },
+    ]);
   });
-
-  describe('buildSystemMessage', () => {
-    it('should contain meal names and IDs from the snapshot', () => {
-      const session = createTestSession();
-      const systemMessage = buildSystemMessage(session);
-
-      expect(systemMessage).toContain('meal-b1');
-      expect(systemMessage).toContain('Oatmeal');
-      expect(systemMessage).toContain('meal-ab1');
-      expect(systemMessage).toContain('Protein Oats');
-      expect(systemMessage).toContain('meal-d1');
-      expect(systemMessage).toContain('Pasta');
-      expect(systemMessage).toContain('meal-d2');
-      expect(systemMessage).toContain('Steak');
-    });
-
-    it('should contain the current plan grid with day names', () => {
-      const session = createTestSession();
-      const systemMessage = buildSystemMessage(session);
-
-      expect(systemMessage).toContain('Monday');
-      expect(systemMessage).toContain('Oatmeal');
-      expect(systemMessage).toContain('Protein Oats');
-      expect(systemMessage).toContain('Sandwich');
-      expect(systemMessage).toContain('Pasta');
-    });
-
-    it('should describe both breakfast tracks and meal_track operations', () => {
-      const session = createTestSession();
-      const systemMessage = buildSystemMessage(session);
-
-      expect(systemMessage).toContain('Family Breakfast');
-      expect(systemMessage).toContain('Brad Breakfast');
-      expect(systemMessage).toContain('Audience');
-      expect(systemMessage).toContain('"meal_track": "family" or "adult"');
-      expect(systemMessage).toContain('audience=adult');
-    });
-
-    it('should contain red meat indicator in meal table', () => {
-      const session = createTestSession();
-      const systemMessage = buildSystemMessage(session);
-
-      // Steak has red meat
-      expect(systemMessage).toContain('Yes');
-      // Oatmeal does not
-      expect(systemMessage).toContain('No');
-    });
+  it('targets Brad breakfast without changing family breakfast', async () => {
+    decisions({ actions: { slot_1: 'replace' }, scores: { 'slot_1:ab2': 0.99 } });
+    const result = await processCritique(session(), 'My Monday breakfast should be Eggs', 'test-key');
+    expect(result.operations).toEqual([{ day_index: 0, meal_track: 'adult', meal_type: 'breakfast', new_meal_id: 'ab2' }]);
+    const evaluations = mockEvaluate.mock.calls[1]?.[0]['candidate_evaluations'] as Record<string, { candidate: Meal }>;
+    expect(Object.values(evaluations).every(({ candidate }) => candidate.audience === 'adult')).toBe(true);
   });
-
-  describe('buildMessages', () => {
-    it('should include history messages in the correct order', () => {
-      const history: ConversationMessage[] = [
-        { role: 'user', content: 'Change Monday dinner' },
-        { role: 'assistant', content: 'Done, I swapped it.' },
-      ];
-      const session = createTestSession({ history });
-
-      const messages = buildMessages(session, 'Now change Tuesday lunch');
-
-      // System message + 2 history + 1 new user message = 4
-      expect(messages).toHaveLength(4);
-      expect(messages[0]?.role).toBe('system');
-      expect(messages[1]?.role).toBe('user');
-      expect(messages[1]?.content).toBe('Change Monday dinner');
-      expect(messages[2]?.role).toBe('assistant');
-      expect(messages[2]?.content).toBe('Done, I swapped it.');
-      expect(messages[3]?.role).toBe('user');
-      expect(messages[3]?.content).toBe('Now change Tuesday lunch');
-    });
-
-    it('should have system message as first message', () => {
-      const session = createTestSession();
-      const messages = buildMessages(session, 'Test critique');
-
-      expect(messages[0]?.role).toBe('system');
-      expect(messages[0]?.content).toContain('meal planning assistant');
-    });
-
-    it('should append the new critique as last user message', () => {
-      const session = createTestSession();
-      const messages = buildMessages(session, 'Replace Monday dinner with something lighter');
-
-      const lastMessage = messages[messages.length - 1];
-      expect(lastMessage?.role).toBe('user');
-      expect(lastMessage?.content).toBe('Replace Monday dinner with something lighter');
-    });
+  it('returns no operations for approval and never finalizes or generates shopping lists', async () => {
+    decisions({ request: 'no_change' });
+    const result = await processCritique(session(), 'Looks perfect, finalize it', 'test-key');
+    expect(result.operations).toEqual([]);
+    expect(result.explanation).toContain('unchanged');
+    expect(mockEvaluate).toHaveBeenCalledTimes(1);
+  });
+  it.each(['clarify', 'unsupported'])('leaves the whole plan unchanged for a %s request', async (request) => {
+    decisions({ request, actions: { slot_2: 'remove', slot_3: 'replace' } });
+    expect((await processCritique(session(), 'Remove lunch and invent a recipe', 'test-key')).operations).toEqual([]);
+    expect(mockEvaluate).toHaveBeenCalledTimes(1);
+  });
+  it('does not apply half a request when another target is ambiguous', async () => {
+    decisions({ actions: { slot_2: 'remove', slot_3: 'unclear' } });
+    expect((await processCritique(session(), 'Remove Monday lunch and change breakfast', 'test-key')).operations).toEqual([]);
+    expect(mockEvaluate).toHaveBeenCalledTimes(1);
+  });
+  it('does not mutate on low-confidence slot decisions', async () => {
+    decisions({ actions: { slot_3: 'replace' }, uncertainSlots: ['slot_3'] });
+    expect((await processCritique(session(), 'Make that different', 'test-key')).operations).toEqual([]);
+  });
+  it('requires stronger certainty for removal than replacement', async () => {
+    decisions({ actions: { slot_2: 'remove' }, confidences: { slot_2: 0.9 } });
+    const result = await processCritique(session(), 'Remove Monday lunch', 'test-key');
+    expect(result.operations).toEqual([]);
+    expect(result.explanation).toContain('Do you want me to remove');
+  });
+  it('clarifies an uncertain effort request before matching candidates', async () => {
+    decisions({ actions: { slot_3: 'replace' }, easierScores: { slot_3: 0.5 } });
+    const result = await processCritique(session(), 'Change dinner', 'test-key');
+    expect(result.operations).toEqual([]);
+    expect(result.explanation).toContain('easier');
+    expect(mockEvaluate).toHaveBeenCalledTimes(1);
+  });
+  it('passes history as context without replaying prior operations', async () => {
+    const original = session();
+    original.history = [
+      { role: 'user', content: 'No spaghetti this week; remove Monday lunch' },
+      { role: 'assistant', content: 'Removed Monday lunch.' },
+    ];
+    decisions({ actions: { slot_3: 'replace' }, scores: { 'slot_3:d3': 0.99 } });
+    const result = await processCritique(original, 'Monday dinner with chicken', 'test-key');
+    expect(result.operations).toHaveLength(1);
+    expect(result.operations[0]?.meal_type).toBe('dinner');
+    expect(mockEvaluate.mock.calls[1]?.[0]['conversation_history']).toEqual(original.history);
+    expect(mockEvaluate.mock.calls[0]?.[1]['action_slot_3']?.instructions).toContain('latest');
+  });
+  it('enforces easier as a numeric reduction before semantic matching', async () => {
+    decisions({ actions: { slot_3: 'replace' }, easier: ['slot_3'], scores: { 'slot_3:d2': 0.99, 'slot_3:d3': 0.99 } });
+    const result = await processCritique(session(), 'Monday dinner needs to be easier', 'test-key');
+    expect(result.operations[0]?.new_meal_id).toBe('d3');
+    const evaluations = mockEvaluate.mock.calls[1]?.[0]['candidate_evaluations'] as Record<string, { candidate: Meal }>;
+    expect(Object.values(evaluations).every(({ candidate }) => candidate.effort < 4)).toBe(true);
+  });
+  it('does not force a replacement when every candidate fails matching', async () => {
+    decisions({ actions: { slot_3: 'replace' }, scores: { 'slot_3:d3': 0.65 } });
+    const result = await processCritique(session(), 'Use a nonexistent meal', 'test-key');
+    expect(result.operations).toEqual([]);
+    expect(result.explanation).toContain('match');
+  });
+  it('filters candidates that would create consecutive red-meat dinners', async () => {
+    const original = session();
+    const tuesday = original.meals_snapshot.find((meal) => meal.id === 'd4');
+    if (!tuesday) throw new Error('Missing fixture meal');
+    tuesday.has_red_meat = true;
+    decisions({ actions: { slot_3: 'replace' }, scores: { 'slot_3:d2': 0.99 } });
+    const result = await processCritique(original, 'Monday dinner to Steak', 'test-key');
+    expect(result.operations).toEqual([]);
+    const evaluations = mockEvaluate.mock.calls[1]?.[0]['candidate_evaluations'] as Record<string, { candidate: Meal }>;
+    expect(Object.values(evaluations).every(({ candidate }) => !candidate.has_red_meat)).toBe(true);
+  });
+  it('rejects jointly invalid red-meat replacements even when each candidate is individually eligible', async () => {
+    const original = session();
+    original.meals_snapshot.push(createMeal({ id: 'd5', name: 'Beef Stew', meal_type: 'dinner', effort: 4, has_red_meat: true }));
+    decisions({ actions: { slot_3: 'replace', slot_4: 'replace' }, scores: { 'slot_3:d2': 0.99, 'slot_4:d5': 0.99 } });
+    const result = await processCritique(original, 'Beef dinners Monday and Tuesday', 'test-key');
+    expect(result.operations).toEqual([]);
+    expect(result.explanation).toContain('together');
+  });
+  it('does not add a fourth prep-ahead occurrence', async () => {
+    const original = session();
+    for (const meal of original.meals_snapshot) {
+      meal.prep_ahead = ['b1', 'ab1', 'l1', 'd2'].includes(meal.id);
+    }
+    decisions({ actions: { slot_3: 'replace' }, scores: { 'slot_3:d2': 0.99 } });
+    const result = await processCritique(original, 'Monday dinner to Steak', 'test-key');
+    expect(result.operations).toEqual([]);
+    const evaluations = mockEvaluate.mock.calls[1]?.[0]['candidate_evaluations'] as Record<string, { candidate: Meal }>;
+    expect(Object.values(evaluations).every(({ candidate }) => !candidate.prep_ahead)).toBe(true);
+  });
+  it('can exchange occupied dinners without intermediate duplicates', async () => {
+    decisions({ actions: { slot_3: 'replace', slot_4: 'replace' }, scores: { 'slot_3:d4': 0.99, 'slot_4:d1': 0.99 } });
+    expect((await processCritique(session(), 'Swap Monday and Tuesday dinners', 'test-key')).operations.map((op) => op.new_meal_id)).toEqual(['d4', 'd1']);
+  });
+  it('searches joint alternatives instead of assigning one candidate twice', async () => {
+    decisions({ actions: { slot_3: 'replace', slot_4: 'replace' }, scores: { 'slot_3:d3': 0.99, 'slot_4:d3': 0.99, 'slot_3:d2': 0.95 } });
+    expect((await processCritique(session(), 'Change both dinners', 'test-key')).operations.map((op) => op.new_meal_id)).toEqual(['d2', 'd3']);
+  });
+  it('returns no partial removal when a replacement has no legal candidate', async () => {
+    const original = session();
+    original.meals_snapshot = original.meals_snapshot.filter((meal) => ['b1', 'ab1', 'l1', 'd1', 'd4'].includes(meal.id));
+    decisions({ actions: { slot_2: 'remove', slot_3: 'replace' } });
+    expect((await processCritique(original, 'Remove lunch and replace dinner', 'test-key')).operations).toEqual([]);
+  });
+  it('never mutates the supplied session', async () => {
+    const original = session();
+    const before = structuredClone(original);
+    decisions({ actions: { slot_2: 'remove' } });
+    await processCritique(original, 'Remove Monday lunch', 'test-key');
+    expect(original).toEqual(before);
+  });
+  it('propagates provider failures rather than returning unverified success', async () => {
+    mockEvaluate.mockRejectedValue(new Error('TypeSafe unavailable'));
+    await expect(processCritique(session(), 'Change Monday dinner', 'test-key')).rejects.toThrow('TypeSafe unavailable');
+  });
+  it('rejects invalid timeout configuration before provider calls', async () => {
+    vi.stubEnv('JEV_TIMEOUT_MS', 'not-a-number');
+    await expect(processCritique(session(), 'Change Monday dinner', 'test-key')).rejects.toThrow('JEV_TIMEOUT_MS');
+    expect(mockEvaluate).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
 import type {
   MealPlanSession,
@@ -104,6 +104,7 @@ import { mealplansApp } from './mealplans.js';
 import { generateMealPlan } from '../services/mealplan-generation.service.js';
 import { processCritique } from '../services/mealplan-critique.service.js';
 import { applyOperations } from '../services/mealplan-operations.service.js';
+import { AppError } from '../middleware/error-handler.js';
 import {
   markPlanMealsLastPlanned,
   reconcileMealLastPlanned,
@@ -180,6 +181,9 @@ function createTestSession(
 describe('Mealplans Handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   describe('POST /mealplans/generate', () => {
@@ -280,8 +284,7 @@ describe('Mealplans Handler', () => {
 
   describe('POST /mealplans/:sessionId/critique', () => {
     beforeEach(() => {
-      // Set OPENAI_API_KEY for all critique tests
-      process.env['OPENAI_API_KEY'] = 'test-api-key';
+      vi.stubEnv('TYPESAFE_API_KEY', 'test-typesafe-key');
     });
 
     it('should return updated plan on valid critique', async () => {
@@ -372,11 +375,116 @@ describe('Mealplans Handler', () => {
 
       expect(response.status).toBe(400);
     });
+
+    it('requires TypeSafe credentials even when OpenAI is configured', async () => {
+      vi.stubEnv('TYPESAFE_API_KEY', '  ');
+      vi.stubEnv('OPENAI_API_KEY', 'unused-openai-key');
+      mockSessionRepo.findById.mockResolvedValue(createTestSession());
+
+      const response = await request(mealplansApp)
+        .post('/session-1/critique')
+        .send({ critique: 'Change Monday dinner' });
+
+      const body = response.body as ApiResponse;
+      expect(response.status).toBe(500);
+      expect(body.error?.code).toBe('MISSING_API_KEY');
+      expect(body.error?.message).toContain('TypeSafe');
+      expect(mockProcessCritique).not.toHaveBeenCalled();
+      expect(mockSessionRepo.applyCritiqueUpdates).not.toHaveBeenCalled();
+    });
+
+    it('passes the trimmed TypeSafe key to the meal service', async () => {
+      vi.stubEnv('TYPESAFE_API_KEY', '  typesafe-key  ');
+      const session = createTestSession();
+      mockSessionRepo.findById.mockResolvedValue(session);
+      mockProcessCritique.mockResolvedValue({ explanation: 'No changes.', operations: [] });
+      mockApplyOperations.mockReturnValue({ updatedPlan: session.plan, errors: [] });
+
+      const response = await request(mealplansApp)
+        .post('/session-1/critique')
+        .send({ critique: 'Looks good' });
+
+      expect(response.status).toBe(200);
+      expect(mockProcessCritique).toHaveBeenCalledWith(session, 'Looks good', 'typesafe-key');
+    });
+
+    it('does not save a partial draft or its history when validation fails', async () => {
+      const session = createTestSession();
+      mockSessionRepo.findById.mockResolvedValue(session);
+      mockProcessCritique.mockResolvedValue({
+        explanation: 'Attempted change.',
+        operations: [{ day_index: 0, meal_type: 'dinner', new_meal_id: null }],
+      });
+      mockApplyOperations.mockReturnValue({ updatedPlan: [], errors: ['Invalid change'] });
+
+      const response = await request(mealplansApp)
+        .post('/session-1/critique')
+        .send({ critique: 'Change some meals' });
+
+      const body = response.body as ApiResponse<CritiqueResponseData>;
+      expect(response.status).toBe(200);
+      expect(body.data?.plan).toEqual(session.plan);
+      expect(body.data?.explanation).toContain('No changes were applied');
+      expect(body.data?.errors).toEqual(['Invalid change']);
+      expect(mockSessionRepo.applyCritiqueUpdates).not.toHaveBeenCalled();
+    });
+
+    it('exposes provider failure without saving an unverified plan', async () => {
+      mockSessionRepo.findById.mockResolvedValue(createTestSession());
+      mockProcessCritique.mockRejectedValue(new AppError(502, 'JEV_INVALID_RESPONSE', 'Invalid Jev response'));
+
+      const response = await request(mealplansApp)
+        .post('/session-1/critique')
+        .send({ critique: 'Change Monday dinner' });
+
+      const body = response.body as ApiResponse;
+      expect(response.status).toBe(502);
+      expect(body.error?.code).toBe('JEV_INVALID_RESPONSE');
+      expect(mockSessionRepo.applyCritiqueUpdates).not.toHaveBeenCalled();
+    });
   });
 
   describe('POST /mealplans/:sessionId/revise', () => {
     beforeEach(() => {
-      process.env['OPENAI_API_KEY'] = 'test-api-key';
+      vi.stubEnv('TYPESAFE_API_KEY', 'test-typesafe-key');
+    });
+
+    it('requires TypeSafe credentials for finalized revisions', async () => {
+      vi.stubEnv('TYPESAFE_API_KEY', '');
+      mockSessionRepo.findById.mockResolvedValue(createTestSession({ is_finalized: true }));
+
+      const response = await request(mealplansApp)
+        .post('/session-1/revise')
+        .send({ critique: 'Change Monday dinner' });
+
+      const body = response.body as ApiResponse;
+      expect(response.status).toBe(500);
+      expect(body.error?.code).toBe('MISSING_API_KEY');
+      expect(mockProcessCritique).not.toHaveBeenCalled();
+    });
+
+    it('records clarification without reconciling recency for an unchanged finalized plan', async () => {
+      const session = createTestSession({ is_finalized: true });
+      mockSessionRepo.findById.mockResolvedValue(session);
+      mockProcessCritique.mockResolvedValue({ explanation: 'Which day?', operations: [] });
+      mockApplyOperations.mockReturnValue({ updatedPlan: session.plan, errors: [] });
+
+      const response = await request(mealplansApp)
+        .post('/session-1/revise')
+        .send({ critique: 'Something different' });
+
+      const body = response.body as ApiResponse<ReviseResponseData>;
+      expect(response.status).toBe(200);
+      expect(body.data?.plan).toEqual(session.plan);
+      expect(body.data?.recency_reconciled).toBe(false);
+      expect(mockSessionRepo.applyCritiqueUpdates).toHaveBeenCalledWith(
+        'session-1',
+        { role: 'user', content: 'Something different' },
+        { role: 'assistant', content: 'Which day?', operations: [] },
+        session.plan
+      );
+      expect(mockReconcileMealLastPlannedForPlanChange).not.toHaveBeenCalled();
+      expect(mockSessionRepo.update).not.toHaveBeenCalled();
     });
 
     it('should revise a finalized session, append history, and reconcile recency', async () => {
