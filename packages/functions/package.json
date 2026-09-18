@@ -5,7 +5,7 @@
   "type": "module",
   "main": "lib/server.js",
   "scripts": {
-    "build": "tsc && node scripts/copy-runtime-assets.mjs",
+    "build": "tsc",
     "build:watch": "tsc --watch",
     "start": "node lib/server.js",
     "typecheck": "tsc --noEmit",
