@@ -60,7 +60,9 @@ fn config(service_url: Option<&str>, plan_only: bool) -> DeploymentConfig {
             strava_client_id: "2".to_string(),
             strava_client_secret: "3".to_string(),
             strava_verify_token: "4".to_string(),
+            typesafe: None,
         },
+        jev_model: "jev-1.13.0".to_string(),
         service_url: service_url.map(str::to_string),
         plan_only,
     }
@@ -81,6 +83,7 @@ fn service_description(service_url: &str) -> String {
         ),
         ("CLOUD_RUN_SERVICE_URL", service_url),
         ("STRAVA_TASK_OIDC_AUDIENCE", service_url),
+        ("JEV_MODEL", "jev-1.13.0"),
     ]
     .into_iter()
     .map(|(name, value)| json!({"name": name, "value": value}))
@@ -194,6 +197,131 @@ initialDelaySeconds=0,timeoutSeconds=1,periodSeconds=1,failureThreshold=60"
     let rendered = String::from_utf8(output).unwrap();
     assert!(rendered.contains("Candidate ready:"));
     assert!(rendered.contains("no Cloud Functions deployment was attempted"));
+    assert!(rendered.contains("BRAD_TYPESAFE_SECRET_VERSION"));
+    assert!(deploy
+        .args
+        .iter()
+        .any(|arg| arg.contains("JEV_MODEL=jev-1.13.0")));
+    assert!(deploy
+        .args
+        .iter()
+        .filter(|arg| arg.starts_with("--set-secrets="))
+        .all(|arg| !arg.contains("TYPESAFE_API_KEY")));
+}
+
+#[test]
+fn configured_typesafe_secret_is_pinned_and_preserves_other_feature_secrets() {
+    let service_url = "https://brad-os-api.example.run.app";
+    let mut deployment = config(Some(service_url), false);
+    deployment.secret_versions.typesafe = Some("5".to_string());
+    deployment.jev_model = "jev-1.14.0".to_string();
+    let mut description: serde_json::Value =
+        serde_json::from_str(&service_description(service_url)).unwrap();
+    let entries = description["spec"]["template"]["spec"]["containers"][0]["env"]
+        .as_array_mut()
+        .unwrap();
+    entries
+        .iter_mut()
+        .find(|entry| entry["name"] == "JEV_MODEL")
+        .unwrap()["value"] = json!("jev-1.14.0");
+    entries.push(json!({
+        "name": "TYPESAFE_API_KEY",
+        "valueFrom": {"secretKeyRef": {"name": "TYPESAFE_API_KEY", "key": "5"}}
+    }));
+    let runner = FakeRunner::with_results(vec![
+        ok("built"),
+        ok(format!("sha256:{}", "f".repeat(64))),
+        ok("deployed"),
+        ok(description.to_string()),
+        ok("dev healthy"),
+        ok("prod healthy"),
+    ]);
+    let mut output = Vec::new();
+    execute(&runner, &mut output, &deployment).unwrap();
+
+    let calls = runner.calls();
+    let secrets = calls[2]
+        .args
+        .iter()
+        .find(|arg| arg.starts_with("--set-secrets="))
+        .unwrap();
+    for binding in [
+        "OPENAI_API_KEY=OPENAI_API_KEY:1",
+        "STRAVA_CLIENT_ID=STRAVA_CLIENT_ID:2",
+        "STRAVA_CLIENT_SECRET=STRAVA_CLIENT_SECRET:3",
+        "STRAVA_WEBHOOK_VERIFY_TOKEN=STRAVA_WEBHOOK_VERIFY_TOKEN:4",
+        "TYPESAFE_API_KEY=TYPESAFE_API_KEY:5",
+    ] {
+        assert!(secrets.contains(binding));
+    }
+    assert!(calls[2]
+        .args
+        .iter()
+        .any(|arg| arg.contains("JEV_MODEL=jev-1.14.0")));
+    assert!(!String::from_utf8(output).unwrap().contains("[warn]"));
+}
+
+#[test]
+fn readback_rejects_typesafe_secret_and_model_drift() {
+    let service_url = "https://brad-os-api.example.run.app";
+    let image = format!(
+        "us-central1-docker.pkg.dev/brad-os/brad-os-api/brad-os-api@sha256:{}",
+        "f".repeat(64)
+    );
+    let mut deployment = config(Some(service_url), false);
+    deployment.secret_versions.typesafe = Some("5".to_string());
+    for reference in [
+        None,
+        Some(json!({"name": "TYPESAFE_API_KEY", "key": "latest"})),
+        Some(json!({"name": "TYPESAFE_API_KEY", "key": "6"})),
+        Some(json!({"name": "WRONG_SECRET", "key": "5"})),
+    ] {
+        let mut payload: serde_json::Value =
+            serde_json::from_str(&service_description(service_url)).unwrap();
+        if let Some(reference) = reference {
+            payload["spec"]["template"]["spec"]["containers"][0]["env"]
+                .as_array_mut()
+                .unwrap()
+                .push(
+                    json!({"name": "TYPESAFE_API_KEY", "valueFrom": {"secretKeyRef": reference}}),
+                );
+        }
+        let error =
+            validate_service_description(&payload.to_string(), &deployment, &image, service_url)
+                .unwrap_err();
+        assert!(error.contains("secret TYPESAFE_API_KEY"));
+    }
+
+    let mut payload: serde_json::Value =
+        serde_json::from_str(&service_description(service_url)).unwrap();
+    payload["spec"]["template"]["spec"]["containers"][0]["env"]
+        .as_array_mut()
+        .unwrap()
+        .iter_mut()
+        .find(|entry| entry["name"] == "JEV_MODEL")
+        .unwrap()["value"] = json!("jev-latest");
+    let error = validate_service_description(
+        &payload.to_string(),
+        &config(Some(service_url), false),
+        &image,
+        service_url,
+    )
+    .unwrap_err();
+    assert!(error.contains("environment JEV_MODEL"));
+}
+
+#[test]
+fn typesafe_plan_names_configured_secret_without_accessing_it() {
+    let runner = FakeRunner::default();
+    let mut deployment = config(None, true);
+    deployment.secret_versions.typesafe = Some("5".to_string());
+    let mut output = Vec::new();
+    execute(&runner, &mut output, &deployment).unwrap();
+    assert!(runner.calls().is_empty());
+    let rendered = String::from_utf8(output).unwrap();
+    assert!(rendered.contains("TYPESAFE_API_KEY:5"));
+    assert!(rendered.contains("jev-1.13.0"));
+    assert!(!rendered.contains("[warn]"));
 }
 
 #[test]
