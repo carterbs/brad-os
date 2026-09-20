@@ -131,10 +131,11 @@ Both inspected revisions bind these numeric secret references:
 
 Neither revision sets `MEALPLAN_CRITIQUE_PROVIDER`, `JEV_MODEL`, or a TypeSafe binding.
 `TYPESAFE_API_KEY:1` exists and is ENABLED, created `2026-09-20T00:49:39.169253Z`.
-Its secret IAM policy has no bindings. The runtime account
-`brad-os-api@brad-os.iam.gserviceaccount.com` has project roles for Cloud Config,
+At the original inspection, its secret IAM policy had no bindings. The runtime account
+`brad-os-api@brad-os.iam.gserviceaccount.com` had project roles for Cloud Config,
 Firestore, App Check, and service usage, but no project-level Secret Manager accessor
-role. A secret-scoped grant is a release prerequisite; no grant was made:
+role. The following secret-scoped prerequisite grant has since been applied and read
+back, as recorded in the fresh pre-cutover metadata above:
 
 ```bash
 gcloud secrets add-iam-policy-binding TYPESAFE_API_KEY \
