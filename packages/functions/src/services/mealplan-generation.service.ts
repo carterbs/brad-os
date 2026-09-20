@@ -1,4 +1,5 @@
 import type { Meal, MealType, MealTrack, MealPlanEntry } from '../shared.js';
+import { countPrepAheadByTrack, findPrepAheadErrors, prepAheadLimit } from './mealplan-prep-policy.service.js';
 
 /** Effort range per dinner day (day_index 0=Monday through 6=Sunday) */
 interface EffortRange {
@@ -43,7 +44,6 @@ const SLOT_ORDER: Record<MealTrack, Record<MealType, number>> = {
 
 const RECENCY_EXCLUSION_WEEKS = 3;
 const MAX_RED_MEAT_DINNERS = 2;
-const MAX_PREP_AHEAD_MEALS = 3;
 const MAX_BREAKFAST_LUNCH_EFFORT = 2;
 
 export class InsufficientMealsError extends Error {
@@ -119,7 +119,7 @@ function selectFromPools(pools: Meal[][], usedMealIds: Set<string>): Meal | unde
  * 4. Friday dinner is always "Eating out" (null meal)
  * 5. Prefer meals not planned within 3 weeks, fall back to recent meals
  * 6. Red meat: prefer non-consecutive AND max 2/week, relaxed if needed
- * 7. Prep-ahead: max 3/week across all meal types, prefer repeats over overflow
+ * 7. Prep-ahead: max 3/week per audience track across its meal types
  * 8. Prefer no repeated meals, allow reuse as last resort
  */
 export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
@@ -127,14 +127,14 @@ export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
   const eligibleMeals = filterByRecency(meals, currentDate);
   const plan: MealPlanEntry[] = [];
   const usedMealIds = new Set<string>();
+  const mealMap = new Map(meals.map((meal) => [meal.id, meal]));
 
   const redMeatDinnerDays: number[] = [];
-  let prepAheadCount = 0;
 
   // Helper to filter by prep-ahead constraint
   const applyPrepAheadFilter = (m: Meal): boolean => {
     if (!m.prep_ahead) return true;
-    return prepAheadCount < MAX_PREP_AHEAD_MEALS;
+    return countPrepAheadByTrack(plan, mealMap)[m.audience] < prepAheadLimit();
   };
 
   // Step 1: Assign family breakfast, adult breakfast, and family lunch.
@@ -173,11 +173,7 @@ export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
         );
       }
 
-      const wasAlreadyUsed = usedMealIds.has(selected.id);
       usedMealIds.add(selected.id);
-      if (selected.prep_ahead && !wasAlreadyUsed) {
-        prepAheadCount++;
-      }
       plan.push({
         day_index: dayIndex,
         meal_track: slot.mealTrack,
@@ -247,13 +243,9 @@ export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
       );
     }
 
-    const wasAlreadyUsed = usedMealIds.has(selected.id);
     usedMealIds.add(selected.id);
     if (selected.has_red_meat && !redMeatDinnerDays.includes(dayIndex)) {
       redMeatDinnerDays.push(dayIndex);
-    }
-    if (selected.prep_ahead && !wasAlreadyUsed) {
-      prepAheadCount++;
     }
     plan.push({
       day_index: dayIndex,
@@ -396,19 +388,8 @@ export function validatePlan(plan: MealPlanEntry[], meals: Meal[]): string[] {
     }
   }
 
-  // Check prep-ahead constraint (max 3 across all meal types)
-  let prepAheadCount = 0;
-  for (const entry of plan) {
-    if (entry.meal_id !== null) {
-      const meal = mealMap.get(entry.meal_id);
-      if (meal !== undefined && meal.prep_ahead === true) {
-        prepAheadCount++;
-      }
-    }
-  }
-  if (prepAheadCount > MAX_PREP_AHEAD_MEALS) {
-    errors.push(`Too many prep-ahead meals: ${prepAheadCount} (max ${MAX_PREP_AHEAD_MEALS})`);
-  }
+  // New plans receive the normal independent family/adult budgets, no legacy allowance.
+  errors.push(...findPrepAheadErrors([], plan, mealMap));
 
   return errors;
 }

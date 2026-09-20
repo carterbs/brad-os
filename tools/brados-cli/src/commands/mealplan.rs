@@ -37,19 +37,32 @@ pub fn generate(client: &ApiClient) -> Result<(), CliError> {
 }
 
 /// Get the latest meal plan session.
-pub fn latest(client: &ApiClient) -> Result<(), CliError> {
+pub fn latest(client: &ApiClient, compact: bool) -> Result<(), CliError> {
     let body = client.get("/mealplans/latest")?;
     let data: Option<MealPlanSession> = extract_data(body)?;
-    print_success(&data);
+    print_success(&session_output(data.as_ref(), compact));
     Ok(())
 }
 
 /// Get a specific meal plan session by ID.
-pub fn get(client: &ApiClient, session_id: &str) -> Result<(), CliError> {
+pub fn get(client: &ApiClient, session_id: &str, compact: bool) -> Result<(), CliError> {
     let body = client.get(&format!("/mealplans/{session_id}"))?;
     let data: MealPlanSession = extract_data(body)?;
-    print_success(&data);
+    print_success(&session_output(Some(&data), compact));
     Ok(())
+}
+
+fn session_output(session: Option<&MealPlanSession>, compact: bool) -> serde_json::Value {
+    match session {
+        Some(session) if compact => serde_json::json!({
+            "id": session.id,
+            "plan": session.plan,
+            "is_finalized": session.is_finalized,
+            "created_at": session.created_at,
+            "updated_at": session.updated_at,
+        }),
+        _ => serde_json::json!(session),
+    }
 }
 
 fn build_critique_payload(
@@ -119,6 +132,29 @@ mod tests {
     use std::io::{Read, Write};
     use std::net::TcpListener;
     use std::thread;
+
+    #[test]
+    fn compact_read_preserves_saved_plan_and_omits_large_history_and_catalog() {
+        let session: MealPlanSession = serde_json::from_value(serde_json::json!({
+            "id": "session", "plan": [{"day_index": 2, "meal_track": "family", "meal_type": "lunch", "meal_id": "lunch", "meal_name": "Tortellini"}],
+            "is_finalized": false, "created_at": "created", "updated_at": "updated",
+            "meals_snapshot": [], "history": [{"role": "user", "content": "Pick lunch"}]
+        })).unwrap();
+        let compact = session_output(Some(&session), true);
+        assert_eq!(compact["id"], "session");
+        assert_eq!(compact["plan"], serde_json::json!(session.plan));
+        assert_eq!(compact["is_finalized"], false);
+        assert_eq!(compact["created_at"], "created");
+        assert_eq!(compact["updated_at"], "updated");
+        assert!(compact.get("history").is_none());
+        assert!(compact.get("meals_snapshot").is_none());
+        assert_eq!(
+            session_output(Some(&session), false),
+            serde_json::json!(session)
+        );
+        assert_eq!(session_output(None, true), serde_json::Value::Null);
+        assert_eq!(session_output(None, false), serde_json::Value::Null);
+    }
 
     fn spawn_json_server(body: &'static str) -> (String, thread::JoinHandle<String>) {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();

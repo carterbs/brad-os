@@ -130,6 +130,65 @@ fn help_exits_zero() {
 }
 
 #[test]
+fn saved_plan_reads_compact_without_losing_state_or_changing_default_output() {
+    let session = serde_json::json!({
+        "id": "saved", "plan": [{"day_index":2,"meal_track":"family","meal_type":"lunch","meal_id":"lunch","meal_name":"Tortellini"}],
+        "history": [{"role":"user","content":"Pick lunch"}], "meals_snapshot":[],
+        "is_finalized":false, "created_at":"created", "updated_at":"updated"
+    });
+    for action in ["latest", "get"] {
+        for compact in [false, true] {
+            let (url, server) = spawn_json_server(vec![
+                serde_json::json!({"success":true,"data":session}).to_string(),
+            ]);
+            let mut command = brados_bin();
+            command.args(["mealplan", action]);
+            if action == "get" {
+                command.arg("saved");
+            }
+            if compact {
+                command.arg("--compact");
+            }
+            let output = command
+                .env("BRADOS_APPCHECK_TOKEN", "test-token")
+                .env("BRADOS_API_URL", url)
+                .output()
+                .unwrap();
+            let requests = server.join().unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+            assert_eq!(result["plan"], session["plan"]);
+            assert_eq!(result["is_finalized"], false);
+            assert_eq!(result["updated_at"], "updated");
+            assert_eq!(result.get("history").is_none(), compact);
+            assert_eq!(result.get("meals_snapshot").is_none(), compact);
+            assert_eq!(
+                requests[0].path,
+                if action == "get" {
+                    "/mealplans/saved"
+                } else {
+                    "/mealplans/latest"
+                }
+            );
+        }
+    }
+    let (url, server) = spawn_json_server(vec![r#"{"success":true,"data":null}"#.to_string()]);
+    let output = brados_bin()
+        .args(["mealplan", "latest", "--compact"])
+        .env("BRADOS_APPCHECK_TOKEN", "test-token")
+        .env("BRADOS_API_URL", url)
+        .output()
+        .unwrap();
+    server.join().unwrap();
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "null");
+}
+
+#[test]
 fn missing_appcheck_token_exits_one_with_json_error() {
     let output = brados_bin()
         .args(["meals", "list"])

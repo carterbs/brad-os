@@ -1,9 +1,9 @@
 import type { MealPlanEntry, CritiqueOperation, ApplyOperationsResult } from '../shared.js';
 import type { Meal, MealTrack, MealType } from '../shared.js';
+import { findPrepAheadErrors } from './mealplan-prep-policy.service.js';
 
 const VALID_MEAL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner'];
 const VALID_MEAL_TRACKS: MealTrack[] = ['family', 'adult'];
-const MAX_PREP_AHEAD_MEALS = 3;
 const REQUIRED_ADULT_BREAKFAST_SLOTS = 7;
 
 interface ValidatedOperation {
@@ -73,30 +73,6 @@ function findDuplicateMealErrors(
   }
 
   return errors;
-}
-
-function findPrepAheadErrors(
-  originalPlan: ReadonlyArray<MealPlanEntry>,
-  candidatePlan: ReadonlyArray<MealPlanEntry>,
-  mealMap: ReadonlyMap<string, Meal>
-): string[] {
-  const countPrepAhead = (plan: ReadonlyArray<MealPlanEntry>): number =>
-    plan.filter((entry) => {
-      if (entry.meal_id === null) return false;
-      return mealMap.get(entry.meal_id)?.prep_ahead === true;
-    }).length;
-  const originalPrepAheadCount = countPrepAhead(originalPlan);
-  const candidatePrepAheadCount = countPrepAhead(candidatePlan);
-
-  if (
-    candidatePrepAheadCount <= MAX_PREP_AHEAD_MEALS ||
-    candidatePrepAheadCount <= originalPrepAheadCount
-  ) {
-    return [];
-  }
-  return [
-    `Plan would exceed max ${MAX_PREP_AHEAD_MEALS} prep-ahead meals`,
-  ];
 }
 
 /**

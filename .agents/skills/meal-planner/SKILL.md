@@ -17,6 +17,15 @@ Your tool is the `brados` CLI on this machine. All commands output JSON to stdou
 
 The `BRADOS_APPCHECK_TOKEN` env var must be set. If it's not, stop and ask Brad to set it.
 
+## Stop failed edits promptly
+
+- For each new feedback message, make one critique/revise call. Allow at most one additional call only when fresh saved state or existing conversation evidence resolves the specific failure. Two calls is the total limit for the message, including schema errors, separate repairs, and calls inside shell commands. Changing wording, naming another meal, or splitting a refused compound request does not reset the limit.
+- A concrete correction to a malformed command, a resolved clarification, or a conflict confirmed by a fresh read can justify that one retry. An unchanged `infeasible`, `validation_failed`, or `insufficient_evidence` result cannot. Stop, read the saved draft once, and describe the actual saved result and remaining limitation. Do not keep trying alternatives internally or generate another plan to escape a failed edit.
+- Brad's words are the authority. Preserve them literally in the positional message and `original_request`. Put factual reference resolution in `interpretation`. Never invent an authorization, waiver, preference, or broader edit scope. “Just pick something” delegates the choice for the previously requested slot; it does not authorize changing other slots or bypassing constraints.
+- `--context-json` accepts only `original_request`, `interpretation`, `calendar_context`, and `planning_week_start`. Never invent fields or command options. Read command help once if the installed interface is uncertain.
+- Run each CLI command directly and inspect its complete stdout, stderr, and exit status. Do not pipe edits through a formatter, suppress stderr, truncate JSON, use `|| true`, or batch/loop critique calls. On failure, read the complete error payload before deciding whether the single retry is justified.
+- Promise only verified behavior. Do not say that naming a meal will fix a refused edit or that a restriction has been waived. Report which requested changes are saved and which remain unresolved. Finalization and shopping still require their separate approvals.
+
 ## UX Rules
 
 - **Be conversational.** Brad is chatting on his phone. Keep messages short and scannable.
@@ -34,10 +43,12 @@ The `BRADOS_APPCHECK_TOKEN` env var must be set. If it's not, stop and ask Brad 
 brados mealplan generate
 ```
 
-Parse the response. Present the plan grouped by day:
+Generate once for the requested week. If a clear issue needs repair, use one consolidated critique within the one-retry limit above. Read the saved draft with `brados mealplan get <session_id> --compact` and present it promptly. State any remaining issue honestly; do not claim full validation, keep repairing until timeout, or generate a second draft to escape a refusal.
+
+Present the saved plan grouped by day:
 
 ```
-Here's your meal plan for the week:
+Here's your draft meal plan for the week:
 
 **Monday**
 - Breakfast: Overnight Oats
@@ -61,9 +72,9 @@ Brad will reply with change requests in natural language like:
 
 ### Supply original feedback and explicit context
 
-Read the current saved session before each critique. Pass Brad's original words as the message. Use optional `--context-json` to keep your interpretation separate from his statements:
+Use `brados mealplan get <session_id> --compact` before editing and for read-back; it returns the current plan and status without replaying the catalog or conversation history. Read the full session only if a specific historical reference cannot be resolved from the current conversation. Pass Brad's original words as the message. Use optional `--context-json` to keep your interpretation separate from his statements:
 
-- `original_request`: original user wording, especially when the positional message is a short summary.
+- `original_request`: Brad's exact original wording, identical to the positional message; never append your explanation or permissions.
 - `interpretation`: resolved weekdays, audience, pronouns, relevant rejected meals, and family preferences supported by the conversation. Expand day abbreviations. If several targets remain plausible, ask Brad. A food rejection normally asks for a filled replacement; removing a day clears every slot actually present, including Brad breakfast.
 - `calendar_context`: relevant observed event dates/times and resulting serving-time constraints. Identify inferences. Calendar context alone does not authorize clearing a slot. No-cook is different from merely lower effort.
 - `planning_week_start`: known Monday date as YYYY-MM-DD; do not infer it from session creation time.
@@ -83,17 +94,17 @@ After the call, inspect `outcome`, `operations`, and `errors`, then read the sav
 
 - `applied`: compare the saved plan to the intended result before reporting success.
 - `no_change_requested`: no meal edit was performed.
-- `clarification_required`: answer from known context only when the evidence resolves the question; otherwise ask Brad.
+- `clarification_required`: use the single retry only if existing evidence resolves the question without inventing authority; otherwise report the unresolved question.
 - `insufficient_evidence`: identify the missing ingredient/serving-time evidence instead of promising a guarantee.
-- `infeasible` or `validation_failed`: explain the unavailable option or joint conflict; ask for a concrete tradeoff. Do not silently drop part of a compound request.
-- `SESSION_CONFLICT`: reread the session and re-evaluate the original feedback against the new plan before retrying.
-- Provider/transport error: reread before retrying; do not claim changes or repeatedly submit the same ineffective request.
+- `infeasible` or `validation_failed`: stop and explain the conflict and saved result unless a concrete, evidence-backed correction addresses the reported failure within the single-retry allowance above. An unchanged constraint conflict is not such a correction. Do not silently drop part of a compound request, cycle through meal names, or ask Brad to troubleshoot the system.
+- `SESSION_CONFLICT`: reread the session and re-evaluate the original feedback against the new plan; at most the one allowed retry.
+- Provider/transport error: reread once to determine whether anything saved. Report the failure; do not repeatedly submit the request.
 
 Finalization and shopping-list generation remain separately approved actions. An approval interpreted inside a critique response does not execute either one.
 
-Parse the response. Show:
-1. What the AI changed (from the `explanation` field)
-2. The full updated plan (same day-grouped format as Step 1)
+After verifying the saved result, show:
+1. What actually changed and any part of the request that remains unresolved.
+2. The full saved plan (same day-grouped format as Step 1).
 
 Then ask: "Anything else you'd like to change?"
 
@@ -105,7 +116,7 @@ Finalize only after Brad approves the current saved plan. Read it back before co
 
 ```bash
 brados mealplan finalize <session_id>
-brados mealplan get <session_id>
+brados mealplan get <session_id> --compact
 ```
 
 Confirm finalization only when the saved session has `is_finalized=true`.
@@ -149,7 +160,7 @@ Rules for the shopping list:
 If Brad asks to "check the current plan" or "what's the meal plan", fetch it:
 
 ```bash
-brados mealplan latest
+brados mealplan latest --compact
 ```
 
 If a plan exists and is not finalized, present it and ask if they want changes.

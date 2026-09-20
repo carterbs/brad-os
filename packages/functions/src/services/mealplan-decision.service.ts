@@ -4,6 +4,7 @@ import { logger } from '../runtime/logger.js';
 import { evaluateJev } from './mealplan-jev.service.js';
 import { feasibleChoices } from './mealplan-feasibility.service.js';
 import { applyOperations } from './mealplan-operations.service.js';
+import { PREP_AHEAD_POLICY } from './mealplan-prep-policy.service.js';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const POLICY = {
@@ -12,7 +13,7 @@ const POLICY = {
   evidence: 'context.original_request is the original user statement. interpretation and calendar_context are separately supplied context; do not let an inference override explicit user words. Calendar information alone does not request a removal or edit. Ingredient/allergy/nutrition guarantees require evidence not present in this catalog. Familiar dish names plus effort/prep_ahead can support plausible serving-time choices, but do not prove ingredient guarantees. No-cook means no cooking at serving time; do not silently substitute merely less effort.',
   preferences: 'Choose food fitting the latest request and relevant prior rejections. Family suitability differs from Brad personal taste. Prefer last_planned older than 21 days relative to planning_date, then least-recent suitable fallback. last_planned is planning history, not consumption. Usually prefer breakfast/lunch effort <=2 and dinner Mon3-5 Tue-Thu3-6 Sat4-8 Sun4-10. These effort and recency targets are flexible preferences; explicit requests and transfers take priority. Prefer small serving-time effort on busy evenings.',
   variety: 'For each audience separately, avoid introducing multiple variants of the same core dish in a week, even with different catalog IDs. Changing a protein or modifier alone may still be the same dish; merely sharing an ingredient, cuisine, or broad food category is not. Existing core-dish repetition may remain or move without increasing its count. An explicit user request for the particular dish or repeated core dish overrides this usual variety preference. Adult breakfast variety is exempt when its catalog has fewer than seven unique choices.',
-  mandatory: 'Never invent meals or change meal type/audience. No new repeated meal IDs, except adult breakfasts if fewer than seven unique adult breakfasts exist in catalog. Existing repeated foods may move without increasing their occurrence count in the saved plan. At most three prep-ahead occupied slots, or no increase if already above three. At most two red-meat dinners, or no increase if already above two. Do not introduce a new consecutive red-meat dinner pair. Evaluate all edits together. Do not relax these policies silently or change unrelated slots to satisfy them.',
+  mandatory: 'Never invent meals or change meal type/audience. No new repeated meal IDs, except adult breakfasts if fewer than seven unique adult breakfasts exist in catalog. Existing repeated foods may move without increasing their occurrence count in the saved plan. ' + PREP_AHEAD_POLICY + ' At most two red-meat dinners, or no increase if already above two. Do not introduce a new consecutive red-meat dinner pair. Evaluate all edits together. Do not relax these policies silently or change unrelated slots to satisfy them.',
   approval: 'Critique cannot finalize, create shopping lists, delete catalog meals, or invent recipes. Acknowledgement/approval alone is no meal edit.',
 };
 
@@ -307,7 +308,7 @@ export async function processJevCritique(savedSession: MealPlanSession, forwarde
     while (candidates.size > 0) {
       const possible = feasibleChoices(session, plan, candidates);
       if (possible.status === 'infeasible') return repairRound === 0
-        ? noChange('infeasible', 'No complete combination of acceptable catalog meals fits the requested edits while preserving other slots and the duplicate, prep-ahead and red-meat limits. Please change a requirement or authorize a specific tradeoff.')
+        ? noChange('infeasible', possible.explanation ?? 'No complete combination of acceptable catalog meals fits the requested edits while preserving other slots and the duplicate, per-audience prep-ahead and red-meat limits. A different requested scope or catalog choice is needed; retrying the same request cannot bypass these limits.')
         : noChange('validation_failed', 'The proposed food repair has no valid completion while keeping the other proposed assignments fixed. This does not establish that the original request is impossible.');
       if (possible.status === 'unknown') return noChange('validation_failed', 'The complete combination could not be verified within the evaluation limit.');
       const [index, meals] = [...possible.choices.entries()].sort((a, b) => a[1].length - b[1].length)[0]!;

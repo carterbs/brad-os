@@ -1,5 +1,6 @@
 import type { CritiqueOperation, Meal, MealPlanEntry, MealPlanSession } from '../shared.js';
 import { applyOperations } from './mealplan-operations.service.js';
+import { findMinimumPrepAheadErrors } from './mealplan-prep-policy.service.js';
 
 const DEFAULT_NODE_BUDGET = 100_000;
 
@@ -31,7 +32,7 @@ export function feasibleChoices(
   basePlan: MealPlanEntry[],
   remaining: Map<number, Meal[]>,
   options: { nodeBudget?: number } = {}
-): { status: 'feasible' | 'infeasible' | 'unknown'; choices: Map<number, Meal[]> } {
+): { status: 'feasible' | 'infeasible' | 'unknown'; choices: Map<number, Meal[]>; explanation?: string } {
   const emptyChoices = (): Map<number, Meal[]> => {
     const result = new Map<number, Meal[]>();
     for (const index of remaining.keys()) result.set(index, []);
@@ -61,6 +62,9 @@ export function feasibleChoices(
     pools.set(index, [...unique.values()]);
     witnessed.set(index, new Set());
   }
+
+  const prepErrors = findMinimumPrepAheadErrors(session.plan, basePlan, pools, catalog);
+  if (prepErrors.length > 0) return { ...unavailable('infeasible'), explanation: prepErrors.join(' ') };
 
   const originalRedDays = redMeatDays(session.plan, catalog);
   const redLimit = Math.max(2, originalRedDays.length);

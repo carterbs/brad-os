@@ -22,9 +22,12 @@ fn run() -> Result<(), error::CliError> {
     match cli.command {
         Commands::Mealplan(cmd) => match cmd.action {
             MealplanAction::Generate => commands::mealplan::generate(&client)?,
-            MealplanAction::Latest => commands::mealplan::latest(&client)?,
-            MealplanAction::Get { session_id } => {
-                commands::mealplan::get(&client, &session_id)?;
+            MealplanAction::Latest { compact } => commands::mealplan::latest(&client, compact)?,
+            MealplanAction::Get {
+                session_id,
+                compact,
+            } => {
+                commands::mealplan::get(&client, &session_id, compact)?;
             }
             MealplanAction::Critique {
                 session_id,
