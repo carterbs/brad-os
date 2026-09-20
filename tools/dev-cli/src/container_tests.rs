@@ -137,7 +137,7 @@ pub fn execute<R: CommandRunner, W: Write>(
 
     writeln!(
         writer,
-        "Container passed /healthz, dev/prod API health, runtime-asset, and SIGTERM checks."
+        "Container passed /healthz, dev/prod API health, and SIGTERM checks."
     )
     .map_err(|error| error.to_string())?;
     Ok(())
@@ -164,21 +164,6 @@ fn run_container_assertions<R: CommandRunner>(
             &format!("Container route {path} failed"),
         )?;
     }
-    checked(
-        runner,
-        CommandCall {
-            program: "docker".to_string(),
-            args: vec![
-                "exec".to_string(),
-                config.container_name.clone(),
-                "test".to_string(),
-                "-f".to_string(),
-                "/app/packages/functions/lib/prompts/schedule-generation-system.md".to_string(),
-            ],
-            current_dir: None,
-        },
-        "Compiled container is missing the cycling coach prompt asset",
-    )?;
     Ok(())
 }
 

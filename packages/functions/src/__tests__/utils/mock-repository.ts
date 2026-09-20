@@ -312,6 +312,7 @@ export interface MockMealPlanSessionRepository extends MockBaseRepository {
   appendHistory: MockFn;
   updatePlan: MockFn;
   applyCritiqueUpdates: MockFn;
+  finalize: MockFn;
 }
 
 export function createMockMealPlanSessionRepository(): MockMealPlanSessionRepository {
@@ -325,6 +326,7 @@ export function createMockMealPlanSessionRepository(): MockMealPlanSessionReposi
     appendHistory: vi.fn(),
     updatePlan: vi.fn(),
     applyCritiqueUpdates: vi.fn(),
+    finalize: vi.fn(),
   };
 }
 

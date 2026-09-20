@@ -118,8 +118,11 @@ gcloud tasks queues describe brad-os-strava \
 ## Prerequisites
 
 Before deploying, confirm the Artifact Registry repository, both service accounts, Cloud
-Tasks queue, IAM grants, and four Secret Manager secrets exist. The deploy command binds
-an exact numeric secret version; it deliberately refuses `latest`.
+Tasks queue, IAM grants, and the four existing OpenAI/Strava Secret Manager secrets exist.
+Meal-plan critique/revision use JEV and need the `TYPESAFE_API_KEY` secret and runtime
+service-account access to it. The OpenAI secret remains required for unrelated features
+including Today Coach. The deploy command binds exact numeric secret versions;
+it deliberately refuses `latest`.
 
 Set the active versions:
 
@@ -133,6 +136,38 @@ export BRAD_STRAVA_VERIFY_TOKEN_SECRET_VERSION=1
 Use the actual enabled version numbers from Secret Manager rather than copying these
 examples.
 
+### Meal-plan critique configuration
+
+Bind an existing TypeSafe secret using its actual enabled numeric version:
+
+```bash
+unset MEALPLAN_CRITIQUE_PROVIDER
+export BRAD_TYPESAFE_SECRET_VERSION=1
+export JEV_MODEL=jev-1.13.0
+```
+
+JEV is the only meal-plan critique engine. `MEALPLAN_CRITIQUE_PROVIDER` is obsolete:
+the deployment tool rejects any supplied value with instructions to unset it. The
+variable is not deployed. The plan identifies the JEV engine, pinned model, and
+TypeSafe credential binding; there is no alternate provider or automatic fallback.
+
+`BRAD_TYPESAFE_SECRET_VERSION` is optional for the deployment tool, so missing TypeSafe
+setup does not prevent unrelated API features or health checks from starting. When set,
+the tool binds `TYPESAFE_API_KEY=TYPESAFE_API_KEY:<version>` alongside the existing
+OpenAI/Strava secrets and checks that exact reference during deployment read-back.
+When omitted, the tool does not bind a TypeSafe key and warns that critique and revision
+are unavailable. Initial meal-plan generation continues working without
+this key, and Today Coach still uses the preserved OpenAI secret.
+
+`JEV_MODEL` defaults to `jev-1.13.0`. The deployment tool accepts explicit Jev versions
+with three numeric components and rejects moving aliases such as `jev-latest`. It
+deploys the selected pin and verifies it during read-back. This configuration does not
+create secrets or grant IAM permissions.
+
+Health checks and mocked tests do not establish TypeSafe model accuracy. Before
+releasing critique/revision, evaluate representative edits and complete conversations
+with a real key, checking saved state and the recorded live comparison results.
+
 The deploy requires a clean, committed worktree. Its image tag is the full Git commit SHA.
 
 ## Review without changing GCP
@@ -141,8 +176,9 @@ The deploy requires a clean, committed worktree. Its image tag is the full Git c
 npm run deploy:cloud-run -- --plan
 ```
 
-The plan confirms the project, region, immutable image name, scale-to-zero settings, and
-candidate-only traffic posture.
+The plan confirms the project, region, immutable image name, scale-to-zero settings,
+candidate-only traffic posture, JEV meal-plan engine, pinned model, and TypeSafe
+credential binding or missing-configuration warning. It does not read secret values.
 
 ## Build and deploy a candidate
 
@@ -188,6 +224,7 @@ STRAVA_TASK_QUEUE_LOCATION=us-central1
 STRAVA_TASK_OIDC_SERVICE_ACCOUNT=brad-os-strava-tasks@brad-os.iam.gserviceaccount.com
 CLOUD_RUN_SERVICE_URL=<direct stable run.app URL>
 STRAVA_TASK_OIDC_AUDIENCE=<same direct stable run.app URL>
+JEV_MODEL=jev-1.13.0
 ```
 
 The tool never modifies Firebase Hosting. A candidate cannot receive normal iOS traffic
@@ -285,7 +322,6 @@ This checks that the image:
 - runs as the non-root `node` user;
 - listens on the injected port;
 - serves `/healthz`, `/api/dev/health`, and `/api/prod/health`;
-- contains the Markdown prompt needed by cycling coach;
 - exits successfully after Docker sends `SIGTERM`.
 
 Use `--build-only` when only an image build and non-root inspection are possible:
@@ -321,6 +357,16 @@ This Hosting-only command pins `/api/**` to the validated Cloud Run revision. No
 Functions deployment participates.
 
 ## Roll back
+
+Restore the retained immutable pre-cutover Cloud Run revision and its separately
+pinned Hosting release. Restore the corresponding prior Doris binary and skill as a
+pair, then verify their hashes and saved-plan reads. Preserve the authenticated wrapper,
+cron, secrets, and unrelated configuration. Record the exact revision, Hosting version,
+traffic state, and binary/skill backups before cutover so rollback requires no rebuild.
+
+The new source contains no GPT meal-plan implementation or provider switch. An older
+release's GPT behavior is available only through its retained immutable release, not
+by setting an environment variable or building a GPT candidate from current source.
 
 See [Cloud Run rollback](../ops/cloud-run-rollback.md). Rollback restores both the
 last known-good Cloud Run revision and its pinned Hosting release. Firestore schemas are

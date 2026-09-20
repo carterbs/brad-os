@@ -7,7 +7,7 @@ export default defineWorkspace([
       root: './packages/functions',
       environment: 'node',
       include: ['src/**/*.test.ts'],
-      exclude: ['src/__tests__/integration/**'],
+      exclude: ['src/__tests__/integration/**', 'src/__tests__/live/**'],
       setupFiles: ['./src/__tests__/vitest.setup.ts'],
       globals: true,
       pool: 'threads',

@@ -22,21 +22,36 @@ fn run() -> Result<(), error::CliError> {
     match cli.command {
         Commands::Mealplan(cmd) => match cmd.action {
             MealplanAction::Generate => commands::mealplan::generate(&client)?,
-            MealplanAction::Latest => commands::mealplan::latest(&client)?,
-            MealplanAction::Get { session_id } => {
-                commands::mealplan::get(&client, &session_id)?;
+            MealplanAction::Latest { compact } => commands::mealplan::latest(&client, compact)?,
+            MealplanAction::Get {
+                session_id,
+                compact,
+            } => {
+                commands::mealplan::get(&client, &session_id, compact)?;
             }
             MealplanAction::Critique {
                 session_id,
                 message,
+                context_json,
             } => {
-                commands::mealplan::critique(&client, &session_id, &message)?;
+                commands::mealplan::critique(
+                    &client,
+                    &session_id,
+                    &message,
+                    context_json.as_deref(),
+                )?;
             }
             MealplanAction::Revise {
                 session_id,
                 message,
+                context_json,
             } => {
-                commands::mealplan::revise(&client, &session_id, &message)?;
+                commands::mealplan::revise(
+                    &client,
+                    &session_id,
+                    &message,
+                    context_json.as_deref(),
+                )?;
             }
             MealplanAction::Finalize { session_id } => {
                 commands::mealplan::finalize(&client, &session_id)?;

@@ -75,6 +75,7 @@ if [ "${BRAD_IT_EMULATOR_EXIT:-0}" != "0" ]; then
   exit "${BRAD_IT_EMULATOR_EXIT}"
 fi
 trap 'echo "emulator stopped" >> "$BRAD_IT_STATE_FILE"; exit 0' INT TERM
+echo "emulator ready" >> "$BRAD_IT_STATE_FILE"
 while true; do
   sleep 1
 done
@@ -86,6 +87,7 @@ echo "api_env home=$HOME credentials=${GOOGLE_APPLICATION_CREDENTIALS-unset} tas
 if [ "${BRAD_IT_API_SPAWN_DESCENDANT:-0}" = "1" ]; then
   (
     trap '' INT TERM HUP
+    echo "api descendant ready" >> "$BRAD_IT_STATE_FILE"
     while true; do
       sleep 1
     done
@@ -97,6 +99,7 @@ if [ "${BRAD_IT_API_IGNORE_TERM:-0}" = "1" ]; then
 else
   trap 'echo "api stopped" >> "$BRAD_IT_STATE_FILE"; exit 0' INT TERM HUP
 fi
+echo "api ready" >> "$BRAD_IT_STATE_FILE"
 while true; do
   sleep 1
 done
@@ -109,6 +112,13 @@ attempt_file=\"{}\"\n\
 attempt=\"$(cat \"$attempt_file\" 2>/dev/null || echo 0)\"\n\
 attempt=$((attempt + 1))\n\
 echo \"$attempt\" > \"$attempt_file\"\n\
+\n\
+grep -q '^api ready$' \"$BRAD_IT_STATE_FILE\" || exit 1\n\
+grep -q '^emulator ready$' \"$BRAD_IT_STATE_FILE\" || exit 1\n\
+if [ \"${{BRAD_IT_API_SPAWN_DESCENDANT:-0}}\" = \"1\" ]; then\n\
+  [ -s \"$BRAD_IT_API_DESCENDANT_PID_FILE\" ] || exit 1\n\
+  grep -q '^api descendant ready$' \"$BRAD_IT_STATE_FILE\" || exit 1\n\
+fi\n\
 \n\
 ready_after=\"${{BRAD_IT_READY_AFTER:-1}}\"\n\
 if [ \"$attempt\" -ge \"$ready_after\" ]; then\n\
@@ -273,6 +283,60 @@ fn wait_for_process_exit(pid: u32) {
         thread::sleep(Duration::from_millis(50));
     }
     panic!("process {pid} remained alive");
+}
+
+fn fixture_health_command(fixture: &Fixture) -> Command {
+    let mut command = Command::new(fixture.dir.path().join("bin/curl"));
+    command.env("BRAD_IT_STATE_FILE", &fixture.state_file);
+    command.env("BRAD_IT_READY_AFTER", "1");
+    command.env("BRAD_IT_API_SPAWN_DESCENDANT", "0");
+    command.env(
+        "BRAD_IT_API_DESCENDANT_PID_FILE",
+        &fixture.api_descendant_pid_file,
+    );
+    command
+}
+
+#[test]
+fn health_fixture_waits_for_both_service_startup_markers() {
+    let fixture = create_fixtures();
+    let mut health = fixture_health_command(&fixture);
+    assert!(!health.status().expect("probe before startup").success());
+
+    fs::write(&fixture.state_file, "api ready\n").expect("API startup marker");
+    assert!(!health.status().expect("probe before emulator startup").success());
+
+    fs::write(&fixture.state_file, "emulator ready\n").expect("emulator startup marker");
+    assert!(!health.status().expect("probe before API startup").success());
+
+    fs::write(&fixture.state_file, "api ready\nemulator ready\n")
+        .expect("both startup markers");
+    assert!(health.status().expect("probe after startup").success());
+}
+
+#[test]
+fn health_fixture_waits_for_descendant_pid_and_signal_handler() {
+    let fixture = create_fixtures();
+    let mut health = fixture_health_command(&fixture);
+    health.env("BRAD_IT_API_SPAWN_DESCENDANT", "1");
+    let service_markers = "api ready\nemulator ready\n";
+    fs::write(&fixture.state_file, service_markers).expect("service startup markers");
+    assert!(!health.status().expect("probe before descendant startup").success());
+
+    fs::write(&fixture.api_descendant_pid_file, "123\n").expect("descendant PID");
+    assert!(!health.status().expect("probe before signal handler").success());
+
+    fs::write(
+        &fixture.state_file,
+        format!("{service_markers}api descendant ready\n"),
+    )
+    .expect("descendant signal handler marker");
+    fs::remove_file(&fixture.api_descendant_pid_file).expect("remove descendant PID");
+    assert!(!health.status().expect("probe without PID").success());
+    fs::write(&fixture.api_descendant_pid_file, "").expect("empty descendant PID");
+    assert!(!health.status().expect("probe with empty PID").success());
+    fs::write(&fixture.api_descendant_pid_file, "123\n").expect("descendant PID");
+    assert!(health.status().expect("probe after descendant startup").success());
 }
 
 #[test]

@@ -1,4 +1,5 @@
 import { beforeEach, vi } from 'vitest';
+import './supertest-loopback.setup.js';
 
 // Silence firebase logger output during tests to reduce noisy I/O overhead.
 vi.mock('firebase-functions/logger', () => ({

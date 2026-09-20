@@ -170,8 +170,8 @@ impl std::fmt::Display for SetupError {
     }
 }
 
-fn print_success(message: &str) {
-    println!("  {} {}", "✓".green(), message);
+fn print_success<W: Write>(writer: &mut W, message: &str) {
+    writeln!(writer, "  {} {}", "✓".green(), message).ok();
 }
 
 fn print_failure(message: &str, install: Option<&str>) {
@@ -181,10 +181,10 @@ fn print_failure(message: &str, install: Option<&str>) {
     }
 }
 
-fn print_tail_lines(output: &str) {
+fn print_tail_lines<W: Write>(writer: &mut W, output: &str) {
     let lines: Vec<&str> = output.lines().collect();
     for line in lines.iter().rev().take(5).rev() {
-        println!("{line}");
+        writeln!(writer, "{line}").ok();
     }
 }
 
@@ -238,7 +238,7 @@ pub fn run_setup<W: Write>(writer: &mut W, runner: &dyn CommandRunner, config: &
         .unwrap_or("unknown")
         .trim()
         .to_string();
-    print_success(&format!("xcodegen {xcodegen_version}"));
+    print_success(writer, &format!("xcodegen {xcodegen_version}"));
 
     if !runner.exists("xcodebuild") {
         print_failure(
@@ -263,7 +263,7 @@ pub fn run_setup<W: Write>(writer: &mut W, runner: &dyn CommandRunner, config: &
         &xcodebuild_version_output.stdout,
         &xcodebuild_version_output.stderr,
     );
-    print_success(&format!("xcodebuild {xcodebuild_version}"));
+    print_success(writer, &format!("xcodebuild {xcodebuild_version}"));
 
     if !runner.exists("xcrun") {
         print_failure(
@@ -275,12 +275,12 @@ pub fn run_setup<W: Write>(writer: &mut W, runner: &dyn CommandRunner, config: &
             install_hint: "Install Xcode Command Line Tools: xcode-select --install".to_string(),
         });
     }
-    print_success("xcrun available");
+    print_success(writer, "xcrun available");
 
     if !config.ios_dir.join("project.yml").exists() {
         return Err(SetupError::MissingProjectFile);
     }
-    print_success("project.yml found");
+    print_success(writer, "project.yml found");
 
     writeln!(writer).ok();
     writeln!(writer, "🔨 Generating Xcode project...").ok();
@@ -293,7 +293,7 @@ pub fn run_setup<W: Write>(writer: &mut W, runner: &dyn CommandRunner, config: &
             output: generate.combined_output(),
         });
     }
-    print_success("Xcode project generated");
+    print_success(writer, "Xcode project generated");
 
     writeln!(writer).ok();
     writeln!(writer, "📱 Checking simulator...").ok();
@@ -303,7 +303,7 @@ pub fn run_setup<W: Write>(writer: &mut W, runner: &dyn CommandRunner, config: &
         Some(project_dir),
     )?;
     if booted_devices.exit_code == 0 && booted_from_output(&booted_devices.combined_output()) {
-        print_success("Simulator already booted");
+        print_success(writer, "Simulator already booted");
     } else {
         writeln!(writer, "  Booting {}...", config.simulator_name).ok();
         let boot = runner.run(
@@ -318,7 +318,7 @@ pub fn run_setup<W: Write>(writer: &mut W, runner: &dyn CommandRunner, config: &
                 output: boot.combined_output(),
             });
         }
-        print_success(&format!("{} booted", config.simulator_name));
+        print_success(writer, &format!("{} booted", config.simulator_name));
     }
 
     if config.skip_build {
@@ -348,7 +348,7 @@ pub fn run_setup<W: Write>(writer: &mut W, runner: &dyn CommandRunner, config: &
         .ok();
 
         let build = runner.run("xcodebuild", &build_args, Some(project_dir))?;
-        print_tail_lines(&build.combined_output());
+        print_tail_lines(writer, &build.combined_output());
         if build.exit_code != 0 {
             return Err(SetupError::CommandFailed {
                 command: "xcodebuild build".to_string(),
@@ -356,23 +356,20 @@ pub fn run_setup<W: Write>(writer: &mut W, runner: &dyn CommandRunner, config: &
                 output: build.combined_output(),
             });
         }
-        print_success("Build succeeded (SwiftLint passed)");
+        print_success(writer, "Build succeeded (SwiftLint passed)");
     }
 
     writeln!(writer).ok();
-    println!(
-        "  {}{}iOS testing environment ready!{}",
-        " ".dimmed(),
-        "iOS testing environment ready!".bold(),
-        "".dimmed()
-    );
-    println!("{}", "");
-    println!("  Next steps:");
-    println!(
+    writeln!(writer, "  {}", "iOS testing environment ready!".bold()).ok();
+    writeln!(writer).ok();
+    writeln!(writer, "  Next steps:").ok();
+    writeln!(
+        writer,
         "    # Install and launch the app:\nxcrun simctl install booted {}/Build/Products/Debug-iphonesimulator/BradOS.app",
         config.derived_data.display()
-    );
-    println!("    xcrun simctl launch booted com.bradcarter.brad-os");
+    )
+    .ok();
+    writeln!(writer, "    xcrun simctl launch booted com.bradcarter.brad-os").ok();
     Ok(())
 }
 
