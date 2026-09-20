@@ -84,13 +84,9 @@ function buildAssistantHistory(session: MealPlanSession, response: CritiqueRespo
 }
 
 function getCritiqueApiKey(): string {
-  const provider = process.env['MEALPLAN_CRITIQUE_PROVIDER'] ?? 'jev';
-  if (provider !== 'jev' && provider !== 'gpt') {
-    throw new AppError(500, 'MEALPLAN_INVALID_PROVIDER', 'MEALPLAN_CRITIQUE_PROVIDER must be jev or gpt');
-  }
-  const apiKey = process.env[provider === 'jev' ? 'TYPESAFE_API_KEY' : 'OPENAI_API_KEY']?.trim() ?? '';
+  const apiKey = process.env['TYPESAFE_API_KEY']?.trim() ?? '';
   if (apiKey === '') {
-    throw new AppError(500, 'MISSING_API_KEY', `${provider === 'jev' ? 'TypeSafe' : 'OpenAI'} API key is not configured`);
+    throw new AppError(500, 'MISSING_API_KEY', 'TypeSafe API key is not configured');
   }
   return apiKey;
 }

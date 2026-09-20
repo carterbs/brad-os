@@ -184,7 +184,6 @@ describe('Mealplans Handler', () => {
     vi.clearAllMocks();
     mockSessionRepo.applyCritiqueUpdates.mockResolvedValue(true);
     mockSessionRepo.finalize.mockResolvedValue(null);
-    vi.stubEnv('MEALPLAN_CRITIQUE_PROVIDER', 'jev');
   });
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -690,26 +689,29 @@ describe('Mealplans Handler', () => {
       expect(mockReconcileMealLastPlannedForPlanChange).not.toHaveBeenCalled();
     });
 
-    it('uses OpenAI credentials only for the explicitly selected GPT provider', async () => {
+    it('uses TypeSafe credentials even when obsolete GPT selection remains configured', async () => {
       vi.stubEnv('MEALPLAN_CRITIQUE_PROVIDER', 'gpt');
-      vi.stubEnv('TYPESAFE_API_KEY', '');
-      vi.stubEnv('OPENAI_API_KEY', '  openai-key  ');
+      vi.stubEnv('TYPESAFE_API_KEY', '  typesafe-key  ');
+      vi.stubEnv('OPENAI_API_KEY', '');
       const session = createTestSession({ is_finalized: endpoint === 'revise' });
       mockSessionRepo.findById.mockResolvedValue(session);
-      mockProcessCritique.mockResolvedValue({ explanation: 'No changes', operations: [] });
+      mockProcessCritique.mockResolvedValue({ explanation: 'No changes', operations: [], outcome: 'no_change_requested' });
       mockApplyOperations.mockReturnValue({ updatedPlan: session.plan, errors: [] });
       const response = await request(mealplansApp).post(`/session-1/${endpoint}`).send({ critique: 'Looks good' });
       expect(response.status).toBe(200);
-      expect(mockProcessCritique).toHaveBeenCalledWith(session, 'Looks good', 'openai-key', undefined);
+      expect(mockProcessCritique).toHaveBeenCalledWith(session, 'Looks good', 'typesafe-key', undefined);
     });
 
-    it('rejects an unrecognized provider without invoking the model', async () => {
-      vi.stubEnv('MEALPLAN_CRITIQUE_PROVIDER', 'typo');
+    it('cannot use OpenAI credentials in place of a missing TypeSafe key', async () => {
+      vi.stubEnv('MEALPLAN_CRITIQUE_PROVIDER', 'gpt');
+      vi.stubEnv('TYPESAFE_API_KEY', '  ');
+      vi.stubEnv('OPENAI_API_KEY', 'configured-for-another-feature');
       mockSessionRepo.findById.mockResolvedValue(createTestSession({ is_finalized: endpoint === 'revise' }));
       const response = await request(mealplansApp).post(`/session-1/${endpoint}`).send({ critique: 'Looks good' });
       const body = response.body as ApiResponse;
       expect(response.status).toBe(500);
-      expect(body.error?.code).toBe('MEALPLAN_INVALID_PROVIDER');
+      expect(body.error?.code).toBe('MISSING_API_KEY');
+      expect(body.error?.message).toContain('TypeSafe');
       expect(mockProcessCritique).not.toHaveBeenCalled();
     });
   });

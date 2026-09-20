@@ -1,11 +1,34 @@
 use dev_cli::cloud_run_deploy::{
-    discover_git_sha, execute, validate_service_description, CritiqueProvider, DeploymentConfig,
+    discover_git_sha, execute, validate_service_description, DeploymentConfig,
     SecretVersions,
 };
 use dev_cli::runner::{CommandCall, CommandResult, CommandRunner};
 use serde_json::json;
 use std::cell::RefCell;
 use std::collections::VecDeque;
+
+#[test]
+fn obsolete_provider_selection_cannot_prepare_a_release() {
+    for value in ["gpt", "jev", "automatic", ""] {
+        let output = std::process::Command::new(env!("CARGO_BIN_EXE_brad-deploy-cloud-run"))
+            .arg("--plan")
+            .env("BRAD_CLOUD_RUN_GIT_SHA", "a".repeat(40))
+            .env("BRAD_OPENAI_SECRET_VERSION", "1")
+            .env("BRAD_STRAVA_CLIENT_ID_SECRET_VERSION", "2")
+            .env("BRAD_STRAVA_CLIENT_SECRET_VERSION", "3")
+            .env("BRAD_STRAVA_VERIFY_TOKEN_SECRET_VERSION", "4")
+            .env("BRAD_TYPESAFE_SECRET_VERSION", "1")
+            .env("MEALPLAN_CRITIQUE_PROVIDER", value)
+            .env_remove("BRAD_CLOUD_RUN_SERVICE_URL")
+            .env_remove("JEV_MODEL")
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(2), "obsolete value {value:?}");
+        assert!(String::from_utf8_lossy(&output.stderr)
+            .contains("Unset MEALPLAN_CRITIQUE_PROVIDER; meal-plan critiques use JEV only"));
+        assert!(output.stdout.is_empty());
+    }
+}
 
 #[derive(Default)]
 struct FakeRunner {
@@ -64,7 +87,6 @@ fn config(service_url: Option<&str>, plan_only: bool) -> DeploymentConfig {
             typesafe: None,
         },
         jev_model: "jev-1.13.0".to_string(),
-        critique_provider: CritiqueProvider::Jev,
         service_url: service_url.map(str::to_string),
         plan_only,
     }
@@ -86,7 +108,6 @@ fn service_description(service_url: &str) -> String {
         ("CLOUD_RUN_SERVICE_URL", service_url),
         ("STRAVA_TASK_OIDC_AUDIENCE", service_url),
         ("JEV_MODEL", "jev-1.13.0"),
-        ("MEALPLAN_CRITIQUE_PROVIDER", "jev"),
     ]
     .into_iter()
     .map(|(name, value)| json!({"name": name, "value": value}))
@@ -199,10 +220,10 @@ initialDelaySeconds=0,timeoutSeconds=1,periodSeconds=1,failureThreshold=60"
     }
     let rendered = String::from_utf8(output).unwrap();
     assert!(rendered.contains("Candidate ready:"));
-    assert!(deploy
+    assert!(!deploy
         .args
         .iter()
-        .any(|arg| arg.contains("MEALPLAN_CRITIQUE_PROVIDER=jev")));
+        .any(|arg| arg.contains("MEALPLAN_CRITIQUE_PROVIDER")));
     assert!(rendered.contains("no Cloud Functions deployment was attempted"));
     assert!(rendered.contains("BRAD_TYPESAFE_SECRET_VERSION"));
     assert!(deploy
@@ -633,79 +654,8 @@ fn git_discovery_requires_clean_full_commit() {
 }
 
 #[test]
-fn gpt_rollback_is_explicit_and_preserves_openai_without_requiring_typesafe() {
-    let service_url = "https://brad-os-api.example.run.app";
-    let mut deployment = config(Some(service_url), false);
-    deployment.critique_provider = CritiqueProvider::Gpt;
-    let mut description: serde_json::Value =
-        serde_json::from_str(&service_description(service_url)).unwrap();
-    description["spec"]["template"]["spec"]["containers"][0]["env"]
-        .as_array_mut()
-        .unwrap()
-        .iter_mut()
-        .find(|entry| entry["name"] == "MEALPLAN_CRITIQUE_PROVIDER")
-        .unwrap()["value"] = json!("gpt");
-    let runner = FakeRunner::with_results(vec![
-        ok("built"),
-        ok(format!("sha256:{}", "f".repeat(64))),
-        ok("deployed"),
-        ok(description.to_string()),
-        ok("dev healthy"),
-        ok("prod healthy"),
-    ]);
-    let mut output = Vec::new();
-    execute(&runner, &mut output, &deployment).unwrap();
-    let calls = runner.calls();
-    assert!(calls[2]
-        .args
-        .iter()
-        .any(|arg| arg.contains("MEALPLAN_CRITIQUE_PROVIDER=gpt")));
-    assert!(calls[2]
-        .args
-        .iter()
-        .any(|arg| arg.contains("OPENAI_API_KEY=OPENAI_API_KEY:1")));
-    assert!(!String::from_utf8(output).unwrap().contains("[warn]"));
-
-    deployment.plan_only = true;
-    let mut output = Vec::new();
-    execute(&FakeRunner::default(), &mut output, &deployment).unwrap();
-    let plan = String::from_utf8(output).unwrap();
-    assert!(plan.contains("meal-plan provider: gpt"));
-    assert!(plan.contains("meal-plan secret: OPENAI_API_KEY:1"));
-    assert!(!plan.contains("[warn]"));
-}
-
-#[test]
-fn readback_rejects_missing_and_changed_critique_provider() {
-    let service_url = "https://brad-os-api.example.run.app";
-    let image = format!(
-        "us-central1-docker.pkg.dev/brad-os/brad-os-api/brad-os-api@sha256:{}",
-        "f".repeat(64)
-    );
-    for actual in [None, Some("gpt"), Some("auto")] {
-        let mut payload: serde_json::Value =
-            serde_json::from_str(&service_description(service_url)).unwrap();
-        let entries = payload["spec"]["template"]["spec"]["containers"][0]["env"]
-            .as_array_mut()
-            .unwrap();
-        entries.retain(|entry| entry["name"] != "MEALPLAN_CRITIQUE_PROVIDER");
-        if let Some(provider) = actual {
-            entries.push(json!({"name": "MEALPLAN_CRITIQUE_PROVIDER", "value": provider}));
-        }
-        let error = validate_service_description(
-            &payload.to_string(),
-            &config(Some(service_url), false),
-            &image,
-            service_url,
-        )
-        .unwrap_err();
-        assert!(error.contains("environment MEALPLAN_CRITIQUE_PROVIDER expected 'jev'"));
-    }
-}
-
-#[test]
-fn deployment_plan_reads_and_validates_provider_without_remote_commands() {
-    for (provider, expected) in [(None, "jev"), (Some("jev"), "jev"), (Some("gpt"), "gpt")] {
+fn deployment_plan_is_jev_only_without_remote_commands() {
+    for typesafe in [None, Some("5")] {
         let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_brad-deploy-cloud-run"));
         command
             .arg("--plan")
@@ -718,23 +668,19 @@ fn deployment_plan_reads_and_validates_provider_without_remote_commands() {
             .env_remove("BRAD_CLOUD_RUN_SERVICE_URL")
             .env_remove("JEV_MODEL")
             .env_remove("MEALPLAN_CRITIQUE_PROVIDER");
-        if let Some(value) = provider {
-            command.env("MEALPLAN_CRITIQUE_PROVIDER", value);
+        if let Some(version) = typesafe {
+            command.env("BRAD_TYPESAFE_SECRET_VERSION", version);
         }
         let output = command.output().unwrap();
-        assert!(
-            output.status.success(),
-            "{}",
-            String::from_utf8_lossy(&output.stderr)
-        );
+        assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stderr));
         let plan = String::from_utf8(output.stdout).unwrap();
-        assert!(plan.contains(&format!("meal-plan provider: {expected}")));
-        assert_eq!(plan.contains("[warn]"), expected == "jev");
-        let invalid = command
-            .env("MEALPLAN_CRITIQUE_PROVIDER", "automatic")
-            .output()
-            .unwrap();
-        assert_eq!(invalid.status.code(), Some(2));
-        assert!(String::from_utf8_lossy(&invalid.stderr).contains("MEALPLAN_CRITIQUE_PROVIDER"));
+        assert!(plan.contains("meal-plan engine: JEV"));
+        assert!(plan.contains("Jev model pin: jev-1.13.0"));
+        assert!(!plan.contains("MEALPLAN_CRITIQUE_PROVIDER"));
+        assert!(!plan.contains("meal-plan secret: OPENAI_API_KEY"));
+        assert_eq!(plan.contains("[warn]"), typesafe.is_none());
+        if typesafe.is_some() {
+            assert!(plan.contains("meal-plan secret: TYPESAFE_API_KEY:5"));
+        }
     }
 }

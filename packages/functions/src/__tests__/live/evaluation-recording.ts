@@ -20,7 +20,7 @@ export type EvidenceClass =
 
 export interface ProviderAttemptRecord {
   attempt_index: number;
-  provider: 'jev' | 'gpt';
+  provider: 'jev';
   request_characters: number | null;
   milliseconds: number;
   http_status: number | null;
@@ -28,7 +28,6 @@ export interface ProviderAttemptRecord {
   request_id: string | null;
   input_tokens: number | null;
   output_tokens: number | null;
-  cached_input_tokens?: number | null;
   cost_usd: number | null;
 }
 
@@ -42,7 +41,6 @@ export interface InferenceRecord {
   attempts: ProviderAttemptRecord[];
   input_tokens: number | null;
   output_tokens: number | null;
-  cached_input_tokens?: number | null;
   cost_usd: number | null;
 }
 
@@ -59,7 +57,6 @@ export interface TurnRecord {
   http_status: number | null;
   outcome: string | null;
   expected_outcome: string | null;
-  legacy_outcome_field_unavailable: boolean;
   operation_count: number | null;
   final_plan_hash: string | null;
   saved_history_hash: string | null;
@@ -173,7 +170,7 @@ export class EvaluationRecorder {
     const turn: TurnRecord = {
       turn_index: this.currentCase.turns.length + 1, route, evidence_class: provenance ?? this.currentCase.evidence_class,
       request_hash: hash(context === undefined ? text : { critique: text, context }), context_hash: context === undefined ? null : hash(context), starting_plan_hash: hash(plan), starting_history_hash: hash(history), catalog_hash: hash(catalog),
-      milliseconds: 0, http_status: null, outcome: null, expected_outcome: null, legacy_outcome_field_unavailable: false, operation_count: null, final_plan_hash: null,
+      milliseconds: 0, http_status: null, outcome: null, expected_outcome: null, operation_count: null, final_plan_hash: null,
       saved_history_hash: null, readback_verified: false, inference_calls: [],
     };
     this.currentCase.turns.push(turn);
@@ -220,8 +217,8 @@ export class EvaluationRecorder {
     this.write('manifest.json', {
       format_version: 1, started_at: this.startedAt, git_head: this.gitHead,
       source_tree_sha256: hash(this.sourceHashes), source_sha256: this.sourceHashes,
-      provider: process.env['MEALPLAN_CRITIQUE_PROVIDER'] ?? 'jev',
-      model: process.env['MEALPLAN_CRITIQUE_PROVIDER'] === 'gpt' ? 'gpt-5.2' : process.env['JEV_MODEL'] ?? 'jev-1.13.0', node_version: process.version,
+      provider: 'jev',
+      model: process.env['JEV_MODEL'] ?? 'jev-1.13.0', node_version: process.version,
       base_seed: this.seed, requested_seeds: this.requestedSeeds, frozen_generation_date: this.frozenGenerationDate,
       generation_clock_only: true, provider_and_transport_mocked: false,
       configured_jev_timeout_ms: process.env['JEV_TIMEOUT_MS'] ?? '30000',
@@ -232,11 +229,10 @@ export class EvaluationRecorder {
       acceptance_profile: process.env['JEV_EVAL_BOUNDED_RECOVERY'] === '1' ? 'one_authored_clarification_per_conversation_after_verified_unchanged_refusal' : 'strict_first_attempt',
       imported_doris_request: this.cases.some((entry) => entry.evidence_class === 'live_doris_forwarded'),
       interpreter_measurement_scope: 'Provider usage here is backend-only; imported actual Doris request usage is measured by the separate gateway invocation.',
-      comparator: process.env['MEALPLAN_CRITIQUE_PROVIDER'] === 'gpt' ? 'preserved_gpt_5_2_implementation' : null, doris_execution: false, doris_tokens: null, doris_cost_usd: null,
+      doris_execution: false, doris_tokens: null, doris_cost_usd: null,
       pricing: {
         checked_on: '2026-09-20', kind: 'usage_based_estimate_not_invoice',
         jev: { model: 'jev-1.13.0', input_usd_per_million: 0.042, output_usd_per_million: 0, source: 'https://docs.typesafe.ai/models' },
-        gpt: { model: 'gpt-5.2', input_usd_per_million: 1.75, cached_input_usd_per_million: 0.175, output_usd_per_million: 14, source: 'https://developers.openai.com/api/docs/models/gpt-5.2' },
       },
       cost_usd: calls.every((call) => call.cost_usd !== null) ? calls.reduce((total, call) => total + (call.cost_usd ?? 0), 0) : null,
       known_cost_usd: calls.flatMap((call) => call.attempts).reduce((total, attempt) => total + (attempt.cost_usd ?? 0), 0),

@@ -1,14 +1,19 @@
 # JEV rollout packet — 2026-09-20
 
-This records read-only production verification, prepared local artifacts, and one
-explicitly approved isolated actual-Doris evaluation. No API deployment, Hosting cutover,
-IAM change, remote binary/skill installation, live meal write, or Telegram message was
-performed. Temporary fixture staging was removed after the isolated evaluation.
+This records production verification, prepared local artifacts, and one explicitly
+approved isolated actual-Doris evaluation. The TypeSafe runtime access grant has now
+been applied and read back. API deployment, Hosting cutover, remote binary/skill
+installation, live meal writes, and Telegram delivery are not claimed complete here.
+Temporary fixture staging was removed after the isolated evaluation.
 
 ## Readiness decision
 
-Candidate 19 is ready for the controlled JEV cutover under the user's accepted limit
+Candidate 19 passed the decision-quality gate under the user's accepted limit
 of one additional clarification per conversation after a safe unchanged refusal.
+The user subsequently requested removal of the GPT meal-plan implementation and
+provider switch. That JEV-only source requires a new clean release commit, deployment
+plan, production image build, and runtime verification; candidate 19 and its earlier
+release identity are historical evidence rather than the final deployment artifact.
 Acceptance requires the exact intended saved assignments and history, preserved
 unrelated constraints, and zero incorrect or partial writes.
 
@@ -31,12 +36,22 @@ with 13 JEV calls, reusing the single previously measured interpreter result.
 
 The local production container, 1,922 automated tests, 215 Rust tooling tests, and the
 rebuilt Linux CLI checks passed. Fresh private closing evidence is retained under
-the recovered worktree's `.cache/jev-eval/`; the
+the durable bundle's `closing-evaluation/` directory: 1,191 private files were copied
+exactly, with directory mode 0700, file mode 0600, and manifest SHA-256
+`ef438b51d089c9f5c7873b077a21768165b8a19d46244bdd25b6fa0daf261780`. The
 [current evaluation report](../../../packages/functions/src/__tests__/live/CURRENT-EVALUATION.md)
 records the exact inventory, attempt counts, provenance, and comparison limits.
-The final clean release SHA and Jev/GPT deployment plans are recorded externally as
-described below. Production cutover, the TypeSafe access grant, and paired Doris
-installation remain operational steps; none has been performed here.
+The new JEV-only release SHA and deployment plan must be recorded externally as
+described below. The user has authorized deployment, live API and Datadog verification,
+then the existing Doris draft-planning routine and its Telegram DM. Execution and
+post-write evidence belong to the release record; this packet does not claim those
+operational steps have occurred.
+
+The pre-cutover rollback metadata has been refreshed: direct traffic remains on
+`brad-os-api-00005-jac`, and Hosting version `56f8da5ae5a54c08` still pins
+`brad-os-api-00008-maz`. The TypeSafe secret-scoped runtime access grant is applied and
+verified. Fresh metadata is retained under
+`/Users/bradcarter/Documents/Dev/brad-os/.cache/jev-deploy-20260920`.
 
 ## Recovery status after the local reboot
 
@@ -74,8 +89,9 @@ and `recovered-build-inputs.json` in the durable bundle. The old smoke-response 
 is lost; the successful pre-reboot checks remain historical evidence until repeated.
 The original 76-line candidate-19 build log was also recovered from Docker Buildx
 record `vysqsmjk2niy98j0x9y6nqkl3` as `build-detail.log` in that directory. The image,
-matching source-input manifest, and build log are available; an image rebuild is not
-required merely because the temporary files were lost.
+matching source-input manifest, and build log are available. The reboot alone did not
+require a rebuild, but the subsequent JEV-only production-source changes do require a
+new image build and runtime checks before deployment.
 The Linux CLI was rebuilt locally after recovery, and its SHA-256 exactly matches the
 original prepared binary. Fresh network-disabled Linux amd64 checks resolved all dynamic
 libraries and verified critique/revise `--context-json` help. The binary and the exact
@@ -165,28 +181,28 @@ A read-only, network-disabled Linux amd64 container resolved every `ldd` depende
 and successfully ran both critique and revise `--help`, including `--context-json`.
 Local Docker Desktop was started for this build. Nothing was installed remotely.
 
-The authoritative release identity and regenerated Jev/GPT plan hashes belong in the
+The authoritative JEV-only release identity and regenerated deployment-plan hash belong in the
 durable bundle's `release-metadata.json`, generated from the clean release checkout
 after the release commit. Earlier exploratory plan outputs are not release artifacts;
 do not override Git discovery to regenerate them from an uncommitted worktree.
 
-After the release commit is available, regenerate plans from a clean checkout of that
+After the new JEV-only release commit is available, regenerate the plan from a clean checkout of that
 exact commit. If unrelated working changes remain, use a separate clean worktree;
 verify `git rev-parse HEAD` and an empty `git status --porcelain`. Leave
 `BRAD_CLOUD_RUN_GIT_SHA` unset so the tool discovers and checks the checkout itself.
 Use the numeric bindings and stable service URL listed in rollout step 4 below, then
-save `--plan` output once with `MEALPLAN_CRITIQUE_PROVIDER=jev` and once with `gpt` as
-`deploy-jev.release.plan.txt` and `deploy-gpt.release.plan.txt` in the bundle. Verify
-both image tags contain the release SHA, the provider/credential selections differ as
-intended, and both preserve the pinned Jev model and no-traffic candidate configuration.
-Record the final release SHA, exact plan filenames and hashes in the external durable
+unset obsolete `MEALPLAN_CRITIQUE_PROVIDER` and save `--plan` output as
+`deploy-jev.release.plan.txt` in the bundle. Verify that the image tag contains the new
+release SHA and the plan identifies the JEV engine, pinned model, TypeSafe binding,
+and no-traffic candidate configuration. The OpenAI binding remains for Today Coach.
+Record the final release SHA, exact plan filename and hash in the external durable
 bundle's `release-metadata.json`, then refresh its checksum manifest. Generate this
 metadata after the commit rather than embedding the packet's own commit SHA here.
-Do not execute either plan during this preparation step.
+Do not execute the plan during this preparation step.
 
 ## Production container verification
 
-The candidate-19 snapshot passed the CI production Docker build through
+The historical candidate-19 snapshot passed the CI production Docker build through
 `npm run test:integration:container -- --build-only --image
 brad-os-api:jev-readiness-candidate19`, with `DOCKER_DEFAULT_PLATFORM=linux/amd64`.
 The initial local Docker credential helper stalled while resolving a public image;
@@ -407,8 +423,8 @@ that reads the saved session. These changes do not migrate general recency histo
 2. Preserve the above Hosting version, both Cloud Run revisions/tags, and exact remote
    binary/skill backups. Avoid an active Doris meal-planning turn during the paired
    binary/skill replacement. Do not change the cron or authenticated wrapper.
-3. Apply the approved secret-scoped TypeSafe accessor grant, then read the IAM policy
-   back. This is the first live prerequisite mutation; it has not been executed.
+3. The approved secret-scoped TypeSafe accessor grant has been applied and the IAM
+   policy read back successfully. Preserve that grant for the JEV deployment.
 4. From the clean committed checkout, configure and render the Jev candidate plan:
 
    ```bash
@@ -418,13 +434,13 @@ that reads the saved session. These changes do not migrate general recency histo
    export BRAD_STRAVA_CLIENT_SECRET_VERSION=2
    export BRAD_STRAVA_VERIFY_TOKEN_SECRET_VERSION=1
    export BRAD_CLOUD_RUN_SERVICE_URL=https://brad-os-api-vp6k5mvuea-uc.a.run.app
-   export MEALPLAN_CRITIQUE_PROVIDER=jev
+   unset MEALPLAN_CRITIQUE_PROVIDER
    export JEV_MODEL=jev-1.13.0
    npm run deploy:cloud-run -- --plan
    ```
 
 5. After release authorization, execute the same configuration with `--execute`. It
-   builds and validates a no-traffic candidate, explicitly reads provider/model/bindings
+   builds and validates a no-traffic JEV candidate, explicitly reads model/bindings
    back, and leaves Hosting unchanged. Validate the protected candidate without
    unapproved production meal mutations, following the deployment guide.
 6. Install the prepared binary and adapted skill as a pair through their host directory
@@ -437,7 +453,10 @@ that reads the saved session. These changes do not migrate general recency histo
    meal-planner`. Directory bind mounts expose the replacement without a restart.
 8. Cut over the separately pinned Hosting release only after the candidate and Doris
    contract checks pass. Retain all rollback artifacts and verify the actual live
-   Hosting pin plus provider read-back. Health alone is not a critique correctness test.
+   Hosting pin plus JEV runtime evidence. Health alone is not a critique correctness test.
+9. After live API and Datadog verification, run the existing authorized Doris routine
+   to create and read back a draft, then send its Telegram DM. Keep finalization and
+   shopping-list generation behind their existing separate approval gates.
 
 ## Rollback ordering
 
@@ -456,28 +475,25 @@ For immediate recovery, avoid waiting for an image build:
    and the existing health/Strava checks in the rollback guide. Preserve secret versions,
    IAM grants, candidate images, and backups for diagnosis; no data rollback is implied.
 
-For a subsequent provider-only fallback on the new implementation, set
-`MEALPLAN_CRITIQUE_PROVIDER=gpt`, keep the same required numeric secret versions, render
-the plan, deploy a new no-traffic candidate, validate it, then perform the separate
-Hosting cutover. The prepared `deploy-gpt.plan.txt` confirms `OPENAI_API_KEY:1` selection.
-There is no automatic provider fallback. Retaining a TypeSafe binding in GPT mode also
-requires retaining its runtime access grant; alternatively omit that optional binding.
+The new source is JEV-only. It has no GPT meal-plan implementation, provider switch,
+or automatic fallback; any `MEALPLAN_CRITIQUE_PROVIDER` deployment input is rejected
+with instructions to unset it. Rollback uses the retained immutable pre-cutover API
+revision and Hosting release together with the matching old Doris binary/skill pair.
+Do not build a new GPT candidate or change unrelated OpenAI-dependent features.
 
-The preserved GPT implementation intentionally retains its historical message format for
-baseline comparison. The dispatcher forwards the latest request context, but earlier
-messages send only their text: prior `context`, structured `operations`, and
-`previous_assignments` are not forwarded to GPT. Provider rollback therefore does not
-offer the same historical-context fidelity as JEV. Doris should include relevant prior
-constraints and resolved food identities in the latest context and verify the saved
-result; do not treat provider selection alone as behavioral equivalence.
+Historical GPT comparison results above remain evidence about the compared older
+implementation. That comparison forwarded the latest request context but earlier
+messages only as text; prior structured context, operations, and previous assignments
+were not forwarded. Those results do not establish behavioral equivalence or describe
+a fallback retained in the JEV-only release.
 
 See [deployment guide](../../../docs/guides/deploying-cloud-run.md) and
 [rollback guide](../../../docs/ops/cloud-run-rollback.md).
 
-The final release identity and regenerated Jev/GPT deployment plans belong in
+The final JEV-only release identity and regenerated deployment plan belong in
 `/Users/bradcarter/Documents/Dev/brad-os/.cache/jev-doris-readiness-20260920/release-metadata.json`.
 Create it after the clean release commit and plan generation, recording the exact
-release SHA and plan hashes; this packet intentionally contains no self-referential
-release SHA. The accepted closing quality gate and recovered-source checks have passed;
-the external metadata binds their verified artifacts to the committed release before
-the operational cutover steps are executed.
+release SHA and plan hash; this packet intentionally contains no self-referential
+release SHA. The accepted closing quality gate is retained historical evidence. Fresh
+JEV-only source validation and container checks, followed by external release metadata,
+must bind the verified artifacts to the new committed release before cutover.

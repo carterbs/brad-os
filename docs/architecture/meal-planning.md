@@ -35,10 +35,9 @@ MealPlanView -> MealPlanViewModel -> APIClient -> mealplans/meals handlers -> Ge
   - `packages/functions/src/handlers/barcodes.ts` — barcode CRUD via createResourceRouter
 - **Services:**
   - `packages/functions/src/services/mealplan-generation.service.ts` — constraint-based plan generation
-  - `packages/functions/src/services/mealplan-critique.service.ts` — explicit provider selection and GPT rollback
+  - `packages/functions/src/services/mealplan-critique.service.ts` — direct JEV critique entry point
   - `packages/functions/src/services/mealplan-decision.service.ts` — scope resolution, food suitability and actual JEV meal choices
   - `packages/functions/src/services/mealplan-feasibility.service.ts` — bounded structural feasibility proofs for offered choices
-  - `packages/functions/src/services/mealplan-gpt.service.ts` — preserved GPT-5.2 comparison and rollback implementation
   - `packages/functions/src/services/mealplan-jev.service.ts` — native HTTP transport, deadline/retries, and typed-answer validation
   - `packages/functions/src/services/mealplan-operations.service.ts` — validate and apply critique operations to plan
 - **Repositories:**
@@ -100,7 +99,7 @@ MealPlanView -> MealPlanViewModel -> APIClient -> mealplans/meals handlers -> Ge
 
 ## Critique and Revision Decisions
 
-`mealplan-critique.service.ts` selects the configured provider. `MEALPLAN_CRITIQUE_PROVIDER=jev` is the default; `gpt` explicitly selects the preserved GPT-5.2 implementation for comparison or rollback. Provider errors never silently invoke another provider. Jev requires `TYPESAFE_API_KEY`; GPT requires `OPENAI_API_KEY`. `JEV_MODEL` pins `jev-1.13.0` by default.
+`mealplan-critique.service.ts` directly exports the JEV decision service. Both draft critique and finalized revision require `TYPESAFE_API_KEY`; no provider-selection switch or GPT meal-plan implementation remains. `JEV_MODEL` pins `jev-1.13.0` by default. JEV failures propagate without switching providers. Historical comparison results remain in the evaluation reports. Other features that independently use OpenAI keep their own credentials.
 
 `mealplan-decision.service.ts` supplies the saved plan, catalog, recorded conversation, optional Doris context, and explicit household rules. A nonblank `context.original_request` is the authoritative semantic request; the forwarded message and interpretation remain separately attributed. The same precedence applies to the model-facing history view, without rewriting saved history. JEV first resolves requested slot actions and audience scope; explicit exchanges get an intermediate source-food preview limited to requested destinations, and a separate scope review permits one bounded reconsideration. Request status is classified against the actual saved plan only, never against the hypothetical preview. It resolves active food rejections against recorded pre-edit assignments and later requests, then evaluates required food suitability and uses Choice questions to select the actual meals. Multiple acceptable meals do not require clarification. Exact requests take precedence over normal effort and recency preferences, and an explicit request to restore a food can override an earlier rejection.
 

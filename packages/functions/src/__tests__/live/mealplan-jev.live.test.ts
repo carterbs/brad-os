@@ -53,7 +53,7 @@ const createdSessionIds = new Set<string>();
 const critiqueResultSchema = z.object({
   errors: z.array(z.string()), plan: mealPlanSessionSchema.shape.plan,
   explanation: z.string(), operations: z.array(critiqueOperationSchema),
-  outcome: z.string().optional(), recency_reconciled: z.boolean().optional(),
+  outcome: z.string(), recency_reconciled: z.boolean().optional(),
 });
 
 function expectReplacement(before: MealPlanSession, after: MealPlanSession, day: number, type: MealPlanEntry['meal_type'] = 'dinner', track: MealPlanEntry['meal_track'] = 'family'): void {
@@ -151,10 +151,7 @@ async function critiqueOnce(
     ]);
     expect(result.is_finalized).toBe(session.is_finalized);
     turn.readback_verified = true;
-    // The preserved GPT API predates structured outcomes. Record this capability gap
-    // while still executing every plan, history, recency, and atomicity assertion.
-    turn.legacy_outcome_field_unavailable = process.env['MEALPLAN_CRITIQUE_PROVIDER'] === 'gpt' && body.outcome === undefined;
-    if (!deferOutcomeAssertion && options.outcome !== undefined && !turn.legacy_outcome_field_unavailable) expect(body.outcome, body.explanation).toBe(options.outcome);
+    if (!deferOutcomeAssertion && options.outcome !== undefined) expect(body.outcome, body.explanation).toBe(options.outcome);
     return result;
   } finally {
     turn.milliseconds = Math.round(performance.now() - start);
@@ -187,7 +184,7 @@ async function critique(
   const unchanged = hash(first.plan) === hash(session.plan);
   const emptyOperations = (first.history.at(-1)?.operations ?? []).length === 0;
   if (!unchanged || !emptyOperations || initialTurn.outcome === 'applied') {
-    if (!initialTurn.legacy_outcome_field_unavailable) expect(initialTurn.outcome).toBe(options.outcome);
+    expect(initialTurn.outcome).toBe(options.outcome);
     recorder.observe({ event: 'bounded_resolution', initial_turn_index: initialTurn.turn_index,
       initial_outcome: initialTurn.outcome, extra_turn_count: 0, first_attempt_accepted: true });
     return first;
@@ -219,10 +216,7 @@ beforeAll(async () => {
   process.env['GCLOUD_PROJECT'] = 'demo-jev-eval';
   process.env['BRAD_LOCAL_DEV_ONLY'] = 'true';
   process.env['APP_CHECK_BYPASS'] = 'true';
-  const useGpt = process.env['MEALPLAN_CRITIQUE_PROVIDER'] === 'gpt';
-  const keyName = useGpt ? 'OPENAI_API_KEY' : 'TYPESAFE_API_KEY';
-  const secretName = useGpt ? 'OPENAI_API_KEY' : 'TYPESAFE_API_KEY_DEV';
-  process.env[keyName] = execFileSync('gcloud', ['secrets', 'versions', 'access', 'latest', '--secret', secretName, '--project', 'brad-os', '--quiet'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  process.env['TYPESAFE_API_KEY'] = execFileSync('gcloud', ['secrets', 'versions', 'access', 'latest', '--secret', 'TYPESAFE_API_KEY_DEV', '--project', 'brad-os', '--quiet'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
   recorder = new EvaluationRecorder(runSeeds);
   // Only generation uses a fixed date and per-case PRNG; real network timers are untouched.
   const generation = await import('../../services/mealplan-generation.service.js');
@@ -244,7 +238,7 @@ beforeAll(async () => {
   const originalFetch = globalThis.fetch;
   vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    const provider = url.startsWith('https://api.typesafe.ai/') ? 'jev' : url.startsWith('https://api.openai.com/') ? 'gpt' : null;
+    const provider = url.startsWith('https://api.typesafe.ai/') ? 'jev' : null;
     const record = inferenceContext.getStore();
     if (provider === null || record === undefined) return originalFetch(input, init);
     const started = performance.now();
@@ -259,7 +253,7 @@ beforeAll(async () => {
     try {
       const response = await originalFetch(input, init);
       attempt.http_status = response.status;
-      const requestId = response.headers.get(provider === 'jev' ? 'x-typesafe-request-id' : 'x-request-id');
+      const requestId = response.headers.get('x-typesafe-request-id');
       attempt.request_id = requestId !== null && /^[a-zA-Z0-9_.:-]{1,128}$/.test(requestId) ? requestId : null;
       attempt.status = response.ok ? 'success' : 'http_error';
       if (response.ok) {
@@ -267,20 +261,11 @@ beforeAll(async () => {
           recorder.providerPayload(record, attempt, payload);
           const parsed = z.object({ usage: z.object({
             input_tokens: z.number().int().nonnegative().optional(), output_tokens: z.number().int().nonnegative().optional(),
-            prompt_tokens: z.number().int().nonnegative().optional(), completion_tokens: z.number().int().nonnegative().optional(),
-            prompt_tokens_details: z.object({ cached_tokens: z.number().int().nonnegative().optional() }).optional(),
           }).optional() }).safeParse(payload);
           if (parsed.success) {
-            attempt.input_tokens = parsed.data.usage?.input_tokens ?? parsed.data.usage?.prompt_tokens ?? null;
-            attempt.output_tokens = parsed.data.usage?.output_tokens ?? parsed.data.usage?.completion_tokens ?? null;
-            if (provider === 'jev' && attempt.input_tokens !== null) attempt.cost_usd = attempt.input_tokens * 0.042 / 1_000_000;
-            if (provider === 'gpt') {
-              attempt.cached_input_tokens = parsed.data.usage?.prompt_tokens_details?.cached_tokens ?? null;
-              if (attempt.input_tokens !== null && attempt.output_tokens !== null && attempt.cached_input_tokens !== null) {
-                if (attempt.cached_input_tokens > attempt.input_tokens) attempt.status = 'invalid_usage';
-                else attempt.cost_usd = ((attempt.input_tokens - attempt.cached_input_tokens) * 1.75 + attempt.cached_input_tokens * 0.175 + attempt.output_tokens * 14) / 1_000_000;
-              }
-            }
+            attempt.input_tokens = parsed.data.usage?.input_tokens ?? null;
+            attempt.output_tokens = parsed.data.usage?.output_tokens ?? null;
+            if (attempt.input_tokens !== null) attempt.cost_usd = attempt.input_tokens * 0.042 / 1_000_000;
           } else attempt.status = 'invalid_usage';
         }).catch((): void => { attempt.status = 'invalid_usage'; }).finally((): void => {
           attempt.milliseconds = Math.round(performance.now() - started);
@@ -318,29 +303,7 @@ beforeAll(async () => {
     }
     });
   });
-  if (useGpt) {
-    const gpt = await import('../../services/mealplan-gpt.service.js');
-    const originalGpt = gpt.processCritique;
-    vi.spyOn(gpt, 'processCritique').mockImplementation(async (session, text, key) => {
-      const messages = gpt.buildMessages(session, text);
-      const record = recorder.startInference({ messages }, { completion: 'gpt-5.2 JSON critique' });
-      return inferenceContext.run(record, async () => {
-      const started = performance.now();
-      try {
-        const answer = await originalGpt(session, text, key);
-        record.status = 'success';
-        recorder.inferenceAnswers(record, answer);
-        return answer;
-      } catch (error: unknown) {
-        record.status = 'failure';
-        throw error;
-      } finally {
-        await finishInference(record, started);
-      }
-      });
-    });
-  }
-  console.log(JSON.stringify({ seed: recorder.seed, model: useGpt ? 'gpt-5.2' : (process.env['JEV_MODEL'] ?? 'jev-1.13.0'),
+  console.log(JSON.stringify({ seed: recorder.seed, model: process.env['JEV_MODEL'] ?? 'jev-1.13.0',
     frozen_generation_date: recorder.frozenGenerationDate, fixture_catalog_size: catalog.length,
     artifacts: recorder.artifactDirectory }));
   const { getFirestoreDb } = await import('../../firebase.js');
@@ -356,7 +319,6 @@ afterAll(async () => {
   } finally {
     vi.restoreAllMocks();
     delete process.env['TYPESAFE_API_KEY'];
-    delete process.env['OPENAI_API_KEY'];
     if (db) await db.terminate();
   }
 });
@@ -942,8 +904,7 @@ afterEach(async ({ task }) => {
       turn.outcome = body.outcome ?? null;
       turn.operation_count = body.operations.length;
       expect(body.errors).toEqual([]);
-      turn.legacy_outcome_field_unavailable = process.env['MEALPLAN_CRITIQUE_PROVIDER'] === 'gpt' && body.outcome === undefined;
-      if (!turn.legacy_outcome_field_unavailable) expect(body.outcome).toBe('applied');
+      expect(body.outcome).toBe('applied');
       expect(final.plan).toEqual([{ ...entry, meal_id: replacement.id, meal_name: replacement.name }]);
       expect(final.plan).toEqual(body.plan);
       expect(final.history).toEqual([

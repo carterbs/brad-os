@@ -2,9 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { JevAnswer, JevQuestion, MealPlanSession } from '../shared.js';
 import { createMeal, createMealPlanEntry, createMealPlanSession } from '../__tests__/utils/index.js';
 vi.mock('./mealplan-jev.service.js', () => ({ evaluateJev: vi.fn() }));
-vi.mock('./mealplan-gpt.service.js', () => ({ processCritique: vi.fn() }));
 import { evaluateJev } from './mealplan-jev.service.js';
-import { processCritique as gptCritique } from './mealplan-gpt.service.js';
 import { processCritique } from './mealplan-critique.service.js';
 const evaluate = vi.mocked(evaluateJev);
 function session(): MealPlanSession {
@@ -505,18 +503,20 @@ describe('direct JEV critique decisions', () => {
     const rejection = evaluate.mock.calls.find(([, questions]) => questions['rejection_3'])?.[1]['rejection_3'];
     expect(rejection?.instructions).toContain('food_before_that_feedback'); expect(rejection?.instructions).toContain('Steak');
   });
-  it('propagates service failures without silently invoking GPT', async () => {
+  it('propagates JEV service failures', async () => {
     evaluate.mockRejectedValue(new Error('unavailable'));
-    await expect(processCritique(session(), 'change Monday', 'key')).rejects.toThrow('unavailable'); expect(gptCritique).not.toHaveBeenCalled();
+    await expect(processCritique(session(), 'change Monday', 'key')).rejects.toThrow('unavailable');
   });
   it.each(['NaN', '-1', '999999'])('rejects invalid timeout %s', async (timeout) => {
     vi.stubEnv('JEV_TIMEOUT_MS', timeout);
     await expect(processCritique(session(), 'change Monday', 'key')).rejects.toMatchObject({ code: 'JEV_INVALID_CONFIG' }); expect(evaluate).not.toHaveBeenCalled();
   });
-  it('supports explicit GPT rollback and rejects invalid provider configuration', async () => {
-    vi.stubEnv('MEALPLAN_CRITIQUE_PROVIDER', 'gpt'); vi.mocked(gptCritique).mockResolvedValue({ explanation: 'rollback', operations: [] });
-    expect((await processCritique(session(), 'hello', 'key')).explanation).toBe('rollback'); expect(evaluate).not.toHaveBeenCalled();
-    vi.stubEnv('MEALPLAN_CRITIQUE_PROVIDER', 'invalid');
-    await expect(processCritique(session(), 'hello', 'key')).rejects.toMatchObject({ code: 'MEALPLAN_INVALID_PROVIDER' });
+  it.each(['gpt', 'invalid'])('uses JEV even when obsolete provider selection is %s', async (legacyProvider) => {
+    vi.stubEnv('MEALPLAN_CRITIQUE_PROVIDER', legacyProvider);
+    decisions({}, { request: 'no_change' });
+    const result = await processCritique(session(), 'Keep this plan unchanged', 'typesafe-key');
+    expect(result.outcome).toBe('no_change_requested');
+    expect(evaluate).toHaveBeenCalled();
+    expect(evaluate.mock.calls[0]?.[2]).toBe('typesafe-key');
   });
 });
