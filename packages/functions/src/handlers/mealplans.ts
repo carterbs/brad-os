@@ -1,4 +1,5 @@
 import { type Request, type Response, type NextFunction } from 'express';
+import { isDeepStrictEqual } from 'node:util';
 import { info } from 'firebase-functions/logger';
 import {
   errorHandler,
@@ -21,12 +22,11 @@ import { processCritique } from '../services/mealplan-critique.service.js';
 import { applyOperations } from '../services/mealplan-operations.service.js';
 import {
   getUniquePlannedMealIds,
-  markPlanMealsLastPlanned,
   reconcileMealLastPlanned,
   reconcileMealLastPlannedForPlanChange,
 } from '../services/mealplan-recency.service.js';
 import { buildShoppingList } from '../services/shopping-list.service.js';
-import { critiqueInputSchema } from '../shared.js';
+import { critiqueInputSchema, type ConversationMessage, type CritiqueResponse, type MealPlanSession } from '../shared.js';
 
 const app = createBaseApp('mealplans');
 app.use((_req, res, next) => {
@@ -66,6 +66,33 @@ function getIngredientRepo(): IngredientRepository {
     ingredientRepo = new IngredientRepository(getFirestoreDb());
   }
   return ingredientRepo;
+}
+
+function buildAssistantHistory(session: MealPlanSession, response: CritiqueResponse): ConversationMessage {
+  const previousAssignments = session.plan.filter((entry) => response.operations.some((operation) =>
+    operation.day_index === entry.day_index
+    && (operation.meal_track ?? 'family') === entry.meal_track
+    && operation.meal_type === entry.meal_type
+    && operation.new_meal_id !== entry.meal_id
+  )).map((entry) => ({ ...entry }));
+  return {
+    role: 'assistant',
+    content: response.explanation,
+    operations: response.operations,
+    ...(previousAssignments.length === 0 ? {} : { previous_assignments: previousAssignments }),
+  };
+}
+
+function getCritiqueApiKey(): string {
+  const provider = process.env['MEALPLAN_CRITIQUE_PROVIDER'] ?? 'jev';
+  if (provider !== 'jev' && provider !== 'gpt') {
+    throw new AppError(500, 'MEALPLAN_INVALID_PROVIDER', 'MEALPLAN_CRITIQUE_PROVIDER must be jev or gpt');
+  }
+  const apiKey = process.env[provider === 'jev' ? 'TYPESAFE_API_KEY' : 'OPENAI_API_KEY']?.trim() ?? '';
+  if (apiKey === '') {
+    throw new AppError(500, 'MISSING_API_KEY', `${provider === 'jev' ? 'TypeSafe' : 'OpenAI'} API key is not configured`);
+  }
+  return apiKey;
 }
 
 // POST /mealplans/generate
@@ -230,19 +257,12 @@ app.post(
       );
     }
 
-    const { critique } = critiqueInputSchema.parse(req.body);
-    const apiKey = process.env['TYPESAFE_API_KEY']?.trim() ?? '';
-    if (apiKey === '') {
-      throw new AppError(
-        500,
-        'MISSING_API_KEY',
-        'TypeSafe API key is not configured'
-      );
-    }
+    const { critique, context } = critiqueInputSchema.parse(req.body);
+    const apiKey = getCritiqueApiKey();
 
     // Phase 2: Jev evaluates bounded slot and candidate questions.
     const jevStart = Date.now();
-    const critiqueResponse = await processCritique(session, critique, apiKey);
+    const critiqueResponse = await processCritique(session, critique, apiKey, context);
     const jevMs = Date.now() - jevStart;
     info('critique:jev_total', {
       phase: 'jev_total',
@@ -271,6 +291,7 @@ app.post(
           explanation: 'No changes were applied because the requested changes did not pass validation.',
           operations: critiqueResponse.operations,
           errors: operationErrors,
+          outcome: 'validation_failed',
         },
       });
       return;
@@ -278,16 +299,16 @@ app.post(
 
     // Phase 4: Firestore write
     const firestoreWriteStart = Date.now();
-    await getSessionRepo().applyCritiqueUpdates(
+    const saved = await getSessionRepo().applyCritiqueUpdates(
       sessionId,
-      { role: 'user', content: critique },
-      {
-        role: 'assistant',
-        content: critiqueResponse.explanation,
-        operations: critiqueResponse.operations,
-      },
-      updatedPlan
+      { role: 'user', content: critique, ...(context === undefined ? {} : { context }) },
+      buildAssistantHistory(session, critiqueResponse),
+      updatedPlan,
+      session
     );
+    if (!saved) {
+      throw new AppError(409, 'SESSION_CONFLICT', 'This meal plan changed while the request was being evaluated. Reload the session and retry your feedback.');
+    }
     const firestoreWriteMs = Date.now() - firestoreWriteStart;
     info('critique:firestore_write', {
       phase: 'firestore_write',
@@ -312,6 +333,7 @@ app.post(
         explanation: critiqueResponse.explanation,
         operations: critiqueResponse.operations,
         errors: operationErrors,
+        outcome: critiqueResponse.outcome,
       },
     });
   })
@@ -337,17 +359,10 @@ app.post(
       );
     }
 
-    const { critique } = critiqueInputSchema.parse(req.body);
-    const apiKey = process.env['TYPESAFE_API_KEY']?.trim() ?? '';
-    if (apiKey === '') {
-      throw new AppError(
-        500,
-        'MISSING_API_KEY',
-        'TypeSafe API key is not configured'
-      );
-    }
+    const { critique, context } = critiqueInputSchema.parse(req.body);
+    const apiKey = getCritiqueApiKey();
 
-    const critiqueResponse = await processCritique(session, critique, apiKey);
+    const critiqueResponse = await processCritique(session, critique, apiKey, context);
     const { updatedPlan, errors: operationErrors } = applyOperations(
       session.plan,
       critiqueResponse.operations,
@@ -362,24 +377,25 @@ app.post(
           explanation: 'No changes were applied because the requested changes did not pass validation.',
           operations: critiqueResponse.operations,
           errors: operationErrors,
+          outcome: 'validation_failed',
           recency_reconciled: false,
         },
       });
       return;
     }
 
-    await getSessionRepo().applyCritiqueUpdates(
+    const saved = await getSessionRepo().applyCritiqueUpdates(
       sessionId,
-      { role: 'user', content: critique },
-      {
-        role: 'assistant',
-        content: critiqueResponse.explanation,
-        operations: critiqueResponse.operations,
-      },
-      updatedPlan
+      { role: 'user', content: critique, ...(context === undefined ? {} : { context }) },
+      buildAssistantHistory(session, critiqueResponse),
+      updatedPlan,
+      session
     );
+    if (!saved) {
+      throw new AppError(409, 'SESSION_CONFLICT', 'This meal plan changed while the request was being evaluated. Reload the session and retry your feedback.');
+    }
 
-    const planChanged = critiqueResponse.operations.length > 0;
+    const planChanged = !isDeepStrictEqual(session.plan, updatedPlan);
     if (planChanged) {
       await reconcileMealLastPlannedForPlanChange({
         previousPlan: session.plan,
@@ -396,6 +412,7 @@ app.post(
         explanation: critiqueResponse.explanation,
         operations: critiqueResponse.operations,
         errors: operationErrors,
+        outcome: critiqueResponse.outcome,
         recency_reconciled: planChanged,
       },
     });
@@ -421,12 +438,10 @@ app.post(
       );
     }
 
-    const now = new Date().toISOString();
-    await markPlanMealsLastPlanned(getMealRepo(), session.plan, now);
-
-    // Mark session as finalized
-    await getSessionRepo().update(sessionId, { is_finalized: true });
-
+    const finalized = await getSessionRepo().finalize(sessionId, session);
+    if (finalized === null) {
+      throw new AppError(409, 'SESSION_CONFLICT', 'This meal plan changed before it could be finalized. Reload the session and review the updated plan.');
+    }
     res.json({ success: true, data: { finalized: true } });
   })
 );

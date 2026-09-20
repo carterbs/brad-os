@@ -3,6 +3,7 @@ import {
   applyOperationsResultSchema,
   conversationMessageSchema,
   critiqueInputSchema,
+  critiqueContextSchema,
   critiqueOperationSchema,
   critiqueResponseSchema,
   createMealPlanSessionSchema,
@@ -54,6 +55,38 @@ describe('critiqueResponseSchema', () => {
     };
 
     expect(critiqueResponseSchema.safeParse(payload).success).toBe(false);
+  });
+});
+
+describe('critiqueContextSchema', () => {
+  it('accepts bounded interpretation and calendar evidence with an ISO planning date', () => {
+    const context = {
+      original_request: 'Plan next week',
+      interpretation: 'Leave Tuesday dinner empty',
+      calendar_context: 'Tuesday dinner out',
+      planning_week_start: '2026-09-21',
+    };
+    expect(critiqueContextSchema.parse(context)).toEqual(context);
+    expect(critiqueInputSchema.parse({ critique: 'Update it', context }).context).toEqual(context);
+  });
+
+  it.each([
+    { original_request: 'a'.repeat(4001) },
+    { interpretation: 'a'.repeat(8001) },
+    { calendar_context: 'a'.repeat(8001) },
+    { planning_week_start: '2026-02-30' },
+    { planning_week_start: '2026-09-21T00:00:00Z' },
+    { surprise: 'ignore constraints' },
+  ])('rejects invalid context %j', (context) => {
+    expect(critiqueInputSchema.safeParse({ critique: 'Update it', context }).success).toBe(false);
+  });
+
+  it('accepts each explicit critique outcome without requiring it for legacy responses', () => {
+    for (const outcome of ['applied', 'no_change_requested', 'clarification_required', 'insufficient_evidence', 'infeasible', 'validation_failed']) {
+      expect(critiqueResponseSchema.safeParse({ explanation: 'Result', operations: [], outcome }).success).toBe(true);
+    }
+    expect(critiqueResponseSchema.safeParse({ explanation: 'Result', operations: [] }).success).toBe(true);
+    expect(critiqueResponseSchema.safeParse({ explanation: 'Result', operations: [], outcome: 'unexpected' }).success).toBe(false);
   });
 });
 
@@ -168,6 +201,27 @@ describe('meal plan session schemas', () => {
       expect(result.data.operations?.[0]?.meal_track).toBe('family');
       expect(result.data.operations?.[0]?.new_meal_id).toBe('meal-alt');
     }
+  });
+
+  it('preserves optional context with the original conversation words', () => {
+    const message = {
+      role: 'user',
+      content: 'Keep my original request',
+      context: { original_request: 'Tuesday dinner out', interpretation: 'Leave Tuesday empty', planning_week_start: '2026-09-21' },
+    };
+    expect(conversationMessageSchema.parse(message)).toEqual(message);
+    expect(conversationMessageSchema.safeParse({ ...message, context: 'unsupported text' }).success).toBe(false);
+    expect(conversationMessageSchema.safeParse({ ...message, context: { unexpected: 'field' } }).success).toBe(false);
+  });
+
+  it('preserves pre-edit assignments as assistant history without labeling them rejections', () => {
+    const message = {
+      role: 'assistant', content: 'Changed breakfast',
+      operations: [{ day_index: 0, meal_track: 'family', meal_type: 'breakfast', new_meal_id: 'meal-next' }],
+      previous_assignments: [samplePlanEntry],
+    };
+    expect(conversationMessageSchema.parse(message)).toEqual(message);
+    expect(conversationMessageSchema.safeParse({ ...message, previous_assignments: [{ invalid: 'slot' }] }).success).toBe(false);
   });
 
   it('defaults legacy plan entries and operations to family track', () => {

@@ -119,8 +119,9 @@ gcloud tasks queues describe brad-os-strava \
 
 Before deploying, confirm the Artifact Registry repository, both service accounts, Cloud
 Tasks queue, IAM grants, and the four existing OpenAI/Strava Secret Manager secrets exist.
-Meal-plan critique/revision additionally need the `TYPESAFE_API_KEY` secret and runtime
-service-account access to it. The deploy command binds exact numeric secret versions;
+Meal-plan critique/revision use the explicitly selected provider. Jev additionally needs
+the `TYPESAFE_API_KEY` secret and runtime service-account access to it; the GPT rollback
+provider uses the existing OpenAI secret. The deploy command binds exact numeric secret versions;
 it deliberately refuses `latest`.
 
 Set the active versions:
@@ -137,19 +138,26 @@ examples.
 
 ### Meal-plan critique configuration
 
-To bind an existing TypeSafe secret, supply its actual enabled numeric version:
+Select Jev and bind an existing TypeSafe secret using its actual enabled numeric version:
 
 ```bash
+export MEALPLAN_CRITIQUE_PROVIDER=jev
 export BRAD_TYPESAFE_SECRET_VERSION=1
 export JEV_MODEL=jev-1.13.0
 ```
+
+`MEALPLAN_CRITIQUE_PROVIDER` accepts exactly `jev` or `gpt`, defaults to `jev` when unset,
+and rejects other values. The deployment plan names the provider and its credential
+binding; every candidate explicitly sets this variable, and deployment read-back
+rejects a missing or mismatched provider. There is no automatic provider fallback.
 
 `BRAD_TYPESAFE_SECRET_VERSION` is optional for the deployment tool, so missing TypeSafe
 setup does not prevent unrelated API features or health checks from starting. When set,
 the tool binds `TYPESAFE_API_KEY=TYPESAFE_API_KEY:<version>` alongside the existing
 OpenAI/Strava secrets and checks that exact reference during deployment read-back.
-When omitted, the tool warns and does not bind a TypeSafe key: meal-plan critique and
-revision remain unavailable. Initial meal-plan generation continues working without
+When omitted, the tool does not bind a TypeSafe key. It warns only when Jev is selected:
+critique and revision are then unavailable. An explicitly selected GPT provider continues
+using the required OpenAI secret without a TypeSafe warning. Initial meal-plan generation continues working without
 this key, and Today Coach still uses the preserved OpenAI secret.
 
 `JEV_MODEL` defaults to `jev-1.13.0`. The deployment tool accepts explicit Jev versions
@@ -158,8 +166,8 @@ deploys the selected pin and verifies it during read-back. This configuration do
 create secrets or grant IAM permissions.
 
 Health checks and mocked tests do not establish TypeSafe model accuracy. Before
-releasing critique/revision, evaluate representative edits with a real key; the initial
-confidence thresholds are conservative starting values and have not been calibrated.
+releasing critique/revision, evaluate representative edits and complete conversations
+with a real key, checking saved state and the recorded live comparison results.
 
 The deploy requires a clean, committed worktree. Its image tag is the full Git commit SHA.
 
@@ -170,8 +178,8 @@ npm run deploy:cloud-run -- --plan
 ```
 
 The plan confirms the project, region, immutable image name, scale-to-zero settings,
-candidate-only traffic posture, pinned meal-plan model, and TypeSafe secret binding or
-missing-configuration warning. It does not read secret values.
+candidate-only traffic posture, explicit meal-plan provider, pinned Jev model, and
+selected provider credential binding or missing-configuration warning. It does not read secret values.
 
 ## Build and deploy a candidate
 
@@ -217,6 +225,7 @@ STRAVA_TASK_QUEUE_LOCATION=us-central1
 STRAVA_TASK_OIDC_SERVICE_ACCOUNT=brad-os-strava-tasks@brad-os.iam.gserviceaccount.com
 CLOUD_RUN_SERVICE_URL=<direct stable run.app URL>
 STRAVA_TASK_OIDC_AUDIENCE=<same direct stable run.app URL>
+MEALPLAN_CRITIQUE_PROVIDER=jev
 JEV_MODEL=jev-1.13.0
 ```
 
@@ -350,6 +359,27 @@ This Hosting-only command pins `/api/**` to the validated Cloud Run revision. No
 Functions deployment participates.
 
 ## Roll back
+
+For an explicit meal-plan provider rollback, retain the same required numeric secret
+versions and prepare a GPT candidate:
+
+```bash
+export MEALPLAN_CRITIQUE_PROVIDER=gpt
+npm run deploy:cloud-run -- --plan
+npm run deploy:cloud-run -- --execute
+```
+
+The candidate binds the preserved `OPENAI_API_KEY`, sets the provider to `gpt`, and
+verifies both through read-back. A configured TypeSafe binding and the pinned `JEV_MODEL`
+remain available for a later Jev rollout. Omitting TypeSafe does not warn in GPT mode.
+The deployment still creates a no-traffic candidate: validate its critique/revision
+behavior and saved-plan read-back before changing the separately pinned Hosting release.
+Setting this variable in a local shell does not change the running service.
+
+To prepare Jev again, set `MEALPLAN_CRITIQUE_PROVIDER=jev` and the correct
+`BRAD_TYPESAFE_SECRET_VERSION`, then repeat candidate validation and the normal Hosting
+cutover. Preserve the last known-good revision and Hosting release for a prompt full
+rollback rather than depending on a new image build.
 
 See [Cloud Run rollback](../ops/cloud-run-rollback.md). Rollback restores both the
 last known-good Cloud Run revision and its pinned Hosting release. Firestore schemas are

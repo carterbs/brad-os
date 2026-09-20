@@ -64,17 +64,10 @@ function findDuplicateMealErrors(
       );
     if (allowedAdultBreakfastRepeat) continue;
 
-    const originalSlotKeys = new Set(
-      (originalEntriesByMealId.get(mealId) ?? []).map((entry) =>
-        getSlotKey(entry.day_index, getMealTrack(entry), entry.meal_type)
-      )
-    );
-    const preservesExistingDuplicate = entries.every((entry) =>
-      originalSlotKeys.has(
-        getSlotKey(entry.day_index, getMealTrack(entry), entry.meal_type)
-      )
-    );
-    if (preservesExistingDuplicate) continue;
+    // An exchange may move a legacy repeat without adding another occurrence.
+    // Compare the combined final count with this saved plan, never a temporary
+    // plan with the changing slots cleared or an older conversation snapshot.
+    if (entries.length <= (originalEntriesByMealId.get(mealId)?.length ?? 0)) continue;
 
     errors.push(`Meal ID "${mealId}" already exists elsewhere in the plan`);
   }

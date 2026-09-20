@@ -39,8 +39,23 @@ gcloud auth application-default login
 ```
 
 The QA harness always targets the `brad-os` project explicitly. It reads Firestore with
-Application Default Credentials and, when available, loads OpenAI and Strava secrets from
+Application Default Credentials and, when available, loads OpenAI, TypeSafe/Jev, and Strava secrets from
 Secret Manager without printing them.
+
+Create separate Jev API-key secrets for local dev and production (each command prompts
+for the key):
+
+```bash
+firebase functions:secrets:set TYPESAFE_API_KEY_DEV --project brad-os
+firebase functions:secrets:set TYPESAFE_API_KEY --project brad-os
+```
+
+On a fresh API start, `npm run qa:start` reads the latest `TYPESAFE_API_KEY_DEV`
+version and passes it to the API as `TYPESAFE_API_KEY`. It never falls back to the
+production secret. An explicitly exported `TYPESAFE_API_KEY` overrides this lookup.
+Restart an existing QA session after creating or rotating the secret. Your signed-in
+gcloud account needs permission to access its secret versions. Production continues
+binding `TYPESAFE_API_KEY` to a numeric version as described in the deployment guide.
 
 ## Step 1: Clone & Install
 

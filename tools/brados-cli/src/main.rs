@@ -29,14 +29,26 @@ fn run() -> Result<(), error::CliError> {
             MealplanAction::Critique {
                 session_id,
                 message,
+                context_json,
             } => {
-                commands::mealplan::critique(&client, &session_id, &message)?;
+                commands::mealplan::critique(
+                    &client,
+                    &session_id,
+                    &message,
+                    context_json.as_deref(),
+                )?;
             }
             MealplanAction::Revise {
                 session_id,
                 message,
+                context_json,
             } => {
-                commands::mealplan::revise(&client, &session_id, &message)?;
+                commands::mealplan::revise(
+                    &client,
+                    &session_id,
+                    &message,
+                    context_json.as_deref(),
+                )?;
             }
             MealplanAction::Finalize { session_id } => {
                 commands::mealplan::finalize(&client, &session_id)?;

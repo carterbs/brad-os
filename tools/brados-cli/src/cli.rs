@@ -53,6 +53,9 @@ pub enum MealplanAction {
         session_id: String,
         /// Critique message
         message: String,
+        /// Structured original request, interpretation, calendar context, and planning week as JSON
+        #[arg(long)]
+        context_json: Option<String>,
     },
     /// Revise a finalized meal plan
     Revise {
@@ -60,6 +63,9 @@ pub enum MealplanAction {
         session_id: String,
         /// Revision message
         message: String,
+        /// Structured original request, interpretation, calendar context, and planning week as JSON
+        #[arg(long)]
+        context_json: Option<String>,
     },
     /// Finalize a meal plan
     Finalize {
@@ -472,9 +478,11 @@ mod tests {
                 MealplanAction::Critique {
                     session_id,
                     message,
+                    context_json,
                 } => {
                     assert_eq!(session_id, "sess_1");
                     assert_eq!(message, "swap Monday dinner");
+                    assert!(context_json.is_none());
                 }
                 _ => panic!("expected Critique"),
             },
@@ -490,9 +498,11 @@ mod tests {
                 MealplanAction::Revise {
                     session_id,
                     message,
+                    context_json,
                 } => {
                     assert_eq!(session_id, "sess_1");
                     assert_eq!(message, "swap Monday dinner");
+                    assert!(context_json.is_none());
                 }
                 _ => panic!("expected Revise"),
             },

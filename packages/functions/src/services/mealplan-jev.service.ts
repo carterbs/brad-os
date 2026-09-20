@@ -13,7 +13,12 @@ const MAX_ATTEMPTS = 3;
 // Conservative character heuristic, not a token-limit guarantee; provider limit errors fail closed.
 const MAX_REQUEST_CHARACTERS = 100000;
 const MAX_CHOICE_OPTIONS = 255;
-const PROBABILITY_SUM_TOLERANCE = 0.00001;
+// Live v1.13 answers round each option to two decimals. Each independently
+// rounded value may contribute up to half a percentage point of sum error.
+const PROBABILITY_ROUNDING_UNIT = 0.005;
+const FLOAT_TOLERANCE = 0.00001;
+
+class InconsistentChoiceWinnerError extends Error {}
 
 function timeoutError(): AppError {
   return new AppError(504, 'JEV_TIMEOUT', 'Meal-plan evaluation exceeded its time limit. Please try again.');
@@ -131,6 +136,7 @@ function validateAnswers(
   const { answers } = parsed.data;
   const names = Object.keys(questions);
   if (Object.keys(answers).length !== names.length) throw invalidResponse();
+  let inconsistentWinner = false;
   for (const [name, question] of Object.entries(questions)) {
     if (!Object.hasOwn(answers, name)) throw invalidResponse();
     const answer = answers[name];
@@ -149,10 +155,13 @@ function validateAnswers(
       sum += probability;
       maximum = Math.max(maximum, probability);
     }
-    if (Math.abs(sum - 1) > PROBABILITY_SUM_TOLERANCE || answer.probabilities[answer.choice] !== maximum) {
+    if (Math.abs(sum - 1) > Math.min(0.02, options.length * PROBABILITY_ROUNDING_UNIT) + FLOAT_TOLERANCE) {
       throw invalidResponse();
     }
+    if (answer.probabilities[answer.choice] !== maximum) inconsistentWinner = true;
   }
+  // Only this inconsistency is retryable; validate every other answer first.
+  if (inconsistentWinner) throw new InconsistentChoiceWinnerError();
   return parsed.data;
 }
 
@@ -219,7 +228,16 @@ export async function evaluateJev(
       throw invalidResponse();
     }
     checkSignal(signal);
-    const validated = validateAnswers(payload, model, questions);
+    let validated: z.infer<typeof jevResponseSchema>;
+    try {
+      validated = validateAnswers(payload, model, questions);
+    } catch (error: unknown) {
+      if (!(error instanceof InconsistentChoiceWinnerError)) throw error;
+      if (attempt === MAX_ATTEMPTS) throw invalidResponse();
+      logger.warn('mealplan:jev_retry', { model, question_count: questionCount, attempt });
+      await waitForRetry(retryDelay(undefined, attempt), signal);
+      continue;
+    }
     const requestId = response.headers.get('x-typesafe-request-id');
     logger.info('mealplan:jev_request', {
       model,

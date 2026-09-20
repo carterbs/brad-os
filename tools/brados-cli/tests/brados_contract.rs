@@ -393,3 +393,108 @@ fn unknown_subcommand_exits_two() {
         output.status
     );
 }
+
+#[test]
+fn critique_and_revise_send_structured_context_and_preserve_outcomes() {
+    let context = r#"{"original_request":"No dinner Tuesday","interpretation":"Keep Tuesday empty","calendar_context":"Dinner out","planning_week_start":"2026-09-21"}"#;
+    for action in ["critique", "revise"] {
+        let response = serde_json::json!({"success": true, "data": {
+            "plan": [], "explanation": "Which Tuesday?", "operations": [], "errors": [],
+            "outcome": "clarification_required", "recency_reconciled": false
+        }})
+        .to_string();
+        let (base_url, server) = spawn_json_server(vec![response]);
+        let output = brados_bin()
+            .args([
+                "mealplan",
+                action,
+                "sess_context",
+                "Adjust Tuesday",
+                "--context-json",
+                context,
+            ])
+            .env("BRADOS_APPCHECK_TOKEN", "test-token")
+            .env("BRADOS_API_URL", base_url)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(stdout["outcome"], "clarification_required");
+        let requests = server.join().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].method, "POST");
+        assert_eq!(
+            requests[0].path,
+            format!("/mealplans/sess_context/{action}")
+        );
+        assert_eq!(
+            requests[0].body,
+            serde_json::json!({
+                "critique": "Adjust Tuesday", "context": serde_json::from_str::<serde_json::Value>(context).unwrap()
+            })
+        );
+    }
+}
+
+#[test]
+fn critique_and_revise_keep_legacy_request_and_response_compatible() {
+    for action in ["critique", "revise"] {
+        let response = serde_json::json!({"success": true, "data": {
+            "plan": [], "explanation": "No change", "operations": [], "errors": [],
+            "recency_reconciled": false
+        }})
+        .to_string();
+        let (base_url, server) = spawn_json_server(vec![response]);
+        let output = brados_bin()
+            .args(["mealplan", action, "sess_legacy", "Looks good"])
+            .env("BRADOS_APPCHECK_TOKEN", "test-token")
+            .env("BRADOS_API_URL", base_url)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(stdout["explanation"], "No change");
+        assert!(stdout.get("outcome").is_none());
+        let requests = server.join().unwrap();
+        assert_eq!(
+            requests[0].body,
+            serde_json::json!({"critique": "Looks good"})
+        );
+    }
+}
+
+#[test]
+fn critique_and_revise_reject_non_object_context_before_request() {
+    for action in ["critique", "revise"] {
+        for context in ["[]", "null", r#""unstructured context""#, "{broken"] {
+            let output = brados_bin()
+                .args([
+                    "mealplan",
+                    action,
+                    "sess_invalid",
+                    "Change dinner",
+                    "--context-json",
+                    context,
+                ])
+                .env("BRADOS_APPCHECK_TOKEN", "test-token")
+                .env("BRADOS_API_URL", "http://127.0.0.1:1")
+                .output()
+                .unwrap();
+            assert_eq!(output.status.code(), Some(1));
+            let stderr: serde_json::Value = serde_json::from_slice(&output.stderr).unwrap();
+            assert_eq!(stderr["error"]["code"], "DESERIALIZE_ERROR");
+            assert!(stderr["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("context"));
+        }
+    }
+}

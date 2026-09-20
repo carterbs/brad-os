@@ -52,9 +52,29 @@ pub fn get(client: &ApiClient, session_id: &str) -> Result<(), CliError> {
     Ok(())
 }
 
+fn build_critique_payload(
+    message: &str,
+    context_json: Option<&str>,
+) -> Result<serde_json::Value, CliError> {
+    let mut payload = serde_json::json!({ "critique": message });
+    if let Some(raw) = context_json {
+        let context: serde_json::Map<String, serde_json::Value> = serde_json::from_str(raw)
+            .map_err(|error| {
+                CliError::Deserialize(format!("invalid context JSON object: {error}"))
+            })?;
+        payload["context"] = serde_json::Value::Object(context);
+    }
+    Ok(payload)
+}
+
 /// Critique a meal plan with a message.
-pub fn critique(client: &ApiClient, session_id: &str, message: &str) -> Result<(), CliError> {
-    let payload = serde_json::json!({ "critique": message });
+pub fn critique(
+    client: &ApiClient,
+    session_id: &str,
+    message: &str,
+    context_json: Option<&str>,
+) -> Result<(), CliError> {
+    let payload = build_critique_payload(message, context_json)?;
     let body = client
         .post_json(&critique_path(session_id), &payload)
         .map_err(add_finalized_critique_guidance)?;
@@ -64,8 +84,13 @@ pub fn critique(client: &ApiClient, session_id: &str, message: &str) -> Result<(
 }
 
 /// Revise a finalized meal plan with a message.
-pub fn revise(client: &ApiClient, session_id: &str, message: &str) -> Result<(), CliError> {
-    let payload = serde_json::json!({ "critique": message });
+pub fn revise(
+    client: &ApiClient,
+    session_id: &str,
+    message: &str,
+    context_json: Option<&str>,
+) -> Result<(), CliError> {
+    let payload = build_critique_payload(message, context_json)?;
     let body = client.post_json(&revise_path(session_id), &payload)?;
     let data: ReviseResult = extract_data(body)?;
     print_success(&data);
@@ -112,6 +137,33 @@ mod tests {
             request
         });
         (base_url, handle)
+    }
+
+    #[test]
+    fn critique_payload_preserves_legacy_shape_without_context() {
+        assert_eq!(
+            build_critique_payload("Keep breakfasts", None).unwrap(),
+            serde_json::json!({"critique": "Keep breakfasts"})
+        );
+    }
+
+    #[test]
+    fn critique_payload_keeps_original_request_and_interpretation_separate() {
+        let context = r#"{"original_request":"No dinner Tuesday","interpretation":"Keep Tuesday empty","calendar_context":"Dinner out","planning_week_start":"2026-09-21"}"#;
+        let payload = build_critique_payload("Revise the plan", Some(context)).unwrap();
+        assert_eq!(payload["critique"], "Revise the plan");
+        assert_eq!(
+            payload["context"],
+            serde_json::from_str::<serde_json::Value>(context).unwrap()
+        );
+    }
+
+    #[test]
+    fn critique_payload_rejects_invalid_json_and_non_objects() {
+        for raw in ["{bad", "[]", "null", "42", "true", r#""context""#] {
+            let error = build_critique_payload("Change dinner", Some(raw)).unwrap_err();
+            assert!(error.to_string().contains("context"));
+        }
     }
 
     #[test]

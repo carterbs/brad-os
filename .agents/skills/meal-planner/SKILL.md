@@ -59,11 +59,37 @@ Brad will reply with change requests in natural language like:
 - "remove Wednesday lunch, I'll eat out"
 - "too much effort on Thursday, make it easier"
 
-For each round of feedback, send it through the critique endpoint:
+### Supply original feedback and explicit context
+
+Read the current saved session before each critique. Pass Brad's original words as the message. Use optional `--context-json` to keep your interpretation separate from his statements:
+
+- `original_request`: original user wording, especially when the positional message is a short summary.
+- `interpretation`: resolved weekdays, audience, pronouns, relevant rejected meals, and family preferences supported by the conversation. Expand day abbreviations. If several targets remain plausible, ask Brad. A food rejection normally asks for a filled replacement; removing a day clears every slot actually present, including Brad breakfast.
+- `calendar_context`: relevant observed event dates/times and resulting serving-time constraints. Identify inferences. Calendar context alone does not authorize clearing a slot. No-cook is different from merely lower effort.
+- `planning_week_start`: known Monday date as YYYY-MM-DD; do not infer it from session creation time.
+
+JEV chooses actual catalog meals and checks the whole proposed week. Supply exact meal IDs/names for Brad's explicit selections and the original source meals for exchanges. Preserve source identity when explaining swap-then-remove requests. For open-ended replacements, provide supported requirements and rejections rather than deciding all replacements yourself. Keep Brad's personal tastes separate from family suitability. Recency describes past planning, not proven consumption.
+
+Send one critique per feedback round. Example (adapt context to the actual saved session):
 
 ```bash
-brados mealplan critique <session_id> "<Brad's feedback verbatim or lightly cleaned up>"
+brados mealplan critique <session_id> 'We just had that. Tuesday needs something easy.' \
+  --context-json '{"original_request":"We just had that. Tuesday needs something easy.","interpretation":"Tuesday family dinner is Baked Spaghetti. Replace it, keep dinner filled, and preserve all unrelated slots. Baked Spaghetti is rejected for this week.","calendar_context":"Family practice Tuesday 5–6 pm; little serving-time cooking is needed."}'
 ```
+
+Use `brados mealplan revise` with the same arguments for an already finalized session. Neither route authorizes finalization or a shopping list.
+
+After the call, inspect `outcome`, `operations`, and `errors`, then read the saved session again. Verify every requested change, filled replacement, rejection and unrelated slot. HTTP success and an empty error list alone do not prove an edit occurred.
+
+- `applied`: compare the saved plan to the intended result before reporting success.
+- `no_change_requested`: no meal edit was performed.
+- `clarification_required`: answer from known context only when the evidence resolves the question; otherwise ask Brad.
+- `insufficient_evidence`: identify the missing ingredient/serving-time evidence instead of promising a guarantee.
+- `infeasible` or `validation_failed`: explain the unavailable option or joint conflict; ask for a concrete tradeoff. Do not silently drop part of a compound request.
+- `SESSION_CONFLICT`: reread the session and re-evaluate the original feedback against the new plan before retrying.
+- Provider/transport error: reread before retrying; do not claim changes or repeatedly submit the same ineffective request.
+
+Finalization and shopping-list generation remain separately approved actions. An approval interpreted inside a critique response does not execute either one.
 
 Parse the response. Show:
 1. What the AI changed (from the `explanation` field)
@@ -75,13 +101,18 @@ Repeat until Brad says it looks good / approves / says "finalize" / "looks good"
 
 ### Step 3: Finalize
 
+Finalize only after Brad approves the current saved plan. Read it back before confirming:
+
 ```bash
 brados mealplan finalize <session_id>
+brados mealplan get <session_id>
 ```
 
-Confirm: "Meal plan finalized!"
+Confirm finalization only when the saved session has `is_finalized=true`.
 
 ### Step 4: Shopping list (SEPARATE MESSAGE)
+
+Generate the list only after finalization and Brad's separate request or approval for it.
 
 ```bash
 brados shoppinglist generate <session_id>
@@ -122,7 +153,7 @@ brados mealplan latest
 ```
 
 If a plan exists and is not finalized, present it and ask if they want changes.
-If finalized, say it's already locked in and offer to generate a new one.
+If finalized, explain that edits use `brados mealplan revise`; do not generate a new week unless requested.
 If null, offer to generate a fresh plan.
 
 ## Checking available meals

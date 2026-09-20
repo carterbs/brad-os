@@ -78,6 +78,10 @@ pub struct ConversationMessage {
     pub role: String,
     pub content: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub context: Option<serde_json::Map<String, serde_json::Value>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub previous_assignments: Option<Vec<MealPlanEntry>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub operations: Option<Vec<CritiqueOperation>>,
 }
 
@@ -97,6 +101,8 @@ pub struct CritiqueResult {
     pub explanation: String,
     pub operations: Vec<CritiqueOperation>,
     pub errors: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outcome: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -105,6 +111,8 @@ pub struct ReviseResult {
     pub explanation: String,
     pub operations: Vec<CritiqueOperation>,
     pub errors: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outcome: Option<String>,
     pub recency_reconciled: bool,
 }
 
@@ -285,6 +293,30 @@ mod tests {
         }"#;
         let meal: Meal = serde_json::from_str(json).unwrap();
         assert_eq!(meal.audience, MealAudience::Adult);
+    }
+
+    #[test]
+    fn assistant_previous_assignments_round_trip_as_evidence() {
+        let value = serde_json::json!({
+            "role": "assistant", "content": "Moved dinner",
+            "operations": [{"day_index": 0, "meal_track": "family", "meal_type": "dinner", "new_meal_id": "meal-new"}],
+            "previous_assignments": [{"day_index": 0, "meal_track": "family", "meal_type": "dinner", "meal_id": "meal-old", "meal_name": "Original dinner"}]
+        });
+        let message: ConversationMessage = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(message).unwrap(), value);
+    }
+
+    #[test]
+    fn conversation_context_round_trips_without_altering_original_words() {
+        let value = serde_json::json!({
+            "role": "user", "content": "Revise this week",
+            "context": {"original_request": "Tuesday dinner out", "interpretation": "Tuesday empty", "planning_week_start": "2026-09-21"}
+        });
+        let message: ConversationMessage = serde_json::from_value(value.clone()).unwrap();
+        assert_eq!(serde_json::to_value(&message).unwrap(), value);
+        let legacy = serde_json::json!({"role": "user", "content": "Keep breakfast"});
+        let message: ConversationMessage = serde_json::from_value(legacy.clone()).unwrap();
+        assert_eq!(serde_json::to_value(message).unwrap(), legacy);
     }
 
     #[test]

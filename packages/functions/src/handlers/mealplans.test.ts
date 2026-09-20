@@ -24,6 +24,7 @@ interface CritiqueResponseData {
   explanation: string;
   operations: CritiqueOperation[];
   errors: string[];
+  outcome?: string;
 }
 
 interface ReviseResponseData extends CritiqueResponseData {
@@ -181,6 +182,9 @@ function createTestSession(
 describe('Mealplans Handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSessionRepo.applyCritiqueUpdates.mockResolvedValue(true);
+    mockSessionRepo.finalize.mockResolvedValue(null);
+    vi.stubEnv('MEALPLAN_CRITIQUE_PROVIDER', 'jev');
   });
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -321,7 +325,7 @@ describe('Mealplans Handler', () => {
         updatedPlan,
         errors: [],
       });
-      mockSessionRepo.applyCritiqueUpdates.mockResolvedValue(undefined);
+      mockSessionRepo.applyCritiqueUpdates.mockResolvedValue(true);
 
       const response = await request(mealplansApp)
         .post('/session-1/critique')
@@ -405,7 +409,7 @@ describe('Mealplans Handler', () => {
         .send({ critique: 'Looks good' });
 
       expect(response.status).toBe(200);
-      expect(mockProcessCritique).toHaveBeenCalledWith(session, 'Looks good', 'typesafe-key');
+      expect(mockProcessCritique).toHaveBeenCalledWith(session, 'Looks good', 'typesafe-key', undefined);
     });
 
     it('does not save a partial draft or its history when validation fails', async () => {
@@ -426,6 +430,7 @@ describe('Mealplans Handler', () => {
       expect(body.data?.plan).toEqual(session.plan);
       expect(body.data?.explanation).toContain('No changes were applied');
       expect(body.data?.errors).toEqual(['Invalid change']);
+      expect(body.data?.outcome).toBe('validation_failed');
       expect(mockSessionRepo.applyCritiqueUpdates).not.toHaveBeenCalled();
     });
 
@@ -481,10 +486,23 @@ describe('Mealplans Handler', () => {
         'session-1',
         { role: 'user', content: 'Something different' },
         { role: 'assistant', content: 'Which day?', operations: [] },
-        session.plan
+        session.plan,
+        session
       );
       expect(mockReconcileMealLastPlannedForPlanChange).not.toHaveBeenCalled();
       expect(mockSessionRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('does not reconcile recency when returned operations leave the actual plan unchanged', async () => {
+      const session = createTestSession({ is_finalized: true });
+      mockSessionRepo.findById.mockResolvedValue(session);
+      mockProcessCritique.mockResolvedValue({ explanation: 'Already assigned.', operations: [{ day_index: 0, meal_track: 'family', meal_type: 'dinner', new_meal_id: 'meal-2' }] });
+      mockApplyOperations.mockReturnValue({ updatedPlan: session.plan.map((entry) => ({ ...entry })), errors: [] });
+      const response = await request(mealplansApp).post('/session-1/revise').send({ critique: 'Keep Monday dinner' });
+      const body = response.body as ApiResponse<ReviseResponseData>;
+      expect(response.status).toBe(200);
+      expect(body.data?.recency_reconciled).toBe(false);
+      expect(mockReconcileMealLastPlannedForPlanChange).not.toHaveBeenCalled();
     });
 
     it('should revise a finalized session, append history, and reconcile recency', async () => {
@@ -517,7 +535,7 @@ describe('Mealplans Handler', () => {
         updatedPlan,
         errors: [],
       });
-      mockSessionRepo.applyCritiqueUpdates.mockResolvedValue(undefined);
+      mockSessionRepo.applyCritiqueUpdates.mockResolvedValue(true);
       mockReconcileMealLastPlannedForPlanChange.mockResolvedValue({
         affectedMealIds: ['meal-2'],
       });
@@ -537,8 +555,9 @@ describe('Mealplans Handler', () => {
       expect(mockSessionRepo.applyCritiqueUpdates).toHaveBeenCalledWith(
         'session-1',
         { role: 'user', content: 'Remove Monday dinner' },
-        { role: 'assistant', content: 'Removed Monday dinner.', operations },
-        updatedPlan
+        { role: 'assistant', content: 'Removed Monday dinner.', operations, previous_assignments: session.plan.filter((entry) => entry.meal_type === 'dinner') },
+        updatedPlan,
+        session
       );
       expect(mockReconcileMealLastPlannedForPlanChange).toHaveBeenCalledWith({
         previousPlan: session.plan,
@@ -618,19 +637,89 @@ describe('Mealplans Handler', () => {
         'Meal ID "missing-meal" not found in meals snapshot',
       ]);
       expect(body.data?.recency_reconciled).toBe(false);
+      expect(body.data?.outcome).toBe('validation_failed');
       expect(mockSessionRepo.applyCritiqueUpdates).not.toHaveBeenCalled();
       expect(mockReconcileMealLastPlannedForPlanChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe.each(['critique', 'revise'])('POST /mealplans/:sessionId/%s contract', (endpoint) => {
+    beforeEach(() => {
+      vi.stubEnv('TYPESAFE_API_KEY', 'test-typesafe-key');
+    });
+
+    it('passes context through and returns the explicit outcome', async () => {
+      const session = createTestSession({ is_finalized: endpoint === 'revise' });
+      const context = { original_request: 'Plan this week', interpretation: 'Preserve breakfasts', calendar_context: 'Tuesday dinner out', planning_week_start: '2026-09-21' };
+      mockSessionRepo.findById.mockResolvedValue(session);
+      mockProcessCritique.mockResolvedValue({ explanation: 'Which dinner?', operations: [], outcome: 'clarification_required' });
+      mockApplyOperations.mockReturnValue({ updatedPlan: session.plan, errors: [] });
+      const response = await request(mealplansApp).post(`/session-1/${endpoint}`).send({ critique: 'Change dinner', context });
+      const body = response.body as ApiResponse<CritiqueResponseData>;
+      expect(response.status).toBe(200);
+      expect(body.data?.outcome).toBe('clarification_required');
+      expect(mockProcessCritique).toHaveBeenCalledWith(session, 'Change dinner', 'test-typesafe-key', context);
+      expect(mockSessionRepo.applyCritiqueUpdates).toHaveBeenCalledWith('session-1', { role: 'user', content: 'Change dinner', context }, expect.anything(), session.plan, session);
+    });
+
+    it('stores original assignments for applied edits without treating every displacement as dislike', async () => {
+      const session = createTestSession({ is_finalized: endpoint === 'revise' });
+      const operations: CritiqueOperation[] = [{ day_index: 0, meal_track: 'family', meal_type: 'dinner', new_meal_id: null }];
+      const updatedPlan = session.plan.map((entry) => entry.meal_type === 'dinner' ? { ...entry, meal_id: null, meal_name: null } : entry);
+      mockSessionRepo.findById.mockResolvedValue(session);
+      mockProcessCritique.mockResolvedValue({ explanation: 'Cleared dinner for your reservation', operations, outcome: 'applied' });
+      mockApplyOperations.mockReturnValue({ updatedPlan, errors: [] });
+      const response = await request(mealplansApp).post(`/session-1/${endpoint}`).send({ critique: 'Dinner out Monday; remove dinner' });
+      expect(response.status).toBe(200);
+      expect(mockSessionRepo.applyCritiqueUpdates).toHaveBeenCalledWith('session-1', { role: 'user', content: 'Dinner out Monday; remove dinner' }, {
+        role: 'assistant', content: 'Cleared dinner for your reservation', operations,
+        previous_assignments: session.plan.filter((entry) => entry.meal_type === 'dinner'),
+      }, updatedPlan, session);
+    });
+
+    it('returns 409 and avoids recency writes if the loaded session became stale', async () => {
+      const session = createTestSession({ is_finalized: endpoint === 'revise' });
+      mockSessionRepo.findById.mockResolvedValue(session);
+      mockProcessCritique.mockResolvedValue({ explanation: 'Updated dinner', operations: [{ day_index: 0, meal_track: 'family', meal_type: 'dinner', new_meal_id: null }], outcome: 'applied' });
+      mockApplyOperations.mockReturnValue({ updatedPlan: [], errors: [] });
+      mockSessionRepo.applyCritiqueUpdates.mockResolvedValue(false);
+      const response = await request(mealplansApp).post(`/session-1/${endpoint}`).send({ critique: 'Remove dinner' });
+      const body = response.body as ApiResponse;
+      expect(response.status).toBe(409);
+      expect(body.error?.code).toBe('SESSION_CONFLICT');
+      expect(mockReconcileMealLastPlannedForPlanChange).not.toHaveBeenCalled();
+    });
+
+    it('uses OpenAI credentials only for the explicitly selected GPT provider', async () => {
+      vi.stubEnv('MEALPLAN_CRITIQUE_PROVIDER', 'gpt');
+      vi.stubEnv('TYPESAFE_API_KEY', '');
+      vi.stubEnv('OPENAI_API_KEY', '  openai-key  ');
+      const session = createTestSession({ is_finalized: endpoint === 'revise' });
+      mockSessionRepo.findById.mockResolvedValue(session);
+      mockProcessCritique.mockResolvedValue({ explanation: 'No changes', operations: [] });
+      mockApplyOperations.mockReturnValue({ updatedPlan: session.plan, errors: [] });
+      const response = await request(mealplansApp).post(`/session-1/${endpoint}`).send({ critique: 'Looks good' });
+      expect(response.status).toBe(200);
+      expect(mockProcessCritique).toHaveBeenCalledWith(session, 'Looks good', 'openai-key', undefined);
+    });
+
+    it('rejects an unrecognized provider without invoking the model', async () => {
+      vi.stubEnv('MEALPLAN_CRITIQUE_PROVIDER', 'typo');
+      mockSessionRepo.findById.mockResolvedValue(createTestSession({ is_finalized: endpoint === 'revise' }));
+      const response = await request(mealplansApp).post(`/session-1/${endpoint}`).send({ critique: 'Looks good' });
+      const body = response.body as ApiResponse;
+      expect(response.status).toBe(500);
+      expect(body.error?.code).toBe('MEALPLAN_INVALID_PROVIDER');
+      expect(mockProcessCritique).not.toHaveBeenCalled();
     });
   });
 
   describe('POST /mealplans/:sessionId/finalize', () => {
     it('should finalize and update lastPlanned for all meals in plan', async () => {
       const session = createTestSession();
+      const finalized = { ...session, is_finalized: true, updated_at: '2026-09-20T16:00:00.000Z' };
       mockSessionRepo.findById.mockResolvedValue(session);
-      mockSessionRepo.update.mockResolvedValue({
-        ...session,
-        is_finalized: true,
-      });
+      mockSessionRepo.finalize.mockResolvedValue(finalized);
 
       const response = await request(mealplansApp)
         .post('/session-1/finalize')
@@ -641,17 +730,12 @@ describe('Mealplans Handler', () => {
       expect(body.success).toBe(true);
       expect(body.data?.finalized).toBe(true);
 
-      expect(mockMarkPlanMealsLastPlanned).toHaveBeenCalledWith(
-        mockMealRepo,
-        session.plan,
-        expect.any(String)
-      );
-      expect(mockSessionRepo.update).toHaveBeenCalledWith('session-1', {
-        is_finalized: true,
-      });
+      expect(mockMarkPlanMealsLastPlanned).not.toHaveBeenCalled();
+      expect(mockSessionRepo.finalize).toHaveBeenCalledWith('session-1', session);
+      expect(mockSessionRepo.update).not.toHaveBeenCalled();
     });
 
-    it('should skip null meal_id entries when finalizing', async () => {
+    it('delegates the exact snapshot including empty slots to atomic finalization', async () => {
       const plan: MealPlanEntry[] = [
         {
           day_index: 0,
@@ -669,7 +753,7 @@ describe('Mealplans Handler', () => {
       ];
       const session = createTestSession({ plan });
       mockSessionRepo.findById.mockResolvedValue(session);
-      mockSessionRepo.update.mockResolvedValue({
+      mockSessionRepo.finalize.mockResolvedValue({
         ...session,
         is_finalized: true,
       });
@@ -679,11 +763,8 @@ describe('Mealplans Handler', () => {
         .send();
 
       expect(response.status).toBe(200);
-      expect(mockMarkPlanMealsLastPlanned).toHaveBeenCalledWith(
-        mockMealRepo,
-        plan,
-        expect.any(String)
-      );
+      expect(mockSessionRepo.finalize).toHaveBeenCalledWith('session-1', session);
+      expect(mockMarkPlanMealsLastPlanned).not.toHaveBeenCalled();
     });
 
     it('should return 400 when already finalized', async () => {
@@ -697,6 +778,8 @@ describe('Mealplans Handler', () => {
       const body = response.body as ApiResponse;
       expect(response.status).toBe(400);
       expect(body.error?.code).toBe('SESSION_FINALIZED');
+      expect(mockSessionRepo.finalize).not.toHaveBeenCalled();
+      expect(mockMarkPlanMealsLastPlanned).not.toHaveBeenCalled();
     });
 
     it('should return 404 for non-existent session', async () => {
@@ -707,6 +790,30 @@ describe('Mealplans Handler', () => {
         .send();
 
       expect(response.status).toBe(404);
+      expect(mockSessionRepo.finalize).not.toHaveBeenCalled();
+      expect(mockMarkPlanMealsLastPlanned).not.toHaveBeenCalled();
+    });
+
+    it('rejects a stale finalization without writing any meal recency', async () => {
+      const session = createTestSession();
+      mockSessionRepo.findById.mockResolvedValue(session);
+      mockSessionRepo.finalize.mockResolvedValue(null);
+      const response = await request(mealplansApp).post('/session-1/finalize').send();
+      const body = response.body as ApiResponse;
+      expect(response.status).toBe(409);
+      expect(body.error?.code).toBe('SESSION_CONFLICT');
+      expect(mockSessionRepo.finalize).toHaveBeenCalledWith('session-1', session);
+      expect(mockMarkPlanMealsLastPlanned).not.toHaveBeenCalled();
+      expect(mockSessionRepo.update).not.toHaveBeenCalled();
+    });
+
+    it('does not write meal recency if the finalization transaction fails', async () => {
+      mockSessionRepo.findById.mockResolvedValue(createTestSession());
+      mockSessionRepo.finalize.mockRejectedValueOnce(new Error('Transaction unavailable'));
+      const response = await request(mealplansApp).post('/session-1/finalize').send();
+      expect(response.status).toBe(500);
+      expect(mockMarkPlanMealsLastPlanned).not.toHaveBeenCalled();
+      expect(mockSessionRepo.update).not.toHaveBeenCalled();
     });
   });
 

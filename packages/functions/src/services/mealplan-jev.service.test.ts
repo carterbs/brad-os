@@ -36,6 +36,17 @@ function validPayload(): Record<string, unknown> {
   };
 }
 
+function inconsistentWinnerPayload(): Record<string, unknown> {
+  return {
+    ...validPayload(),
+    answers: {
+      action: { type: 'choice', choice: 'keep', confidence: 0.9, probabilities: { keep: 0.1, replace: 0.9 } },
+      suitable: { type: 'noul', noul: 0.95 },
+    },
+    provider_note: 'private-api-key private meal feedback',
+  };
+}
+
 function jsonResponse(payload: unknown = validPayload(), status = 200, headers: HeadersInit = {}): Response {
   return new Response(JSON.stringify(payload), { status, headers });
 }
@@ -175,9 +186,68 @@ describe('mealplan Jev HTTP adapter', () => {
     expect(JSON.stringify([mockInfo.mock.calls, mockWarning.mock.calls])).not.toContain('private');
   });
 
+  it('retries an inconsistent winning choice and uses only the subsequent valid answer', async () => {
+    vi.useFakeTimers();
+    const signal = new AbortController().signal;
+    mockFetch.mockResolvedValueOnce(jsonResponse(inconsistentWinnerPayload())).mockResolvedValueOnce(jsonResponse());
+    const pending = evaluate(signal);
+    await vi.advanceTimersByTimeAsync(249);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockInfo).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(pending).resolves.toEqual(validPayload()['answers']);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    const requests = mockFetch.mock.calls.map((call) => call[1] as RequestInit);
+    expect(requests[0]?.body).toBe(requests[1]?.body);
+    expect(requests.every((request) => request.signal === signal)).toBe(true);
+    expect(mockWarning).toHaveBeenCalledTimes(1);
+    expect(mockInfo).toHaveBeenCalledTimes(1);
+    expect(JSON.stringify([mockInfo.mock.calls, mockWarning.mock.calls])).not.toContain('private');
+  });
+
+  it('fails closed after three inconsistent winners without exposing provider data', async () => {
+    vi.useFakeTimers();
+    mockFetch.mockImplementation(async (): Promise<Response> => jsonResponse(inconsistentWinnerPayload()));
+    const pending = expectFailure('JEV_INVALID_RESPONSE', 502);
+    await vi.runAllTimersAsync();
+    await pending;
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    expect(mockWarning).toHaveBeenCalledTimes(2);
+    expect(mockInfo).not.toHaveBeenCalled();
+    expect(JSON.stringify(mockWarning.mock.calls)).not.toContain('private');
+  });
+
+  it('applies the shared deadline during inconsistent-winner retry backoff', async () => {
+    vi.useFakeTimers();
+    const controller = new AbortController();
+    mockFetch.mockImplementation(async (): Promise<Response> => jsonResponse(inconsistentWinnerPayload()));
+    const pending = expectFailure('JEV_TIMEOUT', 504, controller.signal);
+    setTimeout(() => controller.abort(), 100);
+    await vi.runAllTimersAsync();
+    await pending;
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0);
+    expect(mockInfo).not.toHaveBeenCalled();
+  });
+
+  it('does not retry a winner mismatch when another answer contains an unknown option', async () => {
+    const payload = inconsistentWinnerPayload();
+    payload['answers'] = {
+      ...payload['answers'] as object,
+      suitable: { type: 'choice', choice: 'invented', confidence: 0.9, probabilities: { yes: 0.9, no: 0.1 } },
+    };
+    mockFetch.mockResolvedValue(jsonResponse(payload));
+    await expect(evaluateJev({}, {
+      ...questions,
+      suitable: { type: 'choice', instructions: 'Does it fit?', criteria: { yes: 'Fits', no: 'Does not fit' } },
+    }, 'key', new AbortController().signal)).rejects.toMatchObject({ code: 'JEV_INVALID_RESPONSE', statusCode: 502 });
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockWarning).not.toHaveBeenCalled();
+  });
+
   it('stops after three retryable HTTP failures', async () => {
     vi.useFakeTimers();
-    mockFetch.mockImplementation(() => jsonResponse({}, 500));
+    mockFetch.mockImplementation(async (): Promise<Response> => jsonResponse({}, 500));
     const pending = expectFailure('JEV_UNAVAILABLE', 503);
     await vi.runAllTimersAsync();
     await pending;
@@ -272,7 +342,6 @@ describe('mealplan Jev HTTP adapter', () => {
 
   it.each([
     { type: 'choice', choice: 'invented', confidence: 0.9, probabilities: { keep: 0.1, replace: 0.9 } },
-    { type: 'choice', choice: 'keep', confidence: 0.9, probabilities: { keep: 0.1, replace: 0.9 } },
     { type: 'choice', choice: 'replace', confidence: -0.1, probabilities: { keep: 0.1, replace: 0.9 } },
     { type: 'choice', choice: 'replace', confidence: 1.1, probabilities: { keep: 0.1, replace: 0.9 } },
     { type: 'choice', choice: 'replace', confidence: 0.9, probabilities: { replace: 1 } },
@@ -285,6 +354,7 @@ describe('mealplan Jev HTTP adapter', () => {
     payload['answers'] = { action, suitable: { type: 'noul', noul: 0.9 } };
     mockFetch.mockResolvedValue(jsonResponse(payload));
     await expectFailure('JEV_INVALID_RESPONSE', 502);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it.each([Number.NaN, Number.POSITIVE_INFINITY, -0.1, 1.1, '0.9'])('rejects nonfinite or invalid noul %j', async (noul) => {
@@ -318,6 +388,13 @@ describe('mealplan Jev HTTP adapter', () => {
       mockFetch.mockResolvedValueOnce(jsonResponse(payload));
       await expect(evaluate()).resolves.toEqual(payload['answers']);
     }
+  });
+
+  it('accepts the two-decimal rounding observed in live four-option answers', async () => {
+    const questions = { action: { type: 'choice' as const, instructions: 'Choose', criteria: { keep: 'Keep', replace: 'Replace', remove: 'Remove', unclear: 'Unclear' } } };
+    const answers = { action: { type: 'choice', choice: 'keep', confidence: 0.91, probabilities: { keep: 0.93, replace: 0.04, remove: 0, unclear: 0.02 } } };
+    mockFetch.mockResolvedValue(jsonResponse({ model: 'jev-1.13.0', answers }));
+    await expect(evaluateJev({}, questions, 'test-key', new AbortController().signal)).resolves.toEqual(answers);
   });
 
   it('never returns provider text or secrets as error details', async () => {

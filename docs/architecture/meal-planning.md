@@ -35,7 +35,10 @@ MealPlanView -> MealPlanViewModel -> APIClient -> mealplans/meals handlers -> Ge
   - `packages/functions/src/handlers/barcodes.ts` — barcode CRUD via createResourceRouter
 - **Services:**
   - `packages/functions/src/services/mealplan-generation.service.ts` — constraint-based plan generation
-  - `packages/functions/src/services/mealplan-critique.service.ts` — typed TypeSafe Jev decisions through the native HTTP API
+  - `packages/functions/src/services/mealplan-critique.service.ts` — explicit provider selection and GPT rollback
+  - `packages/functions/src/services/mealplan-decision.service.ts` — scope resolution, food suitability and actual JEV meal choices
+  - `packages/functions/src/services/mealplan-feasibility.service.ts` — bounded structural feasibility proofs for offered choices
+  - `packages/functions/src/services/mealplan-gpt.service.ts` — preserved GPT-5.2 comparison and rollback implementation
   - `packages/functions/src/services/mealplan-jev.service.ts` — native HTTP transport, deadline/retries, and typed-answer validation
   - `packages/functions/src/services/mealplan-operations.service.ts` — validate and apply critique operations to plan
 - **Repositories:**
@@ -59,7 +62,7 @@ MealPlanView -> MealPlanViewModel -> APIClient -> mealplans/meals handlers -> Ge
 ## Firestore Collections
 
 - `meals` — meal definitions (name, type, audience, effort, prep_ahead, has_red_meat, url)
-- `mealplan_sessions` — generated plans with critique history (plan, meals_snapshot, history, is_finalized)
+- `meal_plan_sessions` — generated plans with critique history (plan, meals_snapshot, history, is_finalized)
 - `recipes` — recipe data
 - `ingredients` — ingredient data
 - `barcodes` — barcode-to-ingredient mappings
@@ -97,16 +100,23 @@ MealPlanView -> MealPlanViewModel -> APIClient -> mealplans/meals handlers -> Ge
 
 ## Critique and Revision Decisions
 
-Draft critique and finalized-plan revision call TypeSafe's native HTTP API with the pinned model `jev-1.13.0`. Set `TYPESAFE_API_KEY` for these routes; `JEV_MODEL` selects an explicit model version. Today Coach continues using OpenAI and its existing `OPENAI_API_KEY`.
+`mealplan-critique.service.ts` selects the configured provider. `MEALPLAN_CRITIQUE_PROVIDER=jev` is the default; `gpt` explicitly selects the preserved GPT-5.2 implementation for comparison or rollback. Provider errors never silently invoke another provider. Jev requires `TYPESAFE_API_KEY`; GPT requires `OPENAI_API_KEY`. `JEV_MODEL` pins `jev-1.13.0` by default.
 
-The decision flow has two stages:
+`mealplan-decision.service.ts` supplies the saved plan, catalog, recorded conversation, optional Doris context, and explicit household rules. A nonblank `context.original_request` is the authoritative semantic request; the forwarded message and interpretation remain separately attributed. The same precedence applies to the model-facing history view, without rewriting saved history. JEV first resolves requested slot actions and audience scope; explicit exchanges get an intermediate source-food preview limited to requested destinations, and a separate scope review permits one bounded reconsideration. Request status is classified against the actual saved plan only, never against the hypothetical preview. It resolves active food rejections against recorded pre-edit assignments and later requests, then evaluates required food suitability and uses Choice questions to select the actual meals. Multiple acceptable meals do not require clarification. Exact requests take precedence over normal effort and recency preferences, and an explicit request to restore a food can override an earlier rejection.
 
-1. Jev classifies the latest request and chooses whether to keep, replace, or explicitly remove each existing meal slot. It also identifies requests for easier meals. Ambiguous or unsupported requests produce no plan changes.
-2. For replacement slots, BradOS supplies eligible catalog meals and asks Jev Noul questions about whether each candidate matches the request. BradOS selects from those known IDs, assembles `CritiqueOperation[]`, and creates the explanation from templates.
+Recorded operations distinguish completed changes from pending requests. Every semantic stage receives the canonical history and current user message together in chronological order, alongside the separately attributed original fields. When a prior turn left the plan unchanged for clarification, a later answer asking to proceed resumes every still-authorized pending clause, including clauses not repeated in the answer. Latest cancellations or narrower instructions take precedence. Empty operations alone do not imply a pending request: acknowledgments and already-satisfied requests can also leave the plan unchanged. Scope review and removal verification use that complete resolved request; already applied edits remain history and are not replayed.
 
-Jev returns typed decisions and probabilities; it does not generate operation JSON, invent meals, write explanations, or execute tools. BradOS validates the resulting operations and plan before saving changes. The API request/response shapes, session storage, and conversation history format remain the same.
+`mealplan-feasibility.service.ts` restricts choices to those admitting a complete structurally valid assignment. It does not rank foods or select the final meal. Duplicate, prep-capacity and red-meat rules remain mandatory, with legacy exceptions measured against the original saved plan. An already repeated food may move between slots, but its final count cannot increase; this permits exact exchanges without introducing another repeat. The existing small-catalog adult-breakfast exception still applies. Each offered choice has a complete-plan witness. A bounded search that cannot establish feasibility returns validation failure, never a claim of proven infeasibility.
 
-Confidence and match thresholds are conservative starting values, not calibrated accuracy guarantees. Mocked tests verify control flow and validation; model quality still requires evaluation of representative requests with a real TypeSafe key. Missing configuration or a failed TypeSafe call must not become a successful plan change.
+A final semantic review checks each selected food and explicit relationships across selected meals; categorical removal checks distinguish an unneeded slot from rejected food. A failed food review permits one JEV-selected repair target and one new food choice, with all other proposed assignments fixed. Removal or structural failures cannot enter that repair path. BradOS converts the final assignments into minimal operations and validates the combined plan before saving. All provider calls share one deadline, and large question sets are batched without discarding context. Missing factual evidence, unclear targets, unavailable combinations, and provider failures remain distinct outcomes.
+
+The final review also checks core-dish variety within each audience, so different IDs for variants of the same dish do not evade the household variety preference. Shared ingredients or cuisine alone do not make two dishes equivalent. Legacy repetition may remain without increasing its count, and explicit user dish requests take priority. Adult breakfasts retain their small-catalog exception. An audience judgment that contradicts active requested slot actions must be reconsidered or fail closed; it cannot silently override the slot decisions. Audience uncertainty for a meal whose slots are all preserved is unused and cannot block a different meal's edit.
+
+Both `/critique` and `/revise` accept `{ critique, context? }`. Optional context separates `original_request`, `interpretation`, `calendar_context`, and `planning_week_start`. The CLI exposes it with `--context-json`. Responses add an optional `outcome`: applied, no_change_requested, clarification_required, insufficient_evidence, infeasible, or validation_failed. Existing response fields and clients remain compatible.
+
+Saving a critique uses a Firestore transaction comparing the loaded session with current state; a changed/deleted/finalized session returns `409 SESSION_CONFLICT`. History is appended as distinct turns, including repeated identical feedback. User turns preserve original content and optional structured context; applied assistant turns retain `previous_assignments` for the affected slots. This records what changed without treating every moved or removed meal as a food rejection. Whole-plan validation and persistence are atomic for the session, while finalized recency reconciliation remains a separate step. Recency uses mutable finalized-session timestamps and does not prove meal dates or consumption.
+
+Jev returns typed selections, not generated operations or explanation prose. BradOS resolves known IDs, enforces rules and builds factual explanations. The adapter validates the complete typed response, including whether each Choice winner agrees with its probability distribution. An otherwise valid response with an inconsistent winner may be discarded and retried within the existing three-attempt deadline budget; the backend never substitutes its own winner. Fresh saved-state readback remains required before Doris reports success. Policy behavior requires live evaluation; mocked tests alone do not prove quality. See the live suite README and CURRENT-EVALUATION under `packages/functions/src/__tests__/live/` for versioned evidence.
 
 ## Notes
 
@@ -121,7 +131,7 @@ Confidence and match thresholds are conservative starting values, not calibrated
 ## Rollout Checklist
 
 - Configure `TYPESAFE_API_KEY` and a pinned `JEV_MODEL` before enabling critique/revision. See [Cloud Run deployment](../guides/deploying-cloud-run.md) for numeric secret-version binding.
-- Evaluate supported requests, ambiguity, and candidate matching against real TypeSafe responses before treating the initial thresholds as reliable.
+- Evaluate supported requests, ambiguity, and candidate matching against real TypeSafe responses before enabling the candidate.
 - Verify unsupported requests leave the saved plan unchanged and neither critique nor revision finalizes a draft or generates a shopping list.
 - Seed at least one `audience=adult`, `meal_type=breakfast` meal before enabling generation in an environment.
 - Prefer at least 7 adult breakfast meals to avoid repeats, but repeats are allowed until the catalog is complete.

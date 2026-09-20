@@ -23,10 +23,26 @@ const STARTUP_PROBE_FAILURE_THRESHOLD: u64 = 60;
 const OPENAI_VERSION_ENV: &str = "BRAD_OPENAI_SECRET_VERSION";
 const TYPESAFE_VERSION_ENV: &str = "BRAD_TYPESAFE_SECRET_VERSION";
 const DEFAULT_JEV_MODEL: &str = "jev-1.13.0";
+const CRITIQUE_PROVIDER_ENV: &str = "MEALPLAN_CRITIQUE_PROVIDER";
 const STRAVA_CLIENT_ID_VERSION_ENV: &str = "BRAD_STRAVA_CLIENT_ID_SECRET_VERSION";
 const STRAVA_CLIENT_SECRET_VERSION_ENV: &str = "BRAD_STRAVA_CLIENT_SECRET_VERSION";
 const STRAVA_VERIFY_VERSION_ENV: &str = "BRAD_STRAVA_VERIFY_TOKEN_SECRET_VERSION";
 const SERVICE_URL_ENV: &str = "BRAD_CLOUD_RUN_SERVICE_URL";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CritiqueProvider {
+    Jev,
+    Gpt,
+}
+
+impl CritiqueProvider {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Jev => "jev",
+            Self::Gpt => "gpt",
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SecretVersions {
@@ -42,6 +58,7 @@ pub struct DeploymentConfig {
     pub git_sha: String,
     pub secret_versions: SecretVersions,
     pub jev_model: String,
+    pub critique_provider: CritiqueProvider,
     pub service_url: Option<String>,
     pub plan_only: bool,
 }
@@ -70,6 +87,7 @@ impl DeploymentConfig {
             },
             service_url,
             jev_model: parse_jev_model(env::var("JEV_MODEL").ok())?,
+            critique_provider: parse_critique_provider(env::var(CRITIQUE_PROVIDER_ENV).ok())?,
             plan_only,
         })
     }
@@ -142,13 +160,30 @@ pub fn render_plan<W: Write>(writer: &mut W, config: &DeploymentConfig) -> Resul
     writeln!(writer, "  service: {SERVICE}").map_err(|error| error.to_string())?;
     writeln!(writer, "  repository: {ARTIFACT_REPOSITORY}").map_err(|error| error.to_string())?;
     writeln!(writer, "  image: {}", config.image_tag()).map_err(|error| error.to_string())?;
-    writeln!(writer, "  meal-plan model: {}", config.jev_model)
-        .map_err(|error| error.to_string())?;
-    if let Some(version) = &config.secret_versions.typesafe {
-        writeln!(writer, "  meal-plan secret: TYPESAFE_API_KEY:{version}")
+    writeln!(
+        writer,
+        "  meal-plan provider: {}",
+        config.critique_provider.as_str()
+    )
+    .map_err(|error| error.to_string())?;
+    writeln!(writer, "  Jev model pin: {}", config.jev_model).map_err(|error| error.to_string())?;
+    match config.critique_provider {
+        CritiqueProvider::Gpt => {
+            writeln!(
+                writer,
+                "  meal-plan secret: OPENAI_API_KEY:{}",
+                config.secret_versions.openai
+            )
             .map_err(|error| error.to_string())?;
-    } else {
-        warn_missing_typesafe_secret(writer)?;
+        }
+        CritiqueProvider::Jev => {
+            if let Some(version) = &config.secret_versions.typesafe {
+                writeln!(writer, "  meal-plan secret: TYPESAFE_API_KEY:{version}")
+                    .map_err(|error| error.to_string())?;
+            } else {
+                warn_missing_typesafe_secret(writer)?;
+            }
+        }
     }
     writeln!(
         writer,
@@ -189,7 +224,9 @@ pub fn execute<R: CommandRunner, W: Write>(
     if config.plan_only {
         return render_plan(writer, config);
     }
-    if config.secret_versions.typesafe.is_none() {
+    if config.critique_provider == CritiqueProvider::Jev
+        && config.secret_versions.typesafe.is_none()
+    {
         warn_missing_typesafe_secret(writer)?;
     }
 
@@ -326,6 +363,10 @@ STRAVA_WEBHOOK_VERIFY_TOKEN=STRAVA_WEBHOOK_VERIFY_TOKEN:{}",
         format!("STRAVA_TASK_QUEUE_LOCATION={REGION}"),
         format!("STRAVA_TASK_OIDC_SERVICE_ACCOUNT={TASK_SERVICE_ACCOUNT}"),
         format!("JEV_MODEL={}", config.jev_model),
+        format!(
+            "{CRITIQUE_PROVIDER_ENV}={}",
+            config.critique_provider.as_str()
+        ),
     ];
     if let Some(url) = service_url {
         env_vars.push(format!("CLOUD_RUN_SERVICE_URL={url}"));
@@ -572,6 +613,7 @@ fn validate_environment(
         ("CLOUD_RUN_SERVICE_URL", service_url),
         ("STRAVA_TASK_OIDC_AUDIENCE", service_url),
         ("JEV_MODEL", config.jev_model.as_str()),
+        (CRITIQUE_PROVIDER_ENV, config.critique_provider.as_str()),
     ] {
         let actual = env_value(entries, name);
         if actual != Some(expected) {
@@ -757,6 +799,14 @@ fn parse_optional_secret_version(
     Ok(raw)
 }
 
+fn parse_critique_provider(raw: Option<String>) -> Result<CritiqueProvider, String> {
+    match raw.as_deref() {
+        None | Some("jev") => Ok(CritiqueProvider::Jev),
+        Some("gpt") => Ok(CritiqueProvider::Gpt),
+        _ => Err(format!("{CRITIQUE_PROVIDER_ENV} must be jev or gpt.")),
+    }
+}
+
 fn parse_jev_model(raw: Option<String>) -> Result<String, String> {
     let model = raw.unwrap_or_else(|| DEFAULT_JEV_MODEL.to_string());
     let version = model.strip_prefix("jev-").unwrap_or("");
@@ -857,6 +907,27 @@ mod tests {
         );
         for value in ["", "latest", "0", "-1", " 5", "18446744073709551616"] {
             assert!(parse_optional_secret_version("TEST", Some(value.to_string())).is_err());
+        }
+    }
+
+    #[test]
+    fn critique_provider_defaults_to_jev_and_accepts_only_explicit_supported_values() {
+        assert_eq!(
+            parse_critique_provider(None).unwrap(),
+            CritiqueProvider::Jev
+        );
+        assert_eq!(
+            parse_critique_provider(Some("jev".to_string())).unwrap(),
+            CritiqueProvider::Jev
+        );
+        assert_eq!(
+            parse_critique_provider(Some("gpt".to_string())).unwrap(),
+            CritiqueProvider::Gpt
+        );
+        for value in ["", "JEV", "auto", " gpt", "gpt ", "gpt,OTHER=value"] {
+            assert!(parse_critique_provider(Some(value.to_string()))
+                .unwrap_err()
+                .contains("MEALPLAN_CRITIQUE_PROVIDER"));
         }
     }
 

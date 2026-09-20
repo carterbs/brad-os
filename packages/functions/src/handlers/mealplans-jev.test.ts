@@ -92,21 +92,20 @@ function choiceAnswer(
 }
 
 function validJevResponse(posted: PostedJevRequest): Record<string, unknown> {
-  const matchingCandidates = Object.hasOwn(
-    posted.state,
-    'candidate_evaluations'
-  );
   const answers = Object.fromEntries(
     Object.entries(posted.questions).map(([head, question]) => {
       if (question.type === 'noul') {
-        return [head, { type: 'noul', noul: matchingCandidates ? 1 : 0 }];
+        return [head, { type: 'noul', noul: 1 }];
       }
-      const choice =
-        head === 'request'
-          ? 'change'
-          : head.startsWith('action_')
-            ? 'replace'
-            : Object.keys(question.criteria)[0] ?? '';
+      const choice = head === 'request' ? 'edit'
+        : head === 'scope_review' ? 'correct'
+        : head === 'requirements' ? 'satisfied'
+        : head.startsWith('fit_') ? 'fits'
+        : head.startsWith('family_') ? 'distinct'
+        : head.startsWith('rejection_') ? 'available'
+        : head.startsWith('scope_') ? 'replace'
+        : head === 'meal' ? 'meal_1'
+        : Object.keys(question.criteria)[0] ?? '';
       return [head, choiceAnswer(question, choice)];
     })
   );
@@ -195,7 +194,7 @@ describe('mealplans Jev API flow', () => {
         userMessage: ConversationMessage,
         assistantMessage: ConversationMessage,
         updatedPlan: MealPlanSession['plan']
-      ): Promise<void> => {
+      ): Promise<boolean> => {
         if (id === persistedSession.id) {
           persistedSession = {
             ...persistedSession,
@@ -208,7 +207,7 @@ describe('mealplans Jev API flow', () => {
             updated_at: '2026-09-17T12:00:00.000Z',
           };
         }
-        return Promise.resolve();
+        return Promise.resolve(true);
       }
     );
     mockFetch.mockImplementation(
@@ -256,7 +255,7 @@ describe('mealplans Jev API flow', () => {
     expect(persistedSession.is_finalized).toBe(false);
     expect(persistedSession.history).toHaveLength(2);
 
-    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(mockFetch).toHaveBeenCalledTimes(6);
     for (const [url, init] of mockFetch.mock.calls as Array<
       [string, RequestInit]
     >) {
@@ -276,41 +275,13 @@ describe('mealplans Jev API flow', () => {
     const secondRequest = JSON.parse(
       String((mockFetch.mock.calls[1]?.[1] as RequestInit | undefined)?.body)
     ) as PostedJevRequest;
-    expect(firstRequest.state).toEqual(
-      expect.objectContaining({
-        latest_request: critique,
-        conversation_history: [],
-      })
-    );
-    expect(firstRequest.state).not.toHaveProperty('candidate_evaluations');
-    expect(Object.keys(firstRequest.questions)).toEqual([
-      'request',
-      'action_slot_0',
-      'easier_slot_0',
+    expect(firstRequest.state).toEqual(expect.objectContaining({ latest_request: critique, conversation_history: [] }));
+    expect(firstRequest.state['catalog_meal_names']).toHaveLength(2);
+    expect(Object.keys(firstRequest.questions)).toEqual(['request', 'transfer_pattern', 'scope_0']);
+    expect(Object.keys(secondRequest.questions)).toEqual(['scope_review']);
+    expect(secondRequest.state['requested_actions']).toEqual([
+      'Monday family dinner: final slot filled with a different assignment',
     ]);
-    expect(Object.keys(secondRequest.questions)).toEqual(['match_slot_0_0']);
-    expect(secondRequest.state).toEqual(
-      expect.objectContaining({
-        candidate_evaluations: {
-          match_slot_0_0: {
-            slot_id: 'slot_0',
-            target_slot: expect.objectContaining({
-              meal_id: 'meal-old',
-              meal_name: 'Pasta',
-            }),
-            candidate: {
-              id: 'meal-new',
-              name: 'Chicken Stir Fry',
-              meal_type: 'dinner',
-              audience: 'family',
-              effort: 5,
-              has_red_meat: false,
-              prep_ahead: false,
-            },
-          },
-        },
-      })
-    );
     expectNoUnrelatedMealPlanCalls();
   });
 

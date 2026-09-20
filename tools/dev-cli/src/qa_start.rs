@@ -488,6 +488,13 @@ fn api_health_url(port: u16) -> String {
     format!("http://127.0.0.1:{port}/api/dev/health")
 }
 
+fn local_secret_name(name: &str) -> &str {
+    match name {
+        "TYPESAFE_API_KEY" => "TYPESAFE_API_KEY_DEV",
+        _ => name,
+    }
+}
+
 fn resolve_optional_feature_secrets(project_id: &str) -> Vec<(String, String)> {
     OPTIONAL_FEATURE_SECRETS
         .iter()
@@ -498,6 +505,7 @@ fn resolve_optional_feature_secrets(project_id: &str) -> Vec<(String, String)> {
                 }
             }
 
+            let secret_name = local_secret_name(name);
             let output = Command::new("gcloud")
                 .args([
                     "secrets",
@@ -505,7 +513,7 @@ fn resolve_optional_feature_secrets(project_id: &str) -> Vec<(String, String)> {
                     "access",
                     "latest",
                     "--secret",
-                    name,
+                    secret_name,
                     "--project",
                     project_id,
                     "--quiet",
@@ -518,7 +526,7 @@ fn resolve_optional_feature_secrets(project_id: &str) -> Vec<(String, String)> {
                 }
                 _ => {
                     println!(
-                        "  [warn] Optional secret {name} is unavailable; its dependent local routes may fail."
+                        "  [warn] Optional secret {secret_name} is unavailable; its dependent local routes may fail."
                     );
                     None
                 }
@@ -1038,6 +1046,61 @@ mod tests {
             Some("jev-1.14.0")
         );
         assert!(OPTIONAL_FEATURE_SECRETS.contains(&"TYPESAFE_API_KEY"));
+    }
+
+    #[test]
+    fn local_secret_lookup_uses_dev_typesafe_key_only() {
+        assert_eq!(
+            local_secret_name("TYPESAFE_API_KEY"),
+            "TYPESAFE_API_KEY_DEV"
+        );
+        for name in OPTIONAL_FEATURE_SECRETS {
+            if name != "TYPESAFE_API_KEY" {
+                assert_eq!(local_secret_name(name), name);
+            }
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn local_secret_lookup_loads_dev_key_without_production_fallback() {
+        use std::os::unix::fs::PermissionsExt;
+
+        const CHILD: &str = "BRAD_TEST_JEV_SECRET_CHILD";
+        if env::var_os(CHILD).is_some() {
+            assert_eq!(
+                resolve_optional_feature_secrets("brad-os"),
+                vec![("TYPESAFE_API_KEY".to_string(), "test-dev-key".to_string())]
+            );
+            return;
+        }
+
+        let directory = tempdir().unwrap();
+        let executable = directory.path().join("gcloud");
+        fs::write(
+            &executable,
+            "#!/bin/sh\n[ \"$*\" = 'secrets versions access latest --secret TYPESAFE_API_KEY_DEV --project brad-os --quiet' ] || exit 1\nprintf 'test-dev-key\\n'\n",
+        ).unwrap();
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o755)).unwrap();
+        let mut command = Command::new(env::current_exe().unwrap());
+        command.args([
+            "--exact",
+            "qa_start::tests::local_secret_lookup_loads_dev_key_without_production_fallback",
+            "--nocapture",
+        ]);
+        command.env(CHILD, "1").env("PATH", directory.path());
+        for name in OPTIONAL_FEATURE_SECRETS {
+            command.env_remove(name);
+        }
+        let output = command.output().unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("1 passed"), "{stdout}");
+        assert!(!stdout.contains("test-dev-key"));
     }
 
     #[test]

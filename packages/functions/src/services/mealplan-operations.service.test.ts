@@ -557,6 +557,35 @@ describe('MealPlan Operations Service', () => {
         .toBe('meal-new');
     });
 
+    it('allows an existing repeated meal to exchange slots without increasing its count', () => {
+      const meals = createTestMeals();
+      const plan = [
+        createMealPlanEntry({ day_index: 0, meal_type: 'lunch', meal_id: 'meal-l1', meal_name: 'Sandwich' }),
+        createMealPlanEntry({ day_index: 1, meal_type: 'lunch', meal_id: 'meal-l2', meal_name: 'Salad' }),
+        createMealPlanEntry({ day_index: 6, meal_type: 'lunch', meal_id: 'meal-l1', meal_name: 'Sandwich' }),
+      ];
+      const { updatedPlan, errors } = applyOperations(plan, [
+        { day_index: 0, meal_type: 'lunch', new_meal_id: 'meal-l2' },
+        { day_index: 1, meal_type: 'lunch', new_meal_id: 'meal-l1' },
+      ], meals);
+      expect(errors).toEqual([]);
+      expect(updatedPlan.map((entry) => entry.meal_id)).toEqual(['meal-l2', 'meal-l1', 'meal-l1']);
+      expect(plan.map((entry) => entry.meal_id)).toEqual(['meal-l1', 'meal-l2', 'meal-l1']);
+      const expanded = applyOperations(plan, [{ day_index: 1, meal_type: 'lunch', new_meal_id: 'meal-l1' }], meals);
+      expect(expanded.errors).toEqual([expect.stringContaining('already exists elsewhere')]);
+      expect(expanded.updatedPlan).toEqual(plan);
+    });
+
+    it('does not reuse a formerly higher duplicate count after the saved plan has fewer repeats', () => {
+      const plan = [
+        createMealPlanEntry({ day_index: 0, meal_type: 'lunch', meal_id: 'meal-l1', meal_name: 'Sandwich' }),
+        createMealPlanEntry({ day_index: 1, meal_type: 'lunch', meal_id: 'meal-l2', meal_name: 'Salad' }),
+      ];
+      const result = applyOperations(plan, [{ day_index: 1, meal_type: 'lunch', new_meal_id: 'meal-l1' }], createTestMeals());
+      expect(result.errors).toHaveLength(1);
+      expect(result.updatedPlan).toEqual(plan);
+    });
+
     it('should allow an unrelated edit when the existing plan is already above the prep-ahead limit', () => {
       const plan: MealPlanEntry[] = [
         createMealPlanEntry({ day_index: 0, meal_type: 'lunch', meal_id: 'meal-pa1', meal_name: 'Prep Lunch 1' }),

@@ -6,7 +6,7 @@ export default defineConfig({
     include: [
       'packages/functions/src/**/*.test.ts',
     ],
-    exclude: ['packages/functions/src/__tests__/integration/**'],
+    exclude: ['packages/functions/src/__tests__/integration/**', 'packages/functions/src/__tests__/live/**'],
     setupFiles: ['./packages/functions/src/__tests__/vitest.setup.ts'],
     globals: true,
   },
