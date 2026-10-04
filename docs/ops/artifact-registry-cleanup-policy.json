@@ -1,0 +1,17 @@
+[
+  {
+    "name": "delete-unprotected-after-14d",
+    "action": { "type": "Delete" },
+    "condition": { "tagState": "any", "olderThan": "14d" }
+  },
+  {
+    "name": "keep-three-recent-per-image",
+    "action": { "type": "Keep" },
+    "mostRecentVersions": { "keepCount": 3 }
+  },
+  {
+    "name": "keep-protected-releases",
+    "action": { "type": "Keep" },
+    "condition": { "tagState": "tagged", "tagPrefixes": ["retain-"] }
+  }
+]

@@ -23,6 +23,13 @@ Production and local development use the same standalone Express service. No Fir
 Functions are deployed or retained as a local adapter. Firebase Hosting remains the
 production front door; automated integration tests retain only the Firestore emulator.
 
+Artifact Registry deletes unprotected builds older than 14 days while keeping the
+three most recent builds per image. Before candidate validation and after promotion
+or rollback, maintain the `retain-*` registry tags for current, rollback, and intentional
+candidate images. The cleanup policy does not inspect live traffic or Hosting pins.
+Follow [Container image retention](../ops/container-image-retention.md) as part of
+every deployment; continue deploying exact image digests.
+
 ## Scaling and startup guardrails
 
 The deploy command sets both Cloud Run scaling controls:
