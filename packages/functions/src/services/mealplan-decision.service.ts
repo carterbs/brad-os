@@ -1,3 +1,4 @@
+import { activeMealPlanSession, adultBreakfastEnabled } from './mealplan-features.service.js';
 import type { CritiqueContext, CritiqueOperation, CritiqueResponse, JevAnswer, JevQuestion, Meal, MealPlanEntry, MealPlanSession } from '../shared.js';
 import { AppError } from '../types/errors.js';
 import { logger } from '../runtime/logger.js';
@@ -203,7 +204,8 @@ export async function processJevCritique(savedSession: MealPlanSession, forwarde
   // Source precedence is established before inference. The persisted request
   // remains lossless; this separate evidence view presents original user words.
   const critique = context?.original_request?.trim() ? context.original_request : forwardedCritique;
-  const session: MealPlanSession = { ...savedSession, history: savedSession.history.map((message) =>
+  const activeSession = activeMealPlanSession(savedSession);
+  const session: MealPlanSession = { ...activeSession, history: activeSession.history.map((message) =>
     message.role === 'user' && message.context?.original_request?.trim()
       ? { ...message, content: message.context.original_request, forwarded_content: message.content }
       : message
@@ -215,13 +217,13 @@ export async function processJevCritique(savedSession: MealPlanSession, forwarde
   if (!/^\d+$/.test(timeoutText) || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1000 || timeoutMs > 120000) throw new AppError(500, 'JEV_INVALID_CONFIG', 'JEV_TIMEOUT_MS must be an integer from 1000 to 120000.');
   const signal = AbortSignal.timeout(timeoutMs);
   const state: Record<string, unknown> = {
-    latest_request: critique, forwarded_critique: forwardedCritique, context: context ?? {}, rules: POLICY, current_plan: planEvidence(session.plan),
+    latest_request: critique, forwarded_critique: forwardedCritique, context: context ?? {}, rules: { ...POLICY, available_slots: adultBreakfastEnabled() ? 'Both family and adult breakfasts are enabled.' : 'Adult breakfasts are disabled. Only kid/family breakfasts, family lunch and family dinner are available. Unqualified breakfast means kid/family breakfast. Never substitute a family breakfast for a request specifically for adult breakfast; classify that request as infeasible.' }, current_plan: planEvidence(session.plan),
     catalog_columns: 'choice | exact ID | name | meal type | audience | effort 1-10 | prep ahead | red meat | last planned',
     catalog: session.meals_snapshot.map(evidence), conversation_history: session.history, chronological_exchange: chronologicalExchange,
     planning_date: context?.planning_week_start ?? [...session.history].reverse().find((message) => message.context?.planning_week_start)?.context?.planning_week_start ?? session.created_at,
   };
   const scopeState = { latest_request: critique, forwarded_critique: forwardedCritique, context: context ?? {}, current_plan: planEvidence(session.plan), conversation_history: session.history, chronological_exchange: chronologicalExchange,
-    catalog_meal_names: session.meals_snapshot.map((meal) => meal.name), rules: { intent: POLICY.intent, references: POLICY.references, evidence: POLICY.evidence } };
+    catalog_meal_names: session.meals_snapshot.map((meal) => meal.name), rules: { intent: POLICY.intent, references: POLICY.references, evidence: POLICY.evidence, available_slots: adultBreakfastEnabled() ? 'Both breakfast audiences are enabled.' : 'Adult breakfasts are disabled. Breakfast means kid/family breakfast unless explicitly adult; explicit adult breakfast edits are infeasible and must never edit family slots.' } };
   let actions: string[] = [];
   let proposedScope: string[] = [];
   let audienceConflicts: string[] = [];

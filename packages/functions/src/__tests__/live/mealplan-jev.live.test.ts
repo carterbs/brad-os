@@ -210,6 +210,8 @@ async function critique(
 }
 
 beforeAll(async () => {
+  // Historical replay/confirmation fixtures intentionally exercise both breakfast audiences.
+  vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'true');
   // Refuse real databases; this suite intentionally seeds disposable records.
   if (process.env['FIRESTORE_EMULATOR_HOST'] !== '127.0.0.1:8080') throw new Error('Start the local Firestore emulator and set FIRESTORE_EMULATOR_HOST=127.0.0.1:8080');
   process.env['GOOGLE_CLOUD_PROJECT'] = 'demo-jev-eval';
@@ -318,6 +320,7 @@ afterAll(async () => {
     await http?.close();
   } finally {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
     delete process.env['TYPESAFE_API_KEY'];
     if (db) await db.terminate();
   }

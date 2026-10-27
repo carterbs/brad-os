@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import type { Meal, MealPlanEntry } from '../shared.js';
 import { createMeal, createMealPlanEntry, createMealPlanSession } from '../__tests__/utils/index.js';
 import { feasibleChoices } from './mealplan-feasibility.service.js';
@@ -174,3 +174,7 @@ describe('meal-plan structural feasibility', () => {
     expect(feasibleChoices(session, empty(plan), new Map([[0, []]])).status).toBe('infeasible');
   });
 });
+
+// These legacy behavior cases explicitly exercise the enabled feature.
+beforeEach(() => vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'true'));
+afterEach(() => vi.unstubAllEnvs());

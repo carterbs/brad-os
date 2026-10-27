@@ -1,3 +1,4 @@
+import { activeMealPlan } from './mealplan-features.service.js';
 import type {
   MealPlanEntry,
   Recipe,
@@ -78,7 +79,7 @@ export function buildShoppingList(
   }
 
   // Extract non-null meal_ids from plan (do NOT deduplicate — same meal on multiple days should sum)
-  const mealIds = plan
+  const mealIds = activeMealPlan(plan)
     .map((e) => e.meal_id)
     .filter((id): id is string => id !== null);
 

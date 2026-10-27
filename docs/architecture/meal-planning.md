@@ -35,6 +35,7 @@ MealPlanView -> MealPlanViewModel -> APIClient -> mealplans/meals handlers -> Ge
   - `packages/functions/src/handlers/barcodes.ts` — barcode CRUD via createResourceRouter
 - **Services:**
   - `packages/functions/src/services/mealplan-generation.service.ts` — constraint-based plan generation
+  - `packages/functions/src/services/mealplan-features.service.ts` — runtime breakfast flag, active plan/catalog projection, and preservation of disabled saved assignments
   - `packages/functions/src/services/mealplan-critique.service.ts` — direct JEV critique entry point
   - `packages/functions/src/services/mealplan-decision.service.ts` — scope resolution, food suitability and actual JEV meal choices
   - `packages/functions/src/services/mealplan-feasibility.service.ts` — bounded structural feasibility proofs for offered choices
@@ -72,10 +73,14 @@ MealPlanView -> MealPlanViewModel -> APIClient -> mealplans/meals handlers -> Ge
 - Meals have an `audience`: `family` or `adult`. Existing records without `audience` decode as `family`.
 - Plan entries have a `meal_track`: `family` or `adult`. Existing entries without `meal_track` decode as `family`.
 - Slot identity is `day_index + meal_track + meal_type`; this lets a family breakfast and Brad breakfast coexist on the same day.
-- Generated weekly plans contain 28 entries: 7 family breakfasts, 7 adult breakfasts, 7 family lunches, and 7 family dinners.
+- Adult breakfast planning is controlled by the API runtime environment variable `ADULT_BREAKFAST_ENABLED`. It defaults to disabled; only the exact value `true` enables it.
+- With adult breakfasts disabled, generated weekly plans contain 21 entries: 7 kid/family breakfasts, 7 family lunches, and 7 family dinners. With the flag enabled, the additional 7 adult breakfasts produce 28 entries.
+- Session read/generation responses expose `feature_flags.adult_breakfast_enabled` for API clients. The iOS app and widget use their own shared `ADULT_BREAKFAST_ENABLED` Xcode build setting, defaulting to `NO`, and filter legacy cached plans before display or shopping calculations. They do not consume the API metadata; enable both API runtime and app/widget build flags together to restore the feature. Build with `ADULT_BREAKFAST_ENABLED=YES` when intentionally enabling it; a launch environment override supports simulator QA.
+- Disabling the feature preserves existing adult meal definitions and stored plan assignments. API reads, AI planning context, active edits, and shopping lists exclude adult breakfasts while disabled; active edits retain the disabled saved assignments for later re-enablement.
+- Finalizing while disabled preserves those stored assignments and excludes adult breakfast meals from `last_planned` updates. Conversation prose remains saved; structured disabled-slot operations and previous assignments are excluded from the active AI/API history view.
 - Generation uses strict eligibility: family slots only select `audience=family` meals, adult breakfast slots only select `audience=adult` breakfast meals.
-- If there are fewer than 7 adult breakfast meals, generation may repeat adult breakfast meals across the week. If there are zero adult breakfast meals, generation fails clearly instead of falling back to family breakfasts.
-- Stable display order is family breakfast, adult breakfast, family lunch, then family dinner.
+- When adult breakfasts are enabled and there are fewer than 7 adult breakfast meals, generation may repeat adult breakfast meals across the week. If there are zero adult breakfast meals, generation fails clearly instead of falling back to family breakfasts. Disabled adult breakfasts impose no catalog requirement.
+- Stable display order is kid/family breakfast, adult breakfast when enabled, family lunch, then family dinner.
 
 ## Key Endpoints
 
@@ -125,7 +130,7 @@ Jev returns typed selections, not generated operations or explanation prose. Bra
 - Plan generation continues using the existing constraint-based logic (audience eligibility, effort limits, red meat limits, prep-ahead rules, meal type distribution); it does not require a TypeSafe key.
 - No external calendar integration or scheduled-agent workflow is added by the Jev critique replacement. OpenClaw's calendar reads, normal generation command, saved-draft verification, Telegram delivery, and approval process remain separate.
 - Critique operations include `meal_track`; missing legacy values default to `family`. Replacement validation enforces both `meal_type` and `audience`.
-- Shopping list generation includes every planned entry, including adult breakfast entries.
+- Shopping list generation includes active planned entries. Adult breakfast ingredients are excluded while the feature is disabled, including for previously saved 28-entry plans.
 - MealPlanCacheService stores finalized plan in App Group shared container for widget access
 - Widget reads from cache (no API calls); refreshes at midnight + on-demand via WidgetCenter
 - Sessions track full conversation history for multi-turn critique
@@ -135,10 +140,11 @@ Jev returns typed selections, not generated operations or explanation prose. Bra
 - Configure `TYPESAFE_API_KEY` and a pinned `JEV_MODEL` before enabling critique/revision. See [Cloud Run deployment](../guides/deploying-cloud-run.md) for numeric secret-version binding.
 - Evaluate supported requests, ambiguity, and candidate matching against real TypeSafe responses before enabling the candidate.
 - Verify unsupported requests leave the saved plan unchanged and neither critique nor revision finalizes a draft or generates a shopping list.
-- Seed at least one `audience=adult`, `meal_type=breakfast` meal before enabling generation in an environment.
-- Prefer at least 7 adult breakfast meals to avoid repeats, but repeats are allowed until the catalog is complete.
-- Verify `POST /mealplans/generate` returns 28 entries and includes both breakfast tracks for each `day_index`.
-- Verify `POST /mealplans/:sessionId/finalize` produces a shopping list that includes adult breakfast ingredients.
+- With `ADULT_BREAKFAST_ENABLED` absent or false, verify generation returns 21 entries, kid breakfasts remain visible throughout the app and widget, and saved adult breakfast ingredients are absent from shopping lists.
+- Read and edit an existing 28-entry plan while disabled; verify the API presents 21 entries and disabled saved assignments remain intact in storage.
+- Before enabling `ADULT_BREAKFAST_ENABLED=true`, seed at least one `audience=adult`, `meal_type=breakfast` meal. Prefer at least 7 to avoid repeats, but repeats are allowed until the catalog is complete.
+- With the flag enabled, verify generation returns 28 entries with both breakfast tracks for each `day_index` and shopping lists include adult breakfast ingredients.
+- The Cloud Run deployment command uses an explicit runtime environment allowlist and does not forward arbitrary local environment variables. Default-off rollout needs no flag override; enabling the flag requires setting it on the API runtime explicitly and preserving that setting in subsequent deployments.
 
 ## See Also
 

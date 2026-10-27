@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import type { Meal, MealPlanEntry, MealTrack } from '../shared.js';
 import { createMeal, createMealPlanEntry, createMealPlanSession } from '../__tests__/utils/index.js';
 import { feasibleChoices } from './mealplan-feasibility.service.js';
@@ -107,3 +107,7 @@ describe('prep-ahead capacity by audience', () => {
     expect(possible.explanation).toBeUndefined();
   });
 });
+
+// These legacy behavior cases explicitly exercise the enabled feature.
+beforeEach(() => vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'true'));
+afterEach(() => vi.unstubAllEnvs());

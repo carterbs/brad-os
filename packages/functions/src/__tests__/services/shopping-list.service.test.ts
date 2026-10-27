@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { buildShoppingList } from '../../services/shopping-list.service.js';
 import type { MealPlanEntry, Recipe, Ingredient } from '../../shared.js';
 
@@ -388,5 +388,25 @@ describe('buildShoppingList', () => {
     expect(result.sections).toHaveLength(2);
     expect(result.sections[0]!.name).toBe('Produce');
     expect(result.sections[1]!.name).toBe('unknown_section');
+  });
+});
+
+// Legacy cases explicitly exercise the enabled feature.
+beforeEach(() => vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'true'));
+afterEach(() => vi.unstubAllEnvs());
+
+
+describe('disabled adult breakfast shopping', () => {
+  it('excludes adult-only ingredients and removes adult quantities from shared ingredients', () => {
+    vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'false');
+    const plan = [entry('kid'), { ...entry('adult'), meal_track: 'adult' as const, meal_type: 'breakfast' as const }];
+    const recipes = [recipe('kid', [{ ingredient_id: 'shared', quantity: 2, unit: 'cups' }]), recipe('adult', [{ ingredient_id: 'shared', quantity: 3, unit: 'cups' }, { ingredient_id: 'adult-only', quantity: 1, unit: 'count' }])];
+    const ingredients = [ingredient('shared', 'Milk', 'dairy_and_eggs'), ingredient('adult-only', 'Protein', 'pantry_staples')];
+    const result = buildShoppingList(plan, recipes, ingredients);
+    expect(result.sections.flatMap((section) => section.items)).toMatchObject([{ ingredient_id: 'shared', total_quantity: 2, meal_count: 1 }]);
+    vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'true');
+    const restored = buildShoppingList(plan, recipes, ingredients).sections.flatMap((section) => section.items);
+    expect(restored).toHaveLength(2);
+    expect(restored.find((item) => item.ingredient_id === 'shared')?.total_quantity).toBe(5);
   });
 });

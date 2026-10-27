@@ -251,7 +251,7 @@ describe('mealplans Jev API flow', () => {
     const getResponse = await request(mealplansApp).get('/session-jev');
     const getBody = getResponse.body as ApiResponse<MealPlanSession>;
     expect(getResponse.status).toBe(200);
-    expect(getBody).toEqual({ success: true, data: persistedSession });
+    expect(getBody).toEqual({ success: true, data: { ...persistedSession, feature_flags: { adult_breakfast_enabled: false } } });
     expect(persistedSession.is_finalized).toBe(false);
     expect(persistedSession.history).toHaveLength(2);
 

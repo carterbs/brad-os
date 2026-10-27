@@ -32,6 +32,10 @@ public class MealPlanViewModel: ObservableObject {
 
     // MARK: - Dependencies
 
+    public let featureFlags: MealPlanFeatureFlags
+
+    public var visiblePlan: [MealPlanEntry] { featureFlags.visibleEntries(in: currentPlan) }
+
     private let apiClient: APIClientProtocol
     private let recipeCache: RecipeCacheService
     private let remindersService: RemindersServiceProtocol
@@ -46,8 +50,10 @@ public class MealPlanViewModel: ObservableObject {
         recipeCache: RecipeCacheService? = nil,
         remindersService: RemindersServiceProtocol = RemindersService(),
         cacheService: MealPlanCacheServiceProtocol? = nil,
-        userDefaults: UserDefaultsProtocol = UserDefaults.standard
+        userDefaults: UserDefaultsProtocol = UserDefaults.standard,
+        featureFlags: MealPlanFeatureFlags = .current
     ) {
+        self.featureFlags = featureFlags
         self.apiClient = apiClient
         self.recipeCache = recipeCache ?? RecipeCacheService.shared
         self.remindersService = remindersService
@@ -266,7 +272,7 @@ public class MealPlanViewModel: ObservableObject {
 
     /// Get entries filtered and sorted for a specific meal type
     public func entriesForMealType(_ mealType: MealType) -> [MealPlanEntry] {
-        currentPlan
+        visiblePlan
             .filter { $0.mealType == mealType }
             .sorted {
                 if $0.dayIndex != $1.dayIndex {
@@ -296,7 +302,7 @@ public class MealPlanViewModel: ObservableObject {
 
     /// Whether a slot supports interaction (false for entries with no mealId, e.g. "Eating out")
     public func isSlotInteractive(_ entry: MealPlanEntry) -> Bool {
-        entry.mealId != nil
+        entry.mealId != nil && featureFlags.includes(track: entry.mealTrack, type: entry.mealType)
     }
 
     /// Toggle swap for an entry's slot
@@ -391,9 +397,10 @@ public class MealPlanViewModel: ObservableObject {
     }
 
     private func updateShoppingList() async {
-        let totalEntries = currentPlan.count
-        let nilSlots = currentPlan.filter { $0.mealId == nil }
-        let mealIds = currentPlan.compactMap { $0.mealId }
+        let plan = visiblePlan
+        let totalEntries = plan.count
+        let nilSlots = plan.filter { $0.mealId == nil }
+        let mealIds = plan.compactMap { $0.mealId }
 
         shoppingLog.info("[updateShoppingList] plan has \(totalEntries) entries, \(mealIds.count) with mealId, \(nilSlots.count) nil slots")
         if !nilSlots.isEmpty {
@@ -406,12 +413,13 @@ public class MealPlanViewModel: ObservableObject {
 
         // Check which meals have recipes and which don't
         var missingRecipeMeals: [String] = []
-        for entry in currentPlan where entry.mealId != nil {
-            let hasRecipe = recipeCache.recipe(forMealId: entry.mealId!) != nil
+        for entry in plan {
+            guard let mealId = entry.mealId else { continue }
+            let hasRecipe = recipeCache.recipe(forMealId: mealId) != nil
             let symbol = hasRecipe ? "+" : "MISSING"
-            shoppingLog.info("[meal→recipe] \(symbol, privacy: .public) \(entry.slotKey, privacy: .public): \(entry.mealName ?? "?", privacy: .public) (id=\(entry.mealId!, privacy: .public))")
+            shoppingLog.info("[meal→recipe] \(symbol, privacy: .public) \(entry.slotKey, privacy: .public): \(entry.mealName ?? "?", privacy: .public) (id=\(mealId, privacy: .public))")
             if !hasRecipe {
-                missingRecipeMeals.append(entry.mealName ?? entry.mealId!)
+                missingRecipeMeals.append(entry.mealName ?? mealId)
             }
         }
 

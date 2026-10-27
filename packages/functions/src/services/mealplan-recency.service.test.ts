@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { MealPlanEntry, MealPlanSession } from '../shared.js';
 import {
   createMealPlanEntry,
@@ -221,4 +221,23 @@ describe('MealPlan Recency Service', () => {
     expect(sessionRepository.findAll).not.toHaveBeenCalled();
     expect(mealRepository.updateLastPlanned).not.toHaveBeenCalled();
   });
+});
+
+beforeEach(() => vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'true'));
+afterEach(() => vi.unstubAllEnvs());
+
+
+it.each(['revise', 'delete'])('preserves disabled adult recency during legacy finalized %s', async (action) => {
+  vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'false');
+  const adult = planEntry('adult', { meal_track: 'adult', meal_type: 'breakfast' });
+  const previousPlan = [planEntry('old-kid', { meal_type: 'breakfast' }), adult];
+  const nextPlan = action === 'delete' ? [] : [planEntry('new-kid', { meal_type: 'breakfast' }), adult];
+  const mealRepository = createMockMealRepository();
+  const sessionRepository = createMockMealPlanSessionRepository();
+  sessionRepository.findAll.mockResolvedValue([finalizedSession({ plan: nextPlan })]);
+  const result = await reconcileMealLastPlannedForPlanChange({ previousPlan, nextPlan, mealRepository, sessionRepository });
+  expect(result.affectedMealIds).toEqual(action === 'delete' ? ['old-kid'] : ['new-kid', 'old-kid']);
+  expect(mealRepository.updateLastPlanned).toHaveBeenCalledTimes(action === 'delete' ? 1 : 2);
+  expect(mealRepository.updateLastPlanned).not.toHaveBeenCalledWith('adult', expect.anything());
+  expect(mealRepository.updateLastPlanned).not.toHaveBeenCalledWith('adult', null);
 });

@@ -1,3 +1,4 @@
+import { adultBreakfastEnabled, mealPlanSlotEnabled } from './mealplan-features.service.js';
 import type { Meal, MealType, MealTrack, MealPlanEntry } from '../shared.js';
 import { countPrepAheadByTrack, findPrepAheadErrors, prepAheadLimit } from './mealplan-prep-policy.service.js';
 
@@ -139,7 +140,7 @@ function selectFromPools(pools: Meal[][], usedMealIds: Set<string>): Meal | unde
  * Generates a complete 7-day meal plan using best-effort constraint satisfaction.
  *
  * Constraints (applied in priority order, relaxed as needed):
- * 1. 7 days (Mon=0 .. Sun=6) x 4 slots = 28 slots
+ * 1. 7 days (Mon=0 .. Sun=6) x 3 slots = 21 slots, or 28 with adult breakfast enabled
  * 2. Family/adult slots only use meals with the matching audience
  * 3. Breakfast/lunch: prefer effort <= 2, fall back to any effort
  * 3. Dinner effort varies by day (see DINNER_EFFORT_BY_DAY), relaxed if needed
@@ -165,7 +166,7 @@ export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
   };
 
   // Step 1: Assign family breakfast, adult breakfast, and family lunch.
-  for (const slot of REQUIRED_SLOTS.filter((s) => s.mealType !== 'dinner')) {
+  for (const slot of REQUIRED_SLOTS.filter((s) => s.mealType !== 'dinner' && (s.mealTrack !== 'adult' || adultBreakfastEnabled()))) {
     for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
       // Build progressively relaxed candidate pools.
       // Key invariant: the LAST pool must be non-prep, because selectFromPools
@@ -307,14 +308,15 @@ export function validatePlan(plan: MealPlanEntry[], meals: Meal[]): string[] {
     mealMap.set(meal.id, meal);
   }
 
-  // Check 28 slots
-  if (plan.length !== 28) {
-    errors.push(`Expected 28 slots, got ${plan.length}`);
+  // Check the active slot matrix.
+  const expectedSlots = adultBreakfastEnabled() ? 28 : 21;
+  if (plan.length !== expectedSlots) {
+    errors.push(`Expected ${expectedSlots} slots, got ${plan.length}`);
   }
 
   // Check each day has the canonical slot matrix
   for (let day = 0; day < 7; day++) {
-    for (const slot of REQUIRED_SLOTS) {
+    for (const slot of REQUIRED_SLOTS.filter((slot) => slot.mealTrack !== 'adult' || adultBreakfastEnabled())) {
       const entry = plan.find((e) =>
         e.day_index === day &&
         e.meal_track === slot.mealTrack &&
@@ -325,6 +327,8 @@ export function validatePlan(plan: MealPlanEntry[], meals: Meal[]): string[] {
       }
     }
   }
+
+  if (plan.some((entry) => !mealPlanSlotEnabled(entry))) errors.push('Adult breakfast is disabled');
 
   // Check no duplicate meal IDs, except adult breakfasts may repeat when fewer
   // than seven adult breakfast meals exist.

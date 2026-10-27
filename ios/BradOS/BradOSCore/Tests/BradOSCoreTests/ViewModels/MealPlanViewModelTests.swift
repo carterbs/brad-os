@@ -206,13 +206,14 @@ struct MealPlanViewModelTests {
         #expect(cacheService.screenCacheReadCount == 1)
     }
 
-    @Test("entriesForMealType preserves family and adult breakfast slots")
-    func entriesForMealTypePreservesFamilyAndAdultBreakfastSlots() {
+    @Test("entriesForMealType respects the breakfast flag", arguments: [false, true])
+    func entriesForMealTypePreservesFamilyAndAdultBreakfastSlots(enabled: Bool) {
         let vm = MealPlanViewModel(
             apiClient: MockAPIClient(),
             recipeCache: RecipeCacheService(apiClient: MockAPIClient()),
             cacheService: RecordingMealPlanCacheService(),
-            userDefaults: MockUserDefaults()
+            userDefaults: MockUserDefaults(),
+            featureFlags: MealPlanFeatureFlags(adultBreakfastEnabled: enabled)
         )
         vm.currentPlan = [
             makePlanEntry(dayIndex: 0, mealTrack: .adult, mealType: .breakfast, mealId: "adult", mealName: "Protein Oats"),
@@ -222,13 +223,17 @@ struct MealPlanViewModelTests {
 
         let breakfasts = vm.entriesForMealType(.breakfast)
 
-        #expect(breakfasts.map(\.mealTrack) == [.family, .adult])
-        #expect(breakfasts.map(\.mealName) == ["Pancakes", "Protein Oats"])
+        #expect(breakfasts.map(\.mealTrack) == (enabled ? [.family, .adult] : [.family]))
+        #expect(breakfasts.map(\.mealName) == (enabled ? ["Pancakes", "Protein Oats"] : ["Pancakes"]))
+        #expect(vm.currentPlan.count == 3)
+        let adult = vm.currentPlan[0]
+        vm.toggleSwap(for: adult)
+        #expect(vm.queuedActions.count == (enabled ? 1 : 0))
     }
 
-    @Test("shopping list includes adult breakfast meal ids")
+    @Test("shopping list respects the breakfast flag", arguments: [false, true])
     @MainActor
-    func shoppingListIncludesAdultBreakfastMealIds() async {
+    func shoppingListIncludesAdultBreakfastMealIds(enabled: Bool) async {
         let mock = MockAPIClient()
         mock.mockIngredients = [
             makeIngredient(id: "ingredient-1", name: "Oats", storeSection: "Snacks & Cereal"),
@@ -264,13 +269,15 @@ struct MealPlanViewModelTests {
             apiClient: mock,
             recipeCache: RecipeCacheService(apiClient: mock),
             cacheService: RecordingMealPlanCacheService(cachedSession: session),
-            userDefaults: MockUserDefaults()
+            userDefaults: MockUserDefaults(),
+            featureFlags: MealPlanFeatureFlags(adultBreakfastEnabled: enabled)
         )
 
         await vm.loadExistingSession()
         await vm.prepareShoppingList()
 
-        #expect(shoppingItemNames(vm.shoppingList) == ["Oats"])
+        #expect(shoppingItemNames(vm.shoppingList) == (enabled ? ["Oats"] : []))
+        #expect(vm.session?.plan.count == 1)
     }
 
     @Test("loadExistingSession uses saved session id when present")

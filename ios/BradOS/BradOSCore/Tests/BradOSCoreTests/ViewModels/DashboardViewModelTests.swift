@@ -175,7 +175,7 @@ struct DashboardViewModelTests {
         let staleSession = MealPlanSession(
             id: "stale-session",
             plan: [
-                MealPlanEntry(dayIndex: 6, mealType: .breakfast, mealId: "meal-1", mealName: "Old Breakfast")
+                MealPlanEntry(dayIndex: DashboardViewModel.calendarWeekdayToDayIndex(), mealType: .breakfast, mealId: "meal-1", mealName: "Old Breakfast")
             ],
             mealsSnapshot: [
                 Meal(
@@ -197,7 +197,7 @@ struct DashboardViewModelTests {
         let latestSession = MealPlanSession(
             id: "latest-session",
             plan: [
-                MealPlanEntry(dayIndex: 6, mealType: .dinner, mealId: "meal-2", mealName: "New Dinner")
+                MealPlanEntry(dayIndex: DashboardViewModel.calendarWeekdayToDayIndex(), mealType: .dinner, mealId: "meal-2", mealName: "New Dinner")
             ],
             mealsSnapshot: [
                 Meal(
@@ -238,15 +238,15 @@ struct DashboardViewModelTests {
         #expect(vm.todayMeals.map(\.mealName) == ["New Dinner"])
     }
 
-    @Test("today meals preserves both breakfast tracks")
+    @Test("Today respects the breakfast flag from API and cache", arguments: [false, true], [false, true])
     @MainActor
-    func todayMealsPreservesBothBreakfastTracks() async {
+    func todayMealsPreservesBothBreakfastTracks(enabled: Bool, cached: Bool) async {
         let latestSession = MealPlanSession(
             id: "latest-session",
             plan: [
-                MealPlanEntry(dayIndex: 6, mealTrack: .adult, mealType: .breakfast, mealId: "meal-2", mealName: "Protein Oats"),
-                MealPlanEntry(dayIndex: 6, mealType: .breakfast, mealId: "meal-1", mealName: "Pancakes"),
-                MealPlanEntry(dayIndex: 6, mealType: .lunch, mealId: "meal-3", mealName: "Wrap"),
+                MealPlanEntry(dayIndex: DashboardViewModel.calendarWeekdayToDayIndex(), mealTrack: .adult, mealType: .breakfast, mealId: "meal-2", mealName: "Protein Oats"),
+                MealPlanEntry(dayIndex: DashboardViewModel.calendarWeekdayToDayIndex(), mealType: .breakfast, mealId: "meal-1", mealName: "Pancakes"),
+                MealPlanEntry(dayIndex: DashboardViewModel.calendarWeekdayToDayIndex(), mealType: .lunch, mealId: "meal-3", mealName: "Wrap"),
             ],
             mealsSnapshot: [],
             history: [],
@@ -258,15 +258,43 @@ struct DashboardViewModelTests {
         mock.mockLatestMealPlanSession = latestSession
         let vm = DashboardViewModel(
             apiClient: mock,
-            cacheService: RecordingMealPlanCacheService(),
-            userDefaults: MockUserDefaults()
+            cacheService: RecordingMealPlanCacheService(cachedSession: cached ? latestSession : nil),
+            userDefaults: MockUserDefaults(),
+            featureFlags: MealPlanFeatureFlags(adultBreakfastEnabled: enabled)
         )
 
-        await vm.refreshMealPlan(forceRefresh: true)
+        await vm.refreshMealPlan()
 
-        #expect(vm.todayMeals.map(\.mealTrack) == [.family, .adult, .family])
-        #expect(vm.todayMeals.map(\.mealName) == ["Pancakes", "Protein Oats", "Wrap"])
+        #expect(vm.todayMeals.map(\.mealTrack) == (enabled ? [.family, .adult, .family] : [.family, .family]))
+        #expect(vm.todayMeals.map(\.mealName) == (enabled ? ["Pancakes", "Protein Oats", "Wrap"] : ["Pancakes", "Wrap"]))
     }
+
+    @Test("Prep reminders respect the breakfast flag", arguments: [false, true])
+    @MainActor
+    func prepRemindersRespectFlag(enabled: Bool) async {
+        let tomorrow = (DashboardViewModel.calendarWeekdayToDayIndex() + 1) % 7
+        let session = MealPlanSession(
+            id: "prep-session",
+            plan: [
+                MealPlanEntry(dayIndex: tomorrow, mealType: .breakfast, mealId: "kids", mealName: "Kids Oats"),
+                MealPlanEntry(dayIndex: tomorrow, mealTrack: .adult, mealType: .breakfast, mealId: "adult", mealName: "Adult Oats")
+            ],
+            mealsSnapshot: ["kids", "adult"].map { id in
+                Meal(id: id, name: id, mealType: .breakfast, effort: 1, hasRedMeat: false,
+                     prepAhead: true, createdAt: Date(), updatedAt: Date())
+            },
+            history: [], isFinalized: true, createdAt: Date(), updatedAt: Date()
+        )
+        let vm = DashboardViewModel(
+            apiClient: MockAPIClient(),
+            cacheService: RecordingMealPlanCacheService(cachedSession: session),
+            userDefaults: MockUserDefaults(),
+            featureFlags: MealPlanFeatureFlags(adultBreakfastEnabled: enabled)
+        )
+        await vm.refreshMealPlan()
+        #expect(vm.prepAheadMeals.map(\.mealId) == (enabled ? ["kids", "adult"] : ["kids"]))
+    }
+
 }
 
 private final class RecordingMealPlanCacheService: MealPlanCacheServiceProtocol, @unchecked Sendable {

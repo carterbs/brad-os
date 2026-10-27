@@ -233,7 +233,7 @@ struct MealPlanEntryTests {
         #expect(family.id == "0-family-breakfast")
         #expect(adult.id == "0-adult-breakfast")
         #expect(family.id != adult.id)
-        #expect(family.displayLabel == "Family Breakfast")
+        #expect(family.displayLabel == "Kids Breakfast")
         #expect(adult.displayLabel == "Adult Breakfast")
     }
 }
@@ -411,7 +411,7 @@ struct GenerateMealPlanResponseTests {
 }
 
 @Suite("MealPlanSession")
-struct MealPlanSessionTests {
+struct MealPlanSessionResponseTests {
 
     @Test("decodes full session from server JSON")
     func decodesFullSession() throws {

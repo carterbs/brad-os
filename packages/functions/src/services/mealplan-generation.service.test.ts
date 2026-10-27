@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Meal } from '../shared.js';
 import { generateMealPlan, validatePlan } from './mealplan-generation.service.js';
 
@@ -1123,5 +1123,28 @@ describe('MealPlan Generation Service', () => {
         expect(errors).toEqual([]);
       }
     });
+  });
+});
+
+// These legacy behavior cases explicitly exercise the enabled feature.
+beforeEach(() => vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'true'));
+afterEach(() => vi.unstubAllEnvs());
+
+
+describe('Adult breakfast flag disabled', () => {
+  it('generates and validates 21 slots without an adult breakfast catalog', () => {
+    vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'false');
+    const meals = createRealisticMealSet().filter((meal) => meal.audience !== 'adult');
+    const plan = generateMealPlan(meals);
+    expect(plan).toHaveLength(21);
+    expect(plan.every((entry) => entry.meal_track === 'family')).toBe(true);
+    expect(validatePlan(plan, meals)).toEqual([]);
+  });
+  it('rejects a previously generated 28-slot plan while disabled', () => {
+    const meals = createRealisticMealSet();
+    const legacy = generateMealPlan(meals);
+    vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'false');
+    expect(validatePlan(legacy, meals)).toContain('Adult breakfast is disabled');
+    expect(validatePlan(legacy, meals)).toContain('Expected 21 slots, got 28');
   });
 });

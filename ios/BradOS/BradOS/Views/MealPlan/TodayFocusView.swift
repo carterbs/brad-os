@@ -121,7 +121,7 @@ struct TodayFocusView: View {
     // MARK: - Helpers
 
     private func entriesForDay(_ dayIndex: Int) -> [MealPlanEntry] {
-        plan.filter { $0.dayIndex == dayIndex }
+        MealPlanFeatureFlags.current.visibleEntries(in: plan).filter { $0.dayIndex == dayIndex }
             .sorted { $0.slotSortOrder < $1.slotSortOrder }
     }
 

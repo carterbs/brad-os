@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Meal, MealPlanEntry, CritiqueOperation } from '../shared.js';
 import { createMeal, createMealPlanEntry } from '../__tests__/utils/index.js';
 import { applyOperations } from './mealplan-operations.service.js';
@@ -627,3 +627,7 @@ describe('MealPlan Operations Service', () => {
     });
   });
 });
+
+// These legacy behavior cases explicitly exercise the enabled feature.
+beforeEach(() => vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'true'));
+afterEach(() => vi.unstubAllEnvs());

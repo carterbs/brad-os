@@ -1,3 +1,4 @@
+import { activeMealPlan, mealPlanSlotEnabled } from './mealplan-features.service.js';
 import type { MealPlanEntry, CritiqueOperation, ApplyOperationsResult } from '../shared.js';
 import type { Meal, MealTrack, MealType } from '../shared.js';
 import { findPrepAheadErrors } from './mealplan-prep-policy.service.js';
@@ -98,6 +99,10 @@ export function applyOperations(
 
   for (const op of operations) {
     const mealTrack = getMealTrack(op);
+    if (!mealPlanSlotEnabled(op)) {
+      errors.push('Adult breakfast is disabled');
+      continue;
+    }
 
     // Validate dayIndex
     if (!Number.isInteger(op.day_index) || op.day_index < 0 || op.day_index > 6) {
@@ -178,9 +183,9 @@ export function applyOperations(
   }
 
   errors.push(
-    ...findDuplicateMealErrors(originalPlan, candidatePlan, mealsSnapshot)
+    ...findDuplicateMealErrors(activeMealPlan(originalPlan), activeMealPlan(candidatePlan), mealsSnapshot)
   );
-  errors.push(...findPrepAheadErrors(originalPlan, candidatePlan, mealMap));
+  errors.push(...findPrepAheadErrors(activeMealPlan(originalPlan), activeMealPlan(candidatePlan), mealMap));
 
   if (errors.length > 0) {
     return { updatedPlan: originalPlan, errors };

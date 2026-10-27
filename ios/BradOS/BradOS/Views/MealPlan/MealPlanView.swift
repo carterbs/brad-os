@@ -180,7 +180,7 @@ struct MealPlanView: View {
                 finalizedBadge
 
                 TodayFocusView(
-                    plan: viewModel.currentPlan,
+                    plan: viewModel.visiblePlan,
                     changedSlots: viewModel.changedSlots,
                     prepAheadMealIds: viewModel.prepAheadMealIds
                 )

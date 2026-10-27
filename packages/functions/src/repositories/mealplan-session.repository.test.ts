@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Firestore, CollectionReference, DocumentReference, Transaction } from 'firebase-admin/firestore';
 import {
   createMockDoc,
@@ -531,6 +531,19 @@ describe('MealPlanSessionRepository', () => {
       );
     });
 
+    it('finalizes only active meal recency while retaining disabled legacy assignments', async () => {
+      const repository = new MealPlanSessionRepository(mockDb as Firestore);
+      const adult = { day_index: 0, meal_track: 'adult' as const, meal_type: 'breakfast' as const, meal_id: 'adult', meal_name: 'Protein oats' };
+      const original = { ...expectedSession, plan: [...expectedSession.plan, adult] };
+      transactionGet.mockResolvedValueOnce(createMockDoc('session-1', original));
+      const finalized = await repository.finalize('session-1', original, ['meal-1']);
+      expect(finalized?.plan).toEqual(original.plan);
+      expect(finalized?.is_finalized).toBe(true);
+      expect(mealDoc).not.toHaveBeenCalledWith('adult');
+      expect(transactionUpdate).toHaveBeenCalledTimes(2);
+      expect(transactionUpdate).toHaveBeenCalledWith(mockDocRef, expect.not.objectContaining({ plan: expect.anything() }));
+    });
+
     it('atomically finalizes the exact reviewed snapshot and returns its committed timestamp', async () => {
       const repository = new MealPlanSessionRepository(mockDb as Firestore);
       transactionGet.mockResolvedValueOnce(createMockDoc('session-1', expectedSession));
@@ -721,3 +734,7 @@ describe('MealPlanSessionRepository', () => {
     });
   });
 });
+
+// Legacy cases explicitly exercise the enabled feature.
+beforeEach(() => vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'true'));
+afterEach(() => vi.unstubAllEnvs());

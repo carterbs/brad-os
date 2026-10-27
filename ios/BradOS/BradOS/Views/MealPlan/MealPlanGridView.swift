@@ -21,7 +21,7 @@ struct MealPlanGridView: View {
     }
 
     private func entriesForDay(_ dayIndex: Int) -> [MealPlanEntry] {
-        let dayEntries = plan.filter { $0.dayIndex == dayIndex }
+        let dayEntries = MealPlanFeatureFlags.current.visibleEntries(in: plan).filter { $0.dayIndex == dayIndex }
         return dayEntries.sorted { $0.slotSortOrder < $1.slotSortOrder }
     }
 }

@@ -180,7 +180,56 @@ function createTestSession(
 }
 
 describe('Mealplans Handler', () => {
+  describe('adult breakfast disabled', () => {
+    it('filters legacy session reads and preserves the stored session', async () => {
+      vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'false');
+      const kid = createMealPlanEntry({ meal_type: 'breakfast', meal_track: 'family' });
+      const adult = createMealPlanEntry({ meal_type: 'breakfast', meal_track: 'adult' });
+      const session = createMealPlanSession({ plan: [kid, adult] });
+      mockSessionRepo.findById.mockResolvedValue(session);
+      mockSessionRepo.findLatest.mockResolvedValue(session);
+      for (const path of ['/session-1', '/latest']) {
+        const response = await request(mealplansApp).get(path);
+        const body = response.body as ApiResponse<MealPlanSession & { feature_flags: { adult_breakfast_enabled: boolean } }>;
+        expect(response.status).toBe(200);
+        expect(body.data?.plan).toEqual([kid]);
+        expect(body.data?.feature_flags.adult_breakfast_enabled).toBe(false);
+      }
+      expect(session.plan).toEqual([kid, adult]);
+    });
+    it('finalizes a legacy plan with only active meal recency IDs', async () => {
+      vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'false');
+      const kid = createMealPlanEntry({ meal_type: 'breakfast', meal_track: 'family', meal_id: 'kid' });
+      const adult = createMealPlanEntry({ meal_type: 'breakfast', meal_track: 'adult', meal_id: 'adult' });
+      const session = createMealPlanSession({ plan: [kid, adult] });
+      mockSessionRepo.findById.mockResolvedValue(session);
+      mockSessionRepo.finalize.mockResolvedValue({ ...session, is_finalized: true });
+      const response = await request(mealplansApp).post('/session-1/finalize').send();
+      expect(response.status).toBe(200);
+      expect(mockSessionRepo.finalize).toHaveBeenCalledWith('session-1', session, ['kid']);
+      expect(session.plan).toEqual([kid, adult]);
+    });
+    it.each(['critique', 'revise'])('preserves disabled saved assignments on %s', async (endpoint) => {
+      vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'false');
+      vi.stubEnv('TYPESAFE_API_KEY', 'test-typesafe-key');
+      const kid = createMealPlanEntry({ meal_type: 'breakfast', meal_track: 'family' });
+      const adult = createMealPlanEntry({ meal_type: 'breakfast', meal_track: 'adult' });
+      const replacement = { ...kid, meal_id: 'new-kid', meal_name: 'New kid breakfast' };
+      const session = createMealPlanSession({ plan: [kid, adult], is_finalized: endpoint === 'revise' });
+      mockSessionRepo.findById.mockResolvedValue(session);
+      mockProcessCritique.mockResolvedValue({ explanation: 'Changed kid breakfast', operations: [] });
+      mockApplyOperations.mockReturnValue({ updatedPlan: [replacement], errors: [] });
+      const response = await request(mealplansApp).post('/session-1/' + endpoint).send({ critique: 'Change kid breakfast' });
+      const body = response.body as ApiResponse<CritiqueResponseData>;
+      expect(response.status).toBe(200);
+      expect(body.data?.plan).toEqual([replacement]);
+      expect(mockProcessCritique.mock.calls[0]?.[0].plan).toEqual([kid]);
+      expect(mockSessionRepo.applyCritiqueUpdates.mock.calls[0]?.[3]).toEqual([replacement, adult]);
+      expect(mockSessionRepo.applyCritiqueUpdates.mock.calls[0]?.[4]).toEqual(session);
+    });
+  });
   beforeEach(() => {
+    vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'true');
     vi.clearAllMocks();
     mockSessionRepo.applyCritiqueUpdates.mockResolvedValue(true);
     mockSessionRepo.finalize.mockResolvedValue(null);
@@ -238,7 +287,7 @@ describe('Mealplans Handler', () => {
       const response = await request(mealplansApp).get('/latest');
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({ success: true, data: latest });
+      expect(response.body).toEqual({ success: true, data: { ...latest, feature_flags: { adult_breakfast_enabled: true } } });
       expect(mockSessionRepo.findLatest).toHaveBeenCalledTimes(1);
       expect(mockSessionRepo.findAll).not.toHaveBeenCalled();
     });
@@ -264,7 +313,7 @@ describe('Mealplans Handler', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         success: true,
-        data: session,
+        data: { ...session, feature_flags: { adult_breakfast_enabled: true } },
       });
       expect(mockSessionRepo.findById).toHaveBeenCalledWith('session-1');
     });
@@ -733,7 +782,7 @@ describe('Mealplans Handler', () => {
       expect(body.data?.finalized).toBe(true);
 
       expect(mockMarkPlanMealsLastPlanned).not.toHaveBeenCalled();
-      expect(mockSessionRepo.finalize).toHaveBeenCalledWith('session-1', session);
+      expect(mockSessionRepo.finalize).toHaveBeenCalledWith('session-1', session, [...new Set(session.plan.flatMap((entry) => entry.meal_id === null ? [] : [entry.meal_id]))]);
       expect(mockSessionRepo.update).not.toHaveBeenCalled();
     });
 
@@ -765,7 +814,7 @@ describe('Mealplans Handler', () => {
         .send();
 
       expect(response.status).toBe(200);
-      expect(mockSessionRepo.finalize).toHaveBeenCalledWith('session-1', session);
+      expect(mockSessionRepo.finalize).toHaveBeenCalledWith('session-1', session, [...new Set(session.plan.flatMap((entry) => entry.meal_id === null ? [] : [entry.meal_id]))]);
       expect(mockMarkPlanMealsLastPlanned).not.toHaveBeenCalled();
     });
 
@@ -804,7 +853,7 @@ describe('Mealplans Handler', () => {
       const body = response.body as ApiResponse;
       expect(response.status).toBe(409);
       expect(body.error?.code).toBe('SESSION_CONFLICT');
-      expect(mockSessionRepo.finalize).toHaveBeenCalledWith('session-1', session);
+      expect(mockSessionRepo.finalize).toHaveBeenCalledWith('session-1', session, [...new Set(session.plan.flatMap((entry) => entry.meal_id === null ? [] : [entry.meal_id]))]);
       expect(mockMarkPlanMealsLastPlanned).not.toHaveBeenCalled();
       expect(mockSessionRepo.update).not.toHaveBeenCalled();
     });
@@ -887,7 +936,7 @@ describe('Mealplans Handler', () => {
 
       expect(deleteResponse.status).toBe(200);
       expect(latestResponse.status).toBe(200);
-      expect(latestResponse.body).toEqual({ success: true, data: older });
+      expect(latestResponse.body).toEqual({ success: true, data: { ...older, feature_flags: { adult_breakfast_enabled: true } } });
     });
 
     it('should make latest return null after deleting the only draft session', async () => {

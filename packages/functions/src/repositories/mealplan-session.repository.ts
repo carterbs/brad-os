@@ -352,7 +352,7 @@ export class MealPlanSessionRepository extends BaseRepository<
     });
   }
 
-  async finalize(sessionId: string, expectedSession: MealPlanSession): Promise<MealPlanSession | null> {
+  async finalize(sessionId: string, expectedSession: MealPlanSession, activeMealIds?: ReadonlyArray<string>): Promise<MealPlanSession | null> {
     const docRef = this.collection.doc(sessionId);
     return this.db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(docRef);
@@ -361,7 +361,7 @@ export class MealPlanSessionRepository extends BaseRepository<
         return null;
       }
       const meals = this.db.collection(getCollectionName('meals'));
-      const mealIds = [...new Set(current.plan.flatMap((entry) => entry.meal_id === null ? [] : [entry.meal_id]))];
+      const mealIds = [...new Set(current.plan.flatMap((entry) => entry.meal_id === null || (activeMealIds !== undefined && !activeMealIds.includes(entry.meal_id)) ? [] : [entry.meal_id]))];
       const mealRefs = mealIds.map((id) => meals.doc(id));
       // Firestore requires every read before the first write. Including the meal
       // documents also makes concurrent recency changes retry this whole commit.

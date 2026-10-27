@@ -34,6 +34,7 @@ public class DashboardViewModel: ObservableObject {
 
     // MARK: - Dependencies
 
+    private let featureFlags: MealPlanFeatureFlags
     private let apiClient: APIClientProtocol
     private let cacheService: MealPlanCacheServiceProtocol
     private let userDefaults: UserDefaultsProtocol
@@ -43,8 +44,10 @@ public class DashboardViewModel: ObservableObject {
     public init(
         apiClient: APIClientProtocol,
         cacheService: MealPlanCacheServiceProtocol = MealPlanCacheService.shared,
-        userDefaults: UserDefaultsProtocol = UserDefaults.standard
+        userDefaults: UserDefaultsProtocol = UserDefaults.standard,
+        featureFlags: MealPlanFeatureFlags = .current
     ) {
+        self.featureFlags = featureFlags
         self.apiClient = apiClient
         self.cacheService = cacheService
         self.userDefaults = userDefaults
@@ -179,11 +182,12 @@ public class DashboardViewModel: ObservableObject {
     private func populateMealPlan(from session: MealPlanSession) {
         let todayDayIndex = Self.calendarWeekdayToDayIndex()
         let ids = Self.extractPrepAheadIds(from: session)
-        todayMeals = session.plan
+        let plan = featureFlags.visibleEntries(in: session.plan)
+        todayMeals = plan
             .filter { $0.dayIndex == todayDayIndex }
             .sorted { $0.slotSortOrder < $1.slotSortOrder }
         prepAheadMealIds = ids
-        prepAheadMeals = session.plan
+        prepAheadMeals = plan
             .filter { $0.dayIndex != todayDayIndex }
             .filter { entry in
                 guard let mealId = entry.mealId else { return false }

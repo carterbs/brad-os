@@ -77,7 +77,19 @@ function repairDecisions(assignments: Record<string, string>, options: { target?
   });
 }
 describe('direct JEV critique decisions', () => {
-  beforeEach(() => { vi.resetAllMocks(); vi.unstubAllEnvs(); });
+  it('only offers kid breakfasts when adult breakfast is disabled', async () => {
+    vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'false');
+    evaluate.mockImplementation(async (_state, questions) => ({ request: choice(questions['request']!, 'no_change') }));
+    const original = audienceSession();
+    await processCritique(original, 'Keep this plan', 'key');
+    const [state, questions] = evaluate.mock.calls[0]!;
+    expect(state['current_plan']).toEqual(['Monday family breakfast: Family cereal', 'Tuesday family dinner: Pasta']);
+    expect(state['catalog_meal_names']).toEqual(['Family cereal', 'Family toast', 'Pasta']);
+    expect(state['rules']).toMatchObject({ available_slots: expect.stringContaining('Adult breakfasts are disabled') });
+    expect(Object.keys(questions)).not.toContain('audience_0');
+    expect(original.plan).toHaveLength(3);
+  });
+  beforeEach(() => { vi.resetAllMocks(); vi.unstubAllEnvs(); vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'true'); });
   afterEach(() => vi.unstubAllEnvs());
   it('selects actual meals, verifies the complete proposal, and returns minimal edits', async () => {
     decisions({ slot_0: 'meal_2' });
