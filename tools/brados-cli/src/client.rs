@@ -49,35 +49,29 @@ impl ApiClient {
     pub fn get(&self, path: &str) -> Result<serde_json::Value, CliError> {
         let url = self.url_for(path);
         let response = ureq::get(&url)
+            .config()
+            .http_status_as_error(false)
+            .build()
             .header("x-firebase-appcheck", &self.appcheck_token)
             .call()
             .map_err(|e| CliError::Http(e.to_string()))?;
 
-        let body: serde_json::Value = response
-            .into_body()
-            .read_json::<serde_json::Value>()
-            .map_err(|e| CliError::Deserialize(e.to_string()))?;
-
-        check_api_error(&body)?;
-        Ok(body)
+        decode_response(response)
     }
 
     /// Perform a POST request with no body.
     pub fn post_empty(&self, path: &str) -> Result<serde_json::Value, CliError> {
         let url = self.url_for(path);
         let response = ureq::post(&url)
+            .config()
+            .http_status_as_error(false)
+            .build()
             .header("x-firebase-appcheck", &self.appcheck_token)
             .content_type("application/json")
             .send_empty()
             .map_err(|e| CliError::Http(e.to_string()))?;
 
-        let body: serde_json::Value = response
-            .into_body()
-            .read_json::<serde_json::Value>()
-            .map_err(|e| CliError::Deserialize(e.to_string()))?;
-
-        check_api_error(&body)?;
-        Ok(body)
+        decode_response(response)
     }
 
     /// Perform a POST request with a JSON body.
@@ -88,17 +82,14 @@ impl ApiClient {
     ) -> Result<serde_json::Value, CliError> {
         let url = self.url_for(path);
         let response = ureq::post(&url)
+            .config()
+            .http_status_as_error(false)
+            .build()
             .header("x-firebase-appcheck", &self.appcheck_token)
             .send_json(json_body)
             .map_err(|e| CliError::Http(e.to_string()))?;
 
-        let body: serde_json::Value = response
-            .into_body()
-            .read_json::<serde_json::Value>()
-            .map_err(|e| CliError::Deserialize(e.to_string()))?;
-
-        check_api_error(&body)?;
-        Ok(body)
+        decode_response(response)
     }
 
     /// Perform a PUT request with a JSON body.
@@ -109,35 +100,51 @@ impl ApiClient {
     ) -> Result<serde_json::Value, CliError> {
         let url = self.url_for(path);
         let response = ureq::put(&url)
+            .config()
+            .http_status_as_error(false)
+            .build()
             .header("x-firebase-appcheck", &self.appcheck_token)
             .send_json(json_body)
             .map_err(|e| CliError::Http(e.to_string()))?;
 
-        let body: serde_json::Value = response
-            .into_body()
-            .read_json::<serde_json::Value>()
-            .map_err(|e| CliError::Deserialize(e.to_string()))?;
-
-        check_api_error(&body)?;
-        Ok(body)
+        decode_response(response)
     }
 
     /// Perform a DELETE request.
     pub fn delete(&self, path: &str) -> Result<serde_json::Value, CliError> {
         let url = self.url_for(path);
         let response = ureq::delete(&url)
+            .config()
+            .http_status_as_error(false)
+            .build()
             .header("x-firebase-appcheck", &self.appcheck_token)
             .call()
             .map_err(|e| CliError::Http(e.to_string()))?;
 
-        let body: serde_json::Value = response
-            .into_body()
-            .read_json::<serde_json::Value>()
-            .map_err(|e| CliError::Deserialize(e.to_string()))?;
-
-        check_api_error(&body)?;
-        Ok(body)
+        decode_response(response)
     }
+}
+
+/// Preserve the API's actionable error, including when HTTP status is non-success.
+fn decode_response(
+    response: ureq::http::Response<ureq::Body>,
+) -> Result<serde_json::Value, CliError> {
+    let status = response.status();
+    let body = response
+        .into_body()
+        .read_json::<serde_json::Value>()
+        .map_err(|error| {
+            if status.is_success() {
+                CliError::Deserialize(error.to_string())
+            } else {
+                CliError::Http(format!("http status: {status}"))
+            }
+        })?;
+    check_api_error(&body)?;
+    if !status.is_success() {
+        return Err(CliError::Http(format!("http status: {status}")));
+    }
+    Ok(body)
 }
 
 /// Check if the API response indicates an error and return `CliError::Api` if so.
@@ -167,6 +174,95 @@ pub fn extract_data<T: serde::de::DeserializeOwned>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_http_method_preserves_api_errors_on_non_success_status() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+        for method in ["GET", "POST_EMPTY", "POST", "PUT", "DELETE"] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let client = make_client(&format!("http://{}", listener.local_addr().unwrap()));
+            let handle = std::thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0; 4096];
+                stream.read(&mut request).unwrap();
+                let body = r#"{"success":false,"error":{"code":"INVALID_REQUEST","message":"Unsupported context field"}}"#;
+                write!(
+                    stream,
+                    "HTTP/1.1 400 Bad Request\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                )
+                .unwrap();
+            });
+            let error = match method {
+                "GET" => client.get("/test"),
+                "POST_EMPTY" => client.post_empty("/test"),
+                "POST" => client.post_json("/test", &serde_json::json!({})),
+                "PUT" => client.put_json("/test", &serde_json::json!({})),
+                _ => client.delete("/test"),
+            }
+            .unwrap_err();
+            handle.join().unwrap();
+            assert!(
+                matches!(error, CliError::Api { ref code, ref message }
+                if code == "INVALID_REQUEST" && message == "Unsupported context field"),
+                "{method}: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn response_status_and_invalid_body_remain_errors() {
+        use std::io::{Read, Write};
+        use std::net::TcpListener;
+        for (status, body, expected) in [
+            (
+                "409 Conflict",
+                r#"{"success":false,"error":{"code":"CONFLICT","message":"Plan changed"}}"#,
+                "API error",
+            ),
+            (
+                "502 Bad Gateway",
+                "<html>private upstream details</html>",
+                "HTTP error: http status: 502",
+            ),
+            (
+                "503 Unavailable",
+                r#"{"message":"unavailable"}"#,
+                "HTTP error: http status: 503",
+            ),
+            ("200 OK", "not json", "deserialization error"),
+            (
+                "200 OK",
+                r#"{"success":true,"data":{"saved":true}}"#,
+                "success",
+            ),
+        ] {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let client = make_client(&format!("http://{}", listener.local_addr().unwrap()));
+            let handle = std::thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                let mut request = [0; 4096];
+                stream.read(&mut request).unwrap();
+                write!(
+                    stream,
+                    "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
+            });
+            let result = client.get("/test");
+            handle.join().unwrap();
+            if expected == "success" {
+                assert_eq!(result.unwrap()["data"]["saved"], true);
+            } else {
+                let error = result.unwrap_err().to_string();
+                assert!(error.contains(expected), "{error}");
+                assert!(!error.contains("private upstream"));
+            }
+        }
+    }
 
     /// Helper: create client with known values for URL testing.
     fn make_client(base_url: &str) -> ApiClient {

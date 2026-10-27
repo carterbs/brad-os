@@ -41,11 +41,18 @@ pub enum MealplanAction {
     /// Generate a new meal plan
     Generate,
     /// Get the latest meal plan session
-    Latest,
+    Latest {
+        /// Return saved plan and status without the catalog or conversation history
+        #[arg(long)]
+        compact: bool,
+    },
     /// Get a specific meal plan session
     Get {
         /// Session ID
         session_id: String,
+        /// Return saved plan and status without the catalog or conversation history
+        #[arg(long)]
+        compact: bool,
     },
     /// Critique a meal plan
     Critique {
@@ -53,6 +60,9 @@ pub enum MealplanAction {
         session_id: String,
         /// Critique message
         message: String,
+        /// Structured original request, interpretation, calendar context, and planning week as JSON
+        #[arg(long)]
+        context_json: Option<String>,
     },
     /// Revise a finalized meal plan
     Revise {
@@ -60,6 +70,9 @@ pub enum MealplanAction {
         session_id: String,
         /// Revision message
         message: String,
+        /// Structured original request, interpretation, calendar context, and planning week as JSON
+        #[arg(long)]
+        context_json: Option<String>,
     },
     /// Finalize a meal plan
     Finalize {
@@ -318,6 +331,24 @@ pub enum IngredientsAction {
 mod tests {
     use super::*;
 
+    #[test]
+    fn mealplan_reads_accept_compact_flag_and_default_to_full_output() {
+        for compact in [false, true] {
+            let mut args = vec!["mealplan", "latest"];
+            if compact {
+                args.push("--compact");
+            }
+            assert!(matches!(parse(&args).command, Commands::Mealplan(cmd)
+                if matches!(cmd.action, MealplanAction::Latest { compact: value } if value == compact)));
+            let mut args = vec!["mealplan", "get", "session"];
+            if compact {
+                args.push("--compact");
+            }
+            assert!(matches!(parse(&args).command, Commands::Mealplan(cmd)
+                if matches!(cmd.action, MealplanAction::Get { compact: value, ref session_id } if value == compact && session_id == "session")));
+        }
+    }
+
     fn parse(args: &[&str]) -> Cli {
         Cli::parse_from(std::iter::once("brados").chain(args.iter().copied()))
     }
@@ -472,9 +503,11 @@ mod tests {
                 MealplanAction::Critique {
                     session_id,
                     message,
+                    context_json,
                 } => {
                     assert_eq!(session_id, "sess_1");
                     assert_eq!(message, "swap Monday dinner");
+                    assert!(context_json.is_none());
                 }
                 _ => panic!("expected Critique"),
             },
@@ -490,9 +523,11 @@ mod tests {
                 MealplanAction::Revise {
                     session_id,
                     message,
+                    context_json,
                 } => {
                     assert_eq!(session_id, "sess_1");
                     assert_eq!(message, "swap Monday dinner");
+                    assert!(context_json.is_none());
                 }
                 _ => panic!("expected Revise"),
             },

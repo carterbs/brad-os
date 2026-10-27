@@ -1,14 +1,16 @@
 import type { Firestore } from 'firebase-admin/firestore';
-import { FieldValue } from 'firebase-admin/firestore';
+import { isDeepStrictEqual } from 'node:util';
+import { getCollectionName } from '../firebase.js';
 import type {
   MealPlanSession,
   CreateMealPlanSessionDTO,
   UpdateMealPlanSessionDTO,
   MealPlanEntry,
   ConversationMessage,
+  CritiqueContext,
 } from '../shared.js';
 import { BaseRepository } from './base.repository.js';
-import type { Meal } from '../shared.js';
+import { critiqueContextSchema, type Meal } from '../shared.js';
 import {
   isRecord,
   readBoolean,
@@ -92,6 +94,31 @@ export class MealPlanSessionRepository extends BaseRepository<
       return null;
     }
 
+    let context: CritiqueContext | undefined;
+    if (message['context'] !== undefined) {
+      const parsedContext = critiqueContextSchema.safeParse(message['context']);
+      if (!parsedContext.success) {
+        return null;
+      }
+      context = parsedContext.data;
+    }
+
+    let previousAssignments: MealPlanEntry[] | undefined;
+    const previousAssignmentsRaw = message['previous_assignments'];
+    if (previousAssignmentsRaw !== undefined) {
+      if (!Array.isArray(previousAssignmentsRaw)) {
+        return null;
+      }
+      previousAssignments = [];
+      for (const assignment of previousAssignmentsRaw) {
+        const parsedAssignment = this.parseMealPlanEntry(assignment);
+        if (parsedAssignment === null) {
+          return null;
+        }
+        previousAssignments.push(parsedAssignment);
+      }
+    }
+
     let operations;
     if (operationsRaw !== undefined) {
       if (!Array.isArray(operationsRaw)) {
@@ -133,7 +160,9 @@ export class MealPlanSessionRepository extends BaseRepository<
     return {
       role,
       content,
+      ...(context === undefined ? {} : { context }),
       ...(operations === undefined ? {} : { operations }),
+      ...(previousAssignments === undefined ? {} : { previous_assignments: previousAssignments }),
     };
   }
 
@@ -269,17 +298,18 @@ export class MealPlanSessionRepository extends BaseRepository<
   }
 
   async appendHistory(sessionId: string, message: ConversationMessage): Promise<MealPlanSession | null> {
-    const existing = await this.findById(sessionId);
-    if (!existing) {
-      return null;
-    }
-
-    await this.collection.doc(sessionId).update({
-      history: FieldValue.arrayUnion(message),
-      updated_at: this.updateTimestamp(),
+    const docRef = this.collection.doc(sessionId);
+    return this.db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(docRef);
+      const existing = snapshot.exists ? this.docToEntity(snapshot) : null;
+      if (existing === null) {
+        return null;
+      }
+      const history = [...existing.history, message];
+      const updatedAt = existing.updated_at;
+      transaction.update(docRef, { history, updated_at: updatedAt });
+      return { ...existing, history, updated_at: updatedAt };
     });
-
-    return this.findById(sessionId);
   }
 
   async updatePlan(sessionId: string, entries: MealPlanEntry[]): Promise<MealPlanSession | null> {
@@ -301,11 +331,51 @@ export class MealPlanSessionRepository extends BaseRepository<
     userMessage: ConversationMessage,
     assistantMessage: ConversationMessage,
     updatedPlan: MealPlanEntry[],
-  ): Promise<void> {
-    await this.collection.doc(sessionId).update({
-      history: FieldValue.arrayUnion(userMessage, assistantMessage),
-      plan: updatedPlan,
-      updated_at: this.updateTimestamp(),
+    expectedSession: MealPlanSession,
+  ): Promise<boolean> {
+    const docRef = this.collection.doc(sessionId);
+    return this.db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(docRef);
+      const current = snapshot.exists ? this.docToEntity(snapshot) : null;
+      // Compare the complete loaded state, not only its millisecond timestamp:
+      // concurrent edits can share a timestamp and still invalidate the decision.
+      if (current === null || !isDeepStrictEqual(current, expectedSession)) {
+        return false;
+      }
+      transaction.update(docRef, {
+        history: [...current.history, userMessage, assistantMessage],
+        plan: updatedPlan,
+        // Recency uses this timestamp; clarification/history alone is not a new plan.
+        updated_at: isDeepStrictEqual(current.plan, updatedPlan) ? current.updated_at : this.updateTimestamp(),
+      });
+      return true;
+    });
+  }
+
+  async finalize(sessionId: string, expectedSession: MealPlanSession, activeMealIds?: ReadonlyArray<string>): Promise<MealPlanSession | null> {
+    const docRef = this.collection.doc(sessionId);
+    return this.db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(docRef);
+      const current = snapshot.exists ? this.docToEntity(snapshot) : null;
+      if (current === null || current.is_finalized || !isDeepStrictEqual(current, expectedSession)) {
+        return null;
+      }
+      const meals = this.db.collection(getCollectionName('meals'));
+      const mealIds = [...new Set(current.plan.flatMap((entry) => entry.meal_id === null || (activeMealIds !== undefined && !activeMealIds.includes(entry.meal_id)) ? [] : [entry.meal_id]))];
+      const mealRefs = mealIds.map((id) => meals.doc(id));
+      // Firestore requires every read before the first write. Including the meal
+      // documents also makes concurrent recency changes retry this whole commit.
+      const mealSnapshots = await Promise.all(mealRefs.map((ref) => transaction.get(ref)));
+      const updatedAt = this.updateTimestamp();
+      transaction.update(docRef, { is_finalized: true, updated_at: updatedAt });
+      mealSnapshots.forEach((meal, index) => {
+        const data = meal.exists ? meal.data() : undefined;
+        if (!isRecord(data) || this.parseMeal({ ...data, id: meal.id, last_planned: data['last_planned'] ?? null }) === null) {
+          return;
+        }
+        transaction.update(mealRefs[index]!, { last_planned: updatedAt, updated_at: updatedAt });
+      });
+      return { ...current, is_finalized: true, updated_at: updatedAt };
     });
   }
 }

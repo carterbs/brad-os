@@ -226,8 +226,9 @@ fn create_worktree_link(root_dir: &Path, link_path: &Path) -> io::Result<()> {
     }
 }
 
-const OPTIONAL_FEATURE_SECRETS: [&str; 4] = [
+const OPTIONAL_FEATURE_SECRETS: [&str; 5] = [
     "OPENAI_API_KEY",
+    "TYPESAFE_API_KEY",
     "STRAVA_CLIENT_ID",
     "STRAVA_CLIENT_SECRET",
     "STRAVA_WEBHOOK_VERIFY_TOKEN",
@@ -321,6 +322,7 @@ fn start_api(
         project_id,
         port,
         resolve_optional_feature_secrets(project_id),
+        &env::var("JEV_MODEL").unwrap_or_else(|_| "jev-1.13.0".to_string()),
     );
     let environment_refs = api_environment
         .iter()
@@ -467,6 +469,7 @@ fn build_api_environment(
     project_id: &str,
     port: u16,
     optional_secrets: Vec<(String, String)>,
+    jev_model: &str,
 ) -> Vec<(String, String)> {
     let mut environment = vec![
         ("PORT".to_string(), port.to_string()),
@@ -475,6 +478,7 @@ fn build_api_environment(
         ("BRAD_LOCAL_DEV_ONLY".to_string(), "true".to_string()),
         ("NODE_ENV".to_string(), "development".to_string()),
         ("APP_CHECK_BYPASS".to_string(), "false".to_string()),
+        ("JEV_MODEL".to_string(), jev_model.to_string()),
     ];
     environment.extend(optional_secrets);
     environment
@@ -482,6 +486,13 @@ fn build_api_environment(
 
 fn api_health_url(port: u16) -> String {
     format!("http://127.0.0.1:{port}/api/dev/health")
+}
+
+fn local_secret_name(name: &str) -> &str {
+    match name {
+        "TYPESAFE_API_KEY" => "TYPESAFE_API_KEY_DEV",
+        _ => name,
+    }
 }
 
 fn resolve_optional_feature_secrets(project_id: &str) -> Vec<(String, String)> {
@@ -494,6 +505,7 @@ fn resolve_optional_feature_secrets(project_id: &str) -> Vec<(String, String)> {
                 }
             }
 
+            let secret_name = local_secret_name(name);
             let output = Command::new("gcloud")
                 .args([
                     "secrets",
@@ -501,7 +513,7 @@ fn resolve_optional_feature_secrets(project_id: &str) -> Vec<(String, String)> {
                     "access",
                     "latest",
                     "--secret",
-                    name,
+                    secret_name,
                     "--project",
                     project_id,
                     "--quiet",
@@ -514,7 +526,7 @@ fn resolve_optional_feature_secrets(project_id: &str) -> Vec<(String, String)> {
                 }
                 _ => {
                     println!(
-                        "  [warn] Optional secret {name} is unavailable; its dependent local routes may fail."
+                        "  [warn] Optional secret {secret_name} is unavailable; its dependent local routes may fail."
                     );
                     None
                 }
@@ -982,6 +994,7 @@ mod tests {
             "brad-os",
             15_123,
             vec![("OPENAI_API_KEY".to_string(), "redacted".to_string())],
+            "jev-1.13.0",
         )
         .into_iter()
         .collect::<std::collections::HashMap<_, _>>();
@@ -1004,6 +1017,90 @@ mod tests {
             environment.get("OPENAI_API_KEY").map(String::as_str),
             Some("redacted")
         );
+        assert_eq!(
+            environment.get("JEV_MODEL").map(String::as_str),
+            Some("jev-1.13.0")
+        );
+        assert!(!environment.contains_key("TYPESAFE_API_KEY"));
+    }
+
+    #[test]
+    fn local_api_forwards_optional_typesafe_key_and_pinned_model() {
+        let environment = build_api_environment(
+            "brad-os",
+            15_123,
+            vec![(
+                "TYPESAFE_API_KEY".to_string(),
+                "test-only-value".to_string(),
+            )],
+            "jev-1.14.0",
+        )
+        .into_iter()
+        .collect::<std::collections::HashMap<_, _>>();
+        assert_eq!(
+            environment.get("TYPESAFE_API_KEY").map(String::as_str),
+            Some("test-only-value")
+        );
+        assert_eq!(
+            environment.get("JEV_MODEL").map(String::as_str),
+            Some("jev-1.14.0")
+        );
+        assert!(OPTIONAL_FEATURE_SECRETS.contains(&"TYPESAFE_API_KEY"));
+    }
+
+    #[test]
+    fn local_secret_lookup_uses_dev_typesafe_key_only() {
+        assert_eq!(
+            local_secret_name("TYPESAFE_API_KEY"),
+            "TYPESAFE_API_KEY_DEV"
+        );
+        for name in OPTIONAL_FEATURE_SECRETS {
+            if name != "TYPESAFE_API_KEY" {
+                assert_eq!(local_secret_name(name), name);
+            }
+        }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn local_secret_lookup_loads_dev_key_without_production_fallback() {
+        use std::os::unix::fs::PermissionsExt;
+
+        const CHILD: &str = "BRAD_TEST_JEV_SECRET_CHILD";
+        if env::var_os(CHILD).is_some() {
+            assert_eq!(
+                resolve_optional_feature_secrets("brad-os"),
+                vec![("TYPESAFE_API_KEY".to_string(), "test-dev-key".to_string())]
+            );
+            return;
+        }
+
+        let directory = tempdir().unwrap();
+        let executable = directory.path().join("gcloud");
+        fs::write(
+            &executable,
+            "#!/bin/sh\n[ \"$*\" = 'secrets versions access latest --secret TYPESAFE_API_KEY_DEV --project brad-os --quiet' ] || exit 1\nprintf 'test-dev-key\\n'\n",
+        ).unwrap();
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o755)).unwrap();
+        let mut command = Command::new(env::current_exe().unwrap());
+        command.args([
+            "--exact",
+            "qa_start::tests::local_secret_lookup_loads_dev_key_without_production_fallback",
+            "--nocapture",
+        ]);
+        command.env(CHILD, "1").env("PATH", directory.path());
+        for name in OPTIONAL_FEATURE_SECRETS {
+            command.env_remove(name);
+        }
+        let output = command.output().unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("1 passed"), "{stdout}");
+        assert!(!stdout.contains("test-dev-key"));
     }
 
     #[test]

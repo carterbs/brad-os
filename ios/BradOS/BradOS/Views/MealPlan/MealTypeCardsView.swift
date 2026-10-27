@@ -9,8 +9,10 @@ struct MealTypeCardsView: View {
     var body: some View {
         List {
             if mealType == .breakfast {
-                breakfastSection(title: "Family Breakfast", track: .family)
-                breakfastSection(title: "Adult Breakfast", track: .adult)
+                breakfastSection(title: "Kids Breakfast", track: .family)
+                if viewModel.featureFlags.adultBreakfastEnabled {
+                    breakfastSection(title: "Adult Breakfast", track: .adult)
+                }
             } else {
                 ForEach(viewModel.entriesForMealType(mealType)) { entry in
                     mealRow(entry)

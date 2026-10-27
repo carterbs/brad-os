@@ -1,3 +1,4 @@
+import { activeMealPlan } from './mealplan-features.service.js';
 import type {
   MealPlanEntry,
   MealPlanRecencyMealRepository,
@@ -11,7 +12,7 @@ export function getUniquePlannedMealIds(
   plan: ReadonlyArray<MealPlanEntry>
 ): string[] {
   const mealIds = new Set<string>();
-  for (const entry of plan) {
+  for (const entry of activeMealPlan(plan)) {
     if (entry.meal_id !== null) {
       mealIds.add(entry.meal_id);
     }

@@ -23,7 +23,7 @@ struct MealDayContent: View {
     }
 
     private var sortedMeals: [MealPlanEntry] {
-        meals.sorted {
+        MealPlanFeatureFlags.current.visibleEntries(in: meals).sorted {
             if $0.dayIndex != $1.dayIndex {
                 return $0.dayIndex < $1.dayIndex
             }

@@ -73,7 +73,7 @@ fn build_only_builds_and_verifies_non_root_user() {
 }
 
 #[test]
-fn full_run_checks_routes_assets_and_graceful_shutdown() {
+fn full_run_checks_routes_and_graceful_shutdown() {
     let runner = FakeRunner::with_results(vec![
         ok("built"),
         ok("node"),
@@ -81,7 +81,6 @@ fn full_run_checks_routes_assets_and_graceful_shutdown() {
         ok("healthy"),
         ok("dev healthy"),
         ok("prod healthy"),
-        ok("asset present"),
         ok("stopped"),
         ok("0"),
         ok("removed"),
@@ -89,7 +88,7 @@ fn full_run_checks_routes_assets_and_graceful_shutdown() {
     let mut output = Vec::new();
     execute(&runner, &mut output, &config(false)).unwrap();
     let calls = runner.calls();
-    assert_eq!(calls.len(), 10);
+    assert_eq!(calls.len(), 9);
     assert_eq!(calls[2].args[0], "run");
     assert!(calls[2].args.contains(&"NODE_ENV=production".to_string()));
     assert!(calls[4]
@@ -100,9 +99,11 @@ fn full_run_checks_routes_assets_and_graceful_shutdown() {
         .args
         .iter()
         .any(|arg| arg.ends_with("/api/prod/health")));
-    assert_eq!(calls[6].args[0], "exec");
-    assert_eq!(calls[7].args[0], "stop");
-    assert_eq!(calls[9].args[0], "rm");
+    assert_eq!(calls[6].args[0], "stop");
+    assert_eq!(calls[8].args[0], "rm");
+    assert!(String::from_utf8(output)
+        .unwrap()
+        .contains("dev/prod API health"));
 }
 
 #[test]
@@ -145,7 +146,6 @@ fn stop_failure_forces_exact_test_container_removal() {
         ok("healthy"),
         ok("dev healthy"),
         ok("prod healthy"),
-        ok("asset present"),
         fail("timeout"),
         ok("force removed"),
     ]);

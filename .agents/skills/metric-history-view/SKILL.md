@@ -355,4 +355,4 @@ Before considering the task complete:
 - [ ] NavigationLink added to `RecoveryDetailView.swift` (if applicable)
 - [ ] XcodeGen regenerated (`cd ios/BradOS && xcodegen generate`)
 - [ ] Build succeeds with no errors
-- [ ] Aurora Glass design system followed (use `/aurora-glass` skill if unsure)
+- [ ] Current app design patterns followed; preserve the existing UI styling

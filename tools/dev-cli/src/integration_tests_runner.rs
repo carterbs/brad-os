@@ -128,6 +128,8 @@ impl IntegrationTestConfig {
             ("BRAD_LOCAL_DEV_ONLY".to_string(), "true".to_string()),
             ("NODE_ENV".to_string(), "test".to_string()),
             ("OPENAI_API_KEY".to_string(), String::new()),
+            ("TYPESAFE_API_KEY".to_string(), String::new()),
+            ("JEV_MODEL".to_string(), "jev-1.13.0".to_string()),
             ("STRAVA_CLIENT_ID".to_string(), String::new()),
             ("STRAVA_CLIENT_SECRET".to_string(), String::new()),
             ("STRAVA_WEBHOOK_VERIFY_TOKEN".to_string(), String::new()),
@@ -637,6 +639,15 @@ mod tests {
             Some(&"http://127.0.0.1:5001/api/dev".to_string())
         );
         assert_eq!(api_environment.get("OPENAI_API_KEY"), Some(&String::new()));
+        assert_eq!(
+            api_environment.get("TYPESAFE_API_KEY"),
+            Some(&String::new())
+        );
+        assert_eq!(
+            api_environment.get("JEV_MODEL").map(String::as_str),
+            Some("jev-1.13.0")
+        );
+        assert!(!test_environment.contains_key("TYPESAFE_API_KEY"));
         assert_eq!(
             api_environment.get("METADATA_SERVER_DETECTION"),
             Some(&"none".to_string())

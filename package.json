@@ -17,6 +17,7 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:jev:live": "tsc --project packages/functions/tsconfig.jev-live.json && vitest run --config vitest.jev-live.config.ts",
     "test:coverage": "vitest run --coverage --config vitest.coverage.config.ts",
     "deploy:hosting": "firebase deploy --only hosting",
     "deploy:cloud-run": "bash scripts/deploy-cloud-run.sh",

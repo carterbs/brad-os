@@ -17,10 +17,19 @@ export const critiqueOperationSchema = z.object({
   new_meal_id: z.string().nullable(),
 }).strict();
 
+export const critiqueContextSchema = z.object({
+  original_request: z.string().max(4000).optional(),
+  interpretation: z.string().max(8000).optional(),
+  calendar_context: z.string().max(8000).optional(),
+  planning_week_start: z.string().date().optional(),
+}).strict();
+
 export const conversationMessageSchema = z.object({
   role: z.enum(['user', 'assistant']),
   content: z.string(),
+  context: critiqueContextSchema.optional(),
   operations: z.array(critiqueOperationSchema).optional(),
+  previous_assignments: z.array(mealPlanEntrySchema).optional(),
 }).strict();
 
 const mealSchema = z.object({
@@ -68,9 +77,20 @@ export const applyOperationsResultSchema = z.object({
 
 export const critiqueInputSchema = z.object({
   critique: z.string().min(1).max(2000),
+  context: critiqueContextSchema.optional(),
 }).strict();
+
+export const critiqueOutcomeSchema = z.enum([
+  'applied',
+  'no_change_requested',
+  'clarification_required',
+  'insufficient_evidence',
+  'infeasible',
+  'validation_failed',
+]);
 
 export const critiqueResponseSchema = z.object({
   explanation: z.string().min(1).max(2000),
   operations: z.array(critiqueOperationSchema),
+  outcome: critiqueOutcomeSchema.optional(),
 }).strict();

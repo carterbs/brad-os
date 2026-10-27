@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { Meal } from '../shared.js';
 import { generateMealPlan, validatePlan } from './mealplan-generation.service.js';
 
@@ -426,6 +426,118 @@ describe('MealPlan Generation Service', () => {
       // Verify the plan is valid and has 28 slots
       expect(plan).toHaveLength(28);
     });
+
+    it('should prefer an eligible meal before falling back to recent meals', () => {
+      const meals = createRealisticMealSet();
+      const now = new Date('2024-06-15T00:00:00Z');
+      const familyBreakfasts = meals.filter(
+        (meal) => meal.meal_type === 'breakfast' && meal.audience === 'family'
+      );
+      const eligibleBreakfast = familyBreakfasts[0];
+      expect(eligibleBreakfast).toBeDefined();
+
+      for (const breakfast of familyBreakfasts) {
+        breakfast.last_planned = '2024-06-14T00:00:00Z';
+      }
+      if (eligibleBreakfast !== undefined) {
+        eligibleBreakfast.last_planned = '2024-05-01T00:00:00Z';
+      }
+
+      const plan = generateMealPlan(meals, now);
+      const firstFamilyBreakfast = plan.find(
+        (entry) =>
+          entry.day_index === 0 &&
+          entry.meal_track === 'family' &&
+          entry.meal_type === 'breakfast'
+      );
+
+      expect(firstFamilyBreakfast?.meal_id).toBe(eligibleBreakfast?.id);
+    });
+
+    it('should choose the oldest recent meal when recency must be relaxed', () => {
+      const meals = createRealisticMealSet();
+      const now = new Date('2024-06-15T00:00:00Z');
+      const familyBreakfasts = meals.filter(
+        (meal) => meal.meal_type === 'breakfast' && meal.audience === 'family'
+      );
+      const oldestRecentBreakfast = familyBreakfasts[1];
+      expect(oldestRecentBreakfast).toBeDefined();
+
+      for (const breakfast of familyBreakfasts) {
+        breakfast.last_planned = '2024-06-14T00:00:00Z';
+      }
+      if (oldestRecentBreakfast !== undefined) {
+        oldestRecentBreakfast.last_planned = '2024-06-01T00:00:00Z';
+      }
+
+      const plan = generateMealPlan(meals, now);
+      const firstFamilyBreakfast = plan.find(
+        (entry) =>
+          entry.day_index === 0 &&
+          entry.meal_track === 'family' &&
+          entry.meal_type === 'breakfast'
+      );
+
+      expect(firstFamilyBreakfast?.meal_id).toBe(oldestRecentBreakfast?.id);
+    });
+
+    it('should preserve unique adult breakfasts when fallback ordering meets the prep cap', () => {
+      mealCounter = 0;
+      const meals: Meal[] = [];
+      const now = new Date('2026-09-06T00:30:26.660Z');
+
+      // Shape the family catalog so the oldest recent fallback is prep-ahead,
+      // while still providing enough non-prep alternatives for seven slots.
+      meals.push(createMeal({
+        meal_type: 'breakfast',
+        effort: 1,
+        last_planned: '2026-08-01T00:00:00Z',
+      }));
+      meals.push(createMeal({
+        meal_type: 'breakfast',
+        effort: 1,
+        prep_ahead: true,
+        last_planned: '2026-08-17T00:00:00Z',
+      }));
+      for (let i = 0; i < 14; i++) {
+        meals.push(createMeal({
+          meal_type: 'breakfast',
+          effort: 1,
+          last_planned: i < 1 ? '2026-08-17T00:00:00Z' : '2026-08-25T00:00:00Z',
+        }));
+      }
+
+      // Exactly seven adult breakfasts, three of which are prep-ahead.
+      for (let i = 0; i < 7; i++) {
+        meals.push(createMeal({
+          meal_type: 'breakfast',
+          audience: 'adult',
+          effort: 1,
+          prep_ahead: i < 3,
+          last_planned: '2026-08-30T00:00:00Z',
+        }));
+      }
+
+      for (let i = 0; i < 10; i++) {
+        meals.push(createMeal({ meal_type: 'lunch', effort: 1 }));
+      }
+      for (let i = 0; i < 20; i++) {
+        meals.push(createMeal({ meal_type: 'dinner', effort: 5 }));
+      }
+
+      for (let run = 0; run < 100; run++) {
+        const plan = generateMealPlan(meals, now);
+        const adultBreakfastIds = plan
+          .filter(
+            (entry) =>
+              entry.meal_track === 'adult' && entry.meal_type === 'breakfast'
+          )
+          .map((entry) => entry.meal_id);
+
+        expect(new Set(adultBreakfastIds).size).toBe(7);
+        expect(validatePlan(plan, meals)).toEqual([]);
+      }
+    });
   });
 
   describe('red meat constraints', () => {
@@ -591,6 +703,7 @@ describe('MealPlan Generation Service', () => {
       expect(plan).toHaveLength(28);
       expect(adultBreakfasts).toHaveLength(7);
       expect(new Set(adultBreakfastMealIds).size).toBeLessThanOrEqual(2);
+      expect(validatePlan(plan, meals)).toEqual([]);
       for (const mealId of adultBreakfastMealIds) {
         expect(mealId).not.toBeNull();
         if (mealId !== null) {
@@ -1010,5 +1123,28 @@ describe('MealPlan Generation Service', () => {
         expect(errors).toEqual([]);
       }
     });
+  });
+});
+
+// These legacy behavior cases explicitly exercise the enabled feature.
+beforeEach(() => vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'true'));
+afterEach(() => vi.unstubAllEnvs());
+
+
+describe('Adult breakfast flag disabled', () => {
+  it('generates and validates 21 slots without an adult breakfast catalog', () => {
+    vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'false');
+    const meals = createRealisticMealSet().filter((meal) => meal.audience !== 'adult');
+    const plan = generateMealPlan(meals);
+    expect(plan).toHaveLength(21);
+    expect(plan.every((entry) => entry.meal_track === 'family')).toBe(true);
+    expect(validatePlan(plan, meals)).toEqual([]);
+  });
+  it('rejects a previously generated 28-slot plan while disabled', () => {
+    const meals = createRealisticMealSet();
+    const legacy = generateMealPlan(meals);
+    vi.stubEnv('ADULT_BREAKFAST_ENABLED', 'false');
+    expect(validatePlan(legacy, meals)).toContain('Adult breakfast is disabled');
+    expect(validatePlan(legacy, meals)).toContain('Expected 21 slots, got 28');
   });
 });

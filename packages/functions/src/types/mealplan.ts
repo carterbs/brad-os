@@ -19,6 +19,12 @@ export type CreateMealPlanSessionDTO = z.infer<
 export type UpdateMealPlanSessionDTO = z.infer<
   typeof import('../schemas/mealplan.schema.js').updateMealPlanSessionSchema
 >;
+export type CritiqueContext = z.infer<
+  typeof import('../schemas/mealplan.schema.js').critiqueContextSchema
+>;
+export type CritiqueOutcome = z.infer<
+  typeof import('../schemas/mealplan.schema.js').critiqueOutcomeSchema
+>;
 export type CritiqueResponse = z.infer<
   typeof import('../schemas/mealplan.schema.js').critiqueResponseSchema
 >;

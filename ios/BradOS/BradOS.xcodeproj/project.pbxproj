@@ -910,7 +910,7 @@
 			path = Services;
 			sourceTree = "<group>";
 		};
-		"TEMP_7C2527AC-13D0-4A69-9346-8954A4C2B6AF" /* Resources */ = {
+		"TEMP_76F93499-75BC-41B1-8D36-3A520213733C" /* Resources */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -1358,6 +1358,7 @@
 		38B3F87967845F5E7B9D6ABA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ADULT_BREAKFAST_ENABLED = NO;
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -1447,6 +1448,7 @@
 		552FB4C4B6A61032E13BFCFF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ADULT_BREAKFAST_ENABLED = NO;
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;

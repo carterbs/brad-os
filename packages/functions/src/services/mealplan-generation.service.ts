@@ -1,4 +1,6 @@
+import { adultBreakfastEnabled, mealPlanSlotEnabled } from './mealplan-features.service.js';
 import type { Meal, MealType, MealTrack, MealPlanEntry } from '../shared.js';
+import { countPrepAheadByTrack, findPrepAheadErrors, prepAheadLimit } from './mealplan-prep-policy.service.js';
 
 /** Effort range per dinner day (day_index 0=Monday through 6=Sunday) */
 interface EffortRange {
@@ -43,7 +45,6 @@ const SLOT_ORDER: Record<MealTrack, Record<MealType, number>> = {
 
 const RECENCY_EXCLUSION_WEEKS = 3;
 const MAX_RED_MEAT_DINNERS = 2;
-const MAX_PREP_AHEAD_MEALS = 3;
 const MAX_BREAKFAST_LUNCH_EFFORT = 2;
 
 export class InsufficientMealsError extends Error {
@@ -71,6 +72,30 @@ function shuffle<T>(array: T[]): T[] {
 }
 
 /**
+ * Returns the ordering key used when recency has to be relaxed.
+ * Meals never planned before are preferred over every dated meal. Invalid
+ * dates sort last, matching the recency filter's treatment of them as recent.
+ */
+function lastPlannedSortKey(meal: Meal): number {
+  if (meal.last_planned === null) {
+    return Number.NEGATIVE_INFINITY;
+  }
+
+  const timestamp = new Date(meal.last_planned).getTime();
+  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp;
+}
+
+/**
+ * Orders fallback candidates from least recently planned to most recently
+ * planned. Shuffling first keeps candidates with the same recency randomized.
+ */
+function prioritizeByRecency(meals: Meal[]): Meal[] {
+  return shuffle([...meals]).sort(
+    (a, b) => lastPlannedSortKey(a) - lastPlannedSortKey(b)
+  );
+}
+
+/**
  * Filters out meals planned within the recency window.
  */
 function filterByRecency(meals: Meal[], now: Date): Meal[] {
@@ -92,18 +117,21 @@ function filterByRecency(meals: Meal[], now: Date): Meal[] {
  * Returns the first match, or undefined if nothing works.
  */
 function selectFromPools(pools: Meal[][], usedMealIds: Set<string>): Meal | undefined {
-  for (const pool of pools) {
+  for (const [poolIndex, pool] of pools.entries()) {
     // Prefer unused meals
-    const unused = shuffle(pool.filter((m) => !usedMealIds.has(m.id)));
-    if (unused.length > 0 && unused[0] !== undefined) {
-      return unused[0];
+    const unused = pool.filter((m) => !usedMealIds.has(m.id));
+    // The first pool is recency-eligible; later pools relax recency and
+    // therefore prefer the least recently planned unused candidate.
+    const ordered = poolIndex === 0 ? shuffle(unused) : prioritizeByRecency(unused);
+    if (ordered.length > 0 && ordered[0] !== undefined) {
+      return ordered[0];
     }
   }
   // Last resort: allow reuse from the last (most relaxed) pool
   const lastPool = pools[pools.length - 1];
   if (lastPool !== undefined && lastPool.length > 0) {
-    const shuffled = shuffle([...lastPool]);
-    return shuffled[0];
+    const ordered = prioritizeByRecency(lastPool);
+    return ordered[0];
   }
   return undefined;
 }
@@ -112,14 +140,14 @@ function selectFromPools(pools: Meal[][], usedMealIds: Set<string>): Meal | unde
  * Generates a complete 7-day meal plan using best-effort constraint satisfaction.
  *
  * Constraints (applied in priority order, relaxed as needed):
- * 1. 7 days (Mon=0 .. Sun=6) x 4 slots = 28 slots
+ * 1. 7 days (Mon=0 .. Sun=6) x 3 slots = 21 slots, or 28 with adult breakfast enabled
  * 2. Family/adult slots only use meals with the matching audience
  * 3. Breakfast/lunch: prefer effort <= 2, fall back to any effort
  * 3. Dinner effort varies by day (see DINNER_EFFORT_BY_DAY), relaxed if needed
  * 4. Friday dinner is always "Eating out" (null meal)
  * 5. Prefer meals not planned within 3 weeks, fall back to recent meals
  * 6. Red meat: prefer non-consecutive AND max 2/week, relaxed if needed
- * 7. Prep-ahead: max 3/week across all meal types, prefer repeats over overflow
+ * 7. Prep-ahead: max 3/week per audience track across its meal types
  * 8. Prefer no repeated meals, allow reuse as last resort
  */
 export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
@@ -127,18 +155,18 @@ export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
   const eligibleMeals = filterByRecency(meals, currentDate);
   const plan: MealPlanEntry[] = [];
   const usedMealIds = new Set<string>();
+  const mealMap = new Map(meals.map((meal) => [meal.id, meal]));
 
   const redMeatDinnerDays: number[] = [];
-  let prepAheadCount = 0;
 
   // Helper to filter by prep-ahead constraint
   const applyPrepAheadFilter = (m: Meal): boolean => {
     if (!m.prep_ahead) return true;
-    return prepAheadCount < MAX_PREP_AHEAD_MEALS;
+    return countPrepAheadByTrack(plan, mealMap)[m.audience] < prepAheadLimit();
   };
 
   // Step 1: Assign family breakfast, adult breakfast, and family lunch.
-  for (const slot of REQUIRED_SLOTS.filter((s) => s.mealType !== 'dinner')) {
+  for (const slot of REQUIRED_SLOTS.filter((s) => s.mealType !== 'dinner' && (s.mealTrack !== 'adult' || adultBreakfastEnabled()))) {
     for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
       // Build progressively relaxed candidate pools.
       // Key invariant: the LAST pool must be non-prep, because selectFromPools
@@ -173,11 +201,7 @@ export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
         );
       }
 
-      const wasAlreadyUsed = usedMealIds.has(selected.id);
       usedMealIds.add(selected.id);
-      if (selected.prep_ahead && !wasAlreadyUsed) {
-        prepAheadCount++;
-      }
       plan.push({
         day_index: dayIndex,
         meal_track: slot.mealTrack,
@@ -247,13 +271,9 @@ export function generateMealPlan(meals: Meal[], now?: Date): MealPlanEntry[] {
       );
     }
 
-    const wasAlreadyUsed = usedMealIds.has(selected.id);
     usedMealIds.add(selected.id);
     if (selected.has_red_meat && !redMeatDinnerDays.includes(dayIndex)) {
       redMeatDinnerDays.push(dayIndex);
-    }
-    if (selected.prep_ahead && !wasAlreadyUsed) {
-      prepAheadCount++;
     }
     plan.push({
       day_index: dayIndex,
@@ -288,14 +308,15 @@ export function validatePlan(plan: MealPlanEntry[], meals: Meal[]): string[] {
     mealMap.set(meal.id, meal);
   }
 
-  // Check 28 slots
-  if (plan.length !== 28) {
-    errors.push(`Expected 28 slots, got ${plan.length}`);
+  // Check the active slot matrix.
+  const expectedSlots = adultBreakfastEnabled() ? 28 : 21;
+  if (plan.length !== expectedSlots) {
+    errors.push(`Expected ${expectedSlots} slots, got ${plan.length}`);
   }
 
   // Check each day has the canonical slot matrix
   for (let day = 0; day < 7; day++) {
-    for (const slot of REQUIRED_SLOTS) {
+    for (const slot of REQUIRED_SLOTS.filter((slot) => slot.mealTrack !== 'adult' || adultBreakfastEnabled())) {
       const entry = plan.find((e) =>
         e.day_index === day &&
         e.meal_track === slot.mealTrack &&
@@ -306,6 +327,8 @@ export function validatePlan(plan: MealPlanEntry[], meals: Meal[]): string[] {
       }
     }
   }
+
+  if (plan.some((entry) => !mealPlanSlotEnabled(entry))) errors.push('Adult breakfast is disabled');
 
   // Check no duplicate meal IDs, except adult breakfasts may repeat when fewer
   // than seven adult breakfast meals exist.
@@ -396,19 +419,8 @@ export function validatePlan(plan: MealPlanEntry[], meals: Meal[]): string[] {
     }
   }
 
-  // Check prep-ahead constraint (max 3 across all meal types)
-  let prepAheadCount = 0;
-  for (const entry of plan) {
-    if (entry.meal_id !== null) {
-      const meal = mealMap.get(entry.meal_id);
-      if (meal !== undefined && meal.prep_ahead === true) {
-        prepAheadCount++;
-      }
-    }
-  }
-  if (prepAheadCount > MAX_PREP_AHEAD_MEALS) {
-    errors.push(`Too many prep-ahead meals: ${prepAheadCount} (max ${MAX_PREP_AHEAD_MEALS})`);
-  }
+  // New plans receive the normal independent family/adult budgets, no legacy allowance.
+  errors.push(...findPrepAheadErrors([], plan, mealMap));
 
   return errors;
 }

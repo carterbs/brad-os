@@ -1,0 +1,468 @@
+{
+  "source": "Telegram exchange 2026-05-25 13:46\u201313:56 UTC; initial plan reconstructed from quoted reply, catalog from retained BradOS session v7in5qfZ1jgs6c81rCYb.",
+  "created_at": "2026-05-24T00:30:50.075Z",
+  "plan": [
+    {
+      "day_index": 0,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_53",
+      "meal_name": "Honey Nut Cheerios"
+    },
+    {
+      "day_index": 0,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "7NCJ39mbfpTmQDM254aM",
+      "meal_name": "Lunchbox Harvest Muffins (NYT)"
+    },
+    {
+      "day_index": 0,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": "meal_48",
+      "meal_name": "Tuna Crunch Sandwiches (NYT)"
+    },
+    {
+      "day_index": 1,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_64",
+      "meal_name": "Blueberry Bagels and Yogurt"
+    },
+    {
+      "day_index": 1,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "dNK9TFA3tBZvQnMfSyTe",
+      "meal_name": "Easy Burritos (NYT)"
+    },
+    {
+      "day_index": 1,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": "meal_7",
+      "meal_name": "Apple Cheddar Chicken Burgers, salad, chips"
+    },
+    {
+      "day_index": 2,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_62",
+      "meal_name": "Breakfast Smoothies"
+    },
+    {
+      "day_index": 2,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "rdYVSbL9TY9H5BbU3qLd",
+      "meal_name": "Cold Chicken Nuggets"
+    },
+    {
+      "day_index": 2,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": "meal_18",
+      "meal_name": "Garlic linguine"
+    },
+    {
+      "day_index": 3,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_61",
+      "meal_name": "Frozen Eggo Pancakes and Eggs"
+    },
+    {
+      "day_index": 3,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "meal_93",
+      "meal_name": "Grilled Cheese With Apples and Apple Butter"
+    },
+    {
+      "day_index": 3,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": "meal_8",
+      "meal_name": "Tuna Salad sandwiches"
+    },
+    {
+      "day_index": 4,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_55",
+      "meal_name": "Special K Fruit & Yogurt"
+    },
+    {
+      "day_index": 4,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "meal_71",
+      "meal_name": "Grilled Cheese Sandwich and Fruit"
+    },
+    {
+      "day_index": 4,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": null,
+      "meal_name": "Eating out"
+    },
+    {
+      "day_index": 5,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_63",
+      "meal_name": "Plain Bagels and Yogurt"
+    },
+    {
+      "day_index": 5,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "meal_75",
+      "meal_name": "Cheese Quesadilla"
+    },
+    {
+      "day_index": 5,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": "G4jMR8CvtBgfa0zmHTjP",
+      "meal_name": "Homemade Hamburger Helper (NYT)"
+    },
+    {
+      "day_index": 6,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_89",
+      "meal_name": "Cinnamon Toast (NYT)"
+    },
+    {
+      "day_index": 6,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "meal_78",
+      "meal_name": "Sunbutter & Banana Roll-Up"
+    },
+    {
+      "day_index": 6,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": "meal_9",
+      "meal_name": "Marry Me Chicken, naan, fruit"
+    }
+  ],
+  "messages": [
+    "get rid of all of monday. we had apple cheddar burgers recently, so swap that. swap out the burritos meal. Swap wednesday and thursday dinners, then remove the tuna salad sandwich meal entirely (we are having company on wed. thurs should be garlic linguine).",
+    "try again for tuesday dinner. chili is not a family favorite, though I love it",
+    "had that recently.",
+    "GREAT! FROZEN PIZZA FOR THE WIN."
+  ],
+  "adaptations": [
+    "Typo mponday corrected; separate database deletion request excluded from slot-edit request.",
+    "Family-only 21-slot plan retained; current generation separately exercises all 28 slots.",
+    "Historical catalog retained; no claim that its mutable last_planned values reconstruct consumption history.",
+    "One historical meal missing last_planned normalized to null for the current schema."
+  ],
+  "after_first_gpt_response": [
+    {
+      "day_index": 0,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_53",
+      "meal_name": "Honey Nut Cheerios"
+    },
+    {
+      "day_index": 0,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "7NCJ39mbfpTmQDM254aM",
+      "meal_name": "Lunchbox Harvest Muffins (NYT)"
+    },
+    {
+      "day_index": 0,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": "meal_84",
+      "meal_name": "Roasted Cod with Cherry Tomatoes, Potatoes, and a Salad"
+    },
+    {
+      "day_index": 1,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_64",
+      "meal_name": "Blueberry Bagels and Yogurt"
+    },
+    {
+      "day_index": 1,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "bSGoJf5AKOrwYxVSYSXJ",
+      "meal_name": "Chicken Wraps"
+    },
+    {
+      "day_index": 1,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": "meal_50",
+      "meal_name": "Baked Spaghetti (NYT)"
+    },
+    {
+      "day_index": 2,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_62",
+      "meal_name": "Breakfast Smoothies"
+    },
+    {
+      "day_index": 2,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "rdYVSbL9TY9H5BbU3qLd",
+      "meal_name": "Cold Chicken Nuggets"
+    },
+    {
+      "day_index": 2,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": "meal_83",
+      "meal_name": "Roasted Chicken Proven\u00e7al"
+    },
+    {
+      "day_index": 3,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_61",
+      "meal_name": "Frozen Eggo Pancakes and Eggs"
+    },
+    {
+      "day_index": 3,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "meal_93",
+      "meal_name": "Grilled Cheese With Apples and Apple Butter"
+    },
+    {
+      "day_index": 3,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": "meal_18",
+      "meal_name": "Garlic linguine"
+    },
+    {
+      "day_index": 4,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_55",
+      "meal_name": "Special K Fruit & Yogurt"
+    },
+    {
+      "day_index": 4,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "meal_71",
+      "meal_name": "Grilled Cheese Sandwich and Fruit"
+    },
+    {
+      "day_index": 4,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": null,
+      "meal_name": "Eating out"
+    },
+    {
+      "day_index": 5,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_63",
+      "meal_name": "Plain Bagels and Yogurt"
+    },
+    {
+      "day_index": 5,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "meal_75",
+      "meal_name": "Cheese Quesadilla"
+    },
+    {
+      "day_index": 5,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": "G4jMR8CvtBgfa0zmHTjP",
+      "meal_name": "Homemade Hamburger Helper (NYT)"
+    },
+    {
+      "day_index": 6,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_89",
+      "meal_name": "Cinnamon Toast (NYT)"
+    },
+    {
+      "day_index": 6,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "meal_78",
+      "meal_name": "Sunbutter & Banana Roll-Up"
+    },
+    {
+      "day_index": 6,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": "meal_9",
+      "meal_name": "Marry Me Chicken, naan, fruit"
+    }
+  ],
+  "backend_followups": [
+    "Remove ALL meals from Monday entirely \u2014 no breakfast, lunch, or dinner. We just had baked spaghetti last week, so do not use that again. Remove Wednesday dinner entirely \u2014 I already have something else planned.",
+    "Replace Tuesday dinner. Chili is not a family favorite, though I love it. Pick something else the whole family will eat.",
+    "Replace Tuesday dinner again. We had lasagna recently too. Pick something else the family will eat that we haven't had recently."
+  ],
+  "after_second_gpt_response": [
+    {
+      "day_index": 0,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": null,
+      "meal_name": null
+    },
+    {
+      "day_index": 0,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": null,
+      "meal_name": null
+    },
+    {
+      "day_index": 0,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": null,
+      "meal_name": null
+    },
+    {
+      "day_index": 1,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_64",
+      "meal_name": "Blueberry Bagels and Yogurt"
+    },
+    {
+      "day_index": 1,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "bSGoJf5AKOrwYxVSYSXJ",
+      "meal_name": "Chicken Wraps"
+    },
+    {
+      "day_index": 1,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": "meal_39",
+      "meal_name": "Slow Cooker Chili (NYT)"
+    },
+    {
+      "day_index": 2,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_62",
+      "meal_name": "Breakfast Smoothies"
+    },
+    {
+      "day_index": 2,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "rdYVSbL9TY9H5BbU3qLd",
+      "meal_name": "Cold Chicken Nuggets"
+    },
+    {
+      "day_index": 2,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": null,
+      "meal_name": null
+    },
+    {
+      "day_index": 3,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_61",
+      "meal_name": "Frozen Eggo Pancakes and Eggs"
+    },
+    {
+      "day_index": 3,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "meal_93",
+      "meal_name": "Grilled Cheese With Apples and Apple Butter"
+    },
+    {
+      "day_index": 3,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": "meal_18",
+      "meal_name": "Garlic linguine"
+    },
+    {
+      "day_index": 4,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_55",
+      "meal_name": "Special K Fruit & Yogurt"
+    },
+    {
+      "day_index": 4,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "meal_71",
+      "meal_name": "Grilled Cheese Sandwich and Fruit"
+    },
+    {
+      "day_index": 4,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": null,
+      "meal_name": "Eating out"
+    },
+    {
+      "day_index": 5,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_63",
+      "meal_name": "Plain Bagels and Yogurt"
+    },
+    {
+      "day_index": 5,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "meal_75",
+      "meal_name": "Cheese Quesadilla"
+    },
+    {
+      "day_index": 5,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": "G4jMR8CvtBgfa0zmHTjP",
+      "meal_name": "Homemade Hamburger Helper (NYT)"
+    },
+    {
+      "day_index": 6,
+      "meal_track": "family",
+      "meal_type": "breakfast",
+      "meal_id": "meal_89",
+      "meal_name": "Cinnamon Toast (NYT)"
+    },
+    {
+      "day_index": 6,
+      "meal_track": "family",
+      "meal_type": "lunch",
+      "meal_id": "meal_78",
+      "meal_name": "Sunbutter & Banana Roll-Up"
+    },
+    {
+      "day_index": 6,
+      "meal_track": "family",
+      "meal_type": "dinner",
+      "meal_id": "meal_9",
+      "meal_name": "Marry Me Chicken, naan, fruit"
+    }
+  ]
+}

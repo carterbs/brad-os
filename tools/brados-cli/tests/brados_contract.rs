@@ -130,6 +130,65 @@ fn help_exits_zero() {
 }
 
 #[test]
+fn saved_plan_reads_compact_without_losing_state_or_changing_default_output() {
+    let session = serde_json::json!({
+        "id": "saved", "plan": [{"day_index":2,"meal_track":"family","meal_type":"lunch","meal_id":"lunch","meal_name":"Tortellini"}],
+        "history": [{"role":"user","content":"Pick lunch"}], "meals_snapshot":[],
+        "is_finalized":false, "created_at":"created", "updated_at":"updated"
+    });
+    for action in ["latest", "get"] {
+        for compact in [false, true] {
+            let (url, server) = spawn_json_server(vec![
+                serde_json::json!({"success":true,"data":session}).to_string(),
+            ]);
+            let mut command = brados_bin();
+            command.args(["mealplan", action]);
+            if action == "get" {
+                command.arg("saved");
+            }
+            if compact {
+                command.arg("--compact");
+            }
+            let output = command
+                .env("BRADOS_APPCHECK_TOKEN", "test-token")
+                .env("BRADOS_API_URL", url)
+                .output()
+                .unwrap();
+            let requests = server.join().unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+            assert_eq!(result["plan"], session["plan"]);
+            assert_eq!(result["is_finalized"], false);
+            assert_eq!(result["updated_at"], "updated");
+            assert_eq!(result.get("history").is_none(), compact);
+            assert_eq!(result.get("meals_snapshot").is_none(), compact);
+            assert_eq!(
+                requests[0].path,
+                if action == "get" {
+                    "/mealplans/saved"
+                } else {
+                    "/mealplans/latest"
+                }
+            );
+        }
+    }
+    let (url, server) = spawn_json_server(vec![r#"{"success":true,"data":null}"#.to_string()]);
+    let output = brados_bin()
+        .args(["mealplan", "latest", "--compact"])
+        .env("BRADOS_APPCHECK_TOKEN", "test-token")
+        .env("BRADOS_API_URL", url)
+        .output()
+        .unwrap();
+    server.join().unwrap();
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), "null");
+}
+
+#[test]
 fn missing_appcheck_token_exits_one_with_json_error() {
     let output = brados_bin()
         .args(["meals", "list"])
@@ -392,4 +451,109 @@ fn unknown_subcommand_exits_two() {
         "expected exit 2 for unknown subcommand, got {:?}",
         output.status
     );
+}
+
+#[test]
+fn critique_and_revise_send_structured_context_and_preserve_outcomes() {
+    let context = r#"{"original_request":"No dinner Tuesday","interpretation":"Keep Tuesday empty","calendar_context":"Dinner out","planning_week_start":"2026-09-21"}"#;
+    for action in ["critique", "revise"] {
+        let response = serde_json::json!({"success": true, "data": {
+            "plan": [], "explanation": "Which Tuesday?", "operations": [], "errors": [],
+            "outcome": "clarification_required", "recency_reconciled": false
+        }})
+        .to_string();
+        let (base_url, server) = spawn_json_server(vec![response]);
+        let output = brados_bin()
+            .args([
+                "mealplan",
+                action,
+                "sess_context",
+                "Adjust Tuesday",
+                "--context-json",
+                context,
+            ])
+            .env("BRADOS_APPCHECK_TOKEN", "test-token")
+            .env("BRADOS_API_URL", base_url)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(stdout["outcome"], "clarification_required");
+        let requests = server.join().unwrap();
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].method, "POST");
+        assert_eq!(
+            requests[0].path,
+            format!("/mealplans/sess_context/{action}")
+        );
+        assert_eq!(
+            requests[0].body,
+            serde_json::json!({
+                "critique": "Adjust Tuesday", "context": serde_json::from_str::<serde_json::Value>(context).unwrap()
+            })
+        );
+    }
+}
+
+#[test]
+fn critique_and_revise_keep_legacy_request_and_response_compatible() {
+    for action in ["critique", "revise"] {
+        let response = serde_json::json!({"success": true, "data": {
+            "plan": [], "explanation": "No change", "operations": [], "errors": [],
+            "recency_reconciled": false
+        }})
+        .to_string();
+        let (base_url, server) = spawn_json_server(vec![response]);
+        let output = brados_bin()
+            .args(["mealplan", action, "sess_legacy", "Looks good"])
+            .env("BRADOS_APPCHECK_TOKEN", "test-token")
+            .env("BRADOS_API_URL", base_url)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stdout: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(stdout["explanation"], "No change");
+        assert!(stdout.get("outcome").is_none());
+        let requests = server.join().unwrap();
+        assert_eq!(
+            requests[0].body,
+            serde_json::json!({"critique": "Looks good"})
+        );
+    }
+}
+
+#[test]
+fn critique_and_revise_reject_non_object_context_before_request() {
+    for action in ["critique", "revise"] {
+        for context in ["[]", "null", r#""unstructured context""#, "{broken"] {
+            let output = brados_bin()
+                .args([
+                    "mealplan",
+                    action,
+                    "sess_invalid",
+                    "Change dinner",
+                    "--context-json",
+                    context,
+                ])
+                .env("BRADOS_APPCHECK_TOKEN", "test-token")
+                .env("BRADOS_API_URL", "http://127.0.0.1:1")
+                .output()
+                .unwrap();
+            assert_eq!(output.status.code(), Some(1));
+            let stderr: serde_json::Value = serde_json::from_slice(&output.stderr).unwrap();
+            assert_eq!(stderr["error"]["code"], "DESERIALIZE_ERROR");
+            assert!(stderr["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("context"));
+        }
+    }
 }

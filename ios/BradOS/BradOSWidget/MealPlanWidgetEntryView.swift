@@ -51,12 +51,18 @@ struct MealPlanWidgetEntryView: View {
     }
 
     private var displayedMeals: [WidgetMealSlot] {
-        [
-            WidgetMealSlot(label: "Family breakfast", icon: "sunrise", meal: meal(track: .family, type: .breakfast)),
-            WidgetMealSlot(label: "Adult breakfast", icon: "sunrise", meal: meal(track: .adult, type: .breakfast)),
+        var slots = [
+            WidgetMealSlot(label: "Kids breakfast", icon: "sunrise", meal: meal(track: .family, type: .breakfast)),
             WidgetMealSlot(label: "Lunch", icon: "sun.max", meal: meal(track: .family, type: .lunch) ?? meal(track: .adult, type: .lunch)),
             WidgetMealSlot(label: "Dinner", icon: "moon.stars", meal: meal(track: .family, type: .dinner) ?? meal(track: .adult, type: .dinner)),
         ]
+        if MealPlanFeatureFlags.current.adultBreakfastEnabled {
+            slots.insert(
+                WidgetMealSlot(label: "Adult breakfast", icon: "sunrise", meal: meal(track: .adult, type: .breakfast)),
+                at: 1
+            )
+        }
+        return slots
     }
 
     private func meal(track: MealTrack, type: MealType) -> MealPlanEntry? {

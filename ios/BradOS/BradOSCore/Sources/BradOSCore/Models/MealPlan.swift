@@ -66,7 +66,10 @@ public struct MealPlanEntry: Identifiable, Codable, Hashable, Sendable {
     }
 
     public var displayLabel: String {
-        "\(mealTrack.compactLabel) \(mealType.rawValue.capitalized)"
+        if mealTrack == .family && mealType == .breakfast {
+            return "Kids Breakfast"
+        }
+        return "\(mealTrack.compactLabel) \(mealType.rawValue.capitalized)"
     }
 }
 

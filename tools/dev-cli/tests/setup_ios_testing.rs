@@ -245,10 +245,38 @@ fn run_boots_simulator_when_none_are_booted() {
         FakeRunner::response(0, "Xcode 15.0\n"),
         FakeRunner::response(0, ""),
         FakeRunner::response(0, "iPhone 14 Pro (unavailable)\n"),
+        FakeRunner::response(0, ""),
         FakeRunner::response(0, "line1\nline2\nline3\nline4\nline5\nline6\nline7\n"),
     ];
     let mut runner = FakeRunner::new(responses).with_available(&["xcodegen", "xcodebuild", "xcrun"]);
     let report = run_with_runner(&[], workspace.path(), &mut runner).expect("run");
+
+    for expected in [
+        "xcodegen 0.1.0",
+        "xcodebuild Xcode 15.0",
+        "xcrun available",
+        "project.yml found",
+        "Xcode project generated",
+        "iPhone 17 Pro booted",
+        "iOS testing environment ready!",
+        "Next steps:",
+        "xcrun simctl install booted",
+        "xcrun simctl launch booted com.bradcarter.brad-os",
+    ] {
+        assert!(
+            report.messages.iter().any(|message| message.contains(expected)),
+            "missing captured output: {expected}"
+        );
+    }
+    let build_tail: Vec<&str> = report.messages.iter()
+        .map(String::as_str)
+        .filter(|message| message.starts_with("line"))
+        .collect();
+    assert_eq!(build_tail, ["line3", "line4", "line5", "line6", "line7"]);
+    assert_eq!(
+        report.messages.join("\n").matches("iOS testing environment ready!").count(),
+        1
+    );
 
     assert!(!report
         .messages
@@ -321,7 +349,7 @@ fn run_skips_boot_when_simulator_is_booted() {
             .calls
             .borrow()
             .iter()
-            .any(|call| call.args.first().is_some_and(|value| value == "build"))
+            .any(|call| call.program == "xcodebuild" && call.args.last().is_some_and(|value| value == "build"))
     );
     assert!(
         report

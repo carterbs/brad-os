@@ -13,12 +13,12 @@ struct MealPlanTimelineProvider: TimelineProvider {
         MealPlanWidgetEntry(
             date: Date(),
             dayName: "Monday",
-            meals: [
+            meals: MealPlanFeatureFlags.current.visibleEntries(in: [
                 MealPlanEntry(dayIndex: 0, mealType: .breakfast, mealId: "p1", mealName: "Scrambled Eggs"),
                 MealPlanEntry(dayIndex: 0, mealTrack: .adult, mealType: .breakfast, mealId: "p4", mealName: "Protein Oats"),
                 MealPlanEntry(dayIndex: 0, mealType: .lunch, mealId: "p2", mealName: "Chicken Caesar Salad"),
                 MealPlanEntry(dayIndex: 0, mealType: .dinner, mealId: "p3", mealName: "Salmon with Rice"),
-            ],
+            ]),
             isEmpty: false
         )
     }
@@ -40,7 +40,7 @@ struct MealPlanTimelineProvider: TimelineProvider {
             return MealPlanWidgetEntry(date: Date(), dayName: todayDayName(), meals: [], isEmpty: true)
         }
         let dayIndex = calendarWeekdayToDayIndex()
-        let todayMeals = session.plan
+        let todayMeals = MealPlanFeatureFlags.current.visibleEntries(in: session.plan)
             .filter { $0.dayIndex == dayIndex }
             .sorted { $0.slotSortOrder < $1.slotSortOrder }
         return MealPlanWidgetEntry(date: Date(), dayName: todayDayName(), meals: todayMeals, isEmpty: false)
